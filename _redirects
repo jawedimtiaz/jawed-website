@@ -1,0 +1,8 @@
+# Preserve useful legacy entry points while removing obsolete content
+/index.html / 301
+/About_Me.html /about/ 301
+/Feedback.html /contact/ 301
+/Disclaimer.html /privacy/ 301
+/Disclaimer_Contd.html /privacy/ 301
+/Resources.html /resources/ 301
+/Resources2.html /resources/ 301
