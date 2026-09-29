@@ -12,7 +12,7 @@
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:12px 24px;background:var(--card);border-bottom:1px solid var(--line)}
-.logo{font-weight:800;font-size:20px;background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.site-back,.site-tools{font:inherit;text-decoration:none;color:var(--muted);font-weight:600}.site-back:hover,.site-tools:hover{color:var(--text)}.logo{font-weight:800;font-size:20px;background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
 nav{display:flex;gap:6px;flex:1;flex-wrap:wrap}
 nav button,.btn,.acts button{font:inherit;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--text);border-radius:10px;padding:7px 14px}
 nav button.on{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -55,7 +55,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--li
 </style>
 </head>
 <body>
-<header class="top">
+<header class="top"><a href="/" class="site-back" aria-label="Back to Jawed Imtiaz home">← Jawed Imtiaz</a><a href="/tools/" class="site-tools">All Tools</a>
   <div class="logo">CareerMatch AI</div>
   <nav>
     <button data-v="analyze" class="on">Analyze</button>
