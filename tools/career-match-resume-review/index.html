@@ -52,10 +52,10 @@ ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:.25s}
 #toast.on{opacity:1}
 table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
-</style>
+ .skip-link{position:fixed;left:16px;top:-48px;z-index:1000;padding:9px 13px;border-radius:8px;background:var(--brand);color:#fff;text-decoration:none;font-weight:700}.skip-link:focus{top:12px}.site-footer{display:flex;justify-content:center;gap:10px;padding:20px 16px;color:var(--muted);font-size:14px}.site-footer a{color:var(--muted);text-decoration:none}.site-footer a:hover,.site-footer a:focus-visible{color:var(--text)}@media(max-width:640px){.site-footer{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));flex-wrap:wrap}} </style>
 </head>
 <body>
-<header class="top"><a href="/" class="site-back" aria-label="Back to Jawed Imtiaz home">← Jawed Imtiaz</a><a href="/tools/" class="site-tools">All Tools</a>
+<a class="skip-link" href="#career-main">Skip to main content</a><header class="top"><a href="/" class="site-back" aria-label="Back to Jawed Imtiaz home">← Jawed Imtiaz</a><a href="/tools/" class="site-tools">All Tools</a>
   <div class="logo">Career Match &amp; Resume Review</div>
   <nav>
     <button data-v="analyze" class="on">Analyze</button>
@@ -65,7 +65,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--li
   </nav>
   <button class="btn" id="theme" aria-label="Toggle light/dark mode">◐ Theme</button>
 </header>
-<main>
+<main id="career-main">
 <section id="v-analyze" class="view">
   <div class="hero"><h1>How well does your resume match this job?</h1>
   <p>Paste or upload your resume and the job description. Analysis runs in your browser. The tool does not send your resume or job description to a server.</p></div>
@@ -99,7 +99,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--li
     <li>This tool does not make hiring decisions or predict hiring outcomes. Review all results and edit generated content before using it.</li>
   </ul>
 </section>
-</main>
+</main><footer class="site-footer"><a href="/">Jawed Imtiaz</a><span>·</span><a href="/tools/">All Tools</a><span>·</span><a href="/privacy/">Privacy</a></footer>
 <div id="toast" role="status"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
