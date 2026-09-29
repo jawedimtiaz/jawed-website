@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>CareerMatch AI</title>
+<title>Career Match &amp; Resume Review</title>
 <style>
 :root{--bg:#f5f6fb;--card:#fff;--text:#111827;--muted:#6b7280;--line:#e4e7ee;--brand:#5b5bf0;--brand2:#8b5cf6;--good:#16a34a;--warn:#d97706;--bad:#dc2626;--shadow:0 6px 24px rgba(30,41,90,.08)}
 [data-theme=dark]{--bg:#0b0f1a;--card:#131a2c;--text:#e8ecf5;--muted:#93a0b8;--line:#243049;--brand:#8080ff;--brand2:#a78bfa;--shadow:0 6px 24px rgba(0,0,0,.4)}
@@ -56,7 +56,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--li
 </head>
 <body>
 <header class="top"><a href="/" class="site-back" aria-label="Back to Jawed Imtiaz home">← Jawed Imtiaz</a><a href="/tools/" class="site-tools">All Tools</a>
-  <div class="logo">CareerMatch AI</div>
+  <div class="logo">Career Match &amp; Resume Review</div>
   <nav>
     <button data-v="analyze" class="on">Analyze</button>
     <button data-v="results">Dashboard</button>
@@ -68,7 +68,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--li
 <main>
 <section id="v-analyze" class="view">
   <div class="hero"><h1>How well does your resume match this job?</h1>
-  <p>Paste or upload your resume and the job description. Analysis runs in your browser — nothing is uploaded.</p></div>
+  <p>Paste or upload your resume and the job description. Analysis runs in your browser. The tool does not send your resume or job description to a server.</p></div>
   <div class="grid2">
     <div class="panel"><label for="resume">1. Your resume</label>
       <input type="file" id="file" accept=".pdf,.docx,.txt" aria-label="Upload resume">
@@ -89,6 +89,16 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--li
   <div class="board" id="board"></div>
 </section>
 <section id="v-saved" class="view hidden"><div class="panel"><h2 style="margin-top:0">Saved analyses</h2><div id="savedList"></div></div></section>
+<section class="panel" style="margin-top:18px">
+  <h2 style="margin-top:0">Data, storage and privacy</h2>
+  <ul>
+    <li>Resume and job-description text are processed in this browser by the tool; this page does not send them to a server for analysis.</li>
+    <li>Use the tool only with information you are permitted to process in a browser-based tool. Avoid confidential employer, customer or other restricted information.</li>
+    <li>If you use <strong>Save Analysis</strong>, the generated analysis is stored in this browser's local storage until you delete it. Application Tracker entries and the theme preference also use local browser storage.</li>
+    <li>PDF and DOCX reading uses third-party browser libraries loaded from cdnjs. An internet connection is required for those file-reading features.</li>
+    <li>This tool does not make hiring decisions or predict hiring outcomes. Review all results and edit generated content before using it.</li>
+  </ul>
+</section>
 </main>
 <div id="toast" role="status"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
