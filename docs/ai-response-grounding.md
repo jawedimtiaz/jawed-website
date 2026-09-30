@@ -16,6 +16,7 @@ This prevents generated markdown from becoming an unverified navigation channel 
 - Source order is relevance-ranked; higher-ranked sources are preferred when multiple supplied sources are relevant.
 - An unmatched standalone query does not inherit sources solely from older conversation context. Context may fill the source set only for a clearly vague follow-up such as "explain more" or "tell me more."
 - The provider is instructed not to invent site facts or URLs or infer page details from title/keyword matches alone.
+- Supported Jawed.co.in factual claims should carry an immediate markdown link to the exact supporting retrieved source, improving claim-to-source traceability.
 - Server-side link validation is defense in depth for generated output.
 - No external URL is added to the structured `sources` array.
 - The browser continues to render AI reply text as text, not HTML.
@@ -33,4 +34,4 @@ Run:
 node scripts/validate-ai-response.mjs
 ```
 
-This validates that an allowed retrieved Jawed.co.in URL is preserved while an unsupported external markdown URL is removed, and that source metadata is not treated as full-page evidence.
+This validates that an allowed retrieved Jawed.co.in URL is preserved while an unsupported external markdown URL is removed, that source metadata is not treated as full-page evidence, and that supported site claims have an explicit source-link contract.
