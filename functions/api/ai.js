@@ -38,7 +38,7 @@ export async function onRequestPost({request,env}){
 
   const apiKey=env?.AI_PROVIDER_API_KEY;
   const retrievalQuery=buildRetrievalQuery(messages);
-  const sources=findRelevantKnowledge(retrievalQuery,5);
+  const sources=findRelevantKnowledge(retrievalQuery,5,{primaryQuery:messages.at(-1).content});
   const responseSources=publicSources(sources);
   if(!apiKey)return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",sources:responseSources},503);
 
