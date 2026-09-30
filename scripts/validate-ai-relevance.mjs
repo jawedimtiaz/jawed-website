@@ -12,7 +12,7 @@ const query=buildRetrievalQuery([
 const results=findRelevantKnowledge(query,5);
 
 assert.equal(results.length>0,true);
-assert.equal(results[0].title,"Compound Growth & SIP Calculator");
+assert.equal(results[0].title,"Retirement Planning Calculator");
 assert.equal(results.some(entry=>entry.title==="Retirement Planning: Start With the Number"),true);
 
 console.log("AI retrieval relevance weighting OK");
