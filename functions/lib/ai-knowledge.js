@@ -10,13 +10,18 @@ function tokenSet(value){
   return new Set(tokens(value));
 }
 
-export function findRelevantKnowledge(query,limit=5){
+export function findRelevantKnowledge(query,limit=5,options={}){
   const queryTokens=tokens(query);
+  const primaryTokens=tokens(options.primaryQuery||"");
   if(!queryTokens.length)return [];
 
+  const primarySet=new Set(primaryTokens);
   const queryCounts=new Map();
   for(const token of queryTokens){
-    queryCounts.set(token,Math.min(2,(queryCounts.get(token)||0)+1));
+    queryCounts.set(token,Math.min(1,(queryCounts.get(token)||0)+1));
+  }
+  for(const token of primarySet){
+    queryCounts.set(token,2);
   }
   const querySet=new Set(queryCounts);
   const queryPhrase=queryTokens.join(" ");
