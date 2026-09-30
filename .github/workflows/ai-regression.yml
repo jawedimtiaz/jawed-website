@@ -27,6 +27,7 @@ on:
       - "docs/ai-regression-*.md"
       - "_headers"
       - "sitemap.xml"
+      - ".github/workflows/ai-regression.yml"
 
 permissions:
   contents: read
