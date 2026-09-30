@@ -23,8 +23,12 @@ assert.equal(grounding.includes("If no supplied source supports a Jawed.co.in fa
 assert.equal(grounding.includes("Use prior conversation turns only to resolve references and understand the user's intent."),true);
 assert.equal(grounding.includes("Sources are ordered from strongest to weaker retrieval relevance."),true);
 assert.equal(grounding.includes("Prefer higher-ranked sources when multiple supplied sources are relevant"),true);
+assert.equal(grounding.includes("retrieval metadata, not full page contents"),true);
+assert.equal(grounding.includes("summary as high-level evidence only"),true);
+assert.equal(grounding.includes("title and keywords as discovery metadata, not proof"),true);
 assert.equal(noSources,"External");
 
 console.log("AI response grounding/link validation OK");
 console.log("Allowed Jawed links preserved: yes");
 console.log("Unsupported external markdown links removed: yes");
+console.log("Source evidence boundary enforced: yes");
