@@ -42,7 +42,7 @@ assert.equal(invalidOriginBody.request_id,invalidOrigin.headers.get("x-request-i
 
 const uniqueIp="phase-20j-"+Date.now()+"-"+Math.random();
 const unconfigured=await onRequestPost({
-  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"hello"}]})}),
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
   env:{}
 });
 assert.equal(unconfigured.status,503);
@@ -88,7 +88,6 @@ assert.equal(typeof configuredResponseBody.reply,"string");
 assert.equal(configuredResponseBody.reply.length>0,true);
 assert.equal(configuredResponseBody.model,"mock-handler-model");
 assert.equal(configuredResponseBody.request_id,configuredResponse.headers.get("x-request-id"));
-assert.equal(Array.isArray(configuredResponseBody.sources),true);
 assert.equal(Array.isArray(configuredResponseBody.sources),true);
 assert.equal(providerCalls,0,"Provider tripwire must remain untouched by mocked configured-path integration.");
 
