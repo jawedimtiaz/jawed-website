@@ -28,7 +28,8 @@ function publicSources(sources){
 }
 
 export async function onRequestPost({request,env}){
-  if(!allowedOrigin(request))return json({error:"Origin not allowed."},403);
+  const id=requestId();
+  if(!allowedOrigin(request))return failure("Origin not allowed.","AI_ORIGIN_NOT_ALLOWED",403,id);
   const limit=checkRateLimit(getClientKey(request));
   if(!limit.allowed)return failure("Too many requests. Please try again shortly.","AI_RATE_LIMITED",429,id,{retry_after:limit.retryAfter});
   if(request.headers.get("content-type")?.split(";")[0].toLowerCase()!=="application/json")return failure("Expected application/json.","AI_INVALID_CONTENT_TYPE",415,id);
@@ -58,7 +59,8 @@ export async function onRequestPost({request,env}){
 
   try{
     const result=await generateGroundedReply({apiKey,model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,input:messages,sources});
-    console.info(JSON.stringify({event:"ai_request_success",request_id:id,sources:responseSources.length,model:result.model}));\n    return json({reply:result.reply,sources:responseSources,model:result.model,request_id:id},200,{"x-request-id":id});
+    console.info(JSON.stringify({event:"ai_request_success",request_id:id,sources:responseSources.length,model:result.model}));
+    return json({reply:result.reply,sources:responseSources,model:result.model,request_id:id},200,{"x-request-id":id});
   }catch(error){
     const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<600?error.status:502;
     return failure(status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.","AI_PROVIDER_ERROR",status===429?429:502,id,{provider_status:status});
