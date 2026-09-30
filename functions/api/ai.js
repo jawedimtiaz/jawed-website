@@ -53,7 +53,7 @@ export async function onRequestPost({request,env}){
     return failure("The AI knowledge service is temporarily unavailable.","AI_RETRIEVAL_ERROR",502,id);
   }
   if(!apiKey){
-    console.warn(JSON.stringify({event:"ai_request_unconfigured",request_id:id,code:"AI_NOT_CONFIGURED",sources:responseSources.length}));
+    console.warn(JSON.stringify({event:"ai_request_unconfigured",request_id:id,code:"AI_NOT_CONFIGURED",matched_count:responseSources.length}));
     return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",request_id:id,sources:responseSources},503,{"x-request-id":id});
   }
 
