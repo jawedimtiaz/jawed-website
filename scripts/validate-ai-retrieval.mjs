@@ -16,7 +16,8 @@ const followUp=buildRetrievalQuery([
 
 assert.equal(followUp.includes("Can you explain more about that?"),true);
 assert.equal(followUp.includes("Which one covers withdrawal planning?"),true);
-assert.equal(followUp.includes("Tell me about the retirement planning tools."),true);\nassert.equal(followUp.includes("Older retirement context."),false);
+assert.equal(followUp.includes("Tell me about the retirement planning tools."),true);
+assert.equal(followUp.includes("Older retirement context."),false);
 assert.equal(followUp.includes("Here are some retirement-related pages."),false);
 
 const longCurrent="x".repeat(2000);
