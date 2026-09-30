@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {aiConfigurationStatus} from "../functions/api/ai.js";
+import {aiConfigurationStatus} from "../functions/lib/ai-config.js";
 
 assert.equal(aiConfigurationStatus({AI_PROVIDER_API_KEY:"test-key"}),"configured");
 assert.equal(aiConfigurationStatus({AI_PROVIDER_API_KEY:""}),"not_configured");
