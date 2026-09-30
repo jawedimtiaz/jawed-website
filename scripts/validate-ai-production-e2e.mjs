@@ -19,6 +19,9 @@ assert.equal(["ready","not_configured"].includes(health.body?.status),true,"Unex
 assert.equal(["configured","not_configured"].includes(health.body?.configuration),true,"Unexpected AI configuration state");
 assert.equal(typeof health.body?.knowledge_entries,"number",true,"AI health response missing knowledge count");
 assert.equal(health.body?.api_key,undefined,"Health response must never expose an API key");
+assert.equal(typeof health.response.headers.get("x-request-id"),"string","AI health response must expose a request correlation ID");
+assert.equal(health.response.headers.get("x-request-id").length>0,true,"AI health request correlation ID must be non-empty");
+assert.equal(health.body?.request_id,health.response.headers.get("x-request-id"),"AI health request ID must match its response header");
 
 if(health.body?.configuration==="not_configured"){
   console.log("AI production E2E harness: deployment reachable, provider not configured.");
@@ -33,6 +36,8 @@ const result=await request(api,{
 });
 
 assert.equal(result.response.status,200,"Expected successful provider response, got HTTP "+result.response.status);
+assert.equal(typeof result.response.headers.get("x-request-id"),"string","AI provider response must expose a request correlation ID");
+assert.equal(result.body?.request_id,result.response.headers.get("x-request-id"),"AI provider request ID must match its response header");
 assert.equal(typeof result.body?.reply,"string","AI response missing reply");
 assert.equal(result.body.reply.length>0,true,"AI response reply is empty");
 assert.equal(Array.isArray(result.body?.sources),true,"AI response missing structured sources");
