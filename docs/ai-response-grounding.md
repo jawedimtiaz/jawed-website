@@ -36,3 +36,15 @@ node scripts/validate-ai-response.mjs
 ```
 
 This validates that an allowed retrieved Jawed.co.in URL is preserved while an unsupported external markdown URL is removed, that source metadata is not treated as full-page evidence, and that supported site claims have an explicit source-link contract plus a server-side attribution-presence gate.
+
+## Knowledge evidence density
+
+The AI knowledge index uses concise scope-level summaries as retrieval evidence. These summaries are intentionally not full-page copies and must not be used to infer detailed claims that are absent from the indexed evidence.
+
+Each grounding entry must keep a non-empty title, summary, and keyword set, and summaries must be at least 70 characters so the provider receives useful high-level context rather than title-like fragments. The coverage validator also checks URL uniqueness and sitemap coverage.
+
+Run:
+
+```bash
+node scripts/validate-ai-knowledge.mjs
+```
