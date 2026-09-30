@@ -12,11 +12,13 @@ The retrieval query is capped at 6,000 characters before it reaches the knowledg
 
 Follow-up questions such as "what about that?", "can you explain more?", or "how about the second option?" often contain too little standalone vocabulary for the knowledge index. Recent user turns provide the missing subject while keeping retrieval anchored to what the visitor actually asked.
 
-This improves source selection without changing the public API response contract, browser history limits, provider privacy settings, or source-link security invariant.
+This improves source selection without changing the public API response contract, browser history limits, provider privacy settings, or source-link security invariant. When at least three relevant sources match the current request, older context does not fill the remaining source slots; context is used to fill the set only when the current request has fewer than three strong matches.
 
 ## Boundaries
 
-- Current user request remains the primary retrieval signal and receives stronger retrieval weighting than prior user turns.
+- Current user request remains the primary retrieval signal and is evaluated as a separate source set.
+- When three or more current-request sources are available, prior-user context cannot displace them or dilute the returned source set.
+- Prior user context can fill remaining source slots only when fewer than three current-request sources are available.
 - Only the two most recent prior user messages contribute retrieval context.
 - Assistant-generated text is never added to the retrieval query.
 - The existing 12-message conversation limit remains unchanged.
