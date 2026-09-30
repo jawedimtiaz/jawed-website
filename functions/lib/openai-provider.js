@@ -1,6 +1,7 @@
 const OPENAI_URL="https://api.openai.com/v1/responses";
 const DEFAULT_MODEL="gpt-5.6-luna";
 const MAX_OUTPUT_TOKENS=700;
+const MAX_REPLY_CHARS=6000;
 
 function contextText(sources){
   if(!sources.length)return "No matching Jawed.co.in pages were found for this question.";
@@ -12,6 +13,14 @@ function contextText(sources){
     "Summary: "+source.summary,
     "Keywords: "+source.keywords.join(", ")
   ].join("\n")).join("\n\n");
+}
+
+function validateProviderReply(reply,sources){
+  if(typeof reply!=="string")throw new Error("The AI provider returned an invalid text response.");
+  if(!reply.trim())throw new Error("The AI provider returned no text response.");
+  if(reply.length>MAX_REPLY_CHARS)throw new Error("The AI provider returned an oversized text response.");
+  if(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/.test(reply))throw new Error("The AI provider returned unsupported control characters.");
+  return reply.trim();
 }
 
 function hasAllowedSourceLink(reply,sources){
@@ -83,11 +92,11 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
     throw error;
   }
 
-  const reply=typeof data?.output_text==="string"?data.output_text.trim():"";
-  if(!reply)throw new Error("The AI provider returned no text response.");
-  const sanitizedReply=sanitizeMarkdownLinks(reply,sources);
+  const reply=typeof data?.output_text==="string"?data.output_text:"";
+  const validatedReply=validateProviderReply(reply,sources);
+  const sanitizedReply=sanitizeMarkdownLinks(validatedReply,sources);
   if(sources.length&&!hasAllowedSourceLink(sanitizedReply,sources))throw new Error("The AI provider returned a sourced response without a valid Jawed.co.in source link.");
   return {reply:sanitizedReply,model:data?.model||model||DEFAULT_MODEL};
 }
 
-export {DEFAULT_MODEL,sanitizeMarkdownLinks,hasAllowedSourceLink,buildGroundingInstructions};
+export {DEFAULT_MODEL,MAX_REPLY_CHARS,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions};
