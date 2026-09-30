@@ -51,7 +51,7 @@ ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
 .empty{color:var(--muted);font-size:13px}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:.25s}
 #toast.on{opacity:1}
-table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.table-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
  .skip-link{position:fixed;left:16px;top:-48px;z-index:1000;padding:9px 13px;border-radius:8px;background:var(--brand);color:#fff;text-decoration:none;font-weight:700}.skip-link:focus{top:12px}.site-footer{display:flex;justify-content:center;gap:10px;padding:20px 16px;color:var(--muted);font-size:14px}.site-footer a{color:var(--muted);text-decoration:none}.site-footer a:hover,.site-footer a:focus-visible{color:var(--text)}@media(max-width:640px){.site-footer{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));flex-wrap:wrap}} </style>
 </head>
 <body><a class="skip-link" href="#main-content">Skip to main content</a><header class="top"><a href="/" class="site-back" aria-label="Back to Jawed Imtiaz home">← Jawed Imtiaz</a><a href="/tools/" class="site-tools">All Tools</a>
@@ -270,7 +270,7 @@ function render(R){window.CUR=R;const h=[];
   h.push(card("sum","Customized Professional Summary",`<div class="pre">${esc(R.summary)}</div>`));
   h.push(card("cover","Personalized Cover Letter",`<div class="pre">${esc(R.cover)}</div>`));
   h.push(card("iq","10 Job-specific Interview Questions",`<ol>${R.questions.map(q=>`<li>${esc(q)}</li>`).join("")}</ol>`));
-  h.push(card("gap","Skill Gap + learning suggestions",R.gaps.length?`<table><tr><th>Skill</th><th>In job</th><th>How to learn it</th></tr>${R.gaps.map(g=>`<tr><td>${esc(g.skill)}</td><td>${g.mentions}×</td><td>${esc(g.tip)}</td></tr>`).join("")}</table>`:'<em class="muted">No missing skills from the built-in skill list.</em>',true));
+  h.push(card("gap","Skill Gap + learning suggestions",R.gaps.length?`<div class="table-scroll" tabindex="0"><table><tr><th>Skill</th><th>In job</th><th>How to learn it</th></tr>${R.gaps.map(g=>`<tr><td>${esc(g.skill)}</td><td>${g.mentions}×</td><td>${esc(g.tip)}</td></tr>`).join("")}</table></div>`:'<em class="muted">No missing skills from the built-in skill list.</em>',true));
   $("#results").innerHTML=`<h2 style="margin:0">Your dashboard</h2><div class="cards">${h.join("")}</div>`}
 function bodyText(c){const b=c.querySelector(".body");return(b.innerText??b.textContent).trim()}
 function endEdit(){document.querySelectorAll("#results .body[contenteditable]").forEach(b=>{b.removeAttribute("contenteditable")});document.querySelectorAll('#results [data-a=edit]').forEach(b=>b.textContent="Edit")}
