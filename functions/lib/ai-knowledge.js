@@ -28,6 +28,7 @@ function scoreEntry(entry,queryCounts){
 }
 
 const MIN_PRIMARY_SOURCES=3;
+const VAGUE_FOLLOW_UP_TERMS=new Set(["tell","show","describe","explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options"]);
 
 function rankedEntries(query,weight=1){
   const queryTokens=tokens(query);
@@ -63,10 +64,19 @@ export function findRelevantKnowledge(query,limit=5,options={}){
     .filter(entry=>entry.score>=2)
     .sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title));
 
+  const primaryTokens=tokens(primaryQuery);
+  const canUseContextForVagueFollowUp=primary.length===0&&(
+    primaryTokens.length===0||
+    (primaryTokens.length<=2&&primaryTokens.every(token=>VAGUE_FOLLOW_UP_TERMS.has(token)))
+  );
+
   const primaryUrls=new Set(primary.map(entry=>entry.url));
   const selected=primary.slice(0,limit);
   if(selected.length>=MIN_PRIMARY_SOURCES)return selected.map(({score,...entry})=>entry);
-  if(selected.length<limit){
+  if(selected.length<limit&&(
+    primary.length>0||
+    canUseContextForVagueFollowUp
+  )){
     const context=ranked
       .filter(entry=>entry.score>=2&&!primaryUrls.has(entry.url))
       .sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title));

@@ -36,3 +36,39 @@ console.log("AI retrieval source-set precision validation OK");
 console.log("Current request prioritized: yes");
 console.log("Prior user context retained: yes");
 console.log("Assistant turns excluded: yes");
+
+const unrelated=buildRetrievalQuery([
+  {role:"user",content:"Tell me about retirement planning."},
+  {role:"assistant",content:"Here are some retirement pages."},
+  {role:"user",content:"asdfgh quantum banana"}
+]);
+const unrelatedResults=findRelevantKnowledge(unrelated,5,{primaryQuery:"asdfgh quantum banana"});
+assert.equal(unrelatedResults.length,0);
+
+const vague=buildRetrievalQuery([
+  {role:"user",content:"Tell me about retirement planning."},
+  {role:"assistant",content:"Here are some retirement pages."},
+  {role:"user",content:"Explain more"}
+]);
+const vagueResults=findRelevantKnowledge(vague,5,{primaryQuery:"Explain more"});
+assert.equal(vagueResults.length>0,true);
+assert.equal(vagueResults[0].title,"Retirement Planning: Start With the Number");
+
+const unknownWithKnownWord=buildRetrievalQuery([
+  {role:"user",content:"Tell me about retirement planning."},
+  {role:"assistant",content:"Here are some retirement pages."},
+  {role:"user",content:"asdfgh retirement"}
+]);
+const unknownWithKnownWordResults=findRelevantKnowledge(unknownWithKnownWord,5,{primaryQuery:"asdfgh retirement"});
+assert.equal(unknownWithKnownWordResults.length>0,true);
+assert.equal(unknownWithKnownWordResults[0].title,"Retirement Planning Calculator");
+
+console.log("AI no-source boundary validation OK");
+
+const tellMore=buildRetrievalQuery([
+  {role:"user",content:"Tell me about retirement planning."},
+  {role:"assistant",content:"Here are some retirement pages."},
+  {role:"user",content:"Tell me more"}
+]);
+const tellMoreResults=findRelevantKnowledge(tellMore,5,{primaryQuery:"Tell me more"});
+assert.equal(tellMoreResults.length>0,true);
