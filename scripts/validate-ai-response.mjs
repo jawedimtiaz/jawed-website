@@ -21,6 +21,8 @@ const grounding=buildGroundingInstructions([
 assert.equal(grounding.includes("prior user or assistant messages as evidence of facts about Jawed.co.in"),true);
 assert.equal(grounding.includes("If no supplied source supports a Jawed.co.in factual claim, do not present that claim as a site fact."),true);
 assert.equal(grounding.includes("Use prior conversation turns only to resolve references and understand the user's intent."),true);
+assert.equal(grounding.includes("Sources are ordered from strongest to weaker retrieval relevance."),true);
+assert.equal(grounding.includes("Prefer higher-ranked sources when multiple supplied sources are relevant"),true);
 assert.equal(noSources,"External");
 
 console.log("AI response grounding/link validation OK");
