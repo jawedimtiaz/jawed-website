@@ -69,4 +69,4 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
   return {reply:sanitizeMarkdownLinks(reply,sources),model:data?.model||model||DEFAULT_MODEL};
 }
 
-export {DEFAULT_MODEL};
+export {DEFAULT_MODEL,sanitizeMarkdownLinks};
