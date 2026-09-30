@@ -67,7 +67,8 @@ export async function onRequestPost({request,env}){
   }
 }
 
-export async function onRequestGet({env}={}){
+export async function onRequestGet({request,env}={}){
+  const id=requestId();
   const configuration=aiConfigurationStatus(env);
   return json({
     ok:configuration==="configured",
@@ -76,6 +77,7 @@ export async function onRequestGet({env}={}){
     configuration,
     model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,
     knowledge_entries:knowledgeCount(),
-    rate_limit:{requests:MAX_REQUESTS,window_seconds:WINDOW_MS/1000,best_effort:true}
-  });
+    rate_limit:{requests:MAX_REQUESTS,window_seconds:WINDOW_MS/1000,best_effort:true},
+    request_id:id
+  },200,{"x-request-id":id});
 }
