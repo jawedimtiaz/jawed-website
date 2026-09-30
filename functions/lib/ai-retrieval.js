@@ -12,7 +12,7 @@ export function buildRetrievalQuery(messages){
     .filter(Boolean)
     .slice(-PRIOR_USER_TURNS);
 
-  return [current,current,...priorUserMessages].join("\n").slice(0,MAX_RETRIEVAL_QUERY_CHARS);
+  return [current,...priorUserMessages].join("\n").slice(0,MAX_RETRIEVAL_QUERY_CHARS);
 }
 
 export {MAX_RETRIEVAL_QUERY_CHARS,PRIOR_USER_TURNS};
