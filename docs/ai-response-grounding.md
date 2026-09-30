@@ -17,6 +17,10 @@ This prevents generated markdown from becoming an unverified navigation channel 
 - The browser continues to render AI reply text as text, not HTML.
 - No provider storage or browser persistence is introduced.
 
+## Factual grounding boundary
+
+Conversation history may be used to resolve references and understand follow-up intent, but prior user or assistant claims are never evidence for Jawed.co.in facts. If the retrieved source context does not support a factual site claim, the response must not present that claim as a site fact.
+
 ## Validation
 
 Run:
