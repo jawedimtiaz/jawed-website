@@ -18,6 +18,25 @@ const checks=[
 
 assert.equal(new Set(checks.map(([,path])=>path)).size,checks.length,"Regression matrix contains duplicate validator paths");
 
+const MAX_DIAGNOSTIC_CHARS=4000;
+const SENSITIVE_PATTERNS=[
+  /(?:api[_-]?key|authorization|bearer|password|secret|token)\s*[:=]\s*[^\s,;]+/gi,
+  /https?:\/\/[^\s]+/gi,
+  /(?:<UNTRUSTED_[A-Z_]+>)[\s\S]*?(?:<\/UNTRUSTED_[A-Z_]+>)/g
+];
+
+function diagnosticOutput(error){
+  const raw=String(error.stdout||"")+String(error.stderr||"")+String(error.message||"");
+  const sanitized=SENSITIVE_PATTERNS.reduce((value,pattern)=>value.replace(pattern,"[redacted]"),raw).trim();
+  return sanitized.length>MAX_DIAGNOSTIC_CHARS?sanitized.slice(0,MAX_DIAGNOSTIC_CHARS)+"…":sanitized;
+}
+
+function failureType(error){
+  if(error?.code==="ETIMEDOUT"||error?.signal==="SIGTERM")return "TIMEOUT";
+  if(error?.code==="ENOENT")return "EXECUTION_ERROR";
+  return "VALIDATOR_FAILURE";
+}
+
 const failures=[];
 for(const [name,path,completion] of checks){
   try{
@@ -28,8 +47,8 @@ for(const [name,path,completion] of checks){
     assert.match(output,completion,name+" validator did not emit its completion signal");
     console.log("PASS — "+name);
   }catch(error){
-    failures.push({name,path,output:String(error.stdout||"")+String(error.stderr||error.message||"")});
-    console.error("FAIL — "+name);
+    failures.push({name,path,type:failureType(error),output:diagnosticOutput(error)});
+    console.error("FAIL — "+name+" ["+failureType(error)+"]");
   }
 }
 
@@ -63,12 +82,13 @@ for(const [name,ok] of contracts){
 
 if(failures.length){
   console.error("\nAI regression matrix FAILED:");
-  for(const failure of failures)console.error("\n"+failure.name+"\n"+failure.output);
+  for(const failure of failures){console.error("\n"+failure.name+" ["+failure.type+"]");console.error(failure.output||"No diagnostic output captured.");}
   process.exit(1);
 }
 
 console.log("\nAI production regression matrix: PASS");
 console.log("Validators executed:",checks.length);
 console.log("Validator timeout:",VALIDATOR_TIMEOUT_MS+"ms");
+console.log("Failure diagnostics bounded/redacted:",true);
 console.log("Core contracts checked:",contracts.length);
 console.log("Live provider E2E: not asserted by this matrix");
