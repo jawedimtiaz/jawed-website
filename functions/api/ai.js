@@ -1,4 +1,5 @@
 import {findRelevantKnowledge,knowledgeCount} from "../lib/ai-knowledge.js";
+import {DEFAULT_MODEL,generateGroundedReply} from "../lib/openai-provider.js";
 
 const MAX_BODY_BYTES=12000;
 const MAX_MESSAGES=12;
@@ -22,13 +23,24 @@ export async function onRequestPost({request,env}){
   if(messages.some(m=>!["user","assistant"].includes(m.role)||!m.content||m.content.length>MAX_MESSAGE_CHARS))return json({error:"Each message must have a valid role and a non-empty message of 2,000 characters or fewer."},400);
   if(messages.at(-1).role!=="user")return json({error:"The latest message must be from the user."},400);
 
-  const query=messages.at(-1).content;
-  const sources=findRelevantKnowledge(query,5);
+  const apiKey=env?.AI_PROVIDER_API_KEY;
+  const sources=findRelevantKnowledge(messages.at(-1).content,5);
+  if(!apiKey)return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",sources},503);
 
-  if(!env?.AI_PROVIDER_API_KEY)return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",sources},503);
-  return json({error:"AI provider adapter is not enabled yet.",code:"AI_ADAPTER_PENDING",sources},503);
+  try{
+    const result=await generateGroundedReply({
+      apiKey,
+      model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,
+      input:messages,
+      sources
+    });
+    return json({reply:result.reply,sources,model:result.model});
+  }catch(error){
+    const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<600?error.status:502;
+    return json({error:status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.",code:"AI_PROVIDER_ERROR"},status===429?429:502);
+  }
 }
 
 export async function onRequestGet(){
-  return json({ok:true,service:"jawed-ai",status:"preview",knowledge_entries:knowledgeCount()});
+  return json({ok:true,service:"jawed-ai",status:"ready",knowledge_entries:knowledgeCount()});
 }
