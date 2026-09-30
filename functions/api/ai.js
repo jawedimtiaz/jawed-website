@@ -1,6 +1,7 @@
 import {findRelevantKnowledge,knowledgeCount} from "../lib/ai-knowledge.js";
 import {checkRateLimit,getClientKey,MAX_REQUESTS,WINDOW_MS} from "../lib/ai-rate-limit.js";
 import {DEFAULT_MODEL,generateGroundedReply} from "../lib/openai-provider.js";
+import {buildRetrievalQuery} from "../lib/ai-retrieval.js";
 
 const MAX_BODY_BYTES=12000;
 const MAX_MESSAGES=12;
@@ -36,7 +37,8 @@ export async function onRequestPost({request,env}){
   if(messages.at(-1).role!=="user")return json({error:"The latest message must be from the user."},400);
 
   const apiKey=env?.AI_PROVIDER_API_KEY;
-  const sources=findRelevantKnowledge(messages.at(-1).content,5);
+  const retrievalQuery=buildRetrievalQuery(messages);
+  const sources=findRelevantKnowledge(retrievalQuery,5);
   const responseSources=publicSources(sources);
   if(!apiKey)return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",sources:responseSources},503);
 
