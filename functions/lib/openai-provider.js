@@ -19,7 +19,7 @@ function validateProviderReply(reply,sources){
   if(typeof reply!=="string")throw new Error("The AI provider returned an invalid text response.");
   if(!reply.trim())throw new Error("The AI provider returned no text response.");
   if(reply.length>MAX_REPLY_CHARS)throw new Error("The AI provider returned an oversized text response.");
-  if(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/.test(reply))throw new Error("The AI provider returned unsupported control characters.");
+  if(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(reply))throw new Error("The AI provider returned unsupported control characters.");
   return reply.trim();
 }
 
