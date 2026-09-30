@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 #!/usr/bin/env node
 import fs from "node:fs";
 
