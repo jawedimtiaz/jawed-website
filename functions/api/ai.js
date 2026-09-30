@@ -1,3 +1,5 @@
+import {findRelevantKnowledge,knowledgeCount} from "../lib/ai-knowledge.js";
+
 const MAX_BODY_BYTES=12000;
 const MAX_MESSAGES=12;
 const MAX_MESSAGE_CHARS=2000;
@@ -19,8 +21,14 @@ export async function onRequestPost({request,env}){
   const messages=body.messages.map(m=>({role:m?.role,content:typeof m?.content==="string"?m.content.trim():""}));
   if(messages.some(m=>!["user","assistant"].includes(m.role)||!m.content||m.content.length>MAX_MESSAGE_CHARS))return json({error:"Each message must have a valid role and a non-empty message of 2,000 characters or fewer."},400);
   if(messages.at(-1).role!=="user")return json({error:"The latest message must be from the user."},400);
-  if(!env?.AI_PROVIDER_API_KEY)return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED"},503);
-  return json({error:"AI provider adapter is not enabled yet.",code:"AI_ADAPTER_PENDING"},503);
+
+  const query=messages.at(-1).content;
+  const sources=findRelevantKnowledge(query,5);
+
+  if(!env?.AI_PROVIDER_API_KEY)return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",sources},503);
+  return json({error:"AI provider adapter is not enabled yet.",code:"AI_ADAPTER_PENDING",sources},503);
 }
 
-export async function onRequestGet(){return json({ok:true,service:"jawed-ai",status:"preview"});}
+export async function onRequestGet(){
+  return json({ok:true,service:"jawed-ai",status:"preview",knowledge_entries:knowledgeCount()});
+}
