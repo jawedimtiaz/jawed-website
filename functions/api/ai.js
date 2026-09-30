@@ -2,6 +2,7 @@ import {findRelevantKnowledge,knowledgeCount} from "../lib/ai-knowledge.js";
 import {checkRateLimit,getClientKey,MAX_REQUESTS,WINDOW_MS} from "../lib/ai-rate-limit.js";
 import {DEFAULT_MODEL,generateGroundedReply} from "../lib/openai-provider.js";
 import {buildRetrievalQuery} from "../lib/ai-retrieval.js";
+import {aiConfigurationStatus} from "../lib/ai-config.js";
 
 const MAX_BODY_BYTES=12000;
 const MAX_MESSAGES=12;
@@ -51,6 +52,15 @@ export async function onRequestPost({request,env}){
   }
 }
 
-export async function onRequestGet(){
-  return json({ok:true,service:"jawed-ai",status:"ready",knowledge_entries:knowledgeCount(),rate_limit:{requests:MAX_REQUESTS,window_seconds:WINDOW_MS/1000,best_effort:true}});
+export async function onRequestGet({env}={}){
+  const configuration=aiConfigurationStatus(env);
+  return json({
+    ok:configuration==="configured",
+    service:"jawed-ai",
+    status:configuration==="configured"?"ready":"not_configured",
+    configuration,
+    model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,
+    knowledge_entries:knowledgeCount(),
+    rate_limit:{requests:MAX_REQUESTS,window_seconds:WINDOW_MS/1000,best_effort:true}
+  });
 }
