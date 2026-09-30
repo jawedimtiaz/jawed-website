@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {onRequestGet,onRequestPost} from "../functions/api/ai.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
+let providerCalls=0;
+globalThis.fetch=async()=>{providerCalls+=1;throw new Error("Provider calls are forbidden in deterministic API handler regression tests.");};
 
 const health=await onRequestGet({request:makeRequest("https://jawed.co.in/api/ai"),env:{}});
 assert.equal(health.status,200);
@@ -65,10 +67,11 @@ const emptyCurrent=await onRequestPost({
 });
 assert.equal(emptyCurrent.status,400);
 assert.equal((await emptyCurrent.json()).code,"AI_INVALID_MESSAGE");
+assert.equal(providerCalls,0,"Deterministic handler tests must never call the AI provider.");
 
 console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
 console.log("Configured/unconfigured health states exercised: yes");
 console.log("POST response headers and payload contracts exercised: yes");
 console.log("Public source shape exercised: yes");
-console.log("Live provider call: not exercised");
+console.log("Live provider call: explicitly blocked: yes");
