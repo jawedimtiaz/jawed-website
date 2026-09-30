@@ -48,3 +48,15 @@ Run:
 ```bash
 node scripts/validate-ai-knowledge.mjs
 ```
+
+## Retrieval precision QA
+
+The retrieval index is scored with stronger weight for title matches, followed by keywords, summary terms, and URL terms. Richer scope-level summaries must not displace strong topic matches with generic cross-topic pages.
+
+The regression suite covers retirement, Indian income tax, Jamf/device management, AI tools, unmatched queries, and vague follow-up context behavior.
+
+Run:
+
+```bash
+node scripts/validate-ai-retrieval.mjs
+```
