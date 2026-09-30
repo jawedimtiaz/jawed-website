@@ -4,7 +4,7 @@
 
 The `POST /api/ai` endpoint uses the latest user message as the primary retrieval signal and adds up to the two most recent prior user messages as context.
 
-The latest user message is included twice and the scorer preserves that frequency as a capped weight, so the current request remains the strongest signal while prior user turns provide context. Assistant responses are deliberately excluded from retrieval-query construction because they are model-generated and are already treated as untrusted transcript data by the provider layer.
+The current user message is passed separately as the primary retrieval signal. Its tokens receive a stronger capped weight than tokens from prior user turns, so follow-up context can inform retrieval without displacing the current request. Assistant responses are deliberately excluded from retrieval-query construction because they are model-generated and are already treated as untrusted transcript data by the provider layer.
 
 The retrieval query is capped at 6,000 characters before it reaches the knowledge scorer.
 
@@ -16,7 +16,7 @@ This improves source selection without changing the public API response contract
 
 ## Boundaries
 
-- Current user request remains the primary retrieval signal.
+- Current user request remains the primary retrieval signal and receives stronger retrieval weighting than prior user turns.
 - Only the two most recent prior user messages contribute retrieval context.
 - Assistant-generated text is never added to the retrieval query.
 - The existing 12-message conversation limit remains unchanged.
