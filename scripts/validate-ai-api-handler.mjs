@@ -67,11 +67,59 @@ const emptyCurrent=await onRequestPost({
 });
 assert.equal(emptyCurrent.status,400);
 assert.equal((await emptyCurrent.json()).code,"AI_INVALID_MESSAGE");
+// The handler's configured path is exercised with a deterministic provider mock.
+globalThis.fetch=async()=>new Response(JSON.stringify({
+  model:"mock-handler-model",
+  output_text:"See [Retirement Planning](https://jawed.co.in/tools/retirement-planning-calculator/)."
+}),{status:200,headers:{"content-type":"application/json"}});
+
+const configuredIp=uniqueIp+"-configured";
+const configuredResponse=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{
+    method:"POST",
+    headers:{"cf-connecting-ip":configuredIp,"content-type":"application/json"},
+    body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})
+  }),
+  env:{AI_PROVIDER_API_KEY:"test-key",AI_PROVIDER_MODEL:"test-model"}
+});
+assert.equal(configuredResponse.status,200);
+const configuredResponseBody=await configuredResponse.json();
+assert.equal(typeof configuredResponseBody.reply,"string");
+assert.equal(configuredResponseBody.reply.length>0,true);
+assert.equal(configuredResponseBody.model,"mock-handler-model");
+assert.equal(configuredResponseBody.request_id,configuredResponse.headers.get("x-request-id"));
+assert.equal(Array.isArray(configuredResponseBody.sources),true);
+assert.equal(configuredResponseBody.sources.length>0,true);
+assert.equal(configuredResponseBody.reply.includes("https://jawed.co.in/retirement-planning-calculator/"),false);
+assert.equal(configuredResponseBody.reply.includes("https://jawed.co.in/tools/retirement-planning-calculator/"),true);
+assert.equal(providerCalls,0,"Provider tripwire must remain untouched by mocked configured-path integration.");
+
+globalThis.fetch=async()=>new Response(JSON.stringify({
+  error:{message:"mock provider rate limit"}
+}),{status:429,headers:{"content-type":"application/json"}});
+
+const providerFailure=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{
+    method:"POST",
+    headers:{"cf-connecting-ip":configuredIp+"-429","content-type":"application/json"},
+    body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})
+  }),
+  env:{AI_PROVIDER_API_KEY:"test-key",AI_PROVIDER_MODEL:"test-model"}
+});
+assert.equal(providerFailure.status,429);
+const providerFailureBody=await providerFailure.json();
+assert.equal(providerFailureBody.code,"AI_PROVIDER_ERROR");
+assert.equal(providerFailureBody.error,"AI service is temporarily busy. Please try again shortly.");
+assert.equal(providerFailureBody.request_id,providerFailure.headers.get("x-request-id"));
+assert.deepEqual(Object.keys(providerFailureBody).sort(),["code","error","request_id"]);
+
+globalThis.fetch=async()=>{providerCalls+=1;throw new Error("Provider calls are forbidden in deterministic API handler regression tests.");};
 assert.equal(providerCalls,0,"Deterministic handler tests must never call the AI provider.");
 
 console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
 console.log("Configured/unconfigured health states exercised: yes");
 console.log("POST response headers and payload contracts exercised: yes");
+console.log("Configured success and provider-error integration paths exercised: yes");
 console.log("Public source shape exercised: yes");
 console.log("Live provider call: explicitly blocked: yes");
