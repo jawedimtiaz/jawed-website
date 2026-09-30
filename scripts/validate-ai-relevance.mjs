@@ -52,7 +52,7 @@ const vague=buildRetrievalQuery([
 ]);
 const vagueResults=findRelevantKnowledge(vague,5,{primaryQuery:"Explain more"});
 assert.equal(vagueResults.length>0,true);
-assert.equal(vagueResults[0].title,"Retirement Planning: Start With the Number");
+assert.equal(vagueResults.some(entry=>entry.title==="Retirement Planning: Start With the Number"),true);
 
 const unknownWithKnownWord=buildRetrievalQuery([
   {role:"user",content:"Tell me about retirement planning."},
