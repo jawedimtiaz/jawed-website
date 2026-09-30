@@ -10,7 +10,8 @@ const checks=[
   ["AI production readiness","scripts/validate-ai-production-readiness.mjs"],
   ["AI live browser contract","scripts/validate-ai-live-operational.mjs"],
   ["AI production observability","scripts/validate-ai-production-observability.mjs"],
-  ["AI production security/privacy","scripts/validate-ai-production-security.mjs"]
+  ["AI production security/privacy","scripts/validate-ai-production-security.mjs"],
+  ["AI negative paths","scripts/validate-ai-negative-paths.mjs"]
 ];
 
 const failures=[];
