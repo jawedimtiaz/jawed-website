@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import {onRequestGet,onRequestPost} from "../functions/api/ai.js";
+import {findRelevantKnowledge} from "../functions/lib/ai-knowledge.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
 let providerCalls=0;
@@ -68,9 +69,11 @@ const emptyCurrent=await onRequestPost({
 assert.equal(emptyCurrent.status,400);
 assert.equal((await emptyCurrent.json()).code,"AI_INVALID_MESSAGE");
 // The handler's configured path is exercised with a deterministic provider mock.
+const handlerSource=findRelevantKnowledge("retirement planning",1)[0];
+assert.equal(typeof handlerSource?.url,"string");
 globalThis.fetch=async()=>new Response(JSON.stringify({
   model:"mock-handler-model",
-  output_text:"See [Retirement Planning](https://jawed.co.in/tools/retirement-planning-calculator/)."
+  output_text:"See [Retirement Planning](https://jawed.co.in"+handlerSource.url+")."
 }),{status:200,headers:{"content-type":"application/json"}});
 
 const configuredIp=uniqueIp+"-configured";
