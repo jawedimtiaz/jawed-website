@@ -27,6 +27,8 @@ function scoreEntry(entry,queryCounts){
   return score;
 }
 
+const MIN_PRIMARY_SOURCES=3;
+
 function rankedEntries(query,weight=1){
   const queryTokens=tokens(query);
   if(!queryTokens.length)return [];
@@ -63,6 +65,7 @@ export function findRelevantKnowledge(query,limit=5,options={}){
 
   const primaryUrls=new Set(primary.map(entry=>entry.url));
   const selected=primary.slice(0,limit);
+  if(selected.length>=MIN_PRIMARY_SOURCES)return selected.map(({score,...entry})=>entry);
   if(selected.length<limit){
     const context=ranked
       .filter(entry=>entry.score>=2&&!primaryUrls.has(entry.url))
@@ -74,3 +77,5 @@ export function findRelevantKnowledge(query,limit=5,options={}){
 }
 
 export function knowledgeCount(){return knowledge.entries.length;}
+
+export {MIN_PRIMARY_SOURCES};
