@@ -291,7 +291,7 @@ function renderTracker(){const t=store.get("cm_track",[]);
   $("#board").innerHTML=STAT.map(s=>{const it=t.filter(x=>x.status===s);return `<div class="col"><h4>${s} <span class="muted">${it.length}</span></h4>${it.map(x=>`<div class="job"><b>${esc(x.role)}</b><small>${esc(x.company)} · ${esc(x.date)}</small><div class="row"><select data-id="${x.id}" data-t="mv" aria-label="Move to">${STAT.map(o=>`<option${o===s?" selected":""}>${o}</option>`).join("")}</select><button class="btn" data-id="${x.id}" data-t="rm" aria-label="Remove">✕</button></div></div>`).join("")||'<p class="empty">Nothing here yet</p>'}</div>`}).join("")}
 $("#addJob").onclick=()=>{const c=$("#tCo").value.trim(),r=$("#tRole").value.trim();if(!c&&!r){toast("Enter a company or role");return}
   if(addJob(c||"Company: Not Provided",r||"Role: Not Provided",$("#tSt").value)){$("#tCo").value=$("#tRole").value="";renderTracker()}};
-$("#board").addEventListener("click",e=>{const b=e.target.closest("[data-t=rm]");if(b){store.set("cm_track",store.get("cm_track",[]).filter(x=>x.id!==b.dataset.id));renderTracker()}});
+$("#board").addEventListener("click",e=>{const b=e.target.closest("[data-t=rm]");if(b){if(store.set("cm_track",store.get("cm_track",[]).filter(x=>x.id!==b.dataset.id))){renderTracker();toast("Application removed")}}});
 $("#board").addEventListener("change",e=>{if(e.target.dataset.t==="mv"){const t=store.get("cm_track",[]),x=t.find(y=>y.id===e.target.dataset.id);if(x){const previous=x.status;x.status=e.target.value;if(store.set("cm_track",t)){renderTracker()}else{e.target.value=previous;renderTracker()}}}});
 </script>
 </body>
