@@ -64,7 +64,7 @@ const contracts=[
   ["server message-length boundary",endpoint.includes("MAX_MESSAGE_CHARS=2000")],
   ["same-site origin boundary",endpoint.includes("https://jawed.co.in")],
   ["rate-limit boundary",rateLimit.includes("MAX_REQUESTS=8")&&rateLimit.includes("WINDOW_MS=60_000")],
-  ["server-side provider credential",provider.includes("authorization:\"Bearer \"+apiKey")],
+  ["server-side provider credential",provider.includes('"authorization":"Bearer "+apiKey')],
   ["provider no-storage contract",provider.includes("store:false")],
   ["untrusted conversation boundary",provider.includes("<UNTRUSTED_CONVERSATION>")],
   ["untrusted source boundary",provider.includes("<UNTRUSTED_SOURCE_METADATA>")],
