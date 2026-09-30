@@ -83,8 +83,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--li
 <section id="v-results" class="view hidden"><div id="results"><p class="empty">Run an analysis to see your dashboard.</p></div></section>
 <section id="v-tracker" class="view hidden">
   <div class="panel"><h2 style="margin-top:0">Application Tracker</h2>
-    <div class="row"><input id="tCo" placeholder="Company" style="flex:1"><input id="tRole" placeholder="Role" style="flex:1">
-    <select id="tSt" style="width:auto"><option>Applied</option><option>Interview</option><option>Rejected</option><option>Offer</option></select>
+    <div class="row"><div><label for="tCo">Company</label><input id="tCo" placeholder="Company" style="flex:1"></div><div><label for="tRole">Role</label><input id="tRole" placeholder="Role" style="flex:1"></div><div><label for="tSt">Application status</label><select id="tSt" style="width:auto"><option>Applied</option><option>Interview</option><option>Rejected</option><option>Offer</option></select></div>
     <button class="btn primary" id="addJob" style="padding:9px 18px;font-size:15px">Add</button></div></div>
   <div class="board" id="board"></div>
 </section>
