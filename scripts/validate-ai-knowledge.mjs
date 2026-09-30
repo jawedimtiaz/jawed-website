@@ -22,6 +22,11 @@ if(unexpected.length)errors.push("AI knowledge contains URLs not present in site
 if(excludedIndexed.length)errors.push("Excluded paths are indexed: "+excludedIndexed.join(", "));
 if(malformed.length)errors.push("AI knowledge contains malformed entries.");
 
+const MIN_SUMMARY_CHARS=70;
+const shortSummaries=knowledge.entries.filter(entry=>typeof entry.summary!=="string"||entry.summary.trim().length<MIN_SUMMARY_CHARS);
+if(shortSummaries.length)errors.push("AI knowledge summaries below "+MIN_SUMMARY_CHARS+" characters: "+shortSummaries.map(entry=>entry.title).join(", "));
+if(typeof knowledge.coverage_policy?.summary_evidence_rule!=="string"||!knowledge.coverage_policy.summary_evidence_rule.includes("scope-level evidence"))errors.push("AI knowledge evidence boundary is not documented.");
+
 if(errors.length){
   console.error(errors.join("\n"));
   process.exit(1);

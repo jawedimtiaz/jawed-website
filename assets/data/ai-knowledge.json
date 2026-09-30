@@ -6,7 +6,7 @@
     {
       "url": "/",
       "title": "Home",
-      "summary": "site overview, technology, money, learning, tools",
+      "summary": "Overview of Jawed.co.in and its main public areas, including technology, money, learning, notes, and browser-based tools.",
       "keywords": [
         "site",
         "technology",
@@ -18,7 +18,7 @@
     {
       "url": "/about/",
       "title": "About Jawed Imtiaz",
-      "summary": "personal site overview and background",
+      "summary": "Background and personal-site context for Jawed Imtiaz, providing the profile-level information available on the public site.",
       "keywords": [
         "about",
         "jawed",
@@ -28,7 +28,7 @@
     {
       "url": "/work/",
       "title": "Work",
-      "summary": "professional experience, skills, certifications and projects",
+      "summary": "Overview of Jawed's professional work area, including experience, technical skills, certifications, and selected projects.",
       "keywords": [
         "work",
         "career",
@@ -41,7 +41,7 @@
     {
       "url": "/work/experience/",
       "title": "Work Experience",
-      "summary": "IT support and professional experience",
+      "summary": "Professional IT support experience, with the page serving as the main work-history reference for service desk and career context.",
       "keywords": [
         "experience",
         "it support",
@@ -52,7 +52,7 @@
     {
       "url": "/work/skills/",
       "title": "Skills",
-      "summary": "technical and professional skills",
+      "summary": "Technical and professional skills presented on the site, including IT support, service desk work, and Jamf-related areas.",
       "keywords": [
         "skills",
         "it support",
@@ -63,7 +63,7 @@
     {
       "url": "/work/certifications/",
       "title": "Certifications",
-      "summary": "professional certifications and learning",
+      "summary": "Professional certification and learning information, including the site's ITIL and Jamf-related learning areas.",
       "keywords": [
         "certifications",
         "itil",
@@ -74,7 +74,7 @@
     {
       "url": "/work/projects/",
       "title": "Projects",
-      "summary": "selected technology and personal projects",
+      "summary": "Selected technology and personal projects, including website and other practical technology work presented on Jawed.co.in.",
       "keywords": [
         "projects",
         "technology",
@@ -84,7 +84,7 @@
     {
       "url": "/topics/",
       "title": "Topics",
-      "summary": "main knowledge areas across technology, AI, finance and learning",
+      "summary": "Index of the site's main knowledge areas, spanning technology, AI, finance, and learning.",
       "keywords": [
         "topics",
         "technology",
@@ -96,7 +96,7 @@
     {
       "url": "/notes/",
       "title": "Notes",
-      "summary": "practical notes and guides",
+      "summary": "Index of practical notes and guides covering IT support, AI, finance, tax, retirement, insurance, and related learning topics.",
       "keywords": [
         "notes",
         "guides",
@@ -106,7 +106,7 @@
     {
       "url": "/notes/it-service-desk-troubleshooting-workflow/",
       "title": "IT Service Desk Troubleshooting Workflow",
-      "summary": "structured troubleshooting workflow for service desk work",
+      "summary": "Structured service desk troubleshooting workflow covering issue triage, diagnosis, documentation, and repeatable support practices.",
       "keywords": [
         "it support",
         "service desk",
@@ -117,7 +117,7 @@
     {
       "url": "/notes/apple-macos-first-response-checklist/",
       "title": "Apple macOS First Response Checklist",
-      "summary": "first-response checklist for macOS support",
+      "summary": "First-response checklist for macOS support, focused on practical troubleshooting and service-desk handling.",
       "keywords": [
         "apple",
         "macos",
@@ -128,7 +128,7 @@
     {
       "url": "/notes/device-provisioning-handoff-checklist/",
       "title": "Device Provisioning Handoff Checklist",
-      "summary": "device provisioning and support handoff checklist",
+      "summary": "Checklist for device provisioning handoff, focusing on support readiness, ownership transfer, and clear handoff information.",
       "keywords": [
         "device provisioning",
         "handoff",
@@ -138,7 +138,7 @@
     {
       "url": "/notes/service-desk-ticket-documentation/",
       "title": "Service Desk Ticket Documentation",
-      "summary": "practical ticket documentation guidance",
+      "summary": "Practical guidance for documenting service desk tickets clearly and consistently for support continuity and knowledge reuse.",
       "keywords": [
         "service desk",
         "tickets",
@@ -148,7 +148,7 @@
     {
       "url": "/notes/scoping-it-issues-user-device-service/",
       "title": "Scoping IT Issues: User, Device or Service",
-      "summary": "framework for identifying the scope of an IT issue",
+      "summary": "Framework for deciding whether an IT issue is primarily related to the user, a device, or a service before deeper troubleshooting.",
       "keywords": [
         "it support",
         "triage",
@@ -159,7 +159,7 @@
     {
       "url": "/notes/small-it-automation-starting-point/",
       "title": "Small IT Automation: Starting Point",
-      "summary": "practical starting points for small IT automations",
+      "summary": "Practical starting point for identifying small IT support tasks that can be simplified through lightweight automation and repeatable workflows.",
       "keywords": [
         "automation",
         "it support",
@@ -169,7 +169,7 @@
     {
       "url": "/notes/it-support-escalation-handoff-checklist/",
       "title": "IT Support Escalation Handoff Checklist",
-      "summary": "clear escalation and handoff practices",
+      "summary": "Checklist for escalating IT support issues with clear context, ownership, troubleshooting history, and handoff information.",
       "keywords": [
         "it support",
         "escalation",
@@ -180,7 +180,7 @@
     {
       "url": "/notes/windows-first-response-troubleshooting-checklist/",
       "title": "Windows First Response Troubleshooting Checklist",
-      "summary": "first-response Windows troubleshooting",
+      "summary": "First-response Windows troubleshooting checklist for structured triage and common support investigation steps.",
       "keywords": [
         "windows",
         "it support",
@@ -190,7 +190,7 @@
     {
       "url": "/notes/network-connectivity-first-response-checklist/",
       "title": "Network Connectivity First Response Checklist",
-      "summary": "first-response network troubleshooting",
+      "summary": "First-response network troubleshooting checklist for structured connectivity triage and isolation of likely problem areas.",
       "keywords": [
         "networking",
         "it support",
@@ -200,7 +200,7 @@
     {
       "url": "/notes/apis-explained-for-it-support/",
       "title": "APIs Explained for IT Support",
-      "summary": "API concepts explained for IT support workflows",
+      "summary": "Plain-language introduction to API concepts and how APIs relate to IT support workflows and technology integrations.",
       "keywords": [
         "apis",
         "it support",
@@ -210,7 +210,7 @@
     {
       "url": "/notes/apple-device-management-enrollment-models/",
       "title": "Apple Device Management Enrollment Models",
-      "summary": "Apple device management enrollment concepts",
+      "summary": "Overview of Apple device-management enrollment concepts, with MDM and Jamf-related terminology for IT support learning.",
       "keywords": [
         "apple",
         "mdm",
@@ -221,7 +221,7 @@
     {
       "url": "/notes/microsoft-sign-in-troubleshooting-guide/",
       "title": "Microsoft Sign-In Troubleshooting Guide",
-      "summary": "Microsoft sign-in troubleshooting workflow",
+      "summary": "Practical Microsoft sign-in troubleshooting guide covering structured investigation of authentication and Windows support issues.",
       "keywords": [
         "microsoft",
         "sign-in",
@@ -232,7 +232,7 @@
     {
       "url": "/notes/it-troubleshooting-guide-knowledge-base/",
       "title": "IT Troubleshooting Guide Knowledge Base",
-      "summary": "knowledge-base oriented troubleshooting guidance",
+      "summary": "Knowledge-base oriented IT troubleshooting guidance designed to organize repeatable support investigation and resolution practices.",
       "keywords": [
         "it troubleshooting",
         "knowledge base",
@@ -242,7 +242,7 @@
     {
       "url": "/notes/choosing-ai-tools-privacy-cost-fit/",
       "title": "Choosing AI Tools: Privacy, Cost and Fit",
-      "summary": "framework for evaluating AI tools",
+      "summary": "Framework for evaluating AI tools across practical considerations such as privacy, cost, capability, and suitability for the task.",
       "keywords": [
         "ai",
         "privacy",
@@ -253,7 +253,7 @@
     {
       "url": "/notes/ai-for-it-support-practical-workflow/",
       "title": "AI for IT Support: Practical Workflow",
-      "summary": "practical AI workflow ideas for IT support",
+      "summary": "Practical workflow ideas for using AI in IT support, including assistance with repeatable tasks, documentation, and automation.",
       "keywords": [
         "ai",
         "it support",
@@ -264,7 +264,7 @@
     {
       "url": "/notes/ai-prompting-everyday-work/",
       "title": "AI Prompting for Everyday Work",
-      "summary": "practical prompting guidance",
+      "summary": "Practical prompting guidance for everyday AI tasks, with an emphasis on clearer requests and useful, repeatable outputs.",
       "keywords": [
         "ai",
         "prompting",
@@ -274,7 +274,7 @@
     {
       "url": "/notes/us-stocks-etfs-starting-point/",
       "title": "US Stocks & ETFs: Starting Point",
-      "summary": "educational starting point for US stocks and ETFs",
+      "summary": "Educational introduction to US stocks and ETFs, covering basic investing concepts and considerations for getting started.",
       "keywords": [
         "investing",
         "us stocks",
@@ -285,7 +285,7 @@
     {
       "url": "/notes/indian-mutual-funds-index-etfs-starting-point/",
       "title": "Indian Mutual Funds & Index ETFs: Starting Point",
-      "summary": "educational starting point for Indian mutual funds and index ETFs",
+      "summary": "Educational introduction to Indian mutual funds and index ETFs, covering basic investing concepts and selection considerations.",
       "keywords": [
         "investing",
         "india",
@@ -296,7 +296,7 @@
     {
       "url": "/notes/portfolio-allocation-rebalancing-framework/",
       "title": "Portfolio Allocation & Rebalancing Framework",
-      "summary": "framework for portfolio allocation and rebalancing",
+      "summary": "Framework for thinking about portfolio allocation and rebalancing, including target allocations, drift, and disciplined review.",
       "keywords": [
         "investing",
         "portfolio",
@@ -307,7 +307,7 @@
     {
       "url": "/notes/money-basics-budget-emergency-net-worth/",
       "title": "Money Basics: Budget, Emergency Fund & Net Worth",
-      "summary": "personal finance fundamentals",
+      "summary": "Personal-finance fundamentals covering budgeting, emergency funds, and net-worth tracking as building blocks for financial planning.",
       "keywords": [
         "finance",
         "budget",
@@ -318,7 +318,7 @@
     {
       "url": "/notes/indian-income-tax-practical-starting-point/",
       "title": "Indian Income Tax: Practical Starting Point",
-      "summary": "practical introduction to Indian income tax",
+      "summary": "Practical introduction to Indian income tax concepts and the basic information needed to understand personal tax planning.",
       "keywords": [
         "tax",
         "india",
@@ -329,7 +329,7 @@
     {
       "url": "/notes/new-vs-old-tax-regime-comparison/",
       "title": "New vs Old Tax Regime Comparison",
-      "summary": "comparison framework for Indian tax regimes",
+      "summary": "Comparison framework for India's new and old tax regimes, focusing on the key differences relevant to personal tax planning.",
       "keywords": [
         "tax",
         "india",
@@ -340,7 +340,7 @@
     {
       "url": "/notes/retirement-planning-start-with-the-number/",
       "title": "Retirement Planning: Start With the Number",
-      "summary": "retirement planning fundamentals",
+      "summary": "Retirement-planning foundation focused on defining the required retirement corpus from goals, expenses, time horizon, and assumptions.",
       "keywords": [
         "retirement",
         "finance",
@@ -350,7 +350,7 @@
     {
       "url": "/notes/retirement-corpus-calculation-framework/",
       "title": "Retirement Corpus Calculation Framework",
-      "summary": "framework for estimating a retirement corpus",
+      "summary": "Framework for estimating a retirement corpus by connecting future expenses, inflation, investment assumptions, and retirement horizon.",
       "keywords": [
         "retirement",
         "corpus",
@@ -361,7 +361,7 @@
     {
       "url": "/notes/health-insurance-understanding-the-basics/",
       "title": "Health Insurance: Understanding the Basics",
-      "summary": "health insurance fundamentals",
+      "summary": "Health-insurance fundamentals covering core concepts that help readers understand coverage, costs, and policy considerations.",
       "keywords": [
         "insurance",
         "health insurance",
@@ -371,7 +371,7 @@
     {
       "url": "/notes/inflation-and-future-goal-planning/",
       "title": "Inflation and Future Goal Planning",
-      "summary": "planning future goals with inflation",
+      "summary": "Planning framework for adjusting future financial goals for inflation and translating today's targets into future-value requirements.",
       "keywords": [
         "inflation",
         "finance",
@@ -382,7 +382,7 @@
     {
       "url": "/notes/networking-layer-by-layer-diagnostic-framework/",
       "title": "Networking Layer-by-Layer Diagnostic Framework",
-      "summary": "structured network diagnostics",
+      "summary": "Layer-by-layer networking diagnostic framework for isolating connectivity problems through structured troubleshooting.",
       "keywords": [
         "networking",
         "troubleshooting",
@@ -392,7 +392,7 @@
     {
       "url": "/notes/building-safe-browser-based-it-tools/",
       "title": "Building Safe Browser-Based IT Tools",
-      "summary": "principles for safe browser-based tools",
+      "summary": "Principles for building browser-based IT tools with attention to safe inputs, controlled behavior, security, and practical support use.",
       "keywords": [
         "web tools",
         "security",
@@ -402,7 +402,7 @@
     {
       "url": "/notes/interactive-tools-ai-assisted-experiences-architecture/",
       "title": "Interactive Tools & AI-Assisted Experiences Architecture",
-      "summary": "architecture for interactive tools and AI-assisted experiences",
+      "summary": "Architecture overview for combining interactive browser tools with AI-assisted experiences while keeping responsibilities and controls clear.",
       "keywords": [
         "web tools",
         "ai",
@@ -412,7 +412,7 @@
     {
       "url": "/blog/",
       "title": "Blog",
-      "summary": "long-form site updates and articles",
+      "summary": "Long-form articles and site updates covering selected website, technology, and learning topics.",
       "keywords": [
         "blog",
         "updates",
@@ -422,7 +422,7 @@
     {
       "url": "/blog/rebuilding-jawed-co-in/",
       "title": "Rebuilding Jawed.co.in",
-      "summary": "the process of rebuilding the website",
+      "summary": "Blog article documenting the process and considerations involved in rebuilding Jawed.co.in.",
       "keywords": [
         "blog",
         "website",
@@ -432,7 +432,7 @@
     {
       "url": "/tools/",
       "title": "Tools",
-      "summary": "browser-based practical utilities",
+      "summary": "Index of browser-based practical utilities for IT support, AI prompting, finance planning, and other everyday tasks.",
       "keywords": [
         "tools",
         "utilities"
@@ -441,7 +441,7 @@
     {
       "url": "/tools/service-desk-note-formatter/",
       "title": "Service Desk Note Formatter",
-      "summary": "format service desk notes consistently",
+      "summary": "Browser-based utility for turning service desk notes into a more consistent and usable format.",
       "keywords": [
         "service desk",
         "documentation",
@@ -451,7 +451,7 @@
     {
       "url": "/tools/ai-prompt-builder/",
       "title": "AI Prompt Builder",
-      "summary": "build clearer prompts for AI tasks",
+      "summary": "Browser-based utility for constructing clearer, more structured prompts for AI tasks and repeatable prompt-writing workflows.",
       "keywords": [
         "ai",
         "prompting",
@@ -461,7 +461,7 @@
     {
       "url": "/tools/compound-growth-sip-calculator/",
       "title": "Compound Growth & SIP Calculator",
-      "summary": "estimate compound growth and SIP outcomes",
+      "summary": "Calculator for exploring compound-growth and SIP scenarios using user-provided investment assumptions.",
       "keywords": [
         "finance",
         "sip",
@@ -472,7 +472,7 @@
     {
       "url": "/tools/retirement-planning-calculator/",
       "title": "Retirement Planning Calculator",
-      "summary": "estimate retirement planning scenarios",
+      "summary": "Calculator for exploring retirement-planning scenarios from user-provided assumptions and goals.",
       "keywords": [
         "retirement",
         "finance",
@@ -482,7 +482,7 @@
     {
       "url": "/tools/inflation-goal-planning-calculator/",
       "title": "Inflation Goal Planning Calculator",
-      "summary": "estimate future goals using inflation",
+      "summary": "Calculator for estimating future financial goals after accounting for inflation assumptions.",
       "keywords": [
         "inflation",
         "finance",
@@ -492,7 +492,7 @@
     {
       "url": "/tools/personal-finance-snapshot/",
       "title": "Personal Finance Snapshot",
-      "summary": "organize a high-level personal finance snapshot",
+      "summary": "Tool for organizing a high-level personal-finance snapshot, including budgeting and planning inputs.",
       "keywords": [
         "finance",
         "budget",
@@ -503,7 +503,7 @@
     {
       "url": "/tools/it-troubleshooting-assistant/",
       "title": "IT Troubleshooting Assistant",
-      "summary": "guided IT troubleshooting utility",
+      "summary": "Guided browser utility for structuring IT troubleshooting questions and investigation steps.",
       "keywords": [
         "it support",
         "troubleshooting",
@@ -513,7 +513,7 @@
     {
       "url": "/tools/ticket-to-knowledge-base-draft/",
       "title": "Ticket to Knowledge Base Draft",
-      "summary": "turn ticket details into a knowledge-base draft",
+      "summary": "Tool for turning service-desk ticket information into a structured draft suitable for knowledge-base development.",
       "keywords": [
         "service desk",
         "knowledge base",
@@ -524,7 +524,7 @@
     {
       "url": "/tools/career-match-resume-review/",
       "title": "Career Match Resume Review",
-      "summary": "review resume fit against a target role",
+      "summary": "Tool for reviewing resume alignment against a target career role and identifying areas for consideration.",
       "keywords": [
         "career",
         "resume",
@@ -535,7 +535,7 @@
     {
       "url": "/tools/finance-planning-workspace/",
       "title": "Finance Planning Workspace",
-      "summary": "organize finance planning scenarios and assumptions",
+      "summary": "Workspace for organizing finance-planning scenarios, assumptions, and related calculations.",
       "keywords": [
         "finance",
         "planning",
@@ -545,7 +545,7 @@
     {
       "url": "/resources/",
       "title": "Resources",
-      "summary": "curated technical documentation and useful references",
+      "summary": "Curated technical documentation and useful references intended to support technology learning and practical work.",
       "keywords": [
         "resources",
         "documentation",
@@ -561,6 +561,7 @@
       "/contact/",
       "/privacy/"
     ],
-    "excluded_reason": "AI interface and transactional/privacy pages are not knowledge sources."
+    "excluded_reason": "AI interface and transactional/privacy pages are not knowledge sources.",
+    "summary_evidence_rule": "Summaries are concise scope-level evidence only; detailed claims require sufficient page evidence and must not be inferred from titles or keywords."
   }
 }
