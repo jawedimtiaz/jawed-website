@@ -21,7 +21,7 @@ export function findRelevantKnowledge(query,limit=5,options={}){
     queryCounts.set(token,Math.min(1,(queryCounts.get(token)||0)+1));
   }
   for(const token of primarySet){
-    queryCounts.set(token,2);
+    queryCounts.set(token,3);
   }
   const querySet=new Set(queryCounts);
   const queryPhrase=queryTokens.join(" ");
