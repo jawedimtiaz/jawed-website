@@ -10,6 +10,7 @@ const followUp=buildRetrievalQuery([
 ]);
 const followUpResults=findRelevantKnowledge(followUp,5,{primaryQuery:"Can you explain the calculator?"});
 assert.equal(followUpResults[0].title,"Compound Growth & SIP Calculator");
+assert.equal(followUpResults.length,3);
 
 const mixed=buildRetrievalQuery([
   {role:"user",content:"Tell me about retirement planning."},
@@ -19,6 +20,7 @@ const mixed=buildRetrievalQuery([
 const mixedResults=findRelevantKnowledge(mixed,5,{primaryQuery:"What is Jamf?"});
 assert.equal(mixedResults[0].title,"Apple Device Management Enrollment Models");
 assert.equal(mixedResults.slice(0,3).some(entry=>entry.title==="Retirement Planning: Start With the Number"),false);
+assert.equal(mixedResults.some(entry=>entry.title==="Retirement Planning: Start With the Number"),false);
 
 const longCurrent="x".repeat(2000);
 const longQuery=buildRetrievalQuery([
