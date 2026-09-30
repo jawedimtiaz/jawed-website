@@ -5,6 +5,8 @@ import {buildRetrievalQuery,MAX_RETRIEVAL_QUERY_CHARS,PRIOR_USER_TURNS} from "..
 const followUp=buildRetrievalQuery([
   {role:"user",content:"Older retirement context."},
   {role:"assistant",content:"Older assistant context."},
+  {role:"user",content:"Older retirement context."},
+  {role:"assistant",content:"Older assistant context."},
   {role:"user",content:"Tell me about the retirement planning tools."},
   {role:"assistant",content:"Here are some retirement-related pages."},
   {role:"user",content:"Which one covers withdrawal planning?"},
