@@ -205,7 +205,7 @@ function analyze(resume,jd){
     cover:makeCover(name,company,title,P(matching),P(missing),have),questions:makeQuestions(title,P(matching),P(missing),need,kMiss),gaps,date:new Date().toISOString().slice(0,10)}}
 //ENGINE_END
 const $=s=>document.querySelector(s);
-const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{toast("Browser storage unavailable")}}};
+const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch{toast("Browser storage unavailable");return false}}};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),1800)}
 function setTheme(t){document.documentElement.dataset.theme=t;store.set("cm_theme",t)}
@@ -226,9 +226,9 @@ async function readFile(f){const n=f.name.toLowerCase(),buf=await f.arrayBuffer(
   else if(n.endsWith(".txt"))out=new TextDecoder().decode(buf);
   else throw new Error("Unsupported file type");
   if(out.trim().length<50)throw new Error("No selectable text found (scanned file?)");return out}
-$("#file").onchange=async e=>{const f=e.target.files[0];if(!f)return;$("#fileMsg").textContent="Reading…";
+$("#file").onchange=async e=>{const f=e.target.files[0];if(!f)return;$("#resume").value="";$("#fileMsg").textContent="Reading…";
   try{const t=await readFile(f);$("#resume").value=t;$("#fileMsg").textContent=`Loaded ${f.name} (${t.split(/\s+/).length} words)`}
-  catch(err){$("#fileMsg").textContent="Could not read file: "+err.message+". Please paste the text instead."}};
+  catch(err){$("#fileMsg").textContent="Could not read file: "+err.message+". Please paste the text instead.";$("#file").value=""}};
 $("#sample").onclick=()=>{$("#resume").value=`Alex Sample
 alex.sample@example.com | +1 555 010 2030
 Summary
@@ -280,11 +280,11 @@ $("#results").addEventListener("click",async e=>{
   if(a==="copy"){try{await navigator.clipboard.writeText(bodyText(c))}catch{const x=document.createElement("textarea");x.value=bodyText(c);document.body.append(x);x.select();document.execCommand("copy");x.remove()}toast("Copied")}
   if(a==="edit"){const bd=c.querySelector(".body"),on=bd.getAttribute("contenteditable")==="true";if(on){bd.removeAttribute("contenteditable");b.textContent="Edit"}else{bd.setAttribute("contenteditable","true");bd.focus();b.textContent="Done"}}
   if(a==="dl"){const u=URL.createObjectURL(new Blob([t+"\n\n"+bodyText(c)],{type:"text/plain"})),l=document.createElement("a");l.href=u;l.download=t.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")+".txt";l.click();URL.revokeObjectURL(u)}
-  if(a==="save"){endEdit();const R=window.CUR,s=store.get("cm_saved",[]);s.unshift({id:uid(),title:(R.title||"Untitled role")+(R.company?" · "+R.company:""),date:R.date,score:R.overall,html:$("#results").innerHTML});store.set("cm_saved",s.slice(0,30));toast("Analysis saved")}});
+  if(a==="save"){endEdit();const R=window.CUR,s=store.get("cm_saved",[]);s.unshift({id:uid(),title:R.title||"Untitled role",company:R.company||null,date:R.date,score:R.overall,html:$("#results").innerHTML});if(store.set("cm_saved",s.slice(0,30)))toast("Analysis saved")}});
 function renderSaved(){const s=store.get("cm_saved",[]);$("#savedList").innerHTML=s.length?s.map(x=>`<div class="job"><b>${esc(x.title)}</b> — score ${x.score}<small>${esc(x.date)}</small><div class="row"><button class="btn" data-id="${x.id}" data-s="open">Open</button><button class="btn" data-id="${x.id}" data-s="del">Delete</button></div></div>`).join(""):'<p class="empty">No saved analyses yet.</p>'}
 $("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=store.get("cm_saved",[]);
   if(b.dataset.s==="del"){store.set("cm_saved",s.filter(x=>x.id!==b.dataset.id));renderSaved();toast("Saved analysis deleted")}
-  else{const x=s.find(y=>y.id===b.dataset.id);if(x){$("#results").innerHTML=x.html;window.CUR={company:null,title:x.title};show("results")}}};
+  else{const x=s.find(y=>y.id===b.dataset.id);if(x){$("#results").innerHTML=x.html;window.CUR={company:x.company||null,title:x.title||null,overall:x.score,date:x.date};show("results")}}};
 const STAT=["Applied","Interview","Rejected","Offer"];
 function addJob(company,role,status){const t=store.get("cm_track",[]);t.unshift({id:uid(),company,role,status,date:new Date().toISOString().slice(0,10)});store.set("cm_track",t)}
 function renderTracker(){const t=store.get("cm_track",[]);
