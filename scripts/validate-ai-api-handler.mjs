@@ -67,26 +67,7 @@ const emptyCurrent=await onRequestPost({
 });
 assert.equal(emptyCurrent.status,400);
 assert.equal((await emptyCurrent.json()).code,"AI_INVALID_MESSAGE");
-// Configured provider success is covered by validate-ai-provider-contract.mjs.
-globalThis.fetch=async()=>new Response(JSON.stringify({
-  error:{message:"mock provider rate limit"}
-}),{status:429,headers:{"content-type":"application/json"}});
-
-const providerFailure=await onRequestPost({
-  request:makeRequest("https://jawed.co.in/api/ai",{
-    method:"POST",
-    headers:{"cf-connecting-ip":uniqueIp+"-429","content-type":"application/json"},
-    body:JSON.stringify({messages:[{role:"user",content:"hello"}]})
-  }),
-  env:{AI_PROVIDER_API_KEY:"test-key",AI_PROVIDER_MODEL:"test-model"}
-});
-assert.equal(providerFailure.status,429);
-const providerFailureBody=await providerFailure.json();
-assert.equal(providerFailureBody.code,"AI_PROVIDER_ERROR");
-assert.equal(providerFailureBody.error,"AI service is temporarily busy. Please try again shortly.");
-assert.equal(providerFailureBody.request_id,providerFailure.headers.get("x-request-id"));
-assert.deepEqual(Object.keys(providerFailureBody).sort(),["code","error","request_id"]);
-
+// Provider-error mapping is covered by validate-ai-negative-paths.mjs and validate-ai-provider-contract.mjs.
 globalThis.fetch=async()=>{providerCalls+=1;throw new Error("Provider calls are forbidden in deterministic API handler regression tests.");};
 assert.equal(providerCalls,0,"Deterministic handler tests must never call the AI provider.");
 
@@ -94,6 +75,6 @@ console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
 console.log("Configured/unconfigured health states exercised: yes");
 console.log("POST response headers and payload contracts exercised: yes");
-console.log("Provider-error integration path exercised: yes");
+console.log("Handler-owned error and health paths exercised: yes");
 console.log("Public source shape exercised: yes");
 console.log("Live provider call: explicitly blocked: yes");
