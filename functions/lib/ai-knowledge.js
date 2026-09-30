@@ -28,7 +28,7 @@ function scoreEntry(entry,queryCounts){
 }
 
 const MIN_PRIMARY_SOURCES=3;
-const VAGUE_FOLLOW_UP_TERMS=new Set(["explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options"]);
+const VAGUE_FOLLOW_UP_TERMS=new Set(["tell","show","describe","explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options"]);
 
 function rankedEntries(query,weight=1){
   const queryTokens=tokens(query);
