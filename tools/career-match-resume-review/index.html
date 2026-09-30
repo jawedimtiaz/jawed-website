@@ -283,7 +283,7 @@ $("#results").addEventListener("click",async e=>{
   if(a==="save"){endEdit();const R=window.CUR,s=store.get("cm_saved",[]);s.unshift({id:uid(),title:R.title||"Untitled role",company:R.company||null,date:R.date,score:R.overall,html:$("#results").innerHTML});if(store.set("cm_saved",s.slice(0,30)))toast("Analysis saved")}});
 function renderSaved(){const s=store.get("cm_saved",[]);$("#savedList").innerHTML=s.length?s.map(x=>`<div class="job"><b>${esc(x.title)}</b> — score ${x.score}<small>${esc(x.date)}</small><div class="row"><button class="btn" data-id="${x.id}" data-s="open">Open</button><button class="btn" data-id="${x.id}" data-s="del">Delete</button></div></div>`).join(""):'<p class="empty">No saved analyses yet.</p>'}
 $("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=store.get("cm_saved",[]);
-  if(b.dataset.s==="del"){store.set("cm_saved",s.filter(x=>x.id!==b.dataset.id));renderSaved();toast("Saved analysis deleted")}
+  if(b.dataset.s==="del"){if(store.set("cm_saved",s.filter(x=>x.id!==b.dataset.id))){renderSaved();toast("Saved analysis deleted")}}
   else{const x=s.find(y=>y.id===b.dataset.id);if(x){$("#results").innerHTML=x.html;window.CUR={company:x.company||null,title:x.title||null,overall:x.score,date:x.date};show("results")}}};
 const STAT=["Applied","Interview","Rejected","Offer"];
 function addJob(company,role,status){const t=store.get("cm_track",[]);t.unshift({id:uid(),company,role,status,date:new Date().toISOString().slice(0,10)});return store.set("cm_track",t)}
@@ -292,7 +292,7 @@ function renderTracker(){const t=store.get("cm_track",[]);
 $("#addJob").onclick=()=>{const c=$("#tCo").value.trim(),r=$("#tRole").value.trim();if(!c&&!r){toast("Enter a company or role");return}
   if(addJob(c||"Company: Not Provided",r||"Role: Not Provided",$("#tSt").value)){$("#tCo").value=$("#tRole").value="";renderTracker()}};
 $("#board").addEventListener("click",e=>{const b=e.target.closest("[data-t=rm]");if(b){store.set("cm_track",store.get("cm_track",[]).filter(x=>x.id!==b.dataset.id));renderTracker()}});
-$("#board").addEventListener("change",e=>{if(e.target.dataset.t==="mv"){const t=store.get("cm_track",[]),x=t.find(y=>y.id===e.target.dataset.id);if(x){x.status=e.target.value;store.set("cm_track",t);renderTracker()}}});
+$("#board").addEventListener("change",e=>{if(e.target.dataset.t==="mv"){const t=store.get("cm_track",[]),x=t.find(y=>y.id===e.target.dataset.id);if(x){const previous=x.status;x.status=e.target.value;if(store.set("cm_track",t)){renderTracker()}else{e.target.value=previous;renderTracker()}}}});
 </script>
 </body>
 </html>
