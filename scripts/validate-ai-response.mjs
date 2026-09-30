@@ -26,6 +26,8 @@ assert.equal(grounding.includes("Prefer higher-ranked sources when multiple supp
 assert.equal(grounding.includes("retrieval metadata, not full page contents"),true);
 assert.equal(grounding.includes("summary as high-level evidence only"),true);
 assert.equal(grounding.includes("title and keywords as discovery metadata, not proof"),true);
+assert.equal(grounding.includes("For each factual claim about Jawed.co.in that is supported by a supplied source"),true);
+assert.equal(grounding.includes("exact supporting Jawed.co.in source URL"),true);
 assert.equal(noSources,"External");
 
 console.log("AI response grounding/link validation OK");
