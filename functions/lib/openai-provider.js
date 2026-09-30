@@ -15,7 +15,7 @@ function contextText(sources){
 
 function sanitizeMarkdownLinks(reply,sources){
   const allowed=new Set(sources.map(source=>"https://jawed.co.in"+source.url));
-  return reply.replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g,(match,label,url)=>allowed.has(url)?match:label);
+  return reply.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(match,label,url)=>allowed.has(url)?match:label);
 }
 
 function conversationText(input){
