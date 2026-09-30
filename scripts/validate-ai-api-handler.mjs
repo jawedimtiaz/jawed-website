@@ -70,7 +70,7 @@ assert.equal((await emptyCurrent.json()).code,"AI_INVALID_MESSAGE");
 // The handler's configured path is exercised with a deterministic provider mock.
 globalThis.fetch=async()=>new Response(JSON.stringify({
   model:"mock-handler-model",
-  output_text:"Deterministic configured-path response."
+  output_text:"See [Retirement Planning](https://jawed.co.in/notes/retirement-planning-start-with-the-number/)."
 }),{status:200,headers:{"content-type":"application/json"}});
 
 const configuredIp=uniqueIp+"-configured";
@@ -78,7 +78,7 @@ const configuredResponse=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{
     method:"POST",
     headers:{"cf-connecting-ip":configuredIp,"content-type":"application/json"},
-    body:JSON.stringify({messages:[{role:"user",content:"asdfgh"}]})
+    body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})
   }),
   env:{AI_PROVIDER_API_KEY:"test-key",AI_PROVIDER_MODEL:"test-model"}
 });
