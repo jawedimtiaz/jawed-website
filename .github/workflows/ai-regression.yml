@@ -1,5 +1,9 @@
 name: AI Regression Gate
 
+concurrency:
+  group: ai-regression-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     paths:
@@ -10,6 +14,8 @@ on:
       - "docs/ai-regression-*.md"
       - "_headers"
       - "sitemap.xml"
+  workflow_dispatch:
+
   push:
     branches:
       - main
@@ -40,4 +46,20 @@ jobs:
           node-version: 22
 
       - name: Run AI regression matrix
+        id: regression
         run: node scripts/validate-ai-regression.mjs
+
+      - name: Publish release evidence
+        if: always()
+        env:
+          RESULT: ${{ steps.regression.outcome }}
+        run: |
+          {
+            echo "## AI Regression Gate"
+            echo
+            echo "- Result: \`$RESULT\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Ref: \`${GITHUB_REF}\`"
+            echo "- Node: \`$(node --version)\`"
+            echo "- Deterministic provider-backed E2E: not asserted"
+          } >> "$GITHUB_STEP_SUMMARY"
