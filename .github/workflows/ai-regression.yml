@@ -1,0 +1,43 @@
+name: AI Regression Gate
+
+on:
+  pull_request:
+    paths:
+      - "ai/**"
+      - "functions/**"
+      - "assets/data/ai-knowledge.json"
+      - "scripts/validate-ai-*.mjs"
+      - "docs/ai-regression-*.md"
+      - "_headers"
+      - "sitemap.xml"
+  push:
+    branches:
+      - main
+    paths:
+      - "ai/**"
+      - "functions/**"
+      - "assets/data/ai-knowledge.json"
+      - "scripts/validate-ai-*.mjs"
+      - "docs/ai-regression-*.md"
+      - "_headers"
+      - "sitemap.xml"
+
+permissions:
+  contents: read
+
+jobs:
+  ai-regression:
+    name: AI production regression matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run AI regression matrix
+        run: node scripts/validate-ai-regression.mjs
