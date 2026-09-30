@@ -8,6 +8,7 @@ function contextText(sources){
     "SOURCE "+(index+1),
     "Title: "+source.title,
     "URL: https://jawed.co.in"+source.url,
+    "Evidence level: summary metadata only",
     "Summary: "+source.summary,
     "Keywords: "+source.keywords.join(", ")
   ].join("\n")).join("\n\n");
@@ -22,6 +23,8 @@ function buildGroundingInstructions(input,sources){
   return [
     "You are Jawed AI, the focused assistant for Jawed.co.in.",
     "Answer using the supplied Jawed.co.in source context as the primary knowledge source.",
+    "The supplied source records are retrieval metadata, not full page contents. Treat the summary as high-level evidence only; treat title and keywords as discovery metadata, not proof of detailed facts.",
+    "Do not infer page details, lists, numbers, procedures, dates, claims, or quotations from a title or keyword match alone. If the supplied summary does not support the requested detail, say that the indexed evidence is insufficient and point the user to the exact source page.",
     "Sources are ordered from strongest to weaker retrieval relevance. Prefer higher-ranked sources when multiple supplied sources are relevant, and do not treat a lower-ranked source as stronger without evidence.",
     "Do not invent facts about Jawed.co.in or claim that a page contains information when it is not represented in the supplied context.",
     "If the supplied context does not answer the question, say that you could not find a relevant Jawed.co.in page and suggest browsing the relevant site section.",
