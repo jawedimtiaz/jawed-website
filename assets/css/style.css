@@ -2,3 +2,9 @@
 
 /* Jawed AI */
 .ai-shell{border:1px solid var(--line);border-radius:16px;padding:18px;background:var(--surface)}.ai-header{margin-bottom:16px}.ai-header h2{margin-bottom:4px}.ai-messages{min-height:220px;max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--background)}.ai-message{max-width:760px;padding:12px 14px;border-radius:12px;margin-bottom:12px}.ai-message-assistant{border:1px solid var(--line);background:var(--surface)}.ai-message p:last-child{margin-bottom:0}.ai-form{margin-top:16px}.ai-form-row{display:flex;gap:10px;margin-top:6px}.ai-form-row input{flex:1;min-width:0}@media(max-width:600px){.ai-shell{padding:14px}.ai-form-row{flex-direction:column}.ai-form-row .button{width:100%}}
+.ai-message-user{margin-left:auto;background:#f4f4f5;border:1px solid #e5e7eb}
+.ai-message-sources{font-size:.95rem}
+.ai-message-sources ul{margin:.6rem 0 0;padding-left:1.2rem}
+.ai-message-sources li+li{margin-top:.35rem}
+.ai-form[aria-busy="true"] .button{opacity:.7}
+.ai-form .button:disabled{cursor:wait}
