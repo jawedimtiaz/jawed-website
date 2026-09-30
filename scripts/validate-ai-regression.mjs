@@ -3,22 +3,28 @@ import assert from "node:assert/strict";
 import {execFileSync} from "node:child_process";
 import fs from "node:fs";
 
+const VALIDATOR_TIMEOUT_MS=15_000;
 const checks=[
-  ["AI knowledge coverage","scripts/validate-ai-knowledge.mjs"],
-  ["AI retrieval","scripts/validate-ai-retrieval.mjs"],
-  ["AI response/output contract","scripts/validate-ai-response.mjs"],
-  ["AI production readiness","scripts/validate-ai-production-readiness.mjs"],
-  ["AI live browser contract","scripts/validate-ai-live-operational.mjs"],
-  ["AI production observability","scripts/validate-ai-production-observability.mjs"],
-  ["AI production security/privacy","scripts/validate-ai-production-security.mjs"],
-  ["AI negative paths","scripts/validate-ai-negative-paths.mjs"]
+  ["AI knowledge coverage","scripts/validate-ai-knowledge.mjs",/AI knowledge coverage OK/],
+  ["AI retrieval","scripts/validate-ai-retrieval.mjs",/AI retrieval context validation OK/],
+  ["AI response/output contract","scripts/validate-ai-response.mjs",/AI response grounding\/link validation OK/],
+  ["AI production readiness","scripts/validate-ai-production-readiness.mjs",/AI production configuration readiness validation OK/],
+  ["AI live browser contract","scripts/validate-ai-live-operational.mjs",/AI live operational browser contract validation OK/],
+  ["AI production observability","scripts/validate-ai-production-observability.mjs",/AI production observability contract: PASS/],
+  ["AI production security/privacy","scripts/validate-ai-production-security.mjs",/AI production security\/privacy telemetry contract: PASS/],
+  ["AI negative paths","scripts/validate-ai-negative-paths.mjs",/AI negative-path regression validation: PASS/]
 ];
 
+assert.equal(new Set(checks.map(([,path])=>path)).size,checks.length,"Regression matrix contains duplicate validator paths");
+
 const failures=[];
-for(const [name,path] of checks){
+for(const [name,path,completion] of checks){
   try{
     assert.equal(fs.existsSync(path),true,name+" validator is missing");
-    execFileSync(process.execPath,[path],{stdio:"pipe",encoding:"utf8"});
+    const source=fs.readFileSync(path,"utf8");
+    assert.equal(/assert\./.test(source),true,name+" validator must contain executable assertions");
+    const output=execFileSync(process.execPath,[path],{stdio:"pipe",encoding:"utf8",timeout:VALIDATOR_TIMEOUT_MS});
+    assert.match(output,completion,name+" validator did not emit its completion signal");
     console.log("PASS — "+name);
   }catch(error){
     failures.push({name,path,output:String(error.stdout||"")+String(error.stderr||error.message||"")});
@@ -62,5 +68,6 @@ if(failures.length){
 
 console.log("\nAI production regression matrix: PASS");
 console.log("Validators executed:",checks.length);
+console.log("Validator timeout:",VALIDATOR_TIMEOUT_MS+"ms");
 console.log("Core contracts checked:",contracts.length);
 console.log("Live provider E2E: not asserted by this matrix");
