@@ -16,6 +16,10 @@ function validConversation(messages){
   return messages.every((message,index)=>message.role===(index%2===0?"user":"assistant"))&&messages[0]?.role==="user";
 }
 
+function publicSources(sources){
+  return sources.filter(source=>typeof source?.url==="string"&&source.url.startsWith("/")&&!source.url.startsWith("//")&&typeof source.title==="string"&&source.title.trim()).map(source=>({url:source.url,title:source.title}));
+}
+
 export async function onRequestPost({request,env}){
   if(!allowedOrigin(request))return json({error:"Origin not allowed."},403);
   const limit=checkRateLimit(getClientKey(request));
@@ -33,11 +37,12 @@ export async function onRequestPost({request,env}){
 
   const apiKey=env?.AI_PROVIDER_API_KEY;
   const sources=findRelevantKnowledge(messages.at(-1).content,5);
-  if(!apiKey)return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",sources},503);
+  const responseSources=publicSources(sources);
+  if(!apiKey)return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",sources:responseSources},503);
 
   try{
     const result=await generateGroundedReply({apiKey,model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,input:messages,sources});
-    return json({reply:result.reply,sources,model:result.model});
+    return json({reply:result.reply,sources:responseSources,model:result.model});
   }catch(error){
     const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<600?error.status:502;
     return json({error:status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.",code:"AI_PROVIDER_ERROR"},status===429?429:502);
