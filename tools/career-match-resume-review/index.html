@@ -80,14 +80,14 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--li
   <div class="row" style="margin-top:18px"><button class="btn primary" id="go">Analyze My Match</button>
     <button class="btn" id="sample">Load sample (fictional)</button><span class="muted" id="err"></span></div>
 </section>
-<section id="v-results" class="view hidden"><div id="results"><p class="empty">Run an analysis to see your dashboard.</p></div></section>
+<section id="v-results" class="view hidden" aria-labelledby="results-heading"><div id="results" tabindex="-1" aria-live="polite"><h2 id="results-heading" class="sr-only">Analysis results</h2><p class="empty">Run an analysis to see your dashboard.</p></div></section>
 <section id="v-tracker" class="view hidden">
   <div class="panel"><h2 style="margin-top:0">Application Tracker</h2>
     <div class="row"><div><label for="tCo">Company</label><input id="tCo" placeholder="Company" style="flex:1"></div><div><label for="tRole">Role</label><input id="tRole" placeholder="Role" style="flex:1"></div><div><label for="tSt">Application status</label><select id="tSt" style="width:auto"><option>Applied</option><option>Interview</option><option>Rejected</option><option>Offer</option></select></div>
     <button class="btn primary" id="addJob" style="padding:9px 18px;font-size:15px">Add</button></div></div>
-  <div class="board" id="board"></div>
+  <div class="board" id="board" aria-live="polite"></div>
 </section>
-<section id="v-saved" class="view hidden"><div class="panel"><h2 style="margin-top:0">Saved analyses</h2><div id="savedList"></div></div></section>
+<section id="v-saved" class="view hidden"><div class="panel"><h2 style="margin-top:0">Saved analyses</h2><div id="savedList" aria-live="polite"></div></div></section>
 <section class="panel" style="margin-top:18px">
   <h2 style="margin-top:0">Data, storage and privacy</h2>
   <ul>
@@ -212,7 +212,7 @@ function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setT
 function setTheme(t){document.documentElement.dataset.theme=t;store.set("cm_theme",t)}
 setTheme(store.get("cm_theme",matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"));
 $("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
-function show(v){document.querySelectorAll(".view").forEach(e=>e.classList.toggle("hidden",e.id!=="v-"+v));document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));if(v==="tracker")renderTracker();if(v==="saved")renderSaved()}
+function show(v){document.querySelectorAll(".view").forEach(e=>e.classList.toggle("hidden",e.id!=="v-"+v));document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));if(v==="tracker")renderTracker();if(v==="saved")renderSaved();const target=document.querySelector("#v-"+v);if(target){target.setAttribute("tabindex","-1");target.focus({preventScroll:true})}}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.v));
 const loadScript=(src)=>new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error("Could not load the file reader (internet needed)"));document.head.appendChild(s)});
 const loadPdfReader=async()=>{if(window.pdfjsLib)return;await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js")};
@@ -255,7 +255,7 @@ Requirements:
 - Agile teamwork and communication`};
 $("#go").onclick=()=>{const r=$("#resume").value.trim(),j=$("#jd").value.trim(),err=$("#err");err.textContent="";
   if(r.split(/\s+/).length<20||j.split(/\s+/).length<20){err.textContent="Please provide both a resume and a job description (at least ~20 words each).";return}
-  try{render(analyze(r,j));show("results");window.scrollTo(0,0)}catch(e){err.textContent="Analysis failed: "+e.message}};
+  try{render(analyze(r,j));show("results");window.scrollTo(0,0);$("#results").focus({preventScroll:true})}catch(e){err.textContent="Analysis failed: "+e.message}};
 const pills=(a,c)=>a.length?a.map(x=>`<span class="pill ${c}">${esc(x)}</span>`).join(""):'<em class="muted">None detected</em>';
 const ul=a=>a.length?"<ul>"+a.map(x=>`<li>${x}</li>`).join("")+"</ul>":'<em class="muted">None detected</em>';
 const bar=(l,v)=>`<div>${l}: <b>${v==null?"Not Provided":v+"%"}</b></div><div class="bar"><i style="width:${v||0}%"></i></div>`;
@@ -284,7 +284,7 @@ $("#results").addEventListener("click",async e=>{
   if(a==="save"){endEdit();const R=window.CUR,s=store.get("cm_saved",[]);s.unshift({id:uid(),title:(R.title||"Untitled role")+(R.company?" · "+R.company:""),date:R.date,score:R.overall,html:$("#results").innerHTML});store.set("cm_saved",s.slice(0,30));toast("Analysis saved")}});
 function renderSaved(){const s=store.get("cm_saved",[]);$("#savedList").innerHTML=s.length?s.map(x=>`<div class="job"><b>${esc(x.title)}</b> — score ${x.score}<small>${esc(x.date)}</small><div class="row"><button class="btn" data-id="${x.id}" data-s="open">Open</button><button class="btn" data-id="${x.id}" data-s="del">Delete</button></div></div>`).join(""):'<p class="empty">No saved analyses yet.</p>'}
 $("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=store.get("cm_saved",[]);
-  if(b.dataset.s==="del"){store.set("cm_saved",s.filter(x=>x.id!==b.dataset.id));renderSaved()}
+  if(b.dataset.s==="del"){store.set("cm_saved",s.filter(x=>x.id!==b.dataset.id));renderSaved();toast("Saved analysis deleted")}
   else{const x=s.find(y=>y.id===b.dataset.id);if(x){$("#results").innerHTML=x.html;window.CUR={company:null,title:x.title};show("results")}}};
 const STAT=["Applied","Interview","Rejected","Offer"];
 function addJob(company,role,status){const t=store.get("cm_track",[]);t.unshift({id:uid(),company,role,status,date:new Date().toISOString().slice(0,10)});store.set("cm_track",t)}
