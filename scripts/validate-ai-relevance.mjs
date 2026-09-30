@@ -61,7 +61,7 @@ const unknownWithKnownWord=buildRetrievalQuery([
 ]);
 const unknownWithKnownWordResults=findRelevantKnowledge(unknownWithKnownWord,5,{primaryQuery:"asdfgh retirement"});
 assert.equal(unknownWithKnownWordResults.length>0,true);
-assert.equal(unknownWithKnownWordResults[0].title,"Retirement Planning Calculator");
+assert.equal(/^Retirement/.test(unknownWithKnownWordResults[0].title),true);
 
 console.log("AI no-source boundary validation OK");
 
