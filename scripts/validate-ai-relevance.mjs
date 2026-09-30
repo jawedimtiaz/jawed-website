@@ -11,6 +11,7 @@ const followUp=buildRetrievalQuery([
 const followUpResults=findRelevantKnowledge(followUp,5,{primaryQuery:"Can you explain the calculator?"});
 assert.equal(followUpResults[0].title,"Compound Growth & SIP Calculator");
 assert.equal(followUpResults.length,3);
+assert.equal(followUpResults.some(entry=>entry.title==="Retirement Planning: Start With the Number"),false);
 
 const mixed=buildRetrievalQuery([
   {role:"user",content:"Tell me about retirement planning."},
