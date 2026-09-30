@@ -14,7 +14,11 @@ export function findRelevantKnowledge(query,limit=5){
   const queryTokens=tokens(query);
   if(!queryTokens.length)return [];
 
-  const querySet=new Set(queryTokens);
+  const queryCounts=new Map();
+  for(const token of queryTokens){
+    queryCounts.set(token,Math.min(2,(queryCounts.get(token)||0)+1));
+  }
+  const querySet=new Set(queryCounts);
   const queryPhrase=queryTokens.join(" ");
   return knowledge.entries.map(entry=>{
     const titleTokens=tokenSet(entry.title);
@@ -24,10 +28,11 @@ export function findRelevantKnowledge(query,limit=5){
     let score=0;
 
     for(const token of querySet){
-      if(titleTokens.has(token))score+=4;
-      else if(keywordTokens.has(token))score+=3;
-      else if(summaryTokens.has(token))score+=2;
-      else if(urlTokens.has(token))score+=1;
+      const weight=queryCounts.get(token)||1;
+      if(titleTokens.has(token))score+=4*weight;
+      else if(keywordTokens.has(token))score+=3*weight;
+      else if(summaryTokens.has(token))score+=2*weight;
+      else if(urlTokens.has(token))score+=1*weight;
     }
 
     const searchableText=[entry.title,entry.summary,...entry.keywords].join(" ").toLowerCase();
