@@ -13,13 +13,14 @@ for(const token of [
   '"AI_RETRIEVAL_ERROR"',
   '"AI_PROVIDER_ERROR"',
   '"AI_NOT_CONFIGURED"',
-  '"request_id":id',
+  "request_id:id",
   '"x-request-id":id'
 ])assert.equal(endpoint.includes(token),true,"Missing observability contract: "+token);
 
 assert.equal(endpoint.includes("apiKey"),true,"Provider credential boundary should remain server-side");
-for(const forbidden of ["console.log(JSON.stringify({", "messages", "authorization", "summary"]){
-  if(forbidden==="messages"||forbidden==="authorization"||forbidden==="summary") continue;
+const logLines=endpoint.split("\n").filter(line=>line.includes("console."));
+for(const forbidden of ["messages","apiKey","authorization","summary","content"]){
+  assert.equal(logLines.some(line=>line.includes(forbidden)),false,"Runtime logs must not include "+forbidden);
 }
 assert.equal(docs.includes("API keys"),true,"Observability docs must state credential exclusion");
 assert.equal(docs.includes("user messages"),true,"Observability docs must state user-content exclusion");
