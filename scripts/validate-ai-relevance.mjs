@@ -72,3 +72,5 @@ const tellMore=buildRetrievalQuery([
 ]);
 const tellMoreResults=findRelevantKnowledge(tellMore,5,{primaryQuery:"Tell me more"});
 assert.equal(tellMoreResults.length>0,true);
+
+console.log("AI retrieval source-set relevance validation: PASS");
