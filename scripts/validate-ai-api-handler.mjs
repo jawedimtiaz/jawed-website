@@ -75,7 +75,7 @@ globalThis.fetch=async()=>new Response(JSON.stringify({
 const providerFailure=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{
     method:"POST",
-    headers:{"cf-connecting-ip":configuredIp+"-429","content-type":"application/json"},
+    headers:{"cf-connecting-ip":uniqueIp+"-429","content-type":"application/json"},
     body:JSON.stringify({messages:[{role:"user",content:"hello"}]})
   }),
   env:{AI_PROVIDER_API_KEY:"test-key",AI_PROVIDER_MODEL:"test-model"}
