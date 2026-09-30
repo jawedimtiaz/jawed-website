@@ -2,6 +2,7 @@ import {findRelevantKnowledge,knowledgeCount} from "../lib/ai-knowledge.js";
 import {checkRateLimit,getClientKey,MAX_REQUESTS,WINDOW_MS} from "../lib/ai-rate-limit.js";
 import {DEFAULT_MODEL,generateGroundedReply} from "../lib/openai-provider.js";
 import {buildRetrievalQuery} from "../lib/ai-retrieval.js";
+import {aiConfigurationStatus} from "../lib/ai-config.js";
 
 const MAX_BODY_BYTES=12000;
 const MAX_MESSAGES=12;
@@ -15,10 +16,6 @@ function allowedOrigin(request){
 
 function validConversation(messages){
   return messages.every((message,index)=>message.role===(index%2===0?"user":"assistant"))&&messages[0]?.role==="user";
-}
-
-export function aiConfigurationStatus(env){
-  return env?.AI_PROVIDER_API_KEY ? "configured" : "not_configured";
 }
 
 function publicSources(sources){
