@@ -64,3 +64,11 @@ assert.equal(unknownWithKnownWordResults.length>0,true);
 assert.equal(unknownWithKnownWordResults[0].title,"Retirement Planning Calculator");
 
 console.log("AI no-source boundary validation OK");
+
+const tellMore=buildRetrievalQuery([
+  {role:"user",content:"Tell me about retirement planning."},
+  {role:"assistant",content:"Here are some retirement pages."},
+  {role:"user",content:"Tell me more"}
+]);
+const tellMoreResults=findRelevantKnowledge(tellMore,5,{primaryQuery:"Tell me more"});
+assert.equal(tellMoreResults.length>0,true);
