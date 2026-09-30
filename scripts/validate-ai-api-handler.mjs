@@ -31,7 +31,7 @@ assert.equal(configuredBody.configuration,"configured");
 assert.equal(configuredBody.model,"test-model");
 
 const invalidOrigin=await onRequestPost({
-  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"origin":"https://evil.example","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"hello"}]})}),
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"origin":"https://evil.example","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"asdfgh"}]})}),
   env:{}
 });
 assert.equal(invalidOrigin.status,403);
