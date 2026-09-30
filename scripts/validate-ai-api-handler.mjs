@@ -78,7 +78,7 @@ const configuredResponse=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{
     method:"POST",
     headers:{"cf-connecting-ip":configuredIp,"content-type":"application/json"},
-    body:JSON.stringify({messages:[{role:"user",content:"hello"}]})
+    body:JSON.stringify({messages:[{role:"user",content:"asdfgh"}]})
   }),
   env:{AI_PROVIDER_API_KEY:"test-key",AI_PROVIDER_MODEL:"test-model"}
 });
