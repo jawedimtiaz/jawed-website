@@ -57,7 +57,7 @@ export function findRelevantKnowledge(query,limit=5,options={}){
       .map(({score,...entry})=>entry);
   }
 
-  const primary=rankedEntries(primaryQuery,3)
+  const primary=rankedEntries(primaryQuery)
     .filter(entry=>entry.score>=2)
     .sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title));
 
