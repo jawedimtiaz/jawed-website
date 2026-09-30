@@ -7,6 +7,7 @@ const VALIDATOR_TIMEOUT_MS=15_000;
 const checks=[
   ["AI knowledge coverage","scripts/validate-ai-knowledge.mjs",/AI knowledge coverage OK/],
   ["AI retrieval","scripts/validate-ai-retrieval.mjs",/AI retrieval context validation OK/],
+  ["AI retrieval source-set relevance","scripts/validate-ai-relevance.mjs",/AI retrieval source-set relevance validation: PASS/],
   ["AI response/output contract","scripts/validate-ai-response.mjs",/AI response grounding\/link validation OK/],
   ["AI production readiness","scripts/validate-ai-production-readiness.mjs",/AI production configuration readiness validation OK/],
   ["AI live browser contract","scripts/validate-ai-live-operational.mjs",/AI live operational browser contract validation OK/],
