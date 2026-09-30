@@ -4,7 +4,7 @@
 
 The `POST /api/ai` endpoint uses the latest user message as the primary retrieval signal and adds up to the two most recent prior user messages as context.
 
-The latest user message is included twice so the current request remains the strongest signal in the existing token-scoring retriever. Assistant responses are deliberately excluded from retrieval-query construction because they are model-generated and are already treated as untrusted transcript data by the provider layer.
+The latest user message is included twice and the scorer preserves that frequency as a capped weight, so the current request remains the strongest signal while prior user turns provide context. Assistant responses are deliberately excluded from retrieval-query construction because they are model-generated and are already treated as untrusted transcript data by the provider layer.
 
 The retrieval query is capped at 6,000 characters before it reaches the knowledge scorer.
 
