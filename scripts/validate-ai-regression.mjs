@@ -12,7 +12,8 @@ const checks=[
   ["AI live browser contract","scripts/validate-ai-live-operational.mjs",/AI live operational browser contract validation OK/],
   ["AI production observability","scripts/validate-ai-production-observability.mjs",/AI production observability contract: PASS/],
   ["AI production security/privacy","scripts/validate-ai-production-security.mjs",/AI production security\/privacy telemetry contract: PASS/],
-  ["AI negative paths","scripts/validate-ai-negative-paths.mjs",/AI negative-path regression validation: PASS/]
+  ["AI negative paths","scripts/validate-ai-negative-paths.mjs",/AI negative-path regression validation: PASS/],
+  ["AI API handler behavior","scripts/validate-ai-api-handler.mjs",/AI API handler behavioral coverage: PASS/]
 ];
 
 assert.equal(new Set(checks.map(([,path])=>path)).size,checks.length,"Regression matrix contains duplicate validator paths");
