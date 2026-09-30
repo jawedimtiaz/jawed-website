@@ -12,6 +12,7 @@ This prevents generated markdown from becoming an unverified navigation channel 
 
 - Retrieved Jawed.co.in source metadata remains the provider's grounding context.
 - Source order is relevance-ranked; higher-ranked sources are preferred when multiple supplied sources are relevant.
+- An unmatched standalone query does not inherit sources solely from older conversation context. Context may fill the source set only for a clearly vague follow-up such as "explain more" or "tell me more."
 - The provider is instructed not to invent site facts or URLs.
 - Server-side link validation is defense in depth for generated output.
 - No external URL is added to the structured `sources` array.
