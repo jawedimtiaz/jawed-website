@@ -58,4 +58,5 @@ console.log("AI retrieval context validation OK");
 console.log("Current user turns prioritized: yes");
 console.log("Prior user turns included:",PRIOR_USER_TURNS);
 console.log("Assistant turns excluded: yes");
-console.log("Query character cap:",MAX_RETRIEVAL_QUERY_CHARS);\nconsole.log("Knowledge ranking precision: yes");
+console.log("Query character cap:",MAX_RETRIEVAL_QUERY_CHARS);
+console.log("Knowledge ranking precision: yes");

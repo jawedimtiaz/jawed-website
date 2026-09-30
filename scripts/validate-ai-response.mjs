@@ -6,7 +6,7 @@ const sources=[{url:"/notes/retirement-planning-start-with-the-number/",title:"R
 assert.equal(validateProviderReply("Normal response",sources),"Normal response");
 assert.throws(()=>validateProviderReply("",sources),/no text response/);
 assert.throws(()=>validateProviderReply("x".repeat(MAX_REPLY_CHARS+1),sources),/oversized text response/);
-assert.throws(()=>validateProviderReply("unsafe\\u0000response",sources),/control characters/);
+assert.throws(()=>validateProviderReply("unsafe\u0000response",sources),/control characters/);
 assert.equal(validateProviderReply("line 1\nline 2\tok",sources),"line 1\nline 2\tok");
 const reply="See [Retirement Planning](https://jawed.co.in/notes/retirement-planning-start-with-the-number/) and [External](https://example.com).";
 const sanitized=sanitizeMarkdownLinks(reply,sources);
