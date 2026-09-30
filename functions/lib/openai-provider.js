@@ -14,6 +14,10 @@ function contextText(sources){
   ].join("\n")).join("\n\n");
 }
 
+function hasAllowedSourceLink(reply,sources){
+  return sources.some(source=>reply.includes("](https://jawed.co.in"+source.url+")"));
+}
+
 function sanitizeMarkdownLinks(reply,sources){
   const allowed=new Set(sources.map(source=>"https://jawed.co.in"+source.url));
   return reply.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(match,label,url)=>allowed.has(url)?match:label);
@@ -77,7 +81,9 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
 
   const reply=typeof data?.output_text==="string"?data.output_text.trim():"";
   if(!reply)throw new Error("The AI provider returned no text response.");
-  return {reply:sanitizeMarkdownLinks(reply,sources),model:data?.model||model||DEFAULT_MODEL};
+  const sanitizedReply=sanitizeMarkdownLinks(reply,sources);
+  if(sources.length&&!hasAllowedSourceLink(sanitizedReply,sources))throw new Error("The AI provider returned a sourced response without a valid Jawed.co.in source link.");
+  return {reply:sanitizedReply,model:data?.model||model||DEFAULT_MODEL};
 }
 
-export {DEFAULT_MODEL,sanitizeMarkdownLinks,buildGroundingInstructions};
+export {DEFAULT_MODEL,sanitizeMarkdownLinks,hasAllowedSourceLink,buildGroundingInstructions};

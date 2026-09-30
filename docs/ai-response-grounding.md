@@ -18,6 +18,7 @@ This prevents generated markdown from becoming an unverified navigation channel 
 - The provider is instructed not to invent site facts or URLs or infer page details from title/keyword matches alone.
 - Supported Jawed.co.in factual claims should carry an immediate markdown link to the exact supporting retrieved source, improving claim-to-source traceability.
 - Server-side link validation is defense in depth for generated output.
+- When retrieved sources are supplied, the server requires the generated response to contain at least one exact allowed Jawed.co.in source link; a response with no valid source attribution is rejected.
 - No external URL is added to the structured `sources` array.
 - The browser continues to render AI reply text as text, not HTML.
 - No provider storage or browser persistence is introduced.
@@ -34,4 +35,4 @@ Run:
 node scripts/validate-ai-response.mjs
 ```
 
-This validates that an allowed retrieved Jawed.co.in URL is preserved while an unsupported external markdown URL is removed, that source metadata is not treated as full-page evidence, and that supported site claims have an explicit source-link contract.
+This validates that an allowed retrieved Jawed.co.in URL is preserved while an unsupported external markdown URL is removed, that source metadata is not treated as full-page evidence, and that supported site claims have an explicit source-link contract plus a server-side attribution-presence gate.
