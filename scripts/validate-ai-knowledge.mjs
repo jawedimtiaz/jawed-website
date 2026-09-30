@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
@@ -27,10 +28,7 @@ const shortSummaries=knowledge.entries.filter(entry=>typeof entry.summary!=="str
 if(shortSummaries.length)errors.push("AI knowledge summaries below "+MIN_SUMMARY_CHARS+" characters: "+shortSummaries.map(entry=>entry.title).join(", "));
 if(typeof knowledge.coverage_policy?.summary_evidence_rule!=="string"||!knowledge.coverage_policy.summary_evidence_rule.includes("scope-level evidence"))errors.push("AI knowledge evidence boundary is not documented.");
 
-if(errors.length){
-  console.error(errors.join("\n"));
-  process.exit(1);
-}
+assert.equal(errors.length,0,errors.join("\n"));
 
 console.log("AI knowledge coverage OK");
 console.log("Sitemap URLs:",sitemapPaths.length);

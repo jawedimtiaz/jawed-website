@@ -38,10 +38,10 @@ assert.equal(payload.instructions.includes("<UNTRUSTED_SOURCE_METADATA>"),true);
 assert.equal(payload.input[0].role,"user");
 
 calls=[];
-globalThis.fetch=async()=>new Response(JSON.stringify({
+globalThis.fetch=async()=>{calls.push({url:"https://api.openai.com/v1/responses"});return new Response(JSON.stringify({
   model:"mock-error-model",
   error:{message:"provider unavailable"}
-}),{status:429,headers:{"content-type":"application/json"}});
+}),{status:429,headers:{"content-type":"application/json"}});};
 await assert.rejects(
   ()=>generateGroundedReply({apiKey:"test-provider-key",input:[{role:"user",content:"hello"}],sources:[]}),
   error=>error?.status===429

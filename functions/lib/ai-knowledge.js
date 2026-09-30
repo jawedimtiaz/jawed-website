@@ -1,5 +1,6 @@
-import knowledge from "../../assets/data/ai-knowledge.json";
+import fs from "node:fs";
 
+const knowledge=JSON.parse(fs.readFileSync(new URL("../../assets/data/ai-knowledge.json",import.meta.url),"utf8"));
 const STOP_WORDS=new Set(["a","an","and","are","about","can","do","for","from","how","i","in","is","it","me","of","on","or","the","to","what","where","with","you"]);
 
 function tokens(value){
