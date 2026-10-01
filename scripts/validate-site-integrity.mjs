@@ -26,6 +26,10 @@ for(const file of publishedHtml){
   const html=fs.readFileSync(file,"utf8");
   const route=routeForSource(file);
   const expectedCanonical="https://jawed.co.in"+route;
+  const title=html.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim();
+  const description=html.match(/<meta name="description" content="([^"]*)"/)?.[1]?.trim();
+  if(!title)metadataContractErrors.push(file+" title missing");
+  if(!description)metadataContractErrors.push(file+" meta description missing");
   const canonical=html.match(/<link rel="canonical" href="([^"]+)"/)?.[1];
   const ogUrl=html.match(/<meta property="og:url" content="([^"]+)"/)?.[1];
   const twitterCard=html.match(/<meta name="twitter:card" content="([^"]+)"/)?.[1];
