@@ -26,7 +26,7 @@ for(const file of publishedHtml){
   const html=fs.readFileSync(file,"utf8");
   const route=routeForSource(file);
   const expectedCanonical="https://jawed.co.in"+route;
-  const title=html.match(/<title>([\\s\\S]*?)<\\/title>/)?.[1]?.trim();
+  const title=html.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim();
   const description=html.match(/<meta name="description" content="([^"]*)"/)?.[1]?.trim();
   if(!title)metadataContractErrors.push(file+" title missing");
   if(!description)metadataContractErrors.push(file+" meta description missing");
