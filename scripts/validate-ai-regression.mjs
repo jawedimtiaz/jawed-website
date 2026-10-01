@@ -96,6 +96,7 @@ const contracts=[
   ["memory-only browser history",!frontend.includes("localStorage")&&!frontend.includes("sessionStorage")],
   ["AI deep-link consumed after submit",frontend.includes('cleanUrl.searchParams.delete("q")')&&frontend.includes("window.history.replaceState")],
   ["AI failure preserves the question",frontend.includes("Your question is still in the input box")&&frontend.includes("input.value=question")],
+  ["AI source block renders only valid sources",frontend.includes("const validSources=sources.filter")&&frontend.includes("if(!validSources.length)return")],
   ["AI deep-link consumption preserves hash",frontend.includes("cleanUrl.hash") ]
 ];
 
