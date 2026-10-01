@@ -98,6 +98,7 @@ const contracts=[
   ["AI failure preserves the question",frontend.includes("Your question is still in the input box")&&frontend.includes("input.value=question")],
   ["AI source block renders only valid sources",frontend.includes("const validSources=sources.filter")&&frontend.includes("if(!validSources.length)return")],
   ["AI retry reuses failed question message",frontend.includes("let retryMessage=null")&&frontend.includes("retryMessage.question!==question")&&frontend.includes("retryMessage=null;status.textContent=\"\"")],
+  ["AI failure status clears when editing",frontend.includes('input.addEventListener("input",()=>{if(f.getAttribute("aria-busy")!=="true")status.textContent=""})')],
   ["AI deep-link consumption preserves hash",frontend.includes("cleanUrl.hash") ]
 ];
 
