@@ -28,12 +28,17 @@ for(const path of sitemapPaths.filter(path=>path!=="/"&&!excluded.has(path))){
   const family=path.split("/").filter(Boolean)[0];
   if(family)requiredWorkflowPaths.add(family+"/**");
 }
-const workflowSection=(name,nextName)=>workflow.match(new RegExp("\\n  "+name+":\\n([\\s\\S]*?)(?=\\n  "+nextName+":|\\n  permissions:)"))?.[1]||"";
-const pullRequestPaths=workflowSection("pull_request","workflow_dispatch");
-const pushPaths=workflowSection("push","permissions");
-const pathCount=(section,path)=>section.split("\n").filter(line=>line.trim()==='- "'+path+'"').length;
+const workflowLines=workflow.split(/\r?\n/);
+const sectionBetween=(startLine,endLine)=>workflowLines.slice(
+  workflowLines.indexOf(startLine)+1,
+  endLine?workflowLines.indexOf(endLine):workflowLines.length
+);
+const pullRequestPaths=sectionBetween("  pull_request:","  workflow_dispatch:");
+const pushPaths=sectionBetween("  push:","  permissions:");
+const pathCount=(section,path)=>section.filter(line=>line.trim()===`- "${path}"`).length;
 const workflowMissing=[...requiredWorkflowPaths].filter(path=>pathCount(pullRequestPaths,path)!==1||pathCount(pushPaths,path)!==1);
-const workflowDuplicatePaths=[...new Set([...pullRequestPaths.matchAll(/^      - "([^"]+)"$/gm)].map(match=>match[1]))].filter(path=>pathCount(pullRequestPaths,path)>1||pathCount(pushPaths,path)>1);
+const workflowPathLines=(section)=>section.filter(line=>/^      - ".*"$/.test(line)).map(line=>line.trim().slice(3,-1));
+const workflowDuplicatePaths=[...new Set([...workflowPathLines(pullRequestPaths),...workflowPathLines(pushPaths)])].filter(path=>pathCount(pullRequestPaths,path)>1||pathCount(pushPaths,path)>1);
 
 const errors=[];
 if(allSitemapLocs.length!==sitemapPaths.length)errors.push("Sitemap contains one or more <loc> URLs outside the expected https://jawed.co.in/ origin or with an unsupported format.");
