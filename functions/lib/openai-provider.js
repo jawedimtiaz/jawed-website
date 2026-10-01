@@ -28,7 +28,7 @@ function hasAllowedSourceLink(reply,sources){
 }
 
 function sanitizeMarkdownLinks(reply,sources){
-  const allowed=new Set(sources.map(source=>"https://jawed.co.in"+source.url));
+  const allowed=new Set(sources.filter(source=>!source.url.includes("\\")).map(source=>"https://jawed.co.in"+source.url));
   return reply.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(match,label,url)=>allowed.has(url)?match:label);
 }
 
