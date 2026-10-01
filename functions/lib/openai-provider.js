@@ -2,6 +2,7 @@ const OPENAI_URL="https://api.openai.com/v1/responses";
 const DEFAULT_MODEL="gpt-5.6-luna";
 const MAX_OUTPUT_TOKENS=700;
 const MAX_REPLY_CHARS=6000;
+const isSafeSourceUrl=url=>typeof url==="string"&&url.startsWith("/")&&!url.startsWith("//")&&!url.includes("\\");
 
 function contextText(sources){
   if(!sources.length)return "No matching Jawed.co.in pages were found for this question.";
@@ -24,11 +25,11 @@ function validateProviderReply(reply,sources){
 }
 
 function hasAllowedSourceLink(reply,sources){
-  return sources.some(source=>reply.includes("](https://jawed.co.in"+source.url+")"));
+  return sources.filter(source=>isSafeSourceUrl(source.url)).some(source=>reply.includes("](https://jawed.co.in"+source.url+")"));
 }
 
 function sanitizeMarkdownLinks(reply,sources){
-  const allowed=new Set(sources.filter(source=>!source.url.includes("\\")).map(source=>"https://jawed.co.in"+source.url));
+  const allowed=new Set(sources.filter(source=>isSafeSourceUrl(source.url)).map(source=>"https://jawed.co.in"+source.url));
   return reply.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(match,label,url)=>allowed.has(url)?match:label);
 }
 
@@ -99,4 +100,4 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
   return {reply:sanitizedReply,model:data?.model||model||DEFAULT_MODEL};
 }
 
-export {DEFAULT_MODEL,MAX_REPLY_CHARS,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions};
+export {DEFAULT_MODEL,MAX_REPLY_CHARS,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions,isSafeSourceUrl};
