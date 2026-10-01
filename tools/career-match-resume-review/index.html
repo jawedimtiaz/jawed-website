@@ -230,7 +230,7 @@ async function readFile(f){
   if(n.endsWith(".docx")&&!isZip)throw new Error("The selected file does not appear to be a valid DOCX file.");
   if(n.endsWith(".pdf")){await loadPdfReader();
     pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
-    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    const pdf=await pdfjsLib.getDocument({data:buf,isEvalSupported:false,enableScripting:false}).promise;
     try{
       if(pdf.numPages>MAX_PDF_PAGES)throw new Error("PDF has too many pages (maximum 100). Please use a shorter document.");
       for(let i=1;i<=pdf.numPages;i++){const c=await(await pdf.getPage(i)).getTextContent();let y=null,line="";
