@@ -287,7 +287,7 @@ $("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)ret
   else{const x=s.find(y=>y.id===b.dataset.id);if(x){$("#results").innerHTML=safeSavedHtml(x.html);window.CUR={company:x.company||null,title:x.title||null,overall:x.score,date:x.date};show("results")}}};
 const STAT=["Applied","Interview","Rejected","Offer"];
 function addJob(company,role,status){const t=validTrackList(store.get("cm_track",[]));t.unshift({id:uid(),company,role,status,date:new Date().toISOString().slice(0,10)});return store.set("cm_track",t)}
-function renderTracker(){const t=store.get("cm_track",[]);
+function renderTracker(){const t=validTrackList(store.get("cm_track",[]));
   $("#board").innerHTML=STAT.map(s=>{const it=t.filter(x=>x.status===s);return `<div class="col"><h4>${s} <span class="muted">${it.length}</span></h4>${it.map(x=>`<div class="job"><b>${esc(x.role)}</b><small>${esc(x.company)} · ${esc(x.date)}</small><div class="row"><select data-id="${x.id}" data-t="mv" aria-label="Move to">${STAT.map(o=>`<option${o===s?" selected":""}>${o}</option>`).join("")}</select><button class="btn" data-id="${x.id}" data-t="rm" aria-label="Remove">✕</button></div></div>`).join("")||'<p class="empty">Nothing here yet</p>'}</div>`}).join("")}
 $("#addJob").onclick=()=>{const c=$("#tCo").value.trim(),r=$("#tRole").value.trim();if(!c&&!r){toast("Enter a company or role");return}
   if(addJob(c||"Company: Not Provided",r||"Role: Not Provided",$("#tSt").value)){$("#tCo").value=$("#tRole").value="";renderTracker()}};
