@@ -16,6 +16,23 @@ const unsitemapPages=sourcePaths.filter(file=>{
   return !sitemapPaths.includes(path);
 });
 const duplicateSitemapPaths=sitemapPaths.filter((path,index)=>sitemapPaths.indexOf(path)!==index);
+const metadataContractErrors=[];
+for(const file of publishedHtml){
+  const html=fs.readFileSync(file,"utf8");
+  const route=routeForSource(file);
+  const expectedCanonical="https://jawed.co.in"+route;
+  const canonical=html.match(/<link rel="canonical" href="([^"]+)"/)?.[1];
+  const ogUrl=html.match(/<meta property="og:url" content="([^"]+)"/)?.[1];
+  const twitterCard=html.match(/<meta name="twitter:card" content="([^"]+)"/)?.[1];
+  const ldBlocks=[...html.matchAll(/<script type="application\\/ld\\+json">([\\s\\S]*?)<\\/script>/g)];
+  if(canonical!==expectedCanonical)metadataContractErrors.push(file+" canonical="+(canonical||"missing"));
+  if(ogUrl!==expectedCanonical)metadataContractErrors.push(file+" og:url="+(ogUrl||"missing"));
+  if(twitterCard!=="summary_large_image")metadataContractErrors.push(file+" twitter:card="+(twitterCard||"missing"));
+  if(!ldBlocks.length)metadataContractErrors.push(file+" JSON-LD missing");
+  for(const block of ldBlocks){try{JSON.parse(block[1])}catch{metadataContractErrors.push(file+" JSON-LD invalid")}}
+}
+if(metadataContractErrors.length)errors.push("Published-page metadata contract failed: "+metadataContractErrors.join(", "));
+
 const errors=[];
 
 const publishedHtml=sourcePaths.filter(file=>file.endsWith(".html"));
