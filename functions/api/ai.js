@@ -33,6 +33,8 @@ export async function onRequestPost({request,env}){
   const limit=checkRateLimit(getClientKey(request));
   if(!limit.allowed)return failure("Too many requests. Please try again shortly.","AI_RATE_LIMITED",429,id,{retry_after:limit.retryAfter});
   if(request.headers.get("content-type")?.split(";")[0].toLowerCase()!=="application/json")return failure("Expected application/json.","AI_INVALID_CONTENT_TYPE",415,id);
+  const declaredLength=Number(request.headers.get("content-length"));
+  if(Number.isFinite(declaredLength)&&declaredLength>MAX_BODY_BYTES)return failure("Request is too large.","AI_REQUEST_TOO_LARGE",413,id);
   const raw=await request.text();
   if(new TextEncoder().encode(raw).byteLength>MAX_BODY_BYTES)return failure("Request is too large.","AI_REQUEST_TOO_LARGE",413,id);
   let body;
