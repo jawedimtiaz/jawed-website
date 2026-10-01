@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import {execFileSync} from "node:child_process";
 
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
 const knowledge=JSON.parse(fs.readFileSync("assets/data/ai-knowledge.json","utf8"));
@@ -41,6 +42,8 @@ const workflowPathLines=(section)=>section.filter(line=>/^      - ".*"$/.test(li
 const workflowDuplicatePaths=[...new Set([...workflowPathLines(pullRequestPaths),...workflowPathLines(pushPaths)])].filter(path=>pathCount(pullRequestPaths,path)>1||pathCount(pushPaths,path)>1);
 
 const errors=[];
+if(Number.isNaN(reviewDateMs))errors.push("AI knowledge reviewed_against_sitemap_on is missing or invalid.");
+if(changedSourceFiles.length)errors.push("AI knowledge summaries are stale because grounding source files changed after the recorded review date: "+changedSourceFiles.join(", "));
 if(allSitemapLocs.length!==sitemapPaths.length)errors.push("Sitemap contains one or more <loc> URLs outside the expected https://jawed.co.in/ origin or with an unsupported format.");
 if(workflowMissing.length)errors.push("AI regression workflow trigger parity is incomplete for grounding source paths: "+workflowMissing.join(", "));
 if(workflowDuplicatePaths.length)errors.push("AI regression workflow contains duplicate path filters: "+workflowDuplicatePaths.join(", "));
@@ -65,3 +68,4 @@ console.log("Excluded:",excluded.size);
 console.log("Grounding entries:",indexPaths.length);
 console.log("Sitemap source files verified:",sitemapPaths.filter(path=>!excluded.has(path)).length);
 console.log("Reviewed against sitemap:",knowledge.reviewed_against_sitemap_on||"not recorded");
+console.log("Source freshness since review date: clean");
