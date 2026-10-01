@@ -29,7 +29,7 @@ for(const file of publishedHtml){
   const canonical=html.match(/<link rel="canonical" href="([^"]+)"/)?.[1];
   const ogUrl=html.match(/<meta property="og:url" content="([^"]+)"/)?.[1];
   const twitterCard=html.match(/<meta name="twitter:card" content="([^"]+)"/)?.[1];
-  const ldBlocks=[...html.matchAll(/<script type="application\\/ld\\+json">([\\s\\S]*?)<\\/script>/g)];
+  const ldBlocks=[...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
   if(canonical!==expectedCanonical)metadataContractErrors.push(file+" canonical="+(canonical||"missing"));
   if(ogUrl!==expectedCanonical)metadataContractErrors.push(file+" og:url="+(ogUrl||"missing"));
   if(twitterCard!=="summary_large_image")metadataContractErrors.push(file+" twitter:card="+(twitterCard||"missing"));
