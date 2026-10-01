@@ -45,6 +45,15 @@ for(const file of publishedHtml){
 }
 if(internalLinkIssues.length)errors.push("Internal links or fragment targets are invalid: "+internalLinkIssues.join(", "));
 
+const careerMatch=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchSavedContentContract=[
+  ["Career Match saved content is sanitized before storage",careerMatch.includes("function safeSavedHtml(html)")&&careerMatch.includes("html:safeSavedHtml($("#results").innerHTML)")],
+  ["Career Match saved content is sanitized before restore",careerMatch.includes('$("#results").innerHTML=safeSavedHtml(x.html)')],
+  ["Career Match sanitizer removes event-handler attributes",careerMatch.includes('a.name.toLowerCase().startsWith("on")')]
+];
+const missingCareerMatchContracts=careerMatchSavedContentContract.filter(([,ok])=>!ok).map(([name])=>name);
+if(missingCareerMatchContracts.length)errors.push("Career Match saved-content contract missing: "+missingCareerMatchContracts.join(", "));
+
 const mainJs=fs.readFileSync("assets/js/main.js","utf8");
 const discoveryQueryBoundaryContract=[
   ["discovery URL query is bounded to 200 characters",mainJs.includes("initial.trim().slice(0,200)")],
@@ -84,6 +93,7 @@ if(duplicateSitemapPaths.length)errors.push("Sitemap contains duplicate paths: "
 if(missingSources.length)errors.push("Sitemap pages have no repository source file: "+missingSources.join(", "));
 if(unsitemapPages.length)errors.push("Published HTML pages are missing from sitemap: "+unsitemapPages.join(", "));
 assert.equal(errors.length,0,errors.join("\n"));
+console.log("Career Match saved-content security contract: PASS");
 console.log("Internal link and fragment integrity: PASS");
 console.log("Discovery filter exclusion contract: PASS");
 console.log("Site sitemap/page parity: PASS");
