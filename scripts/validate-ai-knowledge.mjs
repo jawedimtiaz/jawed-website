@@ -23,6 +23,7 @@ const missing=sitemapPaths.filter(path=>!excluded.has(path)&&!indexPaths.include
 const unexpected=indexPaths.filter(path=>!sitemapPaths.includes(path));
 const excludedIndexed=[...excluded].filter(path=>indexPaths.includes(path));
 const malformed=knowledge.entries.filter(entry=>!entry.url||!entry.title||!entry.summary||!Array.isArray(entry.keywords)||!entry.keywords.length);
+const unsafeUrls=knowledge.entries.filter(entry=>typeof entry.url!=="string"||!entry.url.startsWith("/")||entry.url.startsWith("//")||entry.url.includes("\\"));
 const reviewDate=knowledge.reviewed_against_sitemap_on;
 const reviewDateMs=typeof reviewDate==="string"&&!Number.isNaN(Date.parse(reviewDate+"T23:59:59Z"))?Date.parse(reviewDate+"T23:59:59Z"):NaN;
 const groundingSourceFiles=sitemapPaths.filter(path=>!excluded.has(path)).map(sourcePath);
@@ -66,6 +67,7 @@ if(missing.length)errors.push("Sitemap content pages missing from AI knowledge: 
 if(unexpected.length)errors.push("AI knowledge contains URLs not present in sitemap: "+unexpected.join(", "));
 if(excludedIndexed.length)errors.push("Excluded paths are indexed: "+excludedIndexed.join(", "));
 if(malformed.length)errors.push("AI knowledge contains malformed entries.");
+if(unsafeUrls.length)errors.push("AI knowledge contains unsafe source URLs: "+unsafeUrls.map(entry=>entry.url).join(", "));
 if(missingSourceFiles.length)errors.push("Sitemap grounding pages have no repository source file: "+missingSourceFiles.join(", "));
 
 const MIN_SUMMARY_CHARS=70;
