@@ -29,7 +29,7 @@ for(const file of publishedHtml){
     if(!value.startsWith("/")||value.startsWith("//")||value.startsWith("/ai/?q="))continue;
     const hashIndex=value.indexOf("#");
     const targetPath=hashIndex===-1?value:value.slice(0,hashIndex);
-    const fragment=hashIndex===-1? "":decodeURIComponent(value.slice(hashIndex+1));
+    const fragment=hashIndex===-1?"":decodeURIComponent(value.slice(hashIndex+1));
     const normalizedPath=targetPath===""?"/":(targetPath.endsWith("/")?targetPath:targetPath+"/");
     if(!publishedRoutes.has(normalizedPath)){
       internalLinkIssues.push(file+" -> "+value);
@@ -38,20 +38,8 @@ for(const file of publishedHtml){
     if(fragment){
       const targetSource=normalizedPath==="/"?"index.html":normalizedPath.replace(/^\/+|\/+$/g,"")+"/index.html";
       const targetHtml=fs.readFileSync(targetSource,"utf8");
-      const hasFragment=
-        targetHtml.includes('id="'+fragment+'"')||
-        targetHtml.includes("id='"+fragment+"'")||
-        targetHtml.includes('name="'+fragment+'"')||
-        targetHtml.includes("name='"+fragment+"'");
+      const hasFragment=targetHtml.includes('id="'+fragment+'"')||targetHtml.includes("id='"+fragment+"'")||targetHtml.includes('name="'+fragment+'"')||targetHtml.includes("name='"+fragment+"'");
       if(!hasFragment)internalLinkIssues.push(file+" -> "+value);
-    }
-  }
-}
-if(internalLinkIssues.length)errors.push("Internal links or fragment targets are invalid: "+internalLinkIssues.join(", "));
-
-const mainJs=fs.readFileSync("assets/js/main.js","utf8");");
-      const fragmentPattern=new RegExp("(?:id|name)=['"]"+escaped+"['"]");
-      if(!fragmentPattern.test(targetHtml))internalLinkIssues.push(file+" -> "+value);
     }
   }
 }
