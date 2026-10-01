@@ -238,6 +238,11 @@ const careerMatchFileResourceContract=careerMatchFileGuards.includes("const MAX_
 if(!careerMatchFileResourceContract)errors.push("Career Match file parsing must enforce upload size, PDF page-count, and extracted-text bounds");
 else console.log("Career Match file resource guard contract: PASS");
 
+const careerMatchInnerHtml=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchInnerHtmlContract=!careerMatchInnerHtml.includes(".innerHTML");
+if(!careerMatchInnerHtmlContract)errors.push("Career Match must not use live innerHTML sinks");
+else console.log("Career Match innerHTML sink contract: PASS");
+
 const careerMatchPdfCleanup=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchPdfCleanupContract=careerMatchPdfCleanup.includes("const pdf=await pdfjsLib.getDocument({data:buf,isEvalSupported:false,enableScripting:false}).promise;")&&careerMatchPdfCleanup.includes("try{")&&careerMatchPdfCleanup.includes("finally{await pdf.destroy()}")&&!careerMatchPdfCleanup.includes("if(pdf.numPages>MAX_PDF_PAGES){await pdf.destroy();throw");
 if(!careerMatchPdfCleanupContract)errors.push("Career Match PDF parsing must destroy the PDF.js document in a finally block");
