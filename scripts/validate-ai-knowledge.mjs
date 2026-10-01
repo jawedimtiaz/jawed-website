@@ -23,6 +23,16 @@ const missing=sitemapPaths.filter(path=>!excluded.has(path)&&!indexPaths.include
 const unexpected=indexPaths.filter(path=>!sitemapPaths.includes(path));
 const excludedIndexed=[...excluded].filter(path=>indexPaths.includes(path));
 const malformed=knowledge.entries.filter(entry=>!entry.url||!entry.title||!entry.summary||!Array.isArray(entry.keywords)||!entry.keywords.length);
+const reviewDate=knowledge.reviewed_against_sitemap_on;
+const reviewDateMs=typeof reviewDate==="string"&&!Number.isNaN(Date.parse(reviewDate+"T23:59:59Z"))?Date.parse(reviewDate+"T23:59:59Z"):NaN;
+const groundingSourceFiles=sitemapPaths.filter(path=>!excluded.has(path)).map(sourcePath);
+const changedSourceFiles=Number.isNaN(reviewDateMs)?[]:groundingSourceFiles.filter(file=>{
+  try{
+    return Boolean(execFileSync("git",["log","--since="+reviewDate+"T23:59:59Z","--format=%H","--",file],{encoding:"utf8"}).trim());
+  }catch{
+    return false;
+  }
+});
 
 const requiredWorkflowPaths=new Set(["index.html"]);
 for(const path of sitemapPaths.filter(path=>path!=="/"&&!excluded.has(path))){
