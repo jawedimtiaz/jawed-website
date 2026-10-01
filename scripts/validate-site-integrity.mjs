@@ -27,7 +27,11 @@ const discoveryHistoryContract=[
   ["discovery filter listens for browser history navigation",mainJs.includes("window.addEventListener('popstate',()=>{const current=new URLSearchParams(window.location.search).get('q')||''")],
   ["history navigation re-applies discovery filtering",mainJs.includes("i.value=current;update(false)")]
 ];
+const discoveryUrlNormalizationContract=[
+  ["deep-linked discovery query is normalized in the URL",mainJs.includes("const normalized=initial.trim().slice(0,200)")&&mainJs.includes("next.searchParams.set('q',normalized)")&&mainJs.includes("window.history.replaceState")]
+];
 const missingDiscoveryHistoryContracts=discoveryHistoryContract.filter(([,ok])=>!ok).map(([name])=>name);
+const missingDiscoveryUrlNormalizationContracts=discoveryUrlNormalizationContract.filter(([,ok])=>!ok).map(([name])=>name);
 const discoveryAiContract=[
   ["AI handoff captures the active discovery query",mainJs.includes("const aiLink=document.querySelector('.ai-discovery-card a[href^=\"/ai/?q=\"]')")],
   ["AI handoff bounds copied discovery context",mainJs.includes("raw.slice(0,200)")],
@@ -44,6 +48,7 @@ const missingDiscoveryContracts=discoveryFilterContract.filter(([,ok])=>!ok).map
 const missingDiscoveryAiContracts=discoveryAiContract.filter(([,ok])=>!ok).map(([name])=>name);
 if(missingDiscoveryQueryBoundaryContracts.length)errors.push("Discovery query-boundary contract missing: "+missingDiscoveryQueryBoundaryContracts.join(", "));
 if(missingDiscoveryHistoryContracts.length)errors.push("Discovery browser-history contract missing: "+missingDiscoveryHistoryContracts.join(", "));
+if(missingDiscoveryUrlNormalizationContracts.length)errors.push("Discovery URL-normalization contract missing: "+missingDiscoveryUrlNormalizationContracts.join(", "));
 if(missingDiscoveryAiContracts.length)errors.push("Discovery-to-AI context contract missing: "+missingDiscoveryAiContracts.join(", "));
 if(missingDiscoveryContracts.length)errors.push("Discovery filter contract missing: "+missingDiscoveryContracts.join(", "));
 if(sitemapUrls.length!==siteUrls.length)errors.push("Sitemap contains URLs outside https://jawed.co.in/.");
