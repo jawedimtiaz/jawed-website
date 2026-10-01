@@ -16,10 +16,10 @@ function contextText(sources){
   ].join("\n")).join("\n\n");
 }
 function validateProviderReply(reply,sources){
-  if(typeof reply!=="string")throw new Error("The AI provider returned an invalid text response.");
-  if(!reply.trim())throw new Error("The AI provider returned no text response.");
-  if(reply.length>MAX_REPLY_CHARS)throw new Error("The AI provider returned an oversized text response.");
-  if(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(reply))throw new Error("The AI provider returned unsupported control characters.");
+  if(typeof reply!=="string"){const error=new Error("The AI provider returned an invalid text response.");error.category="PROVIDER_INVALID_RESPONSE";throw error;}
+  if(!reply.trim()){const error=new Error("The AI provider returned no text response.");error.category="PROVIDER_INVALID_RESPONSE";throw error;}
+  if(reply.length>MAX_REPLY_CHARS){const error=new Error("The AI provider returned an oversized text response.");error.category="PROVIDER_RESPONSE_VALIDATION";throw error;}
+  if(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(reply)){const error=new Error("The AI provider returned unsupported control characters.");error.category="PROVIDER_RESPONSE_VALIDATION";throw error;}
   return reply.trim();
 }
 function hasAllowedSourceLink(reply,sources){
@@ -97,7 +97,8 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
     })
   });
   }catch(error){
-    if(error?.name==="AbortError"){const timeoutError=new Error("The AI provider request timed out.");timeoutError.status=504;throw timeoutError}
+    if(error?.name==="AbortError"){const timeoutError=new Error("The AI provider request timed out.");timeoutError.status=504;timeoutError.category="PROVIDER_TIMEOUT";throw timeoutError}
+    error.category="PROVIDER_NETWORK";
     throw error;
   }finally{clearTimeout(timeout)}
   const data=await response.json().catch(()=>null);
@@ -105,13 +106,14 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
     const message=typeof data?.error?.message==="string"?data.error.message:"The AI provider returned an error.";
     const error=new Error(message);
     error.status=response.status;
+    error.category=response.status===429?"PROVIDER_HTTP_429":"PROVIDER_HTTP_"+response.status;
     throw error;
   }
   const reply=extractOutputText(data);
   const validatedReply=validateProviderReply(reply,sources);
   const sanitizedReply=sanitizeMarkdownLinks(validatedReply,sources);
   const attributedReply=ensureAllowedSourceLink(sanitizedReply,sources);
-  if(sources.length&&!hasAllowedSourceLink(attributedReply,sources))throw new Error("No safe Jawed.co.in source was available for attribution.");
+  if(sources.length&&!hasAllowedSourceLink(attributedReply,sources)){const error=new Error("No safe Jawed.co.in source was available for attribution.");error.category="PROVIDER_ATTRIBUTION";throw error;}
   return {reply:attributedReply,model:data?.model||model||DEFAULT_MODEL};
 }
 export {DEFAULT_MODEL,MAX_REPLY_CHARS,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions,isSafeSourceUrl};
