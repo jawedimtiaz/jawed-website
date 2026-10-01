@@ -273,7 +273,7 @@ function render(R){window.CUR=R;const h=[];
   h.push(card("gap","Skill Gap + learning suggestions",R.gaps.length?`<div class="table-scroll" tabindex="0"><table><tr><th>Skill</th><th>In job</th><th>How to learn it</th></tr>${R.gaps.map(g=>`<tr><td>${esc(g.skill)}</td><td>${g.mentions}×</td><td>${esc(g.tip)}</td></tr>`).join("")}</table></div>`:'<em class="muted">No missing skills from the built-in skill list.</em>',true));
   $("#results").innerHTML=`<h2 style="margin:0">Your dashboard</h2><div class="cards">${h.join("")}</div>`}
 function bodyText(c){const b=c.querySelector(".body");return(b.innerText??b.textContent).trim()}
-function endEdit(){document.querySelectorAll("#results .body[contenteditable]").forEach(b=>{b.removeAttribute("contenteditable")});document.querySelectorAll('#results [data-a=edit]').forEach(b=>b.textContent="Edit")}
+function endEdit(){document.querySelectorAll("#results .body[contenteditable]").forEach(b=>{b.removeAttribute("contenteditable")});document.querySelectorAll('#results [data-a=edit]').forEach(b=>b.textContent="Edit")}\nfunction safeSavedHtml(html){const source=document.createElement("template");source.innerHTML=html;source.content.querySelectorAll("script,iframe,object,embed,form,style").forEach(e=>e.remove());source.content.querySelectorAll("*").forEach(e=>{[...e.attributes].forEach(a=>{if(a.name.toLowerCase().startsWith("on")||["href","src","xlink:href"].includes(a.name.toLowerCase()))e.removeAttribute(a.name)});});return source.innerHTML}
 $("#results").addEventListener("click",async e=>{
   if(e.target.id==="trackBtn"){if(addJob(window.CUR.company||"Company: Not Provided",window.CUR.title||"Role: Not Provided","Applied"))toast("Added to tracker");return}
   const b=e.target.closest("button[data-a]");if(!b)return;const c=b.closest(".card"),a=b.dataset.a,t=c.querySelector("h3").textContent;
@@ -284,7 +284,7 @@ $("#results").addEventListener("click",async e=>{
 function renderSaved(){const s=store.get("cm_saved",[]);$("#savedList").innerHTML=s.length?s.map(x=>`<div class="job"><b>${esc(x.title)}</b> — score ${x.score}<small>${esc(x.date)}</small><div class="row"><button class="btn" data-id="${x.id}" data-s="open">Open</button><button class="btn" data-id="${x.id}" data-s="del">Delete</button></div></div>`).join(""):'<p class="empty">No saved analyses yet.</p>'}
 $("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=store.get("cm_saved",[]);
   if(b.dataset.s==="del"){if(store.set("cm_saved",s.filter(x=>x.id!==b.dataset.id))){renderSaved();toast("Saved analysis deleted")}}
-  else{const x=s.find(y=>y.id===b.dataset.id);if(x){$("#results").innerHTML=x.html;window.CUR={company:x.company||null,title:x.title||null,overall:x.score,date:x.date};show("results")}}};
+  else{const x=s.find(y=>y.id===b.dataset.id);if(x){$("#results").innerHTML=safeSavedHtml(x.html);window.CUR={company:x.company||null,title:x.title||null,overall:x.score,date:x.date};show("results")}}};
 const STAT=["Applied","Interview","Rejected","Offer"];
 function addJob(company,role,status){const t=store.get("cm_track",[]);t.unshift({id:uid(),company,role,status,date:new Date().toISOString().slice(0,10)});return store.set("cm_track",t)}
 function renderTracker(){const t=store.get("cm_track",[]);
