@@ -190,6 +190,11 @@ const careerMatchSavedSizeContract=careerMatchSavedSize.includes("const MAX_SAVE
 if(!careerMatchSavedSizeContract)errors.push("Career Match saved analyses must enforce a per-analysis HTML size bound before localStorage persistence");
 else console.log("Career Match saved-analysis size guard contract: PASS");
 
+const careerMatchDownloadName=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchDownloadNameContract=careerMatchDownloadName.includes("function downloadName(title)")&&careerMatchDownloadName.includes('slice(0,80)')&&careerMatchDownloadName.includes('return (base||"analysis")+".txt"')&&careerMatchDownloadName.includes("l.download=downloadName(t)");
+if(!careerMatchDownloadNameContract)errors.push("Career Match download filenames must be bounded and fall back to a safe non-empty name");
+else console.log("Career Match download filename integrity contract: PASS");
+
 const careerMatchDownload=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchDownloadContract=careerMatchDownload.includes("URL.createObjectURL(new Blob")&&careerMatchDownload.includes("setTimeout(()=>URL.revokeObjectURL(u),0)")&&!careerMatchDownload.includes("l.click();URL.revokeObjectURL(u)");
 if(!careerMatchDownloadContract)errors.push("Career Match downloads must defer Blob URL revocation until after download initiation");
