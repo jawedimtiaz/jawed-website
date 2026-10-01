@@ -149,6 +149,10 @@ if(!careerMatchMammothSecurityContract)errors.push("Career Match DOCX reader mus
 else console.log("Career Match Mammoth dependency security contract: PASS");
 
 const headers=fs.readFileSync("_headers","utf8");
+const crossDomainPolicyContract=headers.includes("X-Permitted-Cross-Domain-Policies: none");
+if(!crossDomainPolicyContract)errors.push("Security headers must disable legacy cross-domain policy files");
+else console.log("X-Permitted-Cross-Domain-Policies contract: PASS");
+
 const cspFrameContract=headers.includes("frame-src 'none'");
 if(!cspFrameContract)errors.push("CSP must explicitly deny frame loads because the site does not use iframes");
 else console.log("CSP frame-src hardening contract: PASS");
