@@ -98,6 +98,18 @@ const careerMatchTabs=fs.readFileSync("tools/career-match-resume-review/index.ht
 const careerMatchTabContract=careerMatchTabs.includes('role="tablist"')&&careerMatchTabs.includes('role="tab"')&&careerMatchTabs.includes('aria-selected="true"')&&careerMatchTabs.includes('aria-controls="v-results"')&&careerMatchTabs.includes("careerTabs");
 if(!careerMatchTabContract)errors.push("Career Match view controls must expose accessible tab semantics and keyboard navigation");
 else console.log("Career Match view accessibility contract: PASS");
+const generatorFreshnessChecks=[
+ ["AI Prompt Builder", "tools/ai-prompt-builder/index.html", "Inputs changed. Build the prompt again to refresh the output.", ["#prompt-goal","#prompt-context","#prompt-desired-output","#prompt-constraints","#prompt-example"]],
+ ["Service Desk Note Formatter", "tools/service-desk-note-formatter/index.html", "Inputs changed. Format the note again to refresh the output.", ["#note-issue","#note-actions","#note-resolution","#note-followup"]],
+ ["Ticket to Knowledge Base Draft", "tools/ticket-to-knowledge-base-draft/index.html", "Inputs changed. Build the draft again to refresh the output.", ["#kb-problem","#kb-scope","#kb-checks","#kb-resolution","#kb-validation","#kb-escalation","#kb-maintenance"]]
+];
+for(const [name,path,message,fields] of generatorFreshnessChecks){
+ const html=fs.readFileSync(path,"utf8");
+ const ok=html.includes(message)&&fields.every(id=>html.includes(id+'").addEventListener("input",markDirty)')||fields.every(id=>html.includes(id+'").addEventListener(\'input\',markDirty)'));
+ if(!ok)errors.push(name+" must mark generated output stale when inputs change");
+}
+if(generatorFreshnessChecks.every(([name,path,message])=>fs.readFileSync(path,"utf8").includes(message)))console.log("Generator output freshness contract: PASS");
+
 
 console.log("Internal link and fragment integrity: PASS");
 const financeSnapshot=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");
