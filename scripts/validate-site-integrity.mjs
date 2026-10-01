@@ -158,6 +158,11 @@ const careerMatchPersistedIdRenderingContract=careerMatchPersistedIdRendering.in
 if(!careerMatchPersistedIdRenderingContract)errors.push("Career Match persisted record IDs must be HTML-escaped before rendering into action attributes");
 else console.log("Career Match persisted-ID rendering safety contract: PASS");
 
+const careerMatchSavedSanitizerBoundary=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchSavedSanitizerBoundaryContract=careerMatchSavedSanitizerBoundary.includes("script,iframe,object,embed,form,style,svg,math,base,meta,link,button,input,textarea,select,option,details,summary");
+if(!careerMatchSavedSanitizerBoundaryContract)errors.push("Career Match saved-content sanitizer must remove executable, navigational, metadata and interactive elements before persistence or restore");
+else console.log("Career Match saved-content element boundary contract: PASS");
+
 const careerMatchSavedHandler=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedHandlerContract=careerMatchSavedHandler.includes('$("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=validSavedList(store.get("cm_saved",[]));');
 if(!careerMatchSavedHandlerContract)errors.push("Career Match saved-analysis actions must use validated persisted records");
