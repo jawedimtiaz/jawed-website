@@ -18,6 +18,25 @@ const checks=[
   ["AI provider contract behavior","scripts/validate-ai-provider-contract.mjs",/AI provider contract behavioral coverage: PASS/]
 ];
 
+const EXCLUDED_VALIDATORS=new Set([
+  "scripts/validate-ai-regression.mjs",
+  "scripts/validate-ai-production-e2e.mjs"
+]);
+const discoveredValidators=fs.readdirSync("scripts")
+  .filter(name=>/^validate-ai-.*\.mjs$/.test(name))
+  .map(name=>"scripts/"+name)
+  .filter(path=>!EXCLUDED_VALIDATORS.has(path))
+  .sort();
+const registeredValidators=checks.map(([,path])=>path).sort();
+assert.deepEqual(
+  registeredValidators,
+  discoveredValidators,
+  "Deterministic AI validator inventory does not match the regression matrix"
+);
+console.log("AI validator inventory: PASS");
+console.log("Deterministic validators discovered:",discoveredValidators.length);
+console.log("Explicitly excluded validators:",[...EXCLUDED_VALIDATORS].join(", "));
+
 assert.equal(new Set(checks.map(([,path])=>path)).size,checks.length,"Regression matrix contains duplicate validator paths");
 
 const MAX_DIAGNOSTIC_CHARS=4000;

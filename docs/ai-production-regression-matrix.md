@@ -19,10 +19,21 @@ The matrix executes the existing validators for:
 
 It then checks the core cross-layer contracts directly, including request limits, rate limiting, server-side credentials, provider no-storage behavior, untrusted-data boundaries, bounded output, source attribution, link sanitization, text-only rendering, structured source URL validation, and memory-only browser history.
 
+## Validator inventory contract
+
+The regression matrix self-checks the `scripts/validate-ai-*.mjs` inventory before executing validators. Every deterministic AI validator must be registered in the matrix, preventing a future validator from being silently omitted.
+
+Two scripts are explicitly excluded:
+
+- `scripts/validate-ai-regression.mjs` — the matrix runner itself
+- `scripts/validate-ai-production-e2e.mjs` — optional deployment/provider-backed E2E harness, which is not deterministic CI coverage
+
+If a new `validate-ai-*.mjs` validator is added, CI will fail until it is intentionally registered or explicitly classified as an excluded non-deterministic harness.
+
 ## Scope
 
 This is a deterministic repository regression suite. It does not claim that the public deployment is reachable or that a provider-backed request succeeds. The existing production E2E harness remains responsible for optional live provider testing when deployment and configuration permit it.
 
 ## Maintenance rule
 
-When a future AI phase changes a contract, update the focused validator first and then update this matrix if the contract belongs to the cross-layer production boundary. The matrix should remain a single high-signal gate rather than duplicating every detailed assertion.
+When a future AI phase changes a contract, update the focused validator first and then update this matrix if the contract belongs to the cross-layer production boundary. Any new deterministic `validate-ai-*.mjs` validator must also be registered in the matrix; the inventory self-check enforces this rule.
