@@ -12,6 +12,7 @@ const required=[
   'p.textContent=text',
   'source.url.startsWith("/")',
   'source.url.startsWith("//")',
+  'source.url.includes("\\\\")',
   'maxlength="500"',
 ];
 
