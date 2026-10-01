@@ -29,6 +29,13 @@ function hasAllowedSourceLink(reply,sources){
   return sources.filter(source=>isSafeSourceUrl(source.url)).some(source=>reply.includes("](https://jawed.co.in"+source.url+")"));
 }
 
+function ensureAllowedSourceLink(reply,sources){
+  if(!sources.length||hasAllowedSourceLink(reply,sources))return reply;
+  const source=sources.find(item=>isSafeSourceUrl(item.url));
+  if(!source)return reply;
+  return reply+"\n\nSource: ["+source.title+"](https://jawed.co.in"+source.url+")";
+}
+
 function sanitizeMarkdownLinks(reply,sources){
   const allowed=new Set(sources.filter(source=>isSafeSourceUrl(source.url)).map(source=>"https://jawed.co.in"+source.url));
   return reply.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(match,label,url)=>allowed.has(url)?match:label);
@@ -106,8 +113,9 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
   const reply=typeof data?.output_text==="string"?data.output_text:"";
   const validatedReply=validateProviderReply(reply,sources);
   const sanitizedReply=sanitizeMarkdownLinks(validatedReply,sources);
-  if(sources.length&&!hasAllowedSourceLink(sanitizedReply,sources))throw new Error("The AI provider returned a sourced response without a valid Jawed.co.in source link.");
-  return {reply:sanitizedReply,model:data?.model||model||DEFAULT_MODEL};
+  const attributedReply=ensureAllowedSourceLink(sanitizedReply,sources);
+  if(sources.length&&!hasAllowedSourceLink(attributedReply,sources))throw new Error("No safe Jawed.co.in source was available for attribution.");
+  return {reply:attributedReply,model:data?.model||model||DEFAULT_MODEL};
 }
 
 export {DEFAULT_MODEL,MAX_REPLY_CHARS,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions,isSafeSourceUrl};

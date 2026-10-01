@@ -27,6 +27,11 @@ const result=await generateGroundedReply({
   }]
 });
 assert.equal(result.reply.includes("https://jawed.co.in/tools/retirement-planning-calculator/"),true);
+
+calls=[];
+globalThis.fetch=async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify({model:"mock-provider-model",output_text:"The calculator can help with retirement planning."}),{status:200,headers:{"content-type":"application/json"}});};
+const fallbackResult=await generateGroundedReply({apiKey:"test-provider-key",input:[{role:"user",content:"Where is the retirement planning calculator?"}],sources:[{url:"/tools/retirement-planning-calculator/",title:"Retirement Planning Calculator",summary:"A practical calculator for retirement planning.",keywords:["retirement","planning","calculator"]}]});
+assert.equal(fallbackResult.reply.includes("Source: [Retirement Planning Calculator](https://jawed.co.in/tools/retirement-planning-calculator/)"),true);
 assert.equal(result.model,"mock-provider-model");
 assert.equal(calls.length,1);
 assert.equal(calls[0].url,"https://api.openai.com/v1/responses");
