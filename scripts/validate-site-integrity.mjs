@@ -143,6 +143,11 @@ const careerMatchSavedHandlerContract=careerMatchSavedHandler.includes('$("#save
 if(!careerMatchSavedHandlerContract)errors.push("Career Match saved-analysis actions must use validated persisted records");
 else console.log("Career Match saved-action integrity contract: PASS");
 
+const careerMatchMammoth=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchMammothSecurityContract=careerMatchMammoth.includes('mammoth/1.13.0/mammoth.browser.min.js')&&!careerMatchMammoth.includes('mammoth/1.6.0/');
+if(!careerMatchMammothSecurityContract)errors.push("Career Match DOCX reader must use the current patched Mammoth browser build");
+else console.log("Career Match Mammoth dependency security contract: PASS");
+
 const careerMatchPdf=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchPdfSecurityContract=careerMatchPdf.includes('pdf.js/4.2.67/pdf.min.mjs')&&careerMatchPdf.includes('pdf.js/4.2.67/pdf.worker.min.mjs')&&!careerMatchPdf.includes('pdf.js/3.11.174/');
 if(!careerMatchPdfSecurityContract)errors.push("Career Match PDF reader must use the patched PDF.js release and matching worker");
