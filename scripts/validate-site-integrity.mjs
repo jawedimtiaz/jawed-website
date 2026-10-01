@@ -94,6 +94,11 @@ if(missingSources.length)errors.push("Sitemap pages have no repository source fi
 if(unsitemapPages.length)errors.push("Published HTML pages are missing from sitemap: "+unsitemapPages.join(", "));
 assert.equal(errors.length,0,errors.join("\n"));
 console.log("Career Match saved-content security contract: PASS");
+const careerMatchTabs=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchTabContract=careerMatchTabs.includes('role="tablist"')&&careerMatchTabs.includes('role="tab"')&&careerMatchTabs.includes('aria-selected="true"')&&careerMatchTabs.includes('aria-controls="v-results"')&&careerMatchTabs.includes("careerTabs");
+if(!careerMatchTabContract)errors.push("Career Match view controls must expose accessible tab semantics and keyboard navigation");
+else console.log("Career Match view accessibility contract: PASS");
+
 console.log("Internal link and fragment integrity: PASS");
 const financeSnapshot=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");
 const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fromEntries(ids.map(id=>[id,$(id).value]))")&&financeSnapshot.includes("ids.forEach(id=>$(id).value=defaults[id])");
