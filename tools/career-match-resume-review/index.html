@@ -208,7 +208,7 @@ const $=s=>document.querySelector(s);
 const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch{toast("Browser storage unavailable");return false}}};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),1800)}
-function setTheme(t){document.documentElement.dataset.theme=t;store.set("cm_theme",t)}
+function setTheme(t){const theme=t==="dark"||t==="light"?t:"light";document.documentElement.dataset.theme=theme;store.set("cm_theme",theme)}
 setTheme(store.get("cm_theme",matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"));
 $("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
 function show(v){const tabs=[...document.querySelectorAll('nav[role="tablist"] [role="tab"]')];document.querySelectorAll(".view").forEach(e=>{const active=e.id==="v-"+v;e.classList.toggle("hidden",!active);e.setAttribute("aria-hidden",String(!active))});tabs.forEach(b=>{const active=b.dataset.v===v;b.classList.toggle("on",active);b.setAttribute("aria-selected",String(active));b.tabIndex=active?0:-1});if(v==="tracker")renderTracker();if(v==="saved")renderSaved();const target=document.querySelector("#v-"+v);if(target){target.setAttribute("tabindex","-1");target.focus({preventScroll:true})}}
