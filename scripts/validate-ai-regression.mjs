@@ -111,6 +111,9 @@ const contracts=[
 assert.equal(endpoint.includes("source.summary")&&endpoint.includes("source.keywords")&&endpoint.includes("keywords.filter"),true,"API must preserve provider grounding metadata");
 console.log("PASS — API preserves provider grounding metadata");
 
+assert.equal(knowledgeDataSource.includes('url:"/ai/"')||knowledgeDataSource.includes('"url": "/ai/"'),true,"AI knowledge must include the Jawed AI self-description source");
+console.log("PASS — Jawed AI self-description source is indexed");
+
 for(const [name,ok] of contracts){
   try{assert.equal(ok,true,name+" contract is missing");console.log("PASS — "+name);}
   catch(error){failures.push({name,output:error.message});console.error("FAIL — "+name);}
