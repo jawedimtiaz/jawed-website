@@ -23,7 +23,9 @@ const metadataMismatches=knowledge.entries.filter(entry=>{
   const html=fs.readFileSync(file,"utf8");
   const titleMatch=html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
   const pageTitle=(titleMatch?.[1]||"").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
-  return !pageTitle||!pageTitle.toLowerCase().includes(entry.title.trim().toLowerCase());
+  const normalizedIndexTitle=entry.title.trim().toLowerCase();
+  const normalizedPageTitle=pageTitle.toLowerCase().replace(/\s*\|\s*jawed imtiaz\s*$/,"");
+  return !normalizedPageTitle||normalizedPageTitle!==normalizedIndexTitle;
 });
 
 const unique=(items)=>new Set(items);
