@@ -92,7 +92,6 @@ if(sitemapUrls.length!==siteUrls.length)errors.push("Sitemap contains URLs outsi
 if(duplicateSitemapPaths.length)errors.push("Sitemap contains duplicate paths: "+[...new Set(duplicateSitemapPaths)].join(", "));
 if(missingSources.length)errors.push("Sitemap pages have no repository source file: "+missingSources.join(", "));
 if(unsitemapPages.length)errors.push("Published HTML pages are missing from sitemap: "+unsitemapPages.join(", "));
-assert.equal(errors.length,0,errors.join("\n"));
 console.log("Career Match saved-content security contract: PASS");
 const careerMatchTabs=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchTabContract=careerMatchTabs.includes('role="tablist"')&&careerMatchTabs.includes('role="tab"')&&careerMatchTabs.includes('aria-selected="true"')&&careerMatchTabs.includes('aria-controls="v-results"')&&careerMatchTabs.includes("careerTabs");
@@ -173,7 +172,6 @@ const cspFrameContract=headers.includes("frame-src 'none'");
 if(!cspFrameContract)errors.push("CSP must explicitly deny frame loads because the site does not use iframes");
 else console.log("CSP frame-src hardening contract: PASS");
 
-const headers=fs.readFileSync("_headers","utf8");
 const crossOriginOpenerPolicyContract=headers.includes("Cross-Origin-Opener-Policy: same-origin");
 if(!crossOriginOpenerPolicyContract)errors.push("Security headers must enforce same-origin cross-origin opener isolation");
 else console.log("Cross-Origin-Opener-Policy contract: PASS");
@@ -220,6 +218,8 @@ const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fro
 if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
 else console.log("Personal Finance Snapshot reset contract: PASS");
 
+assert.equal(errors.length,0,errors.join("\n"));
+console.log("All site-integrity contracts: PASS");
 console.log("Discovery filter exclusion contract: PASS");
 console.log("Site sitemap/page parity: PASS");
 console.log("Sitemap pages:",sitemapPaths.length);
