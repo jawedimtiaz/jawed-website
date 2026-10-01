@@ -6,7 +6,7 @@ Phase 20G consolidates the accumulated AI contracts into one deterministic repos
 
 `node scripts/validate-ai-regression.mjs`
 
-The matrix executes the existing validators for:
+The matrix executes 11 deterministic validators covering:
 
 1. knowledge coverage
 2. retrieval/context behavior
@@ -16,6 +16,11 @@ The matrix executes the existing validators for:
 6. browser operational behavior
 7. production observability
 8. production security/privacy
+9. negative-path behavior
+10. API handler behavior
+11. provider contract behavior
+
+The validator inventory is self-checked before execution, so this list must remain synchronized with the registered deterministic validator set.
 
 It then checks the core cross-layer contracts directly, including request limits, rate limiting, server-side credentials, provider no-storage behavior, untrusted-data boundaries, bounded output, source attribution, link sanitization, text-only rendering, structured source URL validation, and memory-only browser history.
 
