@@ -138,6 +138,11 @@ const careerMatchStorageContract=careerMatchStorage.includes("function validSave
 if(!careerMatchStorageContract)errors.push("Career Match persisted saved and tracker data must be shape-validated before use");
 else console.log("Career Match persisted-state integrity contract: PASS");
 
+const careerMatchSavedHandler=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchSavedHandlerContract=careerMatchSavedHandler.includes('$("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=validSavedList(store.get("cm_saved",[]));');
+if(!careerMatchSavedHandlerContract)errors.push("Career Match saved-analysis actions must use validated persisted records");
+else console.log("Career Match saved-action integrity contract: PASS");
+
 const financeSnapshot=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");
 const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fromEntries(ids.map(id=>[id,$(id).value]))")&&financeSnapshot.includes("ids.forEach(id=>$(id).value=defaults[id])");
 if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
