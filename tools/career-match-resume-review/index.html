@@ -223,6 +223,11 @@ const MAX_SAVED_HTML_CHARS=500000;
 async function readFile(f){
   if(f.size>MAX_FILE_BYTES)throw new Error("File is too large (maximum 15 MB). Please paste the text instead.");
   const n=f.name.toLowerCase(),buf=await f.arrayBuffer();let out="";
+  const bytes=new Uint8Array(buf,0,Math.min(buf.byteLength,8));
+  const isPdf=bytes.length>=4&&bytes[0]===37&&bytes[1]===80&&bytes[2]===68&&bytes[3]===70;
+  const isZip=bytes.length>=2&&bytes[0]===80&&bytes[1]===75;
+  if(n.endsWith(".pdf")&&!isPdf)throw new Error("The selected file does not appear to be a valid PDF.");
+  if(n.endsWith(".docx")&&!isZip)throw new Error("The selected file does not appear to be a valid DOCX file.");
   if(n.endsWith(".pdf")){await loadPdfReader();
     pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
     const pdf=await pdfjsLib.getDocument({data:buf}).promise;
