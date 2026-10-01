@@ -163,6 +163,11 @@ const careerMatchFileResourceContract=careerMatchFileGuards.includes("const MAX_
 if(!careerMatchFileResourceContract)errors.push("Career Match file parsing must enforce upload size, PDF page-count, and extracted-text bounds");
 else console.log("Career Match file resource guard contract: PASS");
 
+const careerMatchPdfCleanup=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchPdfCleanupContract=careerMatchPdfCleanup.includes("const pdf=await pdfjsLib.getDocument({data:buf}).promise;")&&careerMatchPdfCleanup.includes("try{")&&careerMatchPdfCleanup.includes("finally{await pdf.destroy()}")&&!careerMatchPdfCleanup.includes("if(pdf.numPages>MAX_PDF_PAGES){await pdf.destroy();throw");
+if(!careerMatchPdfCleanupContract)errors.push("Career Match PDF parsing must destroy the PDF.js document in a finally block");
+else console.log("Career Match PDF document cleanup contract: PASS");
+
 const careerMatchPdf=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchPdfSecurityContract=careerMatchPdf.includes('pdf.js/4.2.67/pdf.min.mjs')&&careerMatchPdf.includes('pdf.js/4.2.67/pdf.worker.min.mjs')&&!careerMatchPdf.includes('pdf.js/3.11.174/');
 if(!careerMatchPdfSecurityContract)errors.push("Career Match PDF reader must use the patched PDF.js release and matching worker");
