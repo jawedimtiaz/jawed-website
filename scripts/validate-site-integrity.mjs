@@ -133,6 +133,10 @@ const careerMatchFocusRecoveryContract=careerMatchFocus.includes('const index=[.
 if(!careerMatchFocusRecoveryContract)errors.push("Career Match mutations must restore keyboard focus after saved-analysis and tracker deletions");
 else console.log("Career Match mutation focus recovery contract: PASS");
 
+const careerMatchTheme=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchThemeContract=careerMatchTheme.includes('const theme=t==="dark"||t==="light"?t:"light"');
+if(!careerMatchThemeContract)errors.push("Career Match persisted theme state must be restricted to the supported light/dark values");
+else console.log("Career Match theme-state integrity contract: PASS");
 const careerMatchStorage=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchStorageContract=careerMatchStorage.includes("function validSavedList(v)")&&careerMatchStorage.includes("function validTrackList(v)")&&careerMatchStorage.includes("validSavedList(store.get(\"cm_saved\",[]))")&&careerMatchStorage.includes("validTrackList(store.get(\"cm_track\",[]))");
 if(!careerMatchStorageContract)errors.push("Career Match persisted saved and tracker data must be shape-validated before use");
