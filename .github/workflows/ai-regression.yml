@@ -46,4 +46,39 @@ on:
       - "sitemap.xml"
       - ".github/workflows/ai-regression.yml"
 
+permissions:
+  contents: read
 
+jobs:
+  ai-regression:
+    name: AI production regression matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Run AI regression matrix
+        id: regression
+        run: node scripts/validate-ai-regression.mjs
+
+      - name: Publish release evidence
+        if: always()
+        env:
+          RESULT: ${{ steps.regression.outcome }}
+        run: |
+          {
+            echo "## AI Regression Gate"
+            echo
+            echo "- Result: `$RESULT`"
+            echo "- Commit: `${GITHUB_SHA}`"
+            echo "- Ref: `${GITHUB_REF}`"
+            echo "- Node: `$(node --version)`"
+            echo "- Deterministic provider-backed E2E: not asserted"
+          } >> "$GITHUB_STEP_SUMMARY"
