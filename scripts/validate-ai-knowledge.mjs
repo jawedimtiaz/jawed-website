@@ -26,10 +26,12 @@ const malformed=knowledge.entries.filter(entry=>!entry.url||!entry.title||!entry
 const reviewDate=knowledge.reviewed_against_sitemap_on;
 const reviewDateMs=typeof reviewDate==="string"&&!Number.isNaN(Date.parse(reviewDate+"T23:59:59Z"))?Date.parse(reviewDate+"T23:59:59Z"):NaN;
 const groundingSourceFiles=sitemapPaths.filter(path=>!excluded.has(path)).map(sourcePath);
+const sourceFreshnessErrors=[];
 const changedSourceFiles=Number.isNaN(reviewDateMs)?[]:groundingSourceFiles.filter(file=>{
   try{
     return Boolean(execFileSync("git",["log","--since="+reviewDate+"T23:59:59Z","--format=%H","--",file],{encoding:"utf8"}).trim());
   }catch{
+    sourceFreshnessErrors.push(file);
     return false;
   }
 });
@@ -53,6 +55,7 @@ const workflowDuplicatePaths=[...new Set([...workflowPathLines(pullRequestPaths)
 
 const errors=[];
 if(Number.isNaN(reviewDateMs))errors.push("AI knowledge reviewed_against_sitemap_on is missing or invalid.");
+if(sourceFreshnessErrors.length)errors.push("AI knowledge source freshness could not be verified because git history lookup failed for: "+sourceFreshnessErrors.join(", "));
 if(changedSourceFiles.length)errors.push("AI knowledge summaries are stale because grounding source files changed after the recorded review date: "+changedSourceFiles.join(", "));
 if(allSitemapLocs.length!==sitemapPaths.length)errors.push("Sitemap contains one or more <loc> URLs outside the expected https://jawed.co.in/ origin or with an unsupported format.");
 if(workflowMissing.length)errors.push("AI regression workflow trigger parity is incomplete for grounding source paths: "+workflowMissing.join(", "));
