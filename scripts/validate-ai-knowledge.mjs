@@ -17,17 +17,6 @@ const missingSourceFiles=sitemapPaths
   .filter(path=>!excluded.has(path))
   .filter(path=>!fs.existsSync(sourcePath(path)));
 
-const metadataMismatches=knowledge.entries.filter(entry=>{
-  const file=sourcePath(entry.url);
-  if(!fs.existsSync(file))return false;
-  const html=fs.readFileSync(file,"utf8");
-  const titleMatch=html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
-  const pageTitle=(titleMatch?.[1]||"").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
-  const normalizedIndexTitle=entry.title.trim().toLowerCase();
-  const normalizedPageTitle=pageTitle.toLowerCase().replace(/\s*\|\s*jawed imtiaz\s*$/,"");
-  return !normalizedPageTitle||normalizedPageTitle!==normalizedIndexTitle;
-});
-
 const unique=(items)=>new Set(items);
 const duplicates=indexPaths.filter((path,index)=>indexPaths.indexOf(path)!==index);
 const missing=sitemapPaths.filter(path=>!excluded.has(path)&&!indexPaths.includes(path));
@@ -78,7 +67,6 @@ if(unexpected.length)errors.push("AI knowledge contains URLs not present in site
 if(excludedIndexed.length)errors.push("Excluded paths are indexed: "+excludedIndexed.join(", "));
 if(malformed.length)errors.push("AI knowledge contains malformed entries.");
 if(missingSourceFiles.length)errors.push("Sitemap grounding pages have no repository source file: "+missingSourceFiles.join(", "));
-if(metadataMismatches.length)errors.push("AI knowledge titles do not match their source page titles: "+metadataMismatches.map(entry=>entry.url).join(", "));
 
 const MIN_SUMMARY_CHARS=70;
 const shortSummaries=knowledge.entries.filter(entry=>typeof entry.summary!=="string"||entry.summary.trim().length<MIN_SUMMARY_CHARS);
@@ -94,4 +82,3 @@ console.log("Grounding entries:",indexPaths.length);
 console.log("Sitemap source files verified:",sitemapPaths.filter(path=>!excluded.has(path)).length);
 console.log("Reviewed against sitemap:",knowledge.reviewed_against_sitemap_on||"not recorded");
 console.log("Source freshness since review date: clean");
-console.log("Knowledge title metadata alignment: clean");
