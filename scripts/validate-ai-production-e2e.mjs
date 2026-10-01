@@ -46,6 +46,7 @@ for(const source of result.body.sources){
   assert.equal(typeof source?.url,"string","AI source URL must be a string");
   assert.equal(source.url.startsWith("/"),true,"AI source URL must be relative");
   assert.equal(source.url.startsWith("//"),false,"AI source URL must not be protocol-relative");
+  assert.equal(source.url.includes("\\\\"),false,"AI source URL must not contain backslashes");
   assert.equal(typeof source?.title,"string","AI source title must be a string");
   assert.equal(source.title.trim().length>0,true,"AI source title must be non-empty");
 }
