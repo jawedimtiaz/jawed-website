@@ -241,9 +241,10 @@ async function readFile(f){
   else throw new Error("Unsupported file type");
   if(out.length>MAX_EXTRACTED_CHARS)throw new Error("Extracted text is too large (maximum 500,000 characters). Please use a shorter document.");
   if(out.trim().length<50)throw new Error("No selectable text found (scanned file?)");return out}
-$("#file").onchange=async e=>{const f=e.target.files[0];if(!f)return;$("#resume").value="";$("#fileMsg").textContent="Reading…";
-  try{const t=await readFile(f);$("#resume").value=t;$("#fileMsg").textContent=`Loaded ${f.name} (${t.split(/\s+/).length} words)`}
-  catch(err){$("#fileMsg").textContent="Could not read file: "+err.message+". Please paste the text instead.";$("#file").value=""}};
+let fileReadToken=0;
+$("#file").onchange=async e=>{const token=++fileReadToken,f=e.target.files[0];if(!f)return;$("#resume").value="";$("#fileMsg").textContent="Reading…";
+  try{const t=await readFile(f);if(token!==fileReadToken)return;$("#resume").value=t;$("#fileMsg").textContent=`Loaded ${f.name} (${t.split(/\s+/).length} words)`}
+  catch(err){if(token!==fileReadToken)return;$("#fileMsg").textContent="Could not read file: "+err.message+". Please paste the text instead.";$("#file").value=""}};
 $("#sample").onclick=()=>{$("#resume").value=`Alex Sample
 alex.sample@example.com | +1 555 010 2030
 Summary
