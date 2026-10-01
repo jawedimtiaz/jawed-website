@@ -153,6 +153,10 @@ const cspFrameContract=headers.includes("frame-src 'none'");
 if(!cspFrameContract)errors.push("CSP must explicitly deny frame loads because the site does not use iframes");
 else console.log("CSP frame-src hardening contract: PASS");
 
+const headers=fs.readFileSync("_headers","utf8");
+const crossOriginOpenerPolicyContract=headers.includes("Cross-Origin-Opener-Policy: same-origin");
+if(!crossOriginOpenerPolicyContract)errors.push("Security headers must enforce same-origin cross-origin opener isolation");
+else console.log("Cross-Origin-Opener-Policy contract: PASS");
 const careerMatchLoader=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchLoaderContract=careerMatchLoader.includes("s.onerror=()=>{s.remove();reject(new Error(\"Could not load the file reader (internet needed)\"))}")&&!careerMatchLoader.includes("s.onerror=()=>reject(new Error(\"Could not load the file reader (internet needed)\"))");
 if(!careerMatchLoaderContract)errors.push("Career Match external file-reader loader must remove failed script elements before rejecting");
