@@ -6,6 +6,7 @@ const sitemap=fs.readFileSync("sitemap.xml","utf8");
 const knowledge=JSON.parse(fs.readFileSync("assets/data/ai-knowledge.json","utf8"));
 const excluded=new Set(knowledge.coverage_policy?.excluded_paths||[]);
 const sitemapPaths=[...sitemap.matchAll(/<loc>https:\/\/jawed\.co\.in([^<]*)<\/loc>/g)].map(match=>match[1]||"/");
+const workflow=fs.readFileSync(".github/workflows/ai-regression.yml","utf8");
 const indexPaths=knowledge.entries.map(entry=>entry.url);
 
 const unique=(items)=>new Set(items);
@@ -15,7 +16,15 @@ const unexpected=indexPaths.filter(path=>!sitemapPaths.includes(path));
 const excludedIndexed=[...excluded].filter(path=>indexPaths.includes(path));
 const malformed=knowledge.entries.filter(entry=>!entry.url||!entry.title||!entry.summary||!Array.isArray(entry.keywords)||!entry.keywords.length);
 
+const requiredWorkflowPaths=new Set(["index.html"]);
+for(const path of sitemapPaths.filter(path=>path!=="/"&&!excluded.has(path))){
+  const family=path.split("/").filter(Boolean)[0];
+  if(family)requiredWorkflowPaths.add(family+"/**");
+}
+const workflowMissing=[...requiredWorkflowPaths].filter(path=>!workflow.includes('"'+path+'"'));
+
 const errors=[];
+if(workflowMissing.length)errors.push("AI regression workflow does not trigger for grounding source path families: "+workflowMissing.join(", "));
 if(new Set(sitemapPaths).size!==sitemapPaths.length)errors.push("Sitemap contains duplicate URLs.");
 if(duplicates.length)errors.push("AI knowledge contains duplicate URLs: "+[...new Set(duplicates)].join(", "));
 if(missing.length)errors.push("Sitemap content pages missing from AI knowledge: "+missing.join(", "));
