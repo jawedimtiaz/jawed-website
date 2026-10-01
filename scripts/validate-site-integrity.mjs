@@ -174,6 +174,10 @@ if(!cspFrameContract)errors.push("CSP must explicitly deny frame loads because t
 else console.log("CSP frame-src hardening contract: PASS");
 
 const headers=fs.readFileSync("_headers","utf8");
+const crossOriginResourcePolicyContract=headers.includes("Cross-Origin-Resource-Policy: same-origin");
+if(!crossOriginResourcePolicyContract)errors.push("Security headers must restrict cross-origin resource loading to same-origin responses");
+else console.log("Cross-Origin-Resource-Policy contract: PASS");
+
 const crossOriginOpenerPolicyContract=headers.includes("Cross-Origin-Opener-Policy: same-origin");
 if(!crossOriginOpenerPolicyContract)errors.push("Security headers must enforce same-origin cross-origin opener isolation");
 else console.log("Cross-Origin-Opener-Policy contract: PASS");
