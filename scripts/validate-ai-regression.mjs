@@ -76,6 +76,7 @@ for(const [name,path,completion] of checks){
 const endpoint=fs.readFileSync("functions/api/ai.js","utf8");
 const provider=fs.readFileSync("functions/lib/openai-provider.js","utf8");
 const frontend=fs.readFileSync("ai/index.html","utf8");
+const aiStyles=fs.readFileSync("assets/css/style.css","utf8");
 const rateLimit=fs.readFileSync("functions/lib/ai-rate-limit.js","utf8");
 
 const contracts=[
@@ -100,7 +101,8 @@ const contracts=[
   ["AI retry reuses failed question message",frontend.includes("let retryMessage=null")&&frontend.includes("retryMessage.question!==question")&&frontend.includes("retryMessage=null;status.textContent=\"\"")],
   ["AI failure status clears when editing",frontend.includes('input.addEventListener("input",()=>{input.setCustomValidity("");if(f.getAttribute("aria-busy")!=="true")status.textContent=""})')],
   ["AI whitespace-only question is rejected",frontend.includes('if(!question){if(input.value)input.setCustomValidity("Please enter a question.");input.reportValidity();return;}')],
-  ["AI deep-link consumption preserves hash",frontend.includes("cleanUrl.hash") ]
+  ["AI deep-link consumption preserves hash",frontend.includes("cleanUrl.hash") ],
+  ["AI message line breaks are preserved",aiStyles.includes(".ai-message p{white-space:pre-wrap}") ]
 ];
 
 for(const [name,ok] of contracts){
