@@ -12,7 +12,11 @@ globalThis.fetch=async(url,options)=>{
   calls.push({url,options});
   return new Response(JSON.stringify({
     model:"mock-provider-model",
-    output_text:"Use [Retirement Planning](https://jawed.co.in/tools/retirement-planning-calculator/)."
+    output:[
+      {type:"message",role:"assistant",status:"completed",content:[
+        {type:"output_text",text:"Use [Retirement Planning](https://jawed.co.in/tools/retirement-planning-calculator/).",annotations:[]}
+      ]}
+    ]
   }),{status:200,headers:{"content-type":"application/json"}});
 };
 
@@ -61,7 +65,7 @@ assert.equal(calls.length,1);
 
 globalThis.fetch=originalFetch;
 console.log("AI provider contract behavioral coverage: PASS");
-console.log("Provider request payload exercised: yes");
+console.log("Responses API raw output-item parsing exercised: yes");
 console.log("No-storage and output-token contracts exercised: yes");
 console.log("Provider error status propagation exercised: yes");
 console.log("Mocked provider only: yes");
