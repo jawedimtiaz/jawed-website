@@ -173,6 +173,11 @@ const careerMatchSavedRestoreLimitContract=careerMatchSavedRestoreLimit.includes
 if(!careerMatchSavedRestoreLimitContract)errors.push("Career Match persisted saved HTML must enforce the 500,000-character bound during restore validation");
 else console.log("Career Match saved-HTML restore limit contract: PASS");
 
+const careerMatchCopyCleanup=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchCopyCleanupContract=careerMatchCopyCleanup.includes('try{x.select();copied=document.execCommand("copy")}catch{copied=false}finally{x.remove()}');
+if(!careerMatchCopyCleanupContract)errors.push("Career Match clipboard fallback must remove its temporary textarea even when copy execution throws");
+else console.log("Career Match clipboard fallback cleanup contract: PASS");
+
 const careerMatchSavedHandler=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedHandlerContract=careerMatchSavedHandler.includes('$("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=validSavedList(store.get("cm_saved",[]));');
 if(!careerMatchSavedHandlerContract)errors.push("Career Match saved-analysis actions must use validated persisted records");
