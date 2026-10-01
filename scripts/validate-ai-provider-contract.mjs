@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import {generateGroundedReply,DEFAULT_MODEL,isSafeSourceUrl} from "../functions/lib/openai-provider.js";
+import {generateGroundedReply,DEFAULT_MODEL,PROVIDER_TIMEOUT_MS,isSafeSourceUrl} from "../functions/lib/openai-provider.js";
 
 assert.equal(isSafeSourceUrl("/notes/example/"),true);
 assert.equal(isSafeSourceUrl("//evil.example/"),false);
@@ -36,6 +36,8 @@ const payload=JSON.parse(calls[0].options.body);
 assert.equal(payload.store,false);
 assert.equal(payload.model,DEFAULT_MODEL);
 assert.equal(payload.max_output_tokens,700);
+assert.equal(payload.signal instanceof AbortSignal,true);
+assert.equal(PROVIDER_TIMEOUT_MS,30000);
 assert.equal(typeof payload.instructions,"string");
 assert.equal(payload.instructions.includes("<UNTRUSTED_CONVERSATION>"),true);
 assert.equal(payload.instructions.includes("<UNTRUSTED_SOURCE_METADATA>"),true);
