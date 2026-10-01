@@ -123,6 +123,11 @@ if(calculatorInvalidResultChecks.every(([name,path,patterns])=>patterns.every(pa
 
 
 console.log("Internal link and fragment integrity: PASS");
+const troubleshootingTool=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
+const troubleshootingFocusContract=troubleshootingTool.includes("state.node=flows[state.type].start;renderIntro();const first=r.querySelector('[data-answer]');if(first)first.focus({preventScroll:true})")&&troubleshootingTool.includes("r.setAttribute('tabindex','-1');r.focus({preventScroll:true});return}state.node=flows[state.type][nextKey];");
+if(!troubleshootingFocusContract)errors.push("IT Troubleshooting Assistant must move focus to decision controls and terminal results");
+else console.log("IT Troubleshooting result focus contract: PASS");
+
 const financeSnapshot=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");
 const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fromEntries(ids.map(id=>[id,$(id).value]))")&&financeSnapshot.includes("ids.forEach(id=>$(id).value=defaults[id])");
 if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
