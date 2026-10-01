@@ -95,6 +95,11 @@ if(unsitemapPages.length)errors.push("Published HTML pages are missing from site
 assert.equal(errors.length,0,errors.join("\n"));
 console.log("Career Match saved-content security contract: PASS");
 console.log("Internal link and fragment integrity: PASS");
+const financeSnapshot=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");
+const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fromEntries(ids.map(id=>[id,$(id).value]))")&&financeSnapshot.includes("ids.forEach(id=>$(id).value=defaults[id])");
+if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
+else console.log("Personal Finance Snapshot reset contract: PASS");
+
 console.log("Discovery filter exclusion contract: PASS");
 console.log("Site sitemap/page parity: PASS");
 console.log("Sitemap pages:",sitemapPaths.length);
