@@ -57,15 +57,15 @@ ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
 <body><a class="skip-link" href="#main-content">Skip to main content</a><header class="top"><a href="/" class="site-back" aria-label="Back to Jawed Imtiaz home">← Jawed Imtiaz</a><a href="/tools/" class="site-tools">All Tools</a>
   <div class="logo">Career Match &amp; Resume Review</div>
   <nav role="tablist" aria-label="Career Match sections">
-    <button type="button" role="tab" aria-selected="true" aria-controls="v-analyze" tabindex="0" data-v="analyze" class="on">Analyze</button>
-    <button type="button" role="tab" aria-selected="false" aria-controls="v-results" tabindex="-1" data-v="results">Dashboard</button>
-    <button type="button" role="tab" aria-selected="false" aria-controls="v-tracker" tabindex="-1" data-v="tracker">Application Tracker</button>
-    <button type="button" role="tab" aria-selected="false" aria-controls="v-saved" tabindex="-1" data-v="saved">Saved</button>
+    <button type="button" role="tab" aria-selected="true" aria-controls="v-analyze" id="tab-analyze" tabindex="0" data-v="analyze" class="on">Analyze</button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="v-results" id="tab-results" tabindex="-1" data-v="results">Dashboard</button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="v-tracker" id="tab-tracker" tabindex="-1" data-v="tracker">Application Tracker</button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="v-saved" id="tab-saved" tabindex="-1" data-v="saved">Saved</button>
   </nav>
   <button class="btn" id="theme" aria-label="Toggle light/dark mode">◐ Theme</button>
 </header>
 <main id="main-content">
-<section id="v-analyze" class="view" role="tabpanel" aria-hidden="false">
+<section id="v-analyze" class="view" role="tabpanel" aria-labelledby="tab-analyze" aria-hidden="false">
   <div class="hero"><h1>How well does your resume match this job?</h1>
   <p>Paste or upload your resume and the job description. Analysis runs in your browser. The tool does not send your resume or job description to a server.</p></div>
   <div class="grid2">
@@ -80,13 +80,13 @@ ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
     <button class="btn" id="sample">Load sample (fictional)</button><span class="muted" id="err" role="alert" aria-live="assertive"></span></div>
 </section>
 <section id="v-results" class="view hidden" role="tabpanel" aria-labelledby="results-heading" aria-hidden="true"><div id="results" tabindex="-1" aria-live="polite"><h2 id="results-heading">Analysis results</h2><p class="empty">Run an analysis to see your dashboard.</p></div></section>
-<section id="v-tracker" class="view hidden" role="tabpanel" aria-hidden="true">
+<section id="v-tracker" class="view hidden" role="tabpanel" aria-labelledby="tab-tracker" aria-hidden="true">
   <div class="panel"><h2 style="margin-top:0">Application Tracker</h2>
     <div class="row"><div><label for="tCo">Company</label><input id="tCo" placeholder="Company" style="flex:1"></div><div><label for="tRole">Role</label><input id="tRole" placeholder="Role" style="flex:1"></div><div><label for="tSt">Application status</label><select id="tSt" style="width:auto"><option>Applied</option><option>Interview</option><option>Rejected</option><option>Offer</option></select></div>
     <button class="btn primary" id="addJob" style="padding:9px 18px;font-size:15px">Add</button></div></div>
   <div class="board" id="board" aria-live="polite"></div>
 </section>
-<section id="v-saved" class="view hidden" role="tabpanel" aria-hidden="true"><div class="panel"><h2 style="margin-top:0">Saved analyses</h2><div id="savedList" aria-live="polite"></div></div></section>
+<section id="v-saved" class="view hidden" role="tabpanel" aria-labelledby="tab-saved" aria-hidden="true"><div class="panel"><h2 style="margin-top:0">Saved analyses</h2><div id="savedList" aria-live="polite"></div></div></section>
 <section class="panel" style="margin-top:18px">
   <h2 style="margin-top:0">Data, storage and privacy</h2>
   <ul>
