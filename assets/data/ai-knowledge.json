@@ -16,6 +16,19 @@
       ]
     },
     {
+      "url": "/ai/",
+      "title": "Jawed AI",
+      "summary": "Focused AI assistant for discovering practical notes, tools, and resources across Jawed.co.in, with follow-up questions supported by recent conversation context.",
+      "keywords": [
+        "ai",
+        "jawed ai",
+        "assistant",
+        "notes",
+        "tools",
+        "resources"
+      ]
+    },
+    {
       "url": "/about/",
       "title": "About Jawed Imtiaz",
       "summary": "Background and personal-site context for Jawed Imtiaz, providing the profile-level information available on the public site.",
@@ -557,7 +570,6 @@
   "coverage_policy": {
     "included": "Public site pages intended to provide factual Jawed.co.in content for AI grounding.",
     "excluded_paths": [
-      "/ai/",
       "/contact/",
       "/privacy/"
     ],
