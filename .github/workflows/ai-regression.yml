@@ -66,6 +66,9 @@ jobs:
           node-version: 22
           package-manager-cache: false
 
+      - name: Run site integrity validation
+        run: node scripts/validate-site-integrity.mjs
+
       - name: Run AI regression matrix
         id: regression
         run: node scripts/validate-ai-regression.mjs
