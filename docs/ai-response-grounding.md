@@ -20,7 +20,7 @@ This prevents generated markdown from becoming an unverified navigation channel 
 - Server-side link validation is defense in depth for generated output.
 - When retrieved sources are supplied, the server requires the generated response to contain at least one exact allowed Jawed.co.in source link; a response with no valid source attribution is rejected.
 - No external URL is added to the structured `sources` array.
-- The browser continues to render AI reply text as text, not HTML.
+- The browser renders reply text through safe DOM APIs: plain text remains text nodes, while only exact allowlisted Jawed.co.in source URLs become anchors.
 - No provider storage or browser persistence is introduced.
 
 ## Factual grounding boundary
