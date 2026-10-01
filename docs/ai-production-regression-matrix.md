@@ -22,7 +22,7 @@ The matrix executes 11 deterministic validators covering:
 
 The validator inventory is self-checked before execution, so this list must remain synchronized with the registered deterministic validator set.
 
-It then checks the core cross-layer contracts directly, including request limits, rate limiting, server-side credentials, provider no-storage behavior, untrusted-data boundaries, bounded output, source attribution, link sanitization, text-only rendering, structured source URL validation, and memory-only browser history.
+It then checks the core cross-layer contracts directly, including request limits, rate limiting, server-side credentials, provider no-storage behavior, untrusted-data boundaries, bounded output, source attribution, link sanitization, safe DOM rendering with allowlisted source anchors, structured source URL validation, and memory-only browser history.
 
 ## Validator inventory contract
 
