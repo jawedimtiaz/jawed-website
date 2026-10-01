@@ -79,9 +79,10 @@ const frontend=fs.readFileSync("ai/index.html","utf8");
 const aiStyles=fs.readFileSync("assets/css/style.css","utf8");
 const rateLimit=fs.readFileSync("functions/lib/ai-rate-limit.js","utf8");
 const knowledgeSource=fs.readFileSync("functions/lib/ai-knowledge.js","utf8");
+const knowledgeDataSource=fs.readFileSync("functions/lib/ai-knowledge-data.js","utf8");
 
 const contracts=[
-  ["Cloudflare Worker-compatible AI knowledge loading",knowledgeSource.includes('import knowledge from "../../assets/data/ai-knowledge.json" with {type:"json"};')&&!knowledgeSource.includes('from "node:fs"')],  ["server request-size boundary",endpoint.includes("MAX_BODY_BYTES=12000")],
+  ["Cloudflare Worker-compatible AI knowledge loading",knowledgeSource.includes('import knowledge from "./ai-knowledge-data.js";')&&!knowledgeSource.includes('from "node:fs"')&&knowledgeDataSource.includes("export default knowledge")],  ["server request-size boundary",endpoint.includes("MAX_BODY_BYTES=12000")],
   ["server message-count boundary",endpoint.includes("MAX_MESSAGES=12")],
   ["server message-length boundary",endpoint.includes("MAX_MESSAGE_CHARS=2000")],
   ["same-site origin boundary",endpoint.includes("https://jawed.co.in")],
