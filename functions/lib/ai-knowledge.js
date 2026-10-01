@@ -1,4 +1,4 @@
-import knowledge from "../../assets/data/ai-knowledge.json" with {type:"json"};
+import knowledge from "./ai-knowledge-data.js";
 const STOP_WORDS=new Set(["a","an","and","are","about","can","do","for","from","how","i","in","is","it","me","of","on","or","the","to","what","where","with","you"]);
 
 function tokens(value){
