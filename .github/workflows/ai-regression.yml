@@ -76,11 +76,11 @@ jobs:
           RESULT: ${{ steps.regression.outcome }}
         run: |
           {
-            echo "## AI Regression Gate"
-            echo
-            echo "- Result: \\`$RESULT\\`"
-            echo "- Commit: \\`${GITHUB_SHA}\\`"
-            echo "- Ref: \\`${GITHUB_REF}\\`"
-            echo "- Node: \\`$(node --version)\\`"
-            echo "- Deterministic provider-backed E2E: not asserted"
+            printf '%s\n' "## AI Regression Gate"
+            printf '%s\n' ""
+            printf '%s\n' "- Result: $RESULT"
+            printf '%s\n' "- Commit: ${GITHUB_SHA}"
+            printf '%s\n' "- Ref: ${GITHUB_REF}"
+            printf '%s\n' "- Node: $(node --version)"
+            printf '%s\n' "- Deterministic provider-backed E2E: not asserted"
           } >> "$GITHUB_STEP_SUMMARY"
