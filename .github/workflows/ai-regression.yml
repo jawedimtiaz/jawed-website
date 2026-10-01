@@ -22,6 +22,9 @@ on:
       - "scripts/validate-ai-*.mjs"
       - "docs/ai-*.md"
       - "_headers"
+      - "_redirects"
+      - "_routes.json"
+      - "scripts/validate-site-integrity.mjs"
       - "sitemap.xml"
       - ".github/workflows/ai-regression.yml"
   workflow_dispatch:
@@ -45,6 +48,9 @@ on:
       - "scripts/validate-ai-*.mjs"
       - "docs/ai-*.md"
       - "_headers"
+      - "_redirects"
+      - "_routes.json"
+      - "scripts/validate-site-integrity.mjs"
       - "sitemap.xml"
       - ".github/workflows/ai-regression.yml"
 
