@@ -86,9 +86,14 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
       instructions,
       input:[{role:"user",content:"Answer the final USER MESSAGE using the supplied conversation context and Jawed.co.in source context."}],
       store:false,
-      max_output_tokens:MAX_OUTPUT_TOKENS
+      max_output_tokens:MAX_OUTPUT_TOKENS,
+    signal:controller.signal
     })
   });
+  }catch(error){
+    if(error?.name==="AbortError"){const timeoutError=new Error("The AI provider request timed out.");timeoutError.status=504;throw timeoutError}
+    throw error;
+  }finally{clearTimeout(timeout)}
 
   const data=await response.json().catch(()=>null);
   if(!response.ok){
