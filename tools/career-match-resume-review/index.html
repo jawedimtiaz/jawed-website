@@ -216,15 +216,22 @@ const careerTabs=[...document.querySelectorAll('nav[role="tablist"] [role="tab"]
 const loadScript=(src)=>new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error("Could not load the file reader (internet needed)"));document.head.appendChild(s)});
 const loadPdfReader=async()=>{if(window.pdfjsLib)return;window.pdfjsLib=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs")};
 const loadDocxReader=async()=>{if(window.mammoth)return;await loadScript("https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.13.0/mammoth.browser.min.js")};
-async function readFile(f){const n=f.name.toLowerCase(),buf=await f.arrayBuffer();let out="";
+const MAX_FILE_BYTES=15*1024*1024;
+const MAX_PDF_PAGES=100;
+const MAX_EXTRACTED_CHARS=500000;
+async function readFile(f){
+  if(f.size>MAX_FILE_BYTES)throw new Error("File is too large (maximum 15 MB). Please paste the text instead.");
+  const n=f.name.toLowerCase(),buf=await f.arrayBuffer();let out="";
   if(n.endsWith(".pdf")){await loadPdfReader();
     pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
     const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    if(pdf.numPages>MAX_PDF_PAGES){await pdf.destroy();throw new Error("PDF has too many pages (maximum 100). Please use a shorter document.");}
     for(let i=1;i<=pdf.numPages;i++){const c=await(await pdf.getPage(i)).getTextContent();let y=null,line="";
       for(const it of c.items){const yy=it.transform[5];if(y!==null&&Math.abs(yy-y)>3){out+=line.trim()+"\n";line=""}line+=it.str+" ";y=yy}out+=line.trim()+"\n"}}
   else if(n.endsWith(".docx")){await loadDocxReader();out=(await mammoth.extractRawText({arrayBuffer:buf})).value}
   else if(n.endsWith(".txt"))out=new TextDecoder().decode(buf);
   else throw new Error("Unsupported file type");
+  if(out.length>MAX_EXTRACTED_CHARS)throw new Error("Extracted text is too large (maximum 500,000 characters). Please use a shorter document.");
   if(out.trim().length<50)throw new Error("No selectable text found (scanned file?)");return out}
 $("#file").onchange=async e=>{const f=e.target.files[0];if(!f)return;$("#resume").value="";$("#fileMsg").textContent="Reading…";
   try{const t=await readFile(f);$("#resume").value=t;$("#fileMsg").textContent=`Loaded ${f.name} (${t.split(/\s+/).length} words)`}
