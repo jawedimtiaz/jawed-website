@@ -11,6 +11,10 @@ const sitemapPaths=allSitemapLocs
   .map(url=>url.slice("https://jawed.co.in".length)||"/");
 const workflow=fs.readFileSync(".github/workflows/ai-regression.yml","utf8");
 const indexPaths=knowledge.entries.map(entry=>entry.url);
+const sourcePath=(url)=>url==="/"?"index.html":url.replace(/^\/+|\/+$/g,"")+"/index.html";
+const missingSourceFiles=sitemapPaths
+  .filter(path=>!excluded.has(path))
+  .filter(path=>!fs.existsSync(sourcePath(path)));
 
 const unique=(items)=>new Set(items);
 const duplicates=indexPaths.filter((path,index)=>indexPaths.indexOf(path)!==index);
@@ -35,6 +39,7 @@ if(missing.length)errors.push("Sitemap content pages missing from AI knowledge: 
 if(unexpected.length)errors.push("AI knowledge contains URLs not present in sitemap: "+unexpected.join(", "));
 if(excludedIndexed.length)errors.push("Excluded paths are indexed: "+excludedIndexed.join(", "));
 if(malformed.length)errors.push("AI knowledge contains malformed entries.");
+if(missingSourceFiles.length)errors.push("Sitemap grounding pages have no repository source file: "+missingSourceFiles.join(", "));
 
 const MIN_SUMMARY_CHARS=70;
 const shortSummaries=knowledge.entries.filter(entry=>typeof entry.summary!=="string"||entry.summary.trim().length<MIN_SUMMARY_CHARS);
@@ -47,4 +52,5 @@ console.log("AI knowledge coverage OK");
 console.log("Sitemap URLs:",sitemapPaths.length);
 console.log("Excluded:",excluded.size);
 console.log("Grounding entries:",indexPaths.length);
+console.log("Sitemap source files verified:",sitemapPaths.filter(path=>!excluded.has(path)).length);
 console.log("Reviewed against sitemap:",knowledge.reviewed_against_sitemap_on||"not recorded");
