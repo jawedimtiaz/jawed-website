@@ -168,6 +168,11 @@ const careerMatchSavedMutationGuardContract=careerMatchSavedMutationGuard.includ
 if(!careerMatchSavedMutationGuardContract)errors.push("Career Match saved-analysis mutations must validate persisted records before array operations");
 else console.log("Career Match saved-storage mutation guard contract: PASS");
 
+const careerMatchSavedRestoreLimit=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchSavedRestoreLimitContract=careerMatchSavedRestoreLimit.includes('typeof x.html==="string"&&x.html.length<=MAX_SAVED_HTML_CHARS');
+if(!careerMatchSavedRestoreLimitContract)errors.push("Career Match persisted saved HTML must enforce the 500,000-character bound during restore validation");
+else console.log("Career Match saved-HTML restore limit contract: PASS");
+
 const careerMatchSavedHandler=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedHandlerContract=careerMatchSavedHandler.includes('$("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=validSavedList(store.get("cm_saved",[]));');
 if(!careerMatchSavedHandlerContract)errors.push("Career Match saved-analysis actions must use validated persisted records");
