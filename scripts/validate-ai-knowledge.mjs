@@ -37,7 +37,7 @@ const changedSourceFiles=Number.isNaN(reviewDateMs)?[]:groundingSourceFiles.filt
   }
 });
 
-const requiredWorkflowPaths=new Set(["index.html"]);
+const requiredWorkflowPaths=new Set(["index.html","_headers","_redirects","_routes.json","scripts/validate-site-integrity.mjs"]);
 for(const path of sitemapPaths.filter(path=>path!=="/"&&!excluded.has(path))){
   const family=path.split("/").filter(Boolean)[0];
   if(family)requiredWorkflowPaths.add(family+"/**");
