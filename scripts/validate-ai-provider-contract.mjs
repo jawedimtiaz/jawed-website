@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import {generateGroundedReply,DEFAULT_MODEL} from "../functions/lib/openai-provider.js";
+import {generateGroundedReply,DEFAULT_MODEL,isSafeSourceUrl} from "../functions/lib/openai-provider.js";
+
+assert.equal(isSafeSourceUrl("/notes/example/"),true);
+assert.equal(isSafeSourceUrl("//evil.example/"),false);
+assert.equal(isSafeSourceUrl("/\\evil.example/"),false);
 
 const originalFetch=globalThis.fetch;
 let calls=[];
