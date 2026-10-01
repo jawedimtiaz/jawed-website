@@ -30,8 +30,10 @@ The validator checks:
 - knowledge URLs that are not in the sitemap
 - excluded pages accidentally entering the index
 - malformed knowledge entries
+- grounding source-file freshness since the recorded review date
+- failure to verify git history is treated as a validation error rather than silently passing
 
-This validates **coverage and index integrity**. It does not claim that summaries remain textually identical to page content; when a page's substance changes, its AI summary/keywords should be reviewed as part of the content update.
+This validates **coverage, index integrity, and freshness of the recorded grounding review**. It does not claim that summaries remain textually identical to page content; when a page's substance changes, its AI summary/keywords should be reviewed as part of the content update.
 
 ## Maintenance rule
 
