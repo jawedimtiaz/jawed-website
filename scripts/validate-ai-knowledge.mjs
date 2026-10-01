@@ -5,7 +5,10 @@ import fs from "node:fs";
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
 const knowledge=JSON.parse(fs.readFileSync("assets/data/ai-knowledge.json","utf8"));
 const excluded=new Set(knowledge.coverage_policy?.excluded_paths||[]);
-const sitemapPaths=[...sitemap.matchAll(/<loc>https:\/\/jawed\.co\.in([^<]*)<\/loc>/g)].map(match=>match[1]||"/");
+const allSitemapLocs=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
+const sitemapPaths=allSitemapLocs
+  .filter(url=>url.startsWith("https://jawed.co.in/"))
+  .map(url=>url.slice("https://jawed.co.in".length)||"/");
 const workflow=fs.readFileSync(".github/workflows/ai-regression.yml","utf8");
 const indexPaths=knowledge.entries.map(entry=>entry.url);
 
@@ -24,6 +27,7 @@ for(const path of sitemapPaths.filter(path=>path!=="/"&&!excluded.has(path))){
 const workflowMissing=[...requiredWorkflowPaths].filter(path=>!workflow.includes('"'+path+'"'));
 
 const errors=[];
+if(allSitemapLocs.length!==sitemapPaths.length)errors.push("Sitemap contains one or more <loc> URLs outside the expected https://jawed.co.in/ origin or with an unsupported format.");
 if(workflowMissing.length)errors.push("AI regression workflow does not trigger for grounding source path families: "+workflowMissing.join(", "));
 if(new Set(sitemapPaths).size!==sitemapPaths.length)errors.push("Sitemap contains duplicate URLs.");
 if(duplicates.length)errors.push("AI knowledge contains duplicate URLs: "+[...new Set(duplicates)].join(", "));
