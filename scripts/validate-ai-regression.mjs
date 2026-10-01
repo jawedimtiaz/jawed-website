@@ -92,7 +92,7 @@ const contracts=[
   ["bounded provider output",provider.includes("MAX_REPLY_CHARS=6000")],
   ["source attribution gate",provider.includes("hasAllowedSourceLink")],
   ["external markdown sanitization",provider.includes("sanitizeMarkdownLinks")],
-  ["text-only browser rendering",frontend.includes("p.textContent=text")],
+  ["safe browser rendering",frontend.includes("document.createTextNode")&&!frontend.includes("innerHTML")],
   ["structured source URL validation",frontend.includes('source.url.startsWith("/")')&&frontend.includes('source.url.startsWith("//")')],
   ["memory-only browser history",!frontend.includes("localStorage")&&!frontend.includes("sessionStorage")],
   ["AI deep-link consumed after submit",frontend.includes('cleanUrl.searchParams.delete("q")')&&frontend.includes("window.history.replaceState")],
@@ -102,7 +102,8 @@ const contracts=[
   ["AI failure status clears when editing",frontend.includes('input.addEventListener("input",()=>{input.setCustomValidity("");if(f.getAttribute("aria-busy")!=="true")status.textContent=""})')],
   ["AI whitespace-only question is rejected",frontend.includes('if(!question){if(input.value)input.setCustomValidity("Please enter a question.");input.reportValidity();return;}')],
   ["AI deep-link consumption preserves hash",frontend.includes("cleanUrl.hash") ],
-  ["AI message line breaks are preserved",aiStyles.includes(".ai-message p{white-space:pre-wrap}") ]
+  ["AI message line breaks are preserved",aiStyles.includes(".ai-message p{white-space:pre-wrap}") ],
+  ["AI source citations render only allowlisted Jawed links",frontend.includes("const allowed=new Set")&&frontend.includes("allowed.has(match[2])")&&frontend.includes("https://jawed.co.in")],
 ];
 
 for(const [name,ok] of contracts){
