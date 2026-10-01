@@ -120,6 +120,22 @@ const careerMatchTabs=fs.readFileSync("tools/career-match-resume-review/index.ht
 const careerMatchTabContract=careerMatchTabs.includes('role="tablist"')&&careerMatchTabs.includes('role="tab"')&&careerMatchTabs.includes('aria-selected="true"')&&careerMatchTabs.includes('aria-controls="v-results"')&&careerMatchTabs.includes("careerTabs");
 if(!careerMatchTabContract)errors.push("Career Match view controls must expose accessible tab semantics and keyboard navigation");
 else console.log("Career Match view accessibility contract: PASS");
+
+const financeWorkspace=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
+const financeWorkspaceTabContract=
+  financeWorkspace.includes('<div class="tabs" role="tablist" aria-label="Finance planning sections">')&&
+  financeWorkspace.includes('role="tab"')&&
+  financeWorkspace.includes('aria-controls="snapshot"')&&
+  financeWorkspace.includes('aria-selected="true"')&&
+  financeWorkspace.includes('tabIndex=active?0:-1')&&
+  financeWorkspace.includes('e.preventDefault();let next=index')&&
+  financeWorkspace.includes('e.key==="ArrowRight"')&&
+  financeWorkspace.includes('e.key==="ArrowLeft"')&&
+  financeWorkspace.includes('e.key==="Home"')&&
+  financeWorkspace.includes('e.key==="End"')&&
+  financeWorkspace.includes('activateTab(tabs[next])');
+if(!financeWorkspaceTabContract)errors.push("Finance Planning Workspace tabs must preserve accessible ARIA semantics and keyboard navigation");
+else console.log("Finance Planning Workspace tab accessibility contract: PASS");
 const generatorFreshnessChecks=[
  ["AI Prompt Builder", "tools/ai-prompt-builder/index.html", "Inputs changed. Build the prompt again to refresh the output.", ["#prompt-goal","#prompt-context","#prompt-desired-output","#prompt-constraints","#prompt-example"]],
  ["Service Desk Note Formatter", "tools/service-desk-note-formatter/index.html", "Inputs changed. Format the note again to refresh the output.", ["#note-issue","#note-actions","#note-resolution","#note-followup"]],
