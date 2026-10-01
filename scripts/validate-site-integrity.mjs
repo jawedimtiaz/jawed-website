@@ -153,6 +153,10 @@ const cspFrameContract=headers.includes("frame-src 'none'");
 if(!cspFrameContract)errors.push("CSP must explicitly deny frame loads because the site does not use iframes");
 else console.log("CSP frame-src hardening contract: PASS");
 
+const careerMatchLoader=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchLoaderContract=careerMatchLoader.includes("s.onerror=()=>{s.remove();reject(new Error(\"Could not load the file reader (internet needed)\"))}")&&!careerMatchLoader.includes("s.onerror=()=>reject(new Error(\"Could not load the file reader (internet needed)\"))");
+if(!careerMatchLoaderContract)errors.push("Career Match external file-reader loader must remove failed script elements before rejecting");
+else console.log("Career Match failed loader cleanup contract: PASS");
 const careerMatchSavedSize=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedSizeContract=careerMatchSavedSize.includes("const MAX_SAVED_HTML_CHARS=500000")&&careerMatchSavedSize.includes("html.length>MAX_SAVED_HTML_CHARS")&&careerMatchSavedSize.includes("maximum 500,000 characters");
 if(!careerMatchSavedSizeContract)errors.push("Career Match saved analyses must enforce a per-analysis HTML size bound before localStorage persistence");
