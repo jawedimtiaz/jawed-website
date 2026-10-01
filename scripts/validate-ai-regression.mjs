@@ -92,6 +92,7 @@ const contracts=[
   ["untrusted conversation boundary",provider.includes("<UNTRUSTED_CONVERSATION>")],
   ["untrusted source boundary",provider.includes("<UNTRUSTED_SOURCE_METADATA>")],
   ["bounded provider output",provider.includes("MAX_REPLY_CHARS=6000")],
+  ["Responses API output extraction",provider.includes("function extractOutputText")&&provider.includes("data?.output")&&provider.includes("const reply=extractOutputText(data)")],
   ["source attribution gate",provider.includes("hasAllowedSourceLink")],
   ["external markdown sanitization",provider.includes("sanitizeMarkdownLinks")],
   ["safe browser rendering",frontend.includes("document.createTextNode")&&!frontend.includes("innerHTML")],
