@@ -225,9 +225,11 @@ async function readFile(f){
   if(n.endsWith(".pdf")){await loadPdfReader();
     pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
     const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-    if(pdf.numPages>MAX_PDF_PAGES){await pdf.destroy();throw new Error("PDF has too many pages (maximum 100). Please use a shorter document.");}
-    for(let i=1;i<=pdf.numPages;i++){const c=await(await pdf.getPage(i)).getTextContent();let y=null,line="";
-      for(const it of c.items){const yy=it.transform[5];if(y!==null&&Math.abs(yy-y)>3){out+=line.trim()+"\n";line=""}line+=it.str+" ";y=yy}out+=line.trim()+"\n"}}
+    try{
+      if(pdf.numPages>MAX_PDF_PAGES)throw new Error("PDF has too many pages (maximum 100). Please use a shorter document.");
+      for(let i=1;i<=pdf.numPages;i++){const c=await(await pdf.getPage(i)).getTextContent();let y=null,line="";
+        for(const it of c.items){const yy=it.transform[5];if(y!==null&&Math.abs(yy-y)>3){out+=line.trim()+"\n";line=""}line+=it.str+" ";y=yy}out+=line.trim()+"\n"}}
+    finally{await pdf.destroy()}
   else if(n.endsWith(".docx")){await loadDocxReader();out=(await mammoth.extractRawText({arrayBuffer:buf})).value}
   else if(n.endsWith(".txt"))out=new TextDecoder().decode(buf);
   else throw new Error("Unsupported file type");
