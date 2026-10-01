@@ -17,7 +17,7 @@ The provider remains separately capped at 700 output tokens.
 
 ## Browser safety
 
-The browser continues to render assistant output with `textContent`, not HTML. Structured source links remain the separate navigation contract.
+The browser renders assistant output through safe DOM APIs rather than HTML injection. Reply text is emitted as text nodes, while only exact source URLs present in the validated structured source set may become anchors. Structured source links remain the canonical source data contract.
 
 ## Adversarial coverage
 
