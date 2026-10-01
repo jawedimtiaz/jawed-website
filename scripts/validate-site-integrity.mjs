@@ -148,6 +148,11 @@ const careerMatchMammothSecurityContract=careerMatchMammoth.includes('mammoth/1.
 if(!careerMatchMammothSecurityContract)errors.push("Career Match DOCX reader must use the current patched Mammoth browser build");
 else console.log("Career Match Mammoth dependency security contract: PASS");
 
+const headers=fs.readFileSync("_headers","utf8");
+const cspFrameContract=headers.includes("frame-src 'none'");
+if(!cspFrameContract)errors.push("CSP must explicitly deny frame loads because the site does not use iframes");
+else console.log("CSP frame-src hardening contract: PASS");
+
 const careerMatchFileGuards=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchFileResourceContract=careerMatchFileGuards.includes("const MAX_FILE_BYTES=15*1024*1024")&&careerMatchFileGuards.includes("const MAX_PDF_PAGES=100")&&careerMatchFileGuards.includes("const MAX_EXTRACTED_CHARS=500000")&&careerMatchFileGuards.includes("if(f.size>MAX_FILE_BYTES)")&&careerMatchFileGuards.includes("if(pdf.numPages>MAX_PDF_PAGES)")&&careerMatchFileGuards.includes("if(out.length>MAX_EXTRACTED_CHARS)");
 if(!careerMatchFileResourceContract)errors.push("Career Match file parsing must enforce upload size, PDF page-count, and extracted-text bounds");
