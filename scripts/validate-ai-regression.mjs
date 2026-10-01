@@ -108,6 +108,7 @@ const contracts=[
   ["AI failure status clears when editing",frontend.includes('input.addEventListener("input",()=>{input.setCustomValidity("");if(f.getAttribute("aria-busy")!=="true")status.textContent=""})')],
   ["AI error branches use response code contract",frontend.includes('data?.code==="AI_NOT_CONFIGURED"')&&frontend.includes('data?.code==="AI_PROVIDER_ERROR"')&&frontend.includes('data?.code==="AI_RATE_LIMITED"')],
   ["AI network failure has explicit safe category",frontend.includes("NETWORK_REQUEST_FAILED")&&frontend.includes("Jawed AI request failed.")],
+  ["AI network failure isolates health and POST stages",frontend.includes('fetch("/api/ai",{method:"GET"')&&frontend.includes("NETWORK_HEALTH_HTTP_FAILURE")&&frontend.includes("NETWORK_POST_REQUEST_FAILED")&&frontend.includes('cache:"no-store"')],
   ["AI whitespace-only question is rejected",frontend.includes('if(!question){if(input.value)input.setCustomValidity("Please enter a question.");input.reportValidity();return;}')],
   ["AI deep-link consumption preserves hash",frontend.includes("cleanUrl.hash") ],
   ["AI message line breaks are preserved",aiStyles.includes(".ai-message p{white-space:pre-wrap}") ],
