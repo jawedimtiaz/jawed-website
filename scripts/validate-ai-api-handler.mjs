@@ -68,6 +68,19 @@ const emptyCurrent=await onRequestPost({
 });
 assert.equal(emptyCurrent.status,400);
 assert.equal((await emptyCurrent.json()).code,"AI_INVALID_MESSAGE");
+// Safe provider diagnostic mapping is exercised with a synthetic provider 401.
+globalThis.fetch=async()=>new Response(JSON.stringify({error:{message:"invalid api key"}}),{status:401,headers:{"content-type":"application/json"}});
+const providerFailure=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-provider","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
+  env:{AI_PROVIDER_API_KEY:"test-key",AI_PROVIDER_MODEL:"test-model"}
+});
+assert.equal(providerFailure.status,502);
+const providerFailureBody=await providerFailure.json();
+assert.equal(providerFailureBody.code,"AI_PROVIDER_ERROR");
+assert.equal(providerFailureBody.diagnostic,"PROVIDER_HTTP_401");
+assert.equal(providerFailureBody.request_id,providerFailure.headers.get("x-request-id"));
+assert.equal(Object.prototype.hasOwnProperty.call(providerFailureBody,"message"),false);
+
 // Provider-error mapping is covered by validate-ai-negative-paths.mjs and validate-ai-provider-contract.mjs.
 globalThis.fetch=async()=>{providerCalls+=1;throw new Error("Provider calls are forbidden in deterministic API handler regression tests.");};
 assert.equal(providerCalls,0,"Deterministic handler tests must never call the AI provider.");
