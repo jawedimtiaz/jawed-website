@@ -121,6 +121,14 @@ const careerMatchTabContract=careerMatchTabs.includes('role="tablist"')&&careerM
 if(!careerMatchTabContract)errors.push("Career Match view controls must expose accessible tab semantics and keyboard navigation");
 else console.log("Career Match view accessibility contract: PASS");
 
+const careerMatchStatusRegions=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchStatusRegionContract=
+  careerMatchStatusRegions.includes('<div class="muted" id="fileMsg" role="status" aria-live="polite">')&&
+  careerMatchStatusRegions.includes('<span class="muted" id="err" role="alert" aria-live="assertive">')&&
+  careerMatchStatusRegions.includes('id="toast" role="status"');
+if(!careerMatchStatusRegionContract)errors.push("Career Match dynamic status and validation messages must expose live-region semantics");
+else console.log("Career Match status live-region accessibility contract: PASS");
+
 const financeWorkspace=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
 const financeWorkspaceTabContract=
   financeWorkspace.includes('<div class="tabs" role="tablist" aria-label="Finance planning sections">')&&
