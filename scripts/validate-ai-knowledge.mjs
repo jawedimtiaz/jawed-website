@@ -31,7 +31,7 @@ for(const path of sitemapPaths.filter(path=>path!=="/"&&!excluded.has(path))){
 const workflowSection=(name,nextName)=>workflow.match(new RegExp("\\n  "+name+":\\n([\\s\\S]*?)(?=\\n  "+nextName+":|\\n  permissions:)"))?.[1]||"";
 const pullRequestPaths=workflowSection("pull_request","workflow_dispatch");
 const pushPaths=workflowSection("push","permissions");
-const pathCount=(section,path)=>section.split("\\n").filter(line=>line.trim()==='- "'+path+'"').length;
+const pathCount=(section,path)=>section.split("\n").filter(line=>line.trim()==='- "'+path+'"').length;
 const workflowMissing=[...requiredWorkflowPaths].filter(path=>pathCount(pullRequestPaths,path)!==1||pathCount(pushPaths,path)!==1);
 const workflowDuplicatePaths=[...new Set([...pullRequestPaths.matchAll(/^      - "([^"]+)"$/gm)].map(match=>match[1]))].filter(path=>pathCount(pullRequestPaths,path)>1||pathCount(pushPaths,path)>1);
 
