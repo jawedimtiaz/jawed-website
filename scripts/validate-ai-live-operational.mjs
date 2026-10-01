@@ -5,9 +5,9 @@ const page=fs.readFileSync("ai/index.html","utf8");
 
 const required=[
   'fetch("/api/ai"',
-  'data?.error==="AI_NOT_CONFIGURED"',
-  'data?.error==="AI_PROVIDER_ERROR"',
-  'data?.error==="AI_RATE_LIMITED"',
+  'data?.code==="AI_NOT_CONFIGURED"',
+  'data?.code==="AI_PROVIDER_ERROR"',
+  'data?.code==="AI_RATE_LIMITED"',
   'const MAX_HISTORY=12',
   'p.textContent=text',
   'source.url.startsWith("/")',
