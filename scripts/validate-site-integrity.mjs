@@ -109,6 +109,17 @@ for(const [name,path,message,fields] of generatorFreshnessChecks){
  if(!ok)errors.push(name+" must mark generated output stale when inputs change");
 }
 if(generatorFreshnessChecks.every(([name,path,message])=>fs.readFileSync(path,"utf8").includes(message)))console.log("Generator output freshness contract: PASS");
+const calculatorInvalidResultChecks=[
+ ["Compound Growth & SIP","tools/compound-growth-sip-calculator/index.html",["fv.textContent=ti.textContent=eg.textContent=\"—\"","summary.textContent=\"\""]],
+ ["Inflation Goal Planning","tools/inflation-goal-planning-calculator/index.html",["future.textContent=increase.textContent=gap.textContent=\"—\"","summary.textContent=\"\""]],
+ ["Retirement Planning","tools/retirement-planning-calculator/index.html",["["years","futureSpending","horizon","required","projected","gap"].forEach(k=>out[k].textContent=\"—\")","out.summary.textContent=\"\""]]
+];
+for(const [name,path,patterns] of calculatorInvalidResultChecks){
+ const html=fs.readFileSync(path,"utf8");
+ if(!patterns.every(pattern=>html.includes(pattern)))errors.push(name+" must clear stale result values when submitted inputs are invalid");
+}
+if(calculatorInvalidResultChecks.every(([name,path,patterns])=>patterns.every(pattern=>fs.readFileSync(path,"utf8").includes(pattern))))console.log("Calculator invalid-input result contract: PASS");
+
 
 
 console.log("Internal link and fragment integrity: PASS");
