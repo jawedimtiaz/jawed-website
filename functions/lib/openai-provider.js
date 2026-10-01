@@ -2,6 +2,7 @@ const OPENAI_URL="https://api.openai.com/v1/responses";
 const DEFAULT_MODEL="gpt-5.6-luna";
 const MAX_OUTPUT_TOKENS=700;
 const MAX_REPLY_CHARS=6000;
+const PROVIDER_TIMEOUT_MS=30000;
 const isSafeSourceUrl=url=>typeof url==="string"&&url.startsWith("/")&&!url.startsWith("//")&&!url.includes("\\");
 
 function contextText(sources){
@@ -73,7 +74,11 @@ function conversationText(input){
 export async function generateGroundedReply({apiKey,model,input,sources}){
   const instructions=buildGroundingInstructions(input,sources);
 
-  const response=await fetch(OPENAI_URL,{
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),PROVIDER_TIMEOUT_MS);
+  let response;
+  try{
+    response=await fetch(OPENAI_URL,{
     method:"POST",
     headers:{"content-type":"application/json","authorization":"Bearer "+apiKey},
     body:JSON.stringify({
