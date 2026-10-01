@@ -183,6 +183,11 @@ const careerMatchReaderLoaderContract=careerMatchReaderLoader.includes('const ex
 if(!careerMatchReaderLoaderContract)errors.push("Career Match third-party script loading must reuse an existing in-flight or completed script load");
 else console.log("Career Match reader loader single-flight contract: PASS");
 
+const careerMatchFileRace=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchFileRaceContract=careerMatchFileRace.includes("let fileReadToken=0;")&&careerMatchFileRace.includes("const token=++fileReadToken")&&careerMatchFileRace.includes("if(token!==fileReadToken)return");
+if(!careerMatchFileRaceContract)errors.push("Career Match file reads must ignore stale asynchronous results after a newer file selection");
+else console.log("Career Match file-selection race contract: PASS");
+
 const careerMatchSavedHandler=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedHandlerContract=careerMatchSavedHandler.includes('$("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=validSavedList(store.get("cm_saved",[]));');
 if(!careerMatchSavedHandlerContract)errors.push("Career Match saved-analysis actions must use validated persisted records");
