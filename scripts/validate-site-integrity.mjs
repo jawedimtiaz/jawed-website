@@ -153,6 +153,11 @@ const careerMatchStorageContract=careerMatchStorage.includes("function validSave
 if(!careerMatchStorageContract)errors.push("Career Match persisted saved and tracker data must be shape-validated before use");
 else console.log("Career Match persisted-state integrity contract: PASS");
 
+const careerMatchPersistedIdRendering=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchPersistedIdRenderingContract=careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-s="open"')&&careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-s="del"')&&careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-t="mv"')&&careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-t="rm"');
+if(!careerMatchPersistedIdRenderingContract)errors.push("Career Match persisted record IDs must be HTML-escaped before rendering into action attributes");
+else console.log("Career Match persisted-ID rendering safety contract: PASS");
+
 const careerMatchSavedHandler=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedHandlerContract=careerMatchSavedHandler.includes('$("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=validSavedList(store.get("cm_saved",[]));');
 if(!careerMatchSavedHandlerContract)errors.push("Career Match saved-analysis actions must use validated persisted records");
