@@ -10,8 +10,8 @@ Phase 20D verifies that operational diagnostics improve supportability without c
 - Retrieval summaries, keywords, and source metadata remain out of generic failure responses and runtime telemetry.
 - Rate-limit responses expose only the minimum retry timing needed by the existing client behavior.
 - The browser does not persist AI conversation history or request IDs.
-- Assistant output remains text-only.
-- Structured source URLs remain the only browser navigation contract.
+- Assistant output is rendered through safe DOM APIs: reply text remains text nodes, and only exact validated Jawed.co.in source URLs become anchors.
+- Structured source URLs remain the canonical navigation data contract; inline source anchors are created only from that validated source set.
 
 ## Validation
 

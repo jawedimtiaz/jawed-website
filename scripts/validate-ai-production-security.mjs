@@ -29,7 +29,9 @@ assert.equal(frontend.includes("data.reply"),true,"Frontend must render the assi
 assert.equal(frontend.includes("data.request_id"),false,"Frontend must not render or persist request IDs");
 assert.equal(frontend.includes("localStorage"),false,"AI conversation must remain memory-only");
 assert.equal(frontend.includes("sessionStorage"),false,"AI conversation must remain memory-only");
-assert.equal(frontend.includes("textContent=text"),true,"Assistant output must remain text-only");
+assert.equal(frontend.includes("document.createTextNode"),true,"Assistant output must use safe DOM text-node rendering");
+assert.equal(frontend.includes("const allowed=new Set"),true,"Assistant source links must be explicitly allowlisted");
+assert.equal(frontend.includes("allowed.has(match[2])"),true,"Assistant source links must require an exact allowlist match");
 assert.equal(frontend.includes('link.href=source.url'),true,"Structured source URLs remain the navigation contract");
 
 assert.equal(docs.includes("not authentication tokens"),true,"Request IDs must be documented as non-secret correlation IDs");
