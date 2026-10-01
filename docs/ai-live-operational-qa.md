@@ -9,7 +9,7 @@ The public `/ai/` page:
 - sends questions only to `/api/ai`
 - sends JSON request bodies
 - keeps at most 12 conversation messages
-- displays assistant content through DOM text content rather than HTML
+- renders assistant content through safe DOM APIs: text nodes for reply text plus anchors only for exact, allowlisted Jawed.co.in source URLs
 - validates structured source URLs as same-site relative paths and rejects protocol-relative URLs
 - handles `AI_NOT_CONFIGURED`
 - handles `AI_PROVIDER_ERROR`
