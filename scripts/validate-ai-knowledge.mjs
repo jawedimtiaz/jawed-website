@@ -21,8 +21,8 @@ const metadataMismatches=knowledge.entries.filter(entry=>{
   const file=sourcePath(entry.url);
   if(!fs.existsSync(file))return false;
   const html=fs.readFileSync(file,"utf8");
-  const titleMatch=html.match(/<title\\b[^>]*>([\\s\\S]*?)<\\/title>/i);
-  const pageTitle=(titleMatch?.[1]||"").replace(/<[^>]*>/g," ").replace(/\\s+/g," ").trim();
+  const titleMatch=html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+  const pageTitle=(titleMatch?.[1]||"").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
   return !pageTitle||!pageTitle.toLowerCase().includes(entry.title.trim().toLowerCase());
 });
 
