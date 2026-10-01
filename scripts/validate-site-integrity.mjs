@@ -16,6 +16,11 @@ const unsitemapPages=sourcePaths.filter(file=>{
   return !sitemapPaths.includes(path);
 });
 const duplicateSitemapPaths=sitemapPaths.filter((path,index)=>sitemapPaths.indexOf(path)!==index);
+const errors=[];
+
+const publishedHtml=sourcePaths.filter(file=>file.endsWith(".html"));
+const routeForSource=file=>file==="index.html"?"/":"/"+file.replace(/\\/g,"/").replace(/\/index\.html$/,"")+"/";
+const publishedRoutes=new Set(publishedHtml.map(routeForSource));
 const metadataContractErrors=[];
 for(const file of publishedHtml){
   const html=fs.readFileSync(file,"utf8");
@@ -33,11 +38,7 @@ for(const file of publishedHtml){
 }
 if(metadataContractErrors.length)errors.push("Published-page metadata contract failed: "+metadataContractErrors.join(", "));
 
-const errors=[];
 
-const publishedHtml=sourcePaths.filter(file=>file.endsWith(".html"));
-const routeForSource=file=>file==="index.html"?"/":"/"+file.replace(/\\/g,"/").replace(/\/index\.html$/,"")+"/";
-const publishedRoutes=new Set(publishedHtml.map(routeForSource));
 const internalLinkIssues=[];
 for(const file of publishedHtml){
   const html=fs.readFileSync(file,"utf8");
