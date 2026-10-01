@@ -78,9 +78,9 @@ jobs:
           {
             echo "## AI Regression Gate"
             echo
-            echo "- Result: `$RESULT`"
-            echo "- Commit: `${GITHUB_SHA}`"
-            echo "- Ref: `${GITHUB_REF}`"
-            echo "- Node: `$(node --version)`"
+            echo "- Result: \\`$RESULT\\`"
+            echo "- Commit: \\`${GITHUB_SHA}\\`"
+            echo "- Ref: \\`${GITHUB_REF}\\`"
+            echo "- Node: \\`$(node --version)\\`"
             echo "- Deterministic provider-backed E2E: not asserted"
           } >> "$GITHUB_STEP_SUMMARY"
