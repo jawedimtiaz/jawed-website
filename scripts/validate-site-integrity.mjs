@@ -133,6 +133,11 @@ const careerMatchFocusRecoveryContract=careerMatchFocus.includes('const index=[.
 if(!careerMatchFocusRecoveryContract)errors.push("Career Match mutations must restore keyboard focus after saved-analysis and tracker deletions");
 else console.log("Career Match mutation focus recovery contract: PASS");
 
+const careerMatchStorage=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchStorageContract=careerMatchStorage.includes("function validSavedList(v)")&&careerMatchStorage.includes("function validTrackList(v)")&&careerMatchStorage.includes("validSavedList(store.get(\"cm_saved\",[]))")&&careerMatchStorage.includes("validTrackList(store.get(\"cm_track\",[]))");
+if(!careerMatchStorageContract)errors.push("Career Match persisted saved and tracker data must be shape-validated before use");
+else console.log("Career Match persisted-state integrity contract: PASS");
+
 const financeSnapshot=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");
 const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fromEntries(ids.map(id=>[id,$(id).value]))")&&financeSnapshot.includes("ids.forEach(id=>$(id).value=defaults[id])");
 if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
