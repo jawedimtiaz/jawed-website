@@ -108,6 +108,9 @@ const contracts=[
   ["AI source citations render only allowlisted Jawed links",frontend.includes("const allowed=new Set")&&frontend.includes("allowed.has(match[2])")&&frontend.includes("https://jawed.co.in")],
 ];
 
+assert.equal(endpoint.includes("source.summary")&&endpoint.includes("source.keywords")&&endpoint.includes("keywords.filter"),true,"API must preserve provider grounding metadata");
+console.log("PASS — API preserves provider grounding metadata");
+
 for(const [name,ok] of contracts){
   try{assert.equal(ok,true,name+" contract is missing");console.log("PASS — "+name);}
   catch(error){failures.push({name,output:error.message});console.error("FAIL — "+name);}
