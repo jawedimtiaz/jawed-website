@@ -56,6 +56,7 @@ for(const source of unconfiguredBody.sources){
   assert.equal(typeof source.url,"string");
   assert.equal(source.url.startsWith("/"),true);
   assert.equal(source.url.startsWith("//"),false);
+  assert.equal(source.url.includes("\\"),false);
   assert.equal(typeof source.title,"string");
   assert.equal(source.title.trim().length>0,true);
   assert.deepEqual(Object.keys(source).sort(),["title","url"]);
