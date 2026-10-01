@@ -93,7 +93,9 @@ const contracts=[
   ["external markdown sanitization",provider.includes("sanitizeMarkdownLinks")],
   ["text-only browser rendering",frontend.includes("p.textContent=text")],
   ["structured source URL validation",frontend.includes('source.url.startsWith("/")')&&frontend.includes('source.url.startsWith("//")')],
-  ["memory-only browser history",!frontend.includes("localStorage")&&!frontend.includes("sessionStorage")]
+  ["memory-only browser history",!frontend.includes("localStorage")&&!frontend.includes("sessionStorage")],
+  ["AI deep-link consumed after submit",frontend.includes('cleanUrl.searchParams.delete("q")')&&frontend.includes("window.history.replaceState")],
+  ["AI deep-link consumption preserves hash",frontend.includes("cleanUrl.hash") ]
 ];
 
 for(const [name,ok] of contracts){
