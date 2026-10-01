@@ -17,6 +17,34 @@ const unsitemapPages=sourcePaths.filter(file=>{
 });
 const duplicateSitemapPaths=sitemapPaths.filter((path,index)=>sitemapPaths.indexOf(path)!==index);
 const errors=[];
+
+const publishedHtml=sourcePaths.filter(file=>file.endsWith(".html"));
+const routeForSource=file=>file==="index.html"?"/":"/"+file.replace(/\\/g,"/").replace(/\/index\.html$/,"")+"/";
+const publishedRoutes=new Set(publishedHtml.map(routeForSource));
+const internalLinkIssues=[];
+for(const file of publishedHtml){
+  const html=fs.readFileSync(file,"utf8");
+  for(const match of html.matchAll(/(?:href|action)=["']([^"']+)["']/g)){
+    const value=match[1];
+    if(!value.startsWith("/")||value.startsWith("//")||value.startsWith("/ai/?q="))continue;
+    const hashIndex=value.indexOf("#");
+    const targetPath=hashIndex===-1?value:value.slice(0,hashIndex);
+    const fragment=hashIndex===-1?"":decodeURIComponent(value.slice(hashIndex+1));
+    const normalizedPath=targetPath===""?"/":(targetPath.endsWith("/")?targetPath:targetPath+"/");
+    if(!publishedRoutes.has(normalizedPath)){
+      internalLinkIssues.push(file+" -> "+value);
+      continue;
+    }
+    if(fragment){
+      const targetSource=normalizedPath==="/"?"index.html":normalizedPath.replace(/^\/+|\/+$/g,"")+"/index.html";
+      const targetHtml=fs.readFileSync(targetSource,"utf8");
+      const hasFragment=targetHtml.includes('id="'+fragment+'"')||targetHtml.includes("id='"+fragment+"'")||targetHtml.includes('name="'+fragment+'"')||targetHtml.includes("name='"+fragment+"'");
+      if(!hasFragment)internalLinkIssues.push(file+" -> "+value);
+    }
+  }
+}
+if(internalLinkIssues.length)errors.push("Internal links or fragment targets are invalid: "+internalLinkIssues.join(", "));
+
 const mainJs=fs.readFileSync("assets/js/main.js","utf8");
 const discoveryQueryBoundaryContract=[
   ["discovery URL query is bounded to 200 characters",mainJs.includes("initial.trim().slice(0,200)")],
@@ -56,6 +84,7 @@ if(duplicateSitemapPaths.length)errors.push("Sitemap contains duplicate paths: "
 if(missingSources.length)errors.push("Sitemap pages have no repository source file: "+missingSources.join(", "));
 if(unsitemapPages.length)errors.push("Published HTML pages are missing from sitemap: "+unsitemapPages.join(", "));
 assert.equal(errors.length,0,errors.join("\n"));
+console.log("Internal link and fragment integrity: PASS");
 console.log("Discovery filter exclusion contract: PASS");
 console.log("Site sitemap/page parity: PASS");
 console.log("Sitemap pages:",sitemapPaths.length);
