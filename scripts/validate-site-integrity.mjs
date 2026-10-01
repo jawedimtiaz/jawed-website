@@ -153,6 +153,11 @@ const cspFrameContract=headers.includes("frame-src 'none'");
 if(!cspFrameContract)errors.push("CSP must explicitly deny frame loads because the site does not use iframes");
 else console.log("CSP frame-src hardening contract: PASS");
 
+const careerMatchDownload=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchDownloadContract=careerMatchDownload.includes("URL.createObjectURL(new Blob")&&careerMatchDownload.includes("setTimeout(()=>URL.revokeObjectURL(u),0)")&&!careerMatchDownload.includes("l.click();URL.revokeObjectURL(u)");
+if(!careerMatchDownloadContract)errors.push("Career Match downloads must defer Blob URL revocation until after download initiation");
+else console.log("Career Match download URL cleanup contract: PASS");
+
 const careerMatchFileGuards=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchFileResourceContract=careerMatchFileGuards.includes("const MAX_FILE_BYTES=15*1024*1024")&&careerMatchFileGuards.includes("const MAX_PDF_PAGES=100")&&careerMatchFileGuards.includes("const MAX_EXTRACTED_CHARS=500000")&&careerMatchFileGuards.includes("if(f.size>MAX_FILE_BYTES)")&&careerMatchFileGuards.includes("if(pdf.numPages>MAX_PDF_PAGES)")&&careerMatchFileGuards.includes("if(out.length>MAX_EXTRACTED_CHARS)");
 if(!careerMatchFileResourceContract)errors.push("Career Match file parsing must enforce upload size, PDF page-count, and extracted-text bounds");
