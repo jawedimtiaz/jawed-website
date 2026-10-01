@@ -5,6 +5,10 @@ import {checkRateLimit,MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-li
 
 const endpoint=fs.readFileSync("functions/api/ai.js","utf8");
 
+const apiContentLengthGuard=fs.readFileSync("functions/api/ai.js","utf8");
+const apiContentLengthGuardContract=apiContentLengthGuard.includes('const declaredLength=Number(request.headers.get("content-length"))')&&apiContentLengthGuard.includes('declaredLength>MAX_BODY_BYTES');
+assert.equal(apiContentLengthGuardContract,true,"Oversized declared request bodies must be rejected before buffering");
+
 const failures=[
   ["origin rejection",endpoint.includes('AI_ORIGIN_NOT_ALLOWED')&&endpoint.includes("403")],
   ["content-type rejection",endpoint.includes('AI_INVALID_CONTENT_TYPE')&&endpoint.includes("415")],
