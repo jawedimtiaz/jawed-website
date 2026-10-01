@@ -65,7 +65,8 @@ export async function onRequestPost({request,env}){
     return json({reply:result.reply,sources:responseSources,model:result.model,request_id:id},200,{"x-request-id":id});
   }catch(error){
     const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<600?error.status:502;
-    return failure(status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.","AI_PROVIDER_ERROR",status===429?429:502,id,{provider_status:status});
+    const diagnostic=typeof error?.category==="string"&&/^PROVIDER_(?:HTTP_(?:4\\d\\d|5\\d\\d)|TIMEOUT|NETWORK|INVALID_RESPONSE|RESPONSE_VALIDATION|ATTRIBUTION)$/.test(error.category)?error.category:"PROVIDER_UNKNOWN";
+    return failure(status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.","AI_PROVIDER_ERROR",status===429?429:502,id,{provider_status:status,provider_category:diagnostic});
   }
 }
 
