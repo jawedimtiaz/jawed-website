@@ -56,16 +56,16 @@ ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
 </head>
 <body><a class="skip-link" href="#main-content">Skip to main content</a><header class="top"><a href="/" class="site-back" aria-label="Back to Jawed Imtiaz home">← Jawed Imtiaz</a><a href="/tools/" class="site-tools">All Tools</a>
   <div class="logo">Career Match &amp; Resume Review</div>
-  <nav>
-    <button data-v="analyze" class="on">Analyze</button>
-    <button data-v="results">Dashboard</button>
-    <button data-v="tracker">Application Tracker</button>
-    <button data-v="saved">Saved</button>
+  <nav role="tablist" aria-label="Career Match sections">
+    <button type="button" role="tab" aria-selected="true" aria-controls="v-analyze" tabindex="0" data-v="analyze" class="on">Analyze</button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="v-results" tabindex="-1" data-v="results">Dashboard</button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="v-tracker" tabindex="-1" data-v="tracker">Application Tracker</button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="v-saved" tabindex="-1" data-v="saved">Saved</button>
   </nav>
   <button class="btn" id="theme" aria-label="Toggle light/dark mode">◐ Theme</button>
 </header>
 <main id="main-content">
-<section id="v-analyze" class="view">
+<section id="v-analyze" class="view" role="tabpanel" aria-hidden="false">
   <div class="hero"><h1>How well does your resume match this job?</h1>
   <p>Paste or upload your resume and the job description. Analysis runs in your browser. The tool does not send your resume or job description to a server.</p></div>
   <div class="grid2">
@@ -79,14 +79,14 @@ ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
   <div class="row" style="margin-top:18px"><button class="btn primary" id="go">Analyze My Match</button>
     <button class="btn" id="sample">Load sample (fictional)</button><span class="muted" id="err"></span></div>
 </section>
-<section id="v-results" class="view hidden" aria-labelledby="results-heading"><div id="results" tabindex="-1" aria-live="polite"><h2 id="results-heading">Analysis results</h2><p class="empty">Run an analysis to see your dashboard.</p></div></section>
-<section id="v-tracker" class="view hidden">
+<section id="v-results" class="view hidden" role="tabpanel" aria-labelledby="results-heading" aria-hidden="true"><div id="results" tabindex="-1" aria-live="polite"><h2 id="results-heading">Analysis results</h2><p class="empty">Run an analysis to see your dashboard.</p></div></section>
+<section id="v-tracker" class="view hidden" role="tabpanel" aria-hidden="true">
   <div class="panel"><h2 style="margin-top:0">Application Tracker</h2>
     <div class="row"><div><label for="tCo">Company</label><input id="tCo" placeholder="Company" style="flex:1"></div><div><label for="tRole">Role</label><input id="tRole" placeholder="Role" style="flex:1"></div><div><label for="tSt">Application status</label><select id="tSt" style="width:auto"><option>Applied</option><option>Interview</option><option>Rejected</option><option>Offer</option></select></div>
     <button class="btn primary" id="addJob" style="padding:9px 18px;font-size:15px">Add</button></div></div>
   <div class="board" id="board" aria-live="polite"></div>
 </section>
-<section id="v-saved" class="view hidden"><div class="panel"><h2 style="margin-top:0">Saved analyses</h2><div id="savedList" aria-live="polite"></div></div></section>
+<section id="v-saved" class="view hidden" role="tabpanel" aria-hidden="true"><div class="panel"><h2 style="margin-top:0">Saved analyses</h2><div id="savedList" aria-live="polite"></div></div></section>
 <section class="panel" style="margin-top:18px">
   <h2 style="margin-top:0">Data, storage and privacy</h2>
   <ul>
@@ -211,8 +211,8 @@ function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setT
 function setTheme(t){document.documentElement.dataset.theme=t;store.set("cm_theme",t)}
 setTheme(store.get("cm_theme",matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"));
 $("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
-function show(v){document.querySelectorAll(".view").forEach(e=>e.classList.toggle("hidden",e.id!=="v-"+v));document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));if(v==="tracker")renderTracker();if(v==="saved")renderSaved();const target=document.querySelector("#v-"+v);if(target){target.setAttribute("tabindex","-1");target.focus({preventScroll:true})}}
-document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.v));
+function show(v){const tabs=[...document.querySelectorAll('nav[role="tablist"] [role="tab"]')];document.querySelectorAll(".view").forEach(e=>{const active=e.id==="v-"+v;e.classList.toggle("hidden",!active);e.setAttribute("aria-hidden",String(!active))});tabs.forEach(b=>{const active=b.dataset.v===v;b.classList.toggle("on",active);b.setAttribute("aria-selected",String(active));b.tabIndex=active?0:-1});if(v==="tracker")renderTracker();if(v==="saved")renderSaved();const target=document.querySelector("#v-"+v);if(target){target.setAttribute("tabindex","-1");target.focus({preventScroll:true})}}
+const careerTabs=[...document.querySelectorAll('nav[role="tablist"] [role="tab"]')];careerTabs.forEach(b=>b.onclick=()=>show(b.dataset.v));careerTabs.forEach((b,index)=>b.addEventListener("keydown",e=>{if(!["ArrowRight","ArrowDown","ArrowLeft","ArrowUp","Home","End"].includes(e.key))return;e.preventDefault();let next=index;if(e.key==="ArrowRight"||e.key==="ArrowDown")next=(index+1)%careerTabs.length;if(e.key==="ArrowLeft"||e.key==="ArrowUp")next=(index-1+careerTabs.length)%careerTabs.length;if(e.key==="Home")next=0;if(e.key==="End")next=careerTabs.length-1;careerTabs[next].focus();show(careerTabs[next].dataset.v)}));
 const loadScript=(src)=>new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error("Could not load the file reader (internet needed)"));document.head.appendChild(s)});
 const loadPdfReader=async()=>{if(window.pdfjsLib)return;await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js")};
 const loadDocxReader=async()=>{if(window.mammoth)return;await loadScript("https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js")};
