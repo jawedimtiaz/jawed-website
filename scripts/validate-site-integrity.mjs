@@ -18,6 +18,11 @@ const unsitemapPages=sourcePaths.filter(file=>{
 const duplicateSitemapPaths=sitemapPaths.filter((path,index)=>sitemapPaths.indexOf(path)!==index);
 const errors=[];
 const mainJs=fs.readFileSync("assets/js/main.js","utf8");
+const discoveryQueryBoundaryContract=[
+  ["discovery URL query is bounded to 200 characters",mainJs.includes("initial.trim().slice(0,200)")],
+  ["typed discovery query is bounded to 200 characters",mainJs.includes("i.value.trim().slice(0,200)")]
+];
+const missingDiscoveryQueryBoundaryContracts=discoveryQueryBoundaryContract.filter(([,ok])=>!ok).map(([name])=>name);
 const discoveryHistoryContract=[
   ["discovery filter listens for browser history navigation",mainJs.includes("window.addEventListener('popstate',()=>{const current=new URLSearchParams(window.location.search).get('q')||''")],
   ["history navigation re-applies discovery filtering",mainJs.includes("i.value=current;update(false)")]
@@ -37,6 +42,7 @@ const discoveryFilterContract=[
 ];
 const missingDiscoveryContracts=discoveryFilterContract.filter(([,ok])=>!ok).map(([name])=>name);
 const missingDiscoveryAiContracts=discoveryAiContract.filter(([,ok])=>!ok).map(([name])=>name);
+if(missingDiscoveryQueryBoundaryContracts.length)errors.push("Discovery query-boundary contract missing: "+missingDiscoveryQueryBoundaryContracts.join(", "));
 if(missingDiscoveryHistoryContracts.length)errors.push("Discovery browser-history contract missing: "+missingDiscoveryHistoryContracts.join(", "));
 if(missingDiscoveryAiContracts.length)errors.push("Discovery-to-AI context contract missing: "+missingDiscoveryAiContracts.join(", "));
 if(missingDiscoveryContracts.length)errors.push("Discovery filter contract missing: "+missingDiscoveryContracts.join(", "));
