@@ -17,11 +17,22 @@ const unsitemapPages=sourcePaths.filter(file=>{
 });
 const duplicateSitemapPaths=sitemapPaths.filter((path,index)=>sitemapPaths.indexOf(path)!==index);
 const errors=[];
+const mainJs=fs.readFileSync("assets/js/main.js","utf8");
+const discoveryFilterContract=[
+  ["notes filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card),main section[id^=\"subject-\"]")],
+  ["tools filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card)',label:'tools'")],
+  ["topics filter excludes Jawed AI handoff",mainJs.includes("selector:'main section:not(.discovery-panel) .card:not(.ai-discovery-card)',label:'topics'")],
+  ["blog filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card)',label:'posts'")],
+  ["resources filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card)',label:'resources'")]
+];
+const missingDiscoveryContracts=discoveryFilterContract.filter(([,ok])=>!ok).map(([name])=>name);
+if(missingDiscoveryContracts.length)errors.push("Discovery filter contract missing: "+missingDiscoveryContracts.join(", "));
 if(sitemapUrls.length!==siteUrls.length)errors.push("Sitemap contains URLs outside https://jawed.co.in/.");
 if(duplicateSitemapPaths.length)errors.push("Sitemap contains duplicate paths: "+[...new Set(duplicateSitemapPaths)].join(", "));
 if(missingSources.length)errors.push("Sitemap pages have no repository source file: "+missingSources.join(", "));
 if(unsitemapPages.length)errors.push("Published HTML pages are missing from sitemap: "+unsitemapPages.join(", "));
 assert.equal(errors.length,0,errors.join("\n"));
+console.log("Discovery filter exclusion contract: PASS");
 console.log("Site sitemap/page parity: PASS");
 console.log("Sitemap pages:",sitemapPaths.length);
 console.log("Published HTML pages audited:",sourcePaths.length);
