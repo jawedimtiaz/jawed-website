@@ -28,11 +28,17 @@ for(const path of sitemapPaths.filter(path=>path!=="/"&&!excluded.has(path))){
   const family=path.split("/").filter(Boolean)[0];
   if(family)requiredWorkflowPaths.add(family+"/**");
 }
-const workflowMissing=[...requiredWorkflowPaths].filter(path=>!workflow.includes('"'+path+'"'));
+const workflowSection=(name,nextName)=>workflow.match(new RegExp("\\n  "+name+":\\n([\\s\\S]*?)(?=\\n  "+nextName+":|\\npermissions:)"))?.[1]||"";
+const pullRequestPaths=workflowSection("pull_request","workflow_dispatch");
+const pushPaths=workflowSection("push","permissions");
+const pathCount=(section,path)=>section.split("\\n").filter(line=>line.trim()==='- "'+path+'"').length;
+const workflowMissing=[...requiredWorkflowPaths].filter(path=>pathCount(pullRequestPaths,path)!==1||pathCount(pushPaths,path)!==1);
+const workflowDuplicatePaths=[...new Set([...pullRequestPaths.matchAll(/^      - "([^"]+)"$/gm)].map(match=>match[1]))].filter(path=>pathCount(pullRequestPaths,path)>1||pathCount(pushPaths,path)>1);
 
 const errors=[];
 if(allSitemapLocs.length!==sitemapPaths.length)errors.push("Sitemap contains one or more <loc> URLs outside the expected https://jawed.co.in/ origin or with an unsupported format.");
-if(workflowMissing.length)errors.push("AI regression workflow does not trigger for grounding source path families: "+workflowMissing.join(", "));
+if(workflowMissing.length)errors.push("AI regression workflow trigger parity is incomplete for grounding source paths: "+workflowMissing.join(", "));
+if(workflowDuplicatePaths.length)errors.push("AI regression workflow contains duplicate path filters: "+workflowDuplicatePaths.join(", "));
 if(new Set(sitemapPaths).size!==sitemapPaths.length)errors.push("Sitemap contains duplicate URLs.");
 if(duplicates.length)errors.push("AI knowledge contains duplicate URLs: "+[...new Set(duplicates)].join(", "));
 if(missing.length)errors.push("Sitemap content pages missing from AI knowledge: "+missing.join(", "));
