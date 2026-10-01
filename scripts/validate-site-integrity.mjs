@@ -153,6 +153,11 @@ const cspFrameContract=headers.includes("frame-src 'none'");
 if(!cspFrameContract)errors.push("CSP must explicitly deny frame loads because the site does not use iframes");
 else console.log("CSP frame-src hardening contract: PASS");
 
+const careerMatchSavedSize=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchSavedSizeContract=careerMatchSavedSize.includes("const MAX_SAVED_HTML_CHARS=500000")&&careerMatchSavedSize.includes("html.length>MAX_SAVED_HTML_CHARS")&&careerMatchSavedSize.includes("maximum 500,000 characters");
+if(!careerMatchSavedSizeContract)errors.push("Career Match saved analyses must enforce a per-analysis HTML size bound before localStorage persistence");
+else console.log("Career Match saved-analysis size guard contract: PASS");
+
 const careerMatchDownload=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchDownloadContract=careerMatchDownload.includes("URL.createObjectURL(new Blob")&&careerMatchDownload.includes("setTimeout(()=>URL.revokeObjectURL(u),0)")&&!careerMatchDownload.includes("l.click();URL.revokeObjectURL(u)");
 if(!careerMatchDownloadContract)errors.push("Career Match downloads must defer Blob URL revocation until after download initiation");
