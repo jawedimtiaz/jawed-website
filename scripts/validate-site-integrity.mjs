@@ -133,6 +133,10 @@ const careerMatchFocusRecoveryContract=careerMatchFocus.includes('const index=[.
 if(!careerMatchFocusRecoveryContract)errors.push("Career Match mutations must restore keyboard focus after saved-analysis and tracker deletions");
 else console.log("Career Match mutation focus recovery contract: PASS");
 
+const careerMatchSavedFocus=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchSavedFocusContract=careerMatchSavedFocus.includes(`document.querySelector(\`nav[role="tablist"] [data-v="saved"]\`)`)&&!careerMatchSavedFocus.includes(`||$("#saved")`);
+if(!careerMatchSavedFocusContract)errors.push("Career Match saved deletion must focus an existing Saved tab when no remaining delete button exists");
+else console.log("Career Match saved deletion focus recovery contract: PASS");
 const careerMatchTrackerMetadata=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchTrackerMetadataContract=careerMatchTrackerMetadata.includes('typeof x.date==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(x.date)');
 if(!careerMatchTrackerMetadataContract)errors.push("Career Match tracker records must validate their persisted date before rendering");
