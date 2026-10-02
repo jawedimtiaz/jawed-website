@@ -7,6 +7,7 @@ The `POST /api/ai` success response has this contract:
   - `url`: relative same-site path beginning with `/`, never `//`.
   - `title`: non-empty display title.
 - `model`: provider model identifier.
+- `request_id`: server-generated request identifier, also returned as the `x-request-id` response header.
 
 The API deliberately exposes only `url` and `title` for browser source references. Retrieval metadata such as summaries and keywords remains server-side provider context.
 
@@ -22,6 +23,8 @@ Error responses use these public HTTP statuses:
 - `AI_RATE_LIMITED` — HTTP 429 when the application request quota is exceeded.
 - `AI_PROVIDER_ERROR` — HTTP 429, 502, or 504 depending on the normalized provider failure.
 - `AI_HANDLER_ERROR` — HTTP 502 for an unexpected handler-level failure.
+
+Error bodies include `error`, `code`, and `request_id`. Provider failures may additionally include an allowlisted `diagnostic` value; the same normalized diagnostic is returned through `x-ai-provider-diagnostic`. Unexpected handler failures may additionally expose an allowlisted handler diagnostic through `x-ai-handler-diagnostic`.
 
 The browser validates the relative-URL invariant before creating source links.
 
