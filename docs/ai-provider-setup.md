@@ -47,8 +47,11 @@ When configured, a successful response has the shape:
 {
   "reply": "…",
   "sources": [],
-  "model": "@cf/meta/llama-3.2-1b-instruct"
+  "model": "@cf/meta/llama-3.2-1b-instruct",
+  "request_id": "…"
 }
 ```
+
+The same request ID is returned in the `x-request-id` response header.
 
 Workers AI errors are normalized so provider-specific error details are not exposed to visitors.
