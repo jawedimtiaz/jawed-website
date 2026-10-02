@@ -13,7 +13,7 @@ const contracts=[
   ["privacy page identifies regional consent requirements",privacy.includes("European Economic Area")&&privacy.includes("United Kingdom")&&privacy.includes("Switzerland")],
   ["privacy page identifies Google's certified CMP requirement",privacy.includes("Google-certified consent management platform")&&privacy.includes("Transparency and Consent Framework")],
   ["privacy page avoids claiming ads are already enabled",privacy.includes("If Google AdSense or another advertising service is enabled")],
-  ["privacy page avoids premature advertising implementation",privacy.includes("will not add advertising cookies, advertising scripts, publisher identifiers, or advertising partners merely because this policy describes the planned advertising model")],
+  ["privacy page distinguishes site verification from ad serving",privacy.includes("connected to the publisher's AdSense account for site verification and review")&&privacy.includes("Advertising cookies, advertising scripts, ad slots, and advertising partners will be introduced only when the corresponding advertising service is actually enabled")],
   ["privacy page retains privacy contact",privacy.includes("mailto:webmaster@jawed.co.in")]
 ];
 
