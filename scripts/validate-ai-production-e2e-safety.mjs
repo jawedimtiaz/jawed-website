@@ -6,7 +6,7 @@ const harness=fs.readFileSync("scripts/validate-ai-production-e2e.mjs","utf8");
 
 const contracts=[
   ["E2E harness has an explicit request timeout",harness.includes("AbortSignal.timeout(")],
-  ["E2E harness uses the timeout for every request",harness.includes("signal:AbortSignal.timeout(")],
+  ["E2E harness uses the timeout for every request",harness.includes("AbortSignal.timeout(REQUEST_TIMEOUT_MS)")],
   ["E2E harness remains safe when provider is not configured",harness.includes('configuration==="not_configured"')&&harness.includes("Live provider request skipped safely.")],
   ["E2E health request remains GET-only",harness.includes("const health=await request(api);")],
   ["E2E provider request is explicitly POST",harness.includes('method:"POST"')],
