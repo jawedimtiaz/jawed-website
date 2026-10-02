@@ -13,6 +13,10 @@ const required=[
   'AI_POST_HTTP_',
   'AI_POST_UNEXPECTED_RESPONSE',
   'x-ai-provider-diagnostic',
+  'cf-error-type',
+  'cf-error-origin',
+  'CLOUDFLARE_ERROR',
+  'CF_ERROR_'
   'const MAX_HISTORY=12',
   'p.textContent=text',
   'source.url.startsWith("/")',
@@ -32,6 +36,10 @@ assert.equal(page.includes('const httpLabel="AI_POST_HTTP_"+res.status'),true);
 assert.equal(page.includes('const responseCode=typeof data?.code==="string"?data.code:"AI_POST_UNEXPECTED_RESPONSE"'),true);
 assert.equal(page.includes('data={code:"AI_POST_NON_JSON_RESPONSE",diagnostic:res.headers.get("x-ai-provider-diagnostic")||""}'),true);
 assert.equal(page.includes('headerDiagnostic=typeof data?.diagnostic==="string"'),true);
+assert.equal(page.includes('const cloudflareType=res.headers.get("cf-error-type")||""'),true);
+assert.equal(page.includes('const cloudflareOrigin=res.headers.get("cf-error-origin")||""'),true);
+assert.equal(page.includes('if(!data?.code&&cloudflareType)data={...data,code:"CLOUDFLARE_ERROR",cloudflareType,cloudflareOrigin}'),true);
+assert.equal(page.includes('/^\\d{3,4}$/'),true);
 
 console.log("AI live operational browser contract validation OK");
 console.log("API endpoint wired: yes");
