@@ -27,6 +27,7 @@ assert.equal(sharedScript.includes('location.pathname.startsWith("/ai/")'),true,
 assert.equal(sharedStyles.includes(".jawed-ai-widget"),true,"AI widget styles are missing");
 assert.equal(sharedScript.includes('if(open)input.focus();else toggle.focus()'),true,"AI widget must return focus to its toggle when closed");
 assert.equal(sharedScript.includes('if(!panel.hidden)input.focus()'),true,"AI widget must not focus hidden input after an in-flight request completes");
+assert.equal(sharedScript.includes('toggle.setAttribute("aria-label",open?"Close Jawed AI":"Open Jawed AI")'),true,"AI widget toggle accessible name must track expanded state");
 
 const pageRequired=[
   'fetch("/api/ai"',
