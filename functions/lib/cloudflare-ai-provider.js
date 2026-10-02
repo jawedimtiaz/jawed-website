@@ -15,16 +15,17 @@ function normalizeProviderError(error){
 }
 
 function withProviderTimeout(promise,timeoutMs=PROVIDER_TIMEOUT_MS){
-  return Promise.race([
-    promise,
-    new Promise((_,reject)=>setTimeout(()=>{
+  let timer;
+  const timeout=new Promise((_,reject)=>{
+    timer=setTimeout(()=>{
       const error=new Error("Cloudflare Workers AI provider timed out.");
       error.status=504;
       error.category="PROVIDER_TIMEOUT";
       error.providerStage="AI_RUN";
       reject(error);
-    },timeoutMs))
-  ]);
+    },timeoutMs);
+  });
+  return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
 }
 
 export async function generateGroundedReply({ai,model,input,sources}){
