@@ -12,6 +12,7 @@ const required=[
   'AI_POST_NON_JSON_RESPONSE',
   'AI_POST_HTTP_',
   'AI_POST_UNEXPECTED_RESPONSE',
+  'x-ai-provider-diagnostic',
   'const MAX_HISTORY=12',
   'p.textContent=text',
   'source.url.startsWith("/")',
@@ -29,7 +30,8 @@ assert.equal(page.includes('headers:{"content-type":"application/json","accept":
 assert.equal(page.includes('history=trimHistory([...requestMessages,{role:"assistant",content:data.reply}])'),true);
 assert.equal(page.includes('const httpLabel="AI_POST_HTTP_"+res.status'),true);
 assert.equal(page.includes('const responseCode=typeof data?.code==="string"?data.code:"AI_POST_UNEXPECTED_RESPONSE"'),true);
-assert.equal(page.includes('data={code:"AI_POST_NON_JSON_RESPONSE"}'),true);
+assert.equal(page.includes('data={code:"AI_POST_NON_JSON_RESPONSE",diagnostic:res.headers.get("x-ai-provider-diagnostic")||""}'),true);
+assert.equal(page.includes('headerDiagnostic=typeof data?.diagnostic==="string"'),true);
 
 console.log("AI live operational browser contract validation OK");
 console.log("API endpoint wired: yes");
