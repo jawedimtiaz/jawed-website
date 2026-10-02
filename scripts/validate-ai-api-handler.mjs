@@ -40,7 +40,7 @@ assert.deepEqual(Object.keys(invalidOriginBody).sort(),["code","error","request_
 assert.equal(invalidOriginBody.code,"AI_ORIGIN_NOT_ALLOWED");
 assert.equal(invalidOriginBody.request_id,invalidOrigin.headers.get("x-request-id"));
 
-const uniqueIp="phase-20j-"+Date.now()+"-"+Math.random();
+const uniqueIp="phase-26r-"+Date.now()+"-"+Math.random();
 const unconfigured=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
   env:{}
@@ -59,7 +59,11 @@ for(const source of unconfiguredBody.sources){
   assert.equal(source.url.includes("\\"),false);
   assert.equal(typeof source.title,"string");
   assert.equal(source.title.trim().length>0,true);
-  assert.deepEqual(Object.keys(source).sort(),["title","url"]);
+  assert.equal(typeof source.summary,"string");
+  assert.equal(source.summary.trim().length>0,true);
+  assert.equal(Array.isArray(source.keywords),true);
+  assert.equal(source.keywords.every(keyword=>typeof keyword==="string"),true);
+  assert.deepEqual(Object.keys(source).sort(),["keywords","summary","title","url"]);
 }
 
 const emptyCurrent=await onRequestPost({
