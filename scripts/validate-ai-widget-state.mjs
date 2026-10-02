@@ -24,7 +24,7 @@ for(const [name,pattern] of checks){
 
 assert.equal(source.includes('panel.hidden=true'),true,"Initial panel state must be explicitly hidden");
 assert.equal(source.includes('close.addEventListener("click",()=>setOpen(false));'),true,"Close handler must remain attached");
-assert.equal(source.includes('if(e.key==="Escape"&&!panel.hidden)setOpen(false);'),true,"Escape handler must close the open panel");
+assert.match(source,/if\(e\.key==="Escape"&&!panel\.hidden\)setOpen\(false\)/,"Escape handler must close the open panel");
 assert.equal(source.includes('else toggle.focus()'),true,"Close path must return focus to the toggle");
 
 console.log("\nAI widget state regression validation: PASS");
