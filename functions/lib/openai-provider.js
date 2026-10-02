@@ -83,6 +83,7 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),PROVIDER_TIMEOUT_MS);
   let response;
+  let providerStage="FETCH";
   try{
     response=await fetch(OPENAI_URL,{
     method:"POST",
@@ -95,25 +96,40 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
       max_output_tokens:MAX_OUTPUT_TOKENS,
     signal:controller.signal
     })
-  });
   }catch(error){
-    if(error?.name==="AbortError"){const timeoutError=new Error("The AI provider request timed out.");timeoutError.status=504;timeoutError.category="PROVIDER_TIMEOUT";throw timeoutError}
+    if(error?.name==="AbortError"){const timeoutError=new Error("The AI provider request timed out.");timeoutError.status=504;timeoutError.category="PROVIDER_TIMEOUT";timeoutError.providerStage=providerStage;throw timeoutError}
     error.category="PROVIDER_NETWORK";
+    error.providerStage=providerStage;
     throw error;
   }finally{clearTimeout(timeout)}
-  const providerContentType=response.headers.get("content-type")||"";
-  const providerBody=await response.text();
+  let providerContentType="";
+  let providerBody="";
+  try{
+    providerStage="HEADERS";
+    providerContentType=response.headers.get("content-type")||"";
+    providerStage="BODY";
+    providerBody=await response.text();
+  }catch(error){
+    const readError=new Error("The AI provider response could not be read.");
+    readError.status=Number.isInteger(response?.status)?response.status:502;
+    readError.category="PROVIDER_RESPONSE_READ";
+    readError.providerStage=providerStage;
+    throw readError;
+  }
   let data=null;
   try{
+    providerStage="PARSE";
     data=providerBody?JSON.parse(providerBody):null;
   }catch(parseError){
     const error=new Error("The AI provider returned a non-JSON response.");
     error.status=response.status;
     error.category="PROVIDER_INVALID_RESPONSE";
+    error.providerStage=providerStage;
     error.providerContentType=providerContentType.slice(0,120);
     error.providerBodyBytes=new TextEncoder().encode(providerBody).byteLength;
     throw error;
   }
+  providerStage="HTTP_STATUS";
   if(!response.ok){
     const message=typeof data?.error?.message==="string"?data.error.message:"The AI provider returned an error.";
     const error=new Error(message);

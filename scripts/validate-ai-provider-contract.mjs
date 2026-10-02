@@ -70,6 +70,12 @@ await assert.rejects(
 assert.equal(calls.length,1);
 
 globalThis.fetch=originalFetch;
+globalThis.fetch=async()=>new Response("",{status:502,headers:{"content-type":"application/json"}});
+await assert.rejects(
+  ()=>generateGroundedReply({apiKey:"test-provider-key",input:[{role:"user",content:"hello"}],sources:[]}),
+  error=>error?.status===502&&error?.category==="PROVIDER_INVALID_RESPONSE"||error?.category==="PROVIDER_RESPONSE_READ"
+);
+
 console.log("AI provider contract behavioral coverage: PASS");
 console.log("Responses API raw output-item parsing exercised: yes");
 console.log("No-storage and output-token contracts exercised: yes");
