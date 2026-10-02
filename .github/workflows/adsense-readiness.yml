@@ -10,6 +10,8 @@ on:
       - "privacy/**"
       - "scripts/validate-adsense-privacy.mjs"
       - "scripts/validate-adsense-inventory.mjs"
+      - "scripts/validate-adsense-activation.mjs"
+      - "docs/adsense-activation-contract.md"
       - "config/adsense-inventory.json"
       - ".github/workflows/adsense-readiness.yml"
   push:
@@ -47,3 +49,6 @@ jobs:
 
       - name: Run AdSense inventory boundary validation
         run: node scripts/validate-adsense-inventory.mjs
+
+      - name: Run AdSense activation contract validation
+        run: node scripts/validate-adsense-activation.mjs
