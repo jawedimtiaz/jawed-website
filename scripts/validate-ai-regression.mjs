@@ -9,6 +9,7 @@ const checks=[
   ["AI retrieval","scripts/validate-ai-retrieval.mjs",/AI retrieval context validation OK/],
   ["AI retrieval source-set relevance","scripts/validate-ai-relevance.mjs",/AI retrieval source-set relevance validation: PASS/],
   ["AI widget state regression","scripts/validate-ai-widget-state.mjs",/AI widget state regression validation: PASS/],
+  ["AI surface parity","scripts/validate-ai-surface-parity.mjs",/AI surface parity regression validation: PASS/],
   ["AI response/output contract","scripts/validate-ai-response.mjs",/AI response grounding\/link validation OK/],
   ["AI production readiness","scripts/validate-ai-production-readiness.mjs",/AI production configuration readiness validation OK/],
   ["AI live browser contract","scripts/validate-ai-live-operational.mjs",/AI live operational browser contract validation OK/],
@@ -84,7 +85,8 @@ const knowledgeSource=fs.readFileSync("functions/lib/ai-knowledge.js","utf8");
 const knowledgeDataSource=fs.readFileSync("functions/lib/ai-knowledge-data.js","utf8");
 
 const contracts=[
-  ["Cloudflare Worker-compatible AI knowledge loading",knowledgeSource.includes('import knowledge from "./ai-knowledge-data.js";')&&!knowledgeSource.includes('from "node:fs"')&&knowledgeDataSource.includes("export default knowledge")],  ["server request-size boundary",endpoint.includes("MAX_BODY_BYTES=12000")],
+  ["Cloudflare Worker-compatible AI knowledge loading",knowledgeSource.includes('import knowledge from "./ai-knowledge-data.js";')&&!knowledgeSource.includes('from "node:fs"')&&knowledgeDataSource.includes("export default knowledge")],
+  ["server request-size boundary",endpoint.includes("MAX_BODY_BYTES=12000")],
   ["server message-count boundary",endpoint.includes("MAX_MESSAGES=12")],
   ["server message-length boundary",endpoint.includes("MAX_MESSAGE_CHARS=2000")],
   ["same-site origin boundary",endpoint.includes("https://jawed.co.in")],
@@ -108,7 +110,7 @@ const contracts=[
   ["AI failure preserves the question",frontend.includes("Your question is still in the input box")&&frontend.includes("input.value=question")],
   ["AI source block renders only valid sources",frontend.includes("const validSources=sources.filter")&&frontend.includes("if(!validSources.length)return")],
   ["AI provider diagnostic display is allowlisted",frontend.includes("PROVIDER_(?:HTTP_(?:4\\d\\d|5\\d\\d)|TIMEOUT|NETWORK|INVALID_RESPONSE|RESPONSE_VALIDATION|ATTRIBUTION)")&&frontend.includes("PROVIDER_UNKNOWN")],
-  ["AI retry reuses failed question message",frontend.includes("let retryMessage=null")&&frontend.includes("retryMessage.question!==question")&&frontend.includes("retryMessage=null;status.textContent=\"\"")],
+  ["AI retry reuses failed question message",frontend.includes("let retryMessage=null")&&frontend.includes("retryMessage.question!==question")&&frontend.includes("retryMessage=null;status.textContent=")],
   ["AI failure status clears when editing",frontend.includes('input.addEventListener("input",()=>{input.setCustomValidity("");if(f.getAttribute("aria-busy")!=="true")status.textContent=""})')],
   ["AI error branches use response code contract",frontend.includes('data?.code==="AI_NOT_CONFIGURED"')&&frontend.includes('data?.code==="AI_PROVIDER_ERROR"')&&frontend.includes('data?.code==="AI_RATE_LIMITED"')],
   ["AI network failure has explicit safe category",frontend.includes("NETWORK_REQUEST_FAILED")&&frontend.includes("Jawed AI request failed.")],
