@@ -21,6 +21,7 @@ const failures=[
   ["unconfigured provider state",endpoint.includes('AI_NOT_CONFIGURED')&&endpoint.includes("503")],
   ["provider failure mapping",endpoint.includes('AI_PROVIDER_ERROR')&&endpoint.includes("AI service is temporarily unavailable.")],
   ["provider rate-limit mapping",endpoint.includes('status===429?429:502')],
+  ["provider credit exhaustion has actionable message",endpoint.includes('providerErrorCode==="credit_balance_exhausted"')&&endpoint.includes("Add API credits")],
   ["minimal generic failure payload",endpoint.includes('return json({error,code,request_id:id},status')],
   ["failure response request correlation",endpoint.includes('"x-request-id":id')]
 ];
