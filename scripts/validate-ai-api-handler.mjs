@@ -66,11 +66,7 @@ for(const source of unconfiguredBody.sources){
   assert.equal(source.url.includes("\\"),false);
   assert.equal(typeof source.title,"string");
   assert.equal(source.title.trim().length>0,true);
-  assert.equal(typeof source.summary,"string");
-  assert.equal(source.summary.trim().length>0,true);
-  assert.equal(Array.isArray(source.keywords),true);
-  assert.equal(source.keywords.every(keyword=>typeof keyword==="string"),true);
-  assert.deepEqual(Object.keys(source).sort(),["keywords","summary","title","url"]);
+  assert.deepEqual(Object.keys(source).sort(),["title","url"]);
 }
 
 const emptyCurrent=await onRequestPost({
