@@ -11,7 +11,7 @@ The `POST /api/ai` success response has this contract:
 The API deliberately exposes only `url` and `title` for browser source references. Retrieval metadata such as summaries and keywords remains server-side provider context.
 
 Error responses use:
-- `AI_NOT_CONFIGURED` when the provider key is unavailable.
+- `AI_NOT_CONFIGURED` when the Cloudflare Workers AI `AI` binding is unavailable.
 - `AI_RATE_LIMITED` when the request quota is exceeded.
 - `AI_PROVIDER_ERROR` for provider failures.
 
