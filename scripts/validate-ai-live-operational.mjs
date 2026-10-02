@@ -32,6 +32,7 @@ assert.equal(sharedScript.includes('messages.setAttribute("aria-busy","true")'),
 assert.equal(sharedScript.includes('messages.setAttribute("aria-busy","false")'),true,"AI widget must clear its loading state after requests");
 assert.equal(sharedStyles.includes("max-height:calc(100dvh - 84px);display:flex;flex-direction:column"),true,"AI widget panel must remain within the viewport");
 assert.equal(sharedStyles.includes(".jawed-ai-widget-messages{height:300px;overflow:auto"),true,"AI widget conversation must remain scrollable");
+assert.equal(sharedStyles.includes("bottom:max(12px,env(safe-area-inset-bottom,0px))"),true,"AI widget must respect the mobile bottom safe-area inset");
 
 const pageRequired=[
   'fetch("/api/ai"',
