@@ -101,7 +101,19 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
     error.category="PROVIDER_NETWORK";
     throw error;
   }finally{clearTimeout(timeout)}
-  const data=await response.json().catch(()=>null);
+  const providerContentType=response.headers.get("content-type")||"";
+  const providerBody=await response.text();
+  let data=null;
+  try{
+    data=providerBody?JSON.parse(providerBody):null;
+  }catch(parseError){
+    const error=new Error("The AI provider returned a non-JSON response.");
+    error.status=response.status;
+    error.category="PROVIDER_INVALID_RESPONSE";
+    error.providerContentType=providerContentType.slice(0,120);
+    error.providerBodyBytes=new TextEncoder().encode(providerBody).byteLength;
+    throw error;
+  }
   if(!response.ok){
     const message=typeof data?.error?.message==="string"?data.error.message:"The AI provider returned an error.";
     const error=new Error(message);
