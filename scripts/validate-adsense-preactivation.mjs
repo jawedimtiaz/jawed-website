@@ -31,7 +31,7 @@ for(const file of files){
   const content=fs.readFileSync(file,"utf8");
   const publisherTagAllowed=file==="index.html" && allowedPublisherTag.test(content);
   for(const pattern of forbiddenPatterns){
-    if(pattern.test(content) && !(pattern.source.startsWith("ca-pub-") && publisherTagAllowed && content.match(/ca-pub-\\d{10,}/gi)?.length===1))violations.push(file+" matches "+pattern);
+    if(pattern.test(content) && !(pattern.source.startsWith("ca-pub-") && publisherTagAllowed && content.match(/ca-pub-\d{10,}/gi)?.length===1))violations.push(file+" matches "+pattern);
     pattern.lastIndex=0;
   }
 }
