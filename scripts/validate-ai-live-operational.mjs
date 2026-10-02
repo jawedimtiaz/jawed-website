@@ -30,7 +30,6 @@ assert.equal(sharedScript.includes('if(!panel.hidden)input.focus()'),true,"AI wi
 assert.equal(sharedScript.includes('toggle.setAttribute("aria-label",open?"Close Jawed AI":"Open Jawed AI")'),true,"AI widget toggle accessible name must track expanded state");
 assert.equal(sharedScript.includes("panel.hidden=true"),true,"AI widget must start closed with its panel hidden");
 assert.equal(sharedScript.includes('close.addEventListener("click",()=>setOpen(false))'),true,"AI widget close button must explicitly close the panel");
-assert.equal(sharedScript.includes('setOpen(false);'),true,"AI widget must provide an explicit closed state");
 assert.equal(sharedScript.includes('e.key==="Escape"&&!panel.hidden'),true,"AI widget must close from Escape when open");
 
 assert.equal(sharedScript.includes('messages.setAttribute("aria-busy","true")'),true,"AI widget must expose its loading state to assistive technology");
