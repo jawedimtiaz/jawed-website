@@ -41,17 +41,23 @@ assert.equal(result.body?.request_id,result.response.headers.get("x-request-id")
 assert.equal(typeof result.body?.reply,"string","AI response missing reply");
 assert.equal(result.body.reply.length>0,true,"AI response reply is empty");
 assert.equal(Array.isArray(result.body?.sources),true,"AI response missing structured sources");
+assert.equal(typeof result.body?.model,"string","AI response must identify the provider model");
 
 for(const source of result.body.sources){
   assert.equal(typeof source?.url,"string","AI source URL must be a string");
   assert.equal(source.url.startsWith("/"),true,"AI source URL must be relative");
   assert.equal(source.url.startsWith("//"),false,"AI source URL must not be protocol-relative");
-  assert.equal(source.url.includes("\\\\"),false,"AI source URL must not contain backslashes");
+  assert.equal(source.url.includes("\\"),false,"AI source URL must not contain backslashes");
   assert.equal(typeof source?.title,"string","AI source title must be a string");
   assert.equal(source.title.trim().length>0,true,"AI source title must be non-empty");
+  assert.equal(typeof source?.summary,"string","AI source summary must be a string");
+  assert.equal(source.summary.trim().length>0,true,"AI source summary must be non-empty");
+  assert.equal(Array.isArray(source?.keywords),true,"AI source keywords must be an array");
+  assert.equal(source.keywords.every(keyword=>typeof keyword==="string"),true,"AI source keywords must contain only strings");
 }
 
 console.log("AI production E2E smoke test: PASS");
 console.log("Provider-backed response: yes");
 console.log("Structured source contract: yes");
+console.log("Provider model contract: yes");
 console.log("API key exposed: no");
