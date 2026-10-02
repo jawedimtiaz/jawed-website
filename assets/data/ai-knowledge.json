@@ -17,11 +17,10 @@
     },
     {
       "url": "/ai/",
-      "title": "Jawed AI",
-      "summary": "Focused AI assistant for discovering practical notes, tools, and resources across Jawed.co.in, with follow-up questions supported by recent conversation context.",
+      "title": "AI Assistant",
+      "summary": "Site AI assistant for discovering practical notes, tools, and resources across Jawed.co.in, with follow-up questions supported by recent conversation context.",
       "keywords": [
         "ai",
-        "jawed ai",
         "assistant",
         "notes",
         "tools",
