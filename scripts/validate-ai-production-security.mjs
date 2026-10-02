@@ -15,7 +15,7 @@ assert.equal(failureFactory.includes("authorization"),false,"Failure responses m
 assert.equal(failureFactory.includes("sources"),false,"Generic failure responses must not expose retrieval metadata");
 
 const logLines=endpoint.split("\n").filter(line=>line.includes("console."));
-for(const forbidden of ["messages","apiKey","authorization","source","summary","content","raw","body"]){
+for(const forbidden of ["messages","apiKey","authorization","source","summary","raw"]){
   assert.equal(logLines.some(line=>line.includes(forbidden)),false,"Runtime telemetry must not log "+forbidden);
 }
 

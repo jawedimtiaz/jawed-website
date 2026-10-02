@@ -89,7 +89,7 @@ const contracts=[
   ["same-site origin boundary",endpoint.includes("https://jawed.co.in")],
   ["rate-limit boundary",rateLimit.includes("MAX_REQUESTS=8")&&rateLimit.includes("WINDOW_MS=60_000")],
   ["server-side Workers AI binding",endpoint.includes("env.AI")&&provider.includes("ai.run")],
-  ["safe Workers AI failure classification",provider.includes("PROVIDER_HTTP_")&&provider.includes("PROVIDER_INVALID_RESPONSE")&&provider.includes("PROVIDER_RESPONSE_VALIDATION")&&provider.includes("PROVIDER_ATTRIBUTION")],
+  ["safe Workers AI failure classification",provider.includes("PROVIDER_HTTP_")&&provider.includes("PROVIDER_UNKNOWN")&&provider.includes("PROVIDER_ATTRIBUTION")&&providerCommon.includes("PROVIDER_RESPONSE_VALIDATION")],
   ["safe provider diagnostic response",endpoint.includes("provider_category:diagnostic")&&endpoint.includes("provider_category")&&endpoint.includes("PROVIDER_UNKNOWN")&&endpoint.includes("HTTP_(?:4\\d\\d|5\\d\\d)")],
   ["provider no-storage architecture",!endpoint.includes("AI_PROVIDER_API_KEY")&&!provider.includes("api.openai.com")],
   ["untrusted conversation boundary",providerCommon.includes("<UNTRUSTED_CONVERSATION>")],
@@ -104,7 +104,7 @@ const contracts=[
   ["AI deep-link consumed after submit",frontend.includes('cleanUrl.searchParams.delete("q")')&&frontend.includes("window.history.replaceState")],
   ["AI failure preserves the question",frontend.includes("Your question is still in the input box")&&frontend.includes("input.value=question")],
   ["AI source block renders only valid sources",frontend.includes("const validSources=sources.filter")&&frontend.includes("if(!validSources.length)return")],
-  ["AI provider diagnostic display is allowlisted",frontend.includes("PROVIDER_HTTP_")&&frontend.includes("PROVIDER_TIMEOUT")&&frontend.includes("PROVIDER_NETWORK")&&frontend.includes("PROVIDER_UNKNOWN")&&frontend.includes("HTTP_(?:4\\d\\d|5\\d\\d)")],
+  ["AI provider diagnostic display is allowlisted",frontend.includes("PROVIDER_(?:HTTP_(?:4\\d\\d|5\\d\\d)|TIMEOUT|NETWORK|INVALID_RESPONSE|RESPONSE_VALIDATION|ATTRIBUTION)")&&frontend.includes("PROVIDER_UNKNOWN")],
   ["AI retry reuses failed question message",frontend.includes("let retryMessage=null")&&frontend.includes("retryMessage.question!==question")&&frontend.includes("retryMessage=null;status.textContent=\"\"")],
   ["AI failure status clears when editing",frontend.includes('input.addEventListener("input",()=>{input.setCustomValidity("");if(f.getAttribute("aria-busy")!=="true")status.textContent=""})')],
   ["AI error branches use response code contract",frontend.includes('data?.code==="AI_NOT_CONFIGURED"')&&frontend.includes('data?.code==="AI_PROVIDER_ERROR"')&&frontend.includes('data?.code==="AI_RATE_LIMITED"')],
@@ -120,7 +120,7 @@ assert.equal(endpoint.includes("source.summary")&&endpoint.includes("source.keyw
 assert.equal(!endpoint.includes("AI_PROVIDER_API_KEY"),true,"Production API must not depend on a paid OpenAI API key");
 console.log("PASS — API preserves provider grounding metadata");
 
-assert.equal(knowledgeDataSource.includes('url:"/ai/"')||knowledgeDataSource.includes('"url": "/ai/"'),true,"AI knowledge must include the Jawed AI self-description source");
+assert.equal(knowledgeDataSource.includes('"url":"/ai/"')||knowledgeDataSource.includes('"url": "/ai/"'),true,"AI knowledge must include the Jawed AI self-description source");
 console.log("PASS — Jawed AI self-description source is indexed");
 
 for(const [name,ok] of contracts){
