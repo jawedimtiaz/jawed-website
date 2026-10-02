@@ -16,7 +16,7 @@ const required=[
   'cf-error-type',
   'cf-error-origin',
   'x-ai-handler-diagnostic',
-  'HANDLER_UNEXPECTED_ERROR',
+  '/^HANDLER_(?:TYPE_ERROR|SYNTAX_ERROR|UNEXPECTED_ERROR)$/',
   'CLOUDFLARE_ERROR',
   'CF_ERROR_',
   'const MAX_HISTORY=12',
