@@ -6,7 +6,7 @@ import {execFileSync} from "node:child_process";
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
 const knowledge=JSON.parse(fs.readFileSync("assets/data/ai-knowledge.json","utf8"));
 const runtimeKnowledge=fs.readFileSync("functions/lib/ai-knowledge-data.js","utf8");
-const expectedRuntimeKnowledge=`const knowledge=${JSON.stringify(data)};\nexport default knowledge;\n`;
+const expectedRuntimeKnowledge=`const knowledge=${JSON.stringify(knowledge)};\nexport default knowledge;\n`;
 const excluded=new Set(knowledge.coverage_policy?.excluded_paths||[]);
 const allSitemapLocs=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
 const sitemapPaths=allSitemapLocs
