@@ -76,6 +76,7 @@ jobs:
           package-manager-cache: false
 
       - name: Run site integrity validation
+        id: site_integrity
         run: node scripts/validate-site-integrity.mjs
 
       - name: Run AI regression matrix
@@ -85,14 +86,21 @@ jobs:
       - name: Publish release evidence
         if: always()
         env:
-          RESULT: ${{ steps.regression.outcome }}
+          SITE_RESULT: ${{ steps.site_integrity.outcome }}
+          AI_RESULT: ${{ steps.regression.outcome }}
         run: |
           {
-            printf '%s\n' "## AI Regression Gate"
-            printf '%s\n' ""
-            printf '%s\n' "- Result: $RESULT"
-            printf '%s\n' "- Commit: ${GITHUB_SHA}"
-            printf '%s\n' "- Ref: ${GITHUB_REF}"
-            printf '%s\n' "- Node: $(node --version)"
-            printf '%s\n' "- Deterministic provider-backed E2E: not asserted"
+            printf '%s\\n' "## AI Regression Gate"
+            printf '%s\\n' ""
+            printf '%s\\n' "- Site integrity validation: $SITE_RESULT"
+            printf '%s\\n' "- AI regression matrix: $AI_RESULT"
+            if [ "$SITE_RESULT" = "success" ] && [ "$AI_RESULT" = "success" ]; then
+              printf '%s\\n' "- Overall gate result: success"
+            else
+              printf '%s\\n' "- Overall gate result: failure"
+            fi
+            printf '%s\\n' "- Commit: ${GITHUB_SHA}"
+            printf '%s\\n' "- Ref: ${GITHUB_REF}"
+            printf '%s\\n' "- Node: $(node --version)"
+            printf '%s\\n' "- Deterministic provider-backed E2E: not asserted"
           } >> "$GITHUB_STEP_SUMMARY"
