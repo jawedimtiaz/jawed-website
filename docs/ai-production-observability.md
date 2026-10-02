@@ -31,7 +31,7 @@ The endpoint emits structured JSON events to the runtime log:
 - `ai_request_unconfigured`
 - `ai_request_success`
 
-Events include the request ID, outcome code/status, source count, and normalized provider status where appropriate.
+Events include the request ID and event-specific operational fields: failure events include outcome code/status and normalized provider status where appropriate; success events include source count and model; unconfigured events include the outcome code and matched source count.
 
 They deliberately do **not** include provider credentials or other secret material. No OpenAI API keys or other provider API keys are required or logged; the production integration uses the Cloudflare Workers AI binding `AI`.
 
