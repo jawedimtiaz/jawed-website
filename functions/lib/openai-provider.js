@@ -93,7 +93,8 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
       instructions,
       input:[{role:"user",content:"Answer the final USER MESSAGE using the supplied conversation context and Jawed.co.in source context."}],
       store:false,
-      max_output_tokens:MAX_OUTPUT_TOKENS,
+      max_output_tokens:MAX_OUTPUT_TOKENS
+    }),
     signal:controller.signal
     });
   }catch(error){
