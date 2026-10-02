@@ -4,6 +4,7 @@ import fs from "node:fs";
 import {checkRateLimit,MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
 
 const endpoint=fs.readFileSync("functions/api/ai.js","utf8");
+const provider=fs.readFileSync("functions/lib/cloudflare-ai-provider.js","utf8");
 
 const apiContentLengthGuard=fs.readFileSync("functions/api/ai.js","utf8");
 const apiContentLengthGuardContract=apiContentLengthGuard.includes('const declaredLength=Number(request.headers.get("content-length"))')&&apiContentLengthGuard.includes('declaredLength>MAX_BODY_BYTES');
@@ -20,7 +21,7 @@ const failures=[
   ["retrieval failure",endpoint.includes('AI_RETRIEVAL_ERROR')&&endpoint.includes("502")],
   ["unconfigured provider state",endpoint.includes('AI_NOT_CONFIGURED')&&endpoint.includes("503")],
   ["provider failure mapping",endpoint.includes('AI_PROVIDER_ERROR')&&endpoint.includes("AI service is temporarily unavailable.")],
-  ["provider timeout mapping",endpoint.includes('PROVIDER_TIMEOUT')&&endpoint.includes("504")],
+  ["provider timeout mapping",provider.includes('PROVIDER_TIMEOUT')&&provider.includes("PROVIDER_TIMEOUT_MS=30000")&&endpoint.includes("status===504?504:502")],
   ["provider rate-limit mapping",endpoint.includes('status===429?429:502')],
   ["Workers AI free-allocation exhaustion has actionable message",endpoint.includes('providerErrorCode==="3036"')&&endpoint.includes("daily allocation")],
   ["minimal generic failure payload",endpoint.includes('return json({error,code,request_id:id},status')],
