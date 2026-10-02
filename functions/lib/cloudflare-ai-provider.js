@@ -44,7 +44,7 @@ export async function generateGroundedReply({ai,model,input,sources}){
       ],
       max_tokens:MAX_OUTPUT_TOKENS,
       temperature:0.2
-    });
+    }));
   }catch(error){
     if(error?.category==="PROVIDER_TIMEOUT")throw error;
     throw normalizeProviderError(error);
