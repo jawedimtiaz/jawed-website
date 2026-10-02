@@ -33,10 +33,7 @@ The endpoint emits structured JSON events to the runtime log:
 
 Events include the request ID, outcome code/status, source count, and normalized provider status where appropriate.
 
-They deliberately do **not** include:
-
-No OpenAI API keys or other provider API keys are required or logged; the production integration uses the Cloudflare Workers AI binding `AI`.
-
+They deliberately do **not** include provider credentials or other secret material. No OpenAI API keys or other provider API keys are required or logged; the production integration uses the Cloudflare Workers AI binding `AI`.
 
 - provider credentials
 - authorization headers
