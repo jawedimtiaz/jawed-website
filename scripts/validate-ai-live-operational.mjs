@@ -25,6 +25,7 @@ const widgetRequired=["data-jawed-ai-widget","jawed-ai-toggle","jawed-ai-panel",
 for(const marker of widgetRequired)assert.equal(sharedScript.includes(marker),true,"Missing site-wide AI widget marker: "+marker);
 assert.equal(sharedScript.includes('location.pathname.startsWith("/ai/")'),true,"Full AI page must not duplicate the floating widget");
 assert.equal(sharedStyles.includes(".jawed-ai-widget"),true,"AI widget styles are missing");
+assert.equal(sharedScript.includes('if(open)input.focus();else toggle.focus()'),true,"AI widget must return focus to its toggle when closed");
 
 const pageRequired=[
   'fetch("/api/ai"',
