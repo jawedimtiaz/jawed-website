@@ -83,6 +83,7 @@ const providerFailureBody=await providerFailure.json();
 assert.equal(providerFailureBody.code,"AI_PROVIDER_ERROR");
 assert.equal(providerFailureBody.diagnostic,"PROVIDER_HTTP_401");
 assert.equal(providerFailureBody.request_id,providerFailure.headers.get("x-request-id"));
+assert.equal(providerFailure.headers.get("x-ai-provider-diagnostic"),"PROVIDER_HTTP_401");
 assert.equal(Object.prototype.hasOwnProperty.call(providerFailureBody,"message"),false);
 
 // Provider-error mapping is covered by validate-ai-negative-paths.mjs and validate-ai-provider-contract.mjs.
