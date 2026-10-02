@@ -187,7 +187,7 @@ if(!troubleshootingFocusContract)errors.push("IT Troubleshooting Assistant must 
 else console.log("IT Troubleshooting result focus contract: PASS");
 
 const careerMatchFocus=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchFocusRecoveryContract=careerMatchFocus.includes('const index=[...$("#savedList").querySelectorAll("button[data-s=del]")].indexOf(b)')&&careerMatchFocus.includes('(buttons[Math.min(index,buttons.length-1)]||$("#saved")).focus({preventScroll:true})')&&careerMatchFocus.includes('const index=[...$("#board").querySelectorAll("[data-t=rm]")].indexOf(b)')&&careerMatchFocus.includes('(buttons[Math.min(index,buttons.length-1)]||$("#addJob")).focus({preventScroll:true})');
+const careerMatchFocusRecoveryContract=careerMatchFocus.includes('const index=[...$("#savedList").querySelectorAll("button[data-s=del]")].indexOf(b)')&&careerMatchFocus.includes('(buttons[Math.min(index,buttons.length-1)]||document.querySelector(`nav[role="tablist"] [data-v="saved"]`)).focus({preventScroll:true})')&&careerMatchFocus.includes('const index=[...$("#board").querySelectorAll("[data-t=rm]")].indexOf(b)')&&careerMatchFocus.includes('(buttons[Math.min(index,buttons.length-1)]||$("#addJob")).focus({preventScroll:true})');
 if(!careerMatchFocusRecoveryContract)errors.push("Career Match mutations must restore keyboard focus after saved-analysis and tracker deletions");
 else console.log("Career Match mutation focus recovery contract: PASS");
 
