@@ -10,8 +10,8 @@ const required=[
   'data?.code==="AI_RATE_LIMITED"',
   'const responseText=await res.text()',
   'AI_POST_NON_JSON_RESPONSE',
-  'AI_POST_HTTP_'
-  ,'AI_POST_UNEXPECTED_RESPONSE'
+  'AI_POST_HTTP_',
+  'AI_POST_UNEXPECTED_RESPONSE',
   'const MAX_HISTORY=12',
   'p.textContent=text',
   'source.url.startsWith("/")',
