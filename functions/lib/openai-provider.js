@@ -136,6 +136,13 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
     const error=new Error(message);
     error.status=response.status;
     error.category=response.status===429?"PROVIDER_HTTP_429":"PROVIDER_HTTP_"+response.status;
+    error.providerStage=providerStage;
+    error.providerContentType=providerContentType.slice(0,120);
+    error.providerBodyBytes=new TextEncoder().encode(providerBody).byteLength;
+    const providerErrorCode=typeof data?.error?.code==="string"&&/^[a-z0-9_.-]{1,80}$/i.test(data.error.code)?data.error.code:"";
+    if(providerErrorCode)error.providerErrorCode=providerErrorCode;
+    const retryAfter=response.headers.get("retry-after")||"";
+    if(/^\\d{1,6}$/.test(retryAfter))error.providerRetryAfterSeconds=Number(retryAfter);
     throw error;
   }
   const reply=extractOutputText(data);
