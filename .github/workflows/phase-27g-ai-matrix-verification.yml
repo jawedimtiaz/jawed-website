@@ -1,0 +1,27 @@
+name: Phase 27G AI Matrix Verification
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ai-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Run deterministic AI regression matrix
+        run: node scripts/validate-ai-regression.mjs
