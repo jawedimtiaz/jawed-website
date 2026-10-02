@@ -120,7 +120,7 @@ assert.equal(endpoint.includes("source.summary")&&endpoint.includes("source.keyw
 assert.equal(!endpoint.includes("AI_PROVIDER_API_KEY"),true,"Production API must not depend on a paid OpenAI API key");
 console.log("PASS — API preserves provider grounding metadata");
 
-assert.equal(knowledgeDataSource.includes('url:"/ai/"')||knowledgeDataSource.includes('"url": "/ai/"'),true,"AI knowledge must include the Jawed AI self-description source");
+assert.equal(knowledgeDataSource.includes('"url":"/ai/"')||knowledgeDataSource.includes('"url": "/ai/"'),true,"AI knowledge must include the Jawed AI self-description source");
 console.log("PASS — Jawed AI self-description source is indexed");
 
 for(const [name,ok] of contracts){
