@@ -1,3 +1,0 @@
-User-agent: *
-Allow: /
-Sitemap: https://jawed.co.in/sitemap.xml

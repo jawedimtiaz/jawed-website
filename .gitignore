@@ -1,8 +1,0 @@
-# Local secrets and environment files
-.dev.vars*
-.env*
-!.env.example
-
-# Local tooling
-node_modules/
-.DS_Store
