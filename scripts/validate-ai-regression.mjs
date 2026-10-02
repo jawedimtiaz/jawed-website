@@ -98,6 +98,7 @@ const contracts=[
   ["bounded provider output",providerCommon.includes("MAX_REPLY_CHARS=6000")&&provider.includes("max_tokens:MAX_OUTPUT_TOKENS")],
   ["Workers AI response extraction",provider.includes("result?.response")&&provider.includes("const reply=")],
   ["source attribution gate",providerCommon.includes("hasAllowedSourceLink")&&provider.includes("hasAllowedSourceLink")],
+  ["public AI source metadata boundary",endpoint.includes("publicSourceReferences(sources)")&&endpoint.includes("return sources.map(({url,title})=>({url,title}))")&&endpoint.includes("sources:publicSourceReferences(responseSources)")],
   ["external markdown sanitization",providerCommon.includes("sanitizeMarkdownLinks")],
   ["safe browser rendering",frontend.includes("document.createTextNode")&&!frontend.includes("innerHTML")],
   ["structured source URL validation",frontend.includes('source.url.startsWith("/")')&&frontend.includes('source.url.startsWith("//")')&&frontend.includes('source.url.includes("\\\\")')],
