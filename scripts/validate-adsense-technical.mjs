@@ -12,7 +12,7 @@ assert.equal(audit.includes("add only the domains actually required"),true,"CSP 
 assert.equal(audit.includes("Do not add guessed Google ad domains to CSP."),true,"CSP no-guess safeguard is missing");
 assert.equal(audit.includes("Do not add an empty or placeholder `ads.txt`."),true,"ads.txt no-placeholder safeguard is missing");
 assert.equal(audit.includes("Do not add a guessed publisher ID."),true,"Publisher ID no-guess safeguard is missing");
-assert.equal(audit.includes("consent/CMP"),true,"Consent technical check is missing");
+assert.equal(audit.includes("Consent/CMP")||audit.includes("consent/CMP"),true,"Consent technical check is missing");
 assert.equal(headers.includes("Content-Security-Policy:"),true,"Site CSP header is missing");
 assert.equal(fs.existsSync("ads.txt"),false,"ads.txt must remain absent before real publisher activation");
 assert.equal(!headers.includes("adsbygoogle"),true,"CSP must not contain a guessed adsbygoogle token before activation");
