@@ -21,7 +21,7 @@ for(const marker of required){
 }
 
 assert.equal(page.includes('body:JSON.stringify({messages:requestMessages})'),true);
-assert.equal(page.includes('headers:{"content-type":"application/json"}'),true);
+assert.equal(page.includes('headers:{"content-type":"application/json","accept":"application/json"}'),true);
 assert.equal(page.includes('history=trimHistory([...requestMessages,{role:"assistant",content:data.reply}])'),true);
 
 console.log("AI live operational browser contract validation OK");
