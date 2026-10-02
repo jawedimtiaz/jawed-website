@@ -10,6 +10,7 @@ const checks=[
   ["AI retrieval source-set relevance","scripts/validate-ai-relevance.mjs",/AI retrieval source-set relevance validation: PASS/],
   ["AI widget state regression","scripts/validate-ai-widget-state.mjs",/AI widget state regression validation: PASS/],
   ["AI surface parity","scripts/validate-ai-surface-parity.mjs",/AI surface parity regression validation: PASS/],
+  ["AI production E2E harness safety","scripts/validate-ai-production-e2e-safety.mjs",/AI production E2E harness safety validation: PASS/],
   ["AI response/output contract","scripts/validate-ai-response.mjs",/AI response grounding\/link validation OK/],
   ["AI production readiness","scripts/validate-ai-production-readiness.mjs",/AI production configuration readiness validation OK/],
   ["AI live browser contract","scripts/validate-ai-live-operational.mjs",/AI live operational browser contract validation OK/],

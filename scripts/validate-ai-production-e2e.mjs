@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 
 const base=(process.argv[2]||"https://jawed.co.in").replace(/\/$/,"");
 const api=base+"/api/ai";
+const REQUEST_TIMEOUT_MS=10_000;
 
 async function request(url,options){
-  const response=await fetch(url,options);
+  const response=await fetch(url,{...options,signal:options?.signal||AbortSignal.timeout(REQUEST_TIMEOUT_MS)});
   const text=await response.text();
   let body=null;
   try{body=JSON.parse(text)}catch{}
