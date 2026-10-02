@@ -18,7 +18,7 @@ const required=[
   'x-ai-handler-diagnostic',
   'HANDLER_UNEXPECTED_ERROR',
   'CLOUDFLARE_ERROR',
-  'CF_ERROR_'
+  'CF_ERROR_',
   'const MAX_HISTORY=12',
   'p.textContent=text',
   'source.url.startsWith("/")',
