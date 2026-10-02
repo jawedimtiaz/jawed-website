@@ -24,15 +24,15 @@ In the Cloudflare dashboard:
 5. Save the binding.
 6. Redeploy the production site.
 
-Cloudflare documents this Pages Functions binding flow and exposes the binding as `context.env.AI`. citeturn0search1
+Cloudflare documents this Pages Functions binding flow and exposes the binding as `context.env.AI`.
 
 Do not add `AI_PROVIDER_API_KEY` for this zero-cost architecture.
 
 ## Free usage boundary
 
-Cloudflare currently includes 10,000 Workers AI Neurons per day at no charge on Workers Free. When that allocation is exhausted, Workers AI returns a 429 account-limited error; the application reports a safe retry-later message rather than instructing the user to add provider credits. citeturn1search0turn1search3
+Cloudflare currently includes 10,000 Workers AI Neurons per day at no charge on Workers Free. When that allocation is exhausted, Workers AI returns a 429 account-limited error; the application reports a safe retry-later message rather than instructing the user to add provider credits.
 
-The selected default model, `@cf/meta/llama-3.2-1b-instruct`, is documented as a Cloudflare-hosted text-generation model and is suitable for the current focused assistant workload. citeturn1search2
+The selected default model, `@cf/meta/llama-3.2-1b-instruct`, is documented as a Cloudflare-hosted text-generation model and is suitable for the current focused assistant workload.
 
 ## Readiness checks
 
