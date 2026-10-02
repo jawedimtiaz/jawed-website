@@ -96,10 +96,10 @@ assert.equal(Object.prototype.hasOwnProperty.call(providerFailureBody,"message")
 let providerRunArgs=null;
 const successfulProvider=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-success","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
-  env:{AI:{run:async(model,input)=>{providerRunArgs={model,input};return {response:"Test response."};}},AI_PROVIDER_MODEL:"test-model"}
+  env:{AI:{run:async(model,input)=>{providerRunArgs={model,input};return {response:"Test response."};}}}
 });
 assert.equal(successfulProvider.status,200);
-assert.equal(providerRunArgs?.model,"test-model");
+assert.equal(providerRunArgs?.model,"@cf/meta/llama-3.2-1b-instruct");
 assert.equal(typeof providerRunArgs?.input?.messages?.[0]?.content,"string");
 assert.equal(providerRunArgs.input.messages[0].content.includes("Summary:"),true);
 assert.equal(providerRunArgs.input.messages[0].content.includes("Keywords:"),true);
