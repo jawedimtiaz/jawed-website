@@ -59,7 +59,7 @@ async function handlePost({request,env}){
   }
 
   try{
-    const result=await generateGroundedReply({apiKey,model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,input:messages,sources:responseSources});
+    const result=await generateGroundedReply({ai:env.AI,model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,input:messages,sources:responseSources});
     console.info(JSON.stringify({event:"ai_request_success",request_id:id,matched_count:responseSources.length,model:result.model}));
     return json({reply:result.reply,sources:responseSources,model:result.model,request_id:id},200,{"x-request-id":id});
   }catch(error){
