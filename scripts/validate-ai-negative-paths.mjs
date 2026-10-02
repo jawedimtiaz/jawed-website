@@ -20,6 +20,7 @@ const failures=[
   ["retrieval failure",endpoint.includes('AI_RETRIEVAL_ERROR')&&endpoint.includes("502")],
   ["unconfigured provider state",endpoint.includes('AI_NOT_CONFIGURED')&&endpoint.includes("503")],
   ["provider failure mapping",endpoint.includes('AI_PROVIDER_ERROR')&&endpoint.includes("AI service is temporarily unavailable.")],
+  ["provider timeout mapping",endpoint.includes('PROVIDER_TIMEOUT')&&endpoint.includes("504")],
   ["provider rate-limit mapping",endpoint.includes('status===429?429:502')],
   ["Workers AI free-allocation exhaustion has actionable message",endpoint.includes('providerErrorCode==="3036"')&&endpoint.includes("daily allocation")],
   ["minimal generic failure payload",endpoint.includes('return json({error,code,request_id:id},status')],
