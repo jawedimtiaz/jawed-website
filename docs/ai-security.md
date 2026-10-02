@@ -45,6 +45,6 @@ The grounding instructions explicitly tell the model to treat both the transcrip
 
 ## Free-tier operational boundary
 
-Cloudflare currently provides 10,000 Workers AI Neurons per day on the Workers Free plan. When the daily free allocation is exhausted, Workers AI returns an account-limited error rather than automatically charging beyond the free allocation. citeturn1search0turn1search3
+Cloudflare currently provides 10,000 Workers AI Neurons per day on the Workers Free plan. When the daily free allocation is exhausted, Workers AI returns an account-limited error rather than automatically charging beyond the free allocation.
 
 For this project, the production model should remain on Cloudflare's documented Workers Free model list unless the user explicitly chooses a paid plan later.
