@@ -5,6 +5,8 @@ import {execFileSync} from "node:child_process";
 
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
 const knowledge=JSON.parse(fs.readFileSync("assets/data/ai-knowledge.json","utf8"));
+const runtimeKnowledge=fs.readFileSync("functions/lib/ai-knowledge-data.js","utf8");
+const expectedRuntimeKnowledge=`const knowledge=${JSON.stringify(data)};\nexport default knowledge;\n`;
 const excluded=new Set(knowledge.coverage_policy?.excluded_paths||[]);
 const allSitemapLocs=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
 const sitemapPaths=allSitemapLocs
@@ -74,6 +76,7 @@ const MIN_SUMMARY_CHARS=70;
 const shortSummaries=knowledge.entries.filter(entry=>typeof entry.summary!=="string"||entry.summary.trim().length<MIN_SUMMARY_CHARS);
 if(shortSummaries.length)errors.push("AI knowledge summaries below "+MIN_SUMMARY_CHARS+" characters: "+shortSummaries.map(entry=>entry.title).join(", "));
 if(typeof knowledge.coverage_policy?.summary_evidence_rule!=="string"||!knowledge.coverage_policy.summary_evidence_rule.includes("scope-level evidence"))errors.push("AI knowledge evidence boundary is not documented.");
+if(runtimeKnowledge!==expectedRuntimeKnowledge)errors.push("Runtime AI knowledge copy is out of sync with assets/data/ai-knowledge.json; regenerate functions/lib/ai-knowledge-data.js.");
 
 assert.equal(errors.length,0,errors.join("\n"));
 

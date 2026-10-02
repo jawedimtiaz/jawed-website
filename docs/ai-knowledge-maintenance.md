@@ -9,7 +9,7 @@ Included:
 - notes, tools, work/about content, topic/index pages, blog content, and resources
 
 Excluded:
-- `/ai/` — the AI interface itself
+- `/ai/` is intentionally indexed as the AI self-description source; it is not excluded from grounding
 - `/contact/` — contact/transaction page
 - `/privacy/` — privacy/legal page
 
