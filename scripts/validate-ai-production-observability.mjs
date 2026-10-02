@@ -32,5 +32,11 @@ for(const forbidden of ["messages","apiKey","authorization","summary"]){
 assert.equal(docs.includes("API keys"),true,"Observability docs must state that no provider API key is required");
 assert.equal(docs.includes("user messages"),true,"Observability docs must state user-content exclusion");
 assert.equal(docs.includes("source summaries"),true,"Observability docs must state retrieval-metadata exclusion");
+for(const event of ["ai_request_failure","ai_request_unconfigured","ai_request_success"]){
+  assert.equal(docs.includes("`"+event+"`"),true,"Observability docs must document "+event);
+}
+assert.equal(docs.includes("failure events include outcome code/status"),true,"Observability docs must describe failure-event status fields");
+assert.equal(docs.includes("success events include source count and model"),true,"Observability docs must describe success-event fields");
+assert.equal(docs.includes("unconfigured events include the outcome code and matched source count"),true,"Observability docs must describe unconfigured-event fields");
 
 console.log("AI production observability contract: PASS");
