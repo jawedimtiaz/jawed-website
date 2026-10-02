@@ -51,6 +51,7 @@ for(const file of publishedHtml){
     const hashIndex=value.indexOf("#");
     const targetPath=hashIndex===-1?value:value.slice(0,hashIndex);
     const fragment=hashIndex===-1?"":decodeURIComponent(value.slice(hashIndex+1));
+    if(targetPath.startsWith("/assets/")||targetPath==="/favicon.svg"||/\.[a-z0-9]{2,5}$/i.test(targetPath))continue;
     const normalizedPath=targetPath===""?"/":(targetPath.endsWith("/")?targetPath:targetPath+"/");
     if(!publishedRoutes.has(normalizedPath)){
       internalLinkIssues.push(file+" -> "+value);
