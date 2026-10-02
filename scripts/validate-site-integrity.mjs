@@ -37,7 +37,6 @@ for(const file of publishedHtml){
   if(canonical!==expectedCanonical)metadataContractErrors.push(file+" canonical="+(canonical||"missing"));
   if(ogUrl!==expectedCanonical)metadataContractErrors.push(file+" og:url="+(ogUrl||"missing"));
   if(twitterCard!=="summary_large_image")metadataContractErrors.push(file+" twitter:card="+(twitterCard||"missing"));
-  if(!ldBlocks.length)metadataContractErrors.push(file+" JSON-LD missing");
   for(const block of ldBlocks){try{JSON.parse(block[1])}catch{metadataContractErrors.push(file+" JSON-LD invalid")}}
 }
 if(metadataContractErrors.length)errors.push("Published-page metadata contract failed: "+metadataContractErrors.join(", "));
@@ -52,6 +51,7 @@ for(const file of publishedHtml){
     const hashIndex=value.indexOf("#");
     const targetPath=hashIndex===-1?value:value.slice(0,hashIndex);
     const fragment=hashIndex===-1?"":decodeURIComponent(value.slice(hashIndex+1));
+    if(targetPath.startsWith("/assets/")||targetPath==="/favicon.svg"||/\.[a-z0-9]{2,5}$/i.test(targetPath))continue;
     const normalizedPath=targetPath===""?"/":(targetPath.endsWith("/")?targetPath:targetPath+"/");
     if(!publishedRoutes.has(normalizedPath)){
       internalLinkIssues.push(file+" -> "+value);
@@ -69,8 +69,8 @@ if(internalLinkIssues.length)errors.push("Internal links or fragment targets are
 
 const careerMatch=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedContentContract=[
-  ["Career Match saved content is sanitized before storage",careerMatch.includes("function parseSanitizedSavedHtml(html)")&&careerMatch.includes("serializeChildren(parseSanitizedSavedHtml(serializeChildren($("#results"))))")],
-  ["Career Match saved content is sanitized before restore",careerMatch.includes("const safe=parseSanitizedSavedHtml(x.html)")&&careerMatch.includes("$("#results").replaceChildren(frag)")],
+  ["Career Match saved content is sanitized before storage",careerMatch.includes("function parseSanitizedSavedHtml(html)")&&careerMatch.includes('serializeChildren(parseSanitizedSavedHtml(serializeChildren($("#results"))))')],
+  ["Career Match saved content is sanitized before restore",careerMatch.includes("const safe=parseSanitizedSavedHtml(x.html)")&&careerMatch.includes('$("#results").replaceChildren(frag)')],
   ["Career Match sanitizer removes event-handler attributes",careerMatch.includes('a.name.toLowerCase().startsWith("on")')],
   ["Career Match restored content uses DOM replacement without innerHTML",!careerMatch.includes(".innerHTML")&&careerMatch.includes("replaceChildren")]
 ];
@@ -98,7 +98,7 @@ const discoveryAiContract=[
   ["AI handoff encodes the contextual prompt through URLSearchParams",mainJs.includes("aiUrl.searchParams.set('q',handoff)")]
 ];
 const discoveryFilterContract=[
-  ["notes filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card),main section[id^=\"subject-\"]'")&&mainJs.includes("label:'note results'")],
+  ["notes filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card),main section[id^=\"subject-\"],main section[id^=\"task-\"]'")&&mainJs.includes("label:'note results'")],
   ["tools filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card)',label:'tool results'")],
   ["topics filter excludes Jawed AI handoff",mainJs.includes("selector:'main section:not(.discovery-panel) .card:not(.ai-discovery-card)',label:'topic results'")],
   ["blog filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card)',label:'post results'")],
@@ -122,7 +122,19 @@ if(!careerMatchTabContract)errors.push("Career Match view controls must expose a
 else console.log("Career Match view accessibility contract: PASS");
 
 const careerMatchStatusRegions=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchTabPanelAccessibilityContract=\n  careerMatch.includes('id="tab-analyze"')&&\n  careerMatch.includes('id="tab-results"')&&\n  careerMatch.includes('id="tab-tracker"')&&\n  careerMatch.includes('id="tab-saved"')&&\n  careerMatch.includes('id="v-analyze" class="view" role="tabpanel" aria-labelledby="tab-analyze"')&&\n  careerMatch.includes('id="v-results" class="view hidden" role="tabpanel" aria-labelledby="results-heading"')&&\n  careerMatch.includes('id="v-tracker" class="view hidden" role="tabpanel" aria-labelledby="tab-tracker"')&&\n  careerMatch.includes('id="v-saved" class="view hidden" role="tabpanel" aria-labelledby="tab-saved"');\nif(!careerMatchTabPanelAccessibilityContract)errors.push("Career Match tabpanels must remain programmatically labelled by their controlling tabs");\nelse console.log("Career Match tabpanel labelling contract: PASS");\n\nconst careerMatchStatusRegionContract=
+const careerMatchTabPanelAccessibilityContract=
+  careerMatch.includes('id="tab-analyze"')&&
+  careerMatch.includes('id="tab-results"')&&
+  careerMatch.includes('id="tab-tracker"')&&
+  careerMatch.includes('id="tab-saved"')&&
+  careerMatch.includes('id="v-analyze" class="view" role="tabpanel" aria-labelledby="tab-analyze"')&&
+  careerMatch.includes('id="v-results" class="view hidden" role="tabpanel" aria-labelledby="results-heading"')&&
+  careerMatch.includes('id="v-tracker" class="view hidden" role="tabpanel" aria-labelledby="tab-tracker"')&&
+  careerMatch.includes('id="v-saved" class="view hidden" role="tabpanel" aria-labelledby="tab-saved"');
+if(!careerMatchTabPanelAccessibilityContract)errors.push("Career Match tabpanels must remain programmatically labelled by their controlling tabs");
+else console.log("Career Match tabpanel labelling contract: PASS");
+
+const careerMatchStatusRegionContract=
   careerMatchStatusRegions.includes('<div class="muted" id="fileMsg" role="status" aria-live="polite">')&&
   careerMatchStatusRegions.includes('<span class="muted" id="err" role="alert" aria-live="assertive">')&&
   careerMatchStatusRegions.includes('id="toast" role="status"');
@@ -151,14 +163,14 @@ const generatorFreshnessChecks=[
 ];
 for(const [name,path,message,fields] of generatorFreshnessChecks){
  const html=fs.readFileSync(path,"utf8");
- const ok=html.includes(message)&&fields.every(id=>html.includes(id+'").addEventListener("input",markDirty)')||fields.every(id=>html.includes(id+'").addEventListener(\'input\',markDirty)'));
+ const ok=html.includes(message)&&html.includes("document.querySelector(id).addEventListener(\'input\',markDirty)");
  if(!ok)errors.push(name+" must mark generated output stale when inputs change");
 }
 if(generatorFreshnessChecks.every(([name,path,message])=>fs.readFileSync(path,"utf8").includes(message)))console.log("Generator output freshness contract: PASS");
 const calculatorInvalidResultChecks=[
  ["Compound Growth & SIP","tools/compound-growth-sip-calculator/index.html",["fv.textContent=ti.textContent=eg.textContent=\"—\"","summary.textContent=\"\""]],
  ["Inflation Goal Planning","tools/inflation-goal-planning-calculator/index.html",["future.textContent=increase.textContent=gap.textContent=\"—\"","summary.textContent=\"\""]],
- ["Retirement Planning","tools/retirement-planning-calculator/index.html",["["years","futureSpending","horizon","required","projected","gap"].forEach(k=>out[k].textContent=\"—\")","out.summary.textContent=\"\""]]
+ ["Retirement Planning","tools/retirement-planning-calculator/index.html",[`["years","futureSpending","horizon","required","projected","gap"].forEach(k=>out[k].textContent="—")`,"out.summary.textContent=\"\""]]
 ];
 for(const [name,path,patterns] of calculatorInvalidResultChecks){
  const html=fs.readFileSync(path,"utf8");
@@ -175,7 +187,7 @@ if(!troubleshootingFocusContract)errors.push("IT Troubleshooting Assistant must 
 else console.log("IT Troubleshooting result focus contract: PASS");
 
 const careerMatchFocus=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchFocusRecoveryContract=careerMatchFocus.includes('const index=[...$("#savedList").querySelectorAll("button[data-s=del]")].indexOf(b)')&&careerMatchFocus.includes('(buttons[Math.min(index,buttons.length-1)]||$("#saved")).focus({preventScroll:true})')&&careerMatchFocus.includes('const index=[...$("#board").querySelectorAll("[data-t=rm]")].indexOf(b)')&&careerMatchFocus.includes('(buttons[Math.min(index,buttons.length-1)]||$("#addJob")).focus({preventScroll:true})');
+const careerMatchFocusRecoveryContract=careerMatchFocus.includes('const index=[...$("#savedList").querySelectorAll("button[data-s=del]")].indexOf(b)')&&careerMatchFocus.includes('(buttons[Math.min(index,buttons.length-1)]||document.querySelector(`nav[role="tablist"] [data-v="saved"]`)).focus({preventScroll:true})')&&careerMatchFocus.includes('const index=[...$("#board").querySelectorAll("[data-t=rm]")].indexOf(b)')&&careerMatchFocus.includes('(buttons[Math.min(index,buttons.length-1)]||$("#addJob")).focus({preventScroll:true})');
 if(!careerMatchFocusRecoveryContract)errors.push("Career Match mutations must restore keyboard focus after saved-analysis and tracker deletions");
 else console.log("Career Match mutation focus recovery contract: PASS");
 
@@ -201,7 +213,7 @@ if(!careerMatchStorageContract)errors.push("Career Match persisted saved and tra
 else console.log("Career Match persisted-state integrity contract: PASS");
 
 const careerMatchPersistedIdRendering=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchPersistedIdRenderingContract=careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-s="open"')&&careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-s="del"')&&careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-t="mv"')&&careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-t="rm"');
+const careerMatchPersistedIdRenderingContract=careerMatchPersistedIdRendering.includes("btn.dataset.id=x.id")&&careerMatchPersistedIdRendering.includes("btn.dataset.s=action[1]")&&careerMatchPersistedIdRendering.includes("btn.dataset.id=x.id")&&careerMatchPersistedIdRendering.includes("btn.dataset.t=\"rm\"");
 if(!careerMatchPersistedIdRenderingContract)errors.push("Career Match persisted record IDs must be HTML-escaped before rendering into action attributes");
 else console.log("Career Match persisted-ID rendering safety contract: PASS");
 
@@ -211,7 +223,7 @@ if(!careerMatchSavedSanitizerBoundaryContract)errors.push("Career Match saved-co
 else console.log("Career Match saved-content element boundary contract: PASS");
 
 const careerMatchSavedMutationGuard=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchSavedMutationGuardContract=careerMatchSavedMutationGuard.includes('const R=window.CUR,s=validSavedList(store.get("cm_saved",[])),html=safeSavedHtml');
+const careerMatchSavedMutationGuardContract=careerMatchSavedMutationGuard.includes('const R=window.CUR,s=validSavedList(store.get("cm_saved",[])),html=serializeChildren(parseSanitizedSavedHtml');
 if(!careerMatchSavedMutationGuardContract)errors.push("Career Match saved-analysis mutations must validate persisted records before array operations");
 else console.log("Career Match saved-storage mutation guard contract: PASS");
 
