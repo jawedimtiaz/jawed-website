@@ -9,6 +9,8 @@ on:
     paths:
       - "privacy/**"
       - "scripts/validate-adsense-privacy.mjs"
+      - "scripts/validate-adsense-inventory.mjs"
+      - "config/adsense-inventory.json"
       - ".github/workflows/adsense-readiness.yml"
   push:
     branches:
@@ -42,3 +44,6 @@ jobs:
 
       - name: Run AdSense privacy readiness validation
         run: node scripts/validate-adsense-privacy.mjs
+
+      - name: Run AdSense inventory boundary validation
+        run: node scripts/validate-adsense-inventory.mjs
