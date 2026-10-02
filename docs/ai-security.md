@@ -47,4 +47,4 @@ The grounding instructions explicitly tell the model to treat both the transcrip
 
 Cloudflare currently provides 10,000 Workers AI Neurons per day on the Workers Free plan. When the daily free allocation is exhausted, Workers AI returns an account-limited error rather than automatically charging beyond the free allocation.
 
-For this project, the production model should remain on Cloudflare's documented Workers Free model list unless the user explicitly chooses a paid plan later.
+For this project, the production model is fixed to `@cf/meta/llama-3.2-1b-instruct`. The application does not expose a deployment model override, so production cannot accidentally switch to a paid-only model.
