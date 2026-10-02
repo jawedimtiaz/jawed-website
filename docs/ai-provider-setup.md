@@ -21,7 +21,7 @@ The default production model is:
 
 The model is intentionally selected because it is available on Workers Free and has relatively low Neuron consumption. Cloudflare currently provides 10,000 Workers AI Neurons per day at no charge on the Workers Free plan. If the daily free allocation is exhausted, further inference fails rather than silently creating paid usage.
 
-An optional `AI_PROVIDER_MODEL` variable may override the default, but only a model documented as available on the Workers Free plan should be used for the user's $0 requirement.
+The production application intentionally does not expose a model override: it uses the fixed `@cf/meta/llama-3.2-1b-instruct` model so deployment configuration cannot accidentally select a paid-only model.
 
 ## Security boundaries
 
