@@ -33,7 +33,7 @@ Before enabling AdSense:
 ## Do not preconfigure
 
 - Do not add guessed Google ad domains to CSP.
-- Do not add an empty or placeholder ads.txt.
+- Do not add an empty or placeholder `ads.txt`.
 - Do not add a guessed publisher ID.
 - Do not enable ad scripts globally before consent and inventory activation are complete.
 
