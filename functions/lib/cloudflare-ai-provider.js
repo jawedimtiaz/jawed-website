@@ -14,7 +14,7 @@ function normalizeProviderError(error){
   return normalized;
 }
 
-function withProviderTimeout(promise){
+function withProviderTimeout(promise,timeoutMs=PROVIDER_TIMEOUT_MS){
   return Promise.race([
     promise,
     new Promise((_,reject)=>setTimeout(()=>{
@@ -23,7 +23,7 @@ function withProviderTimeout(promise){
       error.category="PROVIDER_TIMEOUT";
       error.providerStage="AI_RUN";
       reject(error);
-    },PROVIDER_TIMEOUT_MS))
+    },timeoutMs))
   ]);
 }
 
@@ -46,6 +46,7 @@ export async function generateGroundedReply({ai,model,input,sources}){
       temperature:0.2
     });
   }catch(error){
+    if(error?.category==="PROVIDER_TIMEOUT")throw error;
     throw normalizeProviderError(error);
   }
   const reply=typeof result?.response==="string"?result.response:"";
@@ -60,4 +61,4 @@ export async function generateGroundedReply({ai,model,input,sources}){
   return {reply:attributedReply,model:FREE_MODEL};
 }
 
-export {DEFAULT_MODEL,FREE_MODEL,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions};
+export {DEFAULT_MODEL,FREE_MODEL,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,withProviderTimeout,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions};
