@@ -4,7 +4,8 @@ import fs from "node:fs";
 import {execFileSync} from "node:child_process";
 
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
-const tree=execFileSync("git",["ls-files","*.html"],{encoding:"utf8"}).trim().split(/\r?\n/).filter(Boolean);
+const tree=execFileSync("git",["ls-files","*.html"],{encoding:"utf8"}).trim().split(/\r?
+/).filter(Boolean);
 const sourcePath=(url)=>url==="/"?"index.html":url.replace(/^\/+|\/+$/g,"")+"/index.html";
 const sitemapUrls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
 const siteUrls=sitemapUrls.filter(url=>url.startsWith("https://jawed.co.in/"));
@@ -123,7 +124,18 @@ else console.log("Career Match view accessibility contract: PASS");
 
 const careerMatchStatusRegions=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchTabPanelAccessibilityContract=
-  careerMatch.includes('id="tab-analyze"')&&\n  careerMatch.includes('id="tab-results"')&&\n  careerMatch.includes('id="tab-tracker"')&&\n  careerMatch.includes('id="tab-saved"')&&\n  careerMatch.includes('id="v-analyze" class="view" role="tabpanel" aria-labelledby="tab-analyze"')&&\n  careerMatch.includes('id="v-results" class="view hidden" role="tabpanel" aria-labelledby="results-heading"')&&\n  careerMatch.includes('id="v-tracker" class="view hidden" role="tabpanel" aria-labelledby="tab-tracker"')&&\n  careerMatch.includes('id="v-saved" class="view hidden" role="tabpanel" aria-labelledby="tab-saved"');\nif(!careerMatchTabPanelAccessibilityContract)errors.push("Career Match tabpanels must remain programmatically labelled by their controlling tabs");\nelse console.log("Career Match tabpanel labelling contract: PASS");\n\nconst careerMatchStatusRegionContract=
+  careerMatch.includes('id="tab-analyze"')&&
+  careerMatch.includes('id="tab-results"')&&
+  careerMatch.includes('id="tab-tracker"')&&
+  careerMatch.includes('id="tab-saved"')&&
+  careerMatch.includes('id="v-analyze" class="view" role="tabpanel" aria-labelledby="tab-analyze"')&&
+  careerMatch.includes('id="v-results" class="view hidden" role="tabpanel" aria-labelledby="results-heading"')&&
+  careerMatch.includes('id="v-tracker" class="view hidden" role="tabpanel" aria-labelledby="tab-tracker"')&&
+  careerMatch.includes('id="v-saved" class="view hidden" role="tabpanel" aria-labelledby="tab-saved"');
+if(!careerMatchTabPanelAccessibilityContract)errors.push("Career Match tabpanels must remain programmatically labelled by their controlling tabs");
+else console.log("Career Match tabpanel labelling contract: PASS");
+
+const careerMatchStatusRegionContract=
   careerMatchStatusRegions.includes('<div class="muted" id="fileMsg" role="status" aria-live="polite">')&&
   careerMatchStatusRegions.includes('<span class="muted" id="err" role="alert" aria-live="assertive">')&&
   careerMatchStatusRegions.includes('id="toast" role="status"');
@@ -311,7 +323,8 @@ const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fro
 if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
 else console.log("Personal Finance Snapshot reset contract: PASS");
 
-assert.equal(errors.length,0,errors.join("\n"));
+assert.equal(errors.length,0,errors.join("
+"));
 console.log("All site-integrity contracts: PASS");
 console.log("Discovery filter exclusion contract: PASS");
 console.log("Site sitemap/page parity: PASS");
