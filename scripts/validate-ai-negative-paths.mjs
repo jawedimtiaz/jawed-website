@@ -22,7 +22,7 @@ const failures=[
   ["unconfigured provider state",endpoint.includes('AI_NOT_CONFIGURED')&&endpoint.includes("503")],
   ["provider failure mapping",endpoint.includes('AI_PROVIDER_ERROR')&&endpoint.includes("AI service is temporarily unavailable.")],
   ["provider timeout mapping",provider.includes('PROVIDER_TIMEOUT')&&provider.includes("PROVIDER_TIMEOUT_MS=30000")&&endpoint.includes("status===504?504:502")],
-  ["provider rate-limit mapping",endpoint.includes('status===429?429:502')],
+  ["provider rate-limit mapping",endpoint.includes("responseStatus=status===429?429:status===504?504:502")],
   ["Workers AI free-allocation exhaustion has actionable message",endpoint.includes('providerErrorCode==="3036"')&&endpoint.includes("daily allocation")],
   ["minimal generic failure payload",endpoint.includes('return json({error,code,request_id:id},status')],
   ["failure response request correlation",endpoint.includes('"x-request-id":id')]
