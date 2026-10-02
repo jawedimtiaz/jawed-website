@@ -66,7 +66,16 @@ async function handlePost({request,env}){
   }catch(error){
     const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<600?error.status:502;
     const diagnostic=typeof error?.category==="string"&&/^PROVIDER_(?:HTTP_(?:4\d\d|5\d\d)|TIMEOUT|NETWORK|INVALID_RESPONSE|RESPONSE_READ|RESPONSE_VALIDATION|ATTRIBUTION)$/.test(error.category)?error.category:"PROVIDER_UNKNOWN";
-    const message=status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.";
+    const providerErrorCode=typeof error?.providerErrorCode==="string"?error.providerErrorCode:"";
+    const message=providerErrorCode==="credit_balance_exhausted"
+      ?"The AI provider has no prepaid API credits remaining. Add API credits in the OpenAI API billing settings, then try again."
+      :providerErrorCode==="organization_usage_limit_exceeded"
+        ?"The AI provider organization has reached its approved usage limit. Review the API usage limit before trying again."
+        :providerErrorCode==="organization_spend_limit_exceeded"
+          ?"The AI provider organization has reached its configured spend limit. Review the API spend controls before trying again."
+          :providerErrorCode==="project_spend_limit_exceeded"
+            ?"The AI provider project has reached its configured spend limit. Review the project spend controls before trying again."
+            :status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.";
     console.error(JSON.stringify({event:"ai_request_failure",request_id:id,code:"AI_PROVIDER_ERROR",status,provider_status:status,provider_category:diagnostic,provider_content_type:typeof error?.providerContentType==="string"?error.providerContentType:"",provider_body_bytes:Number.isInteger(error?.providerBodyBytes)?error.providerBodyBytes:null,provider_stage:typeof error?.providerStage==="string"&&/^(?:FETCH|HEADERS|BODY|PARSE|HTTP_STATUS)$/.test(error.providerStage)?error.providerStage:"",provider_error_code:typeof error?.providerErrorCode==="string"?error.providerErrorCode:"",provider_retry_after_seconds:Number.isInteger(error?.providerRetryAfterSeconds)?error.providerRetryAfterSeconds:null}));
     return json({error:message,code:"AI_PROVIDER_ERROR",request_id:id,diagnostic},status===429?429:502,{"x-request-id":id,"x-ai-provider-diagnostic":diagnostic});
   }
