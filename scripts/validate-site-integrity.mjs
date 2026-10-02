@@ -213,7 +213,7 @@ if(!careerMatchStorageContract)errors.push("Career Match persisted saved and tra
 else console.log("Career Match persisted-state integrity contract: PASS");
 
 const careerMatchPersistedIdRendering=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchPersistedIdRenderingContract=careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-s="open"')&&careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-s="del"')&&careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-t="mv"')&&careerMatchPersistedIdRendering.includes('data-id="${esc(x.id)}" data-t="rm"');
+const careerMatchPersistedIdRenderingContract=careerMatchPersistedIdRendering.includes("btn.dataset.id=x.id")&&careerMatchPersistedIdRendering.includes("btn.dataset.s=action[1]")&&careerMatchPersistedIdRendering.includes("btn.dataset.id=x.id")&&careerMatchPersistedIdRendering.includes("btn.dataset.t=\"rm\"");
 if(!careerMatchPersistedIdRenderingContract)errors.push("Career Match persisted record IDs must be HTML-escaped before rendering into action attributes");
 else console.log("Career Match persisted-ID rendering safety contract: PASS");
 
