@@ -22,7 +22,7 @@ assert.equal(endpoint.includes("AI_PROVIDER_API_KEY"),false,"Production observab
 assert.equal(endpoint.includes("api.openai.com"),false,"Production observability must not depend on the OpenAI API");
 assert.equal(endpoint.includes("provider_category:diagnostic"),true,"Provider telemetry must use the normalized diagnostic category");
 assert.equal(endpoint.includes("provider_body_bytes:Number.isInteger(error?.providerBodyBytes)?error.providerBodyBytes:null"),true,"Provider telemetry must record only bounded body size");
-assert.equal(endpoint.includes("provider_error_code:typeof error?.providerErrorCode==="string"?error.providerErrorCode:"""),true,"Provider telemetry may record only the normalized provider error code");
+assert.equal(endpoint.includes(`provider_error_code:typeof error?.providerErrorCode==="string"?error.providerErrorCode:""`),true,"Provider telemetry may record only the normalized provider error code");
 assert.equal(endpoint.includes("provider_retry_after_seconds:Number.isInteger(error?.providerRetryAfterSeconds)?error.providerRetryAfterSeconds:null"),true,"Provider retry timing must remain numeric telemetry only");
 assert.equal(endpoint.includes("provider_body_bytes"),true,"Provider telemetry must not expose provider response bodies");
 const logLines=endpoint.split("\n").filter(line=>line.includes("console."));
@@ -40,3 +40,4 @@ assert.equal(docs.includes("success events include source count and model"),true
 assert.equal(docs.includes("unconfigured events include the outcome code and matched source count"),true,"Observability docs must describe unconfigured-event fields");
 
 console.log("AI production observability contract: PASS");
+
