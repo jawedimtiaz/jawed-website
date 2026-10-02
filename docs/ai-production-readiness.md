@@ -2,78 +2,65 @@
 
 Jawed AI is implemented as a Cloudflare Pages Function at `/api/ai` with the public assistant UI at `/ai/`.
 
-This document defines the configuration boundary required before the provider-backed assistant is considered production-ready.
+This phase removes the production dependency on the OpenAI API and uses the native Cloudflare Workers AI binding instead.
 
-## Required production secret
+## Required production binding
 
 The Pages Function reads:
 
-- `AI_PROVIDER_API_KEY` — required secret used server-side to call the OpenAI Responses API.
-- `AI_PROVIDER_MODEL` — optional non-secret model override. If absent, the application uses its built-in default model.
+- `AI` — required Workers AI binding.
+- `AI_PROVIDER_MODEL` — optional non-secret model override. If absent, the application uses `@cf/meta/llama-3.2-1b-instruct`.
 
-The browser never receives the provider key.
+No `AI_PROVIDER_API_KEY` is required for production.
 
 ## Cloudflare Pages production setup
 
 In the Cloudflare dashboard:
 
 1. Open **Workers & Pages** and select the Pages project serving `jawed.co.in`.
-2. Open **Settings → Variables and Secrets**.
-3. Add `AI_PROVIDER_API_KEY`.
-4. Mark the value as **Encrypt** so it is stored as a secret.
-5. Add `AI_PROVIDER_MODEL` only if a deliberate model override is required.
-6. Configure the secret for the **Production** environment. Configure Preview separately if preview deployments should use the AI provider.
-7. Redeploy the site after changing the production secret when required by the deployment configuration.
+2. Open **Settings → Bindings** for the production environment.
+3. Choose **Add → Workers AI**.
+4. Set the variable name to **AI**.
+5. Save the binding.
+6. Redeploy the production site.
 
-Cloudflare Pages Functions expose environment variables and secrets through the Function `env` object. Secrets are intended for sensitive values such as API keys.
+Cloudflare documents this Pages Functions binding flow and exposes the binding as `context.env.AI`. citeturn0search1
 
-## Local development
+Do not add `AI_PROVIDER_API_KEY` for this zero-cost architecture.
 
-Do not commit provider credentials.
+## Free usage boundary
 
-For local Pages Functions development, create a local `.dev.vars` file next to the project configuration and add values such as:
+Cloudflare currently includes 10,000 Workers AI Neurons per day at no charge on Workers Free. When that allocation is exhausted, Workers AI returns a 429 account-limited error; the application reports a safe retry-later message rather than instructing the user to add provider credits. citeturn1search0turn1search3
 
-```dotenv
-AI_PROVIDER_API_KEY="replace-with-your-local-key"
-AI_PROVIDER_MODEL="gpt-5.6-luna"
-```
-
-Run the Pages application with Wrangler:
-
-```bash
-npx wrangler pages dev .
-```
-
-The actual local secret file is ignored by git. Never paste a real API key into a tracked file, issue, pull request, browser code, or client-side configuration.
+The selected default model, `@cf/meta/llama-3.2-1b-instruct`, is documented as a Cloudflare-hosted text-generation model and is suitable for the current focused assistant workload. citeturn1search2
 
 ## Readiness checks
 
 The endpoint `GET /api/ai` exposes only non-secret readiness metadata:
 
-- `status: "ready"` and `ok: true` when the provider key is configured.
-- `status: "not_configured"` and `ok: false` when the key is absent.
-- `configuration` reports only `configured` or `not_configured`; the secret value is never returned.
-- `model` reports the active model name, not credentials.
+- `status: "ready"` and `ok: true` when the Workers AI binding is available.
+- `status: "not_configured"` and `ok: false` when the binding is absent.
+- `configuration` reports only `configured` or `not_configured`.
+- `model` reports the active model name.
 
-A normal `POST /api/ai` request still returns `503 / AI_NOT_CONFIGURED` when the provider key is absent. This is the expected safe failure state.
+A normal `POST /api/ai` request returns `503 / AI_NOT_CONFIGURED` when the binding is absent. This is the expected safe failure state.
 
 ## Production smoke test
 
-After deployment:
+After the Workers AI binding is added and the site is redeployed:
 
 1. Open `https://jawed.co.in/ai/`.
 2. Ask a simple site-navigation question.
 3. Confirm a normal assistant response is returned.
 4. Confirm relevant Jawed.co.in source links are shown.
 5. Confirm a follow-up question preserves the intended conversation context.
-6. Confirm the browser does not expose the provider key.
+6. Confirm no provider API key is exposed to the browser.
 7. Check Cloudflare Pages Function logs if the request fails.
 
-Do not treat a successful HTTP health response alone as proof that an end-to-end provider request succeeded. A real provider-backed smoke test requires the production secret to be configured.
+A successful health response alone does not prove end-to-end inference. The final production verification requires a real POST request after the `AI` binding is active.
 
 ## Security boundary
 
-- Provider credentials remain server-side.
-- The provider request uses `store:false`.
+- Provider access remains server-side.
 - Existing origin validation, request-size limits, conversation limits, rate limiting, source sanitization, and grounding rules remain unchanged.
-- The health endpoint must never return the API key or a secret-derived value.
+- The health endpoint must never return provider credentials or secret-derived values.
