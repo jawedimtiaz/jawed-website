@@ -11,6 +11,8 @@ on:
       - "scripts/validate-adsense-privacy.mjs"
       - "scripts/validate-adsense-inventory.mjs"
       - "scripts/validate-adsense-activation.mjs"
+      - "scripts/validate-adsense-content-readiness.mjs"
+      - "docs/adsense-content-readiness.md"
       - "docs/adsense-activation-contract.md"
       - "config/adsense-inventory.json"
       - ".github/workflows/adsense-readiness.yml"
@@ -52,3 +54,6 @@ jobs:
 
       - name: Run AdSense activation contract validation
         run: node scripts/validate-adsense-activation.mjs
+
+      - name: Run AdSense content readiness validation
+        run: node scripts/validate-adsense-content-readiness.mjs
