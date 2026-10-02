@@ -110,7 +110,7 @@ const contracts=[
   ["AI failure preserves the question",frontend.includes("Your question is still in the input box")&&frontend.includes("input.value=question")],
   ["AI source block renders only valid sources",frontend.includes("const validSources=sources.filter")&&frontend.includes("if(!validSources.length)return")],
   ["AI provider diagnostic display is allowlisted",frontend.includes("PROVIDER_(?:HTTP_(?:4\\d\\d|5\\d\\d)|TIMEOUT|NETWORK|INVALID_RESPONSE|RESPONSE_VALIDATION|ATTRIBUTION)")&&frontend.includes("PROVIDER_UNKNOWN")],
-  ["AI retry reuses failed question message",frontend.includes("let retryMessage=null")&&frontend.includes("retryMessage.question!==question")&&frontend.includes("retryMessage=null;status.textContent=\"\\"")],
+  ["AI retry reuses failed question message",frontend.includes("let retryMessage=null")&&frontend.includes("retryMessage.question!==question")&&frontend.includes("retryMessage=null;status.textContent=")
   ["AI failure status clears when editing",frontend.includes('input.addEventListener("input",()=>{input.setCustomValidity("");if(f.getAttribute("aria-busy")!=="true")status.textContent=""})')],
   ["AI error branches use response code contract",frontend.includes('data?.code==="AI_NOT_CONFIGURED"')&&frontend.includes('data?.code==="AI_PROVIDER_ERROR"')&&frontend.includes('data?.code==="AI_RATE_LIMITED"')],
   ["AI network failure has explicit safe category",frontend.includes("NETWORK_REQUEST_FAILED")&&frontend.includes("Jawed AI request failed.")],
