@@ -16,7 +16,7 @@ Every `POST /api/ai` request receives a server-generated UUID request ID.
 
 The endpoint distinguishes these operational boundaries:
 
-- `AI_NOT_CONFIGURED` — provider credential is not available to the runtime.
+- `AI_NOT_CONFIGURED` — Cloudflare Workers AI binding is not available to the runtime.
 - `AI_RETRIEVAL_ERROR` — local knowledge retrieval failed before provider invocation.
 - `AI_PROVIDER_ERROR` — provider invocation or grounded-response contract failed.
 - `AI_RATE_LIMITED` — request exceeded the application rate limit.
@@ -31,11 +31,11 @@ The endpoint emits structured JSON events to the runtime log:
 - `ai_request_unconfigured`
 - `ai_request_success`
 
-Events include the request ID, outcome code/status, source count, and provider response status where appropriate.
+Events include the request ID, outcome code/status, source count, and normalized provider status where appropriate.
 
 They deliberately do **not** include:
 
-- API keys
+- provider credentials
 - authorization headers
 - user messages
 - assistant transcript text
@@ -46,4 +46,4 @@ They deliberately do **not** include:
 
 Request IDs are correlation identifiers, not authentication tokens. They should not be used to authorize access or reveal internal logs to visitors.
 
-Provider-backed E2E remains dependent on a reachable deployment with `AI_PROVIDER_API_KEY` configured. A request ID or health response does not itself prove provider connectivity.
+Provider-backed E2E remains dependent on a reachable deployment with the Cloudflare Workers AI `AI` binding configured. A request ID or health response does not itself prove provider inference.
