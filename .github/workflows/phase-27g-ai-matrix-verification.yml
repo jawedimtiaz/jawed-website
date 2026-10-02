@@ -23,5 +23,16 @@ jobs:
           node-version: 22
           package-manager-cache: false
 
+      - name: Diagnose individual AI validators
+        shell: bash
+        run: |
+          set +e
+          for validator in scripts/validate-ai-knowledge.mjs scripts/validate-ai-live-operational.mjs scripts/validate-ai-production-observability.mjs scripts/validate-ai-production-security.mjs; do
+            echo "===== $validator ====="
+            node "$validator"
+            echo "exit=$?"
+          done
+          exit 0
+
       - name: Run deterministic AI regression matrix
         run: node scripts/validate-ai-regression.mjs
