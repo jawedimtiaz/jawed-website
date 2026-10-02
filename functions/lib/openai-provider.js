@@ -95,7 +95,7 @@ export async function generateGroundedReply({apiKey,model,input,sources}){
       store:false,
       max_output_tokens:MAX_OUTPUT_TOKENS,
     signal:controller.signal
-    })
+    });
   }catch(error){
     if(error?.name==="AbortError"){const timeoutError=new Error("The AI provider request timed out.");timeoutError.status=504;timeoutError.category="PROVIDER_TIMEOUT";timeoutError.providerStage=providerStage;throw timeoutError}
     error.category="PROVIDER_NETWORK";
