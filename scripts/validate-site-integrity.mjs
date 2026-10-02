@@ -170,7 +170,7 @@ if(generatorFreshnessChecks.every(([name,path,message])=>fs.readFileSync(path,"u
 const calculatorInvalidResultChecks=[
  ["Compound Growth & SIP","tools/compound-growth-sip-calculator/index.html",["fv.textContent=ti.textContent=eg.textContent=\"—\"","summary.textContent=\"\""]],
  ["Inflation Goal Planning","tools/inflation-goal-planning-calculator/index.html",["future.textContent=increase.textContent=gap.textContent=\"—\"","summary.textContent=\"\""]],
- ["Retirement Planning","tools/retirement-planning-calculator/index.html",["["years","futureSpending","horizon","required","projected","gap"].forEach(k=>out[k].textContent=\"—\")","out.summary.textContent=\"\""]]
+ ["Retirement Planning","tools/retirement-planning-calculator/index.html",['["years","futureSpending","horizon","required","projected","gap"].forEach(k=>out[k].textContent="—")',"out.summary.textContent=\"\""]]
 ];
 for(const [name,path,patterns] of calculatorInvalidResultChecks){
  const html=fs.readFileSync(path,"utf8");
