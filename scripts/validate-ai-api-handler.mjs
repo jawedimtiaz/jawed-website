@@ -30,6 +30,13 @@ assert.equal(configuredBody.status,"ready");
 assert.equal(configuredBody.configuration,"configured");
 assert.equal(configuredBody.model,"test-model");
 
+const unexpectedHandlerFailure=await onRequestPost({request:null,env:{}});
+assert.equal(unexpectedHandlerFailure.status,502);
+const unexpectedHandlerBody=await unexpectedHandlerFailure.json();
+assert.equal(unexpectedHandlerBody.code,"AI_HANDLER_ERROR");
+assert.equal(unexpectedHandlerBody.diagnostic,"HANDLER_TYPE_ERROR");
+assert.equal(unexpectedHandlerFailure.headers.get("x-ai-handler-diagnostic"),"HANDLER_TYPE_ERROR");
+
 const invalidOrigin=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"origin":"https://evil.example","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"asdfgh"}]})}),
   env:{}

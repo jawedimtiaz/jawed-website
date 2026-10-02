@@ -27,7 +27,7 @@ function publicSources(sources){
   return sources.filter(source=>typeof source?.url==="string"&&source.url.startsWith("/")&&!source.url.startsWith("//")&&!source.url.includes("\\")&&typeof source.title==="string"&&source.title.trim()&&typeof source.summary==="string"&&Array.isArray(source.keywords)).map(source=>({url:source.url,title:source.title,summary:source.summary,keywords:source.keywords.filter(keyword=>typeof keyword==="string").slice(0,20)}));
 }
 
-export async function onRequestPost({request,env}){
+async function handlePost({request,env}){
   const id=requestId();
   if(!allowedOrigin(request))return failure("Origin not allowed.","AI_ORIGIN_NOT_ALLOWED",403,id);
   const limit=checkRateLimit(getClientKey(request));
@@ -69,6 +69,17 @@ export async function onRequestPost({request,env}){
     const message=status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.";
     console.error(JSON.stringify({event:"ai_request_failure",request_id:id,code:"AI_PROVIDER_ERROR",status,provider_status:status,provider_category:diagnostic}));
     return json({error:message,code:"AI_PROVIDER_ERROR",request_id:id,diagnostic},status===429?429:502,{"x-request-id":id,"x-ai-provider-diagnostic":diagnostic});
+  }
+}
+
+export async function onRequestPost(context){
+  const id=requestId();
+  try{
+    return await handlePost(context);
+  }catch(error){
+    const category="HANDLER_"+(error?.name==="TypeError"?"TYPE_ERROR":error?.name==="SyntaxError"?"SYNTAX_ERROR":"UNEXPECTED_ERROR");
+    console.error(JSON.stringify({event:"ai_request_unhandled_failure",request_id:id,code:"AI_HANDLER_ERROR",category,error_name:typeof error?.name==="string"?error.name:"Error"}));
+    return json({error:"The AI service is temporarily unavailable.",code:"AI_HANDLER_ERROR",request_id:id,diagnostic:category},502,{"x-request-id":id,"x-ai-handler-diagnostic":category});
   }
 }
 

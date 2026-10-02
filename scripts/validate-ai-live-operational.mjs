@@ -15,6 +15,8 @@ const required=[
   'x-ai-provider-diagnostic',
   'cf-error-type',
   'cf-error-origin',
+  'x-ai-handler-diagnostic',
+  'HANDLER_UNEXPECTED_ERROR',
   'CLOUDFLARE_ERROR',
   'CF_ERROR_'
   'const MAX_HISTORY=12',
@@ -34,10 +36,12 @@ assert.equal(page.includes('headers:{"content-type":"application/json","accept":
 assert.equal(page.includes('history=trimHistory([...requestMessages,{role:"assistant",content:data.reply}])'),true);
 assert.equal(page.includes('const httpLabel="AI_POST_HTTP_"+res.status'),true);
 assert.equal(page.includes('const responseCode=typeof data?.code==="string"?data.code:"AI_POST_UNEXPECTED_RESPONSE"'),true);
-assert.equal(page.includes('data={code:"AI_POST_NON_JSON_RESPONSE",diagnostic:res.headers.get("x-ai-provider-diagnostic")||""}'),true);
+assert.equal(page.includes('data={code:"AI_POST_NON_JSON_RESPONSE",diagnostic:res.headers.get("x-ai-provider-diagnostic")||"",handlerDiagnostic:res.headers.get("x-ai-handler-diagnostic")||""}'),true);
 assert.equal(page.includes('headerDiagnostic=typeof data?.diagnostic==="string"'),true);
 assert.equal(page.includes('const cloudflareType=res.headers.get("cf-error-type")||""'),true);
 assert.equal(page.includes('const cloudflareOrigin=res.headers.get("cf-error-origin")||""'),true);
+assert.equal(page.includes('handlerDiagnostic:res.headers.get("x-ai-handler-diagnostic")||""'),true);
+assert.equal(page.includes('/^HANDLER_(?:TYPE_ERROR|SYNTAX_ERROR|UNEXPECTED_ERROR)$/'),true);
 assert.equal(page.includes('if(!data?.code&&cloudflareType)data={...data,code:"CLOUDFLARE_ERROR",cloudflareType,cloudflareOrigin}'),true);
 assert.equal(page.includes('/^\\d{3,4}$/'),true);
 
