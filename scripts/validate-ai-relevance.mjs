@@ -74,3 +74,28 @@ const tellMoreResults=findRelevantKnowledge(tellMore,5,{primaryQuery:"Tell me mo
 assert.equal(tellMoreResults.length>0,true);
 
 console.log("AI retrieval source-set relevance validation: PASS");
+
+const personQueries=[
+  "who is jawed",
+  "tell me about jawed",
+  "what does jawed do"
+];
+for(const query of personQueries){
+  const results=findRelevantKnowledge(query,5,{primaryQuery:query});
+  assert.equal(results.length>0,true,`Identity query must return grounded sources: ${query}`);
+  assert.equal(results[0].url,"/about/",`Identity query must prioritize the About source: ${query}`);
+  assert.equal(results.slice(0,3).some(entry=>entry.url==="/ai/"),false,`Identity query must not promote the AI interface as a person source: ${query}`);
+}
+
+const assistantQueries=[
+  "what can this ai do",
+  "what is the ai assistant"
+];
+for(const query of assistantQueries){
+  const results=findRelevantKnowledge(query,5,{primaryQuery:query});
+  assert.equal(results.length>0,true,`Assistant query must return grounded sources: ${query}`);
+  assert.equal(results[0].url,"/ai/",`Assistant query must prioritize the AI source: ${query}`);
+}
+
+console.log("AI person-vs-assistant identity relevance validation OK");
+
