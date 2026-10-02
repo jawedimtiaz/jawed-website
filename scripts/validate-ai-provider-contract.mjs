@@ -53,6 +53,12 @@ assert.equal(payload.instructions.includes("<UNTRUSTED_SOURCE_METADATA>"),true);
 assert.equal(payload.input[0].role,"user");
 
 calls=[];
+globalThis.fetch=async()=>new Response("<html>upstream failure</html>",{status:502,headers:{"content-type":"text/html"}});
+await assert.rejects(
+  ()=>generateGroundedReply({apiKey:"test-provider-key",input:[{role:"user",content:"hello"}],sources:[]}),
+  error=>error?.status===502&&error?.category==="PROVIDER_INVALID_RESPONSE"&&error?.providerContentType==="text/html"&&error?.providerBodyBytes>0
+);
+
 globalThis.fetch=async()=>{calls.push({url:"https://api.openai.com/v1/responses"});return new Response(JSON.stringify({
   model:"mock-error-model",
   error:{message:"provider unavailable"}
