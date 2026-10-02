@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import {generateGroundedReply,DEFAULT_MODEL,PROVIDER_TIMEOUT_MS,isSafeSourceUrl} from "../functions/lib/cloudflare-ai-provider.js";
+import {generateGroundedReply,DEFAULT_MODEL,FREE_MODEL,PROVIDER_TIMEOUT_MS,withProviderTimeout,isSafeSourceUrl} from "../functions/lib/cloudflare-ai-provider.js";
 
 assert.equal(isSafeSourceUrl("/notes/example/"),true);
 assert.equal(isSafeSourceUrl("//evil.example/"),false);
@@ -23,6 +23,7 @@ const result=await generateGroundedReply({
 });
 assert.equal(result.reply.includes("https://jawed.co.in/tools/retirement-planning-calculator/"),true);
 assert.equal(result.model,DEFAULT_MODEL);
+assert.equal(FREE_MODEL,DEFAULT_MODEL);
 assert.equal(calls.length,1);
 assert.equal(calls[0].model,DEFAULT_MODEL);
 assert.equal(Array.isArray(calls[0].input.messages),true);
@@ -56,6 +57,11 @@ await assert.rejects(
 );
 
 assert.equal(PROVIDER_TIMEOUT_MS,30000);
+await assert.rejects(
+  ()=>withProviderTimeout(new Promise(()=>{}),5),
+  error=>error?.status===504&&error?.category==="PROVIDER_TIMEOUT"
+);
+
 
 console.log("Cloudflare AI provider contract behavioral coverage: PASS");
 console.log("Workers AI binding invocation contract exercised: yes");

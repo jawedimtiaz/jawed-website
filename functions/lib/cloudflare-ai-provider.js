@@ -2,6 +2,7 @@ import {MAX_OUTPUT_TOKENS,MAX_REPLY_CHARS,isSafeSourceUrl,sanitizeMarkdownLinks,
 
 const DEFAULT_MODEL="@cf/meta/llama-3.2-1b-instruct";
 const PROVIDER_TIMEOUT_MS=30000;
+const FREE_MODEL=DEFAULT_MODEL;
 
 function normalizeProviderError(error){
   const status=Number.isInteger(error?.status)?error.status:502;
@@ -11,6 +12,20 @@ function normalizeProviderError(error){
   normalized.providerStage="AI_RUN";
   normalized.providerErrorCode=typeof error?.code==="string"&&/^[a-z0-9_.-]{1,80}$/i.test(error.code)?error.code:typeof error?.code==="number"?String(error.code):/\b(3036|5035)\b/.exec(normalized.message)?.[1]||"";
   return normalized;
+}
+
+function withProviderTimeout(promise,timeoutMs=PROVIDER_TIMEOUT_MS){
+  let timer;
+  const timeout=new Promise((_,reject)=>{
+    timer=setTimeout(()=>{
+      const error=new Error("Cloudflare Workers AI provider timed out.");
+      error.status=504;
+      error.category="PROVIDER_TIMEOUT";
+      error.providerStage="AI_RUN";
+      reject(error);
+    },timeoutMs);
+  });
+  return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
 }
 
 export async function generateGroundedReply({ai,model,input,sources}){
@@ -23,15 +38,16 @@ export async function generateGroundedReply({ai,model,input,sources}){
   const instructions=buildGroundingInstructions(input,sources);
   let result;
   try{
-    result=await ai.run(model||DEFAULT_MODEL,{
+    result=await withProviderTimeout(ai.run(FREE_MODEL,{
       messages:[
         {role:"system",content:instructions},
         {role:"user",content:"Answer the final USER MESSAGE using the supplied conversation context and Jawed.co.in source context."}
       ],
       max_tokens:MAX_OUTPUT_TOKENS,
       temperature:0.2
-    });
+    }));
   }catch(error){
+    if(error?.category==="PROVIDER_TIMEOUT")throw error;
     throw normalizeProviderError(error);
   }
   const reply=typeof result?.response==="string"?result.response:"";
@@ -43,7 +59,7 @@ export async function generateGroundedReply({ai,model,input,sources}){
     error.category="PROVIDER_ATTRIBUTION";
     throw error;
   }
-  return {reply:attributedReply,model:model||DEFAULT_MODEL};
+  return {reply:attributedReply,model:FREE_MODEL};
 }
 
-export {DEFAULT_MODEL,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions};
+export {DEFAULT_MODEL,FREE_MODEL,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,withProviderTimeout,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions};

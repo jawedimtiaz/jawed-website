@@ -22,13 +22,13 @@ assert.equal(healthBody.rate_limit.window_seconds,60);
 assert.equal(healthBody.rate_limit.best_effort,true);
 assert.equal(healthBody.request_id,health.headers.get("x-request-id"));
 
-const configuredHealth=await onRequestGet({request:makeRequest("https://jawed.co.in/api/ai"),env:{AI:{run:async()=>({response:"ok"})},AI_PROVIDER_MODEL:"test-model"}});
+const configuredHealth=await onRequestGet({request:makeRequest("https://jawed.co.in/api/ai"),env:{AI:{run:async()=>({response:"ok"})}}});
 assert.equal(configuredHealth.status,200);
 const configuredBody=await configuredHealth.json();
 assert.equal(configuredBody.ok,true);
 assert.equal(configuredBody.status,"ready");
 assert.equal(configuredBody.configuration,"configured");
-assert.equal(configuredBody.model,"test-model");
+assert.equal(configuredBody.model,"@cf/meta/llama-3.2-1b-instruct");
 
 const unexpectedHandlerFailure=await onRequestPost({request:null,env:{}});
 assert.equal(unexpectedHandlerFailure.status,502);
@@ -83,7 +83,7 @@ assert.equal((await emptyCurrent.json()).code,"AI_INVALID_MESSAGE");
 globalThis.fetch=async()=>{providerCalls+=1;throw new Error("Network provider calls are forbidden.");};
 const providerFailure=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-provider","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
-  env:{AI:{run:async()=>{const error=new Error("model unavailable");error.status=401;throw error;}},AI_PROVIDER_MODEL:"test-model"}
+  env:{AI:{run:async()=>{const error=new Error("model unavailable");error.status=401;throw error;}}}
 });
 assert.equal(providerFailure.status,502);
 const providerFailureBody=await providerFailure.json();
@@ -96,10 +96,10 @@ assert.equal(Object.prototype.hasOwnProperty.call(providerFailureBody,"message")
 let providerRunArgs=null;
 const successfulProvider=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-success","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
-  env:{AI:{run:async(model,input)=>{providerRunArgs={model,input};return {response:"Test response."};}},AI_PROVIDER_MODEL:"test-model"}
+  env:{AI:{run:async(model,input)=>{providerRunArgs={model,input};return {response:"Test response."};}}}
 });
 assert.equal(successfulProvider.status,200);
-assert.equal(providerRunArgs?.model,"test-model");
+assert.equal(providerRunArgs?.model,"@cf/meta/llama-3.2-1b-instruct");
 assert.equal(typeof providerRunArgs?.input?.messages?.[0]?.content,"string");
 assert.equal(providerRunArgs.input.messages[0].content.includes("Summary:"),true);
 assert.equal(providerRunArgs.input.messages[0].content.includes("Keywords:"),true);

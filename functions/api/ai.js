@@ -59,7 +59,7 @@ async function handlePost({request,env}){
   }
 
   try{
-    const result=await generateGroundedReply({ai:env.AI,model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,input:messages,sources:responseSources});
+    const result=await generateGroundedReply({ai:env.AI,input:messages,sources:responseSources});
     console.info(JSON.stringify({event:"ai_request_success",request_id:id,matched_count:responseSources.length,model:result.model}));
     return json({reply:result.reply,sources:responseSources,model:result.model,request_id:id},200,{"x-request-id":id});
   }catch(error){
@@ -70,9 +70,11 @@ async function handlePost({request,env}){
       ?"The AI free daily allocation has been reached. Please try again after the daily allocation resets."
       :providerErrorCode==="5035"
         ?"The selected AI model requires a paid Cloudflare Workers plan. The site is configured to use a free-eligible model; please check the deployment binding/model configuration."
+        :status===504?"The AI service took too long to respond. Please try again shortly."
         :status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.";
     console.error(JSON.stringify({event:"ai_request_failure",request_id:id,code:"AI_PROVIDER_ERROR",status,provider_status:status,provider_category:diagnostic,provider_content_type:typeof error?.providerContentType==="string"?error.providerContentType:"",provider_body_bytes:Number.isInteger(error?.providerBodyBytes)?error.providerBodyBytes:null,provider_stage:typeof error?.providerStage==="string"&&/^(?:FETCH|HEADERS|BODY|PARSE|HTTP_STATUS)$/.test(error.providerStage)?error.providerStage:"",provider_error_code:typeof error?.providerErrorCode==="string"?error.providerErrorCode:"",provider_retry_after_seconds:Number.isInteger(error?.providerRetryAfterSeconds)?error.providerRetryAfterSeconds:null}));
-    return json({error:message,code:"AI_PROVIDER_ERROR",request_id:id,diagnostic},status===429?429:502,{"x-request-id":id,"x-ai-provider-diagnostic":diagnostic});
+    const responseStatus=status===429?429:status===504?504:502;
+    return json({error:message,code:"AI_PROVIDER_ERROR",request_id:id,diagnostic},responseStatus,{"x-request-id":id,"x-ai-provider-diagnostic":diagnostic});
   }
 }
 
@@ -95,7 +97,7 @@ export async function onRequestGet({request,env}={}){
     service:"jawed-ai",
     status:configuration==="configured"?"ready":"not_configured",
     configuration,
-    model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,
+    model:DEFAULT_MODEL,
     knowledge_entries:knowledgeCount(),
     rate_limit:{requests:MAX_REQUESTS,window_seconds:WINDOW_MS/1000,best_effort:true},
     request_id:id

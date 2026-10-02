@@ -89,6 +89,7 @@ const contracts=[
   ["same-site origin boundary",endpoint.includes("https://jawed.co.in")],
   ["rate-limit boundary",rateLimit.includes("MAX_REQUESTS=8")&&rateLimit.includes("WINDOW_MS=60_000")],
   ["server-side Workers AI binding",endpoint.includes("env.AI")&&provider.includes("ai.run")],
+  ["fixed free-tier model boundary",endpoint.includes("model:DEFAULT_MODEL")&&!endpoint.includes("AI_PROVIDER_MODEL")&&provider.includes("FREE_MODEL=DEFAULT_MODEL")],
   ["safe Workers AI failure classification",provider.includes("PROVIDER_HTTP_")&&provider.includes("PROVIDER_UNKNOWN")&&provider.includes("PROVIDER_ATTRIBUTION")&&providerCommon.includes("PROVIDER_RESPONSE_VALIDATION")],
   ["safe provider diagnostic response",endpoint.includes("provider_category:diagnostic")&&endpoint.includes("provider_category")&&endpoint.includes("PROVIDER_UNKNOWN")&&endpoint.includes("HTTP_(?:4\\d\\d|5\\d\\d)")],
   ["provider no-storage architecture",!endpoint.includes("AI_PROVIDER_API_KEY")&&!provider.includes("api.openai.com")],
