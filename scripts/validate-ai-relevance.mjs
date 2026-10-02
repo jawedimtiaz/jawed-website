@@ -88,8 +88,8 @@ for(const query of personQueries){
 }
 
 const assistantQueries=[
-  "what is jawed ai",
-  "what can this ai do"
+  "what can this ai do",
+  "what is the ai assistant"
 ];
 for(const query of assistantQueries){
   const results=findRelevantKnowledge(query,5,{primaryQuery:query});
