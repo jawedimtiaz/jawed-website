@@ -28,7 +28,7 @@ const configuredBody=await configuredHealth.json();
 assert.equal(configuredBody.ok,true);
 assert.equal(configuredBody.status,"ready");
 assert.equal(configuredBody.configuration,"configured");
-assert.equal(configuredBody.model,"test-model");
+assert.equal(configuredBody.model,"@cf/meta/llama-3.2-1b-instruct");
 
 const unexpectedHandlerFailure=await onRequestPost({request:null,env:{}});
 assert.equal(unexpectedHandlerFailure.status,502);
