@@ -30,6 +30,20 @@ on:
     paths:
       - "privacy/**"
       - "scripts/validate-adsense-privacy.mjs"
+      - "scripts/validate-adsense-inventory.mjs"
+      - "scripts/validate-adsense-activation.mjs"
+      - "scripts/validate-adsense-content-readiness.mjs"
+      - "scripts/validate-adsense-placement-policy.mjs"
+      - "scripts/validate-adsense-technical.mjs"
+      - "scripts/validate-adsense-final-readiness.mjs"
+      - "scripts/validate-adsense-preactivation.mjs"
+      - "docs/adsense-final-readiness.md"
+      - "docs/adsense-technical-activation.md"
+      - "_headers"
+      - "config/adsense-placement-policy.json"
+      - "docs/adsense-content-readiness.md"
+      - "docs/adsense-activation-contract.md"
+      - "config/adsense-inventory.json"
       - ".github/workflows/adsense-readiness.yml"
   workflow_dispatch:
 
