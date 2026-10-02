@@ -1,4 +1,4 @@
-# Preserve useful legacy entry points while removing obsolete content
+# Canonical host and legacy entry points
 /index.html / 301
 /About_Me.html /about/ 301
 /Feedback.html /contact/ 301
@@ -6,3 +6,14 @@
 /Disclaimer_Contd.html /privacy/ 301
 /Resources.html /resources/ 301
 /Resources2.html /resources/ 301
+/MCSE.html /work/skills/ 301
+/CCNA.html /work/skills/ 301
+/Software.html /resources/ 301
+/Horoscope.html / 301
+/Games.html / 301
+/Jokes.html / 301
+/Excel.html /tools/ 301
+/SMS.html / 301
+/Interview.html /work/experience/ 301
+/Quotes.html / 301
+/Gallery.html / 301
