@@ -15,6 +15,7 @@ on:
       - "scripts/validate-adsense-placement-policy.mjs"
       - "scripts/validate-adsense-technical.mjs"
       - "scripts/validate-adsense-final-readiness.mjs"
+      - "scripts/validate-adsense-preactivation.mjs"
       - "docs/adsense-final-readiness.md"
       - "docs/adsense-technical-activation.md"
       - "_headers"
@@ -73,3 +74,6 @@ jobs:
 
       - name: Run AdSense final readiness validation
         run: node scripts/validate-adsense-final-readiness.mjs
+
+      - name: Run AdSense pre-activation guard
+        run: node scripts/validate-adsense-preactivation.mjs
