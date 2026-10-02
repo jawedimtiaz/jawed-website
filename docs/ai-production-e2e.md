@@ -1,10 +1,12 @@
 # AI Production E2E Smoke-Test Harness
 
-Run against the deployed site after the Cloudflare production secret is configured:
+Run against the deployed site from a network that can reach the production deployment:
 
 ```bash
 node scripts/validate-ai-production-e2e.mjs https://jawed.co.in
 ```
+
+No Cloudflare production secret or API key is required by this harness. The production endpoint uses the server-side Workers AI binding when configured.
 
 ## Behavior
 
@@ -26,4 +28,5 @@ A provider-backed pass requires:
 
 ## Current verification boundary
 
-This environment could not reach `jawed.co.in` during Phase 20B network verification, so no live provider response is being claimed from this run. The repository harness is ready for execution from a network that can reach the deployment.
+The deterministic CI regression matrix does not execute this provider-backed harness because it would consume remote Workers AI allocation and depend on deployment availability. A real provider-backed E2E run must therefore be performed manually from a network that can reach `jawed.co.in`.
+

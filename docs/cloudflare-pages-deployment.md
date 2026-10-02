@@ -9,9 +9,11 @@ This repository is deployed as a Cloudflare Pages site with Pages Functions unde
 - **Functions:** discovered from `functions/`
 - **Production domain:** `https://jawed.co.in`
 - **AI provider configuration:** Cloudflare Pages **Workers AI binding** named `AI`
-- **AI model:** `@cf/meta/llama-3.2-1b-instruct` unless an explicitly free-eligible override is configured
+- **AI model:** fixed `@cf/meta/llama-3.2-1b-instruct`
 
 The site is intentionally dependency-free at build time. Do not add a package manifest or framework build step solely to satisfy deployment tooling.
+
+The production application does not expose a deployment model override. The fixed model boundary is intentional so configuration cannot accidentally select a paid-only model.
 
 ## Verification
 
