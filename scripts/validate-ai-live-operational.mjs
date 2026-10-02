@@ -28,6 +28,11 @@ assert.equal(sharedStyles.includes(".jawed-ai-widget"),true,"AI widget styles ar
 assert.equal(sharedScript.includes('if(open)input.focus();else toggle.focus()'),true,"AI widget must return focus to its toggle when closed");
 assert.equal(sharedScript.includes('if(!panel.hidden)input.focus()'),true,"AI widget must not focus hidden input after an in-flight request completes");
 assert.equal(sharedScript.includes('toggle.setAttribute("aria-label",open?"Close Jawed AI":"Open Jawed AI")'),true,"AI widget toggle accessible name must track expanded state");
+assert.equal(sharedScript.includes("panel.hidden=true"),true,"AI widget must start closed with its panel hidden");
+assert.equal(sharedScript.includes('close.addEventListener("click",()=>setOpen(false))'),true,"AI widget close button must explicitly close the panel");
+assert.equal(sharedScript.includes('setOpen(false);'),true,"AI widget must provide an explicit closed state");
+assert.equal(sharedScript.includes('e.key==="Escape"&&!panel.hidden'),true,"AI widget must close from Escape when open");
+
 assert.equal(sharedScript.includes('messages.setAttribute("aria-busy","true")'),true,"AI widget must expose its loading state to assistive technology");
 assert.equal(sharedScript.includes('messages.setAttribute("aria-busy","false")'),true,"AI widget must clear its loading state after requests");
 assert.equal(sharedStyles.includes("max-height:calc(100dvh - 84px);display:flex;flex-direction:column"),true,"AI widget panel must remain within the viewport");
