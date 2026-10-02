@@ -9,7 +9,7 @@ Configure a Workers AI binding for the production Pages environment:
 - Binding variable name: `AI`
 - Binding type: **Workers AI**
 
-Cloudflare's Pages Functions documentation supports configuring the binding from **Workers & Pages → Pages project → Settings → Bindings → Add → Workers AI**. Redeploy after adding or changing the binding. The Function accesses it as `env.AI`. citeturn0search1
+Cloudflare's Pages Functions documentation supports configuring the binding from **Workers & Pages → Pages project → Settings → Bindings → Add → Workers AI**. Redeploy after adding or changing the binding. The Function accesses it as `env.AI`.
 
 The endpoint is:
 
@@ -19,7 +19,7 @@ The default production model is:
 
 - `@cf/meta/llama-3.2-1b-instruct`
 
-The model is intentionally selected because it is available on Workers Free and has relatively low Neuron consumption. Cloudflare currently provides 10,000 Workers AI Neurons per day at no charge on the Workers Free plan. If the daily free allocation is exhausted, further inference fails rather than silently creating paid usage. citeturn1search0turn1search2turn1search3
+The model is intentionally selected because it is available on Workers Free and has relatively low Neuron consumption. Cloudflare currently provides 10,000 Workers AI Neurons per day at no charge on the Workers Free plan. If the daily free allocation is exhausted, further inference fails rather than silently creating paid usage.
 
 An optional `AI_PROVIDER_MODEL` variable may override the default, but only a model documented as available on the Workers Free plan should be used for the user's $0 requirement.
 
@@ -37,7 +37,7 @@ An optional `AI_PROVIDER_MODEL` variable may override the default, but only a mo
 
 Repository regression tests mock `env.AI.run()`; they do not invoke remote Workers AI.
 
-Cloudflare notes that Workers AI local development accesses the account and incurs AI usage, so do not run a real local inference test merely to satisfy deterministic CI. citeturn0search0turn0search1
+Cloudflare notes that Workers AI local development accesses the account and incurs AI usage, so do not run a real local inference test merely to satisfy deterministic CI.
 
 Without the `AI` binding, `POST /api/ai` intentionally returns `503 AI_NOT_CONFIGURED` and relevant source links. This makes an unconfigured deployment fail closed.
 
