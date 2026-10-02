@@ -27,6 +27,10 @@ function publicSources(sources){
   return sources.filter(source=>typeof source?.url==="string"&&source.url.startsWith("/")&&!source.url.startsWith("//")&&!source.url.includes("\\")&&typeof source.title==="string"&&source.title.trim()&&typeof source.summary==="string"&&Array.isArray(source.keywords)).map(source=>({url:source.url,title:source.title,summary:source.summary,keywords:source.keywords.filter(keyword=>typeof keyword==="string").slice(0,20)}));
 }
 
+function publicSourceReferences(sources){
+  return sources.map(({url,title})=>({url,title}));
+}
+
 async function handlePost({request,env}){
   const id=requestId();
   if(!allowedOrigin(request))return failure("Origin not allowed.","AI_ORIGIN_NOT_ALLOWED",403,id);
@@ -55,13 +59,13 @@ async function handlePost({request,env}){
   }
   if(!env?.AI||typeof env.AI.run!=="function"){
     console.warn(JSON.stringify({event:"ai_request_unconfigured",request_id:id,code:"AI_NOT_CONFIGURED",matched_count:responseSources.length}));
-    return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",request_id:id,sources:responseSources},503,{"x-request-id":id});
+    return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",request_id:id,sources:publicSourceReferences(responseSources)},503,{"x-request-id":id});
   }
 
   try{
     const result=await generateGroundedReply({ai:env.AI,input:messages,sources:responseSources});
     console.info(JSON.stringify({event:"ai_request_success",request_id:id,matched_count:responseSources.length,model:result.model}));
-    return json({reply:result.reply,sources:responseSources,model:result.model,request_id:id},200,{"x-request-id":id});
+    return json({reply:result.reply,sources:publicSourceReferences(responseSources),model:result.model,request_id:id},200,{"x-request-id":id});
   }catch(error){
     const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<600?error.status:502;
     const diagnostic=typeof error?.category==="string"&&/^PROVIDER_(?:HTTP_(?:4\d\d|5\d\d)|TIMEOUT|NETWORK|INVALID_RESPONSE|RESPONSE_READ|RESPONSE_VALIDATION|ATTRIBUTION)$/.test(error.category)?error.category:"PROVIDER_UNKNOWN";
