@@ -9,7 +9,7 @@ This phase removes the production dependency on the OpenAI API and uses the nati
 The Pages Function reads:
 
 - `AI` — required Workers AI binding.
-- `AI_PROVIDER_MODEL` — optional non-secret model override. If absent, the application uses `@cf/meta/llama-3.2-1b-instruct`.
+- The application uses the fixed free-tier model `@cf/meta/llama-3.2-1b-instruct`; there is no deployment model override.
 
 No `AI_PROVIDER_API_KEY` is required for production.
 
