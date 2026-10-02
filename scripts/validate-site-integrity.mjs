@@ -163,7 +163,7 @@ const generatorFreshnessChecks=[
 ];
 for(const [name,path,message,fields] of generatorFreshnessChecks){
  const html=fs.readFileSync(path,"utf8");
- const ok=html.includes(message)&&fields.every(id=>html.includes(id+'").addEventListener("input",markDirty)')||fields.every(id=>html.includes(id+'").addEventListener(\'input\',markDirty)'));
+ const ok=html.includes(message)&&fields.every(id=>html.includes(`${id}").addEventListener("input",markDirty)`))||fields.every(id=>html.includes(`${id}").addEventListener(\'input\',markDirty)`));
  if(!ok)errors.push(name+" must mark generated output stale when inputs change");
 }
 if(generatorFreshnessChecks.every(([name,path,message])=>fs.readFileSync(path,"utf8").includes(message)))console.log("Generator output freshness contract: PASS");
