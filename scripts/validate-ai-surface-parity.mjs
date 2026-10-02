@@ -6,7 +6,7 @@ const page=fs.readFileSync("ai/index.html","utf8");
 const shared=fs.readFileSync("assets/js/main.js","utf8");
 
 const pageContracts=[
-  ["full AI page sends bounded conversation history",page.includes("const MAX_HISTORY=12")&&page.includes("trimHistory([...history,{role:"user",content:question}])")],
+  ["full AI page sends bounded conversation history",page.includes("const MAX_HISTORY=12")&&page.includes(`trimHistory([...history,{role:"user",content:question}])`)],
   ["full AI page preserves the failed question",page.includes("input.value=question")],
   ["full AI page handles configuration failure",page.includes('data?.code==="AI_NOT_CONFIGURED"')],
   ["full AI page handles rate limiting",page.includes('data?.code==="AI_RATE_LIMITED"')],
