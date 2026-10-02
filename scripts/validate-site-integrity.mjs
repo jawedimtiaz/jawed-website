@@ -69,8 +69,8 @@ if(internalLinkIssues.length)errors.push("Internal links or fragment targets are
 
 const careerMatch=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedContentContract=[
-  ["Career Match saved content is sanitized before storage",careerMatch.includes("function parseSanitizedSavedHtml(html)")&&careerMatch.includes("serializeChildren(parseSanitizedSavedHtml(serializeChildren($("#results"))))")],
-  ["Career Match saved content is sanitized before restore",careerMatch.includes("const safe=parseSanitizedSavedHtml(x.html)")&&careerMatch.includes("$("#results").replaceChildren(frag)")],
+  ["Career Match saved content is sanitized before storage",careerMatch.includes("function parseSanitizedSavedHtml(html)")&&careerMatch.includes('serializeChildren(parseSanitizedSavedHtml(serializeChildren($("#results"))))')],
+  ["Career Match saved content is sanitized before restore",careerMatch.includes("const safe=parseSanitizedSavedHtml(x.html)")&&careerMatch.includes('$("#results").replaceChildren(frag)')],
   ["Career Match sanitizer removes event-handler attributes",careerMatch.includes('a.name.toLowerCase().startsWith("on")')],
   ["Career Match restored content uses DOM replacement without innerHTML",!careerMatch.includes(".innerHTML")&&careerMatch.includes("replaceChildren")]
 ];
