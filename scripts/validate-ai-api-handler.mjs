@@ -93,6 +93,24 @@ assert.equal(providerFailureBody.request_id,providerFailure.headers.get("x-reque
 assert.equal(providerFailure.headers.get("x-ai-provider-diagnostic"),"PROVIDER_HTTP_401");
 assert.equal(Object.prototype.hasOwnProperty.call(providerFailureBody,"message"),false);
 
+// Successful provider contract verifies the API passes validated source metadata.
+let providerRequestBody=null;
+globalThis.fetch=async(_url,options)=>{
+  providerRequestBody=JSON.parse(options.body);
+  return new Response(JSON.stringify({
+    model:"test-model",
+    output:[{type:"message",role:"assistant",status:"completed",content:[{type:"output_text",text:"Test response."}]}]
+  }),{status:200,headers:{"content-type":"application/json"}});
+};
+const successfulProvider=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-success","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
+  env:{AI_PROVIDER_API_KEY:"test-key",AI_PROVIDER_MODEL:"test-model"}
+});
+assert.equal(successfulProvider.status,200);
+assert.equal(typeof providerRequestBody?.instructions,"string");
+assert.equal(providerRequestBody.instructions.includes("Summary:"),true);
+assert.equal(providerRequestBody.instructions.includes("Keywords:"),true);
+
 // Provider-error mapping is covered by validate-ai-negative-paths.mjs and validate-ai-provider-contract.mjs.
 globalThis.fetch=async()=>{providerCalls+=1;throw new Error("Provider calls are forbidden in deterministic API handler regression tests.");};
 assert.equal(providerCalls,0,"Deterministic handler tests must never call the AI provider.");
