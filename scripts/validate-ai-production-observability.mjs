@@ -40,3 +40,4 @@ assert.equal(docs.includes("success events include source count and model"),true
 assert.equal(docs.includes("unconfigured events include the outcome code and matched source count"),true,"Observability docs must describe unconfigured-event fields");
 
 console.log("AI production observability contract: PASS");
+
