@@ -35,7 +35,7 @@ Events include the request ID, outcome code/status, source count, and normalized
 
 They deliberately do **not** include:
 
-No OpenAI API key or other provider API key is required or logged; the production integration uses the Cloudflare Workers AI binding `AI`.
+No OpenAI API keys or other provider API keys are required or logged; the production integration uses the Cloudflare Workers AI binding `AI`.
 
 
 - provider credentials
