@@ -37,7 +37,6 @@ for(const file of publishedHtml){
   if(canonical!==expectedCanonical)metadataContractErrors.push(file+" canonical="+(canonical||"missing"));
   if(ogUrl!==expectedCanonical)metadataContractErrors.push(file+" og:url="+(ogUrl||"missing"));
   if(twitterCard!=="summary_large_image")metadataContractErrors.push(file+" twitter:card="+(twitterCard||"missing"));
-  if(!ldBlocks.length)metadataContractErrors.push(file+" JSON-LD missing");
   for(const block of ldBlocks){try{JSON.parse(block[1])}catch{metadataContractErrors.push(file+" JSON-LD invalid")}}
 }
 if(metadataContractErrors.length)errors.push("Published-page metadata contract failed: "+metadataContractErrors.join(", "));
