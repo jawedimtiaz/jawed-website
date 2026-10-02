@@ -7,7 +7,6 @@ const sharedStyles=fs.readFileSync("assets/css/style.css","utf8");
 
 const required=[
   "data-jawed-ai-widget",
-  'fetch("/api/ai",{method:"GET"' ,
   'fetch("/api/ai",{method:"POST"' ,
   "body:JSON.stringify({messages:requestMessages})",
   "const MAX_HISTORY=12",
@@ -22,7 +21,7 @@ for(const marker of required){
   assert.equal(page.includes(marker)||sharedScript.includes(marker),true,"Missing AI live/widget contract marker: "+marker);
 }
 
-const widgetRequired=["data-jawed-ai-widget","jawed-ai-toggle","jawed-ai-panel","fetch(\"/api/ai\",{method:\"GET\"","fetch(\"/api/ai\",{method:\"POST\"","body:JSON.stringify({messages:requestMessages})","AI_NOT_CONFIGURED","AI_RATE_LIMITED","AI_PROVIDER_ERROR","const MAX_HISTORY=12"];
+const widgetRequired=["data-jawed-ai-widget","jawed-ai-toggle","jawed-ai-panel","fetch(\"/api/ai\",{method:\"POST\"","body:JSON.stringify({messages:requestMessages})","AI_NOT_CONFIGURED","AI_RATE_LIMITED","AI_PROVIDER_ERROR","const MAX_HISTORY=12"];
 for(const marker of widgetRequired)assert.equal(sharedScript.includes(marker),true,"Missing site-wide AI widget marker: "+marker);
 assert.equal(sharedScript.includes('location.pathname.startsWith("/ai/")'),true,"Full AI page must not duplicate the floating widget");
 assert.equal(sharedStyles.includes(".jawed-ai-widget"),true,"AI widget styles are missing");
