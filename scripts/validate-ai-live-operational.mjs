@@ -26,6 +26,7 @@ for(const marker of widgetRequired)assert.equal(sharedScript.includes(marker),tr
 assert.equal(sharedScript.includes('location.pathname.startsWith("/ai/")'),true,"Full AI page must not duplicate the floating widget");
 assert.equal(sharedStyles.includes(".jawed-ai-widget"),true,"AI widget styles are missing");
 assert.equal(sharedScript.includes('if(open)input.focus();else toggle.focus()'),true,"AI widget must return focus to its toggle when closed");
+assert.equal(sharedScript.includes('if(!panel.hidden)input.focus()'),true,"AI widget must not focus hidden input after an in-flight request completes");
 
 const pageRequired=[
   'fetch("/api/ai"',
