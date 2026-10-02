@@ -52,7 +52,7 @@ for(const source of result.body.sources){
   assert.equal(source.title.trim().length>0,true,"AI source title must be non-empty");
   assert.equal(typeof source?.summary,"string","AI source summary must be a string");
   assert.equal(source.summary.trim().length>0,true,"AI source summary must be non-empty");
-  assert.equal(Array.isArray(source?.keywords),"true"==="true","AI source keywords must be an array");
+  assert.equal(Array.isArray(source?.keywords),true,"AI source keywords must be an array");
   assert.equal(source.keywords.every(keyword=>typeof keyword==="string"),true,"AI source keywords must contain only strings");
 }
 
