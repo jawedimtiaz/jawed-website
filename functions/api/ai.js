@@ -1,6 +1,6 @@
 import {findRelevantKnowledge,knowledgeCount} from "../lib/ai-knowledge.js";
 import {checkRateLimit,getClientKey,MAX_REQUESTS,WINDOW_MS} from "../lib/ai-rate-limit.js";
-import {DEFAULT_MODEL,generateGroundedReply} from "../lib/openai-provider.js";
+import {DEFAULT_MODEL,generateGroundedReply} from "../lib/cloudflare-ai-provider.js";
 import {buildRetrievalQuery} from "../lib/ai-retrieval.js";
 import {aiConfigurationStatus} from "../lib/ai-config.js";
 
@@ -45,7 +45,6 @@ async function handlePost({request,env}){
   if(!validConversation(messages))return failure("Conversation messages must alternate between user and assistant, starting with the user.","AI_INVALID_CONVERSATION",400,id);
   if(messages.at(-1).role!=="user")return failure("The latest message must be from the user.","AI_INVALID_CONVERSATION",400,id);
 
-  const apiKey=env?.AI_PROVIDER_API_KEY;
   let responseSources=[];
   try{
     const retrievalQuery=buildRetrievalQuery(messages);
@@ -54,28 +53,24 @@ async function handlePost({request,env}){
   }catch(error){
     return failure("The AI knowledge service is temporarily unavailable.","AI_RETRIEVAL_ERROR",502,id);
   }
-  if(!apiKey){
+  if(!env?.AI||typeof env.AI.run!=="function"){
     console.warn(JSON.stringify({event:"ai_request_unconfigured",request_id:id,code:"AI_NOT_CONFIGURED",matched_count:responseSources.length}));
     return json({error:"AI service is not configured yet.",code:"AI_NOT_CONFIGURED",request_id:id,sources:responseSources},503,{"x-request-id":id});
   }
 
   try{
-    const result=await generateGroundedReply({apiKey,model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,input:messages,sources:responseSources});
+    const result=await generateGroundedReply({ai:env.AI,model:env?.AI_PROVIDER_MODEL||DEFAULT_MODEL,input:messages,sources:responseSources});
     console.info(JSON.stringify({event:"ai_request_success",request_id:id,matched_count:responseSources.length,model:result.model}));
     return json({reply:result.reply,sources:responseSources,model:result.model,request_id:id},200,{"x-request-id":id});
   }catch(error){
     const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<600?error.status:502;
     const diagnostic=typeof error?.category==="string"&&/^PROVIDER_(?:HTTP_(?:4\d\d|5\d\d)|TIMEOUT|NETWORK|INVALID_RESPONSE|RESPONSE_READ|RESPONSE_VALIDATION|ATTRIBUTION)$/.test(error.category)?error.category:"PROVIDER_UNKNOWN";
     const providerErrorCode=typeof error?.providerErrorCode==="string"?error.providerErrorCode:"";
-    const message=providerErrorCode==="credit_balance_exhausted"
-      ?"The AI provider has no prepaid API credits remaining. Add API credits in the OpenAI API billing settings, then try again."
-      :providerErrorCode==="organization_usage_limit_exceeded"
-        ?"The AI provider organization has reached its approved usage limit. Review the API usage limit before trying again."
-        :providerErrorCode==="organization_spend_limit_exceeded"
-          ?"The AI provider organization has reached its configured spend limit. Review the API spend controls before trying again."
-          :providerErrorCode==="project_spend_limit_exceeded"
-            ?"The AI provider project has reached its configured spend limit. Review the project spend controls before trying again."
-            :status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.";
+    const message=providerErrorCode==="3036"
+      ?"The AI free daily allocation has been reached. Please try again after the daily allocation resets."
+      :providerErrorCode==="5035"
+        ?"The selected AI model requires a paid Cloudflare Workers plan. The site is configured to use a free-eligible model; please check the deployment binding/model configuration."
+        :status===429?"AI service is temporarily busy. Please try again shortly.":"The AI service is temporarily unavailable.";
     console.error(JSON.stringify({event:"ai_request_failure",request_id:id,code:"AI_PROVIDER_ERROR",status,provider_status:status,provider_category:diagnostic,provider_content_type:typeof error?.providerContentType==="string"?error.providerContentType:"",provider_body_bytes:Number.isInteger(error?.providerBodyBytes)?error.providerBodyBytes:null,provider_stage:typeof error?.providerStage==="string"&&/^(?:FETCH|HEADERS|BODY|PARSE|HTTP_STATUS)$/.test(error.providerStage)?error.providerStage:"",provider_error_code:typeof error?.providerErrorCode==="string"?error.providerErrorCode:"",provider_retry_after_seconds:Number.isInteger(error?.providerRetryAfterSeconds)?error.providerRetryAfterSeconds:null}));
     return json({error:message,code:"AI_PROVIDER_ERROR",request_id:id,diagnostic},status===429?429:502,{"x-request-id":id,"x-ai-provider-diagnostic":diagnostic});
   }

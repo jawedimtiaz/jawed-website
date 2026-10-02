@@ -74,7 +74,8 @@ for(const [name,path,completion] of checks){
 }
 
 const endpoint=fs.readFileSync("functions/api/ai.js","utf8");
-const provider=fs.readFileSync("functions/lib/openai-provider.js","utf8");
+const provider=fs.readFileSync("functions/lib/cloudflare-ai-provider.js","utf8");
+const providerCommon=fs.readFileSync("functions/lib/ai-provider-common.js","utf8");
 const frontend=fs.readFileSync("ai/index.html","utf8");
 const aiStyles=fs.readFileSync("assets/css/style.css","utf8");
 const rateLimit=fs.readFileSync("functions/lib/ai-rate-limit.js","utf8");
@@ -87,16 +88,16 @@ const contracts=[
   ["server message-length boundary",endpoint.includes("MAX_MESSAGE_CHARS=2000")],
   ["same-site origin boundary",endpoint.includes("https://jawed.co.in")],
   ["rate-limit boundary",rateLimit.includes("MAX_REQUESTS=8")&&rateLimit.includes("WINDOW_MS=60_000")],
-  ["server-side provider credential",provider.includes('"authorization":"Bearer "+apiKey')],
-  ["safe provider failure classification",provider.includes("PROVIDER_HTTP_")&&provider.includes("PROVIDER_TIMEOUT")&&provider.includes("PROVIDER_NETWORK")&&provider.includes("PROVIDER_INVALID_RESPONSE")&&provider.includes("PROVIDER_RESPONSE_VALIDATION")&&provider.includes("PROVIDER_ATTRIBUTION")],
+  ["server-side Workers AI binding",endpoint.includes("env.AI")&&provider.includes("ai.run")],
+  ["safe Workers AI failure classification",provider.includes("PROVIDER_HTTP_")&&provider.includes("PROVIDER_INVALID_RESPONSE")&&provider.includes("PROVIDER_RESPONSE_VALIDATION")&&provider.includes("PROVIDER_ATTRIBUTION")],
   ["safe provider diagnostic response",endpoint.includes("provider_category:diagnostic")&&endpoint.includes("provider_category")&&endpoint.includes("PROVIDER_UNKNOWN")&&endpoint.includes("HTTP_(?:4\\d\\d|5\\d\\d)")],
-  ["provider no-storage contract",provider.includes("store:false")],
-  ["untrusted conversation boundary",provider.includes("<UNTRUSTED_CONVERSATION>")],
-  ["untrusted source boundary",provider.includes("<UNTRUSTED_SOURCE_METADATA>")],
-  ["bounded provider output",provider.includes("MAX_REPLY_CHARS=6000")],
-  ["Responses API output extraction",provider.includes("function extractOutputText")&&provider.includes("data?.output")&&provider.includes("const reply=extractOutputText(data)")],
-  ["source attribution gate",provider.includes("hasAllowedSourceLink")],
-  ["external markdown sanitization",provider.includes("sanitizeMarkdownLinks")],
+  ["provider no-storage architecture",!endpoint.includes("AI_PROVIDER_API_KEY")&&!provider.includes("api.openai.com")],
+  ["untrusted conversation boundary",providerCommon.includes("<UNTRUSTED_CONVERSATION>")],
+  ["untrusted source boundary",providerCommon.includes("<UNTRUSTED_SOURCE_METADATA>")],
+  ["bounded provider output",providerCommon.includes("MAX_REPLY_CHARS=6000")&&provider.includes("max_tokens:MAX_OUTPUT_TOKENS")],
+  ["Workers AI response extraction",provider.includes("result?.response")&&provider.includes("const reply=")],
+  ["source attribution gate",providerCommon.includes("hasAllowedSourceLink")&&provider.includes("hasAllowedSourceLink")],
+  ["external markdown sanitization",providerCommon.includes("sanitizeMarkdownLinks")],
   ["safe browser rendering",frontend.includes("document.createTextNode")&&!frontend.includes("innerHTML")],
   ["structured source URL validation",frontend.includes('source.url.startsWith("/")')&&frontend.includes('source.url.startsWith("//")')&&frontend.includes('source.url.includes("\\\\")')],
   ["memory-only browser history",!frontend.includes("localStorage")&&!frontend.includes("sessionStorage")],
@@ -116,6 +117,7 @@ const contracts=[
 ];
 
 assert.equal(endpoint.includes("source.summary")&&endpoint.includes("source.keywords")&&endpoint.includes("keywords.filter"),true,"API must preserve provider grounding metadata");
+assert.equal(!endpoint.includes("AI_PROVIDER_API_KEY"),true,"Production API must not depend on a paid OpenAI API key");
 console.log("PASS — API preserves provider grounding metadata");
 
 assert.equal(knowledgeDataSource.includes('url:"/ai/"')||knowledgeDataSource.includes('"url": "/ai/"'),true,"AI knowledge must include the Jawed AI self-description source");

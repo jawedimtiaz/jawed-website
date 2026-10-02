@@ -8,7 +8,8 @@ This repository is deployed as a Cloudflare Pages site with Pages Functions unde
 - **Build output directory:** repository root (`.`)
 - **Functions:** discovered from `functions/`
 - **Production domain:** `https://jawed.co.in`
-- **AI provider configuration:** Cloudflare Pages production secret `AI_PROVIDER_API_KEY`; optional `AI_PROVIDER_MODEL`
+- **AI provider configuration:** Cloudflare Pages **Workers AI binding** named `AI`
+- **AI model:** `@cf/meta/llama-3.2-1b-instruct` unless an explicitly free-eligible override is configured
 
 The site is intentionally dependency-free at build time. Do not add a package manifest or framework build step solely to satisfy deployment tooling.
 
@@ -20,5 +21,6 @@ After a production deployment:
 2. `/ai/` must load as HTML.
 3. A discovery URL such as `/notes/?q=automation` must load and preserve the query parameter.
 4. Cloudflare deployment logs must be checked if a Pages deployment reports failure.
+5. When the Workers AI binding is configured, a real `POST /api/ai` request must return a non-empty assistant response and safe Jawed.co.in source metadata.
 
-A failed Cloudflare preview notification without accessible build/runtime logs is not sufficient evidence for changing application code.
+The repository's deterministic validators mock the Workers AI binding and do not consume remote AI allocation.

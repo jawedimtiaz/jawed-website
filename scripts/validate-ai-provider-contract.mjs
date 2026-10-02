@@ -1,27 +1,18 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import {generateGroundedReply,DEFAULT_MODEL,PROVIDER_TIMEOUT_MS,isSafeSourceUrl} from "../functions/lib/openai-provider.js";
+import {generateGroundedReply,DEFAULT_MODEL,PROVIDER_TIMEOUT_MS,isSafeSourceUrl} from "../functions/lib/cloudflare-ai-provider.js";
 
 assert.equal(isSafeSourceUrl("/notes/example/"),true);
 assert.equal(isSafeSourceUrl("//evil.example/"),false);
 assert.equal(isSafeSourceUrl("/\\evil.example/"),false);
 
-const originalFetch=globalThis.fetch;
-let calls=[];
-globalThis.fetch=async(url,options)=>{
-  calls.push({url,options});
-  return new Response(JSON.stringify({
-    model:"mock-provider-model",
-    output:[
-      {type:"message",role:"assistant",status:"completed",content:[
-        {type:"output_text",text:"Use [Retirement Planning](https://jawed.co.in/tools/retirement-planning-calculator/).",annotations:[]}
-      ]}
-    ]
-  }),{status:200,headers:{"content-type":"application/json"}});
-};
-
+const calls=[];
+const ai={run:async(model,input)=>{
+  calls.push({model,input});
+  return {response:"Use [Retirement Planning](https://jawed.co.in/tools/retirement-planning-calculator/)."};
+}};
 const result=await generateGroundedReply({
-  apiKey:"test-provider-key",
+  ai,
   input:[{role:"user",content:"Where is the retirement planning calculator?"}],
   sources:[{
     url:"/tools/retirement-planning-calculator/",
@@ -31,53 +22,44 @@ const result=await generateGroundedReply({
   }]
 });
 assert.equal(result.reply.includes("https://jawed.co.in/tools/retirement-planning-calculator/"),true);
-
-calls=[];
-globalThis.fetch=async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify({model:"mock-provider-model",output_text:"The calculator can help with retirement planning."}),{status:200,headers:{"content-type":"application/json"}});};
-const fallbackResult=await generateGroundedReply({apiKey:"test-provider-key",input:[{role:"user",content:"Where is the retirement planning calculator?"}],sources:[{url:"/tools/retirement-planning-calculator/",title:"Retirement Planning Calculator",summary:"A practical calculator for retirement planning.",keywords:["retirement","planning","calculator"]}]});
-assert.equal(fallbackResult.reply.includes("Source: [Retirement Planning Calculator](https://jawed.co.in/tools/retirement-planning-calculator/)"),true);
-assert.equal(result.model,"mock-provider-model");
+assert.equal(result.model,DEFAULT_MODEL);
 assert.equal(calls.length,1);
-assert.equal(calls[0].url,"https://api.openai.com/v1/responses");
-assert.equal(calls[0].options.method,"POST");
-assert.equal(calls[0].options.headers.authorization,"Bearer test-provider-key");
-const payload=JSON.parse(calls[0].options.body);
-assert.equal(payload.store,false);
-assert.equal(payload.model,DEFAULT_MODEL);
-assert.equal(payload.max_output_tokens,700);
-assert.equal(payload.signal instanceof AbortSignal,true);
+assert.equal(calls[0].model,DEFAULT_MODEL);
+assert.equal(Array.isArray(calls[0].input.messages),true);
+assert.equal(calls[0].input.messages[0].role,"system");
+assert.equal(calls[0].input.messages[0].content.includes("<UNTRUSTED_CONVERSATION>"),true);
+assert.equal(calls[0].input.messages[0].content.includes("<UNTRUSTED_SOURCE_METADATA>"),true);
+assert.equal(calls[0].input.messages[1].role,"user");
+assert.equal(calls[0].input.max_tokens,700);
+assert.equal(calls[0].input.temperature,0.2);
+
+const fallback=await generateGroundedReply({
+  ai:{run:async()=>({response:"The calculator can help with retirement planning."})},
+  input:[{role:"user",content:"Where is the retirement planning calculator?"}],
+  sources:[{url:"/tools/retirement-planning-calculator/",title:"Retirement Planning Calculator",summary:"A practical calculator for retirement planning.",keywords:["retirement","planning","calculator"]}]
+});
+assert.equal(fallback.reply.includes("Source: [Retirement Planning Calculator](https://jawed.co.in/tools/retirement-planning-calculator/)"),true);
+
+await assert.rejects(
+  ()=>generateGroundedReply({ai:null,input:[{role:"user",content:"hello"}],sources:[]}),
+  error=>error?.status===503&&error?.category==="PROVIDER_NOT_CONFIGURED"
+);
+
+await assert.rejects(
+  ()=>generateGroundedReply({ai:{run:async()=>{const e=new Error("daily free allocation reached (3036)");e.status=429;throw e;}},input:[{role:"user",content:"hello"}],sources:[]}),
+  error=>error?.status===429&&error?.category==="PROVIDER_HTTP_429"&&error?.providerErrorCode==="3036"
+);
+
+await assert.rejects(
+  ()=>generateGroundedReply({ai:{run:async()=>({})},input:[{role:"user",content:"hello"}],sources:[]}),
+  error=>error?.category==="PROVIDER_INVALID_RESPONSE"
+);
+
 assert.equal(PROVIDER_TIMEOUT_MS,30000);
-assert.equal(typeof payload.instructions,"string");
-assert.equal(payload.instructions.includes("<UNTRUSTED_CONVERSATION>"),true);
-assert.equal(payload.instructions.includes("<UNTRUSTED_SOURCE_METADATA>"),true);
-assert.equal(payload.input[0].role,"user");
 
-calls=[];
-globalThis.fetch=async()=>new Response("<html>upstream failure</html>",{status:502,headers:{"content-type":"text/html"}});
-await assert.rejects(
-  ()=>generateGroundedReply({apiKey:"test-provider-key",input:[{role:"user",content:"hello"}],sources:[]}),
-  error=>error?.status===502&&error?.category==="PROVIDER_INVALID_RESPONSE"&&error?.providerContentType==="text/html"&&error?.providerBodyBytes>0
-);
-
-globalThis.fetch=async()=>{calls.push({url:"https://api.openai.com/v1/responses"});return new Response(JSON.stringify({
-  model:"mock-error-model",
-  error:{message:"provider unavailable"}
-}),{status:429,headers:{"content-type":"application/json"}});};
-await assert.rejects(
-  ()=>generateGroundedReply({apiKey:"test-provider-key",input:[{role:"user",content:"hello"}],sources:[]}),
-  error=>error?.status===429
-);
-assert.equal(calls.length,1);
-
-globalThis.fetch=originalFetch;
-globalThis.fetch=async()=>new Response("",{status:502,headers:{"content-type":"application/json"}});
-await assert.rejects(
-  ()=>generateGroundedReply({apiKey:"test-provider-key",input:[{role:"user",content:"hello"}],sources:[]}),
-  error=>error?.status===502&&error?.category==="PROVIDER_INVALID_RESPONSE"||error?.category==="PROVIDER_RESPONSE_READ"
-);
-
-console.log("AI provider contract behavioral coverage: PASS");
-console.log("Responses API raw output-item parsing exercised: yes");
-console.log("No-storage and output-token contracts exercised: yes");
-console.log("Provider error status propagation exercised: yes");
-console.log("Mocked provider only: yes");
+console.log("Cloudflare AI provider contract behavioral coverage: PASS");
+console.log("Workers AI binding invocation contract exercised: yes");
+console.log("Grounding and source attribution contract exercised: yes");
+console.log("Free-allocation error normalization exercised: yes");
+console.log("Missing-binding failure exercised: yes");
+console.log("Mocked Workers AI only: yes");

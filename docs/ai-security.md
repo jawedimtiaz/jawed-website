@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Phase 19G hardens the public /api/ai endpoint without adding visitor conversation persistence or exposing provider credentials to the browser.
+The public `/api/ai` endpoint uses a server-side Cloudflare Workers AI binding without exposing provider credentials to the browser.
 
 ## Request protections
 
@@ -14,9 +14,9 @@ Phase 19G hardens the public /api/ai endpoint without adding visitor conversatio
 - Conversation must alternate user → assistant → user ... and start with user.
 - The latest message must be a user message.
 - Same-origin browser requests are restricted to https://jawed.co.in.
-- Provider calls remain fail-closed when AI_PROVIDER_API_KEY is absent.
+- Provider calls remain fail-closed when the Cloudflare Workers AI `AI` binding is absent.
 - Provider output remains capped at 700 tokens.
-- OpenAI Responses API requests continue to use store:false.
+- Workers AI requests use the native server-side binding; no provider API key is sent from the browser.
 
 ## Abuse protection
 
@@ -32,17 +32,19 @@ This is intentionally not described as a durable or globally consistent quota. S
 
 ## Prompt-injection boundary
 
-Conversation history received from the browser is untrusted input. The provider adapter converts it into labeled transcript text and sends only a single user-role instruction to the model. This prevents browser-supplied assistant messages from being treated as trusted model instructions.
+Conversation history received from the browser is untrusted input. The provider-neutral grounding layer converts it into labeled transcript text and sends it as model context while preserving the final user request boundary.
 
-The provider instructions explicitly tell the model to treat both the transcript and source metadata as untrusted data and to ignore embedded attempts to change its rules, reveal secrets, or alter system behavior.
+The grounding instructions explicitly tell the model to treat both the transcript and source metadata as untrusted data and to ignore embedded attempts to change its rules, reveal secrets, or alter system behavior.
 
 ## Privacy
 
 - No visitor conversation is persisted by the site.
 - No message content is logged by the AI endpoint.
 - The transient rate-limit key is an IP-derived value held only in runtime memory.
-- The browser never receives or stores AI_PROVIDER_API_KEY.
+- The browser does not receive any provider credential.
 
-## Operational limitation
+## Free-tier operational boundary
 
-For stronger global abuse controls, a future phase can use a durable Cloudflare-compatible rate-limit service or binding. This phase deliberately does not add one, because no such binding is currently part of the site's deployed architecture.
+Cloudflare currently provides 10,000 Workers AI Neurons per day on the Workers Free plan. When the daily free allocation is exhausted, Workers AI returns an account-limited error rather than automatically charging beyond the free allocation.
+
+For this project, the production model should remain on Cloudflare's documented Workers Free model list unless the user explicitly chooses a paid plan later.

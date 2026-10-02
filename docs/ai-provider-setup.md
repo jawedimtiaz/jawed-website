@@ -2,39 +2,53 @@
 
 ## Cloudflare Pages Functions
 
-Jawed AI uses a server-side OpenAI Responses API adapter. The browser never receives the provider API key.
+Jawed AI uses a server-side **Cloudflare Workers AI** binding. The browser never receives provider credentials, and the production endpoint does not depend on an OpenAI API key.
 
-Configure these Cloudflare Pages environment variables/secrets:
+Configure a Workers AI binding for the production Pages environment:
 
-- `AI_PROVIDER_API_KEY` — **Secret** containing the OpenAI API key.
-- `AI_PROVIDER_MODEL` — optional non-secret variable; defaults to `gpt-5.6-luna`.
+- Binding variable name: `AI`
+- Binding type: **Workers AI**
+
+Cloudflare's Pages Functions documentation supports configuring the binding from **Workers & Pages → Pages project → Settings → Bindings → Add → Workers AI**. Redeploy after adding or changing the binding. The Function accesses it as `env.AI`.
 
 The endpoint is:
 
 - `POST /api/ai`
 
-The provider adapter uses the OpenAI Responses API with `store: false`. The request contains the validated conversation messages plus the top five first-party Jawed.co.in knowledge matches.
+The default production model is:
+
+- `@cf/meta/llama-3.2-1b-instruct`
+
+The model is intentionally selected because it is available on Workers Free and has relatively low Neuron consumption. Cloudflare currently provides 10,000 Workers AI Neurons per day at no charge on the Workers Free plan. If the daily free allocation is exhausted, further inference fails rather than silently creating paid usage.
+
+An optional `AI_PROVIDER_MODEL` variable may override the default, but only a model documented as available on the Workers Free plan should be used for the user's $0 requirement.
 
 ## Security boundaries
 
-- Never place `AI_PROVIDER_API_KEY` in HTML, JavaScript served to browsers, Git history, or public documentation.
-- Do not create a client-side OpenAI request.
+- Do not add an OpenAI API key for this production path.
+- Do not create a client-side AI request.
 - Keep the existing same-origin guard and request-size/message limits.
 - The assistant is grounded in the public Jawed.co.in knowledge index and should state when that context does not answer a question.
 - No visitor conversation is persisted by the website.
+- The provider-neutral grounding layer treats conversation text and source metadata as untrusted data.
+- Only allowlisted Jawed.co.in source URLs can survive response-link sanitization.
 
 ## Local/deployment verification
 
-Without `AI_PROVIDER_API_KEY`, `POST /api/ai` intentionally returns `503 AI_NOT_CONFIGURED` and relevant source links. This makes an unconfigured deployment fail closed rather than silently making an ungrounded model request.
+Repository regression tests mock `env.AI.run()`; they do not invoke remote Workers AI.
 
-Once the secret is configured, the endpoint can return:
+Cloudflare notes that Workers AI local development accesses the account and incurs AI usage, so do not run a real local inference test merely to satisfy deterministic CI.
+
+Without the `AI` binding, `POST /api/ai` intentionally returns `503 AI_NOT_CONFIGURED` and relevant source links. This makes an unconfigured deployment fail closed.
+
+When configured, a successful response has the shape:
 
 ```json
 {
   "reply": "…",
   "sources": [],
-  "model": "gpt-5.6-luna"
+  "model": "@cf/meta/llama-3.2-1b-instruct"
 }
 ```
 
-Provider errors are normalized so provider-specific error details are not exposed to visitors.
+Workers AI errors are normalized so provider-specific error details are not exposed to visitors.
