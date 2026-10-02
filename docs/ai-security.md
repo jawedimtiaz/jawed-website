@@ -26,7 +26,7 @@ The endpoint applies a best-effort per-client fixed-window limiter:
 - Client identity uses Cloudflare's CF-Connecting-IP request header.
 - The counter is held only in the current Pages Function runtime memory.
 - Expired buckets are cleaned up and the in-memory bucket map is bounded.
-- Rate-limited responses return HTTP 429 and a retry_after value.
+- Rate-limited responses return HTTP 429 with the standard public error contract; the retry-after calculation is retained only in server-side telemetry.
 
 This is intentionally not described as a durable or globally consistent quota. Serverless instances can restart or scale independently, so the limiter is a lightweight first line of defense rather than a substitute for a durable distributed rate-limit service.
 
