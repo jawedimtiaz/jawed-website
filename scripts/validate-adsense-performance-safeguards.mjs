@@ -11,7 +11,7 @@ const walk=(dir)=>{
     if(entry.name==="node_modules"||entry.name===".git")continue;
     const p=dir+"/"+entry.name;
     if(entry.isDirectory())walk(p);
-    else if(/\.(html|css|js|json|mjs|md)$/.test(entry.name))files.push(p);
+    else if(/\.(html|css|js|mjs)$/.test(entry.name))files.push(p);
   }
 };
 walk(".");
