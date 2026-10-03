@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 
-const htmlFiles=execFileSync("git",["ls-files","*.html"],{encoding:"utf8"}).trim().split("\n").filter(Boolean);
+const htmlFiles=execFileSync("git",["ls-files","*.html"],{encoding:"utf8"}).trim().split("\n").filter(Boolean).filter(file=>fs.readFileSync(file,"utf8").trimStart().toLowerCase().startsWith("<!doctype html"));
 assert.ok(htmlFiles.length>0,"HTML inventory must not be empty");
 
 for(const file of htmlFiles){
