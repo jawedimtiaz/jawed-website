@@ -1,0 +1,35 @@
+name: Production Availability Monitoring Gate
+concurrency:
+  group: production-availability-monitoring-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  pull_request:
+    paths:
+      - "config/production-monitoring-contract.json"
+      - "config/production-smoke-contract.json"
+      - "scripts/validate-production-monitoring.mjs"
+      - ".github/workflows/production-smoke-reliability.yml"
+      - ".github/workflows/production-availability-monitoring.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+permissions:
+  contents: read
+jobs:
+  production-monitoring-contract:
+    name: Production availability monitoring contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Validate monitoring contract
+        run: node scripts/validate-production-monitoring.mjs
