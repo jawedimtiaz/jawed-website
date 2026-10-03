@@ -14,7 +14,7 @@ assert.equal(contract.responsive.max_width,"100%");
 assert.equal(contract.runtime_active,false);
 assert.equal(css.includes(".ad-slot-boundary{display:block;width:100%;max-width:100%;min-width:0;min-height:280px;contain:layout}"),true);
 assert.equal(css.includes("@media(max-width:760px){.ad-slot-boundary{min-height:180px}}"),true);
-const slotRule=css.match(/\\.ad-slot-boundary\\{([^}]*)\\}/)?.[1] ?? "";
+const slotRule=css.match(/\.ad-slot-boundary\{([^}]*)\}/)?.[1] ?? "";
 assert.equal(slotRule.includes("position:fixed"),false,"Ad-slot boundary must not use fixed positioning");
 assert.equal(slotRule.includes("position:sticky"),false,"Ad-slot boundary must not use sticky positioning");
 assert.equal(slotRule.includes("100vw"),false,"Ad-slot boundary must not use viewport-width sizing");
