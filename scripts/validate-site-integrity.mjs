@@ -171,6 +171,9 @@ else console.log("Dedicated Jawed AI status live-region contract: PASS");
 const aiPageBusyContract=aiPage.includes('const setBusy=busy=>{input.disabled=busy;if(button)button.disabled=busy;button?.setAttribute("aria-busy",busy?"true":"false");box.setAttribute("aria-busy",busy?"true":"false")};');
 if(!aiPageBusyContract)errors.push("Dedicated Jawed AI conversation log must expose aria-busy while requests are in flight");
 else console.log("Dedicated Jawed AI conversation busy-state contract: PASS");
+const aiPageSourceGroupContract=aiPage.includes('article.className="ai-message ai-message-sources";article.setAttribute("role","group");article.setAttribute("aria-label","Sources");');
+if(!aiPageSourceGroupContract)errors.push("Dedicated Jawed AI source list must expose an explicit accessible Sources group");
+else console.log("Dedicated Jawed AI source-group contract: PASS");
 
 const financeWorkspace=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
 const financeWorkspaceTabContract=
