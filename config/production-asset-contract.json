@@ -1,0 +1,27 @@
+{
+  "phase": "38P",
+  "scope": "production-static-asset-reliability",
+  "production_origin": "https://jawed.co.in",
+  "max_redirects": 0,
+  "max_body_bytes": 500000,
+  "checks": [
+    {
+      "path": "/assets/css/style.css",
+      "status": 200,
+      "content_type": "text/css",
+      "min_body_bytes": 1000
+    },
+    {
+      "path": "/assets/js/main.js",
+      "status": 200,
+      "content_type": "text/javascript",
+      "min_body_bytes": 1000
+    },
+    {
+      "path": "/assets/js/analytics.js",
+      "status": 200,
+      "content_type": "text/javascript",
+      "min_body_bytes": 500
+    }
+  ]
+}
