@@ -75,12 +75,14 @@
     {
       "url": "/work/skills/",
       "title": "Skills",
-      "summary": "Technical and professional skills presented on the site, including IT support, service desk work, and Jamf-related areas.",
+      "summary": "Technical and professional skills presented on the site, including IT support, service desk work, Apple and device management, and Jamf-related areas.",
       "keywords": [
         "skills",
         "it support",
         "jamf",
-        "service desk"
+        "service desk",
+        "apple",
+        "device management"
       ]
     },
     {
