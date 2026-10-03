@@ -12,10 +12,6 @@ const QUERY_ALIASES=new Map([
   ["mdm",["device","management"]],
   ["resume",["cv","career","job"]],
   ["cv",["resume","career","job"]],
-  ["calculator",["tool","calculation"]],
-  ["guide",["note","documentation"]],
-  ["article",["blog","notes"]],
-  ["documentation",["guide","resources"]]
 ]);
 
 function normalizeQuery(value){
