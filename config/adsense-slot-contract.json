@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "status": "pre-activation",
+  "runtime_active": false,
+  "slot_class": "ad-slot-boundary",
+  "allowed_contexts": [
+    "after-primary-content-introduction",
+    "between-substantive-content-sections",
+    "before-related-content"
+  ],
+  "excluded_routes": ["/contact/", "/privacy/", "/ai/", "/tools/"],
+  "excluded_surfaces": [
+    "primary-navigation",
+    "menu-controls",
+    "download-controls",
+    "form-submit-controls",
+    "ai-conversation",
+    "interactive-tool-workspace",
+    "error-or-dead-end-pages"
+  ],
+  "reservation": {
+    "desktop_min_height_px": 280,
+    "mobile_min_height_px": 180,
+    "purpose": "Reserve layout space only when a future ad slot is explicitly inserted.",
+    "no_runtime_effect_before_activation": true
+  },
+  "rules": [
+    "Do not insert the boundary on excluded routes.",
+    "Do not load advertising runtime code as part of this contract.",
+    "Do not use the boundary as a substitute for publisher-specific Google configuration.",
+    "Keep publisher content visually and semantically primary.",
+    "Do not place the boundary where it can be mistaken for navigation, controls, downloads, or site content.",
+    "Only an explicitly inserted future slot may reserve this space; do not add empty placeholders to pages before activation."
+  ]
+}
