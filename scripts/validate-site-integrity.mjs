@@ -274,7 +274,7 @@ if(!careerMatchMammothSecurityContract)errors.push("Career Match DOCX reader mus
 else console.log("Career Match Mammoth dependency security contract: PASS");
 
 const siteCss=fs.readFileSync("assets/css/style.css","utf8");
-const jawedAiCtaContrastContract=siteCss.includes(".ai-discovery-card a.button{color:#fff}")&&siteCss.includes(".card a.button:hover,.card a.button:focus-visible{color:#fff}");
+const jawedAiCtaContrastContract=siteCss.includes(".ai-discovery-card a.button{color:#fff}")&&siteCss.includes(".ai-discovery-card a.button:hover,.ai-discovery-card a.button:focus-visible{color:#fff}");
 if(!jawedAiCtaContrastContract)errors.push("Jawed AI card CTAs must retain white text across default, hover and focus-visible states");
 else console.log("Jawed AI CTA contrast contract: PASS");
 
