@@ -1,4 +1,5 @@
 import {findRelevantKnowledge,knowledgeCount} from "../lib/ai-knowledge.js";
+import knowledge from "../lib/ai-knowledge-data.js";
 import {checkRateLimit,getClientKey,MAX_REQUESTS,WINDOW_MS} from "../lib/ai-rate-limit.js";
 import {DEFAULT_MODEL,generateGroundedReply} from "../lib/cloudflare-ai-provider.js";
 import {buildRetrievalQuery} from "../lib/ai-retrieval.js";
@@ -30,6 +31,27 @@ function publicSources(sources){
 function publicSourceReferences(sources){
   return sources.map(({url,title})=>({url,title}));
 }
+function knowledgeEntry(url){
+  const source=knowledge.entries.find(entry=>entry.url===url);
+  return source?{url:source.url,title:source.title,summary:source.summary,keywords:source.keywords}:null;
+}
+
+function deterministicIntentReply(question){
+  const value=question.trim().toLowerCase().replace(/[?!.]+$/g,"").trim();
+  const closing=["bye","goodbye","good night","see you","see ya","talk to you later","thanks","thank you","thx","ok bye","okay bye"];
+  if(closing.includes(value))return {reply:"Goodbye! 👋",sources:[]};
+  const identity=["who is jawed","who is jawed imtiaz","who was jawed","who was jawed imtiaz","about jawed","about jawed imtiaz"];
+  if(identity.includes(value)){
+    const source=knowledgeEntry("/about/");
+    return source?{reply:source.summary+" Source: ["+source.title+"](https://jawed.co.in"+source.url+")",sources:[source]}:null;
+  }
+  const workQuestion=(value.startsWith("where ")||value.startsWith("what "))&&["work","working","job","employed","employer","employment","company","client"].some(term=>value.includes(term));
+  if(workQuestion){
+    const source=knowledgeEntry("/work/experience/");
+    return source?{reply:source.summary+" Source: ["+source.title+"](https://jawed.co.in"+source.url+")",sources:[source]}:null;
+  }
+  return null;
+}
 
 async function handlePost({request,env}){
   const id=requestId();
@@ -48,6 +70,11 @@ async function handlePost({request,env}){
   if(messages.some(m=>!["user","assistant"].includes(m.role)||!m.content||m.content.length>MAX_MESSAGE_CHARS))return failure("Each message must have a valid role and a non-empty message of 2,000 characters or fewer.","AI_INVALID_MESSAGE",400,id);
   if(!validConversation(messages))return failure("Conversation messages must alternate between user and assistant, starting with the user.","AI_INVALID_CONVERSATION",400,id);
   if(messages.at(-1).role!=="user")return failure("The latest message must be from the user.","AI_INVALID_CONVERSATION",400,id);
+
+  const deterministic=deterministicIntentReply(messages.at(-1).content);
+  if(deterministic){
+    return json({reply:deterministic.reply,sources:publicSourceReferences(deterministic.sources),model:"deterministic-site-intent",request_id:id},200,{"x-request-id":id});
+  }
 
   let responseSources=[];
   try{
