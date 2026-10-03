@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "status": "baseline",
+  "phase": "37A",
+  "ad_runtime_active": false,
+  "budgets": {
+    "lcp": {"target_ms": 2500, "scope": "field-or-lab measurement after baseline capture"},
+    "inp": {"target_ms": 200, "scope": "field-or-lab measurement after baseline capture"},
+    "cls": {"target": 0.1, "scope": "field-or-lab measurement after baseline capture"}
+  },
+  "rules": [
+    "These are Core Web Vitals targets, not current measured scores.",
+    "Do not claim the site meets a target without a dated measurement.",
+    "Do not activate advertising solely to create a performance test.",
+    "Do not add speculative third-party performance dependencies."
+  ]
+}
