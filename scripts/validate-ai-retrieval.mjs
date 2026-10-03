@@ -30,6 +30,16 @@ assert.equal(longQuery.length<=MAX_RETRIEVAL_QUERY_CHARS,true);
 assert.equal(longQuery.startsWith(longCurrent),true);
 assert.equal(PRIOR_USER_TURNS,2);
 
+const topicSwitch=buildRetrievalQuery([
+  {role:"user",content:"Tell me about retirement planning."},
+  {role:"assistant",content:"Here are retirement pages."},
+  {role:"user",content:"What is Jamf?"},
+  {role:"assistant",content:"Jamf is used for Apple device management."},
+  {role:"user",content:"Explain more"}
+]);
+assert.equal(topicSwitch.includes("What is Jamf?"),true);
+assert.equal(topicSwitch.includes("Tell me about retirement planning."),false);
+
 
 import {findRelevantKnowledge} from "../functions/lib/ai-knowledge.js";
 
@@ -65,3 +75,4 @@ console.log("Prior user turns included:",PRIOR_USER_TURNS);
 console.log("Assistant turns excluded: yes");
 console.log("Query character cap:",MAX_RETRIEVAL_QUERY_CHARS);
 console.log("Knowledge ranking precision: yes");
+console.log("Vague follow-up topic boundary: yes");

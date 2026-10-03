@@ -4,7 +4,7 @@ const SOURCE_PATH_PATTERN=/https:\/\/jawed\.co\.in(\/[^\s)\]]*)/g;
 const JAWED_REFERENCE=/\b(?:jawed|jawed\s+imtiaz)\b/i;
 const PERSON_PRONOUN=/\b(?:he|him|his|himself)\b/i;
 const DEICTIC_REFERENCE=/\b(?:that|this|it)\b/i;
-const FOLLOW_UP_REFERENCE=/^\s*(?:tell me more|more about that|what about that|and what about that|can you explain that|explain that)\b/i;
+const FOLLOW_UP_REFERENCE=/^\s*(?:tell me more|more about that|what about that|and what about that|can you explain that|explain that|explain more|tell me more|more details|elaborate|expand)\b/i;
 
 function priorMessages(messages){
   return messages.slice(0,-1).filter(message=>typeof message?.content==="string"&&message.content.trim());
@@ -61,7 +61,7 @@ export function buildRetrievalQuery(messages){
     .filter(message=>message?.role==="user"&&typeof message.content==="string")
     .map(message=>message.content.trim())
     .filter(Boolean)
-    .slice(-PRIOR_USER_TURNS);
+    .slice(-(FOLLOW_UP_REFERENCE.test(current)?1:PRIOR_USER_TURNS));
 
   return [contextualCurrent,...priorUserMessages].join("\n").slice(0,MAX_RETRIEVAL_QUERY_CHARS);
 }
