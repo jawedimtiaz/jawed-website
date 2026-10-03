@@ -20,6 +20,8 @@ on:
       - "docs/adsense-technical-activation.md"
       - "_headers"
       - "config/adsense-placement-policy.json"
+      - "config/adsense-slot-contract.json"
+      - "scripts/validate-adsense-slot-architecture.mjs"
       - "docs/adsense-content-readiness.md"
       - "docs/adsense-activation-contract.md"
       - "config/adsense-inventory.json"
