@@ -1,0 +1,15 @@
+{
+  "phase": "38D",
+  "scope": "deployment-runtime-reliability",
+  "production_origin": "https://jawed.co.in",
+  "alternate_origin": "https://www.jawed.co.in",
+  "deployment_model": "cloudflare-pages",
+  "build_command": null,
+  "build_output_directory": ".",
+  "functions_directory": "functions",
+  "required_runtime_files": ["_headers", "_redirects", "_routes.json", "404.html", "sitemap.xml", "index.html"],
+  "api_routes": ["/api/ai"],
+  "canonical_origin_must_be_exact": true,
+  "no_package_manifest_required": true,
+  "external_deployment_provider": "Cloudflare Pages"
+}
