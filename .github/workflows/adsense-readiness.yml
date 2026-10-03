@@ -27,6 +27,8 @@ on:
       - "scripts/validate-adsense-consent-performance.mjs"
       - "config/adsense-performance-safeguards.json"
       - "scripts/validate-adsense-performance-safeguards.mjs"
+      - "config/adsense-final-performance-gate.json"
+      - "scripts/validate-adsense-final-performance-gate.mjs"
       - "docs/adsense-content-readiness.md"
       - "docs/adsense-activation-contract.md"
       - "config/adsense-inventory.json"
@@ -52,6 +54,8 @@ on:
       - "scripts/validate-adsense-consent-performance.mjs"
       - "config/adsense-performance-safeguards.json"
       - "scripts/validate-adsense-performance-safeguards.mjs"
+      - "config/adsense-final-performance-gate.json"
+      - "scripts/validate-adsense-final-performance-gate.mjs"
       - "config/adsense-slot-contract.json"
       - "scripts/validate-adsense-slot-architecture.mjs"
       - "docs/adsense-content-readiness.md"
@@ -110,6 +114,9 @@ jobs:
 
       - name: Run AdSense performance safeguards validation
         run: node scripts/validate-adsense-performance-safeguards.mjs
+
+      - name: Run final AdSense pre-activation performance gate
+        run: node scripts/validate-adsense-final-performance-gate.mjs
 
       - name: Run AdSense final readiness validation
         run: node scripts/validate-adsense-final-readiness.mjs
