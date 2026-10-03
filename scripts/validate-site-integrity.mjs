@@ -95,6 +95,9 @@ else console.log("Jawed AI widget accessibility contract: PASS");
 const jawedAiWidgetEventContract=!mainJs.includes("document.addEventListener(\"click\",captureClose,true)")&&!mainJs.includes("addEventListener(\"pointerdown\",closePanel)")&&!mainJs.includes("addEventListener(\"touchstart\",closePanel");
 if(!jawedAiWidgetEventContract)errors.push("Jawed AI widget close controls must not register redundant global or duplicate pointer/touch handlers");
 else console.log("Jawed AI widget event-handling contract: PASS");
+const jawedAiWidgetStatusContract=mainJs.includes('status.setAttribute("role","status")')&&mainJs.includes('status.setAttribute("aria-live","polite")')&&mainJs.includes('status.setAttribute("aria-atomic","true")');
+if(!jawedAiWidgetStatusContract)errors.push("Jawed AI widget status must expose an explicit polite live region with atomic updates");
+else console.log("Jawed AI widget status live-region contract: PASS");
 
 
 const discoveryQueryBoundaryContract=[
