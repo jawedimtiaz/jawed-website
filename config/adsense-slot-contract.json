@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "status": "pre-activation",
   "runtime_active": false,
   "slot_class": "ad-slot-boundary",
@@ -8,7 +8,12 @@
     "between-substantive-content-sections",
     "before-related-content"
   ],
-  "excluded_routes": ["/contact/", "/privacy/", "/ai/", "/tools/"],
+  "excluded_routes": [
+    "/contact/",
+    "/privacy/",
+    "/ai/",
+    "/tools/"
+  ],
   "excluded_surfaces": [
     "primary-navigation",
     "menu-controls",
@@ -30,6 +35,18 @@
     "Do not use the boundary as a substitute for publisher-specific Google configuration.",
     "Keep publisher content visually and semantically primary.",
     "Do not place the boundary where it can be mistaken for navigation, controls, downloads, or site content.",
-    "Only an explicitly inserted future slot may reserve this space; do not add empty placeholders to pages before activation."
-  ]
+    "Only an explicitly inserted future slot may reserve this space; do not add empty placeholders to pages before activation.",
+    "Future ad boundaries must remain in normal document flow on mobile.",
+    "Do not use fixed, sticky, viewport-overlay, or full-screen ad positioning.",
+    "The boundary must remain width-constrained to the viewport and must not create horizontal overflow.",
+    "Mobile reservation must remain stable across the existing responsive breakpoint."
+  ],
+  "responsive": {
+    "breakpoint_px": 760,
+    "minimum_supported_viewport_width_px": 320,
+    "flow_only": true,
+    "allow_fixed_or_sticky": false,
+    "width": "100%",
+    "max_width": "100%"
+  }
 }
