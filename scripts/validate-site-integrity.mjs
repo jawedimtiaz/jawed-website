@@ -163,6 +163,11 @@ const careerMatchStatusRegionContract=
 if(!careerMatchStatusRegionContract)errors.push("Career Match dynamic status and validation messages must expose live-region semantics");
 else console.log("Career Match status live-region accessibility contract: PASS");
 
+const aiPage=fs.readFileSync("ai/index.html","utf8");
+const aiPageStatusLiveRegionContract=aiPage.includes('<p id="ai-status" class="form-note" role="status" aria-live="polite" aria-atomic="true">');
+if(!aiPageStatusLiveRegionContract)errors.push("Dedicated Jawed AI status must expose an explicit polite live region with atomic updates");
+else console.log("Dedicated Jawed AI status live-region contract: PASS");
+
 const financeWorkspace=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
 const financeWorkspaceTabContract=
   financeWorkspace.includes('<div class="tabs" role="tablist" aria-label="Finance planning sections">')&&
