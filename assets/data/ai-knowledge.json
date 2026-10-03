@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "source": "Jawed.co.in public sitemap",
   "generated_for": "Jawed AI",
   "entries": [
@@ -91,35 +91,86 @@
     {
       "url": "/work/skills/",
       "title": "Skills",
-      "summary": "Technical and professional skills presented on the site, including IT support, service desk work, Apple and device management, and Jamf-related areas.",
+      "summary": "Jawed's skills span IT support and Service Desk work, workplace technology, Apple and macOS support, device management, IT operations, networking, cloud platforms, identity and collaboration tools, and practical automation and scripting. The page connects these skills to troubleshooting, device support, networking and automation examples documented elsewhere on the site.",
       "keywords": [
         "skills",
         "it support",
-        "jamf",
         "service desk",
+        "troubleshooting",
+        "user support",
+        "incident handling",
+        "remote support",
+        "it operations",
         "apple",
-        "device management"
+        "macos",
+        "apple business manager",
+        "jamf",
+        "device provisioning",
+        "device management",
+        "servicenow",
+        "jira",
+        "slack",
+        "google workspace",
+        "okta",
+        "onelogin",
+        "microsoft 365",
+        "azure",
+        "aws",
+        "vpn",
+        "cisco meraki",
+        "powershell",
+        "javascript",
+        "automation",
+        "networking"
       ]
     },
     {
       "url": "/work/certifications/",
       "title": "Certifications",
-      "summary": "Professional certification and learning information, including the site's ITIL and Jamf-related learning areas.",
+      "summary": "Jawed's certifications and education include Microsoft Azure Fundamentals (AZ-900), Apple Certified Support Professional 10.9 and 10.11, an Advanced Diploma in Hardware & Networking, a historical MCSE qualification, and a Bachelor of Science from the University of Calcutta. Current learning includes Jamf 100 for Apple device management and ITIL for IT service-management practices.",
       "keywords": [
         "certifications",
-        "itil",
+        "education",
+        "azure fundamentals",
+        "az-900",
+        "apple certified support professional",
+        "hardware",
+        "networking",
+        "mcse",
+        "windows server",
+        "bachelor of science",
+        "university of calcutta",
+        "jamf 100",
         "jamf",
-        "learning"
+        "apple device management",
+        "itil",
+        "it service management",
+        "current learning"
       ]
     },
     {
       "url": "/work/projects/",
       "title": "Projects",
-      "summary": "Selected technology and personal projects, including website and other practical technology work presented on Jawed.co.in.",
+      "summary": "Jawed's projects include the ongoing Jawed.co.in rebuild using HTML, CSS, JavaScript, GitHub and Cloudflare Pages, plus sanitized examples of practical IT problem solving. The work examples cover repeatable troubleshooting, device provisioning and handoff, technical documentation, and a review-first approach to practical support work without exposing employer-specific systems or confidential information.",
       "keywords": [
         "projects",
-        "technology",
-        "website"
+        "jawed.co.in",
+        "website rebuild",
+        "html",
+        "css",
+        "javascript",
+        "github",
+        "cloudflare pages",
+        "troubleshooting",
+        "problem isolation",
+        "device lifecycle",
+        "device provisioning",
+        "handoff",
+        "documentation",
+        "ticket history",
+        "it support",
+        "practical problem solving",
+        "sanitized work evidence"
       ]
     },
     {
@@ -147,12 +198,24 @@
     {
       "url": "/notes/it-service-desk-troubleshooting-workflow/",
       "title": "IT Service Desk Troubleshooting Workflow",
-      "summary": "Structured service desk troubleshooting workflow covering issue triage, diagnosis, documentation, and repeatable support practices.",
+      "summary": "A repeatable first-response Service Desk workflow for understanding an IT issue, separating symptoms from likely causes, testing the least disruptive relevant change, validating the original user task, documenting the investigation and escalating with evidence when the issue exceeds support scope.",
       "keywords": [
-        "it support",
         "service desk",
+        "it support",
         "troubleshooting",
-        "workflow"
+        "first response",
+        "triage",
+        "symptom",
+        "root cause",
+        "evidence",
+        "connectivity",
+        "account state",
+        "device state",
+        "known good",
+        "validation",
+        "ticket documentation",
+        "escalation",
+        "handoff"
       ]
     },
     {
@@ -251,12 +314,24 @@
     {
       "url": "/notes/apple-device-management-enrollment-models/",
       "title": "Apple Device Management Enrollment Models",
-      "summary": "Overview of Apple device-management enrollment concepts, with MDM and Jamf-related terminology for IT support learning.",
+      "summary": "An Apple device-management guide explaining how enrollment context helps IT support understand ownership, management scope and the appropriate troubleshooting path. It covers Account-driven User Enrollment, Device Enrollment and Automated Device Enrollment, while emphasizing that enrollment state is context rather than a diagnosis and that current Apple and Jamf documentation should be checked for changing capabilities.",
       "keywords": [
-        "apple",
+        "apple device management",
+        "enrollment",
+        "user enrollment",
+        "account-driven user enrollment",
+        "device enrollment",
+        "automated device enrollment",
         "mdm",
         "jamf",
-        "device management"
+        "jamf pro",
+        "byod",
+        "organization-owned",
+        "device ownership",
+        "management scope",
+        "deployment",
+        "support validation",
+        "apple documentation"
       ]
     },
     {
@@ -294,12 +369,22 @@
     {
       "url": "/notes/ai-for-it-support-practical-workflow/",
       "title": "AI for IT Support: Practical Workflow",
-      "summary": "Practical workflow ideas for using AI in IT support, including assistance with repeatable tasks, documentation, and automation.",
+      "summary": "A practical AI-for-IT-support workflow for low-risk assistance such as structuring notes, suggesting diagnostic questions, explaining unfamiliar terms and drafting knowledge-base outlines from verified information. The workflow emphasizes sanitized context, structured prompts, verification against documentation and observed behavior, and human judgment for scope, risk, procedures and validation.",
       "keywords": [
-        "ai",
-        "it support",
-        "automation",
-        "workflow"
+        "ai for it support",
+        "ai assistant",
+        "support workflow",
+        "documentation",
+        "diagnostic questions",
+        "knowledge base",
+        "prompt pattern",
+        "sanitized context",
+        "verification",
+        "human judgment",
+        "risk",
+        "organizational policy",
+        "it troubleshooting",
+        "ticket notes"
       ]
     },
     {
@@ -443,11 +528,26 @@
     {
       "url": "/notes/interactive-tools-ai-assisted-experiences-architecture/",
       "title": "Interactive Tools & AI-Assisted Experiences Architecture",
-      "summary": "Architecture overview for combining interactive browser tools with AI-assisted experiences while keeping responsibilities and controls clear.",
+      "summary": "An architecture framework for interactive browser experiences that separates interface, task logic, data boundaries, optional service or AI providers, and human review. It recommends deterministic logic for calculations, formatting and known rules, introducing AI only where interpretation or flexible language adds value, and keeping AI-assisted experiences review-first rather than autonomous.",
       "keywords": [
-        "web tools",
-        "ai",
-        "architecture"
+        "interactive tools",
+        "ai-assisted experiences",
+        "architecture",
+        "interface",
+        "task logic",
+        "data boundary",
+        "service boundary",
+        "ai provider",
+        "review boundary",
+        "deterministic",
+        "calculations",
+        "validation",
+        "local processing",
+        "external service",
+        "privacy",
+        "human review",
+        "review-first",
+        "automation"
       ]
     },
     {
@@ -544,11 +644,27 @@
     {
       "url": "/tools/it-troubleshooting-assistant/",
       "title": "IT Troubleshooting Assistant",
-      "summary": "Guided browser utility for structuring IT troubleshooting questions and investigation steps.",
+      "summary": "A browser-only deterministic IT troubleshooting assistant that asks targeted questions and builds a reviewable first-response checklist. It uses the site's documented support patterns for scoping symptoms, testing one variable at a time, choosing least-disruptive checks, validating the original workflow, and documenting or escalating evidence; it does not access devices, accounts, tickets, networks or corporate systems.",
       "keywords": [
-        "it support",
-        "troubleshooting",
-        "tool"
+        "it troubleshooting assistant",
+        "deterministic tool",
+        "browser-only",
+        "first response",
+        "guided troubleshooting",
+        "decision engine",
+        "macos",
+        "apple",
+        "windows",
+        "microsoft sign-in",
+        "microsoft 365",
+        "network",
+        "connectivity",
+        "scoping",
+        "least disruptive",
+        "validation",
+        "documentation",
+        "escalation",
+        "privacy"
       ]
     },
     {
@@ -565,32 +681,67 @@
     {
       "url": "/tools/career-match-resume-review/",
       "title": "Career Match Resume Review",
-      "summary": "Tool for reviewing resume alignment against a target career role and identifying areas for consideration.",
+      "summary": "A browser-based career match and resume review tool that compares resume and job-description text locally to identify skills, terms and evidence areas to review. Resume and job-description analysis stays in the browser; saved analyses and application-tracker data use browser local storage, and the tool does not make hiring decisions or predict hiring outcomes.",
       "keywords": [
-        "career",
+        "career match",
+        "resume review",
+        "job description",
         "resume",
-        "job search",
-        "tool"
+        "skills",
+        "keywords",
+        "evidence",
+        "application tracker",
+        "browser processing",
+        "local analysis",
+        "local storage",
+        "privacy",
+        "career tool",
+        "hiring decisions"
       ]
     },
     {
       "url": "/tools/finance-planning-workspace/",
       "title": "Finance Planning Workspace",
-      "summary": "Workspace for organizing finance-planning scenarios, assumptions, and related calculations.",
+      "summary": "A browser-based educational finance workspace for organizing cash flow, emergency reserves, net worth, future goals, compound-growth assumptions and retirement scenarios. It uses visible assumptions and simplified calculations for illustration and explicitly does not connect to accounts, recommend financial products, predict returns, or provide individualized financial, investment or tax advice.",
       "keywords": [
-        "finance",
-        "planning",
-        "tool"
+        "finance planning workspace",
+        "cash flow",
+        "emergency reserve",
+        "net worth",
+        "future goals",
+        "inflation",
+        "compound growth",
+        "retirement planning",
+        "corpus",
+        "monthly contribution",
+        "assumptions",
+        "illustration",
+        "browser tool",
+        "financial education",
+        "not financial advice"
       ]
     },
     {
       "url": "/resources/",
       "title": "Resources",
-      "summary": "Curated technical documentation and useful references intended to support technology learning and practical work.",
+      "summary": "Jawed's resources page curates official documentation and technical references, including Apple Support, Jamf Pro documentation, Microsoft Learn, Cloudflare Pages documentation, GitHub documentation, and MDN Web Docs. The resources are intended to complement the site's practical notes rather than reproduce large amounts of third-party documentation.",
       "keywords": [
         "resources",
-        "documentation",
-        "technology"
+        "official documentation",
+        "apple support",
+        "jamf pro",
+        "jamf documentation",
+        "microsoft learn",
+        "cloudflare pages",
+        "github docs",
+        "git",
+        "mdn",
+        "html",
+        "css",
+        "javascript",
+        "web apis",
+        "technical references",
+        "learning"
       ]
     }
   ],
@@ -603,5 +754,11 @@
     ],
     "excluded_reason": "AI interface and transactional/privacy pages are not knowledge sources.",
     "summary_evidence_rule": "Summaries are concise scope-level evidence only; detailed claims require sufficient page evidence and must not be inferred from titles or keywords."
+  },
+  "knowledge_expansion": {
+    "phase": "33",
+    "reviewed_against_public_page_sources_on": "2026-10-03",
+    "scope": "Expanded semantic summaries and keywords for high-value public work, note, resource, and tool pages using their current page content.",
+    "principle": "Do not infer facts beyond the public page source; summaries remain scope-level evidence for grounding."
   }
 }

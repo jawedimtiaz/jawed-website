@@ -5,7 +5,7 @@ import fs from "node:fs";
 
 const VALIDATOR_TIMEOUT_MS=15_000;
 const checks=[
-  ["AI integrated conversational answer quality","scripts/validate-ai-answer-quality.mjs",/AI integrated conversational answer-quality validation: PASS/],
+  ["AI knowledge expansion","scripts/validate-ai-knowledge-expansion.mjs",/AI knowledge expansion validation: PASS/],  ["AI integrated conversational answer quality","scripts/validate-ai-answer-quality.mjs",/AI integrated conversational answer-quality validation: PASS/],
   ["AI conversational context","scripts/validate-ai-context.mjs",/AI conversational context validation: PASS/],
   ["AI knowledge coverage","scripts/validate-ai-knowledge.mjs",/AI knowledge coverage OK/],
   ["AI natural-language intelligence","scripts/validate-ai-intelligence.mjs",/AI natural-language intelligence validation: PASS/],
