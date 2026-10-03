@@ -6,7 +6,7 @@ const source=fs.readFileSync("assets/js/main.js","utf8");
 const style=fs.readFileSync("assets/css/style.css","utf8");
 
 const checks=[
-  ["AI widget panel exposes busy state",/panel\.setAttribute\("aria-busy",String\(busy\)\)/],
+  ["AI widget panel exposes busy state",/panel\.setAttribute\("aria-busy","true"\)/],
   ["AI widget form exposes busy state",/form\.setAttribute\("aria-busy","true"\)/],
   ["AI widget source block is labeled",/list\.setAttribute\("aria-label","Sources"\)/],
   ["AI widget panel starts hidden",/panel\.hidden=true/],
