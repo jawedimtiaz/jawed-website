@@ -9,7 +9,7 @@ const index=fs.readFileSync("index.html","utf8");
 
 assert.equal(budget.status,"baseline");
 assert.equal(budget.ad_runtime_active,false);
-assert.equal(baseline.includes("source inspection alone cannot establish Core Web Vitals"),true);
+assert.equal(baseline.includes("Source inspection alone cannot establish Core Web Vitals"),true);
 assert.equal(baseline.includes("37B — Core Web Vitals protection"),true);
 assert.equal(index.includes('<script src="/assets/js/analytics.js" defer></script>'),true);
 assert.equal(analytics.includes("requestIdleCallback"),true);
