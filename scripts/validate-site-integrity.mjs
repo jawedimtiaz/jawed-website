@@ -168,6 +168,10 @@ const aiPageStatusLiveRegionContract=aiPage.includes('<p id="ai-status" class="f
 if(!aiPageStatusLiveRegionContract)errors.push("Dedicated Jawed AI status must expose an explicit polite live region with atomic updates");
 else console.log("Dedicated Jawed AI status live-region contract: PASS");
 
+const aiPageBusyContract=aiPage.includes('const setBusy=busy=>{input.disabled=busy;if(button)button.disabled=busy;button?.setAttribute("aria-busy",busy?"true":"false");box.setAttribute("aria-busy",busy?"true":"false")};');
+if(!aiPageBusyContract)errors.push("Dedicated Jawed AI conversation log must expose aria-busy while requests are in flight");
+else console.log("Dedicated Jawed AI conversation busy-state contract: PASS");
+
 const financeWorkspace=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
 const financeWorkspaceTabContract=
   financeWorkspace.includes('<div class="tabs" role="tablist" aria-label="Finance planning sections">')&&
