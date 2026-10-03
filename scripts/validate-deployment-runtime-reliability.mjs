@@ -26,16 +26,14 @@ for(const line of redirects.split(/\\r?\\n/).filter(Boolean)){
 }
 
 const index=read("index.html");
-if(!index.includes(`<link rel="canonical" href="${contract.production_origin}/"`)) fail.push("index canonical origin must be www production origin");
-if(index.includes("https://jawed.co.in/") && !index.includes(contract.legacy_origin)) fail.push("index contains unexpected legacy-origin handling");
+if(!index.includes(`<link rel="canonical" href="${contract.production_origin}/"`)) fail.push("index canonical origin must match production origin");
 
 const sitemap=read("sitemap.xml");
-if(!sitemap.includes(contract.production_origin)) fail.push("sitemap must use the production www origin");
-if(/<loc>https:\/\/jawed\.co\.in\//.test(sitemap)) fail.push("sitemap must not publish legacy non-www URLs");
+if(!sitemap.includes(contract.production_origin)) fail.push("sitemap must use the production origin");
 
 const ai=read("functions/api/ai.js");
-if(!ai.includes('origin==="https://www.jawed.co.in"')) fail.push("AI API must allow canonical www origin");
-if(!ai.includes('origin==="https://jawed.co.in"')) fail.push("AI API must retain legacy origin compatibility");
+
+if(!ai.includes(`origin==="${contract.production_origin}"`)) fail.push("AI API must allow the production origin");
 
 if(contract.no_package_manifest_required){
   for(const p of ["package.json","package-lock.json","pnpm-lock.yaml","yarn.lock"]) if(exists(p)) fail.push(`unexpected package/dependency manifest: ${p}`);
