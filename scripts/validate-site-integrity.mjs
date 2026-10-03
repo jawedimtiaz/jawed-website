@@ -95,7 +95,7 @@ else console.log("Jawed AI widget accessibility contract: PASS");
 const jawedAiWidgetEventContract=!mainJs.includes("document.addEventListener(\"click\",captureClose,true)")&&!mainJs.includes("addEventListener(\"pointerdown\",closePanel)")&&!mainJs.includes("addEventListener(\"touchstart\",closePanel");
 if(!jawedAiWidgetEventContract)errors.push("Jawed AI widget close controls must not register redundant global or duplicate pointer/touch handlers");
 else console.log("Jawed AI widget event-handling contract: PASS");
-const jawedAiWidgetStatusContract=mainJs.includes('status.setAttribute("role","status")')&&mainJs.includes('status.setAttribute("aria-live","polite")')&&mainJs.includes('status.setAttribute("aria-atomic","true")');
+const jawedAiWidgetStatusContract=mainJs.includes('status.setAttribute("role","status")')&&mainJs.includes('status.setAttribute("aria-live","polite")')&&mainJs.includes('status.setAttribute("aria-atomic","true")');\nconst jawedAiWidgetSourceGroupContract=mainJs.includes('list.className="jawed-ai-widget-sources";list.setAttribute("role","group");list.setAttribute("aria-label","Sources");');\nif(!jawedAiWidgetSourceGroupContract)errors.push("Jawed AI floating-widget source list must expose an explicit accessible Sources group");\nelse console.log("Jawed AI floating-widget source-group contract: PASS");
 if(!jawedAiWidgetStatusContract)errors.push("Jawed AI widget status must expose an explicit polite live region with atomic updates");
 else console.log("Jawed AI widget status live-region contract: PASS");
 
@@ -171,6 +171,9 @@ else console.log("Dedicated Jawed AI status live-region contract: PASS");
 const aiPageBusyContract=aiPage.includes('const setBusy=busy=>{input.disabled=busy;if(button)button.disabled=busy;button?.setAttribute("aria-busy",busy?"true":"false");box.setAttribute("aria-busy",busy?"true":"false")};');
 if(!aiPageBusyContract)errors.push("Dedicated Jawed AI conversation log must expose aria-busy while requests are in flight");
 else console.log("Dedicated Jawed AI conversation busy-state contract: PASS");
+const aiPageSourceGroupContract=aiPage.includes('article.className="ai-message ai-message-sources";article.setAttribute("role","group");article.setAttribute("aria-label","Sources");');
+if(!aiPageSourceGroupContract)errors.push("Dedicated Jawed AI source list must expose an explicit accessible Sources group");
+else console.log("Dedicated Jawed AI source-group contract: PASS");
 
 const financeWorkspace=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
 const financeWorkspaceTabContract=
