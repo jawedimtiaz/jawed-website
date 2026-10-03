@@ -1,0 +1,35 @@
+name: Production Media Asset Reliability Gate
+concurrency:
+  group: production-media-assets-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  pull_request:
+    paths:
+      - "assets/images/**"
+      - "favicon.svg"
+      - "config/production-media-asset-contract.json"
+      - "scripts/validate-production-media-assets.mjs"
+      - ".github/workflows/production-media-assets.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "7 */6 * * *"
+permissions:
+  contents: read
+jobs:
+  production-media-assets:
+    name: Production media asset reliability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Run production media asset validation
+        run: node scripts/validate-production-media-assets.mjs
