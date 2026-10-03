@@ -14,13 +14,23 @@ function hasJawedContext(messages){
   return priorMessages(messages).some(message=>JAWED_REFERENCE.test(message.content)||/https:\/\/jawed\.co\.in\/(?:about|work\/experience)\//i.test(message.content));
 }
 
-function lastSourcePath(messages){
-  const candidates=priorMessages(messages).slice().reverse();
-  for(const message of candidates){
-    const matches=[...message.content.matchAll(SOURCE_PATH_PATTERN)];
-    if(matches.length)return matches.at(-1)[1];
+function lastSourcePaths(messages,limit=3){
+  const assistantMessages=messages
+    .slice(0,-1)
+    .filter(message=>message?.role==="assistant"&&typeof message.content==="string"&&message.content.trim());
+  const latest=assistantMessages.at(-1);
+  if(!latest)return [];
+  const paths=[];
+  for(const match of latest.content.matchAll(SOURCE_PATH_PATTERN)){
+    const path=match[1];
+    if(!paths.includes(path))paths.push(path);
+    if(paths.length>=limit)break;
   }
-  return "";
+  return paths;
+}
+
+function lastSourcePath(messages){
+  return lastSourcePaths(messages,1)[0]||"";
 }
 
 function resolveContextualReference(current,messages){
@@ -34,9 +44,9 @@ function resolveContextualReference(current,messages){
       .replace(/\bhis\b/gi,"Jawed's")
       .replace(/\bhimself\b/gi,"Jawed");
   }
-  const sourcePath=lastSourcePath(messages);
-  if(sourcePath&&(DEICTIC_REFERENCE.test(resolved)||FOLLOW_UP_REFERENCE.test(resolved))){
-    resolved=resolved+" Previous source context: "+sourcePath;
+  const sourcePaths=lastSourcePaths(messages);
+  if(sourcePaths.length&&(DEICTIC_REFERENCE.test(resolved)||FOLLOW_UP_REFERENCE.test(resolved))){
+    resolved=resolved+" Previous source context: "+sourcePaths.join(", ");
   }
   return resolved;
 }
@@ -56,4 +66,4 @@ export function buildRetrievalQuery(messages){
   return [contextualCurrent,...priorUserMessages].join("\n").slice(0,MAX_RETRIEVAL_QUERY_CHARS);
 }
 
-export {MAX_RETRIEVAL_QUERY_CHARS,PRIOR_USER_TURNS,resolveContextualReference,lastSourcePath};
+export {MAX_RETRIEVAL_QUERY_CHARS,PRIOR_USER_TURNS,resolveContextualReference,lastSourcePath,lastSourcePaths};
