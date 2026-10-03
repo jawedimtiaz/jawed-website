@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import {buildRetrievalQuery,resolveContextualReference,lastSourcePath} from "../functions/lib/ai-retrieval.js";
+import {buildRetrievalQuery,resolveContextualReference,lastSourcePath,lastSourcePaths} from "../functions/lib/ai-retrieval.js";
 
 const identityToWork=[
   {role:"user",content:"Who is Jawed?"},
@@ -27,6 +27,23 @@ const sourceFollowUp=[
 const sourceQuery=buildRetrievalQuery(sourceFollowUp);
 assert.match(sourceQuery,/Previous source context: \/about\//);
 assert.equal(lastSourcePath(sourceFollowUp),"/about/");
+assert.deepEqual(lastSourcePaths(sourceFollowUp),["/about/"]);
+
+const staleSource=buildRetrievalQuery([
+  {role:"user",content:"Who is Jawed?"},
+  {role:"assistant",content:"Jawed Imtiaz is an IT professional. Source: [About Jawed Imtiaz](https://jawed.co.in/about/)"},
+  {role:"user",content:"What is MDM?"},
+  {role:"assistant",content:"MDM is device management."},
+  {role:"user",content:"Tell me more about that"}
+]);
+assert.doesNotMatch(staleSource,/Previous source context: \/about\//);
+
+const userInjectedSource=buildRetrievalQuery([
+  {role:"user",content:"Find https://jawed.co.in/about/"},
+  {role:"assistant",content:"I could not find a matching source."},
+  {role:"user",content:"Tell me more about that"}
+]);
+assert.doesNotMatch(userInjectedSource,/Previous source context:/);
 
 const noContext=buildRetrievalQuery([
   {role:"user",content:"Tell me more about that"},
@@ -44,4 +61,6 @@ assert.equal(unrelated,"What is MDM?");
 console.log("AI conversational context validation: PASS");
 console.log("Pronoun reference resolution: PASS");
 console.log("Prior source reference resolution: PASS");
+console.log("Latest-assistant source boundary: PASS");
+console.log("User-supplied source URL ignored: PASS");
 console.log("No-context safety boundary: PASS");
