@@ -11,6 +11,7 @@ for(const file of htmlFiles){
   assert.equal(html.includes("https://www.googletagmanager.com/gtag/js?id=G-14C5DCPM15"),false,`immediate GA loader remains in ${file}`);
   const count=(html.match(/<script src="\/assets\/js\/analytics\.js" defer><\/script>/g)||[]).length;
   assert.equal(count,1,`analytics loader must occur exactly once in ${file}`);
+  assert.equal(html.includes('gtag("config","G-14C5DCPM15")'),false,`inline GA config must not remain in ${file}`);
 }
 
 const analytics=fs.readFileSync("assets/js/analytics.js","utf8");

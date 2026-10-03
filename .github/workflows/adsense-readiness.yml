@@ -23,6 +23,8 @@ on:
       - "config/adsense-slot-contract.json"
       - "scripts/validate-adsense-slot-architecture.mjs"
       - "scripts/validate-adsense-mobile-readiness.mjs"
+      - "config/adsense-consent-contract.json"
+      - "scripts/validate-adsense-consent-performance.mjs"
       - "docs/adsense-content-readiness.md"
       - "docs/adsense-activation-contract.md"
       - "config/adsense-inventory.json"
@@ -44,6 +46,8 @@ on:
       - "docs/adsense-technical-activation.md"
       - "_headers"
       - "config/adsense-placement-policy.json"
+      - "config/adsense-consent-contract.json"
+      - "scripts/validate-adsense-consent-performance.mjs"
       - "config/adsense-slot-contract.json"
       - "scripts/validate-adsense-slot-architecture.mjs"
       - "docs/adsense-content-readiness.md"
@@ -96,6 +100,9 @@ jobs:
 
       - name: Run AdSense mobile readiness validation
         run: node scripts/validate-adsense-mobile-readiness.mjs
+
+      - name: Run AdSense consent performance validation
+        run: node scripts/validate-adsense-consent-performance.mjs
 
       - name: Run AdSense final readiness validation
         run: node scripts/validate-adsense-final-readiness.mjs
