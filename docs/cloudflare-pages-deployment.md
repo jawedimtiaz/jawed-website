@@ -22,7 +22,7 @@ After a production deployment:
 1. `GET /api/ai` must return JSON readiness metadata.
 2. `/ai/` must load as HTML.
 3. A discovery URL such as `/notes/?q=automation` must load and preserve the query parameter.
-4. Cloudflare deployment status/logs must be checked if a Pages deployment reports failure. The canonical production origin is `https://www.jawed.co.in`; `https://jawed.co.in` remains a legacy origin.
+4. Cloudflare deployment status/logs must be checked if a Pages deployment reports failure. The canonical production origin is `https://jawed.co.in`; `https://www.jawed.co.in` is an alternate origin.
 5. When the Workers AI binding is configured, a real `POST /api/ai` request must return a non-empty assistant response and safe Jawed.co.in source metadata.
 
 The repository's deterministic validators mock the Workers AI binding and do not consume remote AI allocation.
