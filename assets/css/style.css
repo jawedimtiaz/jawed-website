@@ -15,5 +15,5 @@
 
 
 /* Future AdSense slot boundary: inactive until explicit activation. */
-.ad-slot-boundary{display:block;min-height:280px;contain:layout}
+.ad-slot-boundary{display:block;width:100%;max-width:100%;min-width:0;min-height:280px;contain:layout}
 @media(max-width:760px){.ad-slot-boundary{min-height:180px}}
