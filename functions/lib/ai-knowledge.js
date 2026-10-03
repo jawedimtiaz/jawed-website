@@ -102,18 +102,19 @@ export function findRelevantKnowledge(query,limit=5,options={}){
     .sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title));
 
   const primaryTokens=tokens(primaryQuery);
-  const canUseContextForVagueFollowUp=primary.length===0&&(
-    primaryTokens.length===0||
-    (primaryTokens.length<=2&&primaryTokens.every(token=>VAGUE_FOLLOW_UP_TERMS.has(token)))
+  const vagueFollowUp=primaryTokens.length>0&&primaryTokens.every(token=>VAGUE_FOLLOW_UP_TERMS.has(token));
+  const canUseContextForVagueFollowUp=vagueFollowUp&&(
+    primaryTokens.length<=2
   );
+  const effectivePrimary=vagueFollowUp?[]:primary;
 
-  const primaryUrls=new Set(primary.map(entry=>entry.url));
+  const primaryUrls=new Set(effectivePrimary.map(entry=>entry.url));
   const contextSourceUrls=(query.match(SOURCE_CONTEXT_QUERY)?.[1]||"").split(/,\s*/).filter(Boolean);
   if(intentUrls){
     const intentPriority=IDENTITY_QUERY.test(intentQuery)
       ? ["/about/","/"]
       : ["/work/experience/","/work/"];
-    const intentPrimary=primary.filter(entry=>intentUrls.has(entry.url));
+    const intentPrimary=effectivePrimary.filter(entry=>intentUrls.has(entry.url));
     const intentContext=ranked.filter(entry=>intentUrls.has(entry.url));
     const preferred=[];
     for(const url of intentPriority){
@@ -125,14 +126,14 @@ export function findRelevantKnowledge(query,limit=5,options={}){
     if(preferred.length){
       const selectedPreferred=preferred.slice(0,Math.min(limit,preferred.length));
       const selectedUrls=new Set(selectedPreferred.map(entry=>entry.url));
-      const fallback=primary.filter(entry=>!selectedUrls.has(entry.url)).slice(0,limit-selectedPreferred.length);
+      const fallback=effectivePrimary.filter(entry=>!selectedUrls.has(entry.url)).slice(0,limit-selectedPreferred.length);
       return [...selectedPreferred,...fallback].map(({score,...entry})=>entry);
     }
   }
-  const selected=primary.slice(0,limit);
+  const selected=effectivePrimary.slice(0,limit);
   if(selected.length>=MIN_PRIMARY_SOURCES)return selected.map(({score,...entry})=>entry);
   if(selected.length<limit&&(
-    primary.length>0||
+    effectivePrimary.length>0||
     canUseContextForVagueFollowUp
   )){
     const context=ranked
