@@ -18,6 +18,17 @@ const unsitemapPages=sourcePaths.filter(file=>{
 const duplicateSitemapPaths=sitemapPaths.filter((path,index)=>sitemapPaths.indexOf(path)!==index);
 const errors=[];
 
+const blogArticle=fs.readFileSync("blog/rebuilding-jawed-co-in/index.html","utf8");
+const blogBreadcrumbContract=blogArticle.includes('"@type":"BreadcrumbList"')&&blogArticle.includes('"position":1,"name":"Home"')&&blogArticle.includes('"position":2,"name":"Blog"')&&blogArticle.includes('"position":3,"name":"Rebuilding Jawed.co.in"');
+if(!blogBreadcrumbContract)errors.push("Blog article must preserve breadcrumb structured data matching the visible Home > Blog > Article path");
+else console.log("Blog breadcrumb structured-data contract: PASS");
+
+const blogArticleContract=blogArticle.includes('"@type":"BlogPosting"')&&blogArticle.includes('"datePublished":"2026-09-27"')&&blogArticle.includes('"author":{"@type":"Person","name":"Jawed Imtiaz"');
+if(!blogArticleContract)errors.push("Blog article must preserve BlogPosting author/date structured data");
+else console.log("BlogPosting structured-data contract: PASS");
+
+
+
 const publishedHtml=sourcePaths.filter(file=>file.endsWith(".html"));
 const routeForSource=file=>file==="index.html"?"/":"/"+file.replace(/\\/g,"/").replace(/\/index\.html$/,"")+"/";
 const publishedRoutes=new Set(publishedHtml.map(routeForSource));
