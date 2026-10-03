@@ -1,31 +1,23 @@
-name: Production Smoke Reliability Gate
+name: Production Availability Monitoring Gate
 concurrency:
-  group: production-smoke-${{ github.ref }}
+  group: production-availability-monitoring-${{ github.ref }}
   cancel-in-progress: true
 on:
-  push:
-    branches: [main]
+  pull_request:
     paths:
+      - "config/production-monitoring-contract.json"
       - "config/production-smoke-contract.json"
-      - "scripts/validate-production-smoke.mjs"
+      - "scripts/validate-production-monitoring.mjs"
       - ".github/workflows/production-smoke-reliability.yml"
-      - "_headers"
-      - "_redirects"
-      - "_routes.json"
-      - "404.html"
-      - "index.html"
-      - "sitemap.xml"
-      - "ai/**"
-      - "notes/**"
-      - "functions/**"
+      - ".github/workflows/production-availability-monitoring.yml"
   workflow_dispatch:
   schedule:
     - cron: "17 */6 * * *"
 permissions:
   contents: read
 jobs:
-  production-smoke:
-    name: Production smoke reliability
+  production-monitoring-contract:
+    name: Production availability monitoring contract
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
@@ -39,5 +31,5 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
-      - name: Run production smoke validation
-        run: node scripts/validate-production-smoke.mjs
+      - name: Validate monitoring contract
+        run: node scripts/validate-production-monitoring.mjs

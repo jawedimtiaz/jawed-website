@@ -1,0 +1,13 @@
+{
+  "phase": "38F",
+  "scope": "production-availability-monitoring",
+  "production_smoke_workflow": ".github/workflows/production-smoke-reliability.yml",
+  "monitoring_mode": "scheduled-github-actions",
+  "cadence": "every-6-hours",
+  "cron": "17 */6 * * *",
+  "checks_are_reused_from": "config/production-smoke-contract.json",
+  "manual_dispatch_preserved": true,
+  "no_new_runtime_dependency": true,
+  "failure_behavior": "github-actions-workflow-failure",
+  "scope_boundary": "monitor-production-availability-only"
+}
