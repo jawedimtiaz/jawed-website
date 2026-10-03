@@ -11,7 +11,7 @@ try{
  if(!type.startsWith(contract.expected_content_type)) failures.push(`sitemap: expected content type ${contract.expected_content_type}, got ${type||"missing"}`);
  if(response.status>=300&&response.status<400) failures.push("sitemap: unexpected redirect");
  if(!body.includes("<urlset")||!body.includes("</urlset>")) failures.push("sitemap: missing urlset envelope");
- const locs=[...body.matchAll(/<loc>([^<]+)<\\/loc>/g)].map(match=>match[1].trim());
+ const locs=[...body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
  if(!locs.length) failures.push("sitemap: no <loc> entries found");
  const unique=new Set(locs);
  if(contract.require_unique_urls&&unique.size!==locs.length) failures.push(`sitemap: duplicate URLs found (${locs.length-unique.size})`);
