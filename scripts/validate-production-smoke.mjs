@@ -31,6 +31,22 @@ async function check(item){
 
 for(const item of contract.checks) await check(item);
 
+async function checkRedirect(item){
+  const url=new URL(item.path,contract.alternate_origin);
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-smoke/38G"}});
+    const location=response.headers.get("location")||"";
+    if(!item.expected_status.includes(response.status)) failures.push(`${item.path}: alternate origin expected redirect status ${item.expected_status.join(" or ")}, got ${response.status}`);
+    if(location!==item.location) failures.push(`${item.path}: alternate origin expected Location ${item.location}, got ${location||"missing"}`);
+  }catch(error){
+    failures.push(`${item.path}: alternate-origin redirect check failed: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`);
+  }finally{clearTimeout(timer);}
+}
+
+for(const item of (contract.redirect_checks||[])) await checkRedirect(item);
+
 if(failures.length){
   console.error("Production Smoke Reliability Gate FAILED");
   for(const failure of failures) console.error("- "+failure);
@@ -39,3 +55,4 @@ if(failures.length){
 console.log("Production Smoke Reliability Gate PASSED");
 console.log(`Origin: ${contract.production_origin}`);
 console.log(`Checks: ${contract.checks.length}`);
+console.log(`Canonical redirect checks: ${(contract.redirect_checks||[]).length}`);
