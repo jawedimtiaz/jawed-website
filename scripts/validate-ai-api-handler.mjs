@@ -37,6 +37,13 @@ assert.equal(unexpectedHandlerBody.code,"AI_HANDLER_ERROR");
 assert.equal(unexpectedHandlerBody.diagnostic,"HANDLER_TYPE_ERROR");
 assert.equal(unexpectedHandlerFailure.headers.get("x-ai-handler-diagnostic"),"HANDLER_TYPE_ERROR");
 
+const canonicalOrigin=await onRequestPost({
+  request:makeRequest("https://www.jawed.co.in/api/ai",{method:"POST",headers:{"origin":"https://www.jawed.co.in","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
+  env:{}
+});
+assert.equal(canonicalOrigin.status,503);
+assert.equal((await canonicalOrigin.json()).code,"AI_NOT_CONFIGURED");
+
 const invalidOrigin=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"origin":"https://evil.example","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"asdfgh"}]})}),
   env:{}
