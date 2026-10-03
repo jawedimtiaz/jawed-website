@@ -1,5 +1,9 @@
 name: AI Regression Gate
 
+# Phase 32A conflict-resolution commit: rerun the authoritative gate on the resolved branch head.
+
+# Phase 32A: natural-language intelligence validator is part of the deterministic matrix.
+
 concurrency:
   group: ai-regression-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
