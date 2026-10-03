@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "status": "pre-activation",
+  "runtime_active": false,
+  "loading": {
+    "advertising_script_must_not_block_publisher_content": true,
+    "advertising_script_must_not_be_loaded_globally_before_activation": true,
+    "consent_state_must_precede_required_ad_requests": true
+  },
+  "network": {
+    "speculative_ad_hosts_allowed": false,
+    "speculative_ad_requests_allowed": false,
+    "ad_runtime_retry_loop_allowed": false,
+    "page_reload_on_ad_failure_allowed": false
+  },
+  "failure_behavior": {
+    "publisher_content_must_remain_available": true,
+    "layout_shift_from_ad_failure_allowed": false,
+    "navigation_or_tool_functionality_must_depend_on_ads": false,
+    "future_slot_boundary_may_remain_reserved_after_ad_failure": true
+  },
+  "rules": [
+    "Do not add guessed advertising hosts, endpoints, publisher IDs, or ad requests before activation.",
+    "Do not make publisher content, navigation, AI, or interactive tools depend on advertising availability.",
+    "Do not introduce an ad-runtime retry loop or page reload behavior.",
+    "Future ad failures must not move surrounding publisher content after layout has been established.",
+    "Use the actual Google-provided configuration at activation time and validate the resulting network behavior."
+  ]
+}
