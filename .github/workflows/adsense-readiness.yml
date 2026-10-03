@@ -46,6 +46,8 @@ on:
       - "docs/adsense-technical-activation.md"
       - "_headers"
       - "config/adsense-placement-policy.json"
+      - "config/adsense-consent-contract.json"
+      - "scripts/validate-adsense-consent-performance.mjs"
       - "config/adsense-slot-contract.json"
       - "scripts/validate-adsense-slot-architecture.mjs"
       - "docs/adsense-content-readiness.md"
