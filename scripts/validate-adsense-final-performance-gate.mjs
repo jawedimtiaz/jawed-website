@@ -21,7 +21,7 @@ assert.equal(safeguards.runtime_active,false);
 assert.equal(gate.external_gate.required_adsense_sites_status,"Ready");
 assert.equal(gate.external_gate.getting_ready_is_not_ready,true);
 assert.equal(activation.includes("Production advertising activation is blocked until the AdSense Sites page reports **Ready**"),true);
-assert.equal(activation.includes("Getting ready means Google is still running its site checks"),true);
+assert.equal(activation.includes("`Getting ready` means Google is still running its site checks"),true);
 assert.equal(finalReadiness.includes("pre-activation / externally blocked"),true);
 assert.equal(finalReadiness.includes("Do not activate ad scripts"),true);
 assert.equal(fs.existsSync("ads.txt"),false);
