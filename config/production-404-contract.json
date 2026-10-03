@@ -1,0 +1,20 @@
+{
+  "phase": "38O",
+  "scope": "production-404-reliability",
+  "production_origin": "https://jawed.co.in",
+  "path": "/missing-phase-38o-404-test",
+  "expected_status": 404,
+  "required_markers": [
+    "<title>Page not found",
+    "Page not found",
+    "Back home",
+    "/work/",
+    "/notes/",
+    "/tools/"
+  ],
+  "forbidden_markers": [
+    "<title>404 Not Found</title>",
+    "cf-error",
+    "cloudflare"
+  ]
+}
