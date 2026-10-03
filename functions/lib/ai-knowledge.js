@@ -57,7 +57,6 @@ export function findRelevantKnowledge(query,limit=5,options={}){
   if(!ranked.length)return [];
 
   const primaryQuery=typeof options.primaryQuery==="string"?options.primaryQuery.trim():"";
-  const intentQuery=primaryQuery||query;
   const intentUrls=IDENTITY_QUERY.test(intentQuery)?new Set(["/about/","/"]):CURRENT_WORK_QUERY.test(intentQuery)?new Set(["/work/experience/","/work/"]):null;
   if(!primaryQuery){
     return ranked
