@@ -9,7 +9,7 @@ const cases=[
   ["Tell me about Mac support","/notes/apple-macos-first-response-checklist/"],
   ["What does MDM mean here?","/notes/apple-device-management-enrollment-models/"],
   ["Show me a calculator","/tools/compound-growth-sip-calculator/"],
-  ["I need a service desk troubleshooting workflow","/notes/it-service-desk-troubleshooting-workflow/"]
+  ["I need a guide for service desk troubleshooting","/notes/it-service-desk-troubleshooting-workflow/"]
 ];
 
 for(const [query,expected] of cases){
