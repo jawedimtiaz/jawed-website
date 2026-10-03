@@ -1,0 +1,20 @@
+{
+  "phase": "38K",
+  "scope": "production-robots-discovery-reliability",
+  "production_origin": "https://jawed.co.in",
+  "checks": [
+    {
+      "path": "/robots.txt",
+      "status": 200,
+      "content_type": "text/plain",
+      "required_directives": [
+        "User-agent: *",
+        "Allow: /",
+        "Sitemap: https://jawed.co.in/sitemap.xml"
+      ],
+      "forbidden_directives": [
+        "Disallow: /"
+      ]
+    }
+  ]
+}
