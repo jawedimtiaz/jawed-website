@@ -43,6 +43,8 @@ on:
       - "docs/adsense-technical-activation.md"
       - "_headers"
       - "config/adsense-placement-policy.json"
+      - "config/adsense-slot-contract.json"
+      - "scripts/validate-adsense-slot-architecture.mjs"
       - "docs/adsense-content-readiness.md"
       - "docs/adsense-activation-contract.md"
       - "config/adsense-inventory.json"
@@ -87,6 +89,9 @@ jobs:
 
       - name: Run AdSense technical activation validation
         run: node scripts/validate-adsense-technical.mjs
+
+      - name: Run AdSense slot architecture validation
+        run: node scripts/validate-adsense-slot-architecture.mjs
 
       - name: Run AdSense final readiness validation
         run: node scripts/validate-adsense-final-readiness.mjs
