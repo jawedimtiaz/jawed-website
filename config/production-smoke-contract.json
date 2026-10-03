@@ -1,15 +1,52 @@
 {
-  "phase": "38E",
-  "scope": "production-smoke-reliability",
+  "phase": "38G",
+  "scope": "production-smoke-and-canonical-redirect-reliability",
   "production_origin": "https://jawed.co.in",
   "checks": [
-    {"path": "/", "status": 200, "content_type": "text/html"},
-    {"path": "/ai/", "status": 200, "content_type": "text/html"},
-    {"path": "/notes/?q=automation", "status": 200, "content_type": "text/html"},
-    {"path": "/api/ai", "status": 200, "content_type": "application/json"},
-    {"path": "/sitemap.xml", "status": 200, "content_type": "application/xml"},
-    {"path": "/missing-phase-38e-smoke-test", "status": 404, "content_type": "text/html"}
+    {
+      "path": "/",
+      "status": 200,
+      "content_type": "text/html"
+    },
+    {
+      "path": "/ai/",
+      "status": 200,
+      "content_type": "text/html"
+    },
+    {
+      "path": "/notes/?q=automation",
+      "status": 200,
+      "content_type": "text/html"
+    },
+    {
+      "path": "/api/ai",
+      "status": 200,
+      "content_type": "application/json"
+    },
+    {
+      "path": "/sitemap.xml",
+      "status": 200,
+      "content_type": "application/xml"
+    },
+    {
+      "path": "/missing-phase-38e-smoke-test",
+      "status": 404,
+      "content_type": "text/html"
+    }
   ],
   "max_redirects": 0,
-  "max_body_bytes": 500000
+  "max_body_bytes": 500000,
+  "canonical_origin": "https://jawed.co.in",
+  "alternate_origin": "https://www.jawed.co.in",
+  "redirect_checks": [
+    {
+      "path": "/",
+      "expected_status": [
+        301,
+        308
+      ],
+      "location": "https://jawed.co.in/",
+      "max_redirects": 0
+    }
+  ]
 }
