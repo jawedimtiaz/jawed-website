@@ -27,8 +27,8 @@ function scoreEntry(entry,queryCounts){
 }
 
 const MIN_PRIMARY_SOURCES=3;
-const IDENTITY_QUERY=/\\b(?:who(?:\\s+is|\\s+was)?|about)\\s+(?:is\\s+)?(?:jawed|jawed\\s+imtiaz)\\b/i;
-const CURRENT_WORK_QUERY=/\\b(?:where|what)\\b[\\s\\S]*\\b(?:work(?:ing)?|job|employ(?:ed|er|ment)|company|client)\\b/i;
+const IDENTITY_QUERY=/\b(?:who(?:\s+is|\s+was)?|about)\s+(?:is\s+)?(?:jawed|jawed\s+imtiaz)\b/i;
+const CURRENT_WORK_QUERY=/\b(?:where|what)\b[\s\S]*\b(?:work(?:ing)?|job|employ(?:ed|er|ment)|company|client)\b/i;
 const VAGUE_FOLLOW_UP_TERMS=new Set(["tell","show","describe","explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options"]);
 
 function rankedEntries(query,weight=1){
