@@ -27,6 +27,8 @@ function scoreEntry(entry,queryCounts){
 }
 
 const MIN_PRIMARY_SOURCES=3;
+const IDENTITY_QUERY=/\b(?:who(?:\s+is|\s+was)?|about)\s+(?:is\s+)?(?:jawed|jawed\s+imtiaz)\b/i;
+const CURRENT_WORK_QUERY=/\b(?:where|what)\b[\s\S]*\b(?:work(?:ing)?|job|employ(?:ed|er|ment)|company|client)\b/i;
 const VAGUE_FOLLOW_UP_TERMS=new Set(["tell","show","describe","explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options"]);
 
 function rankedEntries(query,weight=1){
@@ -51,6 +53,8 @@ export function findRelevantKnowledge(query,limit=5,options={}){
   if(!ranked.length)return [];
 
   const primaryQuery=typeof options.primaryQuery==="string"?options.primaryQuery.trim():"";
+  const intentQuery=primaryQuery||query;
+  const intentUrls=IDENTITY_QUERY.test(intentQuery)?new Set(["/about/","/"]):CURRENT_WORK_QUERY.test(intentQuery)?new Set(["/work/experience/","/work/"]):null;
   if(!primaryQuery){
     return ranked
       .filter(entry=>entry.score>=2)
@@ -70,6 +74,17 @@ export function findRelevantKnowledge(query,limit=5,options={}){
   );
 
   const primaryUrls=new Set(primary.map(entry=>entry.url));
+  if(intentUrls){
+    const intentPrimary=primary.filter(entry=>intentUrls.has(entry.url));
+    const intentContext=ranked.filter(entry=>intentUrls.has(entry.url));
+    const preferred=[...intentPrimary,...intentContext.filter(entry=>!intentPrimary.some(item=>item.url===entry.url))];
+    if(preferred.length){
+      const selectedPreferred=preferred.slice(0,Math.min(limit,preferred.length));
+      const selectedUrls=new Set(selectedPreferred.map(entry=>entry.url));
+      const fallback=primary.filter(entry=>!selectedUrls.has(entry.url)).slice(0,limit-selectedPreferred.length);
+      return [...selectedPreferred,...fallback].map(({score,...entry})=>entry);
+    }
+  }
   const selected=primary.slice(0,limit);
   if(selected.length>=MIN_PRIMARY_SOURCES)return selected.map(({score,...entry})=>entry);
   if(selected.length<limit&&(
