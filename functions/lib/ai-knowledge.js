@@ -136,14 +136,14 @@ export function findRelevantKnowledge(query,limit=5,options={}){
     effectivePrimary.length>0||
     canUseContextForVagueFollowUp
   )){
+    const explicitContext=contextSourceUrls
+      .map(url=>ranked.find(entry=>entry.url===url))
+      .filter(entry=>entry&&!primaryUrls.has(entry.url));
+    const explicitContextUrls=new Set(explicitContext.map(entry=>entry.url));
     const context=ranked
-      .filter(entry=>entry.score>=2&&!primaryUrls.has(entry.url))
-      .sort((a,b)=>{
-        const aContext=contextSourceUrls.includes(a.url)?0:1;
-        const bContext=contextSourceUrls.includes(b.url)?0:1;
-        return aContext-bContext||b.score-a.score||a.title.localeCompare(b.title);
-      });
-    selected.push(...context.slice(0,limit-selected.length));
+      .filter(entry=>entry.score>=2&&!primaryUrls.has(entry.url)&&!explicitContextUrls.has(entry.url))
+      .sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title));
+    selected.push(...[...explicitContext,...context].slice(0,limit-selected.length));
   }
 
   return selected.map(({score,...entry})=>entry);
