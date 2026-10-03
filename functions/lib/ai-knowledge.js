@@ -108,9 +108,18 @@ export function findRelevantKnowledge(query,limit=5,options={}){
 
   const primaryUrls=new Set(primary.map(entry=>entry.url));
   if(intentUrls){
+    const intentPriority=IDENTITY_QUERY.test(intentQuery)
+      ? ["/about/","/"]
+      : ["/work/experience/","/work/"];
     const intentPrimary=primary.filter(entry=>intentUrls.has(entry.url));
     const intentContext=ranked.filter(entry=>intentUrls.has(entry.url));
-    const preferred=[...intentPrimary,...intentContext.filter(entry=>!intentPrimary.some(item=>item.url===entry.url))];
+    const preferred=[];
+    for(const url of intentPriority){
+      const primaryEntry=intentPrimary.find(entry=>entry.url===url);
+      const contextEntry=intentContext.find(entry=>entry.url===url);
+      if(primaryEntry)preferred.push(primaryEntry);
+      else if(contextEntry)preferred.push(contextEntry);
+    }
     if(preferred.length){
       const selectedPreferred=preferred.slice(0,Math.min(limit,preferred.length));
       const selectedUrls=new Set(selectedPreferred.map(entry=>entry.url));
