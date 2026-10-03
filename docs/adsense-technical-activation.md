@@ -30,6 +30,15 @@ Before enabling AdSense:
 6. **Network behavior** — confirm ad requests occur only on approved inventory and do not break existing AI, analytics, tools, or navigation behavior.
 7. **Error handling** — verify that blocked/failed ad resources do not create broken layout, deceptive controls, or inaccessible content.
 
+## Performance and failure safeguards
+
+- Advertising requests must not block the initial publisher content or navigation.
+- Ad runtime requests must wait for the required consent state before they are made.
+- Do not add speculative advertising hosts or requests before activation.
+- Do not introduce ad-runtime retry loops or page reload behavior.
+- If a future ad fails, publisher content and site functionality must remain available and surrounding content must not shift after layout is established.
+- Use the real Google-provided configuration at activation time and re-check the resulting network behavior.
+
 ## Do not preconfigure
 
 - Do not add guessed Google ad domains to CSP.
