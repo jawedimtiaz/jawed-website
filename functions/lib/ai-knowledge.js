@@ -61,7 +61,8 @@ const IDENTITY_QUERY=/\b(?:who(?:\s+is|\s+was)?|about)\s+(?:is\s+)?(?:jawed|jawe
 const CURRENT_WORK_QUERY=/\b(?:where|what)\b[\s\S]*\b(?:work(?:ing)?|job|employ(?:ed|er|ment)|company|client)\b/i;
 const CONVERSATIONAL_CLOSING=/^\s*(?:ok|okay)?\s*(?:bye|goodbye|good night|see you|see ya|talk to you later|thanks|thank you|thx)\s*[!.]*\s*$/i;
 const CONVERSATIONAL_GREETING=/^\s*(?:hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]*\s*$/i;
-const VAGUE_FOLLOW_UP_TERMS=new Set(["tell","show","describe","explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options"]);
+const VAGUE_FOLLOW_UP_TERMS=new Set(["tell","show","describe","explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options","that"]);
+const SOURCE_CONTEXT_QUERY=/Previous source context:\s*((?:\/[^,\s]+)(?:,\s*\/[^,\s]+)*)/i;
 
 function rankedEntries(query,weight=1){
   const queryTokens=tokens(query);
@@ -101,33 +102,48 @@ export function findRelevantKnowledge(query,limit=5,options={}){
     .sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title));
 
   const primaryTokens=tokens(primaryQuery);
-  const canUseContextForVagueFollowUp=primary.length===0&&(
-    primaryTokens.length===0||
-    (primaryTokens.length<=2&&primaryTokens.every(token=>VAGUE_FOLLOW_UP_TERMS.has(token)))
+  const vagueFollowUp=primaryTokens.length>0&&primaryTokens.every(token=>VAGUE_FOLLOW_UP_TERMS.has(token));
+  const canUseContextForVagueFollowUp=vagueFollowUp&&(
+    primaryTokens.length<=3
   );
+  const effectivePrimary=vagueFollowUp?[]:primary;
 
-  const primaryUrls=new Set(primary.map(entry=>entry.url));
+  const primaryUrls=new Set(effectivePrimary.map(entry=>entry.url));
+  const contextSourceUrls=(query.match(SOURCE_CONTEXT_QUERY)?.[1]||"").split(/,\s*/).filter(Boolean);
   if(intentUrls){
-    const intentPrimary=primary.filter(entry=>intentUrls.has(entry.url));
+    const intentPriority=IDENTITY_QUERY.test(intentQuery)
+      ? ["/about/","/"]
+      : ["/work/experience/","/work/"];
+    const intentPrimary=effectivePrimary.filter(entry=>intentUrls.has(entry.url));
     const intentContext=ranked.filter(entry=>intentUrls.has(entry.url));
-    const preferred=[...intentPrimary,...intentContext.filter(entry=>!intentPrimary.some(item=>item.url===entry.url))];
+    const preferred=[];
+    for(const url of intentPriority){
+      const primaryEntry=intentPrimary.find(entry=>entry.url===url);
+      const contextEntry=intentContext.find(entry=>entry.url===url);
+      if(primaryEntry)preferred.push(primaryEntry);
+      else if(contextEntry)preferred.push(contextEntry);
+    }
     if(preferred.length){
       const selectedPreferred=preferred.slice(0,Math.min(limit,preferred.length));
       const selectedUrls=new Set(selectedPreferred.map(entry=>entry.url));
-      const fallback=primary.filter(entry=>!selectedUrls.has(entry.url)).slice(0,limit-selectedPreferred.length);
+      const fallback=effectivePrimary.filter(entry=>!selectedUrls.has(entry.url)).slice(0,limit-selectedPreferred.length);
       return [...selectedPreferred,...fallback].map(({score,...entry})=>entry);
     }
   }
-  const selected=primary.slice(0,limit);
+  const selected=effectivePrimary.slice(0,limit);
   if(selected.length>=MIN_PRIMARY_SOURCES)return selected.map(({score,...entry})=>entry);
   if(selected.length<limit&&(
-    primary.length>0||
+    effectivePrimary.length>0||
     canUseContextForVagueFollowUp
   )){
+    const explicitContext=contextSourceUrls
+      .map(url=>ranked.find(entry=>entry.url===url))
+      .filter(entry=>entry&&!primaryUrls.has(entry.url));
+    const explicitContextUrls=new Set(explicitContext.map(entry=>entry.url));
     const context=ranked
-      .filter(entry=>entry.score>=2&&!primaryUrls.has(entry.url))
+      .filter(entry=>entry.score>=2&&!primaryUrls.has(entry.url)&&!explicitContextUrls.has(entry.url))
       .sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title));
-    selected.push(...context.slice(0,limit-selected.length));
+    selected.push(...[...explicitContext,...context].slice(0,limit-selected.length));
   }
 
   return selected.map(({score,...entry})=>entry);
