@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "status": "pre-activation",
+  "activation_blocked_until_google_ready": true,
+  "runtime_active": false,
+  "required_controls": [
+    "37B Core Web Vitals protection",
+    "37C ad-slot architecture",
+    "37D mobile responsive safeguards",
+    "37E consent/CMP performance boundary",
+    "37F monetization performance safeguards"
+  ],
+  "external_gate": {
+    "required_adsense_sites_status": "Ready",
+    "getting_ready_is_not_ready": true,
+    "repository_checks_cannot_substitute_for_google_approval": true
+  },
+  "activation_constraints": [
+    "Do not activate ad runtime before Google reports Ready.",
+    "Use the actual Google-supplied publisher configuration at activation.",
+    "Re-check consent/CMP, inventory, placement, CSP, ads.txt and network behavior immediately before activation.",
+    "Do not claim Core Web Vitals targets are met without dated measurements."
+  ]
+}

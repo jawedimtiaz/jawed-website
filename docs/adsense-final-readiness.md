@@ -10,6 +10,16 @@ Status: **pre-activation / externally blocked**
 - Placement policy is explicit and validated.
 - Technical activation checks cover `ads.txt`, CSP, consent, network behavior and failure handling.
 
+## Performance safeguard sequence completed
+- 37B — deferred analytics and Core Web Vitals protection
+- 37C — future ad-slot boundary and layout reservation architecture
+- 37D — mobile/responsive slot safeguards
+- 37E — consent/CMP performance boundary and duplicate analytics cleanup
+- 37F — monetization loading, network and failure safeguards
+- 37G — final pre-activation performance gate
+
+These controls are repository safeguards. They do not substitute for Google AdSense review or approval.
+
 ## Remaining external dependency
 
 The repository is not yet an activated AdSense implementation because the real Google publisher account, publisher ID and final CMP/consent configuration are not present in the project.
