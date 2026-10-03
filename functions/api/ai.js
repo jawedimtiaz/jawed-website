@@ -1,4 +1,5 @@
 import {findRelevantKnowledge,knowledgeCount} from "../lib/ai-knowledge.js";
+import knowledge from "../lib/ai-knowledge-data.js";
 import {checkRateLimit,getClientKey,MAX_REQUESTS,WINDOW_MS} from "../lib/ai-rate-limit.js";
 import {DEFAULT_MODEL,generateGroundedReply} from "../lib/cloudflare-ai-provider.js";
 import {buildRetrievalQuery} from "../lib/ai-retrieval.js";
@@ -48,6 +49,11 @@ async function handlePost({request,env}){
   if(messages.some(m=>!["user","assistant"].includes(m.role)||!m.content||m.content.length>MAX_MESSAGE_CHARS))return failure("Each message must have a valid role and a non-empty message of 2,000 characters or fewer.","AI_INVALID_MESSAGE",400,id);
   if(!validConversation(messages))return failure("Conversation messages must alternate between user and assistant, starting with the user.","AI_INVALID_CONVERSATION",400,id);
   if(messages.at(-1).role!=="user")return failure("The latest message must be from the user.","AI_INVALID_CONVERSATION",400,id);
+
+  const deterministic=deterministicIntentReply(messages.at(-1).content);
+  if(deterministic){
+    return json({reply:deterministic.reply,sources:publicSourceReferences(deterministic.sources),model:"deterministic-site-intent",request_id:id},200,{"x-request-id":id});
+  }
 
   let responseSources=[];
   try{
