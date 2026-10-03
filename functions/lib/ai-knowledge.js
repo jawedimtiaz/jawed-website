@@ -104,7 +104,7 @@ export function findRelevantKnowledge(query,limit=5,options={}){
   const primaryTokens=tokens(primaryQuery);
   const vagueFollowUp=primaryTokens.length>0&&primaryTokens.every(token=>VAGUE_FOLLOW_UP_TERMS.has(token));
   const canUseContextForVagueFollowUp=vagueFollowUp&&(
-    primaryTokens.length<=2
+    primaryTokens.length<=3
   );
   const effectivePrimary=vagueFollowUp?[]:primary;
 
