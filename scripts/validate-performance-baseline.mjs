@@ -24,7 +24,7 @@ for(const file of htmlFiles){
   const html=fs.readFileSync(file,"utf8");
   if(html.includes("https://www.googletagmanager.com/gtag/js?id=G-14C5DCPM15"))eagerAnalyticsFiles.push(file);
   const deferredCount=(html.match(/<script src="\/assets\/js\/analytics\.js" defer><\/script>/g)||[]).length;
-  if(file!=="index.html"&&deferredCount!==1)missingDeferredAnalyticsFiles.push(file);
+  if(deferredCount!==1)missingDeferredAnalyticsFiles.push(file);
 }
 assert.equal(eagerAnalyticsFiles.length,0,"No published HTML page may load GA4 eagerly: "+eagerAnalyticsFiles.join(", "));
 assert.equal(missingDeferredAnalyticsFiles.length,0,"Every published HTML page except the homepage must use exactly one deferred analytics loader: "+missingDeferredAnalyticsFiles.join(", "));
