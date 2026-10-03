@@ -62,6 +62,7 @@ const CURRENT_WORK_QUERY=/\b(?:where|what)\b[\s\S]*\b(?:work(?:ing)?|job|employ(
 const CONVERSATIONAL_CLOSING=/^\s*(?:ok|okay)?\s*(?:bye|goodbye|good night|see you|see ya|talk to you later|thanks|thank you|thx)\s*[!.]*\s*$/i;
 const CONVERSATIONAL_GREETING=/^\s*(?:hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]*\s*$/i;
 const VAGUE_FOLLOW_UP_TERMS=new Set(["tell","show","describe","explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options"]);
+const SOURCE_CONTEXT_QUERY=/Previous source context:\s*((?:\/[^,\s]+)(?:,\s*\/[^,\s]+)*)/i;
 
 function rankedEntries(query,weight=1){
   const queryTokens=tokens(query);
@@ -107,6 +108,7 @@ export function findRelevantKnowledge(query,limit=5,options={}){
   );
 
   const primaryUrls=new Set(primary.map(entry=>entry.url));
+  const contextSourceUrls=(query.match(SOURCE_CONTEXT_QUERY)?.[1]||"").split(/,\s*/).filter(Boolean);
   if(intentUrls){
     const intentPriority=IDENTITY_QUERY.test(intentQuery)
       ? ["/about/","/"]
@@ -135,7 +137,11 @@ export function findRelevantKnowledge(query,limit=5,options={}){
   )){
     const context=ranked
       .filter(entry=>entry.score>=2&&!primaryUrls.has(entry.url))
-      .sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title));
+      .sort((a,b)=>{
+        const aContext=contextSourceUrls.includes(a.url)?0:1;
+        const bContext=contextSourceUrls.includes(b.url)?0:1;
+        return aContext-bContext||b.score-a.score||a.title.localeCompare(b.title);
+      });
     selected.push(...context.slice(0,limit-selected.length));
   }
 
