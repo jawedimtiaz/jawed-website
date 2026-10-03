@@ -2,7 +2,7 @@
   "phase": "38Q",
   "scope": "production-media-asset-reliability",
   "production_origin": "https://jawed.co.in",
-  "max_body_bytes": 1000000,
+  "max_body_bytes": 5000000,
   "checks": [
     {
       "path": "/assets/images/social-preview.png",
