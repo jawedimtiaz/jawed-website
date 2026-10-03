@@ -1,0 +1,14 @@
+{
+  "phase": "38N",
+  "scope": "production-api-method-boundary",
+  "production_origin": "https://jawed.co.in",
+  "checks": [
+    {
+      "path": "/api/ai",
+      "method": "DELETE",
+      "expected_status": 405,
+      "content_type": "",
+      "max_body_bytes": 10000
+    }
+  ]
+}
