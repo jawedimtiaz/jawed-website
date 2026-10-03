@@ -1,0 +1,53 @@
+name: Deployment Runtime Reliability Gate
+concurrency:
+  group: deployment-runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  pull_request:
+    paths:
+      - "config/deployment-runtime-contract.json"
+      - "scripts/validate-deployment-runtime-reliability.mjs"
+      - "docs/cloudflare-pages-deployment.md"
+      - "_headers"
+      - "_redirects"
+      - "_routes.json"
+      - "404.html"
+      - "sitemap.xml"
+      - "index.html"
+      - "functions/**"
+      - ".github/workflows/deployment-runtime-reliability.yml"
+  push:
+    branches: [main]
+    paths:
+      - "config/deployment-runtime-contract.json"
+      - "scripts/validate-deployment-runtime-reliability.mjs"
+      - "docs/cloudflare-pages-deployment.md"
+      - "_headers"
+      - "_redirects"
+      - "_routes.json"
+      - "404.html"
+      - "sitemap.xml"
+      - "index.html"
+      - "functions/**"
+      - ".github/workflows/deployment-runtime-reliability.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deployment-runtime-reliability:
+    name: Deployment runtime reliability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Run deployment runtime reliability validation
+        run: node scripts/validate-deployment-runtime-reliability.mjs
