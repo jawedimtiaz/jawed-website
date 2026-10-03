@@ -14,7 +14,7 @@ for(const item of contract.checks){
   const canonicalMatches=body.match(/<link rel="canonical" href="([^"]+)"/g)||[];
   if(canonicalMatches.length!==1) failures.push(`${item.path}: expected exactly one canonical link, found ${canonicalMatches.length}`);
   else if(!canonicalMatches[0].includes(`href="${item.canonical}"`)) failures.push(`${item.path}: canonical URL mismatch`);
-  const title=(body.match(/<title>([^<]*)<\\/title>/i)||[])[1]?.trim()||"";
+  const title=(body.match(/<title>([^<]*)<\/title>/i)||[])[1]?.trim()||"";
   if(!title) failures.push(`${item.path}: empty title`);
   const description=(body.match(/<meta name="description" content="([^"]*)"/i)||[])[1]?.trim()||"";
   if(!description) failures.push(`${item.path}: empty meta description`);
