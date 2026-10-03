@@ -14,13 +14,13 @@
     {
       "path": "/assets/js/main.js",
       "status": 200,
-      "content_type": "text/javascript",
+      "content_type": "application/javascript",
       "min_body_bytes": 1000
     },
     {
       "path": "/assets/js/analytics.js",
       "status": 200,
-      "content_type": "text/javascript",
+      "content_type": "application/javascript",
       "min_body_bytes": 500
     }
   ]
