@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const source=fs.readFileSync("assets/js/main.js","utf8");
+const style=fs.readFileSync("assets/css/style.css","utf8");
 
 const checks=[
   ["AI widget panel starts hidden",/panel\.hidden=true/],
+  ["AI widget hidden attribute forces display none",/\.jawed-ai-panel\[hidden\]\{display:none!important\}/],
   ["AI widget close button is a real button",/close\.type="button"/],
   ["AI widget close button has accessible label",/close\.setAttribute\("aria-label","Close Jawed AI"\)/],
   ["AI widget minimize button invokes close state",/minimize\.addEventListener\("click",e=>\{e\.preventDefault\(\);e\.stopPropagation\(\);setOpen\(false\)\}\)/],
@@ -26,6 +28,7 @@ for(const [name,pattern] of checks){
 }
 
 assert.equal(source.includes('panel.hidden=true'),true,"Initial panel state must be explicitly hidden");
+assert.match(style,/\.jawed-ai-panel\[hidden\]\{display:none!important\}/,"CSS must enforce hidden panel state");
 assert.equal(source.includes('close.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();setOpen(false)});'),true,"Close control must remain directly attached to close state");
 assert.equal(source.includes('minimize.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();setOpen(false)});'),true,"Minimize control must remain directly attached to close state");
 assert.match(source,/if\(e\.key==="Escape"&&!panel\.hidden\)setOpen\(false\)/,"Escape handler must close the open panel");
