@@ -23,7 +23,8 @@ const checks=[
 ];
 
 for(const [name,pattern] of checks){
-  assert.match(source,pattern,name+" contract is missing");
+  const haystack=name==="AI widget hidden attribute forces display none"?style:source;
+  assert.match(haystack,pattern,name+" contract is missing");
   console.log("PASS — "+name);
 }
 
