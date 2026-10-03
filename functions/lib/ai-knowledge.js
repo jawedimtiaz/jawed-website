@@ -1,8 +1,42 @@
 import knowledge from "./ai-knowledge-data.js";
 const STOP_WORDS=new Set(["a","an","and","are","about","can","do","for","from","how","i","in","is","it","me","of","on","or","the","to","what","where","with","you"]);
 
+const QUERY_ALIASES=new Map([
+  ["job",["work","employment","role"]],
+  ["role",["job","work","employment"]],
+  ["career",["work","employment","professional"]],
+  ["profession",["work","career","professional"]],
+  ["employer",["company","work","employment"]],
+  ["employee",["work","employment"]],
+  ["mac",["macos","apple"]],
+  ["mdm",["device","management"]],
+  ["resume",["cv","career","job"]],
+  ["cv",["resume","career","job"]],
+  ["calculator",["tool","calculation"]],
+  ["guide",["note","documentation"]],
+  ["article",["blog","notes"]],
+  ["documentation",["guide","resources"]]
+]);
+
+function normalizeQuery(value){
+  return value.toLowerCase()
+    .replace(/\b(what|where|who|how|when|why)\s+is\s+([a-z0-9-]+)\b/g,"$1 $2")
+    .replace(/\bwhat's\b/g,"what is")
+    .replace(/\bwhere's\b/g,"where is")
+    .replace(/\bwho's\b/g,"who is")
+    .replace(/\bcan't\b/g,"cannot")
+    .replace(/\bdoesn't\b/g,"does not");
+}
+
 function tokens(value){
-  return value.toLowerCase().replace(/[^a-z0-9\s-]/g," ").split(/\s+/).filter(word=>word&&!STOP_WORDS.has(word));
+  const normalized=normalizeQuery(value).replace(/[^a-z0-9\s-]/g," ");
+  const base=normalized.split(/\s+/).filter(word=>word&&!STOP_WORDS.has(word));
+  const expanded=[...base];
+  for(const token of base){
+    const aliases=QUERY_ALIASES.get(token);
+    if(aliases)expanded.push(...aliases);
+  }
+  return expanded;
 }
 
 function tokenSet(value){
