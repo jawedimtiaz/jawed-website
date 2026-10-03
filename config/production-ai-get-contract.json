@@ -1,0 +1,32 @@
+{
+  "phase": "38S",
+  "scope": "production-ai-get-runtime-reliability",
+  "production_origin": "https://jawed.co.in",
+  "path": "/api/ai",
+  "method": "GET",
+  "expected_status": 200,
+  "expected_content_type": "application/json",
+  "max_body_bytes": 20000,
+  "require_no_store": true,
+  "require_nosniff": true,
+  "require_request_id_header": true,
+  "required_fields": [
+    "service",
+    "status",
+    "configuration",
+    "model",
+    "knowledge_entries",
+    "rate_limit",
+    "request_id"
+  ],
+  "expected_service": "jawed-ai",
+  "expected_status_values": [
+    "ready",
+    "not_configured"
+  ],
+  "require_nonempty_model": true,
+  "require_positive_knowledge_entries": true,
+  "require_rate_limit_shape": true,
+  "require_body_request_id_match": true,
+  "max_redirects": 0
+}
