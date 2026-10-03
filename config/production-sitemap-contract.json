@@ -1,0 +1,16 @@
+{
+  "phase": "38L",
+  "scope": "production-sitemap-integrity",
+  "production_origin": "https://jawed.co.in",
+  "sitemap_path": "/sitemap.xml",
+  "expected_content_type": "application/xml",
+  "canonical_origin": "https://jawed.co.in",
+  "forbidden_origins": [
+    "https://www.jawed.co.in"
+  ],
+  "forbidden_extensions": [
+    ".html"
+  ],
+  "require_unique_urls": true,
+  "require_absolute_urls": true
+}
