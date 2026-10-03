@@ -1,0 +1,39 @@
+{
+  "phase": "38H",
+  "scope": "production-security-header-monitoring",
+  "production_origin": "https://jawed.co.in",
+  "checks": [
+    {
+      "path": "/",
+      "required_headers": [
+        {"name": "strict-transport-security", "includes": "max-age=31536000"},
+        {"name": "x-frame-options", "includes": "DENY"},
+        {"name": "x-content-type-options", "includes": "nosniff"},
+        {"name": "x-permitted-cross-domain-policies", "includes": "none"},
+        {"name": "referrer-policy", "includes": "strict-origin-when-cross-origin"},
+        {"name": "permissions-policy", "includes": "geolocation=()"},
+        {"name": "cross-origin-opener-policy", "includes": "same-origin"},
+        {"name": "content-security-policy", "includes": "default-src 'self'"},
+        {"name": "content-security-policy", "includes": "frame-ancestors 'none'"},
+        {"name": "content-security-policy", "includes": "object-src 'none'"}
+      ]
+    },
+    {
+      "path": "/api/ai",
+      "required_headers": [
+        {"name": "strict-transport-security", "includes": "max-age=31536000"},
+        {"name": "x-content-type-options", "includes": "nosniff"},
+        {"name": "content-security-policy", "includes": "default-src 'self'"}
+      ]
+    },
+    {
+      "path": "/missing-phase-38h-security-header-test",
+      "required_headers": [
+        {"name": "strict-transport-security", "includes": "max-age=31536000"},
+        {"name": "x-frame-options", "includes": "DENY"},
+        {"name": "x-content-type-options", "includes": "nosniff"}
+      ]
+    }
+  ],
+  "max_redirects": 0
+}
