@@ -61,7 +61,7 @@ const IDENTITY_QUERY=/\b(?:who(?:\s+is|\s+was)?|about)\s+(?:is\s+)?(?:jawed|jawe
 const CURRENT_WORK_QUERY=/\b(?:where|what)\b[\s\S]*\b(?:work(?:ing)?|job|employ(?:ed|er|ment)|company|client)\b/i;
 const CONVERSATIONAL_CLOSING=/^\s*(?:ok|okay)?\s*(?:bye|goodbye|good night|see you|see ya|talk to you later|thanks|thank you|thx)\s*[!.]*\s*$/i;
 const CONVERSATIONAL_GREETING=/^\s*(?:hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]*\s*$/i;
-const VAGUE_FOLLOW_UP_TERMS=new Set(["tell","show","describe","explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options"]);
+const VAGUE_FOLLOW_UP_TERMS=new Set(["tell","show","describe","explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options","that"]);
 const SOURCE_CONTEXT_QUERY=/Previous source context:\s*((?:\/[^,\s]+)(?:,\s*\/[^,\s]+)*)/i;
 
 function rankedEntries(query,weight=1){
