@@ -7,42 +7,42 @@
     {
       "path": "/index.html",
       "expected_status": 301,
-      "location": "https://jawed.co.in/"
+      "location": "/"
     },
     {
       "path": "/About_Me.html",
       "expected_status": 301,
-      "location": "https://jawed.co.in/about/"
+      "location": "/about/"
     },
     {
       "path": "/Feedback.html",
       "expected_status": 301,
-      "location": "https://jawed.co.in/contact/"
+      "location": "/contact/"
     },
     {
       "path": "/Disclaimer.html",
       "expected_status": 301,
-      "location": "https://jawed.co.in/privacy/"
+      "location": "/privacy/"
     },
     {
       "path": "/Resources.html",
       "expected_status": 301,
-      "location": "https://jawed.co.in/resources/"
+      "location": "/resources/"
     },
     {
       "path": "/MCSE.html",
       "expected_status": 301,
-      "location": "https://jawed.co.in/work/skills/"
+      "location": "/work/skills/"
     },
     {
       "path": "/Interview.html",
       "expected_status": 301,
-      "location": "https://jawed.co.in/work/experience/"
+      "location": "/work/experience/"
     },
     {
       "path": "/Excel.html",
       "expected_status": 301,
-      "location": "https://jawed.co.in/tools/"
+      "location": "/tools/"
     }
   ]
 }
