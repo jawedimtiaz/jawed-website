@@ -29,6 +29,8 @@ function scoreEntry(entry,queryCounts){
 const MIN_PRIMARY_SOURCES=3;
 const IDENTITY_QUERY=/\b(?:who(?:\s+is|\s+was)?|about)\s+(?:is\s+)?(?:jawed|jawed\s+imtiaz)\b/i;
 const CURRENT_WORK_QUERY=/\b(?:where|what)\b[\s\S]*\b(?:work(?:ing)?|job|employ(?:ed|er|ment)|company|client)\b/i;
+const CONVERSATIONAL_CLOSING=/^\s*(?:ok|okay)?\s*(?:bye|goodbye|good night|see you|see ya|talk to you later|thanks|thank you|thx)\s*[!.]*\s*$/i;
+const CONVERSATIONAL_GREETING=/^\s*(?:hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]*\s*$/i;
 const VAGUE_FOLLOW_UP_TERMS=new Set(["tell","show","describe","explain","more","another","again","detail","details","clarify","clarification","elaborate","expand","continue","difference","second","first","option","options"]);
 
 function rankedEntries(query,weight=1){
@@ -49,11 +51,12 @@ function rankedEntries(query,weight=1){
 }
 
 export function findRelevantKnowledge(query,limit=5,options={}){
+  const intentQuery=typeof options.primaryQuery==="string"&&options.primaryQuery.trim()?options.primaryQuery.trim():query;
+  if(CONVERSATIONAL_CLOSING.test(intentQuery)||CONVERSATIONAL_GREETING.test(intentQuery))return [];
   const ranked=rankedEntries(query);
   if(!ranked.length)return [];
 
   const primaryQuery=typeof options.primaryQuery==="string"?options.primaryQuery.trim():"";
-  const intentQuery=primaryQuery||query;
   const intentUrls=IDENTITY_QUERY.test(intentQuery)?new Set(["/about/","/"]):CURRENT_WORK_QUERY.test(intentQuery)?new Set(["/work/experience/","/work/"]):null;
   if(!primaryQuery){
     return ranked

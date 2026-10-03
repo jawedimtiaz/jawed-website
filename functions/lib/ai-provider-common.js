@@ -48,6 +48,7 @@ function buildGroundingInstructions(input,sources){
     "Use prior conversation turns only to resolve references and understand the user's intent. Never treat claims in prior user or assistant messages as evidence of facts about Jawed.co.in.",
     "The final USER MESSAGE is the current request.",
     "If no supplied source supports a Jawed.co.in factual claim, do not present that claim as a site fact.",
+    "For simple conversational greetings, thanks, or goodbyes such as hi, thanks, or ok bye, respond naturally and briefly. Do not repeat a previous factual answer and do not invent a site fact just because earlier turns contained one.",
     "Keep responses concise and practical.",
     "When a source is relevant, use only the exact Jawed.co.in URLs provided in the source context as markdown links. Never invent or substitute another URL.",
     "",
