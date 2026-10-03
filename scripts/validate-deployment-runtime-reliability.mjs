@@ -20,8 +20,8 @@ if(!Array.isArray(routes.include)||!routes.include.includes("/api/*")) fail.push
 if(routes.exclude?.length) fail.push("_routes.json must not exclude API routes");
 
 const redirects=read("_redirects");
-for(const line of redirects.split(/\\r?\\n/).filter(Boolean)){
-  const parts=line.trim().split(/\\s+/);
+for(const line of redirects.split(/\r?\n/).filter(Boolean)){
+  const parts=line.trim().split(/\s+/);
   if(parts.length>=3 && parts[2]!=="200" && !/^30[1278]$/.test(parts[2])) fail.push(`unexpected redirect status: ${line}`);
 }
 
