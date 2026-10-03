@@ -17,7 +17,7 @@ const failure=(error,code,status,id,extra={})=>{
 
 function allowedOrigin(request){
   const origin=request.headers.get("origin");
-  return !origin||origin==="https://jawed.co.in";
+  return !origin||origin==="https://www.jawed.co.in"||origin==="https://jawed.co.in";
 }
 
 function validConversation(messages){
