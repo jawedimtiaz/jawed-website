@@ -31,6 +31,27 @@ function publicSources(sources){
 function publicSourceReferences(sources){
   return sources.map(({url,title})=>({url,title}));
 }
+function knowledgeEntry(url){
+  const source=knowledge.entries.find(entry=>entry.url===url);
+  return source?{url:source.url,title:source.title,summary:source.summary,keywords:source.keywords}:null;
+}
+
+function deterministicIntentReply(question){
+  const value=question.trim().toLowerCase().replace(/[?!.]+$/g,"").trim();
+  const closing=["bye","goodbye","good night","see you","see ya","talk to you later","thanks","thank you","thx","ok bye","okay bye"];
+  if(closing.includes(value))return {reply:"Goodbye! 👋",sources:[]};
+  const identity=["who is jawed","who is jawed imtiaz","who was jawed","who was jawed imtiaz","about jawed","about jawed imtiaz"];
+  if(identity.includes(value)){
+    const source=knowledgeEntry("/about/");
+    return source?{reply:source.summary+" Source: ["+source.title+"](https://jawed.co.in"+source.url+")",sources:[source]}:null;
+  }
+  const workQuestion=(value.startsWith("where ")||value.startsWith("what "))&&["work","working","job","employed","employer","employment","company","client"].some(term=>value.includes(term));
+  if(workQuestion){
+    const source=knowledgeEntry("/work/experience/");
+    return source?{reply:source.summary+" Source: ["+source.title+"](https://jawed.co.in"+source.url+")",sources:[source]}:null;
+  }
+  return null;
+}
 
 async function handlePost({request,env}){
   const id=requestId();
