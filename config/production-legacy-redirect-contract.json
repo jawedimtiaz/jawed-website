@@ -1,0 +1,48 @@
+{
+  "phase": "38I",
+  "scope": "production-legacy-redirect-reliability",
+  "production_origin": "https://jawed.co.in",
+  "max_redirects": 0,
+  "checks": [
+    {
+      "path": "/index.html",
+      "expected_status": 301,
+      "location": "https://jawed.co.in/"
+    },
+    {
+      "path": "/About_Me.html",
+      "expected_status": 301,
+      "location": "https://jawed.co.in/about/"
+    },
+    {
+      "path": "/Feedback.html",
+      "expected_status": 301,
+      "location": "https://jawed.co.in/contact/"
+    },
+    {
+      "path": "/Disclaimer.html",
+      "expected_status": 301,
+      "location": "https://jawed.co.in/privacy/"
+    },
+    {
+      "path": "/Resources.html",
+      "expected_status": 301,
+      "location": "https://jawed.co.in/resources/"
+    },
+    {
+      "path": "/MCSE.html",
+      "expected_status": 301,
+      "location": "https://jawed.co.in/work/skills/"
+    },
+    {
+      "path": "/Interview.html",
+      "expected_status": 301,
+      "location": "https://jawed.co.in/work/experience/"
+    },
+    {
+      "path": "/Excel.html",
+      "expected_status": 301,
+      "location": "https://jawed.co.in/tools/"
+    }
+  ]
+}
