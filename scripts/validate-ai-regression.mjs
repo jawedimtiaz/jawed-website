@@ -5,7 +5,7 @@ import fs from "node:fs";
 
 const VALIDATOR_TIMEOUT_MS=15_000;
 const checks=[
-  ["AI knowledge coverage","scripts/validate-ai-knowledge.mjs",/AI knowledge coverage OK/],
+  ["AI knowledge coverage","scripts/validate-ai-knowledge.mjs",/AI knowledge coverage OK/],\n  ["AI natural-language intelligence","scripts/validate-ai-intelligence.mjs",/AI natural-language intelligence validation: PASS/],
   ["AI retrieval","scripts/validate-ai-retrieval.mjs",/AI retrieval context validation OK/],
   ["AI retrieval source-set relevance","scripts/validate-ai-relevance.mjs",/AI retrieval source-set relevance validation: PASS/],
   ["AI widget state regression","scripts/validate-ai-widget-state.mjs",/AI widget state regression validation: PASS/],
