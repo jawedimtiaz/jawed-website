@@ -7,7 +7,7 @@ This repository is deployed as a Cloudflare Pages site with Pages Functions unde
 - **Build command:** none
 - **Build output directory:** repository root (`.`)
 - **Functions:** discovered from `functions/`
-- **Production domain:** `https://www.jawed.co.in`
+- **Production domain:** `https://jawed.co.in`
 - **AI provider configuration:** Cloudflare Pages **Workers AI binding** named `AI`
 - **AI model:** fixed `@cf/meta/llama-3.2-1b-instruct`
 
