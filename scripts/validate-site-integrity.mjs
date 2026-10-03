@@ -92,6 +92,9 @@ const mainJs=fs.readFileSync("assets/js/main.js","utf8");
 const jawedAiWidgetAccessibilityContract=mainJs.includes('panel.setAttribute("role","dialog")')&&mainJs.includes('panel.setAttribute("aria-modal","false")')&&mainJs.includes('panel.setAttribute("aria-labelledby","jawed-ai-title")')&&mainJs.includes('title.id="jawed-ai-title"')&&mainJs.includes('if(open)input.focus();else toggle.focus()')&&mainJs.includes('document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!panel.hidden)setOpen(false)})');
 if(!jawedAiWidgetAccessibilityContract)errors.push("Jawed AI floating widget must expose dialog semantics, an accessible title, and keyboard focus return");
 else console.log("Jawed AI widget accessibility contract: PASS");
+const jawedAiWidgetEventContract=!mainJs.includes("document.addEventListener(\"click\",captureClose,true)")&&!mainJs.includes("addEventListener(\"pointerdown\",closePanel)")&&!mainJs.includes("addEventListener(\"touchstart\",closePanel");
+if(!jawedAiWidgetEventContract)errors.push("Jawed AI widget close controls must not register redundant global or duplicate pointer/touch handlers");
+else console.log("Jawed AI widget event-handling contract: PASS");
 
 
 const discoveryQueryBoundaryContract=[
