@@ -1,6 +1,6 @@
 # AdSense Activation Contract
 
-Status: **pre-activation**
+Status: **Ready-gated pre-activation**
 
 This document records the account-dependent inputs that must exist before advertising code is introduced into the site.
 
@@ -22,6 +22,12 @@ This document records the account-dependent inputs that must exist before advert
    - Decide whether personalized, non-personalized, or another supported ad-serving mode will be used.
    - The privacy policy and consent flow must match the actual mode before ads are enabled.
 
+## Google approval gate
+
+- Production advertising activation is blocked until the AdSense Sites page reports **Ready** for `jawed.co.in`.
+- `Getting ready` means Google is still running its site checks; do not inject runtime advertising code or resubmit the site solely to accelerate the review.
+- `ads.txt` may be added when the real activation configuration requires it and the exact publisher record is available; its absence during review is not by itself a site-approval failure.
+
 ## Repository activation rules
 
 - Do not add `adsbygoogle` or Google publisher ad tags while the project remains `pre-activation`.
@@ -36,6 +42,6 @@ AdSense account → real publisher ID → CMP/consent configuration → privacy 
 
 ## Current state
 
-No publisher ID, AdSense ad tag, `ads.txt` publisher record, or CMP integration is present in this repository.
+The exact publisher verification meta tag is present on the approved initial eligible inventory pages. No AdSense runtime ad tag, ad slot, `ads.txt` publisher record, or repository-side CMP runtime is active.
 
 This contract is an implementation safeguard, not a statement that Google has approved the site.
