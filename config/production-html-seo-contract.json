@@ -1,0 +1,63 @@
+{
+  "phase": "38M",
+  "scope": "production-html-seo-reliability",
+  "production_origin": "https://jawed.co.in",
+  "checks": [
+    {
+      "path": "/",
+      "canonical": "https://jawed.co.in/",
+      "required": [
+        "<title>",
+        "<meta name=\"description\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/\"",
+        "<meta property=\"og:url\" content=\"https://jawed.co.in/\"",
+        "<meta name=\"twitter:card\""
+      ],
+      "forbidden": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/about/",
+      "canonical": "https://jawed.co.in/about/",
+      "required": [
+        "<title>",
+        "<meta name=\"description\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/about/\"",
+        "<meta property=\"og:url\" content=\"https://jawed.co.in/about/\"",
+        "<meta name=\"twitter:card\""
+      ],
+      "forbidden": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/ai/",
+      "canonical": "https://jawed.co.in/ai/",
+      "required": [
+        "<title>",
+        "<meta name=\"description\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/ai/\"",
+        "<meta property=\"og:url\" content=\"https://jawed.co.in/ai/\"",
+        "<meta name=\"twitter:card\""
+      ],
+      "forbidden": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/notes/",
+      "canonical": "https://jawed.co.in/notes/",
+      "required": [
+        "<title>",
+        "<meta name=\"description\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/notes/\"",
+        "<meta property=\"og:url\" content=\"https://jawed.co.in/notes/\"",
+        "<meta name=\"twitter:card\""
+      ],
+      "forbidden": [
+        "noindex"
+      ]
+    }
+  ]
+}
