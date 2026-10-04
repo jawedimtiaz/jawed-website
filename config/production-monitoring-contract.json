@@ -1,5 +1,5 @@
 {
-  "phase": "38F",
+  "phase": "39D",
   "scope": "production-availability-monitoring",
   "production_smoke_workflow": ".github/workflows/production-smoke-reliability.yml",
   "monitoring_mode": "scheduled-github-actions",
