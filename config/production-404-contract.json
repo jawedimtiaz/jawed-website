@@ -2,7 +2,7 @@
   "phase": "39I",
   "scope": "production-404-reliability",
   "production_origin": "https://jawed.co.in",
-  "path": "/missing-phase-38o-404-test",
+  "path": "/missing-phase-39i-404-test",
   "expected_status": 404,
   "required_markers": [
     "<title>Page not found",
