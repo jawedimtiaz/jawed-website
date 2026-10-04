@@ -3,7 +3,7 @@ const contract=JSON.parse(fs.readFileSync("config/production-legacy-redirect-con
 const failures=[],timeoutMs=10000;
 if(contract.max_redirects!==0) failures.push("legacy redirect checks must not follow redirects");
 for(const item of (contract.checks||[])) if(item.max_redirects!==0) failures.push(`${item.path}: legacy redirect check must not follow redirects`);
-const configured=fs.readFileSync("_redirects","utf8").split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#")).filter(line=>{const parts=line.split(/\s+/);return parts.length>=3&&/^30[1278]$/.test(parts[2])}).map(line=>{const parts=line.split(/\s+/);return {path:parts[0],location:parts[1],status:Number(parts[2])}});
+const configured=fs.readFileSync("_redirects","utf8").split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#")).filter(line=>{const parts=line.split(/\s+/);return parts.length>=3&&/^30[1278]$/.test(parts.at(-1))}).map(line=>{const parts=line.split(/\s+/);return {path:parts[0],location:parts[1],status:Number(parts.at(-1))}});
 const configuredMap=new Map(configured.map(item=>[item.path,item]));
 for(const item of contract.checks){
  const local=configuredMap.get(item.path);
