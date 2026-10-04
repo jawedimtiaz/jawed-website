@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import {generateGroundedReply,DEFAULT_MODEL,FREE_MODEL,PROVIDER_TIMEOUT_MS,withProviderTimeout,isSafeSourceUrl} from "../functions/lib/cloudflare-ai-provider.js";
+import {generateGroundedReply,DEFAULT_MODEL,FREE_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TIMEOUT_MS,withProviderTimeout,isSafeSourceUrl} from "../functions/lib/cloudflare-ai-provider.js";
 
 assert.equal(isSafeSourceUrl("/notes/example/"),true);
 assert.equal(isSafeSourceUrl("//evil.example/"),false);
@@ -31,7 +31,7 @@ assert.equal(calls[0].input.messages[0].role,"system");
 assert.equal(calls[0].input.messages[0].content.includes("<UNTRUSTED_CONVERSATION>"),true);
 assert.equal(calls[0].input.messages[0].content.includes("<UNTRUSTED_SOURCE_METADATA>"),true);
 assert.equal(calls[0].input.messages[1].role,"user");
-assert.equal(calls[0].input.max_tokens,700);
+assert.equal(calls[0].input.max_tokens,MAX_OUTPUT_TOKENS);
 assert.equal(calls[0].input.temperature,0.2);
 
 const fallback=await generateGroundedReply({
