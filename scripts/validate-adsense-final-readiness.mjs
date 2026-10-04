@@ -34,64 +34,42 @@ assert.equal(workflow.includes("timeout-minutes: 2"),true,"Readiness workflow ti
 assert.equal(workflow.includes("cancel-in-progress: true"),true,"Readiness workflow concurrency cancellation must remain enabled");
 
 const criticalTriggerPaths=[
-  "ads.txt",
-  "sitemap.xml",
-  "privacy/index.html",
-  "assets/css/style.css",
-  "_headers",
-  "config/performance-budget.json",
-  "config/adsense-inventory.json",
-  "config/adsense-slot-contract.json",
-  "config/adsense-consent-contract.json",
-  "config/adsense-performance-safeguards.json",
-  "config/adsense-final-performance-gate.json",
-  "docs/adsense-content-readiness.md",
-  "docs/adsense-technical-activation.md",
-  "docs/adsense-activation-contract.md",
-  "docs/adsense-activation-handoff.md",
-  ".github/workflows/site-integrity.yml",
-  ".github/workflows/production-security-headers.yml",
-  ".github/workflows/production-smoke-reliability.yml",
+  "ads.txt","sitemap.xml","privacy/index.html","assets/css/style.css","_headers",
+  "config/performance-budget.json","config/adsense-inventory.json","config/adsense-slot-contract.json",
+  "config/adsense-consent-contract.json","config/adsense-performance-safeguards.json",
+  "config/adsense-final-performance-gate.json","docs/adsense-content-readiness.md",
+  "docs/adsense-technical-activation.md","docs/adsense-activation-contract.md",
+  "docs/adsense-activation-handoff.md",".github/workflows/site-integrity.yml",
+  ".github/workflows/production-security-headers.yml",".github/workflows/production-smoke-reliability.yml",
   ".github/workflows/deployment-runtime-reliability.yml"
 ];
-
 for(const path of criticalTriggerPaths){
   assert.equal(prTriggerPaths.includes(path),true,"Critical readiness path must trigger PR CI: "+path);
   assert.equal(pushTriggerPaths.includes(path),true,"Critical readiness path must trigger main-push CI: "+path);
 }
 
 const validatorFiles=[
-  "scripts/validate-adsense-privacy.mjs",
-  "scripts/validate-adsense-inventory.mjs",
-  "scripts/validate-adsense-activation.mjs",
-  "scripts/validate-adsense-content-readiness.mjs",
-  "scripts/validate-adsense-placement-policy.mjs",
-  "scripts/validate-adsense-technical.mjs",
-  "scripts/validate-adsense-slot-architecture.mjs",
-  "scripts/validate-adsense-mobile-readiness.mjs",
-  "scripts/validate-adsense-consent-performance.mjs",
-  "scripts/validate-adsense-performance-safeguards.mjs",
-  "scripts/validate-adsense-final-performance-gate.mjs",
-  "scripts/validate-adsense-final-readiness.mjs",
+  "scripts/validate-adsense-privacy.mjs","scripts/validate-adsense-inventory.mjs",
+  "scripts/validate-adsense-activation.mjs","scripts/validate-adsense-content-readiness.mjs",
+  "scripts/validate-adsense-placement-policy.mjs","scripts/validate-adsense-technical.mjs",
+  "scripts/validate-adsense-slot-architecture.mjs","scripts/validate-adsense-mobile-readiness.mjs",
+  "scripts/validate-adsense-consent-performance.mjs","scripts/validate-adsense-performance-safeguards.mjs",
+  "scripts/validate-adsense-final-performance-gate.mjs","scripts/validate-adsense-final-readiness.mjs",
   "scripts/validate-adsense-preactivation.mjs"
 ];
 
 for(const validatorFile of validatorFiles){
-  assert.equal(prTriggerPaths.includes(validatorFile),true,
-    "Validator file must trigger PR CI: "+validatorFile);
-  assert.equal(pushTriggerPaths.includes(validatorFile),true,
-    "Validator file must trigger main-push CI: "+validatorFile);
+  assert.equal(prTriggerPaths.includes(validatorFile),true,"Validator file must trigger PR CI: "+validatorFile);
+  assert.equal(pushTriggerPaths.includes(validatorFile),true,"Validator file must trigger main-push CI: "+validatorFile);
   const validatorSource=fs.readFileSync(validatorFile,"utf8");
   const dependencies=[...validatorSource.matchAll(/(?:readFileSync|existsSync)\(["']([^"']+)["']/g)]
-    .map(match=>match[1])
-    .filter(path=>!path.startsWith("/")&&!path.startsWith("node:"));
+    .map(match=>match[1]).filter(path=>!path.startsWith("/")&&!path.startsWith("node:"));
   for(const dependency of dependencies){
-    assert.equal(prTriggerPaths.includes(dependency),true,
-      "Validator dependency must trigger PR CI: "+validatorFile+" -> "+dependency);
-    assert.equal(pushTriggerPaths.includes(dependency),true,
-      "Validator dependency must trigger main-push CI: "+validatorFile+" -> "+dependency);
+    assert.equal(prTriggerPaths.includes(dependency),true,"Validator dependency must trigger PR CI: "+validatorFile+" -> "+dependency);
+    assert.equal(pushTriggerPaths.includes(dependency),true,"Validator dependency must trigger main-push CI: "+validatorFile+" -> "+dependency);
   }
 }
+
 assert.equal(finalDoc.includes("Status: **pre-activation / externally blocked**"),true,"Final status must remain pre-activation");
 assert.equal(finalDoc.includes("production ad-serving configuration")&&finalDoc.includes("final CMP/consent configuration"),true,"External activation dependency is missing");
 assert.equal(handoff.includes("Immediate rollback conditions"),true,"Activation rollback safeguard is missing");
@@ -115,14 +93,20 @@ assert.equal(smokeWorkflow.includes("node scripts/validate-production-smoke.mjs"
 assert.equal(deploymentWorkflow.includes("node scripts/validate-deployment-runtime-reliability.mjs"),true,"Deployment runtime workflow contract missing");
 assert.equal((workflow.match(/docs\/adsense-activation-handoff\.md/g)||[]).length,2,"Activation handoff must trigger both PR and main-push readiness CI");
 assert.equal(aggregate.includes("Validator count:")&&aggregate.includes("AdSense readiness aggregate gate: PASS"),true,"Aggregate readiness runner is incomplete");
-const aggregateValidators=[...aggregate.matchAll(/"((?:validate-adsense-[a-z-]+)\.mjs)"/g)].map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs").sort();
-const workflowValidators=[...workflow.matchAll(/run: node scripts\/(validate-adsense-[a-z-]+\.mjs)/g)].map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs").sort();
+
+const aggregateValidators=[...aggregate.matchAll(/"((?:validate-adsense-[a-z-]+)\.mjs)"/g)]
+  .map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs").sort();
+const workflowValidators=[...workflow.matchAll(/run: node scripts\/(validate-adsense-[a-z-]+\.mjs)/g)]
+  .map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs").sort();
+const expectedValidators=validatorFiles.map(path=>path.slice("scripts/".length)).sort();
 assert.equal(aggregateValidators.length,13,"Aggregate runner must cover 13 individual AdSense validators");
 assert.equal(workflowValidators.length,13,"CI must execute 13 individual AdSense validators");
 assert.deepEqual(aggregateValidators,workflowValidators,"Aggregate runner and CI must execute the same AdSense validators");
+assert.deepEqual(aggregateValidators,expectedValidators,"Aggregate runner and CI must execute the canonical AdSense validator set");
 for(const validator of aggregateValidators){
   assert.equal(fs.existsSync("scripts/"+validator),true,"AdSense validator file missing: "+validator);
 }
+
 assert.equal(workflow.includes("run: node scripts/validate-adsense-readiness.mjs"),true,"CI must execute the aggregate AdSense readiness gate");
 assert.equal((workflow.match(/docs\/adsense-activation-handoff\.md/g)||[]).length,2,"Activation handoff must appear once in each trigger");
 assert.equal(finalDoc.includes("Do not activate ad scripts, visible ad slots, `ads.txt`"),true,"Activation safeguard is missing");
@@ -141,6 +125,6 @@ assert.equal(fs.existsSync("scripts/validate-adsense-placement-policy.mjs"),true
 assert.equal(fs.existsSync("scripts/validate-adsense-technical.mjs"),true,"Technical validator missing");
 
 console.log("AdSense final readiness validation: PASS");
-console.log("Repository readiness validator count: "+((aggregate.match(/validate-adsense-[a-z-]+\\.mjs/g)||[]).length));
+console.log("Repository readiness validator count: "+((aggregate.match(/validate-adsense-[a-z-]+\.mjs/g)||[]).length));
 console.log("External account activation required: yes");
 console.log("AdSense runtime enabled: no");
