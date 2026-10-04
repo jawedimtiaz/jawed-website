@@ -5,7 +5,7 @@ Status: **pre-activation / externally blocked**
 ## Completed repository readiness controls
 - Privacy and advertising disclosure foundation is present.
 - Initial monetization inventory is explicit and validated.
-- Account/publisher-ID/CMP dependencies are explicit.
+- Publisher verification, ad-serving account configuration and CMP dependencies are explicit.
 - Content-readiness assessment is documented.
 - Placement policy is explicit and validated.
 - Technical activation checks cover `ads.txt`, CSP, consent, network behavior and failure handling.
@@ -22,7 +22,7 @@ These controls are repository safeguards. They do not substitute for Google AdSe
 
 ## Remaining external dependency
 
-The repository is not yet an activated AdSense implementation because the real Google publisher account, publisher ID and final CMP/consent configuration are not present in the project.
+The repository is not yet an activated AdSense implementation. The exact publisher verification meta tag is already present on the approved initial inventory pages, but production ad-serving configuration and the final CMP/consent configuration are not active in the project.
 
 ## Activation decision boundary
 
@@ -30,6 +30,6 @@ Do not activate ad scripts, visible ad slots, `ads.txt`, or publisher-specific C
 
 ## Final verification sequence
 
-`AdSense account → publisher ID → CMP/consent → privacy recheck → inventory recheck → placement recheck → technical recheck → ad tags → ads.txt → production smoke test`
+`AdSense account → publisher verification → publisher ad-serving configuration → CMP/consent → privacy recheck → inventory recheck → placement recheck → technical recheck → ad tags → ads.txt → production smoke test`
 
 This gate indicates repository readiness, not Google approval or guaranteed AdSense acceptance.
