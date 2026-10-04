@@ -4,7 +4,8 @@ import fs from "node:fs";
 import {execFileSync} from "node:child_process";
 
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
-const tree=execFileSync("git",["ls-files","*.html"],{encoding:"utf8"}).trim().split(/\r?\n/).filter(Boolean);
+const tree=execFileSync("git",["ls-files","*.html"],{encoding:"utf8"}).trim().split(/\r?
+/).filter(Boolean);
 const sourcePath=(url)=>url==="/"?"index.html":url.replace(/^\/+|\/+$/g,"")+"/index.html";
 const sitemapUrls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
 const siteUrls=sitemapUrls.filter(url=>url.startsWith("https://jawed.co.in/"));
@@ -114,7 +115,10 @@ else console.log("Jawed AI widget accessibility contract: PASS");
 const jawedAiWidgetEventContract=!mainJs.includes("document.addEventListener(\"click\",captureClose,true)")&&!mainJs.includes("addEventListener(\"pointerdown\",closePanel)")&&!mainJs.includes("addEventListener(\"touchstart\",closePanel");
 if(!jawedAiWidgetEventContract)errors.push("Jawed AI widget close controls must not register redundant global or duplicate pointer/touch handlers");
 else console.log("Jawed AI widget event-handling contract: PASS");
-const jawedAiWidgetStatusContract=mainJs.includes('status.setAttribute("role","status")')&&mainJs.includes('status.setAttribute("aria-live","polite")')&&mainJs.includes('status.setAttribute("aria-atomic","true")');\nconst jawedAiWidgetSourceGroupContract=mainJs.includes('list.className="jawed-ai-widget-sources";list.setAttribute("role","group");list.setAttribute("aria-label","Sources");');\nif(!jawedAiWidgetSourceGroupContract)errors.push("Jawed AI floating-widget source list must expose an explicit accessible Sources group");\nelse console.log("Jawed AI floating-widget source-group contract: PASS");
+const jawedAiWidgetStatusContract=mainJs.includes('status.setAttribute("role","status")')&&mainJs.includes('status.setAttribute("aria-live","polite")')&&mainJs.includes('status.setAttribute("aria-atomic","true")');
+const jawedAiWidgetSourceGroupContract=mainJs.includes('list.className="jawed-ai-widget-sources";list.setAttribute("role","group");list.setAttribute("aria-label","Sources");');
+if(!jawedAiWidgetSourceGroupContract)errors.push("Jawed AI floating-widget source list must expose an explicit accessible Sources group");
+else console.log("Jawed AI floating-widget source-group contract: PASS");
 if(!jawedAiWidgetStatusContract)errors.push("Jawed AI widget status must expose an explicit polite live region with atomic updates");
 else console.log("Jawed AI widget status live-region contract: PASS");
 
@@ -380,7 +384,8 @@ const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fro
 if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
 else console.log("Personal Finance Snapshot reset contract: PASS");
 
-assert.equal(errors.length,0,errors.join("\n"));
+assert.equal(errors.length,0,errors.join("
+"));
 console.log("All site-integrity contracts: PASS");
 console.log("Discovery filter exclusion contract: PASS");
 console.log("Site sitemap/page parity: PASS");
