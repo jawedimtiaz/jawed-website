@@ -26,6 +26,8 @@ function triggerPaths(workflow, trigger){
 const prTriggerPaths=triggerPaths(workflow,"  pull_request:");
 const pushTriggerPaths=triggerPaths(workflow,"  push:");
 assert.deepEqual(prTriggerPaths,pushTriggerPaths,"PR and main-push readiness trigger paths must remain identical");
+assert.equal(new Set(prTriggerPaths).size,prTriggerPaths.length,"PR readiness trigger paths must be unique");
+assert.equal(new Set(pushTriggerPaths).size,pushTriggerPaths.length,"Main-push readiness trigger paths must be unique");
 assert.equal(workflow.includes("workflow_dispatch:"),true,"Manual readiness dispatch must remain available");
 assert.equal(workflow.includes("permissions:\n  contents: read"),true,"Read-only workflow permissions are required");
 assert.equal(workflow.includes("timeout-minutes: 2"),true,"Readiness workflow timeout must remain bounded");
