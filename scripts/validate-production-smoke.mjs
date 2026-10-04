@@ -76,7 +76,7 @@ async function check(item){
   }finally{clearTimeout(timer);}
 }
 
-for(const item of contract.checks) await check(item);
+for(const item of contract.checks||[]) await check(item);
 
 async function checkRedirect(item){
   const url=new URL(item.path,contract.alternate_origin);
