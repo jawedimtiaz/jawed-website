@@ -2,6 +2,7 @@
   "phase": "38N",
   "scope": "production-api-method-boundary",
   "production_origin": "https://jawed.co.in",
+  "max_redirects": 0,
   "checks": [
     {
       "path": "/api/ai",
