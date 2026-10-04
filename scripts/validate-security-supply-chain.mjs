@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 const root=process.cwd(), failures=[], workflows=path.join(root,".github","workflows");
+const read=f=>fs.readFileSync(f,"utf8"), fail=m=>failures.push(m);
 const contractPath=path.join(root,"config","security-supply-chain-contract.json");
 if(!fs.existsSync(contractPath)) throw new Error("Missing Phase 38C contract");
 const contract=JSON.parse(read(contractPath));
@@ -8,8 +9,6 @@ if(contract.phase!=="38C")failures.push("security supply-chain contract phase mu
 if(contract.status!=="active")failures.push("security supply-chain contract must remain active");
 if(contract.scope!=="repository-source-and-github-actions")failures.push("security supply-chain scope drifted");
 if(typeof contract.controls!=="object"||contract.controls===null)failures.push("security supply-chain controls must be declared");
-
-const read=f=>fs.readFileSync(f,"utf8"), fail=m=>failures.push(m);
 function walk(dir){const out=[];for(const e of fs.readdirSync(dir,{withFileTypes:true})){if([".git","node_modules"].includes(e.name))continue;const f=path.join(dir,e.name);e.isDirectory()?out.push(...walk(f)):out.push(f)}return out}
 const files=walk(root), rel=f=>path.relative(root,f).replaceAll(path.sep,"/");
 const risky=/^(?:\.env(?:\..*)?|\.dev\.vars(?:\..*)?|credentials?(?:\..*)?|secrets?(?:\..*)?|.*\.(?:pem|key|p12|pfx|jks|keystore))$/i;
