@@ -17,6 +17,7 @@ for(const route of ["/contact/","/privacy/","/ai/","/tools/"]) assert.equal(cont
 assert.deepEqual([...contract.allowed_contexts].sort(),[...placement.allowed_slot_contexts].sort());
 for(const surface of contract.excluded_surfaces) assert.equal(placement.forbidden_slot_contexts.length>0,true);
 assert.equal(inventory.status,"pre-ads-review");
+assert.deepEqual([...contract.excluded_routes].sort(),[...inventory.excluded_initial].sort(),"Ad-slot excluded routes must match the authoritative inventory boundary");
 assert.equal(css.includes(".ad-slot-boundary"),true,"Future ad-slot CSS boundary is missing");
 assert.equal(css.includes("min-height:280px"),true,"Desktop ad-slot reservation is missing");
 assert.equal(css.includes("min-height:180px"),true,"Mobile ad-slot reservation is missing");
