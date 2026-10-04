@@ -56,7 +56,7 @@ const navigationContractErrors=[];
 for(const file of publishedHtml){
   if(file==="tools/career-match-resume-review/index.html")continue;
   const html=fs.readFileSync(file,"utf8");
-  const nav=html.match(/<nav id="site-nav" class="site-nav" aria-label="Main navigation">([\\s\\S]*?)<\\/nav>/)?.[1]||"";
+  const nav=html.match(/<nav id="site-nav" class="site-nav" aria-label="Main navigation">([\s\S]*?)<\/nav>/)?.[1]||"";
   const requiredNavigationContract=
     nav.includes('<details class="nav-group"><summary>Explore</summary>')&&
     nav.includes('<a href="/topics/">Topics</a>')&&
