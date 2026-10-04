@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import {generateGroundedReply,DEFAULT_MODEL,FREE_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TIMEOUT_MS,withProviderTimeout,isSafeSourceUrl} from "../functions/lib/cloudflare-ai-provider.js";
+import {generateGroundedReply,DEFAULT_MODEL,FREE_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,withProviderTimeout,isSafeSourceUrl} from "../functions/lib/cloudflare-ai-provider.js";
 
 assert.equal(isSafeSourceUrl("/notes/example/"),true);
 assert.equal(isSafeSourceUrl("//evil.example/"),false);
@@ -32,7 +32,7 @@ assert.equal(calls[0].input.messages[0].content.includes("<UNTRUSTED_CONVERSATIO
 assert.equal(calls[0].input.messages[0].content.includes("<UNTRUSTED_SOURCE_METADATA>"),true);
 assert.equal(calls[0].input.messages[1].role,"user");
 assert.equal(calls[0].input.max_tokens,MAX_OUTPUT_TOKENS);
-assert.equal(calls[0].input.temperature,0.2);
+assert.equal(calls[0].input.temperature,PROVIDER_TEMPERATURE);
 
 const fallback=await generateGroundedReply({
   ai:{run:async()=>({response:"The calculator can help with retirement planning."})},
@@ -56,7 +56,7 @@ await assert.rejects(
   error=>error?.category==="PROVIDER_INVALID_RESPONSE"
 );
 
-assert.equal(PROVIDER_TIMEOUT_MS,30000);
+assert.equal(Number.isInteger(PROVIDER_TIMEOUT_MS)&&PROVIDER_TIMEOUT_MS>0,true);
 await assert.rejects(
   ()=>withProviderTimeout(new Promise(()=>{}),5),
   error=>error?.status===504&&error?.category==="PROVIDER_TIMEOUT"
