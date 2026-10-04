@@ -111,8 +111,14 @@ assert.equal(smokeWorkflow.includes("node scripts/validate-production-smoke.mjs"
 assert.equal(deploymentWorkflow.includes("node scripts/validate-deployment-runtime-reliability.mjs"),true,"Deployment runtime workflow contract missing");
 assert.equal((workflow.match(/docs\/adsense-activation-handoff\.md/g)||[]).length,2,"Activation handoff must trigger both PR and main-push readiness CI");
 assert.equal(aggregate.includes("Validator count:")&&aggregate.includes("AdSense readiness aggregate gate: PASS"),true,"Aggregate readiness runner is incomplete");
-assert.equal((aggregate.match(/validate-adsense-[a-z-]+\.mjs/g)||[]).length,13,"Aggregate runner must cover all 13 AdSense validators");
-assert.equal((workflow.match(/run: node scripts\/validate-adsense-(?!readiness\.mjs)[a-z-]+\.mjs/g)||[]).length,13,"CI must execute the 13 individual AdSense validators");
+const aggregateValidators=[...aggregate.matchAll(/"((?:validate-adsense-[a-z-]+)\\.mjs)"/g)].map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs").sort();
+const workflowValidators=[...workflow.matchAll(/run: node scripts\\/(validate-adsense-[a-z-]+\\.mjs)/g)].map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs").sort();
+assert.equal(aggregateValidators.length,13,"Aggregate runner must cover 13 individual AdSense validators");
+assert.equal(workflowValidators.length,13,"CI must execute 13 individual AdSense validators");
+assert.deepEqual(aggregateValidators,workflowValidators,"Aggregate runner and CI must execute the same AdSense validators");
+for(const validator of aggregateValidators){
+  assert.equal(fs.existsSync("scripts/"+validator),true,"AdSense validator file missing: "+validator);
+}
 assert.equal(workflow.includes("run: node scripts/validate-adsense-readiness.mjs"),true,"CI must execute the aggregate AdSense readiness gate");
 assert.equal((workflow.match(/docs\/adsense-activation-handoff\.md/g)||[]).length,2,"Activation handoff must appear once in each trigger");
 assert.equal(finalDoc.includes("Do not activate ad scripts, visible ad slots, `ads.txt`"),true,"Activation safeguard is missing");
