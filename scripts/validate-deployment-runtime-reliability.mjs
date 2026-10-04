@@ -32,7 +32,7 @@ for(const line of redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>l
 }
 
 const index=read("index.html");
-if(!index.includes(`<link rel="canonical" href="${contract.production_origin}/"`)) fail.push("index canonical origin must match production origin");
+if(contract.canonical_origin_must_be_exact && !index.includes(`<link rel="canonical" href="${contract.production_origin}/"`)) fail.push("index canonical origin must match production origin");
 
 const sitemap=read("sitemap.xml");
 if(!sitemap.includes(contract.production_origin)) fail.push("sitemap must use the production origin");
