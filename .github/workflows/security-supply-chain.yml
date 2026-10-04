@@ -5,31 +5,19 @@ concurrency:
 on:
   pull_request:
     paths:
+      - "**/*"
       - ".gitignore"
       - ".github/workflows/**"
       - "config/security-supply-chain-contract.json"
       - "scripts/validate-security-supply-chain.mjs"
-      - "**/*.js"
-      - "**/*.mjs"
-      - "**/*.json"
-      - "**/*.yml"
-      - "**/*.yaml"
-      - "**/*.html"
-      - "**/*.css"
   push:
     branches: [main]
     paths:
+      - "**/*"
       - ".gitignore"
       - ".github/workflows/**"
       - "config/security-supply-chain-contract.json"
       - "scripts/validate-security-supply-chain.mjs"
-      - "**/*.js"
-      - "**/*.mjs"
-      - "**/*.json"
-      - "**/*.yml"
-      - "**/*.yaml"
-      - "**/*.html"
-      - "**/*.css"
   workflow_dispatch:
 permissions:
   contents: read
