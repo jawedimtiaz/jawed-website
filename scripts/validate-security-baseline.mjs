@@ -39,7 +39,7 @@ for(const line of redirectLines){
   const parts=line.trim().split(/\s+/);
   if(parts.length<3)continue;
   const status=parts.at(-1);
-  assert.equal(["301","302","200"].includes(status),true,"Unexpected redirect status in _redirects: "+line);
+  assert.equal(["301","200"].includes(status),true,"Unexpected redirect status in _redirects: "+line);
 }
 
 assert.equal(fs.existsSync("404.html"),true,"Custom 404 boundary must remain present");
