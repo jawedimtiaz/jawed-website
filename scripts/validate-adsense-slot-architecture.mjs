@@ -12,7 +12,8 @@ assert.equal(contract.runtime_active,false);
 assert.equal(contract.slot_class,"ad-slot-boundary");
 assert.equal(contract.reservation.desktop_min_height_px,280);
 assert.equal(contract.reservation.mobile_min_height_px,180);
-assert.equal(contract.reservation.no_runtime_effect_before_activation,true);\nassert.deepEqual(contract.responsive,{breakpoint_px:760,minimum_supported_viewport_width_px:320,flow_only:true,allow_fixed_or_sticky:false,width:"100%",max_width:"100%"},"Ad-slot responsive safety contract drifted");
+assert.equal(contract.reservation.no_runtime_effect_before_activation,true);
+assert.deepEqual(contract.responsive,{breakpoint_px:760,minimum_supported_viewport_width_px:320,flow_only:true,allow_fixed_or_sticky:false,width:"100%",max_width:"100%"},"Ad-slot responsive safety contract drifted");
 for(const route of ["/contact/","/privacy/","/ai/","/tools/"]) assert.equal(contract.excluded_routes.includes(route),true);
 assert.deepEqual([...contract.allowed_contexts].sort(),[...placement.allowed_slot_contexts].sort());
 const surfaceToContext={
