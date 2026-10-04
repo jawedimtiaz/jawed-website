@@ -103,7 +103,7 @@ assert.equal(handoff.includes("CMP/consent"),true,"Activation evidence must reco
 assert.equal(handoff.includes("Final eligible/excluded route review"),true,"Activation evidence must record inventory review");
 assert.equal(handoff.includes("Pre-activation commit SHA retained"),true,"Activation evidence must retain the rollback commit");
 assert.equal(handoff.includes("Do not record publisher secrets"),true,"Activation evidence must prohibit unnecessary account credentials");
-assert.equal(handoff.includes("Google Sites status is **Ready**"),true,"Activation entry gate is missing");
+assert.equal(handoff.includes("AdSense Sites status is **Ready**"),true,"Activation entry gate is missing");
 assert.equal(handoff.includes("site-integrity"),true,"Activation handoff must require site-integrity verification");
 assert.equal(handoff.includes("production security"),true,"Activation handoff must require production security verification");
 assert.equal(handoff.includes("production smoke"),true,"Activation handoff must require production smoke verification");
