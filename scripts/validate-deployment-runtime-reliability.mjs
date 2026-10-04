@@ -5,6 +5,14 @@ const root=process.cwd();
 const read=p=>fs.readFileSync(path.join(root,p),"utf8");
 const contract=JSON.parse(read("config/deployment-runtime-contract.json"));
 const fail=[];
+if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) fail.push("production_origin must be HTTPS");
+if(typeof contract.alternate_origin!=="string"||!/^https:\/\//.test(contract.alternate_origin)) fail.push("alternate_origin must be HTTPS");
+if(typeof contract.functions_directory!=="string"||!contract.functions_directory.trim()) fail.push("functions_directory must be non-empty");
+if(!Array.isArray(contract.required_runtime_files)||contract.required_runtime_files.length<1) fail.push("required_runtime_files must contain at least one file");
+if(!Array.isArray(contract.api_routes)||contract.api_routes.some(route=>typeof route!=="string"||!route.startsWith("/"))) fail.push("api_routes must contain absolute paths");
+if(!Array.isArray(contract.required_security_headers)||contract.required_security_headers.length<1) fail.push("required_security_headers must be non-empty");
+if(typeof contract.required_route_configuration!=="object"||contract.required_route_configuration===null) fail.push("required_route_configuration must be declared");
+
 
 const exists=p=>fs.existsSync(path.join(root,p));
 for(const p of contract.required_runtime_files){
