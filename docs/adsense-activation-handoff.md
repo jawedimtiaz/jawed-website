@@ -27,7 +27,7 @@ If any entry condition fails, remain pre-activation.
 5. Add only the CSP sources required by the actual Google implementation.
 6. Add the exact `ads.txt` record when required by the account/integration.
 7. Run all AdSense readiness validators.
-8. Run site-integrity and security validators.
+8. Run site-integrity, production security, and deployment runtime validators.
 9. Deploy.
 10. Run production smoke and inspect ad/CMP network behavior.
 11. Confirm publisher content, navigation, AI, and tools remain functional.
