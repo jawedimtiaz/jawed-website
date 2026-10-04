@@ -2,6 +2,7 @@
   "phase": "38Q",
   "scope": "production-media-asset-reliability",
   "production_origin": "https://jawed.co.in",
+  "max_redirects": 0,
   "max_body_bytes": 5000000,
   "checks": [
     {
