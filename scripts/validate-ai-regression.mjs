@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import {execFileSync} from "node:child_process";
 import fs from "node:fs";
+import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
 
 const VALIDATOR_TIMEOUT_MS=15_000;
 const checks=[
@@ -95,7 +96,7 @@ const contracts=[
   ["server message-count boundary",/MAX_MESSAGES=\\d+/.test(endpoint)],
   ["server message-length boundary",/MAX_MESSAGE_CHARS=\\d+/.test(endpoint)],
   ["same-site origin boundary",endpoint.includes("https://jawed.co.in")],
-  ["rate-limit boundary",rateLimit.includes("MAX_REQUESTS=8")&&rateLimit.includes("WINDOW_MS=60_000")],
+  ["rate-limit boundary",rateLimit.includes("MAX_REQUESTS="+MAX_REQUESTS)&&rateLimit.includes("WINDOW_MS="+WINDOW_MS)],
   ["server-side Workers AI binding",endpoint.includes("env.AI")&&provider.includes("ai.run")],
   ["fixed free-tier model boundary",endpoint.includes("model:DEFAULT_MODEL")&&!endpoint.includes("AI_PROVIDER_MODEL")&&provider.includes("FREE_MODEL=DEFAULT_MODEL")],
   ["safe Workers AI failure classification",provider.includes("PROVIDER_HTTP_")&&provider.includes("PROVIDER_UNKNOWN")&&provider.includes("PROVIDER_ATTRIBUTION")&&providerCommon.includes("PROVIDER_RESPONSE_VALIDATION")],
