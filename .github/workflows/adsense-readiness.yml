@@ -34,7 +34,6 @@ on:
       - "docs/adsense-activation-contract.md"
       - "docs/adsense-activation-handoff.md"
       - "config/adsense-inventory.json"
-      - "docs/adsense-activation-handoff.md"
       - ".github/workflows/adsense-readiness.yml"
   push:
     branches:
@@ -127,3 +126,6 @@ jobs:
 
       - name: Run AdSense pre-activation guard
         run: node scripts/validate-adsense-preactivation.mjs
+
+      - name: Run aggregate AdSense readiness gate
+        run: node scripts/validate-adsense-readiness.mjs
