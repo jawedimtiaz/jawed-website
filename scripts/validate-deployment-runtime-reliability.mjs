@@ -8,9 +8,9 @@ const fail=[];
 if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) fail.push("production_origin must be HTTPS");
 if(typeof contract.alternate_origin!=="string"||!/^https:\/\//.test(contract.alternate_origin)) fail.push("alternate_origin must be HTTPS");
 if(typeof contract.functions_directory!=="string"||!contract.functions_directory.trim()) fail.push("functions_directory must be non-empty");
-if(!Array.isArray(contract.required_runtime_files)||contract.required_runtime_files.length<1) fail.push("required_runtime_files must contain at least one file");
+if(!Array.isArray(contract.required_runtime_files)||contract.required_runtime_files.length<1||contract.required_runtime_files.some(file=>typeof file!=="string"||!file.trim()||path.isAbsolute(file)||file.split("/").includes(".."))) fail.push("required_runtime_files must contain safe relative file paths");
 if(!Array.isArray(contract.api_routes)||contract.api_routes.some(route=>typeof route!=="string"||!route.startsWith("/"))) fail.push("api_routes must contain absolute paths");
-if(!Array.isArray(contract.required_security_headers)||contract.required_security_headers.length<1) fail.push("required_security_headers must be non-empty");
+if(!Array.isArray(contract.required_security_headers)||contract.required_security_headers.length<1||contract.required_security_headers.some(header=>typeof header!=="string"||!header.trim())) fail.push("required_security_headers must contain non-empty strings");
 if(typeof contract.required_route_configuration!=="object"||contract.required_route_configuration===null) fail.push("required_route_configuration must be declared");
 
 
@@ -32,7 +32,7 @@ if(JSON.stringify(routes.include)!==JSON.stringify(routeContract.include)) fail.
 if(JSON.stringify(routes.exclude||[])!==JSON.stringify(routeContract.exclude||[])) fail.push("_routes.json exclude rules drifted from deployment contract");
 for(const apiRoute of (contract.api_routes||[])) if(!(routes.include||[]).some(rule=>rule==="/*"||rule===apiRoute||rule===apiRoute+"/*"||rule.endsWith("*")&&apiRoute.startsWith(rule.slice(0,-1)))) fail.push(`declared API route is not covered by _routes.json include rules: ${apiRoute}`);
 
-if(!Array.isArray(contract.allowed_redirect_statuses)||!contract.allowed_redirect_statuses.every(Number.isInteger)) fail.push("deployment redirect status policy must be an integer array");
+if(!Array.isArray(contract.allowed_redirect_statuses)||contract.allowed_redirect_statuses.length<1||!contract.allowed_redirect_statuses.every(status=>Number.isInteger(status)&&status>=100&&status<=599)) fail.push("deployment redirect status policy must be a non-empty valid HTTP status array");
 const redirects=read("_redirects");
 for(const line of redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
   const parts=line.trim().split(/\s+/);
