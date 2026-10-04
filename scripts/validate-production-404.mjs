@@ -1,6 +1,9 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-404-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
+if(typeof contract.path!=="string"||!contract.path.startsWith("/")) failures.push("404 path must be absolute");
+if(!Number.isInteger(contract.expected_status)||contract.expected_status<100||contract.expected_status>599) failures.push("404 expected_status must be valid");
+if(!Array.isArray(contract.required_markers)||contract.required_markers.length<1) failures.push("404 required_markers must be non-empty");
 async function readBoundedText(response,maxBytes){
  const declared=Number(response.headers.get("content-length"));
  if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared body limit");
