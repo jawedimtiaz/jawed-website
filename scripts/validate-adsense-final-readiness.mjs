@@ -55,6 +55,15 @@ for(const path of criticalTriggerPaths){
 assert.equal(finalDoc.includes("Status: **pre-activation / externally blocked**"),true,"Final status must remain pre-activation");
 assert.equal(finalDoc.includes("production ad-serving configuration")&&finalDoc.includes("final CMP/consent configuration"),true,"External activation dependency is missing");
 assert.equal(handoff.includes("Immediate rollback conditions"),true,"Activation rollback safeguard is missing");
+assert.equal(handoff.includes("Exact status observed at activation"),true,"Activation evidence must record the observed Google status");
+assert.equal(handoff.includes("Full Git commit SHA"),true,"Activation evidence must record the activation commit");
+assert.equal(handoff.includes("Aggregate validator result"),true,"Activation evidence must record aggregate validator results");
+assert.equal(handoff.includes("Production smoke"),true,"Activation evidence must record production smoke results");
+assert.equal(handoff.includes("Final CSP diff"),true,"Activation evidence must record the final CSP review");
+assert.equal(handoff.includes("CMP/consent"),true,"Activation evidence must record consent behavior");
+assert.equal(handoff.includes("Final eligible/excluded route review"),true,"Activation evidence must record inventory review");
+assert.equal(handoff.includes("Pre-activation commit SHA retained"),true,"Activation evidence must retain the rollback commit");
+assert.equal(handoff.includes("Do not record publisher secrets"),true,"Activation evidence must prohibit unnecessary account credentials");
 assert.equal(handoff.includes("Google Sites status is **Ready**"),true,"Activation entry gate is missing");
 assert.equal(handoff.includes("site-integrity"),true,"Activation handoff must require site-integrity verification");
 assert.equal(handoff.includes("production security"),true,"Activation handoff must require production security verification");
