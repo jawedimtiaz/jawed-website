@@ -32,6 +32,7 @@ assert.equal(workflow.includes("timeout-minutes: 2"),true,"Readiness workflow ti
 assert.equal(workflow.includes("cancel-in-progress: true"),true,"Readiness workflow concurrency cancellation must remain enabled");
 
 const criticalTriggerPaths=[
+  "ads.txt",
   "sitemap.xml",
   "privacy/index.html",
   "assets/css/style.css",
