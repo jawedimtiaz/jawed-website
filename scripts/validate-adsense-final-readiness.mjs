@@ -37,6 +37,7 @@ const dynamicScanTriggerPaths=[
   "**/*.html","**/*.css","assets/js/**",
   "about/**","work/**","notes/**","blog/**","topics/**","resources/**","tools/**","ai/**","assets/**","functions/**","privacy/**"
 ];
+assert.equal(new Set(dynamicScanTriggerPaths).size,dynamicScanTriggerPaths.length,"Dynamic source-scan trigger contract must contain unique paths");
 for(const path of dynamicScanTriggerPaths){
   assert.equal(prTriggerPaths.includes(path),true,"Dynamic source-scan path must trigger PR CI: "+path);
   assert.equal(pushTriggerPaths.includes(path),true,"Dynamic source-scan path must trigger main-push CI: "+path);
