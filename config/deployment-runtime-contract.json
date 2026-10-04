@@ -1,15 +1,41 @@
 {
-  "phase": "38D",
-  "scope": "deployment-runtime-reliability",
+  "phase": "39C",
+  "scope": "deployment-runtime-and-security-baseline-reliability",
   "production_origin": "https://jawed.co.in",
   "alternate_origin": "https://www.jawed.co.in",
   "deployment_model": "cloudflare-pages",
   "build_command": null,
   "build_output_directory": ".",
   "functions_directory": "functions",
-  "required_runtime_files": ["_headers", "_redirects", "_routes.json", "404.html", "sitemap.xml", "index.html"],
-  "api_routes": ["/api/ai"],
+  "required_runtime_files": [
+    "_headers",
+    "_redirects",
+    "_routes.json",
+    "404.html",
+    "sitemap.xml",
+    "index.html"
+  ],
+  "api_routes": [
+    "/api/ai"
+  ],
   "canonical_origin_must_be_exact": true,
   "no_package_manifest_required": true,
-  "external_deployment_provider": "Cloudflare Pages"
+  "external_deployment_provider": "Cloudflare Pages",
+  "required_security_headers": [
+    "X-Frame-Options: DENY",
+    "Cross-Origin-Opener-Policy: same-origin",
+    "X-Content-Type-Options: nosniff",
+    "X-Permitted-Cross-Domain-Policies: none",
+    "Referrer-Policy: strict-origin-when-cross-origin",
+    "Permissions-Policy: geolocation=(), microphone=(), camera=()",
+    "Strict-Transport-Security: max-age=31536000",
+    "Content-Security-Policy:"
+  ],
+  "required_route_configuration": {
+    "version": 1,
+    "include": [
+      "/api/*"
+    ],
+    "exclude": []
+  }
 }
