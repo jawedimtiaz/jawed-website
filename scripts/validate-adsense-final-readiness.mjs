@@ -8,9 +8,13 @@ const inventory=JSON.parse(fs.readFileSync("config/adsense-inventory.json","utf8
 const placement=JSON.parse(fs.readFileSync("config/adsense-placement-policy.json","utf8"));
 const headers=fs.readFileSync("_headers","utf8");
 const workflow=fs.readFileSync(".github/workflows/adsense-readiness.yml","utf8");
+const handoff=fs.readFileSync("docs/adsense-activation-handoff.md","utf8");
 
 assert.equal(finalDoc.includes("Status: **pre-activation / externally blocked**"),true,"Final status must remain pre-activation");
-assert.equal(finalDoc.includes("real Google publisher account, publisher ID and final CMP/consent configuration"),true,"External activation dependency is missing");
+assert.equal(finalDoc.includes("production ad-serving configuration")&&finalDoc.includes("final CMP/consent configuration"),true,"External activation dependency is missing");
+assert.equal(handoff.includes("Immediate rollback conditions"),true,"Activation rollback safeguard is missing");
+assert.equal(handoff.includes("Google Sites status is **Ready**"),true,"Activation entry gate is missing");
+assert.equal(workflow.includes("docs/adsense-activation-handoff.md"),true,"Activation handoff must trigger readiness CI");
 assert.equal(finalDoc.includes("Do not activate ad scripts, visible ad slots, `ads.txt`"),true,"Activation safeguard is missing");
 assert.equal(privacy.includes("<h2>Advertising and AdSense</h2>"),true,"AdSense privacy foundation is missing");
 assert.equal(inventory.status,"pre-ads-review","Inventory must remain pre-activation");
