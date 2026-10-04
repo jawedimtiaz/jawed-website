@@ -18,6 +18,7 @@ const routeContract=contract.required_route_configuration||{};
 if(routes.version!==routeContract.version) fail.push("_routes.json version drifted from deployment contract");
 if(JSON.stringify(routes.include)!==JSON.stringify(routeContract.include)) fail.push("_routes.json include rules drifted from deployment contract");
 if(JSON.stringify(routes.exclude||[])!==JSON.stringify(routeContract.exclude||[])) fail.push("_routes.json exclude rules drifted from deployment contract");
+for(const apiRoute of (contract.api_routes||[])) if(!(routes.include||[]).some(rule=>rule==="/*"||rule===apiRoute||rule===apiRoute+"/*"||rule.endsWith("*")&&apiRoute.startsWith(rule.slice(0,-1)))) fail.push(`declared API route is not covered by _routes.json include rules: ${apiRoute}`);
 
 const redirects=read("_redirects");
 for(const line of redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
