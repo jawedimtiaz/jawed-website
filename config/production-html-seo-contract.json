@@ -2,6 +2,7 @@
   "phase": "39E",
   "scope": "production-html-seo-reliability",
   "production_origin": "https://jawed.co.in",
+  "max_redirects": 0,
   "checks": [
     {
       "path": "/",
