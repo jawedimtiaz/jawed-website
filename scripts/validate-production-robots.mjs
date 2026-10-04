@@ -1,13 +1,21 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-robots-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
+async function readBoundedText(response,maxBytes){
+ const declared=Number(response.headers.get("content-length"));
+ if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared body limit");
+ if(!response.body){const text=await response.text();if(Buffer.byteLength(text)>maxBytes)throw new Error("response exceeds body limit");return text;}
+ const reader=response.body.getReader(),chunks=[];let total=0;
+ try{while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>maxBytes){await reader.cancel();throw new Error("response exceeds body limit");}chunks.push(value);}}finally{reader.releaseLock();}
+ return new TextDecoder().decode(Buffer.concat(chunks.map(chunk=>Buffer.from(chunk))));
+}
 if(contract.max_redirects!==0) failures.push("production checks must not follow redirects");
 for(const item of contract.checks){
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-robots/39E"}});
   const type=(response.headers.get("content-type")||"").toLowerCase();
-  const body=await response.text();
+  const body=await readBoundedText(response,contract.max_body_bytes);
   if(response.status!==item.status) failures.push(`${item.path}: expected HTTP ${item.status}, got ${response.status}`);
   if(!type.startsWith(item.content_type)) failures.push(`${item.path}: expected content type ${item.content_type}, got ${type||"missing"}`);
   if(response.status>=300&&response.status<400) failures.push(`${item.path}: unexpected redirect`);
