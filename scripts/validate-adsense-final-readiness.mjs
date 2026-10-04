@@ -111,8 +111,8 @@ assert.equal(smokeWorkflow.includes("node scripts/validate-production-smoke.mjs"
 assert.equal(deploymentWorkflow.includes("node scripts/validate-deployment-runtime-reliability.mjs"),true,"Deployment runtime workflow contract missing");
 assert.equal((workflow.match(/docs\/adsense-activation-handoff\.md/g)||[]).length,2,"Activation handoff must trigger both PR and main-push readiness CI");
 assert.equal(aggregate.includes("Validator count:")&&aggregate.includes("AdSense readiness aggregate gate: PASS"),true,"Aggregate readiness runner is incomplete");
-const aggregateValidators=[...aggregate.matchAll(/"((?:validate-adsense-[a-z-]+)\\.mjs)"/g)].map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs").sort();
-const workflowValidators=[...workflow.matchAll(/run: node scripts\\/(validate-adsense-[a-z-]+\\.mjs)/g)].map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs").sort();
+const aggregateValidators=[...aggregate.matchAll(/"((?:validate-adsense-[a-z-]+)\.mjs)"/g)].map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs").sort();
+const workflowValidators=[...workflow.matchAll(/run: node scripts\/(validate-adsense-[a-z-]+\.mjs)/g)].map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs").sort();
 assert.equal(aggregateValidators.length,13,"Aggregate runner must cover 13 individual AdSense validators");
 assert.equal(workflowValidators.length,13,"CI must execute 13 individual AdSense validators");
 assert.deepEqual(aggregateValidators,workflowValidators,"Aggregate runner and CI must execute the same AdSense validators");
