@@ -9,7 +9,8 @@ for(const item of contract.checks){\n const local=configuredMap.get(item.path);
 }
 const contractedPaths=new Set(contract.checks.map(item=>item.path));
 for(const item of configured) if(!contractedPaths.has(item.path)) failures.push(item.path+": _redirects entry missing from legacy redirect contract");
-\nfor(const item of contract.checks){
+
+for(const item of contract.checks){
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-redirect/39I"}});
