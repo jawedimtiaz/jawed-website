@@ -17,7 +17,8 @@ walk(".");
 
 assert.equal(contract.status,"pre-activation");
 assert.equal(contract.cmp_runtime_active,false);
-assert.equal(contract.personalized_ads_allowed,false);\nassert.deepEqual(contract.activation_dependencies,["AdSense reports Ready","real publisher account configuration is supplied","Google-certified CMP configuration is supplied where required","privacy policy matches the enabled advertising mode","eligible inventory and placement checks pass"],"Consent activation dependency contract drifted");
+assert.equal(contract.personalized_ads_allowed,false);
+assert.deepEqual(contract.activation_dependencies,["AdSense reports Ready","real publisher account configuration is supplied","Google-certified CMP configuration is supplied where required","privacy policy matches the enabled advertising mode","eligible inventory and placement checks pass"],"Consent activation dependency contract drifted");
 assert.equal(contract.rendering.cmp_must_not_block_initial_publisher_content,true);
 assert.equal(contract.rendering.ad_requests_must_wait_for_required_consent,true);
 assert.equal(contract.rendering.no_global_cmp_runtime_injection_before_activation,true);
