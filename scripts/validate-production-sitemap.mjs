@@ -4,7 +4,7 @@ const failures=[],timeoutMs=10000;
 const url=new URL(contract.sitemap_path,contract.production_origin);
 const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
 try{
- const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"accept":"application/xml,text/xml","user-agent":"jawed-production-sitemap/38L"}});
+ const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"accept":"application/xml,text/xml","user-agent":"jawed-production-sitemap/39E"}});
  const type=(response.headers.get("content-type")||"").toLowerCase();
  const body=await response.text();
  if(response.status!==200) failures.push(`sitemap: expected HTTP 200, got ${response.status}`);
@@ -30,4 +30,4 @@ finally{clearTimeout(timer)}
 if(failures.length){console.error("Production Sitemap Integrity Gate FAILED");for(const failure of failures)console.error("- "+failure);process.exit(1)}
 console.log("Production Sitemap Integrity Gate PASSED");
 console.log(`Canonical origin: ${contract.canonical_origin}`);
-console.log(`URLs checked: ${[...new Set([])].length || "runtime parsed"}`);
+console.log(`URLs checked: ${locs.length}`);
