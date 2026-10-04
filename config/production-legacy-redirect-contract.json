@@ -1,5 +1,5 @@
 {
-  "phase": "38I",
+  "phase": "39B",
   "scope": "production-legacy-redirect-reliability",
   "production_origin": "https://jawed.co.in",
   "max_redirects": 0,
@@ -7,42 +7,110 @@
     {
       "path": "/index.html",
       "expected_status": 301,
-      "location": "/"
+      "location": "/",
+      "max_redirects": 0
     },
     {
       "path": "/About_Me.html",
       "expected_status": 301,
-      "location": "/about/"
+      "location": "/about/",
+      "max_redirects": 0
     },
     {
       "path": "/Feedback.html",
       "expected_status": 301,
-      "location": "/contact/"
+      "location": "/contact/",
+      "max_redirects": 0
     },
     {
       "path": "/Disclaimer.html",
       "expected_status": 301,
-      "location": "/privacy/"
+      "location": "/privacy/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Disclaimer_Contd.html",
+      "expected_status": 301,
+      "location": "/privacy/",
+      "max_redirects": 0
     },
     {
       "path": "/Resources.html",
       "expected_status": 301,
-      "location": "/resources/"
+      "location": "/resources/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Resources2.html",
+      "expected_status": 301,
+      "location": "/resources/",
+      "max_redirects": 0
     },
     {
       "path": "/MCSE.html",
       "expected_status": 301,
-      "location": "/work/skills/"
+      "location": "/work/skills/",
+      "max_redirects": 0
     },
     {
-      "path": "/Interview.html",
+      "path": "/CCNA.html",
       "expected_status": 301,
-      "location": "/work/experience/"
+      "location": "/work/skills/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Software.html",
+      "expected_status": 301,
+      "location": "/resources/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Horoscope.html",
+      "expected_status": 301,
+      "location": "/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Games.html",
+      "expected_status": 301,
+      "location": "/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Jokes.html",
+      "expected_status": 301,
+      "location": "/",
+      "max_redirects": 0
     },
     {
       "path": "/Excel.html",
       "expected_status": 301,
-      "location": "/tools/"
+      "location": "/tools/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/SMS.html",
+      "expected_status": 301,
+      "location": "/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Interview.html",
+      "expected_status": 301,
+      "location": "/work/experience/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Quotes.html",
+      "expected_status": 301,
+      "location": "/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Gallery.html",
+      "expected_status": 301,
+      "location": "/",
+      "max_redirects": 0
     }
   ]
 }
