@@ -3,7 +3,8 @@ import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-smoke-contract.json","utf8"));
 const failures=[];
 const timeoutMs=10000;
-if(contract.max_redirects!==0) failures.push("production smoke checks must not follow redirects");\nfor(const item of (contract.redirect_checks||[])) if(item.max_redirects!==0) failures.push(`${item.path}: canonical redirect check must not follow redirects`);
+if(contract.max_redirects!==0) failures.push("production smoke checks must not follow redirects");
+for(const item of (contract.redirect_checks||[])) if(item.max_redirects!==0) failures.push(`${item.path}: canonical redirect check must not follow redirects`);
 
 async function check(item){
   const url=new URL(item.path,contract.production_origin);
