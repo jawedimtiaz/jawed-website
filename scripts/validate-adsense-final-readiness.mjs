@@ -83,7 +83,7 @@ for(const validatorFile of validatorFiles){
   assert.equal(pushTriggerPaths.includes(validatorFile),true,"Validator file must trigger main-push CI: "+validatorFile);
   const validatorSource=fs.readFileSync(validatorFile,"utf8");
   const dependencies=[...validatorSource.matchAll(/(?:readFileSync|existsSync)\(["']([^"']+)["']/g)]
-    .map(match=>match[1]).filter(path=>!path.startsWith("/")&&!path.startsWith("node:"));
+    .map(match=>match[1]).filter(path=>!path.startsWith("/")&&!path.startsWith("node:")&&!path.endsWith("/"));
   for(const dependency of dependencies){
     assert.equal(prTriggerPaths.includes(dependency),true,"Validator dependency must trigger PR CI: "+validatorFile+" -> "+dependency);
     assert.equal(pushTriggerPaths.includes(dependency),true,"Validator dependency must trigger main-push CI: "+validatorFile+" -> "+dependency);
