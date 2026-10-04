@@ -1,5 +1,5 @@
 {
-  "phase": "38H",
+  "phase": "39F",
   "scope": "production-security-header-monitoring",
   "production_origin": "https://jawed.co.in",
   "checks": [
@@ -58,7 +58,7 @@
       ]
     },
     {
-      "path": "/missing-phase-38h-security-header-test",
+      "path": "/missing-phase-39f-security-header-test",
       "required_headers": [
         {
           "name": "strict-transport-security",
