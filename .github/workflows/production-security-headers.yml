@@ -9,6 +9,13 @@ on:
       - "scripts/validate-production-security-headers.mjs"
       - ".github/workflows/production-security-headers.yml"
       - "_headers"
+  push:
+    branches: [main]
+    paths:
+      - "config/production-security-header-contract.json"
+      - "scripts/validate-production-security-headers.mjs"
+      - ".github/workflows/production-security-headers.yml"
+      - "_headers"
   workflow_dispatch:
   schedule:
     - cron: "47 */6 * * *"
