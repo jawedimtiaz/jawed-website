@@ -2,6 +2,7 @@ import {MAX_OUTPUT_TOKENS,MAX_REPLY_CHARS,isSafeSourceUrl,sanitizeMarkdownLinks,
 
 const DEFAULT_MODEL="@cf/meta/llama-3.2-1b-instruct";
 const PROVIDER_TIMEOUT_MS=30000;
+const PROVIDER_TEMPERATURE=0.2;
 const FREE_MODEL=DEFAULT_MODEL;
 
 function normalizeProviderError(error){
@@ -44,7 +45,7 @@ export async function generateGroundedReply({ai,model,input,sources}){
         {role:"user",content:"Answer the final USER MESSAGE using the supplied conversation context and Jawed.co.in source context."}
       ],
       max_tokens:MAX_OUTPUT_TOKENS,
-      temperature:0.2
+      temperature:PROVIDER_TEMPERATURE
     }));
   }catch(error){
     if(error?.category==="PROVIDER_TIMEOUT")throw error;
@@ -62,4 +63,4 @@ export async function generateGroundedReply({ai,model,input,sources}){
   return {reply:attributedReply,model:FREE_MODEL};
 }
 
-export {DEFAULT_MODEL,FREE_MODEL,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,withProviderTimeout,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions};
+export {DEFAULT_MODEL,FREE_MODEL,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,withProviderTimeout,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions};
