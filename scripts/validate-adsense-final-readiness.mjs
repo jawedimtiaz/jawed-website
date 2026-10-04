@@ -14,7 +14,7 @@ assert.equal(finalDoc.includes("Status: **pre-activation / externally blocked**"
 assert.equal(finalDoc.includes("production ad-serving configuration")&&finalDoc.includes("final CMP/consent configuration"),true,"External activation dependency is missing");
 assert.equal(handoff.includes("Immediate rollback conditions"),true,"Activation rollback safeguard is missing");
 assert.equal(handoff.includes("Google Sites status is **Ready**"),true,"Activation entry gate is missing");
-assert.equal(workflow.includes("docs/adsense-activation-handoff.md"),true,"Activation handoff must trigger readiness CI");
+assert.equal((workflow.match(/docs\/adsense-activation-handoff\.md/g)||[]).length,2,"Activation handoff must trigger both PR and main-push readiness CI");
 assert.equal(finalDoc.includes("Do not activate ad scripts, visible ad slots, `ads.txt`"),true,"Activation safeguard is missing");
 assert.equal(privacy.includes("<h2>Advertising and AdSense</h2>"),true,"AdSense privacy foundation is missing");
 assert.equal(inventory.status,"pre-ads-review","Inventory must remain pre-activation");
