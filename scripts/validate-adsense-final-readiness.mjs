@@ -10,7 +10,27 @@ const headers=fs.readFileSync("_headers","utf8");
 const workflow=fs.readFileSync(".github/workflows/adsense-readiness.yml","utf8");
 const handoff=fs.readFileSync("docs/adsense-activation-handoff.md","utf8");
 const aggregate=fs.readFileSync("scripts/validate-adsense-readiness.mjs","utf8");
+const criticalTriggerPaths=[
+  "sitemap.xml",
+  "privacy/index.html",
+  "assets/css/style.css",
+  "_headers",
+  "config/performance-budget.json",
+  "config/adsense-inventory.json",
+  "config/adsense-slot-contract.json",
+  "config/adsense-consent-contract.json",
+  "config/adsense-performance-safeguards.json",
+  "config/adsense-final-performance-gate.json",
+  "docs/adsense-content-readiness.md",
+  "docs/adsense-technical-activation.md",
+  "docs/adsense-activation-contract.md",
+  "docs/adsense-activation-handoff.md"
+];
 
+for(const path of criticalTriggerPaths){
+  const occurrences=workflow.split(path).length-1;
+  assert.equal(occurrences>=2,true,"Critical readiness path must trigger both PR and push CI: "+path);
+}
 assert.equal(finalDoc.includes("Status: **pre-activation / externally blocked**"),true,"Final status must remain pre-activation");
 assert.equal(finalDoc.includes("production ad-serving configuration")&&finalDoc.includes("final CMP/consent configuration"),true,"External activation dependency is missing");
 assert.equal(handoff.includes("Immediate rollback conditions"),true,"Activation rollback safeguard is missing");
