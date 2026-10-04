@@ -96,6 +96,6 @@ assert.equal(fs.existsSync("scripts/validate-adsense-placement-policy.mjs"),true
 assert.equal(fs.existsSync("scripts/validate-adsense-technical.mjs"),true,"Technical validator missing");
 
 console.log("AdSense final readiness validation: PASS");
-console.log("Repository readiness control families: 11");
+console.log("Repository readiness validator count: "+((aggregate.match(/validate-adsense-[a-z-]+\\.mjs/g)||[]).length));
 console.log("External account activation required: yes");
 console.log("AdSense runtime enabled: no");
