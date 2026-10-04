@@ -23,7 +23,9 @@ assert.equal(contract.loading.consent_state_must_precede_required_ad_requests,tr
 assert.equal(contract.network.speculative_ad_hosts_allowed,false);
 assert.equal(contract.network.speculative_ad_requests_allowed,false);
 assert.equal(contract.network.ad_runtime_retry_loop_allowed,false);
+assert.equal(contract.network.page_reload_on_ad_failure_allowed,false);
 assert.equal(contract.failure_behavior.publisher_content_must_remain_available,true);
+assert.equal(contract.failure_behavior.navigation_or_tool_functionality_must_depend_on_ads,false);
 assert.equal(contract.failure_behavior.layout_shift_from_ad_failure_allowed,false);
 assert.equal(budget.ad_runtime_active,false);
 assert.equal(technical.includes("Do not add guessed Google ad domains to CSP."),true);
