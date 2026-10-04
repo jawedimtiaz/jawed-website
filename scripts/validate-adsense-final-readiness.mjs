@@ -59,6 +59,35 @@ for(const path of criticalTriggerPaths){
   assert.equal(prTriggerPaths.includes(path),true,"Critical readiness path must trigger PR CI: "+path);
   assert.equal(pushTriggerPaths.includes(path),true,"Critical readiness path must trigger main-push CI: "+path);
 }
+
+const validatorFiles=[
+  "scripts/validate-adsense-privacy.mjs",
+  "scripts/validate-adsense-inventory.mjs",
+  "scripts/validate-adsense-activation.mjs",
+  "scripts/validate-adsense-content-readiness.mjs",
+  "scripts/validate-adsense-placement-policy.mjs",
+  "scripts/validate-adsense-technical.mjs",
+  "scripts/validate-adsense-slot-architecture.mjs",
+  "scripts/validate-adsense-mobile-readiness.mjs",
+  "scripts/validate-adsense-consent-performance.mjs",
+  "scripts/validate-adsense-performance-safeguards.mjs",
+  "scripts/validate-adsense-final-performance-gate.mjs",
+  "scripts/validate-adsense-final-readiness.mjs",
+  "scripts/validate-adsense-preactivation.mjs"
+];
+
+for(const validatorFile of validatorFiles){
+  const validatorSource=fs.readFileSync(validatorFile,"utf8");
+  const dependencies=[...validatorSource.matchAll(/(?:readFileSync|existsSync)\\(["']([^"']+)["']/g)]
+    .map(match=>match[1])
+    .filter(path=>!path.startsWith("/")&&!path.startsWith("node:"));
+  for(const dependency of dependencies){
+    assert.equal(prTriggerPaths.includes(dependency),true,
+      "Validator dependency must trigger PR CI: "+validatorFile+" -> "+dependency);
+    assert.equal(pushTriggerPaths.includes(dependency),true,
+      "Validator dependency must trigger main-push CI: "+validatorFile+" -> "+dependency);
+  }
+}
 assert.equal(finalDoc.includes("Status: **pre-activation / externally blocked**"),true,"Final status must remain pre-activation");
 assert.equal(finalDoc.includes("production ad-serving configuration")&&finalDoc.includes("final CMP/consent configuration"),true,"External activation dependency is missing");
 assert.equal(handoff.includes("Immediate rollback conditions"),true,"Activation rollback safeguard is missing");
