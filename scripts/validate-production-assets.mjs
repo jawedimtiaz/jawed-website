@@ -20,6 +20,7 @@ async function readBoundedBytes(response,maxBytes){
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-asset-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
+if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) failures.push("production asset origin must be HTTPS");
 if(contract.max_redirects!==0) failures.push("production asset checks must not follow redirects");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production asset contract must contain at least one check");
 for(const item of contract.checks||[]){
@@ -30,7 +31,7 @@ for(const item of contract.checks||[]){
  if(Number.isInteger(item.min_body_bytes)&&Number.isInteger(contract.max_body_bytes)&&item.min_body_bytes>contract.max_body_bytes) failures.push(item.path+": min_body_bytes cannot exceed max_body_bytes");
 }
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production asset contract max_body_bytes must be a positive integer");
-for(const item of contract.checks){
+for(const item of contract.checks||[]){
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-assets/38P"}});
