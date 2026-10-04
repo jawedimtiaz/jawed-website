@@ -1,7 +1,7 @@
 {
   "version": 1,
   "status": "baseline",
-  "phase": "37A",
+  "phase": "39G",
   "ad_runtime_active": false,
   "budgets": {
     "lcp": {"target_ms": 2500, "scope": "field-or-lab measurement after baseline capture"},
