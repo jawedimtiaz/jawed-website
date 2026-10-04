@@ -2,6 +2,17 @@ import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-ai-post-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
 if(contract.max_redirects!==0) failures.push("production AI POST checks must not follow redirects");
+if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production AI POST contract must contain at least one check");
+for(const item of contract.checks||[]){
+ if(typeof item.path!=="string"||!item.path.startsWith("/")) failures.push("AI POST path must be an absolute site path");
+ if(item.method!=="POST") failures.push(item.path+": production AI POST contract must use POST");
+ if(typeof item.origin!=="string"||!/^https:\/\//.test(item.origin)) failures.push(item.path+": origin must be HTTPS");
+ if(typeof item.content_type!=="string"||item.content_type!=="application/json") failures.push(item.path+": content_type must be application/json");
+ if(!Number.isInteger(item.expected_status)||item.expected_status<100||item.expected_status>599) failures.push(item.path+": expected_status must be a valid HTTP status");
+ if(typeof item.expected_code!=="string"||!item.expected_code.trim()) failures.push(item.path+": expected_code must be non-empty");
+ if(!Number.isInteger(item.max_body_bytes)||item.max_body_bytes<=0) failures.push(item.path+": max_body_bytes must be a positive integer");
+ if(!Array.isArray(item.required_headers)||item.required_headers.length<1) failures.push(item.path+": required_headers must contain at least one header");
+}
 
 function readBoundedText(response,maxBytes){
  return (async()=>{
