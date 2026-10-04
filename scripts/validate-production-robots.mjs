@@ -1,6 +1,7 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-robots-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
+if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) failures.push("production robots origin must be HTTPS");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("robots contract must contain at least one check");
 for(const item of contract.checks||[]){if(typeof item.path!=="string"||!item.path.startsWith("/")) failures.push("robots path must be absolute");if(!Number.isInteger(item.status)||item.status<100||item.status>599) failures.push(`${item.path}: status must be valid`);if(typeof item.content_type!=="string"||!item.content_type.trim()) failures.push(`${item.path}: content_type must be non-empty`);if(!Array.isArray(item.required_directives)||item.required_directives.length<1) failures.push(`${item.path}: required_directives must be non-empty`);}
 async function readBoundedText(response,maxBytes){
