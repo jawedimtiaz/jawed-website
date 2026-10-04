@@ -59,6 +59,7 @@
     },
     {
       "path": "/missing-phase-39f-security-header-test",
+      "expected_status": 404,
       "required_headers": [
         {
           "name": "strict-transport-security",
