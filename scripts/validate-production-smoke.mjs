@@ -37,7 +37,7 @@ async function checkRedirect(item){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
-    const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-smoke/38G"}});
+    const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-smoke/39I"}});
     const location=response.headers.get("location")||"";
     if(!item.expected_status.includes(response.status)) failures.push(`${item.path}: alternate origin expected redirect status ${item.expected_status.join(" or ")}, got ${response.status}`);
     if(location!==item.location) failures.push(`${item.path}: alternate origin expected Location ${item.location}, got ${location||"missing"}`);
