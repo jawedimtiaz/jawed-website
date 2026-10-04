@@ -3,8 +3,16 @@ import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-smoke-contract.json","utf8"));
 const failures=[];
 const timeoutMs=10000;
+if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) failures.push("production smoke origin must be HTTPS");
+if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production smoke contract must contain at least one check");
 if(contract.max_redirects!==0) failures.push("production smoke checks must not follow redirects");
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production smoke max_body_bytes must be a positive integer");
+for(const item of contract.checks||[]){
+ if(typeof item.path!=="string"||!item.path.startsWith("/")) failures.push("smoke check path must be an absolute site path");
+ if(!Number.isInteger(item.status)||item.status<100||item.status>599) failures.push(`${item.path}: status must be a valid HTTP status`);
+ if(typeof item.content_type!=="string"||!item.content_type.trim()) failures.push(`${item.path}: content_type must be non-empty`);
+ if(item.required_markers!==undefined&&(!Array.isArray(item.required_markers)||item.required_markers.some(marker=>typeof marker!=="string"||!marker))) failures.push(`${item.path}: required_markers must be non-empty strings`);
+}
 for(const item of (contract.redirect_checks||[])) if(!Array.isArray(item.expected_status)||!item.expected_status.every(Number.isInteger)) failures.push(`${item.path}: redirect expected_status must be an integer array`);
 for(const item of (contract.redirect_checks||[])) if(item.max_redirects!==0) failures.push(`${item.path}: canonical redirect check must not follow redirects`);
 
