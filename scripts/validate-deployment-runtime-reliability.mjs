@@ -8,7 +8,8 @@ const fail=[];
 
 const exists=p=>fs.existsSync(path.join(root,p));
 for(const p of contract.required_runtime_files){
-  if(!exists(p)) fail.push(`missing required runtime file: ${p}`);\n  else if(!fs.statSync(path.join(root,p)).isFile()) fail.push(`required runtime path is not a file: ${p}`);
+  if(!exists(p)) fail.push(`missing required runtime file: ${p}`);
+  else if(!fs.statSync(path.join(root,p)).isFile()) fail.push(`required runtime path is not a file: ${p}`);
 }
 if(!exists(contract.functions_directory)) fail.push(`missing functions directory: ${contract.functions_directory}`);
 else if(!fs.statSync(path.join(root,contract.functions_directory)).isDirectory()) fail.push(`functions_directory is not a directory: ${contract.functions_directory}`);
