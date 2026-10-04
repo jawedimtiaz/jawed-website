@@ -52,6 +52,25 @@ for(const file of publishedHtml){
 }
 if(metadataContractErrors.length)errors.push("Published-page metadata contract failed: "+metadataContractErrors.join(", "));
 
+const navigationContractErrors=[];
+for(const file of publishedHtml){
+  if(file==="tools/career-match-resume-review/index.html")continue;
+  const html=fs.readFileSync(file,"utf8");
+  const nav=html.match(/<nav id="site-nav" class="site-nav" aria-label="Main navigation">([\\s\\S]*?)<\\/nav>/)?.[1]||"";
+  const requiredNavigationContract=
+    nav.includes('<details class="nav-group"><summary>Explore</summary>')&&
+    nav.includes('<a href="/topics/">Topics</a>')&&
+    nav.includes('<a href="/notes/">Notes</a>')&&
+    nav.includes('<a href="/blog/">Blog</a>')&&
+    nav.includes('<a href="/resources/">Resources</a>')&&
+    nav.includes('<a href="/tools/">Tools</a>')&&
+    nav.includes('<a href="/ai/">AI</a>')&&
+    nav.includes('<a href="/contact/">Contact</a>');
+  if(!requiredNavigationContract)navigationContractErrors.push(file);
+}
+if(navigationContractErrors.length)errors.push("Primary navigation parity failed: "+navigationContractErrors.join(", "));
+else console.log("Primary navigation parity contract: PASS");
+
 
 const internalLinkIssues=[];
 for(const file of publishedHtml){
