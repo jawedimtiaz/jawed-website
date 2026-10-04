@@ -1,4 +1,5 @@
 name: Production Static Asset Reliability Gate
+run-name: Production Static Asset Reliability
 concurrency:
   group: production-assets-${{ github.ref }}
   cancel-in-progress: true
