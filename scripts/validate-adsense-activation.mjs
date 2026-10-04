@@ -21,6 +21,6 @@ assert.equal(fs.existsSync("ads.txt"),false,"ads.txt must not exist before a rea
 
 console.log("AdSense activation contract validation: PASS");
 console.log("Repository state: Ready-gated pre-activation");
-console.log("Publisher ID asserted: no");
+console.log("Ad-serving publisher ID asserted: no; site-verification meta tag: present on approved inventory");
 console.log("ads.txt present: no");
 console.log("CMP integration asserted: no");
