@@ -3,19 +3,20 @@ const contract=JSON.parse(fs.readFileSync("config/production-api-method-contract
 const failures=[],timeoutMs=10000;
 if(contract.max_redirects!==0) failures.push("production API method checks must not follow redirects");
 for(const item of contract.checks){
+ if(!Number.isInteger(item.max_body_bytes)||item.max_body_bytes<=0) failures.push(item.method+" "+item.path+": max_body_bytes must be a positive integer");
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{method:item.method,redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-api-method/38N"}});
   const body=await response.text();
   const type=(response.headers.get("content-type")||"").toLowerCase();
-  if(response.status!==item.expected_status) failures.push(`${item.method} ${item.path}: expected HTTP ${item.expected_status}, got ${response.status}`);
-  if(response.status>=300&&response.status<400) failures.push(`${item.method} ${item.path}: unexpected redirect`);
-  if(Buffer.byteLength(body)>item.max_body_bytes) failures.push(`${item.method} ${item.path}: response exceeded body limit`);
-  if(item.content_type&&!type.startsWith(item.content_type)) failures.push(`${item.method} ${item.path}: expected ${item.content_type}, got ${type||"missing"}`);
- }catch(error){failures.push(`${item.method} ${item.path}: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
+  if(response.status!==item.expected_status) failures.push(item.method+" "+item.path+": expected HTTP "+item.expected_status+", got "+response.status);
+  if(response.status>=300&&response.status<400) failures.push(item.method+" "+item.path+": unexpected redirect");
+  if(Buffer.byteLength(body)>item.max_body_bytes) failures.push(item.method+" "+item.path+": response exceeded body limit");
+  if(item.content_type&&!type.startsWith(item.content_type)) failures.push(item.method+" "+item.path+": expected "+item.content_type+", got "+(type||"missing"));
+ }catch(error){failures.push(item.method+" "+item.path+": "+(error?.name==="AbortError"?"request timed out":error?.message||"request failed"))}
  finally{clearTimeout(timer)}
 }
-if(failures.length){console.error("Production API Method Boundary Gate FAILED");for(const failure of failures)console.error("- "+failure);process.exit(1)}
+if(failures.length){console.error("Production API Method Boundary Gate FAILED");for(const failure of failures) console.error("- "+failure);process.exit(1)}
 console.log("Production API Method Boundary Gate PASSED");
-console.log(`Origin: ${contract.production_origin}`);
+console.log("Origin: "+contract.production_origin);
 console.log("Unsupported method rejected without invoking the supported GET/POST handlers.");
