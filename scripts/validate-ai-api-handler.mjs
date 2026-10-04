@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import {onRequestGet,onRequestPost} from "../functions/api/ai.js";
-import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS} from "../functions/lib/cloudflare-ai-provider.js";
+import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TEMPERATURE} from "../functions/lib/cloudflare-ai-provider.js";
+import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
 let providerCalls=0;
@@ -18,8 +19,8 @@ assert.equal(healthBody.service,"jawed-ai");
 assert.equal(healthBody.status,"not_configured");
 assert.equal(healthBody.configuration,"not_configured");
 assert.equal(typeof healthBody.knowledge_entries,"number");
-assert.equal(healthBody.rate_limit.requests,8);
-assert.equal(healthBody.rate_limit.window_seconds,60);
+assert.equal(healthBody.rate_limit.requests,MAX_REQUESTS);
+assert.equal(healthBody.rate_limit.window_seconds,WINDOW_MS/1000);
 assert.equal(healthBody.rate_limit.best_effort,true);
 assert.equal(healthBody.request_id,health.headers.get("x-request-id"));
 
@@ -108,7 +109,7 @@ assert.equal(typeof providerRunArgs?.input?.messages?.[0]?.content,"string");
 assert.equal(providerRunArgs.input.messages[0].content.includes("Summary:"),true);
 assert.equal(providerRunArgs.input.messages[0].content.includes("Keywords:"),true);
 assert.equal(providerRunArgs.input.max_tokens,MAX_OUTPUT_TOKENS);
-assert.equal(providerRunArgs.input.temperature,0.2);
+assert.equal(providerRunArgs.input.temperature,PROVIDER_TEMPERATURE);
 
 console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
