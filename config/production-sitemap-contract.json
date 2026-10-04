@@ -3,6 +3,7 @@
   "scope": "production-sitemap-integrity",
   "production_origin": "https://jawed.co.in",
   "max_redirects": 0,
+  "max_body_bytes": 500000,
   "sitemap_path": "/sitemap.xml",
   "expected_content_type": "application/xml",
   "canonical_origin": "https://jawed.co.in",
