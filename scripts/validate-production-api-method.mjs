@@ -1,3 +1,22 @@
+async function readBoundedText(response,maxBytes){
+ const declared=Number(response.headers.get("content-length"));
+ if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared body limit");
+ if(!response.body){
+  const text=await response.text();
+  if(Buffer.byteLength(text)>maxBytes)throw new Error("response exceeds body limit");
+  return text;
+ }
+ const reader=response.body.getReader(); const chunks=[]; let total=0;
+ try{
+  while(true){
+   const {done,value}=await reader.read(); if(done)break;
+   total+=value.byteLength;
+   if(total>maxBytes){await reader.cancel();throw new Error("response exceeds body limit");}
+   chunks.push(value);
+  }
+ }finally{reader.releaseLock();}
+ return new TextDecoder().decode(chunks.length===1?chunks[0]:Uint8Array.from(chunks.reduce((all,chunk)=>{for(const byte of chunk)all.push(byte);return all},[])));
+}
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-api-method-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
@@ -7,7 +26,7 @@ for(const item of contract.checks){
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{method:item.method,redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-api-method/38N"}});
-  const body=await response.text();
+  const body=await readBoundedText(response,item.max_body_bytes);
   const type=(response.headers.get("content-type")||"").toLowerCase();
   if(response.status!==item.expected_status) failures.push(item.method+" "+item.path+": expected HTTP "+item.expected_status+", got "+response.status);
   if(response.status>=300&&response.status<400) failures.push(item.method+" "+item.path+": unexpected redirect");
