@@ -383,8 +383,7 @@ const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fro
 if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
 else console.log("Personal Finance Snapshot reset contract: PASS");
 
-assert.equal(errors.length,0,errors.join("
-"));
+assert.equal(errors.length,0,errors.join("\n"));
 console.log("All site-integrity contracts: PASS");
 console.log("Discovery filter exclusion contract: PASS");
 console.log("Site sitemap/page parity: PASS");
