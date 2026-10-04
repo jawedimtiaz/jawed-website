@@ -27,7 +27,7 @@ for(const apiRoute of (contract.api_routes||[])) if(!(routes.include||[]).some(r
 const redirects=read("_redirects");
 for(const line of redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
   const parts=line.trim().split(/\s+/);
-  if(parts.length>=3 && parts[2]!=="200" && !/^30[1278]$/.test(parts[2])) fail.push(`unexpected redirect status: ${line}`);
+  if(parts.length>=3 && !["200","301"].includes(parts[2])) fail.push(`unexpected redirect status: ${line}`);
 }
 
 const index=read("index.html");
