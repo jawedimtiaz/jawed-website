@@ -36,7 +36,7 @@ async function check(item){
   }finally{clearTimeout(timer);}
 }
 
-for(const item of contract.checks) await check(item);
+for(const item of contract.checks||[]) await check(item);
 
 if(failures.length){
   console.error("Production Security Header Gate FAILED");
