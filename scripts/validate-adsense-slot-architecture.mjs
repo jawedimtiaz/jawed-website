@@ -15,7 +15,19 @@ assert.equal(contract.reservation.mobile_min_height_px,180);
 assert.equal(contract.reservation.no_runtime_effect_before_activation,true);
 for(const route of ["/contact/","/privacy/","/ai/","/tools/"]) assert.equal(contract.excluded_routes.includes(route),true);
 assert.deepEqual([...contract.allowed_contexts].sort(),[...placement.allowed_slot_contexts].sort());
-for(const surface of contract.excluded_surfaces) assert.equal(placement.forbidden_slot_contexts.length>0,true);
+const surfaceToContext={
+  "primary-navigation":"inside-primary-navigation",
+  "menu-controls":"adjacent-to-menu-controls",
+  "download-controls":"adjacent-to-download-controls",
+  "form-submit-controls":"adjacent-to-form-submit-controls",
+  "ai-conversation":"inside-ai-conversation",
+  "interactive-tool-workspace":"inside-interactive-tool-workspace",
+  "error-or-dead-end-pages":"on-error-or-dead-end-pages"
+};
+for(const surface of contract.excluded_surfaces){
+  assert.equal(typeof surfaceToContext[surface],"string","Every slot exclusion must map to a placement-policy context: "+surface);
+  assert.equal(placement.forbidden_slot_contexts.includes(surfaceToContext[surface]),true,"Placement policy must forbid slot exclusion surface: "+surface);
+}
 assert.equal(inventory.status,"pre-ads-review");
 assert.deepEqual([...contract.excluded_routes].sort(),[...inventory.excluded_initial].sort(),"Ad-slot excluded routes must match the authoritative inventory boundary");
 assert.equal(css.includes(".ad-slot-boundary"),true,"Future ad-slot CSS boundary is missing");
