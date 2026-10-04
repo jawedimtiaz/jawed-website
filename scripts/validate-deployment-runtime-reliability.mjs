@@ -28,7 +28,7 @@ if(!Array.isArray(contract.allowed_redirect_statuses)||!contract.allowed_redirec
 const redirects=read("_redirects");
 for(const line of redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
   const parts=line.trim().split(/\s+/);
-  if(parts.length>=3 && !contract.allowed_redirect_statuses.includes(Number(parts[2]))) fail.push(`unexpected redirect status: ${line}`);
+  if(parts.length>=3 && !contract.allowed_redirect_statuses.includes(Number(parts.at(-1)))) fail.push(`unexpected redirect status: ${line}`);
 }
 
 const index=read("index.html");
