@@ -71,6 +71,7 @@ on:
       - "scripts/validate-adsense-final-performance-gate.mjs"
       - "config/adsense-slot-contract.json"
       - "scripts/validate-adsense-slot-architecture.mjs"
+      - "scripts/validate-adsense-mobile-readiness.mjs"
       - "docs/adsense-content-readiness.md"
       - "docs/adsense-activation-contract.md"
       - "docs/adsense-activation-handoff.md"
