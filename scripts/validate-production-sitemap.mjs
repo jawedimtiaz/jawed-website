@@ -1,6 +1,7 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-sitemap-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
+if(contract.max_redirects!==0) failures.push("production checks must not follow redirects");
 let locs=[];
 const url=new URL(contract.sitemap_path,contract.production_origin);
 const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
