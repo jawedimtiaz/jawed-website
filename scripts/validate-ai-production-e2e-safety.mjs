@@ -10,6 +10,7 @@ const contracts=[
   ["E2E harness remains safe when provider is not configured",harness.includes('configuration==="not_configured"')&&harness.includes("Live provider request skipped safely.")],
   ["E2E health request remains GET-only",harness.includes("const health=await request(api);")],
   ["E2E provider request is explicitly POST",harness.includes('method:"POST"')],
+  ["E2E request helper refuses redirects",harness.includes('redirect:"manual"')],
   ["E2E provider request does not require a browser credential",!harness.includes("Authorization")&&!harness.includes("api-key")],
   ["E2E harness rejects exposed API keys",harness.includes('health.body?.api_key,undefined')],
   ["E2E harness validates correlation IDs",harness.includes('headers.get("x-request-id")')&&harness.includes("request_id")],
