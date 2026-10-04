@@ -4,7 +4,7 @@ const failures=[],timeoutMs=10000;
 for(const item of contract.checks){
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
-  const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-robots/38K"}});
+  const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-robots/39E"}});
   const type=(response.headers.get("content-type")||"").toLowerCase();
   const body=await response.text();
   if(response.status!==item.status) failures.push(`${item.path}: expected HTTP ${item.status}, got ${response.status}`);
