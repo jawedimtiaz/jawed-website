@@ -10,6 +10,16 @@ on:
       - "config/production-media-asset-contract.json"
       - "scripts/validate-production-media-assets.mjs"
       - ".github/workflows/production-media-assets.yml"
+  push:
+    branches:
+      - main
+    paths:
+    paths:
+      - "assets/images/**"
+      - "favicon.svg"
+      - "config/production-media-asset-contract.json"
+      - "scripts/validate-production-media-assets.mjs"
+      - ".github/workflows/production-media-assets.yml"
   workflow_dispatch:
   schedule:
     - cron: "7 */6 * * *"
