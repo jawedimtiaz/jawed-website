@@ -38,7 +38,7 @@ assert.equal(Number.isInteger(aggregateValidatorTimeoutMs)&&aggregateValidatorTi
 const workflowTimeoutMatch=workflow.match(/timeout-minutes:\s*(\d+)/);
 assert.notEqual(workflowTimeoutMatch,null,"Readiness workflow timeout contract is missing");
 const workflowTimeoutMs=Number(workflowTimeoutMatch[1])*60000;
-assert.equal(aggregateValidatorTimeoutMs*validatorFiles.length<workflowTimeoutMs,true,"Canonical validator timeouts must remain within the workflow timeout budget");
+
 assert.equal(workflow.includes("cancel-in-progress: true"),true,"Readiness workflow concurrency cancellation must remain enabled");
 
 const dynamicScanTriggerPaths=[
@@ -77,6 +77,7 @@ const validatorFiles=[
 ];
 assert.equal(validatorFiles.length,13,"Canonical AdSense validator contract must contain 13 validators");
 assert.equal(new Set(validatorFiles).size,validatorFiles.length,"Canonical AdSense validator contract must contain unique validators");
+assert.equal(aggregateValidatorTimeoutMs*validatorFiles.length<workflowTimeoutMs,true,"Canonical validator timeouts must remain within the workflow timeout budget");
 
 for(const validatorFile of validatorFiles){
   assert.equal(prTriggerPaths.includes(validatorFile),true,"Validator file must trigger PR CI: "+validatorFile);
