@@ -1,6 +1,14 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-sitemap-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
+async function readBoundedText(response,maxBytes){
+ const declared=Number(response.headers.get("content-length"));
+ if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared body limit");
+ if(!response.body){const text=await response.text();if(Buffer.byteLength(text)>maxBytes)throw new Error("response exceeds body limit");return text;}
+ const reader=response.body.getReader(),chunks=[];let total=0;
+ try{while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>maxBytes){await reader.cancel();throw new Error("response exceeds body limit");}chunks.push(value);}}finally{reader.releaseLock();}
+ return new TextDecoder().decode(Buffer.concat(chunks.map(chunk=>Buffer.from(chunk))));
+}
 if(contract.max_redirects!==0) failures.push("production checks must not follow redirects");
 let locs=[];
 const url=new URL(contract.sitemap_path,contract.production_origin);
@@ -8,7 +16,7 @@ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),t
 try{
  const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"accept":"application/xml,text/xml","user-agent":"jawed-production-sitemap/39E"}});
  const type=(response.headers.get("content-type")||"").toLowerCase();
- const body=await response.text();
+ const body=await readBoundedText(response,contract.max_body_bytes);
  if(response.status!==200) failures.push(`sitemap: expected HTTP 200, got ${response.status}`);
  if(!type.startsWith(contract.expected_content_type)) failures.push(`sitemap: expected content type ${contract.expected_content_type}, got ${type||"missing"}`);
  if(response.status>=300&&response.status<400) failures.push("sitemap: unexpected redirect");
