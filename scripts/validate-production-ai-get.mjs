@@ -2,7 +2,7 @@ import fs from "node:fs";
 
 const contract=JSON.parse(fs.readFileSync("config/production-ai-get-contract.json","utf8"));
 const url=new URL(contract.path,contract.production_origin);
-const failures=[];
+const failures=[];\nif(contract.max_redirects!==0) failures.push("production AI GET checks must not follow redirects");
 const controller=new AbortController();
 const timer=setTimeout(()=>controller.abort(),10000);
 try{
