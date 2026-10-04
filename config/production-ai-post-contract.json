@@ -2,6 +2,7 @@
   "phase": "39H",
   "scope": "production-ai-post-runtime-reliability",
   "production_origin": "https://jawed.co.in",
+  "max_redirects": 0,
   "checks": [
     {
       "path": "/api/ai",
