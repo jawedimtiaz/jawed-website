@@ -77,6 +77,10 @@ const validatorFiles=[
 ];
 
 for(const validatorFile of validatorFiles){
+  assert.equal(prTriggerPaths.includes(validatorFile),true,
+    "Validator file must trigger PR CI: "+validatorFile);
+  assert.equal(pushTriggerPaths.includes(validatorFile),true,
+    "Validator file must trigger main-push CI: "+validatorFile);
   const validatorSource=fs.readFileSync(validatorFile,"utf8");
   const dependencies=[...validatorSource.matchAll(/(?:readFileSync|existsSync)\(["']([^"']+)["']/g)]
     .map(match=>match[1])
