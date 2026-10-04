@@ -2,6 +2,12 @@ import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-cache-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
 if(contract.max_redirects!==0) failures.push("production cache checks must not follow redirects");
+if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production cache contract must contain at least one check");
+for(const item of contract.checks||[]){
+ if(typeof item.path!=="string"||!item.path.startsWith("/")) failures.push("cache check path must be an absolute site path");
+ if(typeof item.require_cache_control!=="boolean") failures.push(item.path+": require_cache_control must be boolean");
+ if(!["public","no-store"].includes(item.cache_policy)) failures.push(item.path+": cache_policy must be public or no-store");
+}
 for(const item of contract.checks){
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
