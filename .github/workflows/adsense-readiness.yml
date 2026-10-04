@@ -63,6 +63,7 @@ on:
       - "scripts/validate-adsense-slot-architecture.mjs"
       - "docs/adsense-content-readiness.md"
       - "docs/adsense-activation-contract.md"
+      - "docs/adsense-activation-handoff.md"
       - "config/adsense-inventory.json"
       - ".github/workflows/adsense-readiness.yml"
   workflow_dispatch:
