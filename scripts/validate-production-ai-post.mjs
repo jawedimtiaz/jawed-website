@@ -17,7 +17,9 @@ for(const item of contract.checks){
    else if(required.includes&&!actual.toLowerCase().includes(required.includes.toLowerCase())) failures.push(`${item.path}: ${required.name} does not include expected value ${required.includes}`);
   }
   if(Object.keys(json).sort().join(",")!=="code,error,request_id") failures.push(`${item.path}: rejected-origin response exposed an unexpected field`);
+  const headerRequestId=(response.headers.get("x-request-id")||"").trim();
   if(typeof json.request_id!=="string"||!json.request_id) failures.push(`${item.path}: missing request_id`);
+  else if(headerRequestId&&json.request_id!==headerRequestId) failures.push(`${item.path}: body request_id does not match x-request-id`);
  }catch(error){failures.push(`${item.path}: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
  finally{clearTimeout(timer)}
 }
