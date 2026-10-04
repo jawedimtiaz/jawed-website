@@ -9,6 +9,13 @@ on:
       - "config/production-robots-contract.json"
       - "scripts/validate-production-robots.mjs"
       - ".github/workflows/production-robots-reliability.yml"
+  push:
+    branches: [main]
+    paths:
+      - "robots.txt"
+      - "config/production-robots-contract.json"
+      - "scripts/validate-production-robots.mjs"
+      - ".github/workflows/production-robots-reliability.yml"
   workflow_dispatch:
   schedule:
     - cron: "37 */6 * * *"
