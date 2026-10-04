@@ -80,6 +80,10 @@ on:
       - "docs/adsense-activation-contract.md"
       - "docs/adsense-activation-handoff.md"
       - "config/adsense-inventory.json"
+      - ".github/workflows/site-integrity.yml"
+      - ".github/workflows/production-security-headers.yml"
+      - ".github/workflows/production-smoke-reliability.yml"
+      - ".github/workflows/deployment-runtime-reliability.yml"
       - ".github/workflows/adsense-readiness.yml"
   workflow_dispatch:
 
