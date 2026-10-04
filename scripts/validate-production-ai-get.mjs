@@ -1,3 +1,22 @@
+async function readBoundedText(response,maxBytes){
+ const declared=Number(response.headers.get("content-length"));
+ if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared body limit");
+ if(!response.body){
+  const text=await response.text();
+  if(new TextEncoder().encode(text).byteLength>maxBytes)throw new Error("response exceeds body limit");
+  return text;
+ }
+ const reader=response.body.getReader(); const chunks=[]; let total=0;
+ try{
+  while(true){
+   const {done,value}=await reader.read(); if(done)break;
+   total+=value.byteLength;
+   if(total>maxBytes){await reader.cancel();throw new Error("response exceeds body limit");}
+   chunks.push(value);
+  }
+ }finally{reader.releaseLock();}
+ return new TextDecoder().decode(chunks.length===1?chunks[0]:Uint8Array.from(chunks.reduce((all,chunk)=>{for(const byte of chunk)all.push(byte);return all},[])));
+}
 import fs from "node:fs";
 
 const contract=JSON.parse(fs.readFileSync("config/production-ai-get-contract.json","utf8"));
@@ -18,8 +37,7 @@ try{
  if(contract.require_nosniff&&(response.headers.get("x-content-type-options")||"").toLowerCase()!=="nosniff") failures.push("missing x-content-type-options: nosniff");
  const headerRequestId=(response.headers.get("x-request-id")||"").trim();
  if(contract.require_request_id_header&&!headerRequestId) failures.push("missing x-request-id header");
- const bodyText=await response.text();
- if(new TextEncoder().encode(bodyText).byteLength>contract.max_body_bytes) failures.push("response body exceeds maximum size");
+ const bodyText=await readBoundedText(response,contract.max_body_bytes);
  let body;
  try{body=JSON.parse(bodyText)}catch{failures.push("response body is not valid JSON");body=null}
  if(body){
