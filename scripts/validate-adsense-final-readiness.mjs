@@ -10,6 +10,23 @@ const headers=fs.readFileSync("_headers","utf8");
 const workflow=fs.readFileSync(".github/workflows/adsense-readiness.yml","utf8");
 const handoff=fs.readFileSync("docs/adsense-activation-handoff.md","utf8");
 const aggregate=fs.readFileSync("scripts/validate-adsense-readiness.mjs","utf8");
+function triggerPaths(workflow, trigger){
+  const start=workflow.indexOf(trigger);
+  assert.notEqual(start,-1,"Workflow trigger missing: "+trigger);
+  const next=workflow.indexOf("\n  push:",start);
+  const end=trigger==="  pull_request:" ? next : workflow.indexOf("\n  workflow_dispatch:",start);
+  assert.notEqual(end,-1,"Workflow trigger boundary missing: "+trigger);
+  return [...workflow.slice(start,end).matchAll(/^      - "([^"]+)"$/gm)].map(m=>m[1]).sort();
+}
+
+const prTriggerPaths=triggerPaths(workflow,"  pull_request:");
+const pushTriggerPaths=triggerPaths(workflow,"  push:");
+assert.deepEqual(prTriggerPaths,pushTriggerPaths,"PR and main-push readiness trigger paths must remain identical");
+assert.equal(workflow.includes("workflow_dispatch:"),true,"Manual readiness dispatch must remain available");
+assert.equal(workflow.includes("permissions:\n  contents: read"),true,"Read-only workflow permissions are required");
+assert.equal(workflow.includes("timeout-minutes: 2"),true,"Readiness workflow timeout must remain bounded");
+assert.equal(workflow.includes("cancel-in-progress: true"),true,"Readiness workflow concurrency cancellation must remain enabled");
+
 const criticalTriggerPaths=[
   "sitemap.xml",
   "privacy/index.html",
