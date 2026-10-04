@@ -9,6 +9,15 @@ on:
       - "config/production-asset-contract.json"
       - "scripts/validate-production-assets.mjs"
       - ".github/workflows/production-static-assets.yml"
+  push:
+    branches:
+      - main
+    paths:
+    paths:
+      - "assets/**"
+      - "config/production-asset-contract.json"
+      - "scripts/validate-production-assets.mjs"
+      - ".github/workflows/production-static-assets.yml"
   workflow_dispatch:
   schedule:
     - cron: "53 */6 * * *"
