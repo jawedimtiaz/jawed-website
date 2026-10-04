@@ -1,0 +1,41 @@
+name: Production Sitemap Reliability Gate
+concurrency:
+  group: production-sitemap-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  pull_request:
+    paths:
+      - "sitemap.xml"
+      - "config/production-sitemap-contract.json"
+      - "scripts/validate-production-sitemap.mjs"
+      - ".github/workflows/production-sitemap-reliability.yml"
+  push:
+    branches: [main]
+    paths:
+      - "sitemap.xml"
+      - "config/production-sitemap-contract.json"
+      - "scripts/validate-production-sitemap.mjs"
+      - ".github/workflows/production-sitemap-reliability.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "31 */6 * * *"
+permissions:
+  contents: read
+jobs:
+  production-sitemap:
+    name: Production sitemap
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Run production sitemap validation
+        run: node scripts/validate-production-sitemap.mjs
