@@ -8,6 +8,7 @@ const inventory=JSON.parse(fs.readFileSync("config/adsense-inventory.json","utf8
 assert.equal(policy.status,"pre-activation","Placement policy must remain pre-activation");
 assert.equal(policy.allowed_slot_contexts.length>=3,true,"Placement policy must define substantive content contexts");
 assert.equal(policy.forbidden_slot_contexts.includes("inside-primary-navigation"),true,"Navigation protection is missing");
+assert.equal(policy.forbidden_slot_contexts.includes("adjacent-to-menu-controls"),true,"Menu-control protection is missing");
 assert.equal(policy.forbidden_slot_contexts.includes("adjacent-to-download-controls"),true,"Download-control protection is missing");
 assert.equal(policy.forbidden_slot_contexts.includes("on-privacy-or-contact-pages"),true,"Privacy/contact exclusion is missing");
 assert.equal(policy.forbidden_slot_contexts.includes("adjacent-to-form-submit-controls"),true,"Form-control protection is missing");
