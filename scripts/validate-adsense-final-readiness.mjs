@@ -77,6 +77,8 @@ const validatorFiles=[
 ];
 assert.equal(validatorFiles.length,13,"Canonical AdSense validator contract must contain 13 validators");
 assert.equal(new Set(validatorFiles).size,validatorFiles.length,"Canonical AdSense validator contract must contain unique validators");
+const performanceBudget=JSON.parse(fs.readFileSync("config/performance-budget.json","utf8"));
+assert.equal(performanceBudget.rules.some(rule=>rule.includes("dated measurement")),true,"Performance budget must prohibit unmeasured Core Web Vitals claims");
 assert.equal(aggregateValidatorTimeoutMs*validatorFiles.length<workflowTimeoutMs,true,"Canonical validator timeouts must remain within the workflow timeout budget");
 
 for(const validatorFile of validatorFiles){
