@@ -45,7 +45,7 @@ for(const line of redirectLines){
 assert.equal(fs.existsSync("404.html"),true,"Custom 404 boundary must remain present");
 assert.equal(fs.existsSync("sitemap.xml"),true,"Sitemap must remain present");
 
-console.log("Phase 38A security baseline: PASS");
+console.log("Security baseline: PASS");
 console.log("Security headers and CSP: PASS");
 console.log("API routing boundary: PASS");
 console.log("Redirect policy syntax: PASS");
