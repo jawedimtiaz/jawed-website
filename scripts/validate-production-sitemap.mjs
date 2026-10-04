@@ -1,6 +1,7 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-sitemap-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
+let locs=[];
 const url=new URL(contract.sitemap_path,contract.production_origin);
 const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
 try{
@@ -11,7 +12,7 @@ try{
  if(!type.startsWith(contract.expected_content_type)) failures.push(`sitemap: expected content type ${contract.expected_content_type}, got ${type||"missing"}`);
  if(response.status>=300&&response.status<400) failures.push("sitemap: unexpected redirect");
  if(!body.includes("<urlset")||!body.includes("</urlset>")) failures.push("sitemap: missing urlset envelope");
- const locs=[...body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
+ locs=[...body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
  if(!locs.length) failures.push("sitemap: no <loc> entries found");
  const unique=new Set(locs);
  if(contract.require_unique_urls&&unique.size!==locs.length) failures.push(`sitemap: duplicate URLs found (${locs.length-unique.size})`);
