@@ -50,15 +50,25 @@ Rollback means returning to the last known pre-activation commit and re-establis
 
 ## Post-activation evidence
 
-Record:
+Record the following evidence before considering activation complete:
 
-- Google Sites status at activation.
-- Activation commit SHA.
-- Validator results.
-- Production smoke result.
-- Final CSP diff.
-- Final `ads.txt` state, if applicable.
-- CMP/consent behavior for applicable regions.
-- Confirmation that excluded surfaces remain excluded.
+| Evidence | Required record |
+|---|---|
+| Google Sites status | Exact status observed at activation; must be **Ready** |
+| Activation commit | Full Git commit SHA |
+| AdSense readiness | Aggregate validator result and individual validator results |
+| Site integrity | Site-integrity validator result |
+| Production security | Security-header validator result |
+| Deployment runtime | Deployment-runtime validator result |
+| Production smoke | Smoke result and timestamp |
+| CSP | Final CSP diff reviewed against the actual Google implementation |
+| `ads.txt` | Final state and exact account-confirmed record status |
+| CMP/consent | Applicable-region behavior and consent result |
+| Inventory | Final eligible/excluded route review |
+| Placement | Final placement review |
+| Functional regression | Publisher content, navigation, AI, tools and mobile layout confirmed |
+| Rollback readiness | Pre-activation commit SHA retained |
+
+Do not record publisher secrets or other unnecessary account credentials in repository documentation. Account-specific values belong only in the implementation location required by the actual Google integration.
 
 This handoff is an implementation safeguard, not a statement of Google approval.
