@@ -5,7 +5,7 @@ const workflow=fs.readFileSync(contract.production_smoke_workflow,"utf8");
 const smoke=JSON.parse(fs.readFileSync("config/production-smoke-contract.json","utf8"));
 const failures=[];
 
-if(contract.phase!=="38F") failures.push("contract phase must be 38F");
+if(contract.phase!=="39D") failures.push("contract phase must be 39D");
 if(contract.monitoring_mode!=="scheduled-github-actions") failures.push("monitoring mode must remain scheduled GitHub Actions");
 if(contract.cadence!=="every-6-hours") failures.push("cadence must remain every-6-hours");
 if(!workflow.includes("schedule:")) failures.push("production smoke workflow must define a schedule trigger");
@@ -15,7 +15,7 @@ if(!workflow.includes("permissions:\n  contents: read")) failures.push("workflow
 if(!workflow.includes("node scripts/validate-production-smoke.mjs")) failures.push("scheduled monitor must reuse the production smoke validator");
 if(smoke.production_origin!=="https://jawed.co.in") failures.push("production smoke origin drifted");
 if(!Array.isArray(smoke.checks)||smoke.checks.length<1) failures.push("production smoke contract must retain at least one check");
-if(contract.no_new_runtime_dependency!==true) failures.push("38F must not add runtime dependencies");
+if(contract.no_new_runtime_dependency!==true) failures.push("39D must not add runtime dependencies");
 if(contract.failure_behavior!=="github-actions-workflow-failure") failures.push("failure behavior must remain GitHub Actions workflow failure");
 if(contract.scope_boundary!=="monitor-production-availability-only") failures.push("scope boundary drifted");
 
