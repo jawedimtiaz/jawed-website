@@ -10,6 +10,7 @@ async function readBoundedText(response,maxBytes){
  return new TextDecoder().decode(Buffer.concat(chunks.map(chunk=>Buffer.from(chunk))));
 }
 if(contract.max_redirects!==0) failures.push("production checks must not follow redirects");
+if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production max_body_bytes must be a positive integer");
 let locs=[];
 const url=new URL(contract.sitemap_path,contract.production_origin);
 const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
