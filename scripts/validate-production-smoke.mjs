@@ -8,6 +8,32 @@ if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failu
 for(const item of (contract.redirect_checks||[])) if(!Array.isArray(item.expected_status)||!item.expected_status.every(Number.isInteger)) failures.push(`${item.path}: redirect expected_status must be an integer array`);
 for(const item of (contract.redirect_checks||[])) if(item.max_redirects!==0) failures.push(`${item.path}: canonical redirect check must not follow redirects`);
 
+async function readBoundedText(response,maxBytes){
+  const declared=Number(response.headers.get("content-length"));
+  if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared smoke-test body limit");
+  if(!response.body){
+    const text=await response.text();
+    if(Buffer.byteLength(text)>maxBytes)throw new Error("response exceeds smoke-test body limit");
+    return text;
+  }
+  const reader=response.body.getReader();
+  const chunks=[];
+  let total=0;
+  try{
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      total+=value.byteLength;
+      if(total>maxBytes){
+        await reader.cancel();
+        throw new Error("response exceeds smoke-test body limit");
+      }
+      chunks.push(value);
+    }
+  }finally{reader.releaseLock();}
+  return new TextDecoder().decode(Buffer.concat(chunks.map(chunk=>Buffer.from(chunk))));
+}
+
 async function check(item){
   const url=new URL(item.path,contract.production_origin);
   const controller=new AbortController();
@@ -15,7 +41,7 @@ async function check(item){
   try{
     const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-smoke/39I"}});
     const type=(response.headers.get("content-type")||"").toLowerCase();
-    const body=await response.text();
+    const body=await readBoundedText(response,contract.max_body_bytes);
     if(response.status!==item.status) failures.push(`${item.path}: expected HTTP ${item.status}, got ${response.status}`);
     if(item.content_type&&!type.startsWith(item.content_type)) failures.push(`${item.path}: expected content type ${item.content_type}, got ${type||"missing"}`);
     if(response.status>=300&&response.status<400) failures.push(`${item.path}: unexpected redirect during smoke test`);
