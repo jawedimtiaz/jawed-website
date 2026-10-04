@@ -7,6 +7,10 @@ concurrency:
 on:
   pull_request:
     paths:
+      - "sitemap.xml"
+      - "privacy/index.html"
+      - "assets/css/style.css"
+      - "config/performance-budget.json"
       - "privacy/**"
       - "scripts/validate-adsense-privacy.mjs"
       - "scripts/validate-adsense-inventory.mjs"
@@ -39,6 +43,10 @@ on:
     branches:
       - main
     paths:
+      - "sitemap.xml"
+      - "privacy/index.html"
+      - "assets/css/style.css"
+      - "config/performance-budget.json"
       - "privacy/**"
       - "scripts/validate-adsense-privacy.mjs"
       - "scripts/validate-adsense-inventory.mjs"
