@@ -9,6 +9,7 @@ on:
       - "scripts/validate-production-ai-post.mjs"
       - ".github/workflows/production-ai-post-reliability.yml"
       - "functions/api/ai.js"
+      - "functions/lib/**"
   push:
     branches:
       - main
