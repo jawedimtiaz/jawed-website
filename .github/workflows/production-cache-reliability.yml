@@ -10,6 +10,16 @@ on:
       - "config/production-cache-contract.json"
       - "scripts/validate-production-cache.mjs"
       - ".github/workflows/production-cache-reliability.yml"
+  push:
+    branches:
+      - main
+    paths:
+    paths:
+      - "_headers"
+      - "functions/api/ai.js"
+      - "config/production-cache-contract.json"
+      - "scripts/validate-production-cache.mjs"
+      - ".github/workflows/production-cache-reliability.yml"
   workflow_dispatch:
   schedule:
     - cron: "19 */6 * * *"
