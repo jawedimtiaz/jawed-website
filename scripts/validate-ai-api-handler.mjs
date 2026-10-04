@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import {onRequestGet,onRequestPost} from "../functions/api/ai.js";
+import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS} from "../functions/lib/cloudflare-ai-provider.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
 let providerCalls=0;
@@ -28,7 +29,7 @@ const configuredBody=await configuredHealth.json();
 assert.equal(configuredBody.ok,true);
 assert.equal(configuredBody.status,"ready");
 assert.equal(configuredBody.configuration,"configured");
-assert.equal(configuredBody.model,"@cf/meta/llama-3.2-1b-instruct");
+assert.equal(configuredBody.model,DEFAULT_MODEL);
 
 const unexpectedHandlerFailure=await onRequestPost({request:null,env:{}});
 assert.equal(unexpectedHandlerFailure.status,502);
@@ -102,11 +103,11 @@ const successfulProvider=await onRequestPost({
   env:{AI:{run:async(model,input)=>{providerRunArgs={model,input};return {response:"Test response."};}}}
 });
 assert.equal(successfulProvider.status,200);
-assert.equal(providerRunArgs?.model,"@cf/meta/llama-3.2-1b-instruct");
+assert.equal(providerRunArgs?.model,DEFAULT_MODEL);
 assert.equal(typeof providerRunArgs?.input?.messages?.[0]?.content,"string");
 assert.equal(providerRunArgs.input.messages[0].content.includes("Summary:"),true);
 assert.equal(providerRunArgs.input.messages[0].content.includes("Keywords:"),true);
-assert.equal(providerRunArgs.input.max_tokens,700);
+assert.equal(providerRunArgs.input.max_tokens,MAX_OUTPUT_TOKENS);
 assert.equal(providerRunArgs.input.temperature,0.2);
 
 console.log("AI API handler behavioral coverage: PASS");
