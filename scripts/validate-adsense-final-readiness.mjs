@@ -96,8 +96,10 @@ assert.equal(deploymentWorkflow.includes("node scripts/validate-deployment-runti
 assert.equal((workflow.match(/docs\/adsense-activation-handoff\.md/g)||[]).length,2,"Activation handoff must trigger both PR and main-push readiness CI");
 assert.equal(aggregate.includes("Validator count:")&&aggregate.includes("AdSense readiness aggregate gate: PASS"),true,"Aggregate readiness runner is incomplete");
 
-const aggregateValidators=[...aggregate.matchAll(/"((?:validate-adsense-[a-z-]+)\.mjs)"/g)]
-  .map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs");
+const aggregateArrayMatch=aggregate.match(/const validators = \\[([\\s\\S]*?)\\n\\];/);
+assert.notEqual(aggregateArrayMatch,null,"Aggregate runner validator array must be present");
+const aggregateValidators=[...aggregateArrayMatch[1].matchAll(/"((?:validate-adsense-[a-z-]+)\\.mjs)"/g)]
+  .map(match=>match[1]);
 const workflowValidators=[...workflow.matchAll(/run: node scripts\/(validate-adsense-[a-z-]+\.mjs)/g)]
   .map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs");
 const expectedValidators=validatorFiles.map(path=>path.slice("scripts/".length));
