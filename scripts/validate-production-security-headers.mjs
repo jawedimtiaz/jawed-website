@@ -9,7 +9,7 @@ async function check(item){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
-    const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-security/38H"}});
+    const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-security/39F"}});
     if(response.status>=300&&response.status<400) failures.push(`${item.path}: unexpected redirect (HTTP ${response.status})`);
     for(const required of item.required_headers||[]){
       const actual=(response.headers.get(required.name)||"").trim();
