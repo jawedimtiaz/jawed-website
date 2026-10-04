@@ -24,6 +24,7 @@ async function check(item){
       if(typeof json.model!=="string"||!json.model) failures.push("/api/ai: missing model metadata");
     }
     if(item.path.includes("?q=automation")&&!response.url.includes("?q=automation")) failures.push("/notes/?q=automation: query parameter was not preserved");
+    for(const marker of (item.required_markers||[])) if(!body.includes(marker)) failures.push(`${item.path}: missing required smoke marker ${marker}`);
   }catch(error){
     failures.push(`${item.path}: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`);
   }finally{clearTimeout(timer);}
