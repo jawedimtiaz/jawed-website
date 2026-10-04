@@ -31,6 +31,7 @@
     "Strict-Transport-Security: max-age=31536000",
     "Content-Security-Policy:"
   ],
+  "allowed_redirect_statuses": [200, 301],
   "required_route_configuration": {
     "version": 1,
     "include": [
