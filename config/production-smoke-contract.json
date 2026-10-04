@@ -44,7 +44,7 @@
       "content_type": "application/xml"
     },
     {
-      "path": "/missing-phase-38e-smoke-test",
+      "path": "/missing-phase-39i-smoke-test",
       "status": 404,
       "content_type": "text/html",
       "required_markers": [
