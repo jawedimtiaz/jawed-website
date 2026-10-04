@@ -24,10 +24,11 @@ if(JSON.stringify(routes.include)!==JSON.stringify(routeContract.include)) fail.
 if(JSON.stringify(routes.exclude||[])!==JSON.stringify(routeContract.exclude||[])) fail.push("_routes.json exclude rules drifted from deployment contract");
 for(const apiRoute of (contract.api_routes||[])) if(!(routes.include||[]).some(rule=>rule==="/*"||rule===apiRoute||rule===apiRoute+"/*"||rule.endsWith("*")&&apiRoute.startsWith(rule.slice(0,-1)))) fail.push(`declared API route is not covered by _routes.json include rules: ${apiRoute}`);
 
+if(!Array.isArray(contract.allowed_redirect_statuses)||!contract.allowed_redirect_statuses.every(Number.isInteger)) fail.push("deployment redirect status policy must be an integer array");
 const redirects=read("_redirects");
 for(const line of redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
   const parts=line.trim().split(/\s+/);
-  if(parts.length>=3 && !["200","301"].includes(parts[2])) fail.push(`unexpected redirect status: ${line}`);
+  if(parts.length>=3 && !contract.allowed_redirect_statuses.includes(Number(parts[2]))) fail.push(`unexpected redirect status: ${line}`);
 }
 
 const index=read("index.html");
