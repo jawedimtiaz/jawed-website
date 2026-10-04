@@ -48,7 +48,11 @@ const criticalTriggerPaths=[
   "docs/adsense-content-readiness.md",
   "docs/adsense-technical-activation.md",
   "docs/adsense-activation-contract.md",
-  "docs/adsense-activation-handoff.md"
+  "docs/adsense-activation-handoff.md",
+  ".github/workflows/site-integrity.yml",
+  ".github/workflows/production-security-headers.yml",
+  ".github/workflows/production-smoke-reliability.yml",
+  ".github/workflows/deployment-runtime-reliability.yml"
 ];
 
 for(const path of criticalTriggerPaths){
