@@ -1,5 +1,5 @@
 {
-  "phase": "38M",
+  "phase": "39E",
   "scope": "production-html-seo-reliability",
   "production_origin": "https://jawed.co.in",
   "checks": [
@@ -9,13 +9,11 @@
       "required": [
         "<title>",
         "<meta name=\"description\"",
-        "<link rel=\"canonical\" href=\"https://jawed.co.in/\"",
-        "<meta property=\"og:url\" content=\"https://jawed.co.in/\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/\">",
+        "<meta property=\"og:url\" content=\"https://jawed.co.in/\">",
         "<meta name=\"twitter:card\""
       ],
-      "forbidden": [
-        "noindex"
-      ]
+      "forbidden": ["noindex"]
     },
     {
       "path": "/about/",
@@ -23,13 +21,11 @@
       "required": [
         "<title>",
         "<meta name=\"description\"",
-        "<link rel=\"canonical\" href=\"https://jawed.co.in/about/\"",
-        "<meta property=\"og:url\" content=\"https://jawed.co.in/about/\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/about/\">",
+        "<meta property=\"og:url\" content=\"https://jawed.co.in/about/\">",
         "<meta name=\"twitter:card\""
       ],
-      "forbidden": [
-        "noindex"
-      ]
+      "forbidden": ["noindex"]
     },
     {
       "path": "/ai/",
@@ -37,13 +33,11 @@
       "required": [
         "<title>",
         "<meta name=\"description\"",
-        "<link rel=\"canonical\" href=\"https://jawed.co.in/ai/\"",
-        "<meta property=\"og:url\" content=\"https://jawed.co.in/ai/\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/ai/\">",
+        "<meta property=\"og:url\" content=\"https://jawed.co.in/ai/\">",
         "<meta name=\"twitter:card\""
       ],
-      "forbidden": [
-        "noindex"
-      ]
+      "forbidden": ["noindex"]
     },
     {
       "path": "/notes/",
@@ -51,13 +45,11 @@
       "required": [
         "<title>",
         "<meta name=\"description\"",
-        "<link rel=\"canonical\" href=\"https://jawed.co.in/notes/\"",
-        "<meta property=\"og:url\" content=\"https://jawed.co.in/notes/\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/notes/\">",
+        "<meta property=\"og:url\" content=\"https://jawed.co.in/notes/\">",
         "<meta name=\"twitter:card\""
       ],
-      "forbidden": [
-        "noindex"
-      ]
+      "forbidden": ["noindex"]
     }
   ]
 }
