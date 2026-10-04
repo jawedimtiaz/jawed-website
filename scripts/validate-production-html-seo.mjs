@@ -1,6 +1,7 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-html-seo-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
+if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) failures.push("production HTML SEO origin must be HTTPS");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("HTML SEO contract must contain at least one check");
 for(const item of contract.checks||[]){if(typeof item.path!=="string"||!item.path.startsWith("/")) failures.push("HTML SEO path must be absolute");if(typeof item.canonical!=="string"||!/^https:\/\//.test(item.canonical)) failures.push(`${item.path}: canonical must be HTTPS`);if(!Array.isArray(item.required)||item.required.length<1) failures.push(`${item.path}: required SEO markers must be non-empty`);}
 async function readBoundedText(response,maxBytes){
