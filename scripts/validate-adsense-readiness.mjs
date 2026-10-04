@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 
+const VALIDATOR_TIMEOUT_MS = 8000;
+
 const validators = [
   "validate-adsense-privacy.mjs",
   "validate-adsense-inventory.mjs",
@@ -23,7 +25,8 @@ console.log(`Validator count: ${validators.length}`);
 for (const validator of validators) {
   console.log(`\n>>> ${validator}`);
   const result = spawnSync(process.execPath, [`scripts/${validator}`], {
-    stdio: "inherit"
+    stdio: "inherit",
+    timeout: VALIDATOR_TIMEOUT_MS
   });
 
   if (result.error) {
