@@ -7,7 +7,7 @@ const sitemap=fs.readFileSync("sitemap.xml","utf8");
 const tree=execFileSync("git",["ls-files","*.html"],{encoding:"utf8"}).trim().split(/\r?\n/).filter(Boolean);
 const sourcePath=(url)=>url==="/"?"index.html":url.replace(/^\/+|\/+$/g,"")+"/index.html";
 const sitemapUrls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
-const siteUrls=sitemapUrls.filter(url=>url.startsWith("https://jawed.co.in/"));
+const siteUrls=sitemapUrls.filter(url=>url.startsWith("https://jawed.co.in/"));\nconst nonCanonicalSitemapUrls=sitemapUrls.filter(url=>!url.startsWith("https://jawed.co.in/"));
 const sitemapPaths=siteUrls.map(url=>url.slice("https://jawed.co.in".length)||"/");
 const sourcePaths=tree.filter(file=>file!=="404.html"&&!file.startsWith("google"));
 const missingSources=sitemapPaths.filter(path=>!fs.existsSync(sourcePath(path)));
@@ -16,7 +16,7 @@ const unsitemapPages=sourcePaths.filter(file=>{
   return !sitemapPaths.includes(path);
 });
 const duplicateSitemapPaths=sitemapPaths.filter((path,index)=>sitemapPaths.indexOf(path)!==index);
-const errors=[];
+const errors=[];\nif(nonCanonicalSitemapUrls.length)errors.push("Sitemap contains non-canonical URLs: "+nonCanonicalSitemapUrls.join(", "));
 
 const blogArticle=fs.readFileSync("blog/rebuilding-jawed-co-in/index.html","utf8");
 const blogBreadcrumbContract=blogArticle.includes('"@type":"BreadcrumbList"')&&blogArticle.includes('"position":1,"name":"Home"')&&blogArticle.includes('"position":2,"name":"Blog"')&&blogArticle.includes('"position":3,"name":"Rebuilding Jawed.co.in"');
