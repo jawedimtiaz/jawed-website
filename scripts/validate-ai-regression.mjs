@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {execFileSync} from "node:child_process";
 import fs from "node:fs";
 import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
+import {MAX_REPLY_CHARS} from "../functions/lib/ai-provider-common.js";
 
 const VALIDATOR_TIMEOUT_MS=15_000;
 const checks=[
@@ -104,7 +105,7 @@ const contracts=[
   ["provider no-storage architecture",!endpoint.includes("AI_PROVIDER_API_KEY")&&!provider.includes("api.openai.com")],
   ["untrusted conversation boundary",providerCommon.includes("<UNTRUSTED_CONVERSATION>")],
   ["untrusted source boundary",providerCommon.includes("<UNTRUSTED_SOURCE_METADATA>")],
-  ["bounded provider output",providerCommon.includes("MAX_REPLY_CHARS=6000")&&provider.includes("max_tokens:MAX_OUTPUT_TOKENS")],
+  ["bounded provider output",providerCommon.includes("MAX_REPLY_CHARS="+MAX_REPLY_CHARS)&&provider.includes("max_tokens:MAX_OUTPUT_TOKENS")],
   ["Workers AI response extraction",provider.includes("result?.response")&&provider.includes("const reply=")],
   ["source attribution gate",providerCommon.includes("hasAllowedSourceLink")&&provider.includes("hasAllowedSourceLink")],
   ["public AI source metadata boundary",endpoint.includes("publicSourceReferences(sources)")&&endpoint.includes("return sources.map(({url,title})=>({url,title}))")&&endpoint.includes("sources:publicSourceReferences(responseSources)")],
