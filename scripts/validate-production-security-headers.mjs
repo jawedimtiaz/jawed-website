@@ -3,6 +3,7 @@ import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-security-header-contract.json","utf8"));
 const failures=[];
 const timeoutMs=10000;
+if(contract.max_redirects!==0) failures.push("production security-header checks must not follow redirects");
 
 async function check(item){
   const url=new URL(item.path,contract.production_origin);
