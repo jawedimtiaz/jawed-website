@@ -50,8 +50,8 @@ const criticalTriggerPaths=[
 ];
 
 for(const path of criticalTriggerPaths){
-  const occurrences=workflow.split(path).length-1;
-  assert.equal(occurrences>=2,true,"Critical readiness path must trigger both PR and push CI: "+path);
+  assert.equal(prTriggerPaths.includes(path),true,"Critical readiness path must trigger PR CI: "+path);
+  assert.equal(pushTriggerPaths.includes(path),true,"Critical readiness path must trigger main-push CI: "+path);
 }
 assert.equal(finalDoc.includes("Status: **pre-activation / externally blocked**"),true,"Final status must remain pre-activation");
 assert.equal(finalDoc.includes("production ad-serving configuration")&&finalDoc.includes("final CMP/consent configuration"),true,"External activation dependency is missing");
