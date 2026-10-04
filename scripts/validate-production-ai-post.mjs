@@ -3,6 +3,7 @@ const contract=JSON.parse(fs.readFileSync("config/production-ai-post-contract.js
 const failures=[],timeoutMs=10000;
 if(contract.max_redirects!==0) failures.push("production AI POST checks must not follow redirects");
 for(const item of contract.checks){
+ if(item.method!=="POST") failures.push(`${item.path}: production AI POST contract must use POST`);
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{method:item.method,redirect:"manual",signal:controller.signal,headers:{"origin":item.origin,"content-type":item.content_type,"user-agent":"jawed-production-ai/38J"},body:JSON.stringify(item.body)});
@@ -24,7 +25,7 @@ for(const item of contract.checks){
  }catch(error){failures.push(`${item.path}: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
  finally{clearTimeout(timer)}
 }
-if(failures.length){console.error("Production AI POST Reliability Gate FAILED");for(const failure of failures)console.error("- "+failure);process.exit(1)}
+if(failures.length){console.error("Production AI POST Reliability Gate FAILED");for(const failure of failures) console.error("- "+failure);process.exit(1)}
 console.log("Production AI POST Reliability Gate PASSED");
 console.log(`Origin: ${contract.production_origin}`);
 console.log("Provider allocation consumed: no (request rejected before provider path).");
