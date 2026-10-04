@@ -7,7 +7,7 @@ on:
       - "scripts/validate-production-ai-get.mjs"
       - ".github/workflows/production-ai-get-reliability.yml"
       - "functions/api/ai.js"
-      - "lib/**"
+      - "functions/lib/**"
   push:
     branches:
       - main
