@@ -3,7 +3,7 @@ const contract=JSON.parse(fs.readFileSync("config/production-404-contract.json",
 const failures=[],timeoutMs=10000;
 const url=new URL(contract.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
 try{
- const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"accept":"text/html","user-agent":"jawed-production-404/38O"}});
+ const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"accept":"text/html","user-agent":"jawed-production-404/39I"}});
  const type=(response.headers.get("content-type")||"").toLowerCase(),body=await response.text();
  if(response.status!==contract.expected_status) failures.push(`404 probe: expected HTTP ${contract.expected_status}, got ${response.status}`);
  if(!type.startsWith("text/html")) failures.push(`404 probe: expected text/html, got ${type||"missing"}`);
