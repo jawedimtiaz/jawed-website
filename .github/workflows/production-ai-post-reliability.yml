@@ -18,6 +18,7 @@ on:
       - "scripts/validate-production-ai-post.mjs"
       - ".github/workflows/production-ai-post-reliability.yml"
       - "functions/api/ai.js"
+      - "functions/lib/**"
   workflow_dispatch:
   schedule:
     - cron: "27 */6 * * *"
