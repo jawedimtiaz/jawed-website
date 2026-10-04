@@ -4,6 +4,11 @@ import fs from "node:fs";
 
 const harness=fs.readFileSync("scripts/validate-ai-production-e2e.mjs","utf8");
 
+const responseLimitMatch=harness.match(/const MAX_RESPONSE_BYTES=(\\d+)/);
+assert.equal(Boolean(responseLimitMatch),true,"E2E harness must declare MAX_RESPONSE_BYTES");
+assert.equal(Number(responseLimitMatch?.[1])>0,true,"E2E MAX_RESPONSE_BYTES must be positive");
+assert.equal(harness.includes("readBoundedText(response,MAX_RESPONSE_BYTES)"),true,"E2E harness must enforce the response byte limit");
+
 const contracts=[
   ["E2E harness has an explicit request timeout",harness.includes("AbortSignal.timeout(")],
   ["E2E harness uses the timeout for every request",harness.includes("AbortSignal.timeout(REQUEST_TIMEOUT_MS)")],
