@@ -28,7 +28,7 @@ for(const item of contract.checks||[]){
  if(typeof item.method!=="string"||!/^[A-Z]+$/.test(item.method)) failures.push(item.path+": method must be an uppercase HTTP method");
  if(!Number.isInteger(item.expected_status)||item.expected_status<100||item.expected_status>599) failures.push(item.path+": expected_status must be a valid HTTP status");
 }
-for(const item of contract.checks){
+for(const item of contract.checks||[]){
  if(!Number.isInteger(item.max_body_bytes)||item.max_body_bytes<=0) failures.push(item.method+" "+item.path+": max_body_bytes must be a positive integer");
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
