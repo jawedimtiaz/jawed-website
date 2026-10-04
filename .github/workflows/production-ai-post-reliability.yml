@@ -9,6 +9,15 @@ on:
       - "scripts/validate-production-ai-post.mjs"
       - ".github/workflows/production-ai-post-reliability.yml"
       - "functions/api/ai.js"
+  push:
+    branches:
+      - main
+    paths:
+    paths:
+      - "config/production-ai-post-contract.json"
+      - "scripts/validate-production-ai-post.mjs"
+      - ".github/workflows/production-ai-post-reliability.yml"
+      - "functions/api/ai.js"
   workflow_dispatch:
   schedule:
     - cron: "27 */6 * * *"
