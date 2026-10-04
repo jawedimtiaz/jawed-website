@@ -1,22 +1,37 @@
 {
-  "phase": "38G",
-  "scope": "production-smoke-and-canonical-redirect-reliability",
+  "phase": "39A",
+  "scope": "production-smoke-and-critical-surface-reliability",
   "production_origin": "https://jawed.co.in",
   "checks": [
     {
       "path": "/",
       "status": 200,
-      "content_type": "text/html"
+      "content_type": "text/html",
+      "required_markers": [
+        "<nav id=\"site-nav\"",
+        "<summary>Explore</summary>",
+        "<a href=\"/ai/\">AI</a>"
+      ]
     },
     {
       "path": "/ai/",
       "status": 200,
-      "content_type": "text/html"
+      "content_type": "text/html",
+      "required_markers": [
+        "<h1>",
+        "Jawed AI",
+        "id=\"ai-status\""
+      ]
     },
     {
       "path": "/notes/?q=automation",
       "status": 200,
-      "content_type": "text/html"
+      "content_type": "text/html",
+      "required_markers": [
+        "<h1>",
+        "type=\"search\"",
+        "name=\"q\""
+      ]
     },
     {
       "path": "/api/ai",
@@ -31,7 +46,12 @@
     {
       "path": "/missing-phase-38e-smoke-test",
       "status": 404,
-      "content_type": "text/html"
+      "content_type": "text/html",
+      "required_markers": [
+        "Page not found",
+        "Back home",
+        "/tools/"
+      ]
     }
   ],
   "max_redirects": 0,
