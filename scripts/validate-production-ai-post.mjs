@@ -36,7 +36,7 @@ function readBoundedText(response,maxBytes){
   return new TextDecoder().decode(Buffer.concat(chunks.map(chunk=>Buffer.from(chunk))));
  })();
 }
-for(const item of contract.checks){
+for(const item of contract.checks||[]){
  if(item.method!=="POST") failures.push(`${item.path}: production AI POST contract must use POST`);
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
