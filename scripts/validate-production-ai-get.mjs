@@ -20,7 +20,6 @@ async function readBoundedText(response,maxBytes){
 import fs from "node:fs";
 
 const contract=JSON.parse(fs.readFileSync("config/production-ai-get-contract.json","utf8"));
-const url=new URL(contract.path,contract.production_origin);
 const failures=[];
 if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) failures.push("production AI GET origin must be HTTPS");
 if(contract.max_redirects!==0) failures.push("production AI GET checks must not follow redirects");
@@ -32,9 +31,11 @@ if(!Array.isArray(contract.required_fields)||contract.required_fields.length<1) 
 if(!Array.isArray(contract.expected_status_values)||contract.expected_status_values.length<1) failures.push("production AI GET expected_status_values must contain at least one value");
 
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production AI GET max_body_bytes must be a positive integer");
+const url=(typeof contract.path==="string"&&contract.path.startsWith("/")&&typeof contract.production_origin==="string"&&/^https:\/\//.test(contract.production_origin))?new URL(contract.path,contract.production_origin):null;
 const controller=new AbortController();
 const timer=setTimeout(()=>controller.abort(),10000);
 try{
+ if(!url){failures.push("production AI GET URL cannot be constructed from an invalid contract");throw new Error("invalid production AI GET URL contract")}
  const response=await fetch(url,{method:"GET",redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-ai-get/38S","accept":"application/json"}});
  if(response.status!==contract.expected_status) failures.push("unexpected HTTP status "+response.status);
  if(response.status>=300&&response.status<400) failures.push("unexpected redirect");
