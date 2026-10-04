@@ -4,6 +4,8 @@ const contract=JSON.parse(fs.readFileSync("config/production-monitoring-contract
 const workflow=fs.readFileSync(contract.production_smoke_workflow,"utf8");
 const smoke=JSON.parse(fs.readFileSync("config/production-smoke-contract.json","utf8"));
 const failures=[];
+if(typeof contract.production_smoke_workflow!=="string"||!contract.production_smoke_workflow.startsWith(".github/workflows/")||contract.production_smoke_workflow.includes("..")) failures.push("production_smoke_workflow must be a safe workflow-relative path");
+if(typeof contract.checks_are_reused_from!=="string"||contract.checks_are_reused_from!=="config/production-smoke-contract.json") failures.push("checks_are_reused_from must identify the production smoke contract");
 
 if(contract.phase!=="39D") failures.push("contract phase must be 39D");
 if(contract.monitoring_mode!=="scheduled-github-actions") failures.push("monitoring mode must remain scheduled GitHub Actions");
