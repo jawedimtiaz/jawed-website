@@ -13,7 +13,8 @@ const headers=fs.readFileSync("_headers","utf8");
 
 assert.equal(gate.status,"pre-activation");
 assert.equal(gate.activation_blocked_until_google_ready,true);
-assert.equal(gate.runtime_active,false);\nassert.deepEqual(gate.required_controls,["37B Core Web Vitals protection","37C ad-slot architecture","37D mobile responsive safeguards","37E consent/CMP performance boundary","37F monetization performance safeguards"],"Final AdSense gate required-controls contract drifted");
+assert.equal(gate.runtime_active,false);
+assert.deepEqual(gate.required_controls,["37B Core Web Vitals protection","37C ad-slot architecture","37D mobile responsive safeguards","37E consent/CMP performance boundary","37F monetization performance safeguards"],"Final AdSense gate required-controls contract drifted");
 assert.equal(budget.ad_runtime_active,false);
 assert.equal(slot.runtime_active,false);
 assert.equal(consent.cmp_runtime_active,false);
