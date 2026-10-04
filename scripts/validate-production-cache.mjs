@@ -10,7 +10,7 @@ for(const item of contract.checks||[]){
  if(typeof item.require_cache_control!=="boolean") failures.push(item.path+": require_cache_control must be boolean");
  if(!["public","no-store"].includes(item.cache_policy)) failures.push(item.path+": cache_policy must be public or no-store");
 }
-for(const item of contract.checks){
+for(const item of (contract.checks||[])){
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-cache/38R"}});
