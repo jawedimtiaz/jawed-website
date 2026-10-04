@@ -31,7 +31,9 @@ on:
       - "scripts/validate-adsense-final-performance-gate.mjs"
       - "docs/adsense-content-readiness.md"
       - "docs/adsense-activation-contract.md"
+      - "docs/adsense-activation-handoff.md"
       - "config/adsense-inventory.json"
+      - "docs/adsense-activation-handoff.md"
       - ".github/workflows/adsense-readiness.yml"
   push:
     branches:
