@@ -8,7 +8,8 @@ const fail=[];
 
 const exists=p=>fs.existsSync(path.join(root,p));
 for(const p of contract.required_runtime_files) if(!exists(p)) fail.push(`missing required runtime file: ${p}`);
-if(!exists(contract.functions_directory)) fail.push(`missing functions directory: ${contract.functions_directory}`);\nelse if(!fs.statSync(path.join(root,contract.functions_directory)).isDirectory()) fail.push(`functions_directory is not a directory: ${contract.functions_directory}`);
+if(!exists(contract.functions_directory)) fail.push(`missing functions directory: ${contract.functions_directory}`);
+else if(!fs.statSync(path.join(root,contract.functions_directory)).isDirectory()) fail.push(`functions_directory is not a directory: ${contract.functions_directory}`);
 
 const headers=read("_headers");
 for(const required of (contract.required_security_headers||[])) if(!headers.includes(required)) fail.push(`production headers missing required baseline: ${required}`);
