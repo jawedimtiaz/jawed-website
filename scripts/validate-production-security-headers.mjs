@@ -11,7 +11,7 @@ async function check(item){
   try{
     const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-security/39F"}});
     if(response.status!==200) failures.push(`${item.path}: expected HTTP 200, got ${response.status}`);
-    if(response.status>=300&&response.status<400) failures.push(`${item.path}: unexpected redirect (HTTP ${response.status})`);
+    if(Number.isInteger(item.expected_status)&&response.status!==item.expected_status) failures.push(`${item.path}: expected HTTP ${item.expected_status}, got ${response.status}`);\n    if(response.status>=300&&response.status<400) failures.push(`${item.path}: unexpected redirect (HTTP ${response.status})`);
     for(const required of item.required_headers||[]){
       const actual=(response.headers.get(required.name)||"").trim();
       if(!actual) failures.push(`${item.path}: missing response header ${required.name}`);
