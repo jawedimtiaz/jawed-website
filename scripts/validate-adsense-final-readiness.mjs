@@ -31,11 +31,14 @@ assert.equal(new Set(pushTriggerPaths).size,pushTriggerPaths.length,"Main-push r
 assert.equal(workflow.includes("workflow_dispatch:"),true,"Manual readiness dispatch must remain available");
 assert.equal(workflow.includes("permissions:\n  contents: read"),true,"Read-only workflow permissions are required");
 assert.equal(workflow.includes("timeout-minutes: 2"),true,"Readiness workflow timeout must remain bounded");
-const aggregateTimeoutMatch=aggregate.match(/const VALIDATOR_TIMEOUT_MS = (\\d+);/);
+const aggregateTimeoutMatch=aggregate.match(/const VALIDATOR_TIMEOUT_MS = (\\d+););
 assert.notEqual(aggregateTimeoutMatch,null,"Aggregate validator timeout contract is missing");
 const aggregateValidatorTimeoutMs=Number(aggregateTimeoutMatch[1]);
 assert.equal(Number.isInteger(aggregateValidatorTimeoutMs)&&aggregateValidatorTimeoutMs>0,true,"Aggregate validator timeout must be a positive integer");
-assert.equal(aggregateValidatorTimeoutMs*13<120000,true,"13 validator timeouts must remain within the 2-minute workflow budget");
+const workflowTimeoutMatch=workflow.match(/timeout-minutes:\s*(\d+)/);
+assert.notEqual(workflowTimeoutMatch,null,"Readiness workflow timeout contract is missing");
+const workflowTimeoutMs=Number(workflowTimeoutMatch[1])*60000;
+assert.equal(aggregateValidatorTimeoutMs*13<workflowTimeoutMs,true,"13 validator timeouts must remain within the workflow timeout budget");
 assert.equal(workflow.includes("cancel-in-progress: true"),true,"Readiness workflow concurrency cancellation must remain enabled");
 
 const dynamicScanTriggerPaths=[
