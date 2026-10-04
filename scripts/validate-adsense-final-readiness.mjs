@@ -122,8 +122,8 @@ const aggregateValidators=[...aggregateArrayMatch[1].matchAll(/"((?:validate-ads
 const workflowValidators=[...workflow.matchAll(/run: node scripts\/(validate-adsense-[a-z-]+\.mjs)/g)]
   .map(match=>match[1]).filter(name=>name!=="validate-adsense-readiness.mjs");
 const expectedValidators=validatorFiles.map(path=>path.slice("scripts/".length));
-assert.equal(aggregateValidators.length,13,"Aggregate runner must cover 13 individual AdSense validators");
-assert.equal(workflowValidators.length,13,"CI must execute 13 individual AdSense validators");
+assert.equal(aggregateValidators.length,validatorFiles.length,"Aggregate runner must cover every canonical AdSense validator");
+assert.equal(workflowValidators.length,validatorFiles.length,"CI must execute every canonical AdSense validator");
 assert.equal(new Set(aggregateValidators).size,aggregateValidators.length,"Aggregate runner must not duplicate AdSense validators");
 assert.equal(new Set(workflowValidators).size,workflowValidators.length,"CI must not duplicate AdSense validators");
 assert.deepEqual(aggregateValidators,workflowValidators,"Aggregate runner and CI must execute the same AdSense validators in the same order");
