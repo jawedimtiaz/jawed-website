@@ -1,6 +1,7 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-media-asset-contract.json","utf8"));
-const failures=[],timeoutMs=10000;\nif(contract.max_redirects!==0) failures.push("production media asset checks must not follow redirects");
+const failures=[],timeoutMs=10000;
+if(contract.max_redirects!==0) failures.push("production media asset checks must not follow redirects");
 for(const item of contract.checks){
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
