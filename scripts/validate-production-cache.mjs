@@ -5,6 +5,7 @@ for(const item of contract.checks){
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-cache/38R"}});
+  if(response.status!==200) failures.push(`${item.path}: expected HTTP 200, got ${response.status}`);
   const cache=(response.headers.get("cache-control")||"").toLowerCase();
   if(response.status>=300&&response.status<400) failures.push(`${item.path}: unexpected redirect`);
   if(item.require_cache_control&&!cache) failures.push(`${item.path}: missing Cache-Control header`);
