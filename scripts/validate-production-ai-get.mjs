@@ -4,6 +4,7 @@ const contract=JSON.parse(fs.readFileSync("config/production-ai-get-contract.jso
 const url=new URL(contract.path,contract.production_origin);
 const failures=[];
 if(contract.max_redirects!==0) failures.push("production AI GET checks must not follow redirects");
+if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production AI GET max_body_bytes must be a positive integer");
 const controller=new AbortController();
 const timer=setTimeout(()=>controller.abort(),10000);
 try{
