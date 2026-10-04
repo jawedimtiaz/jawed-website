@@ -4,7 +4,11 @@ const contract=JSON.parse(fs.readFileSync("config/production-smoke-contract.json
 const failures=[];
 const timeoutMs=10000;
 if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) failures.push("production smoke origin must be HTTPS");
+if(typeof contract.canonical_origin!=="string"||!/^https:\/\//.test(contract.canonical_origin)) failures.push("production smoke canonical_origin must be HTTPS");
+if(typeof contract.alternate_origin!=="string"||!/^https:\/\//.test(contract.alternate_origin)) failures.push("production smoke alternate_origin must be HTTPS");
+if(contract.canonical_origin!==contract.production_origin) failures.push("production smoke canonical_origin must match production_origin");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production smoke contract must contain at least one check");
+if(!Array.isArray(contract.redirect_checks)||contract.redirect_checks.length<1) failures.push("production smoke contract must contain at least one redirect check");
 if(contract.max_redirects!==0) failures.push("production smoke checks must not follow redirects");
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production smoke max_body_bytes must be a positive integer");
 for(const item of contract.checks||[]){
@@ -13,8 +17,12 @@ for(const item of contract.checks||[]){
  if(typeof item.content_type!=="string"||!item.content_type.trim()) failures.push(`${item.path}: content_type must be non-empty`);
  if(item.required_markers!==undefined&&(!Array.isArray(item.required_markers)||item.required_markers.some(marker=>typeof marker!=="string"||!marker))) failures.push(`${item.path}: required_markers must be non-empty strings`);
 }
-for(const item of (contract.redirect_checks||[])) if(!Array.isArray(item.expected_status)||!item.expected_status.every(Number.isInteger)) failures.push(`${item.path}: redirect expected_status must be an integer array`);
-for(const item of (contract.redirect_checks||[])) if(item.max_redirects!==0) failures.push(`${item.path}: canonical redirect check must not follow redirects`);
+for(const item of (contract.redirect_checks||[])){
+ if(typeof item.path!=="string"||!item.path.startsWith("/")) failures.push("redirect check path must be an absolute site path");
+ if(!Array.isArray(item.expected_status)||item.expected_status.length<1||!item.expected_status.every(status=>Number.isInteger(status)&&status>=300&&status<=399)) failures.push(`${item.path||"<unknown>"}: redirect expected_status must be a non-empty 3xx integer array`);
+ if(typeof item.location!=="string"||!item.location.trim()) failures.push(`${item.path||"<unknown>"}: redirect location must be non-empty`);
+ if(item.max_redirects!==0) failures.push(`${item.path||"<unknown>"}: canonical redirect check must not follow redirects`);
+}
 
 async function readBoundedText(response,maxBytes){
   const declared=Number(response.headers.get("content-length"));
