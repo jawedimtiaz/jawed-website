@@ -4,8 +4,7 @@ import fs from "node:fs";
 import {execFileSync} from "node:child_process";
 
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
-const tree=execFileSync("git",["ls-files","*.html"],{encoding:"utf8"}).trim().split(/\r?
-/).filter(Boolean);
+const tree=execFileSync("git",["ls-files","*.html"],{encoding:"utf8"}).trim().split(/\r?\n/).filter(Boolean);
 const sourcePath=(url)=>url==="/"?"index.html":url.replace(/^\/+|\/+$/g,"")+"/index.html";
 const sitemapUrls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
 const siteUrls=sitemapUrls.filter(url=>url.startsWith("https://jawed.co.in/"));
