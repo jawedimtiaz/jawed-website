@@ -3,6 +3,7 @@
   "scope": "production-html-seo-reliability",
   "production_origin": "https://jawed.co.in",
   "max_redirects": 0,
+  "max_body_bytes": 1000000,
   "checks": [
     {
       "path": "/",
