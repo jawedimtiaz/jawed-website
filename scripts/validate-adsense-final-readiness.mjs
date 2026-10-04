@@ -33,6 +33,15 @@ assert.equal(workflow.includes("permissions:\n  contents: read"),true,"Read-only
 assert.equal(workflow.includes("timeout-minutes: 2"),true,"Readiness workflow timeout must remain bounded");
 assert.equal(workflow.includes("cancel-in-progress: true"),true,"Readiness workflow concurrency cancellation must remain enabled");
 
+const dynamicScanTriggerPaths=[
+  "**/*.html","**/*.css","assets/js/**",
+  "about/**","work/**","notes/**","blog/**","topics/**","resources/**","tools/**","ai/**","assets/**","functions/**","privacy/**"
+];
+for(const path of dynamicScanTriggerPaths){
+  assert.equal(prTriggerPaths.includes(path),true,"Dynamic source-scan path must trigger PR CI: "+path);
+  assert.equal(pushTriggerPaths.includes(path),true,"Dynamic source-scan path must trigger main-push CI: "+path);
+}
+
 const criticalTriggerPaths=[
   "ads.txt","sitemap.xml","privacy/index.html","assets/css/style.css","_headers",
   "config/performance-budget.json","config/adsense-inventory.json","config/adsense-slot-contract.json",
