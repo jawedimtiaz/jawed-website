@@ -30,7 +30,7 @@ assert.equal(new Set(prTriggerPaths).size,prTriggerPaths.length,"PR readiness tr
 assert.equal(new Set(pushTriggerPaths).size,pushTriggerPaths.length,"Main-push readiness trigger paths must be unique");
 assert.equal(workflow.includes("workflow_dispatch:"),true,"Manual readiness dispatch must remain available");
 assert.equal(workflow.includes("permissions:\n  contents: read"),true,"Read-only workflow permissions are required");
-assert.equal(workflow.includes("timeout-minutes: 2"),true,"Readiness workflow timeout must remain bounded");
+assert.equal(workflow.includes("timeout-minutes: 5"),true,"Readiness workflow timeout must remain bounded");
 const aggregateTimeoutMatch=aggregate.match(/const VALIDATOR_TIMEOUT_MS = (\d+);/);
 assert.notEqual(aggregateTimeoutMatch,null,"Aggregate validator timeout contract is missing");
 const aggregateValidatorTimeoutMs=Number(aggregateTimeoutMatch[1]);
