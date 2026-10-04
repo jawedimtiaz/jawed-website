@@ -9,7 +9,7 @@ async function check(item){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
-    const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-smoke/38E"}});
+    const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-smoke/39I"}});
     const type=(response.headers.get("content-type")||"").toLowerCase();
     const body=await response.text();
     if(response.status!==item.status) failures.push(`${item.path}: expected HTTP ${item.status}, got ${response.status}`);
