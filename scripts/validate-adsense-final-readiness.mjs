@@ -78,7 +78,7 @@ const validatorFiles=[
 
 for(const validatorFile of validatorFiles){
   const validatorSource=fs.readFileSync(validatorFile,"utf8");
-  const dependencies=[...validatorSource.matchAll(/(?:readFileSync|existsSync)\\(["']([^"']+)["']/g)]
+  const dependencies=[...validatorSource.matchAll(/(?:readFileSync|existsSync)\(["']([^"']+)["']/g)]
     .map(match=>match[1])
     .filter(path=>!path.startsWith("/")&&!path.startsWith("node:"));
   for(const dependency of dependencies){
