@@ -30,7 +30,7 @@
       "required_markers": [
         "<h1>",
         "type=\"search\"",
-        "name=\"q\""
+        "id=\"notes-filter\""
       ]
     },
     {
