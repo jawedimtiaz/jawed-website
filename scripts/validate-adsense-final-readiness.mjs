@@ -10,6 +10,10 @@ const headers=fs.readFileSync("_headers","utf8");
 const workflow=fs.readFileSync(".github/workflows/adsense-readiness.yml","utf8");
 const handoff=fs.readFileSync("docs/adsense-activation-handoff.md","utf8");
 const aggregate=fs.readFileSync("scripts/validate-adsense-readiness.mjs","utf8");
+const siteIntegrityWorkflow=fs.readFileSync(".github/workflows/site-integrity.yml","utf8");
+const securityWorkflow=fs.readFileSync(".github/workflows/production-security-headers.yml","utf8");
+const smokeWorkflow=fs.readFileSync(".github/workflows/production-smoke-reliability.yml","utf8");
+const deploymentWorkflow=fs.readFileSync(".github/workflows/deployment-runtime-reliability.yml","utf8");
 function triggerPaths(workflow, trigger){
   const start=workflow.indexOf(trigger);
   assert.notEqual(start,-1,"Workflow trigger missing: "+trigger);
@@ -52,6 +56,14 @@ assert.equal(finalDoc.includes("Status: **pre-activation / externally blocked**"
 assert.equal(finalDoc.includes("production ad-serving configuration")&&finalDoc.includes("final CMP/consent configuration"),true,"External activation dependency is missing");
 assert.equal(handoff.includes("Immediate rollback conditions"),true,"Activation rollback safeguard is missing");
 assert.equal(handoff.includes("Google Sites status is **Ready**"),true,"Activation entry gate is missing");
+assert.equal(handoff.includes("site-integrity"),true,"Activation handoff must require site-integrity verification");
+assert.equal(handoff.includes("production security"),true,"Activation handoff must require production security verification");
+assert.equal(handoff.includes("production smoke"),true,"Activation handoff must require production smoke verification");
+assert.equal(handoff.includes("deployment runtime"),true,"Activation handoff must require deployment-runtime verification");
+assert.equal(siteIntegrityWorkflow.includes("node scripts/validate-site-integrity.mjs"),true,"Site-integrity workflow contract missing");
+assert.equal(securityWorkflow.includes("node scripts/validate-production-security-headers.mjs"),true,"Production security workflow contract missing");
+assert.equal(smokeWorkflow.includes("node scripts/validate-production-smoke.mjs"),true,"Production smoke workflow contract missing");
+assert.equal(deploymentWorkflow.includes("node scripts/validate-deployment-runtime-reliability.mjs"),true,"Deployment runtime workflow contract missing");
 assert.equal((workflow.match(/docs\/adsense-activation-handoff\.md/g)||[]).length,2,"Activation handoff must trigger both PR and main-push readiness CI");
 assert.equal(aggregate.includes("Validator count:")&&aggregate.includes("AdSense readiness aggregate gate: PASS"),true,"Aggregate readiness runner is incomplete");
 assert.equal((aggregate.match(/validate-adsense-[a-z-]+\.mjs/g)||[]).length,13,"Aggregate runner must cover all 13 AdSense validators");
