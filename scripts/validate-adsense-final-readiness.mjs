@@ -57,6 +57,8 @@ const validatorFiles=[
   "scripts/validate-adsense-final-performance-gate.mjs","scripts/validate-adsense-final-readiness.mjs",
   "scripts/validate-adsense-preactivation.mjs"
 ];
+assert.equal(validatorFiles.length,13,"Canonical AdSense validator contract must contain 13 validators");
+assert.equal(new Set(validatorFiles).size,validatorFiles.length,"Canonical AdSense validator contract must contain unique validators");
 
 for(const validatorFile of validatorFiles){
   assert.equal(prTriggerPaths.includes(validatorFile),true,"Validator file must trigger PR CI: "+validatorFile);
@@ -101,6 +103,8 @@ const workflowValidators=[...workflow.matchAll(/run: node scripts\/(validate-ads
 const expectedValidators=validatorFiles.map(path=>path.slice("scripts/".length)).sort();
 assert.equal(aggregateValidators.length,13,"Aggregate runner must cover 13 individual AdSense validators");
 assert.equal(workflowValidators.length,13,"CI must execute 13 individual AdSense validators");
+assert.equal(new Set(aggregateValidators).size,aggregateValidators.length,"Aggregate runner must not duplicate AdSense validators");
+assert.equal(new Set(workflowValidators).size,workflowValidators.length,"CI must not duplicate AdSense validators");
 assert.deepEqual(aggregateValidators,workflowValidators,"Aggregate runner and CI must execute the same AdSense validators");
 assert.deepEqual(aggregateValidators,expectedValidators,"Aggregate runner and CI must execute the canonical AdSense validator set");
 for(const validator of aggregateValidators){
