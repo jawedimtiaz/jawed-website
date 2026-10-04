@@ -4,6 +4,8 @@ const contract=JSON.parse(fs.readFileSync("config/production-smoke-contract.json
 const failures=[];
 const timeoutMs=10000;
 if(contract.max_redirects!==0) failures.push("production smoke checks must not follow redirects");
+if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production smoke max_body_bytes must be a positive integer");
+for(const item of (contract.redirect_checks||[])) if(!Array.isArray(item.expected_status)||!item.expected_status.every(Number.isInteger)) failures.push(`${item.path}: redirect expected_status must be an integer array`);
 for(const item of (contract.redirect_checks||[])) if(item.max_redirects!==0) failures.push(`${item.path}: canonical redirect check must not follow redirects`);
 
 async function check(item){
