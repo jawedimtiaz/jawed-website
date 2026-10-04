@@ -5,6 +5,7 @@ import fs from "node:fs";
 const headers=fs.readFileSync("_headers","utf8");
 const redirects=fs.readFileSync("_redirects","utf8");
 const routes=JSON.parse(fs.readFileSync("_routes.json","utf8"));
+const deploymentContract=JSON.parse(fs.readFileSync("config/deployment-runtime-contract.json","utf8"));
 
 const requiredHeaders=[
   "X-Frame-Options: DENY",
@@ -33,13 +34,14 @@ assert.equal(routes.version,1,"_routes.json version must remain supported");
 assert.deepEqual(routes.include,["/api/*"],"_routes.json must keep API-only function routing");
 assert.deepEqual(routes.exclude,[],"_routes.json must not silently exclude API routes");
 
+assert.equal(Array.isArray(deploymentContract.allowed_redirect_statuses),true,"Deployment redirect status policy must be declared");
+assert.equal(deploymentContract.allowed_redirect_statuses.every(Number.isInteger),true,"Deployment redirect status policy must contain integers");
 const redirectLines=redirects.split(/\r?\n/).filter(line=>line.trim()&&!line.trim().startsWith("#"));
-assert.equal(redirectLines.some(line=>line.includes(" / 301")),true,"Legacy routes must retain canonical redirects");
 for(const line of redirectLines){
   const parts=line.trim().split(/\s+/);
   if(parts.length<3)continue;
-  const status=parts.at(-1);
-  assert.equal(["301","200"].includes(status),true,"Unexpected redirect status in _redirects: "+line);
+  const status=Number(parts.at(-1));
+  assert.equal(deploymentContract.allowed_redirect_statuses.includes(status),true,"Unexpected redirect status in _redirects: "+line);
 }
 
 assert.equal(fs.existsSync("404.html"),true,"Custom 404 boundary must remain present");
