@@ -14,7 +14,6 @@ on:
     branches:
       - main
     paths:
-    paths:
       - "assets/images/**"
       - "favicon.svg"
       - "config/production-media-asset-contract.json"
