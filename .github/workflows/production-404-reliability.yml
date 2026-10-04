@@ -9,6 +9,13 @@ on:
       - "config/production-404-contract.json"
       - "scripts/validate-production-404.mjs"
       - ".github/workflows/production-404-reliability.yml"
+  push:
+    branches: [main]
+    paths:
+      - "404.html"
+      - "config/production-404-contract.json"
+      - "scripts/validate-production-404.mjs"
+      - ".github/workflows/production-404-reliability.yml"
   workflow_dispatch:
   schedule:
     - cron: "43 */6 * * *"
