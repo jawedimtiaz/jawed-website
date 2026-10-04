@@ -1,18 +1,18 @@
 {
-  "phase": "38J",
+  "phase": "39H",
   "scope": "production-ai-post-runtime-reliability",
   "production_origin": "https://jawed.co.in",
   "checks": [
     {
       "path": "/api/ai",
       "method": "POST",
-      "origin": "https://invalid-phase-38j.example",
+      "origin": "https://invalid-phase-39h.example",
       "content_type": "application/json",
       "body": {
         "messages": [
           {
             "role": "user",
-            "content": "phase-38j-runtime-probe"
+            "content": "phase-39h-runtime-probe"
           }
         ]
       },
