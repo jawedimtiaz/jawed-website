@@ -19,6 +19,9 @@ const unsitemapPages=sourcePaths.filter(file=>{
 const duplicateSitemapPaths=sitemapPaths.filter((path,index)=>sitemapPaths.indexOf(path)!==index);
 const errors=[];
 if(nonCanonicalSitemapUrls.length)errors.push("Sitemap contains non-canonical URLs: "+nonCanonicalSitemapUrls.join(", "));
+if(missingSources.length)errors.push("Sitemap routes missing source pages: "+missingSources.join(", "));
+if(unsitemapPages.length)errors.push("Published HTML pages missing from sitemap: "+unsitemapPages.join(", "));
+if(duplicateSitemapPaths.length)errors.push("Sitemap contains duplicate routes: "+duplicateSitemapPaths.join(", "));
 
 const blogArticle=fs.readFileSync("blog/rebuilding-jawed-co-in/index.html","utf8");
 const blogBreadcrumbContract=blogArticle.includes('"@type":"BreadcrumbList"')&&blogArticle.includes('"position":1,"name":"Home"')&&blogArticle.includes('"position":2,"name":"Blog"')&&blogArticle.includes('"position":3,"name":"Rebuilding Jawed.co.in"');
