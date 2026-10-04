@@ -2,6 +2,7 @@ import {findRelevantKnowledge,knowledgeCount} from "../lib/ai-knowledge.js";
 import knowledge from "../lib/ai-knowledge-data.js";
 import {checkRateLimit,getClientKey,MAX_REQUESTS,WINDOW_MS} from "../lib/ai-rate-limit.js";
 import {DEFAULT_MODEL,generateGroundedReply} from "../lib/cloudflare-ai-provider.js";
+import {isSafeSourceUrl,ensureAllowedSourceLink} from "../lib/ai-provider-common.js";
 import {buildRetrievalQuery} from "../lib/ai-retrieval.js";
 import {aiConfigurationStatus} from "../lib/ai-config.js";
 
@@ -43,12 +44,12 @@ function deterministicIntentReply(question){
   const identity=["who is jawed","who is jawed imtiaz","who was jawed","who was jawed imtiaz","about jawed","about jawed imtiaz"];
   if(identity.includes(value)){
     const source=knowledgeEntry("/about/");
-    return source?{reply:source.summary+" Source: ["+source.title+"](https://jawed.co.in"+source.url+")",sources:[source]}:null;
+    return source&&isSafeSourceUrl(source.url)?{reply:ensureAllowedSourceLink(source.summary,[source]),sources:[source]}:null;
   }
   const workQuestion=(value.startsWith("where ")||value.startsWith("what "))&&["work","working","job","employed","employer","employment","company","client"].some(term=>value.includes(term));
   if(workQuestion){
     const source=knowledgeEntry("/work/experience/");
-    return source?{reply:source.summary+" Source: ["+source.title+"](https://jawed.co.in"+source.url+")",sources:[source]}:null;
+    return source&&isSafeSourceUrl(source.url)?{reply:ensureAllowedSourceLink(source.summary,[source]),sources:[source]}:null;
   }
   return null;
 }
