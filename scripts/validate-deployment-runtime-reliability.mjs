@@ -11,13 +11,13 @@ for(const p of contract.required_runtime_files) if(!exists(p)) fail.push(`missin
 if(!exists(contract.functions_directory)) fail.push(`missing functions directory: ${contract.functions_directory}`);
 
 const headers=read("_headers");
-if(!headers.includes("Strict-Transport-Security:")) fail.push("production headers missing HSTS");
-if(!headers.includes("Content-Security-Policy:")) fail.push("production headers missing CSP");
+for(const required of (contract.required_security_headers||[])) if(!headers.includes(required)) fail.push(`production headers missing required baseline: ${required}`);
 
 const routes=JSON.parse(read("_routes.json"));
-if(routes.version!==1) fail.push("_routes.json version must remain 1");
-if(!Array.isArray(routes.include)||!routes.include.includes("/api/*")) fail.push("_routes.json must include /api/*");
-if(routes.exclude?.length) fail.push("_routes.json must not exclude API routes");
+const routeContract=contract.required_route_configuration||{};
+if(routes.version!==routeContract.version) fail.push("_routes.json version drifted from deployment contract");
+if(JSON.stringify(routes.include)!==JSON.stringify(routeContract.include)) fail.push("_routes.json include rules drifted from deployment contract");
+if(JSON.stringify(routes.exclude||[])!==JSON.stringify(routeContract.exclude||[])) fail.push("_routes.json exclude rules drifted from deployment contract");
 
 const redirects=read("_redirects");
 for(const line of redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
@@ -30,6 +30,7 @@ if(!index.includes(`<link rel="canonical" href="${contract.production_origin}/"`
 
 const sitemap=read("sitemap.xml");
 if(!sitemap.includes(contract.production_origin)) fail.push("sitemap must use the production origin");
+if(sitemap.includes(contract.alternate_origin)) fail.push("sitemap must not contain the alternate origin");
 
 const ai=read("functions/api/ai.js");
 
