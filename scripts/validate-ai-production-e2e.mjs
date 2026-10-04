@@ -4,6 +4,16 @@ import assert from "node:assert/strict";
 const base=(process.argv[2]||"https://jawed.co.in").replace(/\/$/,"");
 const api=base+"/api/ai";
 const REQUEST_TIMEOUT_MS=10_000;
+const MAX_RESPONSE_BYTES=20_000;
+
+async function readBoundedText(response,maxBytes){
+  const declared=Number(response.headers.get("content-length"));
+  if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared E2E body limit");
+  if(!response.body){const text=await readBoundedText(response,MAX_RESPONSE_BYTES);if(Buffer.byteLength(text)>maxBytes)throw new Error("response exceeds E2E body limit");return text;}
+  const reader=response.body.getReader(),chunks=[];let total=0;
+  try{while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>maxBytes){await reader.cancel();throw new Error("response exceeds E2E body limit");}chunks.push(value);}}finally{reader.releaseLock();}
+  return new TextDecoder().decode(Buffer.concat(chunks.map(chunk=>Buffer.from(chunk))));
+}
 
 async function request(url,options){
   const response=await fetch(url,{...options,redirect:"manual",signal:options?.signal||AbortSignal.timeout(REQUEST_TIMEOUT_MS)});
