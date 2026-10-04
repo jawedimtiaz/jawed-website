@@ -9,6 +9,13 @@ on:
       - "scripts/validate-production-html-seo.mjs"
       - ".github/workflows/production-html-seo-reliability.yml"
       - "**/index.html"
+  push:
+    branches: [main]
+    paths:
+      - "config/production-html-seo-contract.json"
+      - "scripts/validate-production-html-seo.mjs"
+      - ".github/workflows/production-html-seo-reliability.yml"
+      - "**/index.html"
   workflow_dispatch:
   schedule:
     - cron: "13 */6 * * *"
