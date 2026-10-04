@@ -9,7 +9,7 @@ for(const item of contract.checks){
   const cache=(response.headers.get("cache-control")||"").toLowerCase();
   if(response.status>=300&&response.status<400) failures.push(`${item.path}: unexpected redirect`);
   if(item.require_cache_control&&!cache) failures.push(`${item.path}: missing Cache-Control header`);
-  if(item.cache_policy==="public"&&!cache.includes("public")) failures.push(`${item.path}: expected public cache policy, got ${cache||"missing"}`);
+  if(!["public","no-store"].includes(item.cache_policy)) failures.push(`${item.path}: unsupported cache policy ${item.cache_policy}`);\n  if(item.cache_policy==="public"&&!cache.includes("public")) failures.push(`${item.path}: expected public cache policy, got ${cache||"missing"}`);
   if(item.cache_policy==="no-store"&&!cache.includes("no-store")) failures.push(`${item.path}: expected no-store cache policy, got ${cache||"missing"}`);
  }catch(error){failures.push(`${item.path}: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
  finally{clearTimeout(timer)}
