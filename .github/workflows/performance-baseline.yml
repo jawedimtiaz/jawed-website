@@ -11,7 +11,7 @@ on:
       - "config/performance-budget.json"
       - "scripts/validate-performance-baseline.mjs"
       - "assets/js/analytics.js"
-      - "index.html"
+      - "**/*.html"
       - "_headers"
       - "ads.txt"
   push:
@@ -22,7 +22,7 @@ on:
       - "config/performance-budget.json"
       - "scripts/validate-performance-baseline.mjs"
       - "assets/js/analytics.js"
-      - "index.html"
+      - "**/*.html"
       - "_headers"
       - "ads.txt"
   workflow_dispatch:
