@@ -17,12 +17,13 @@ function lastSourcePaths(messages,limit=3){
   const assistantMessages=normalizedMessages(messages).slice(0,-1).filter(message=>message?.role==="assistant"&&typeof message.content==="string"&&message.content.trim());
   const latest=assistantMessages.at(-1);
   if(!latest)return [];
+  const safeLimit=Number.isInteger(limit)&&limit>0?Math.min(limit,3):3;
   const paths=[];
   for(const match of latest.content.matchAll(SOURCE_PATH_PATTERN)){
     const path=match[1];
     if(!isSafeSourceUrl(path))continue;
     if(!paths.includes(path))paths.push(path);
-    if(paths.length>=limit)break;
+    if(paths.length>=safeLimit)break;
   }
   return paths;
 }
@@ -30,6 +31,7 @@ function lastSourcePath(messages){return lastSourcePaths(messages,1)[0]||"";}
 
 function resolveContextualReference(current,messages){
   const prior=priorMessages(messages);
+  if(typeof current!=="string"||!current.trim())return "";
   if(!prior.length)return current;
   let resolved=current;
   if(hasJawedContext(messages)&&PERSON_PRONOUN.test(resolved)){
