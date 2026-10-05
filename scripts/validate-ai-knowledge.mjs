@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {execFileSync} from "node:child_process";
+import {isSafeSourceUrl} from "../functions/lib/ai-provider-common.js";
 
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
 const knowledge=JSON.parse(fs.readFileSync("assets/data/ai-knowledge.json","utf8"));
@@ -25,7 +26,15 @@ const missing=sitemapPaths.filter(path=>!excluded.has(path)&&!indexPaths.include
 const unexpected=indexPaths.filter(path=>!sitemapPaths.includes(path));
 const excludedIndexed=[...excluded].filter(path=>indexPaths.includes(path));
 const malformed=knowledge.entries.filter(entry=>!entry.url||!entry.title||!entry.summary||!Array.isArray(entry.keywords)||!entry.keywords.length);
-const unsafeUrls=knowledge.entries.filter(entry=>typeof entry.url!=="string"||!entry.url.startsWith("/")||entry.url.startsWith("//")||entry.url.includes("\\"));
+const unsafeUrls=knowledge.entries.filter(entry=>!isSafeSourceUrl(entry.url));
+const unsafeUrlContractCases={
+  "/../admin/":false,
+  "/notes/%2e%2e%2fadmin/":false,
+  "/notes/%2e%2e%5cadmin/":false,
+  "/notes/%2f%2fevil.example/":false,
+  "/notes/example/":true
+};
+for(const [url,expected] of Object.entries(unsafeUrlContractCases))assert.equal(isSafeSourceUrl(url),expected,"Unexpected AI source URL safety result for "+url);
 const reviewDate=knowledge.reviewed_against_sitemap_on;
 const reviewDateMs=typeof reviewDate==="string"&&!Number.isNaN(Date.parse(reviewDate+"T23:59:59Z"))?Date.parse(reviewDate+"T23:59:59Z"):NaN;
 const groundingSourceFiles=sitemapPaths.filter(path=>!excluded.has(path)).map(sourcePath);
