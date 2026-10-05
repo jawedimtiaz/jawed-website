@@ -4,6 +4,8 @@ import {generateGroundedReply,DEFAULT_MODEL,FREE_MODEL,MAX_OUTPUT_TOKENS,PROVIDE
 
 assert.equal(isSafeSourceUrl("/notes/example/"),true);
 assert.equal(isSafeSourceUrl("//evil.example/"),false);
+assert.equal(isSafeSourceUrl("/../admin/"),false);
+assert.equal(isSafeSourceUrl("/notes/%2e%2e/admin/"),false);
 assert.equal(isSafeSourceUrl("/\\evil.example/"),false);
 
 const calls=[];
