@@ -16,6 +16,9 @@ async function readBoundedText(response,maxBytes){
 if(contract.max_redirects!==0) failures.push("production checks must not follow redirects");
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production max_body_bytes must be a positive integer");
 for(const item of contract.checks||[]){
+ const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path);
+ const validOrigin=isHttpsOrigin(contract.production_origin);
+ if(!validPath||!validOrigin){failures.push(`${item.path}: robots probe URL is invalid`);continue;}
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-robots/39E"}});
