@@ -2,12 +2,21 @@
 import assert from "node:assert/strict";
 import {onRequestGet,onRequestPost} from "../functions/api/ai.js";
 import {buildRetrievalQuery,lastSourcePaths,MAX_RETRIEVAL_QUERY_CHARS} from "../functions/lib/ai-retrieval.js";
-import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TEMPERATURE} from "../functions/lib/cloudflare-ai-provider.js";
+import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TEMPERATURE,generateGroundedReply} from "../functions/lib/cloudflare-ai-provider.js";
 import {isSafeSourceUrl,isSafeSourceMetadata,MAX_SOURCE_TITLE_CHARS,MAX_SOURCE_SUMMARY_CHARS,MAX_SOURCE_KEYWORD_CHARS,MAX_SOURCE_KEYWORDS,MAX_REPLY_CHARS,buildGroundingInstructions,MAX_PROVIDER_MESSAGES,MAX_PROVIDER_MESSAGE_CHARS} from "../functions/lib/ai-provider-common.js";
 import {MAX_REQUESTS,WINDOW_MS,checkRateLimit,getClientKey} from "../functions/lib/ai-rate-limit.js";
 import {findRelevantKnowledge,MAX_KNOWLEDGE_RESULTS} from "../functions/lib/ai-knowledge.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
+const mockedProvider=async({input,sources})=>generateGroundedReply({ai:{run:async()=>({response:"Grounded answer."})},input,sources});
+assert.doesNotThrow(()=>buildGroundingInstructions([{role:"user",content:"x"}],null));
+const boundedProviderResult=await mockedProvider({
+  input:[{role:"user",content:"What is this?"}],
+  sources:[null,{url:"https://evil.example/unsafe",title:"Bad",summary:"Bad",keywords:["bad"]},validSource]
+});
+assert.equal(boundedProviderResult.reply,"Grounded answer.\\n\\nSource: [Example](https://jawed.co.in/notes/example/)");
+assert.equal(boundedProviderResult.model,DEFAULT_MODEL);
+
 const malformedProviderContext=buildGroundingInstructions(null,null);
 assert.equal(malformedProviderContext.includes("No valid conversation context was supplied."),true);
 const untrustedProviderContext=buildGroundingInstructions([
