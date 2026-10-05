@@ -12,13 +12,13 @@ if(!Array.isArray(contract.redirect_checks)||contract.redirect_checks.length<1) 
 if(contract.max_redirects!==0) failures.push("production smoke checks must not follow redirects");
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production smoke max_body_bytes must be a positive integer");
 for(const item of contract.checks||[]){
- if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")) failures.push("smoke check path must be an absolute site path");
+ if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")) failures.push("smoke check path must be an absolute site path");
  if(!Number.isInteger(item.status)||item.status<100||item.status>599) failures.push(`${item.path}: status must be a valid HTTP status`);
  if(typeof item.content_type!=="string"||!item.content_type.trim()) failures.push(`${item.path}: content_type must be non-empty`);
  if(item.required_markers!==undefined&&(!Array.isArray(item.required_markers)||item.required_markers.some(marker=>typeof marker!=="string"||!marker))) failures.push(`${item.path}: required_markers must be non-empty strings`);
 }
 for(const item of (contract.redirect_checks||[])){
- if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")) failures.push("redirect check path must be an absolute site path");
+ if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")) failures.push("redirect check path must be an absolute site path");
  if(!Array.isArray(item.expected_status)||item.expected_status.length<1||!item.expected_status.every(status=>Number.isInteger(status)&&status>=300&&status<=399)) failures.push(`${item.path||"<unknown>"}: redirect expected_status must be a non-empty 3xx integer array`);
  if(typeof item.location!=="string"||!item.location.trim()) failures.push(`${item.path||"<unknown>"}: redirect location must be non-empty`);
  if(item.max_redirects!==0) failures.push(`${item.path||"<unknown>"}: canonical redirect check must not follow redirects`);
