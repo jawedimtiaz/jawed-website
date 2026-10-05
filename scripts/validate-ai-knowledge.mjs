@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {execFileSync} from "node:child_process";
-import {isSafeSourceUrl,isSafeSourceMetadata} from "../functions/lib/ai-provider-common.js";
+import {isSafeSourceUrl,isSafeSourceMetadata} from "../functions/lib/ai-provider-common.js";\nimport {findRelevantKnowledge} from "../functions/lib/ai-knowledge.js";
 
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
 const knowledge=JSON.parse(fs.readFileSync("assets/data/ai-knowledge.json","utf8"));
@@ -26,6 +26,21 @@ const missing=sitemapPaths.filter(path=>!excluded.has(path)&&!indexPaths.include
 const unexpected=indexPaths.filter(path=>!sitemapPaths.includes(path));
 const excludedIndexed=[...excluded].filter(path=>indexPaths.includes(path));
 const malformed=knowledge.entries.filter(entry=>!isSafeSourceMetadata(entry));
+const retrievalChecks=[
+  ["retirement planning",{}],
+  ["who is Jawed?",{primaryQuery:"who is Jawed?"}],
+  ["where does Jawed work?",{primaryQuery:"where does Jawed work?"}]
+];
+for(const [query,options] of retrievalChecks){
+  const results=findRelevantKnowledge(query,5,options);
+  assert.equal(results.length<=5,true,"Retrieval result limit exceeded for "+query);
+  assert.equal(new Set(results.map(entry=>entry.url)).size,results.length,"Retrieval returned duplicate source URLs for "+query);
+  assert.equal(results.every(isSafeSourceMetadata),true,"Retrieval returned unsafe metadata for "+query);
+}
+const identityResults=findRelevantKnowledge("who is Jawed?",5,{primaryQuery:"who is Jawed?"});
+assert.equal(identityResults[0]?.url,"/about/","Identity retrieval must prioritize the About source.");
+const workResults=findRelevantKnowledge("where does Jawed work?",5,{primaryQuery:"where does Jawed work?"});
+assert.equal(workResults[0]?.url,"/work/experience/","Work retrieval must prioritize the experience source.");
 const unsafeUrls=knowledge.entries.filter(entry=>!isSafeSourceUrl(entry.url));
 const unsafeUrlContractCases={
   "/../admin/":false,
