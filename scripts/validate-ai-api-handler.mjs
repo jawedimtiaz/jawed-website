@@ -5,6 +5,7 @@ import {buildRetrievalQuery,lastSourcePaths,MAX_RETRIEVAL_QUERY_CHARS} from "../
 import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TEMPERATURE} from "../functions/lib/cloudflare-ai-provider.js";
 import {isSafeSourceUrl,isSafeSourceMetadata,MAX_SOURCE_TITLE_CHARS,MAX_SOURCE_SUMMARY_CHARS,MAX_SOURCE_KEYWORD_CHARS,MAX_SOURCE_KEYWORDS,MAX_REPLY_CHARS} from "../functions/lib/ai-provider-common.js";
 import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
+import {findRelevantKnowledge,MAX_KNOWLEDGE_RESULTS} from "../functions/lib/ai-knowledge.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
 let providerCalls=0;
@@ -90,6 +91,10 @@ for(const messages of malformedRetrievalInputs){
 assert.equal(buildRetrievalQuery(null),"");
 assert.equal(buildRetrievalQuery([]),"");
 assert.equal(buildRetrievalQuery([{role:"assistant",content:"context"}]),"");
+assert.deepEqual(findRelevantKnowledge(null),[]);
+assert.deepEqual(findRelevantKnowledge({}),[]);
+assert.deepEqual(findRelevantKnowledge("retirement planning",0),findRelevantKnowledge("retirement planning",5));
+assert.deepEqual(findRelevantKnowledge("retirement planning",MAX_KNOWLEDGE_RESULTS+1),findRelevantKnowledge("retirement planning",MAX_KNOWLEDGE_RESULTS));
 
 const health=await onRequestGet({request:makeRequest("https://jawed.co.in/api/ai"),env:{}});
 assert.equal(health.status,200);
