@@ -1,9 +1,10 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-smoke-contract.json","utf8"));
 const failures=[];
+const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
 if(!/^39I$/.test(contract.phase)) failures.push("smoke contract phase must be 39I");
-if(typeof contract.canonical_origin!=="string"||!/^https:\/\//.test(contract.canonical_origin)) failures.push("canonical origin must be HTTPS");
-if(typeof contract.alternate_origin!=="string"||!/^https:\/\//.test(contract.alternate_origin)) failures.push("alternate origin must be HTTPS");
+if(!isHttpsOrigin(contract.canonical_origin)) failures.push("canonical origin must be an origin-only HTTPS URL");
+if(!isHttpsOrigin(contract.alternate_origin)) failures.push("alternate origin must be an origin-only HTTPS URL");
 if(contract.canonical_origin!=="https://jawed.co.in") failures.push("canonical origin drifted");
 if(contract.alternate_origin!=="https://www.jawed.co.in") failures.push("alternate origin drifted");
 if(!Array.isArray(contract.redirect_checks)||contract.redirect_checks.length<1) failures.push("at least one canonical redirect check is required");
