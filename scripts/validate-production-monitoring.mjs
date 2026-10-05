@@ -1,10 +1,11 @@
 import fs from "node:fs";
 
 const contract=JSON.parse(fs.readFileSync("config/production-monitoring-contract.json","utf8"));
-const workflow=fs.readFileSync(contract.production_smoke_workflow,"utf8");
 const smoke=JSON.parse(fs.readFileSync("config/production-smoke-contract.json","utf8"));
 const failures=[];
-if(typeof contract.production_smoke_workflow!=="string"||!contract.production_smoke_workflow.startsWith(".github/workflows/")||contract.production_smoke_workflow.includes("..")) failures.push("production_smoke_workflow must be a safe workflow-relative path");
+const validWorkflowPath=typeof contract.production_smoke_workflow==="string"&&contract.production_smoke_workflow.startsWith(".github/workflows/")&&!contract.production_smoke_workflow.includes("..")&&!contract.production_smoke_workflow.includes("\\")&&contract.production_smoke_workflow.trim()===contract.production_smoke_workflow;
+if(!validWorkflowPath) failures.push("production_smoke_workflow must be a safe workflow-relative path");
+const workflow=validWorkflowPath?fs.readFileSync(contract.production_smoke_workflow,"utf8"):"";
 if(typeof contract.checks_are_reused_from!=="string"||contract.checks_are_reused_from!=="config/production-smoke-contract.json") failures.push("checks_are_reused_from must identify the production smoke contract");
 
 if(contract.phase!=="39D") failures.push("contract phase must be 39D");
