@@ -16,7 +16,12 @@ async function readBoundedText(response,maxBytes){
 }
 if(contract.max_redirects!==0) failures.push("production checks must not follow redirects");
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production max_body_bytes must be a positive integer");
-const url=new URL(contract.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+const validPath=typeof contract.path==="string"&&contract.path.startsWith("/")&&!contract.path.startsWith("//")&&!contract.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(contract.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(contract.path);
+const validOrigin=isHttpsOrigin(contract.production_origin);
+const url=validPath&&validOrigin?new URL(contract.path,contract.production_origin):null;
+if(!url){failures.push("404 probe skipped: contract URL is invalid");}
+else{
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
 try{
  const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"accept":"text/html","user-agent":"jawed-production-404/39I"}});
  const type=(response.headers.get("content-type")||"").toLowerCase(),body=await readBoundedText(response,contract.max_body_bytes);
@@ -28,6 +33,7 @@ try{
  if(body.length<500) failures.push("404 probe: response body is unexpectedly small");
 }catch(error){failures.push(`404 probe: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
 finally{clearTimeout(timer)}
+}
 if(failures.length){console.error("Production 404 Reliability Gate FAILED");for(const failure of failures)console.error("- "+failure);process.exit(1)}
 console.log("Production 404 Reliability Gate PASSED");
 console.log(`Probe: ${contract.production_origin}${contract.path}`);
