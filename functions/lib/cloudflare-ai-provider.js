@@ -30,7 +30,7 @@ function withProviderTimeout(promise,timeoutMs=PROVIDER_TIMEOUT_MS){
   return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
 }
 
-export async function generateGroundedReply({ai,model,input,sources}){
+export async function generateGroundedReply({ai,model,input,sources}={}){
   if(!ai||typeof ai.run!=="function"){
     const error=new Error("Cloudflare Workers AI binding is not configured.");
     error.status=503;
