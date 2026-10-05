@@ -7,7 +7,6 @@ on:
     paths:
       - "config/deployment-runtime-contract.json"
       - "config/production-smoke-contract.json"
-      - "config/production-smoke-contract.json"
       - "scripts/validate-deployment-runtime-reliability.mjs"
       - "docs/cloudflare-pages-deployment.md"
       - "_headers"
@@ -22,6 +21,7 @@ on:
     branches: [main]
     paths:
       - "config/deployment-runtime-contract.json"
+      - "config/production-smoke-contract.json"
       - "scripts/validate-deployment-runtime-reliability.mjs"
       - "docs/cloudflare-pages-deployment.md"
       - "_headers"
