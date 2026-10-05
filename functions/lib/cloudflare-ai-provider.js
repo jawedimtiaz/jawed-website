@@ -6,10 +6,10 @@ const PROVIDER_TEMPERATURE=0.2;
 const FREE_MODEL=DEFAULT_MODEL;
 
 function normalizeProviderError(error){
-  const status=Number.isInteger(error?.status)?error.status:502;
+  const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<600?error.status:502;
   const normalized=new Error(typeof error?.message==="string"&&error.message?error.message:"The Cloudflare Workers AI provider returned an error.");
   normalized.status=status;
-  normalized.category=status===429?"PROVIDER_HTTP_429":status>=400&&status<600?"PROVIDER_HTTP_"+status:"PROVIDER_UNKNOWN";
+  normalized.category=status===429?"PROVIDER_HTTP_429":"PROVIDER_HTTP_"+status;
   normalized.providerStage="AI_RUN";
   normalized.providerErrorCode=typeof error?.code==="string"&&/^[a-z0-9_.-]{1,80}$/i.test(error.code)?error.code:typeof error?.code==="number"?String(error.code):/\b(3036|5035)\b/.exec(normalized.message)?.[1]||"";
   return normalized;
