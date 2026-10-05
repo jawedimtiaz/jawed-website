@@ -4,7 +4,7 @@ const failures=[],timeoutMs=10000;
 if(contract.max_redirects!==0) failures.push("production AI POST checks must not follow redirects");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production AI POST contract must contain at least one check");
 for(const item of contract.checks||[]){
- if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")) failures.push("AI POST path must be an absolute site path");
+ if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path)) failures.push("AI POST path must be an absolute site path");
  if(item.method!=="POST") failures.push(item.path+": production AI POST contract must use POST");
  if(typeof item.origin!=="string"||!/^https:\/\//.test(item.origin)) failures.push(item.path+": origin must be HTTPS");
  if(typeof item.content_type!=="string"||item.content_type!=="application/json") failures.push(item.path+": content_type must be application/json");
