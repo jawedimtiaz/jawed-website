@@ -23,12 +23,7 @@ function hasAllowedSourceLink(reply,sources){
   return sources.filter(source=>isSafeSourceUrl(source.url)).some(source=>reply.includes("](https://jawed.co.in"+source.url+")"));
 }
 function escapeMarkdownLabel(value){
-  return String(value??"").replace(/[\\[\\]]/g,"\\function ensureAllowedSourceLink(reply,sources){
-  if(!sources.length||hasAllowedSourceLink(reply,sources))return reply;
-  const source=sources.find(item=>isSafeSourceUrl(item.url));
-  if(!source)return reply;
-  return reply+"\n\nSource: ["+source.title+"](https://jawed.co.in"+source.url+")";
-}").replace(/[\\u0000-\\u001F\\u007F]/g," ");
+  return String(value??"").replace(/[\\[\]]/g,"\\$&").replace(/[\u0000-\u001F\u007F]/g," ");
 }
 function ensureAllowedSourceLink(reply,sources){
   if(!sources.length||hasAllowedSourceLink(reply,sources))return reply;
