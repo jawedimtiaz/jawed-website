@@ -150,7 +150,7 @@ assert.equal(Object.prototype.hasOwnProperty.call(providerFailureBody,"message")
 let providerRunArgs=null;
 const successfulProvider=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-success","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
-  env:{AI:{run:async(model,input)=>{providerRunArgs={model,input};return {response:"Test response."};}}}
+  env:{AI:{run:async(model,input)=>{providerRunArgs={model,input};return {response:"Test response with [unsafe link](https://evil.example/phish)."};}}}
 });
 assert.equal(successfulProvider.status,200);
 assert.equal(providerRunArgs?.model,DEFAULT_MODEL);
@@ -160,7 +160,7 @@ assert.equal(providerRunArgs.input.messages[0].content.includes("Keywords:"),tru
 assert.equal(providerRunArgs.input.messages[0].content.includes("Evidence level: summary metadata only"),true);
 assert.equal(providerRunArgs.input.max_tokens,MAX_OUTPUT_TOKENS);
 assert.equal(providerRunArgs.input.temperature,PROVIDER_TEMPERATURE);\nconst successfulProviderBody=await successfulProvider.json();\nassert.equal(successfulProviderBody.reply.includes("https://jawed.co.in"),true);
-assert.equal(successfulProviderBody.sources.length<=5,true);
+assert.equal(successfulProviderBody.sources.length<=5,true);\nassert.equal(successfulProviderBody.reply.includes("https://evil.example"),false);\nassert.equal(successfulProviderBody.reply.includes("https://jawed.co.in"),true);
 
 
 console.log("AI API handler behavioral coverage: PASS");
