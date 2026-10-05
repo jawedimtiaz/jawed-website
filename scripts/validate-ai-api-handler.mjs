@@ -6,8 +6,16 @@ import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TEMPERATURE,generateGroundedRep
 import {isSafeSourceUrl,isSafeSourceMetadata,MAX_SOURCE_TITLE_CHARS,MAX_SOURCE_SUMMARY_CHARS,MAX_SOURCE_KEYWORD_CHARS,MAX_SOURCE_KEYWORDS,MAX_REPLY_CHARS,buildGroundingInstructions,MAX_PROVIDER_MESSAGES,MAX_PROVIDER_MESSAGE_CHARS} from "../functions/lib/ai-provider-common.js";
 import {MAX_REQUESTS,WINDOW_MS,checkRateLimit,getClientKey} from "../functions/lib/ai-rate-limit.js";
 import {findRelevantKnowledge,MAX_KNOWLEDGE_RESULTS} from "../functions/lib/ai-knowledge.js";
+import {aiConfigurationStatus} from "../functions/lib/ai-config.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
+assert.equal(aiConfigurationStatus(undefined),"not_configured");
+assert.equal(aiConfigurationStatus({}),"not_configured");
+assert.equal(aiConfigurationStatus({AI:null}),"not_configured");
+assert.equal(aiConfigurationStatus({AI:{}}),"not_configured");
+assert.equal(aiConfigurationStatus({AI:{run:"not-a-function"}}),"not_configured");
+assert.equal(aiConfigurationStatus({AI:{run:()=>{}}}),"configured");
+
 
 const malformedProviderContext=buildGroundingInstructions(null,null);
 assert.equal(malformedProviderContext.includes("No valid conversation context was supplied."),true);
