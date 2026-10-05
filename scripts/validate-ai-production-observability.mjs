@@ -22,7 +22,7 @@ assert.equal(endpoint.includes("AI_PROVIDER_API_KEY"),false,"Production observab
 assert.equal(endpoint.includes("api.openai.com"),false,"Production observability must not depend on the OpenAI API");
 assert.equal(endpoint.includes("provider_category:diagnostic"),true,"Provider telemetry must use the normalized diagnostic category");
 assert.equal(endpoint.includes("provider_body_bytes:Number.isInteger(error?.providerBodyBytes)?error.providerBodyBytes:null"),true,"Provider telemetry must record only bounded body size");
-assert.equal(endpoint.includes(`provider_content_type:typeof error?.providerContentType==="string"&&/^[\\x20-\\x7e]{1,128}$/.test(error.providerContentType)?"`),true,"Provider telemetry must use a bounded printable content type");
+assert.equal(endpoint.includes(`provider_content_type:typeof error?.providerContentType==="string"&&/^[\\x20-\\x7e]{1,128}$/.test(error.providerContentType)?error.providerContentType:""`),true,"Provider telemetry must use a bounded printable content type");
 assert.equal(endpoint.includes(`provider_error_code:typeof error?.providerErrorCode==="string"&&/^[a-z0-9_.-]{1,80}$/i.test(error.providerErrorCode)?error.providerErrorCode:""`),true,"Provider telemetry must use the bounded normalized provider error code");
 assert.equal(endpoint.includes("provider_retry_after_seconds:Number.isInteger(error?.providerRetryAfterSeconds)?error.providerRetryAfterSeconds:null"),true,"Provider retry timing must remain numeric telemetry only");
 assert.equal(endpoint.includes("provider_body_bytes"),true,"Provider telemetry must not expose provider response bodies");
