@@ -26,7 +26,7 @@ function validConversation(messages){
 }
 
 function publicSources(sources){
-  return sources.filter(source=>typeof source?.url==="string"&&source.url.startsWith("/")&&!source.url.startsWith("//")&&!source.url.includes("\\")&&typeof source.title==="string"&&source.title.trim()&&typeof source.summary==="string"&&Array.isArray(source.keywords)).map(source=>({url:source.url,title:source.title,summary:source.summary,keywords:source.keywords.filter(keyword=>typeof keyword==="string").slice(0,20)}));
+  return sources.filter(source=>isSafeSourceUrl(source?.url)&&typeof source.title==="string"&&source.title.trim()&&typeof source.summary==="string"&&Array.isArray(source.keywords)).map(source=>({url:source.url,title:source.title,summary:source.summary,keywords:source.keywords.filter(keyword=>typeof keyword==="string").slice(0,20)}));
 }
 
 function publicSourceReferences(sources){
