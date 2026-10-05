@@ -19,13 +19,13 @@ export function getClientKey(request){
 
 export function checkRateLimit(key,now=Date.now()){
   cleanup(now);
-  const current=buckets.get(key);
-  if(!current||now-current.windowStart>=WINDOW_MS){
-    buckets.set(key,{windowStart:now,count:1});
+  const current=buckets.get(safeKey);
+  if(!current||safeNow-current.windowStart>=WINDOW_MS){
+    buckets.set(safeKey,{windowStart:safeNow,count:1});
     return {allowed:true,retryAfter:0};
   }
   if(current.count>=MAX_REQUESTS){
-    return {allowed:false,retryAfter:Math.max(1,Math.ceil((current.windowStart+WINDOW_MS-now)/1000))};
+    return {allowed:false,retryAfter:Math.max(1,Math.ceil((current.windowStart+WINDOW_MS-safeNow)/1000))};
   }
   current.count+=1;
   return {allowed:true,retryAfter:0};
