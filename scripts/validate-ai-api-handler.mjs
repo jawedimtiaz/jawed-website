@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import {onRequestGet,onRequestPost} from "../functions/api/ai.js";
 import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TEMPERATURE} from "../functions/lib/cloudflare-ai-provider.js";
+import {isSafeSourceUrl} from "../functions/lib/ai-provider-common.js";
 import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
@@ -70,9 +71,7 @@ assert.equal(unconfigured.headers.get("cache-control"),"no-store");
 assert.equal(unconfigured.headers.get("content-type")?.startsWith("application/json"),true);
 for(const source of unconfiguredBody.sources){
   assert.equal(typeof source.url,"string");
-  assert.equal(source.url.startsWith("/"),true);
-  assert.equal(source.url.startsWith("//"),false);
-  assert.equal(source.url.includes("\\"),false);
+  assert.equal(isSafeSourceUrl(source.url),true);
   assert.equal(typeof source.title,"string");
   assert.equal(source.title.trim().length>0,true);
   assert.deepEqual(Object.keys(source).sort(),["title","url"]);
