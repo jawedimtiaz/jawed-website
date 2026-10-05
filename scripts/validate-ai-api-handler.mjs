@@ -159,7 +159,9 @@ assert.equal(providerRunArgs.input.messages[0].content.includes("Summary:"),true
 assert.equal(providerRunArgs.input.messages[0].content.includes("Keywords:"),true);
 assert.equal(providerRunArgs.input.messages[0].content.includes("Evidence level: summary metadata only"),true);
 assert.equal(providerRunArgs.input.max_tokens,MAX_OUTPUT_TOKENS);
-assert.equal(providerRunArgs.input.temperature,PROVIDER_TEMPERATURE);
+assert.equal(providerRunArgs.input.temperature,PROVIDER_TEMPERATURE);\nconst successfulProviderBody=await successfulProvider.json();\nassert.equal(successfulProviderBody.reply.includes("https://jawed.co.in"),true);
+assert.equal(successfulProviderBody.sources.length<=5,true);
+
 
 console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
