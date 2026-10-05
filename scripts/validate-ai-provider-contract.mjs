@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import {generateGroundedReply,DEFAULT_MODEL,FREE_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,withProviderTimeout,isSafeSourceUrl,buildGroundingInstructions} from "../functions/lib/cloudflare-ai-provider.js";
+import {generateGroundedReply,DEFAULT_MODEL,FREE_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,withProviderTimeout,isSafeSourceUrl,buildGroundingInstructions,normalizeProviderError} from "../functions/lib/cloudflare-ai-provider.js";
 
 assert.equal(isSafeSourceUrl("/notes/example/"),true);
 assert.equal(isSafeSourceUrl("//evil.example/"),false);
@@ -40,6 +40,27 @@ await assert.rejects(()=>generateGroundedReply({ai:null,input:[{role:"user",cont
 await assert.rejects(()=>generateGroundedReply({ai:{run:async()=>{const e=new Error("daily free allocation reached (3036)");e.status=429;throw e;}},input:[{role:"user",content:"hello"}],sources:[]}),error=>error?.status===429&&error?.category==="PROVIDER_HTTP_429"&&error?.providerErrorCode==="3036");
 await assert.rejects(()=>generateGroundedReply({ai:{run:async()=>({})},input:[{role:"user",content:"hello"}],sources:[]}),error=>error?.category==="PROVIDER_INVALID_RESPONSE");
 
+const defaultError=normalizeProviderError();
+assert.equal(defaultError.status,502);
+assert.equal(defaultError.category,"PROVIDER_UNKNOWN");
+assert.equal(defaultError.providerStage,"AI_RUN");
+assert.equal(defaultError.providerErrorCode,"");
+
+const rateError=normalizeProviderError({status:429,code:3036,message:"daily free allocation reached (3036)"});
+assert.equal(rateError.status,429);
+assert.equal(rateError.category,"PROVIDER_HTTP_429");
+assert.equal(rateError.providerErrorCode,"3036");
+
+const stringCode=normalizeProviderError({status:503,code:"MODEL_UNAVAILABLE",message:"provider unavailable"});
+assert.equal(stringCode.status,503);
+assert.equal(stringCode.category,"PROVIDER_HTTP_503");
+assert.equal(stringCode.providerErrorCode,"MODEL_UNAVAILABLE");
+
+const invalidStatus=normalizeProviderError({status:700,code:"bad code with spaces",message:"provider failure"});
+assert.equal(invalidStatus.status,700);
+assert.equal(invalidStatus.category,"PROVIDER_UNKNOWN");
+assert.equal(invalidStatus.providerErrorCode,"");
+
 assert.equal(Number.isInteger(PROVIDER_TIMEOUT_MS)&&PROVIDER_TIMEOUT_MS>0,true);
 await assert.rejects(()=>withProviderTimeout(new Promise(()=>{}),5),error=>error?.status===504&&error?.category==="PROVIDER_TIMEOUT");
 await assert.rejects(()=>withProviderTimeout(new Promise(()=>{}),0),error=>error?.status===504&&error?.category==="PROVIDER_TIMEOUT");
@@ -58,4 +79,5 @@ console.log("Free-allocation error normalization exercised: yes");
 console.log("Missing-binding failure exercised: yes");
 console.log("Timeout argument boundary: yes");
 console.log("Provider argument-shape boundary: yes");
+console.log("Provider error normalization boundary: yes");
 console.log("Mocked Workers AI only: yes");
