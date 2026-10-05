@@ -8,26 +8,13 @@ const PERSON_PRONOUN=/\b(?:he|him|his|himself)\b/i;
 const DEICTIC_REFERENCE=/\b(?:that|this|it)\b/i;
 const FOLLOW_UP_REFERENCE=/^\s*(?:tell me more|more about that|what about that|and what about that|can you explain that|explain that|explain more|tell me more|more details|elaborate|expand)\b/i;
 
-function normalizedMessages(messages){
-  return Array.isArray(messages)?messages:[];
-}
-
-function priorMessages(messages){
-  return normalizedMessages(messages).slice(0,-1).filter(message=>typeof message?.content==="string"&&message.content.trim());
-}
-
-function priorUserMessages(messages){
-  return normalizedMessages(messages).slice(0,-1).filter(message=>message?.role==="user"&&typeof message.content==="string"&&message.content.trim());
-}
-
-function hasJawedContext(messages){
-  return priorUserMessages(messages).some(message=>JAWED_REFERENCE.test(message.content));
-}
+function normalizedMessages(messages){return Array.isArray(messages)?messages:[];}
+function priorMessages(messages){return normalizedMessages(messages).slice(0,-1).filter(message=>typeof message?.content==="string"&&message.content.trim());}
+function priorUserMessages(messages){return normalizedMessages(messages).slice(0,-1).filter(message=>message?.role==="user"&&typeof message.content==="string"&&message.content.trim());}
+function hasJawedContext(messages){return priorUserMessages(messages).some(message=>JAWED_REFERENCE.test(message.content));}
 
 function lastSourcePaths(messages,limit=3){
-  const assistantMessages=normalizedMessages(messages)
-    .slice(0,-1)
-    .filter(message=>message?.role==="assistant"&&typeof message.content==="string"&&message.content.trim());
+  const assistantMessages=normalizedMessages(messages).slice(0,-1).filter(message=>message?.role==="assistant"&&typeof message.content==="string"&&message.content.trim());
   const latest=assistantMessages.at(-1);
   if(!latest)return [];
   const paths=[];
@@ -39,26 +26,17 @@ function lastSourcePaths(messages,limit=3){
   }
   return paths;
 }
-
-function lastSourcePath(messages){
-  return lastSourcePaths(messages,1)[0]||"";
-}
+function lastSourcePath(messages){return lastSourcePaths(messages,1)[0]||"";}
 
 function resolveContextualReference(current,messages){
   const prior=priorMessages(messages);
   if(!prior.length)return current;
   let resolved=current;
   if(hasJawedContext(messages)&&PERSON_PRONOUN.test(resolved)){
-    resolved=resolved
-      .replace(/\bhe\b/gi,"Jawed")
-      .replace(/\bhim\b/gi,"Jawed")
-      .replace(/\bhis\b/gi,"Jawed's")
-      .replace(/\bhimself\b/gi,"Jawed");
+    resolved=resolved.replace(/\bhe\b/gi,"Jawed").replace(/\bhim\b/gi,"Jawed").replace(/\bhis\b/gi,"Jawed's").replace(/\bhimself\b/gi,"Jawed");
   }
   const sourcePaths=lastSourcePaths(messages);
-  if(sourcePaths.length&&(DEICTIC_REFERENCE.test(resolved)||FOLLOW_UP_REFERENCE.test(resolved))){
-    resolved=resolved+" Previous source context: "+sourcePaths.join(", ");
-  }
+  if(sourcePaths.length&&(DEICTIC_REFERENCE.test(resolved)||FOLLOW_UP_REFERENCE.test(resolved)))resolved=resolved+" Previous source context: "+sourcePaths.join(", ");
   return resolved;
 }
 
@@ -68,6 +46,14 @@ export function buildRetrievalQuery(messages){
   if(!current)return "";
 
   const contextualCurrent=resolveContextualReference(current,history);
+  if(current.length>=MAX_RETRIEVAL_QUERY_CHARS)return current.slice(0,MAX_RETRIEVAL_QUERY_CHARS);
+
+  const contextualSuffix=contextualCurrent.startsWith(current)?contextualCurrent.slice(current.length):"";
+  const currentBudget=MAX_RETRIEVAL_QUERY_CHARS-current.length;
+  const boundedCurrent=current+contextualSuffix.slice(0,currentBudget);
+  const remainingBudget=MAX_RETRIEVAL_QUERY_CHARS-boundedCurrent.length;
+  if(remainingBudget<=0)return boundedCurrent;
+
   const priorUserMessages=history
     .slice(0,-1)
     .filter(message=>message?.role==="user"&&typeof message.content==="string")
@@ -75,7 +61,8 @@ export function buildRetrievalQuery(messages){
     .filter(Boolean)
     .slice(-(FOLLOW_UP_REFERENCE.test(current)?1:PRIOR_USER_TURNS));
 
-  return [contextualCurrent,...priorUserMessages].join("\n").slice(0,MAX_RETRIEVAL_QUERY_CHARS);
+  const priorText=priorUserMessages.join("\n");
+  return boundedCurrent+(priorText?("\n"+priorText).slice(0,Math.max(0,remainingBudget)):"");
 }
 
 export {MAX_RETRIEVAL_QUERY_CHARS,PRIOR_USER_TURNS,resolveContextualReference,lastSourcePath,lastSourcePaths};
