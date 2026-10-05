@@ -6,6 +6,10 @@ assert.equal(isSafeSourceUrl("/notes/example/"),true);
 assert.equal(isSafeSourceUrl("//evil.example/"),false);
 assert.equal(isSafeSourceUrl("/../admin/"),false);
 assert.equal(isSafeSourceUrl("/notes/%2e%2e/admin/"),false);
+assert.equal(isSafeSourceUrl("/notes/%2e%2e%2fadmin/"),false);
+assert.equal(isSafeSourceUrl("/notes/%2e%2e%5cadmin/"),false);
+assert.equal(isSafeSourceUrl("/notes/%2f%2fevil.example/"),false);
+assert.equal(isSafeSourceUrl("/notes/%5cevil.example/"),false);
 assert.equal(isSafeSourceUrl("/\\evil.example/"),false);
 
 const calls=[];
