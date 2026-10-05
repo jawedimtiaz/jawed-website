@@ -12,8 +12,12 @@ function priorMessages(messages){
   return messages.slice(0,-1).filter(message=>typeof message?.content==="string"&&message.content.trim());
 }
 
+function priorUserMessages(messages){
+  return messages.slice(0,-1).filter(message=>message?.role==="user"&&typeof message.content==="string"&&message.content.trim());
+}
+
 function hasJawedContext(messages){
-  return priorMessages(messages).some(message=>JAWED_REFERENCE.test(message.content)||/https:\/\/jawed\.co\.in\/(?:about|work\/experience)\//i.test(message.content));
+  return priorUserMessages(messages).some(message=>JAWED_REFERENCE.test(message.content));
 }
 
 function lastSourcePaths(messages,limit=3){
