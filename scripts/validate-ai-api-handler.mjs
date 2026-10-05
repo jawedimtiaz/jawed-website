@@ -2,12 +2,20 @@
 import assert from "node:assert/strict";
 import {onRequestGet,onRequestPost} from "../functions/api/ai.js";
 import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TEMPERATURE} from "../functions/lib/cloudflare-ai-provider.js";
-import {isSafeSourceUrl} from "../functions/lib/ai-provider-common.js";
+import {isSafeSourceUrl,isSafeSourceMetadata,MAX_SOURCE_TITLE_CHARS,MAX_SOURCE_SUMMARY_CHARS,MAX_SOURCE_KEYWORD_CHARS,MAX_SOURCE_KEYWORDS} from "../functions/lib/ai-provider-common.js";
 import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
 let providerCalls=0;
 globalThis.fetch=async()=>{providerCalls+=1;throw new Error("Provider calls are forbidden in deterministic API handler regression tests.");};
+
+const validSource={url:"/notes/example/",title:"Example",summary:"A bounded source summary.",keywords:["example"]};
+assert.equal(isSafeSourceMetadata(validSource),true);
+assert.equal(isSafeSourceMetadata({...validSource,title:"x".repeat(MAX_SOURCE_TITLE_CHARS+1)}),false);
+assert.equal(isSafeSourceMetadata({...validSource,summary:"x".repeat(MAX_SOURCE_SUMMARY_CHARS+1)}),false);
+assert.equal(isSafeSourceMetadata({...validSource,keywords:["x".repeat(MAX_SOURCE_KEYWORD_CHARS+1)]}),false);
+assert.equal(isSafeSourceMetadata({...validSource,keywords:Array.from({length:MAX_SOURCE_KEYWORDS+1},()=> "x")}),false);
+assert.equal(isSafeSourceMetadata({...validSource,title:"safe\u0007title"}),false);
 
 const health=await onRequestGet({request:makeRequest("https://jawed.co.in/api/ai"),env:{}});
 assert.equal(health.status,200);
