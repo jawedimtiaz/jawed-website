@@ -4,14 +4,17 @@ const DEFAULT_MODEL="@cf/meta/llama-3.2-1b-instruct";
 const PROVIDER_TIMEOUT_MS=30000;
 const PROVIDER_TEMPERATURE=0.2;
 const FREE_MODEL=DEFAULT_MODEL;
+const MAX_PROVIDER_ERROR_MESSAGE_CHARS=512;
 
 function normalizeProviderError(error){
   const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<600?error.status:502;
-  const normalized=new Error(typeof error?.message==="string"&&error.message?error.message:"The Cloudflare Workers AI provider returned an error.");
+  const rawMessage=typeof error?.message==="string"&&error.message?error.message:"The Cloudflare Workers AI provider returned an error.";
+  const message=rawMessage.slice(0,MAX_PROVIDER_ERROR_MESSAGE_CHARS);
+  const normalized=new Error(message);
   normalized.status=status;
   normalized.category=status===429?"PROVIDER_HTTP_429":"PROVIDER_HTTP_"+status;
   normalized.providerStage="AI_RUN";
-  normalized.providerErrorCode=typeof error?.code==="string"&&/^[a-z0-9_.-]{1,80}$/i.test(error.code)?error.code:Number.isInteger(error?.code)&&error.code>=0&&error.code<=999999?String(error.code):/\b(3036|5035)\b/.exec(normalized.message)?.[1]||"";
+  normalized.providerErrorCode=typeof error?.code==="string"&&/^[a-z0-9_.-]{1,80}$/i.test(error.code)?error.code:Number.isInteger(error?.code)&&error.code>=0&&error.code<=999999?String(error.code):/\b(3036|5035)\b/.exec(message)?.[1]||"";
   return normalized;
 }
 
@@ -65,4 +68,4 @@ export async function generateGroundedReply({ai,model,input,sources}={}){
   return {reply:attributedReply,model:FREE_MODEL};
 }
 
-export {DEFAULT_MODEL,FREE_MODEL,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,withProviderTimeout,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions,normalizeProviderError};
+export {DEFAULT_MODEL,FREE_MODEL,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,MAX_PROVIDER_ERROR_MESSAGE_CHARS,withProviderTimeout,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions,normalizeProviderError};

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import {generateGroundedReply,DEFAULT_MODEL,FREE_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,withProviderTimeout,isSafeSourceUrl,buildGroundingInstructions,normalizeProviderError} from "../functions/lib/cloudflare-ai-provider.js";
+import {generateGroundedReply,DEFAULT_MODEL,FREE_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,MAX_PROVIDER_ERROR_MESSAGE_CHARS,withProviderTimeout,isSafeSourceUrl,buildGroundingInstructions,normalizeProviderError} from "../functions/lib/cloudflare-ai-provider.js";
 
 assert.equal(isSafeSourceUrl("/notes/example/"),true);
 assert.equal(isSafeSourceUrl("//evil.example/"),false);
@@ -77,6 +77,12 @@ assert.equal(negativeNumericCode.providerErrorCode,"");
 const validNumericCode=normalizeProviderError({status:500,code:5035,message:"provider failure"});
 assert.equal(validNumericCode.providerErrorCode,"5035");
 
+assert.equal(Number.isInteger(MAX_PROVIDER_ERROR_MESSAGE_CHARS)&&MAX_PROVIDER_ERROR_MESSAGE_CHARS>0,true);
+const longMessage=normalizeProviderError({status:500,message:"x".repeat(MAX_PROVIDER_ERROR_MESSAGE_CHARS+100)});
+assert.equal(longMessage.message.length,MAX_PROVIDER_ERROR_MESSAGE_CHARS);
+const knownCodeAfterTruncation=normalizeProviderError({status:429,message:"x".repeat(MAX_PROVIDER_ERROR_MESSAGE_CHARS+100)+" (3036)"});
+assert.equal(knownCodeAfterTruncation.providerErrorCode,"");
+
 assert.equal(Number.isInteger(PROVIDER_TIMEOUT_MS)&&PROVIDER_TIMEOUT_MS>0,true);
 await assert.rejects(()=>withProviderTimeout(new Promise(()=>{}),5),error=>error?.status===504&&error?.category==="PROVIDER_TIMEOUT");
 await assert.rejects(()=>withProviderTimeout(new Promise(()=>{}),0),error=>error?.status===504&&error?.category==="PROVIDER_TIMEOUT");
@@ -98,4 +104,5 @@ console.log("Provider argument-shape boundary: yes");
 console.log("Provider error normalization boundary: yes");
 console.log("Normalized provider status boundary: yes");
 console.log("Provider error code boundary: yes");
+console.log("Provider error message boundary: yes");
 console.log("Mocked Workers AI only: yes");
