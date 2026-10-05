@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import {onRequestGet,onRequestPost} from "../functions/api/ai.js";
+import {buildRetrievalQuery,lastSourcePaths,MAX_RETRIEVAL_QUERY_CHARS} from "../functions/lib/ai-retrieval.js";
 import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TEMPERATURE} from "../functions/lib/cloudflare-ai-provider.js";
 import {isSafeSourceUrl,isSafeSourceMetadata,MAX_SOURCE_TITLE_CHARS,MAX_SOURCE_SUMMARY_CHARS,MAX_SOURCE_KEYWORD_CHARS,MAX_SOURCE_KEYWORDS,MAX_REPLY_CHARS} from "../functions/lib/ai-provider-common.js";
 import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
@@ -16,6 +17,23 @@ assert.equal(isSafeSourceMetadata({...validSource,summary:"x".repeat(MAX_SOURCE_
 assert.equal(isSafeSourceMetadata({...validSource,keywords:["x".repeat(MAX_SOURCE_KEYWORD_CHARS+1)]}),false);
 assert.equal(isSafeSourceMetadata({...validSource,keywords:Array.from({length:MAX_SOURCE_KEYWORDS+1},()=> "x")}),false);
 assert.equal(isSafeSourceMetadata({...validSource,title:"safe\u0007title"}),false);
+
+const contextualMessages=[
+  {role:"user",content:"Who is Jawed?"},
+  {role:"assistant",content:"Jawed is described here: https://jawed.co.in/about/."},
+  {role:"user",content:"Tell me more about that"}
+];
+const contextualQuery=buildRetrievalQuery(contextualMessages);
+assert.equal(contextualQuery.includes("Previous source context: /about/"),true);
+assert.equal(lastSourcePaths([{role:"assistant",content:"Source: https://jawed.co.in/about/"}],3)[0],"/about/");
+const unsafeContextMessages=[
+  {role:"user",content:"Tell me about Jawed"},
+  {role:"assistant",content:"Source: https://jawed.co.in/notes/%2e%2e%2fadmin/"},
+  {role:"user",content:"Tell me more about that"}
+];
+assert.deepEqual(lastSourcePaths(unsafeContextMessages,3),[]);
+assert.equal(buildRetrievalQuery(unsafeContextMessages).includes("Previous source context:"),false);
+assert.equal(buildRetrievalQuery([{role:"user",content:"x".repeat(MAX_RETRIEVAL_QUERY_CHARS+500)}]).length,MAX_RETRIEVAL_QUERY_CHARS);
 
 const health=await onRequestGet({request:makeRequest("https://jawed.co.in/api/ai"),env:{}});
 assert.equal(health.status,200);
@@ -133,7 +151,6 @@ const emptyCurrent=await onRequestPost({
 });
 assert.equal(emptyCurrent.status,400);
 assert.equal((await emptyCurrent.json()).code,"AI_INVALID_MESSAGE");
-// Safe Workers AI diagnostic mapping is exercised with a synthetic 401-like provider failure.
 globalThis.fetch=async()=>{providerCalls+=1;throw new Error("Network provider calls are forbidden.");};
 const providerFailure=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-provider","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
@@ -178,9 +195,12 @@ assert.equal(providerRunArgs.input.messages[0].content.includes("Summary:"),true
 assert.equal(providerRunArgs.input.messages[0].content.includes("Keywords:"),true);
 assert.equal(providerRunArgs.input.messages[0].content.includes("Evidence level: summary metadata only"),true);
 assert.equal(providerRunArgs.input.max_tokens,MAX_OUTPUT_TOKENS);
-assert.equal(providerRunArgs.input.temperature,PROVIDER_TEMPERATURE);\nconst successfulProviderBody=await successfulProvider.json();\nassert.equal(successfulProviderBody.reply.includes("https://jawed.co.in"),true);
-assert.equal(successfulProviderBody.sources.length<=5,true);\nassert.equal(successfulProviderBody.reply.includes("https://evil.example"),false);\nassert.equal(successfulProviderBody.reply.includes("https://jawed.co.in"),true);
-
+assert.equal(providerRunArgs.input.temperature,PROVIDER_TEMPERATURE);
+const successfulProviderBody=await successfulProvider.json();
+assert.equal(successfulProviderBody.reply.includes("https://jawed.co.in"),true);
+assert.equal(successfulProviderBody.sources.length<=5,true);
+assert.equal(successfulProviderBody.reply.includes("https://evil.example"),false);
+assert.equal(successfulProviderBody.reply.includes("https://jawed.co.in"),true);
 
 console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
@@ -188,4 +208,5 @@ console.log("Configured/unconfigured health states exercised: yes");
 console.log("POST response headers and payload contracts exercised: yes");
 console.log("Handler-owned error and health paths exercised: yes");
 console.log("Public source shape exercised: yes");
+console.log("Contextual retrieval source-path safety exercised: yes");
 console.log("Live provider call: explicitly blocked: yes");
