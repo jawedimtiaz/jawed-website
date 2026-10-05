@@ -16,6 +16,10 @@ assert.equal(aiConfigurationStatus({AI:{}}),"not_configured");
 assert.equal(aiConfigurationStatus({AI:{run:"not-a-function"}}),"not_configured");
 assert.equal(aiConfigurationStatus({AI:{run:()=>{}}}),"configured");
 
+assert.equal(getClientKey(null),"anonymous");
+assert.equal(getClientKey({}),"anonymous");
+assert.equal(checkRateLimit(null,Number.NaN).allowed,true);
+
 
 const malformedProviderContext=buildGroundingInstructions(null,null);
 assert.equal(malformedProviderContext.includes("No valid conversation context was supplied."),true);
