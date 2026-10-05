@@ -66,6 +66,17 @@ assert.equal(clientStatus.status,502);
 assert.equal(clientStatus.category,"PROVIDER_HTTP_502");
 assert.equal(clientStatus.providerErrorCode,"123");
 
+const invalidNumericCode=normalizeProviderError({status:500,code:NaN,message:"provider failure"});
+assert.equal(invalidNumericCode.providerErrorCode,"");
+const fractionalNumericCode=normalizeProviderError({status:500,code:3036.5,message:"provider failure"});
+assert.equal(fractionalNumericCode.providerErrorCode,"");
+const oversizedNumericCode=normalizeProviderError({status:500,code:1000000,message:"provider failure"});
+assert.equal(oversizedNumericCode.providerErrorCode,"");
+const negativeNumericCode=normalizeProviderError({status:500,code:-1,message:"provider failure"});
+assert.equal(negativeNumericCode.providerErrorCode,"");
+const validNumericCode=normalizeProviderError({status:500,code:5035,message:"provider failure"});
+assert.equal(validNumericCode.providerErrorCode,"5035");
+
 assert.equal(Number.isInteger(PROVIDER_TIMEOUT_MS)&&PROVIDER_TIMEOUT_MS>0,true);
 await assert.rejects(()=>withProviderTimeout(new Promise(()=>{}),5),error=>error?.status===504&&error?.category==="PROVIDER_TIMEOUT");
 await assert.rejects(()=>withProviderTimeout(new Promise(()=>{}),0),error=>error?.status===504&&error?.category==="PROVIDER_TIMEOUT");
@@ -86,4 +97,5 @@ console.log("Timeout argument boundary: yes");
 console.log("Provider argument-shape boundary: yes");
 console.log("Provider error normalization boundary: yes");
 console.log("Normalized provider status boundary: yes");
+console.log("Provider error code boundary: yes");
 console.log("Mocked Workers AI only: yes");
