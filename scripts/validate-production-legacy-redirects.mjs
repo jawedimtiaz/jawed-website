@@ -7,7 +7,7 @@ if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("leg
 for(const item of contract.checks||[]){
  if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path)) failures.push("legacy redirect path must be an absolute site path");
  if(!Number.isInteger(item.expected_status)||item.expected_status<300||item.expected_status>399) failures.push(item.path+": expected_status must be a redirect status");
- if(typeof item.location!=="string"||(!item.location.startsWith("/")&&!item.location.startsWith("https://"))) failures.push(item.path+": redirect location must be a path or HTTPS URL");
+ if(typeof item.location!=="string"||!item.location.startsWith("/")||item.location.startsWith("//")||item.location.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.location)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.location)) failures.push(item.path+": redirect location must be a safe same-site path");
 }
 for(const item of (contract.checks||[])) if(item.max_redirects!==0) failures.push(`${item.path}: legacy redirect check must not follow redirects`);
 const configured=fs.readFileSync("_redirects","utf8").split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#")).filter(line=>{const parts=line.split(/\s+/);return parts.length>=3&&/^30[1278]$/.test(parts.at(-1))}).map(line=>{const parts=line.split(/\s+/);return {path:parts[0],location:parts[1],status:Number(parts.at(-1))}});
