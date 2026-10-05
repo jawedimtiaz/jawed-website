@@ -16,6 +16,7 @@ function normalizeProviderError(error){
 }
 
 function withProviderTimeout(promise,timeoutMs=PROVIDER_TIMEOUT_MS){
+  const safeTimeout=Number.isFinite(timeoutMs)&&timeoutMs>0?Math.min(timeoutMs,PROVIDER_TIMEOUT_MS):PROVIDER_TIMEOUT_MS;
   let timer;
   const timeout=new Promise((_,reject)=>{
     timer=setTimeout(()=>{
@@ -24,7 +25,7 @@ function withProviderTimeout(promise,timeoutMs=PROVIDER_TIMEOUT_MS){
       error.category="PROVIDER_TIMEOUT";
       error.providerStage="AI_RUN";
       reject(error);
-    },timeoutMs);
+    },safeTimeout);
   });
   return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
 }
