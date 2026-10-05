@@ -115,6 +115,7 @@ assert.equal(providerRunArgs?.model,DEFAULT_MODEL);
 assert.equal(typeof providerRunArgs?.input?.messages?.[0]?.content,"string");
 assert.equal(providerRunArgs.input.messages[0].content.includes("Summary:"),true);
 assert.equal(providerRunArgs.input.messages[0].content.includes("Keywords:"),true);
+assert.equal(providerRunArgs.input.messages[0].content.includes("Evidence level: summary metadata only"),true);
 assert.equal(providerRunArgs.input.max_tokens,MAX_OUTPUT_TOKENS);
 assert.equal(providerRunArgs.input.temperature,PROVIDER_TEMPERATURE);
 
