@@ -8,12 +8,16 @@ const PERSON_PRONOUN=/\b(?:he|him|his|himself)\b/i;
 const DEICTIC_REFERENCE=/\b(?:that|this|it)\b/i;
 const FOLLOW_UP_REFERENCE=/^\s*(?:tell me more|more about that|what about that|and what about that|can you explain that|explain that|explain more|tell me more|more details|elaborate|expand)\b/i;
 
+function normalizedMessages(messages){
+  return Array.isArray(messages)?messages:[];
+}
+
 function priorMessages(messages){
-  return messages.slice(0,-1).filter(message=>typeof message?.content==="string"&&message.content.trim());
+  return normalizedMessages(messages).slice(0,-1).filter(message=>typeof message?.content==="string"&&message.content.trim());
 }
 
 function priorUserMessages(messages){
-  return messages.slice(0,-1).filter(message=>message?.role==="user"&&typeof message.content==="string"&&message.content.trim());
+  return normalizedMessages(messages).slice(0,-1).filter(message=>message?.role==="user"&&typeof message.content==="string"&&message.content.trim());
 }
 
 function hasJawedContext(messages){
@@ -21,7 +25,7 @@ function hasJawedContext(messages){
 }
 
 function lastSourcePaths(messages,limit=3){
-  const assistantMessages=messages
+  const assistantMessages=normalizedMessages(messages)
     .slice(0,-1)
     .filter(message=>message?.role==="assistant"&&typeof message.content==="string"&&message.content.trim());
   const latest=assistantMessages.at(-1);
@@ -59,11 +63,12 @@ function resolveContextualReference(current,messages){
 }
 
 export function buildRetrievalQuery(messages){
-  const current=messages.at(-1)?.role==="user"&&typeof messages.at(-1)?.content==="string"?messages.at(-1).content.trim():"";
+  const history=normalizedMessages(messages);
+  const current=history.at(-1)?.role==="user"&&typeof history.at(-1)?.content==="string"?history.at(-1).content.trim():"";
   if(!current)return "";
 
-  const contextualCurrent=resolveContextualReference(current,messages);
-  const priorUserMessages=messages
+  const contextualCurrent=resolveContextualReference(current,history);
+  const priorUserMessages=history
     .slice(0,-1)
     .filter(message=>message?.role==="user"&&typeof message.content==="string")
     .map(message=>message.content.trim())
