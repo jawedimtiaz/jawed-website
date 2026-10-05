@@ -31,6 +31,9 @@ for(const item of contract.checks||[]){
 }
 for(const item of contract.checks||[]){
  if(!Number.isInteger(item.max_body_bytes)||item.max_body_bytes<=0) failures.push(item.method+" "+item.path+": max_body_bytes must be a positive integer");
+ const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path);
+ const validOrigin=isHttpsOrigin(contract.production_origin);
+ if(!validPath||!validOrigin){failures.push(`${item.path}: API method probe URL is invalid`);continue;}
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{method:item.method,redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-api-method/38N"}});
