@@ -1,7 +1,8 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-cache-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
-if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) failures.push("cache production_origin must be HTTPS");
+const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
+if(!isHttpsOrigin(contract.production_origin)) failures.push("cache production_origin must be an origin-only HTTPS URL");
 
 if(contract.max_redirects!==0) failures.push("production cache checks must not follow redirects");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production cache contract must contain at least one check");
