@@ -41,7 +41,7 @@ function readBoundedText(response,maxBytes){
 for(const item of contract.checks||[]){
  if(item.method!=="POST") failures.push(`${item.path}: production AI POST contract must use POST`);
  const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path);
- const validOrigin=typeof contract.production_origin==="string"&&/^https:\/\//.test(contract.production_origin);
+ const validOrigin=isHttpsOrigin(contract.production_origin);
  if(!validPath||!validOrigin){failures.push(`${item.path}: AI POST probe URL is invalid`);continue;}
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
