@@ -33,6 +33,11 @@ const unsafeContextMessages=[
 ];
 assert.deepEqual(lastSourcePaths(unsafeContextMessages,3),[]);
 assert.equal(buildRetrievalQuery(unsafeContextMessages).includes("Previous source context:"),false);
+const assistantOnlyIdentityMessages=[
+  {role:"assistant",content:"This is information about Jawed."},
+  {role:"user",content:"What does he do?"}
+];
+assert.equal(buildRetrievalQuery(assistantOnlyIdentityMessages).includes("Jawed"),false);
 assert.equal(buildRetrievalQuery([{role:"user",content:"x".repeat(MAX_RETRIEVAL_QUERY_CHARS+500)}]).length,MAX_RETRIEVAL_QUERY_CHARS);
 
 const health=await onRequestGet({request:makeRequest("https://jawed.co.in/api/ai"),env:{}});
@@ -209,4 +214,5 @@ console.log("POST response headers and payload contracts exercised: yes");
 console.log("Handler-owned error and health paths exercised: yes");
 console.log("Public source shape exercised: yes");
 console.log("Contextual retrieval source-path safety exercised: yes");
+console.log("Identity context is user-message scoped: yes");
 console.log("Live provider call: explicitly blocked: yes");
