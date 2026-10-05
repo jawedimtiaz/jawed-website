@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {execFileSync} from "node:child_process";
-import {isSafeSourceUrl,isSafeSourceMetadata} from "../functions/lib/ai-provider-common.js";\nimport {findRelevantKnowledge} from "../functions/lib/ai-knowledge.js";
+import {isSafeSourceUrl,isSafeSourceMetadata} from "../functions/lib/ai-provider-common.js";
+import {findRelevantKnowledge} from "../functions/lib/ai-knowledge.js";
 
 const sitemap=fs.readFileSync("sitemap.xml","utf8");
 const knowledge=JSON.parse(fs.readFileSync("assets/data/ai-knowledge.json","utf8"));
@@ -10,16 +11,11 @@ const runtimeKnowledge=fs.readFileSync("functions/lib/ai-knowledge-data.js","utf
 const expectedRuntimeKnowledge=`const knowledge=${JSON.stringify(knowledge)};\nexport default knowledge;\n`;
 const excluded=new Set(knowledge.coverage_policy?.excluded_paths||[]);
 const allSitemapLocs=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
-const sitemapPaths=allSitemapLocs
-  .filter(url=>url.startsWith("https://jawed.co.in/"))
-  .map(url=>url.slice("https://jawed.co.in".length)||"/");
+const sitemapPaths=allSitemapLocs.filter(url=>url.startsWith("https://jawed.co.in/")).map(url=>url.slice("https://jawed.co.in".length)||"/");
 const workflow=fs.readFileSync(".github/workflows/ai-regression.yml","utf8");
 const indexPaths=knowledge.entries.map(entry=>entry.url);
 const sourcePath=(url)=>url==="/"?"index.html":url.replace(/^\/+|\/+$/g,"")+"/index.html";
-const missingSourceFiles=sitemapPaths
-  .filter(path=>!excluded.has(path))
-  .filter(path=>!fs.existsSync(sourcePath(path)));
-
+const missingSourceFiles=sitemapPaths.filter(path=>!excluded.has(path)).filter(path=>!fs.existsSync(sourcePath(path)));
 const unique=(items)=>new Set(items);
 const duplicates=indexPaths.filter((path,index)=>indexPaths.indexOf(path)!==index);
 const missing=sitemapPaths.filter(path=>!excluded.has(path)&&!indexPaths.includes(path));
@@ -41,6 +37,10 @@ const identityResults=findRelevantKnowledge("who is Jawed?",5,{primaryQuery:"who
 assert.equal(identityResults[0]?.url,"/about/","Identity retrieval must prioritize the About source.");
 const workResults=findRelevantKnowledge("where does Jawed work?",5,{primaryQuery:"where does Jawed work?"});
 assert.equal(workResults[0]?.url,"/work/experience/","Work retrieval must prioritize the experience source.");
+const contextualIdentity=findRelevantKnowledge("Tell me more about that Previous source context: /about/",5,{primaryQuery:"Who is Jawed?"});
+assert.equal(contextualIdentity[0]?.url,"/about/","Explicit primary identity intent must remain highest priority over contextual source text.");
+const contextualWork=findRelevantKnowledge("Tell me more about that Previous source context: /about/",5,{primaryQuery:"Where does Jawed work?"});
+assert.equal(contextualWork[0]?.url,"/work/experience/","Explicit primary work intent must remain highest priority over contextual source text.");
 const unsafeUrls=knowledge.entries.filter(entry=>!isSafeSourceUrl(entry.url));
 const unsafeUrlContractCases={
   "/../admin/":false,
@@ -55,31 +55,22 @@ const reviewDateMs=typeof reviewDate==="string"&&!Number.isNaN(Date.parse(review
 const groundingSourceFiles=sitemapPaths.filter(path=>!excluded.has(path)).map(sourcePath);
 const sourceFreshnessErrors=[];
 const changedSourceFiles=Number.isNaN(reviewDateMs)?[]:groundingSourceFiles.filter(file=>{
-  try{
-    return Boolean(execFileSync("git",["log","--since="+reviewDate+"T23:59:59Z","--format=%H","--",file],{encoding:"utf8"}).trim());
-  }catch{
-    sourceFreshnessErrors.push(file);
-    return false;
-  }
+  try{return Boolean(execFileSync("git",["log","--since="+reviewDate+"T23:59:59Z","--format=%H","--",file],{encoding:"utf8"}).trim());}
+  catch{sourceFreshnessErrors.push(file);return false;}
 });
-
 const requiredWorkflowPaths=new Set(["index.html","_headers","_redirects","_routes.json","scripts/validate-site-integrity.mjs"]);
 for(const path of sitemapPaths.filter(path=>path!=="/"&&!excluded.has(path))){
   const family=path.split("/").filter(Boolean)[0];
   if(family)requiredWorkflowPaths.add(family+"/**");
 }
 const workflowLines=workflow.split(/\r?\n/);
-const sectionBetween=(startLine,endLine)=>workflowLines.slice(
-  workflowLines.indexOf(startLine)+1,
-  endLine?workflowLines.indexOf(endLine):workflowLines.length
-);
+const sectionBetween=(startLine,endLine)=>workflowLines.slice(workflowLines.indexOf(startLine)+1,endLine?workflowLines.indexOf(endLine):workflowLines.length);
 const pullRequestPaths=sectionBetween("  pull_request:","  workflow_dispatch:");
 const pushPaths=sectionBetween("  push:","  permissions:");
 const pathCount=(section,path)=>section.filter(line=>line.trim()===`- "${path}"`).length;
 const workflowMissing=[...requiredWorkflowPaths].filter(path=>pathCount(pullRequestPaths,path)!==1||pathCount(pushPaths,path)!==1);
 const workflowPathLines=(section)=>section.filter(line=>/^      - ".*"$/.test(line)).map(line=>line.trim().slice(3,-1));
 const workflowDuplicatePaths=[...new Set([...workflowPathLines(pullRequestPaths),...workflowPathLines(pushPaths)])].filter(path=>pathCount(pullRequestPaths,path)>1||pathCount(pushPaths,path)>1);
-
 const errors=[];
 if(Number.isNaN(reviewDateMs))errors.push("AI knowledge reviewed_against_sitemap_on is missing or invalid.");
 if(sourceFreshnessErrors.length)errors.push("AI knowledge source freshness could not be verified because git history lookup failed for: "+sourceFreshnessErrors.join(", "));
@@ -95,15 +86,12 @@ if(excludedIndexed.length)errors.push("Excluded paths are indexed: "+excludedInd
 if(malformed.length)errors.push("AI knowledge contains malformed entries.");
 if(unsafeUrls.length)errors.push("AI knowledge contains unsafe source URLs: "+unsafeUrls.map(entry=>entry.url).join(", "));
 if(missingSourceFiles.length)errors.push("Sitemap grounding pages have no repository source file: "+missingSourceFiles.join(", "));
-
 const MIN_SUMMARY_CHARS=70;
 const shortSummaries=knowledge.entries.filter(entry=>typeof entry.summary!=="string"||entry.summary.trim().length<MIN_SUMMARY_CHARS);
 if(shortSummaries.length)errors.push("AI knowledge summaries below "+MIN_SUMMARY_CHARS+" characters: "+shortSummaries.map(entry=>entry.title).join(", "));
 if(typeof knowledge.coverage_policy?.summary_evidence_rule!=="string"||!knowledge.coverage_policy.summary_evidence_rule.includes("scope-level evidence"))errors.push("AI knowledge evidence boundary is not documented.");
 if(runtimeKnowledge!==expectedRuntimeKnowledge)errors.push("Runtime AI knowledge copy is out of sync with assets/data/ai-knowledge.json; regenerate functions/lib/ai-knowledge-data.js.");
-
 assert.equal(errors.length,0,errors.join("\n"));
-
 console.log("AI knowledge coverage OK");
 console.log("Sitemap URLs:",sitemapPaths.length);
 console.log("Excluded:",excluded.size);
@@ -111,3 +99,4 @@ console.log("Grounding entries:",indexPaths.length);
 console.log("Sitemap source files verified:",sitemapPaths.filter(path=>!excluded.has(path)).length);
 console.log("Reviewed against sitemap:",knowledge.reviewed_against_sitemap_on||"not recorded");
 console.log("Source freshness since review date: clean");
+console.log("Primary-query priority over contextual source text exercised: yes");
