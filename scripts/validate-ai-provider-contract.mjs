@@ -47,6 +47,14 @@ const fallback=await generateGroundedReply({
 });
 assert.equal(fallback.reply.includes("Source: [Retirement Planning Calculator](https://jawed.co.in/tools/retirement-planning-calculator/)"),true);
 
+const escapedTitle=await generateGroundedReply({
+  ai:{run:async()=>({response:"The calculator is relevant."})},
+  input:[{role:"user",content:"Where is the calculator?"}],
+  sources:[{url:"/tools/retirement-planning-calculator/",title:"Calculator ](https://evil.example/) [demo",summary:"A practical calculator for retirement planning.",keywords:["retirement","calculator"]}]
+});
+assert.equal(escapedTitle.reply.includes("Calculator \\](https://evil.example/) \\[demo"),true);
+assert.equal(escapedTitle.reply.includes("https://jawed.co.in/tools/retirement-planning-calculator/"),true);
+
 await assert.rejects(
   ()=>generateGroundedReply({ai:null,input:[{role:"user",content:"hello"}],sources:[]}),
   error=>error?.status===503&&error?.category==="PROVIDER_NOT_CONFIGURED"
