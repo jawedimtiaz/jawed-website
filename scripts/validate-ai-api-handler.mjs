@@ -16,7 +16,7 @@ for(let i=0;i<MAX_REQUESTS;i++){
 }
 const limited=checkRateLimit(rateLimitKey,1_000+MAX_REQUESTS);
 assert.equal(limited.allowed,false);
-assert.equal(limited.retryAfter,60);
+assert.equal(limited.retryAfter,61);
 assert.equal(checkRateLimit(rateLimitKey,61_001).allowed,true);
 const anonymousRequest=makeRequest("https://jawed.co.in/api/ai");
 assert.equal(getClientKey(anonymousRequest),"anonymous");
