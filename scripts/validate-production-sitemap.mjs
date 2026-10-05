@@ -39,8 +39,10 @@ try{
   try{
    const parsed=new URL(loc);
    if(contract.require_absolute_urls&&!/^https:$/.test(parsed.protocol)) failures.push(`sitemap: non-HTTPS URL ${loc}`);
-   if(!loc.startsWith(contract.canonical_origin+"/")) failures.push(`sitemap: non-canonical origin URL ${loc}`);
-   for(const origin of contract.forbidden_origins||[]) if(loc.startsWith(origin+"/")) failures.push(`sitemap: forbidden alternate-origin URL ${loc}`);
+   if(parsed.origin!==contract.canonical_origin) failures.push(`sitemap: non-canonical origin URL ${loc}`);
+   if(parsed.username||parsed.password) failures.push(`sitemap: credential-bearing URL ${loc}`);
+   if(parsed.pathname.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(parsed.pathname)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(parsed.pathname)) failures.push(`sitemap: unsafe path URL ${loc}`);
+   for(const origin of contract.forbidden_origins||[]) if(parsed.origin===origin) failures.push(`sitemap: forbidden alternate-origin URL ${loc}`);
    for(const extension of contract.forbidden_extensions||[]) if(parsed.pathname.toLowerCase().endsWith(extension)) failures.push(`sitemap: legacy extension URL ${loc}`);
    if(parsed.search||parsed.hash) failures.push(`sitemap: query/hash URL ${loc}`);
   }catch{failures.push(`sitemap: invalid absolute URL ${loc}`)}
