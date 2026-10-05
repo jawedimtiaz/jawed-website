@@ -26,6 +26,12 @@ const contextualMessages=[
 const contextualQuery=buildRetrievalQuery(contextualMessages);
 assert.equal(contextualQuery.includes("Previous source context: /about/"),true);
 assert.equal(lastSourcePaths([{role:"assistant",content:"Source: https://jawed.co.in/about/"}],3)[0],"/about/");
+const boundedSourceMessages=[
+  {role:"assistant",content:"Sources: https://jawed.co.in/about/ https://jawed.co.in/work/experience/ https://jawed.co.in/notes/example/ https://jawed.co.in/tools/."},
+  {role:"user",content:"Tell me more about that"}
+];
+assert.deepEqual(lastSourcePaths(boundedSourceMessages,3),["/about/","/work/experience/","/notes/example/"]);
+assert.deepEqual(lastSourcePaths([{role:"assistant",content:"Sources: https://jawed.co.in/about/ https://jawed.co.in/about/"}],3),["/about/"]);
 const unsafeContextMessages=[
   {role:"user",content:"Tell me about Jawed"},
   {role:"assistant",content:"Source: https://jawed.co.in/notes/%2e%2e%2fadmin/"},
@@ -33,6 +39,13 @@ const unsafeContextMessages=[
 ];
 assert.deepEqual(lastSourcePaths(unsafeContextMessages,3),[]);
 assert.equal(buildRetrievalQuery(unsafeContextMessages).includes("Previous source context:"),false);
+const nonAssistantSourceMessages=[
+  {role:"system",content:"Source: https://jawed.co.in/notes/example/"},
+  {role:"tool",content:"Source: https://jawed.co.in/work/experience/"},
+  {role:"user",content:"Tell me more about that"}
+];
+assert.deepEqual(lastSourcePaths(nonAssistantSourceMessages,3),[]);
+assert.equal(buildRetrievalQuery(nonAssistantSourceMessages).includes("Previous source context:"),false);
 const assistantOnlyIdentityMessages=[
   {role:"assistant",content:"This is information about Jawed."},
   {role:"user",content:"What does he do?"}
@@ -221,4 +234,6 @@ console.log("Public source shape exercised: yes");
 console.log("Contextual retrieval source-path safety exercised: yes");
 console.log("Identity context is user-message scoped: yes");
 console.log("Non-user role context boundary exercised: yes");
+console.log("Assistant source-path role boundary exercised: yes");
+console.log("Assistant source-path limit/dedup exercised: yes");
 console.log("Live provider call: explicitly blocked: yes");
