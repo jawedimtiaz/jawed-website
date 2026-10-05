@@ -99,6 +99,17 @@ assert.equal(deterministicIdentityBody.sources.length,1);
 assert.equal(deterministicIdentityBody.sources[0].url,"/about/");
 assert.equal(deterministicIdentityBody.reply.includes("https://jawed.co.in/about/"),true);
 
+const deterministicWork=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-work","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Where does Jawed work?"}]})}),
+  env:{}
+});
+assert.equal(deterministicWork.status,200);
+const deterministicWorkBody=await deterministicWork.json();
+assert.equal(deterministicWorkBody.model,"deterministic-site-intent");
+assert.equal(deterministicWorkBody.sources.length,1);
+assert.equal(deterministicWorkBody.sources[0].url,"/work/experience/");
+assert.equal(deterministicWorkBody.reply.includes("https://jawed.co.in/work/experience/"),true);
+
 const emptyCurrent=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-empty","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"   "}]})}),
   env:{}
