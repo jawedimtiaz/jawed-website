@@ -88,6 +88,17 @@ for(const source of unconfiguredBody.sources){
   assert.deepEqual(Object.keys(source).sort(),["title","url"]);
 }
 
+const deterministicIdentity=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-identity","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Who is Jawed?"}]})}),
+  env:{}
+});
+assert.equal(deterministicIdentity.status,200);
+const deterministicIdentityBody=await deterministicIdentity.json();
+assert.equal(deterministicIdentityBody.model,"deterministic-site-intent");
+assert.equal(deterministicIdentityBody.sources.length,1);
+assert.equal(deterministicIdentityBody.sources[0].url,"/about/");
+assert.equal(deterministicIdentityBody.reply.includes("https://jawed.co.in/about/"),true);
+
 const emptyCurrent=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-empty","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"   "}]})}),
   env:{}
