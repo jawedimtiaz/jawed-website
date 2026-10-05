@@ -93,9 +93,9 @@ const knowledgeDataSource=fs.readFileSync("functions/lib/ai-knowledge-data.js","
 
 const contracts=[
   ["Cloudflare Worker-compatible AI knowledge loading",knowledgeSource.includes('import knowledge from "./ai-knowledge-data.js";')&&!knowledgeSource.includes('from "node:fs"')&&knowledgeDataSource.includes("export default knowledge")],
-  ["server request-size boundary",/MAX_BODY_BYTES=\\d+/.test(endpoint)],
-  ["server message-count boundary",/MAX_MESSAGES=\\d+/.test(endpoint)],
-  ["server message-length boundary",/MAX_MESSAGE_CHARS=\\d+/.test(endpoint)],
+  ["server request-size boundary",/MAX_BODY_BYTES=\d+/.test(endpoint)],
+  ["server message-count boundary",/MAX_MESSAGES=\d+/.test(endpoint)],
+  ["server message-length boundary",/MAX_MESSAGE_CHARS=\d+/.test(endpoint)],
   ["same-site origin boundary",endpoint.includes("https://jawed.co.in")],
   ["rate-limit boundary",rateLimit.includes("MAX_REQUESTS="+MAX_REQUESTS)&&rateLimit.includes("WINDOW_MS="+WINDOW_MS)],
   ["server-side Workers AI binding",endpoint.includes("env.AI")&&provider.includes("ai.run")],
