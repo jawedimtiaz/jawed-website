@@ -98,7 +98,7 @@ async function handlePost({request,env}){
   }catch(error){
     const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<600?error.status:502;
     const diagnostic=typeof error?.category==="string"&&/^PROVIDER_(?:HTTP_(?:4\d\d|5\d\d)|TIMEOUT|NETWORK|INVALID_RESPONSE|RESPONSE_READ|RESPONSE_VALIDATION|ATTRIBUTION)$/.test(error.category)?error.category:"PROVIDER_UNKNOWN";
-    const providerErrorCode=typeof error?.providerErrorCode==="string"?error.providerErrorCode:"";
+    const providerErrorCode=typeof error?.providerErrorCode==="string"&&/^[a-z0-9_.-]{1,80}$/i.test(error.providerErrorCode)?error.providerErrorCode:"";
     const message=providerErrorCode==="3036"
       ?"The AI free daily allocation has been reached. Please try again after the daily allocation resets."
       :providerErrorCode==="5035"
