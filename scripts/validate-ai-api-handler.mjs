@@ -57,6 +57,22 @@ const nonUserIdentityMessages=[
 ];
 assert.equal(buildRetrievalQuery(nonUserIdentityMessages).includes("Jawed"),false);
 assert.equal(buildRetrievalQuery([{role:"user",content:"x".repeat(MAX_RETRIEVAL_QUERY_CHARS+500)}]).length,MAX_RETRIEVAL_QUERY_CHARS);
+const longCurrent="PRIMARY-INTENT-".repeat(500);
+const longHistory=[
+  {role:"user",content:"Earlier context that should not displace the current request."},
+  {role:"user",content:longCurrent+"TAIL-INTENT"}
+];
+const longQuery=buildRetrievalQuery(longHistory);
+assert.equal(longQuery.length,MAX_RETRIEVAL_QUERY_CHARS);
+assert.equal(longQuery,longCurrent.slice(0,MAX_RETRIEVAL_QUERY_CHARS));
+const contextualBudgetMessages=[
+  {role:"user",content:"Previous user context"},
+  {role:"assistant",content:"Source: https://jawed.co.in/about/"},
+  {role:"user",content:"Current request: "+("x".repeat(MAX_RETRIEVAL_QUERY_CHARS-100))}
+];
+const contextualBudgetQuery=buildRetrievalQuery(contextualBudgetMessages);
+assert.equal(contextualBudgetQuery.startsWith(contextualBudgetMessages.at(-1).content),true);
+assert.equal(contextualBudgetQuery.length,MAX_RETRIEVAL_QUERY_CHARS);
 
 const malformedRetrievalInputs=[
   null,
