@@ -11,7 +11,7 @@ for(const item of contract.redirect_checks||[]){
   if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path)) failures.push(`${item.path}: redirect check path must be a safe absolute site path`);
   if(typeof item.max_redirects!=="number"||item.max_redirects!==0) failures.push(`${item.path}: redirect check max_redirects must be exactly 0`);
   if(!Array.isArray(item.expected_status)||item.expected_status.length<1||!item.expected_status.every(status=>Number.isInteger(status)&&status>=300&&status<=399)) failures.push(`${item.path}: expected redirect status contract must be a non-empty 3xx integer array`);
-  if(typeof item.location!=="string"||!item.location.startsWith(contract.canonical_origin+"/")) failures.push(`${item.path}: redirect Location must target canonical origin`);
+  if(typeof item.location!=="string"||!item.location.startsWith(contract.canonical_origin+"/")||item.location.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.location.slice(contract.canonical_origin.length))||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.location.slice(contract.canonical_origin.length))) failures.push(`${item.path}: redirect Location must target a safe canonical-origin path`);
 }
 if(failures.length){console.error("Canonical Origin Reliability Gate FAILED");for(const f of failures) console.error("- "+f);process.exit(1);}
 console.log("Canonical Origin Reliability Gate PASSED");
