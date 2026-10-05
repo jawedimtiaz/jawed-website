@@ -5,7 +5,7 @@ const failures=[],timeoutMs=10000;if(typeof contract.production_origin!=="string
 if(contract.max_redirects!==0) failures.push("legacy redirect checks must not follow redirects");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("legacy redirect contract must contain at least one check");
 for(const item of contract.checks||[]){
- if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")) failures.push("legacy redirect path must be an absolute site path");
+ if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path)) failures.push("legacy redirect path must be an absolute site path");
  if(!Number.isInteger(item.expected_status)||item.expected_status<300||item.expected_status>399) failures.push(item.path+": expected_status must be a redirect status");
  if(typeof item.location!=="string"||(!item.location.startsWith("/")&&!item.location.startsWith("https://"))) failures.push(item.path+": redirect location must be a path or HTTPS URL");
 }
