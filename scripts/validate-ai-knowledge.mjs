@@ -27,6 +27,14 @@ const unexpected=indexPaths.filter(path=>!sitemapPaths.includes(path));
 const excludedIndexed=[...excluded].filter(path=>indexPaths.includes(path));
 const malformed=knowledge.entries.filter(entry=>!entry.url||!entry.title||!entry.summary||!Array.isArray(entry.keywords)||!entry.keywords.length);
 const unsafeUrls=knowledge.entries.filter(entry=>!isSafeSourceUrl(entry.url));
+const unsafeUrlContractCases={
+  "/../admin/":false,
+  "/notes/%2e%2e%2fadmin/":false,
+  "/notes/%2e%2e%5cadmin/":false,
+  "/notes/%2f%2fevil.example/":false,
+  "/notes/example/":true
+};
+for(const [url,expected] of Object.entries(unsafeUrlContractCases))assert.equal(isSafeSourceUrl(url),expected,"Unexpected AI source URL safety result for "+url);
 const reviewDate=knowledge.reviewed_against_sitemap_on;
 const reviewDateMs=typeof reviewDate==="string"&&!Number.isNaN(Date.parse(reviewDate+"T23:59:59Z"))?Date.parse(reviewDate+"T23:59:59Z"):NaN;
 const groundingSourceFiles=sitemapPaths.filter(path=>!excluded.has(path)).map(sourcePath);
