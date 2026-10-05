@@ -42,7 +42,7 @@ await assert.rejects(()=>generateGroundedReply({ai:{run:async()=>({})},input:[{r
 
 const defaultError=normalizeProviderError();
 assert.equal(defaultError.status,502);
-assert.equal(defaultError.category,"PROVIDER_UNKNOWN");
+assert.equal(defaultError.category,"PROVIDER_HTTP_502");
 assert.equal(defaultError.providerStage,"AI_RUN");
 assert.equal(defaultError.providerErrorCode,"");
 
@@ -57,9 +57,14 @@ assert.equal(stringCode.category,"PROVIDER_HTTP_503");
 assert.equal(stringCode.providerErrorCode,"MODEL_UNAVAILABLE");
 
 const invalidStatus=normalizeProviderError({status:700,code:"bad code with spaces",message:"provider failure"});
-assert.equal(invalidStatus.status,700);
-assert.equal(invalidStatus.category,"PROVIDER_UNKNOWN");
+assert.equal(invalidStatus.status,502);
+assert.equal(invalidStatus.category,"PROVIDER_HTTP_502");
 assert.equal(invalidStatus.providerErrorCode,"");
+
+const clientStatus=normalizeProviderError({status:399,code:123,message:"redirect-like provider result"});
+assert.equal(clientStatus.status,502);
+assert.equal(clientStatus.category,"PROVIDER_HTTP_502");
+assert.equal(clientStatus.providerErrorCode,"123");
 
 assert.equal(Number.isInteger(PROVIDER_TIMEOUT_MS)&&PROVIDER_TIMEOUT_MS>0,true);
 await assert.rejects(()=>withProviderTimeout(new Promise(()=>{}),5),error=>error?.status===504&&error?.category==="PROVIDER_TIMEOUT");
@@ -80,4 +85,5 @@ console.log("Missing-binding failure exercised: yes");
 console.log("Timeout argument boundary: yes");
 console.log("Provider argument-shape boundary: yes");
 console.log("Provider error normalization boundary: yes");
+console.log("Normalized provider status boundary: yes");
 console.log("Mocked Workers AI only: yes");
