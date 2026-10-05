@@ -35,6 +35,7 @@ const escapedTitle=await generateGroundedReply({ai:{run:async()=>({response:"The
 assert.equal(escapedTitle.reply.includes("Calculator \\](https://evil.example/) \\[demo"),true);
 assert.equal(escapedTitle.reply.includes("https://jawed.co.in/tools/retirement-planning-calculator/"),true);
 
+await assert.rejects(()=>generateGroundedReply(),error=>error?.status===503&&error?.category==="PROVIDER_NOT_CONFIGURED");
 await assert.rejects(()=>generateGroundedReply({ai:null,input:[{role:"user",content:"hello"}],sources:[]}),error=>error?.status===503&&error?.category==="PROVIDER_NOT_CONFIGURED");
 await assert.rejects(()=>generateGroundedReply({ai:{run:async()=>{const e=new Error("daily free allocation reached (3036)");e.status=429;throw e;}},input:[{role:"user",content:"hello"}],sources:[]}),error=>error?.status===429&&error?.category==="PROVIDER_HTTP_429"&&error?.providerErrorCode==="3036");
 await assert.rejects(()=>generateGroundedReply({ai:{run:async()=>({})},input:[{role:"user",content:"hello"}],sources:[]}),error=>error?.category==="PROVIDER_INVALID_RESPONSE");
@@ -56,4 +57,5 @@ console.log("Grounding and source attribution contract exercised: yes");
 console.log("Free-allocation error normalization exercised: yes");
 console.log("Missing-binding failure exercised: yes");
 console.log("Timeout argument boundary: yes");
+console.log("Provider argument-shape boundary: yes");
 console.log("Mocked Workers AI only: yes");
