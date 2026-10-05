@@ -34,7 +34,6 @@ if(!Array.isArray(contract.required_fields)||contract.required_fields.length<1) 
 if(!Array.isArray(contract.expected_status_values)||contract.expected_status_values.length<1) failures.push("production AI GET expected_status_values must contain at least one value");
 
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production AI GET max_body_bytes must be a positive integer");
-const url=(typeof contract.path==="string"&&contract.path.startsWith("/")&&!contract.path.startsWith("//")||contract.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(contract.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(contract.path)&&typeof contract.production_origin==="string"&&/^https:\/\//.test(contract.production_origin))?new URL(contract.path,contract.production_origin):null;
 const controller=new AbortController();
 const timer=setTimeout(()=>controller.abort(),10000);
 try{
