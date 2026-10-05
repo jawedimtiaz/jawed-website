@@ -1,4 +1,4 @@
-import {MAX_OUTPUT_TOKENS,MAX_REPLY_CHARS,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,ensureAllowedSourceLink,validateProviderReply,buildGroundingInstructions} from "./ai-provider-common.js";
+import {MAX_OUTPUT_TOKENS,MAX_REPLY_CHARS,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,ensureAllowedSourceLink,validateProviderReply,buildGroundingInstructions,isSafeSourceMetadata} from "./ai-provider-common.js";
 
 const DEFAULT_MODEL="@cf/meta/llama-3.2-1b-instruct";
 const PROVIDER_TIMEOUT_MS=30000;
@@ -36,7 +36,8 @@ export async function generateGroundedReply({ai,model,input,sources}){
     error.category="PROVIDER_NOT_CONFIGURED";
     throw error;
   }
-  const instructions=buildGroundingInstructions(input,sources);
+  const safeSources=Array.isArray(sources)?sources.filter(isSafeSourceMetadata).slice(0,5):[];
+  const instructions=buildGroundingInstructions(input,safeSources);
   let result;
   try{
     result=await withProviderTimeout(ai.run(FREE_MODEL,{
@@ -52,10 +53,10 @@ export async function generateGroundedReply({ai,model,input,sources}){
     throw normalizeProviderError(error);
   }
   const reply=typeof result?.response==="string"?result.response:"";
-  const validatedReply=validateProviderReply(reply,sources);
-  const sanitizedReply=sanitizeMarkdownLinks(validatedReply,sources);
-  const attributedReply=ensureAllowedSourceLink(sanitizedReply,sources);
-  if(sources.length&&!hasAllowedSourceLink(attributedReply,sources)){
+  const validatedReply=validateProviderReply(reply,safeSources);
+  const sanitizedReply=sanitizeMarkdownLinks(validatedReply,safeSources);
+  const attributedReply=ensureAllowedSourceLink(sanitizedReply,safeSources);
+  if(safeSources.length&&!hasAllowedSourceLink(attributedReply,safeSources)){
     const error=new Error("No safe Jawed.co.in source was available for attribution.");
     error.category="PROVIDER_ATTRIBUTION";
     throw error;
