@@ -2,7 +2,7 @@ import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-sitemap-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
 if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) failures.push("production sitemap origin must be HTTPS");
-if(typeof contract.sitemap_path!=="string"||!contract.sitemap_path.startsWith("/")||contract.sitemap_path.startsWith("//")||contract.sitemap_path.includes("\\")) failures.push("sitemap_path must be absolute");
+if(typeof contract.sitemap_path!=="string"||!contract.sitemap_path.startsWith("/")||contract.sitemap_path.startsWith("//")||contract.sitemap_path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(contract.sitemap_path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(contract.sitemap_path)) failures.push("sitemap_path must be absolute");
 if(typeof contract.expected_content_type!=="string"||!contract.expected_content_type.trim()) failures.push("sitemap expected_content_type must be non-empty");
 if(typeof contract.canonical_origin!=="string"||!/^https:\/\//.test(contract.canonical_origin)) failures.push("sitemap canonical_origin must be HTTPS");
 async function readBoundedText(response,maxBytes){
