@@ -38,6 +38,11 @@ const assistantOnlyIdentityMessages=[
   {role:"user",content:"What does he do?"}
 ];
 assert.equal(buildRetrievalQuery(assistantOnlyIdentityMessages).includes("Jawed"),false);
+const nonUserIdentityMessages=[
+  {role:"system",content:"Jawed is the subject."},
+  {role:"user",content:"What does he do?"}
+];
+assert.equal(buildRetrievalQuery(nonUserIdentityMessages).includes("Jawed"),false);
 assert.equal(buildRetrievalQuery([{role:"user",content:"x".repeat(MAX_RETRIEVAL_QUERY_CHARS+500)}]).length,MAX_RETRIEVAL_QUERY_CHARS);
 
 const health=await onRequestGet({request:makeRequest("https://jawed.co.in/api/ai"),env:{}});
@@ -215,4 +220,5 @@ console.log("Handler-owned error and health paths exercised: yes");
 console.log("Public source shape exercised: yes");
 console.log("Contextual retrieval source-path safety exercised: yes");
 console.log("Identity context is user-message scoped: yes");
+console.log("Non-user role context boundary exercised: yes");
 console.log("Live provider call: explicitly blocked: yes");
