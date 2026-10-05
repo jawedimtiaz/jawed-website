@@ -79,6 +79,7 @@ assert.equal(unconfigured.headers.get("cache-control"),"no-store");
 assert.equal(unconfigured.headers.get("content-type")?.startsWith("application/json"),true);
 assert.equal(unconfiguredBody.sources.every(source=>Object.keys(source).sort().join(",")==="title,url"),true);
 assert.equal(new Set(unconfiguredBody.sources.map(source=>source.url)).size,unconfiguredBody.sources.length);
+assert.equal(unconfiguredBody.sources.length<=5,true);
 for(const source of unconfiguredBody.sources){
   assert.equal(typeof source.url,"string");
   assert.equal(isSafeSourceUrl(source.url),true);
