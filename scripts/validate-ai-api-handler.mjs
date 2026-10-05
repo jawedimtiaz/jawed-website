@@ -110,6 +110,13 @@ assert.equal(deterministicWorkBody.sources.length,1);
 assert.equal(deterministicWorkBody.sources[0].url,"/work/experience/");
 assert.equal(deterministicWorkBody.reply.includes("https://jawed.co.in/work/experience/"),true);
 
+const nonDeterministicIdentity=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-identity-detail","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Tell me more about Jawed's projects"}]})}),
+  env:{}
+});
+assert.equal(nonDeterministicIdentity.status,503);
+assert.equal((await nonDeterministicIdentity.json()).code,"AI_NOT_CONFIGURED");
+
 const emptyCurrent=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-empty","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"   "}]})}),
   env:{}
