@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import {onRequestGet,onRequestPost} from "../functions/api/ai.js";
 import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TEMPERATURE} from "../functions/lib/cloudflare-ai-provider.js";
-import {isSafeSourceUrl,isSafeSourceMetadata,MAX_SOURCE_TITLE_CHARS,MAX_SOURCE_SUMMARY_CHARS,MAX_SOURCE_KEYWORD_CHARS,MAX_SOURCE_KEYWORDS} from "../functions/lib/ai-provider-common.js";
+import {isSafeSourceUrl,isSafeSourceMetadata,MAX_SOURCE_TITLE_CHARS,MAX_SOURCE_SUMMARY_CHARS,MAX_SOURCE_KEYWORD_CHARS,MAX_SOURCE_KEYWORDS,MAX_REPLY_CHARS} from "../functions/lib/ai-provider-common.js";
 import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
@@ -146,6 +146,25 @@ assert.equal(providerFailureBody.diagnostic,"PROVIDER_HTTP_401");
 assert.equal(providerFailureBody.request_id,providerFailure.headers.get("x-request-id"));
 assert.equal(providerFailure.headers.get("x-ai-provider-diagnostic"),"PROVIDER_HTTP_401");
 assert.equal(Object.prototype.hasOwnProperty.call(providerFailureBody,"message"),false);
+
+const oversizedProvider=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-oversized","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
+  env:{AI:{run:async()=>({response:"x".repeat(MAX_REPLY_CHARS+1)})}}
+});
+assert.equal(oversizedProvider.status,502);
+const oversizedProviderBody=await oversizedProvider.json();
+assert.equal(oversizedProviderBody.code,"AI_PROVIDER_ERROR");
+assert.equal(oversizedProviderBody.diagnostic,"PROVIDER_RESPONSE_VALIDATION");
+assert.equal(oversizedProvider.headers.get("x-ai-provider-diagnostic"),"PROVIDER_RESPONSE_VALIDATION");
+
+const controlCharacterProvider=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-control","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
+  env:{AI:{run:async()=>({response:"unsafe\\u0007response"})}}
+});
+assert.equal(controlCharacterProvider.status,502);
+const controlCharacterBody=await controlCharacterProvider.json();
+assert.equal(controlCharacterBody.code,"AI_PROVIDER_ERROR");
+assert.equal(controlCharacterBody.diagnostic,"PROVIDER_RESPONSE_VALIDATION");
 
 let providerRunArgs=null;
 const successfulProvider=await onRequestPost({
