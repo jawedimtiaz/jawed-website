@@ -18,6 +18,9 @@ for(const item of contract.checks||[]){
 }
 
 async function check(item){
+  const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path);
+  const validOrigin=isHttpsOrigin(contract.production_origin);
+  if(!validPath||!validOrigin){failures.push(`${item.path}: security-header probe URL is invalid`);continue;}
   const url=new URL(item.path,contract.production_origin);
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
