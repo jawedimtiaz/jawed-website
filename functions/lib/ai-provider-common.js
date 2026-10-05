@@ -1,6 +1,6 @@
 const MAX_OUTPUT_TOKENS=700;
 const MAX_REPLY_CHARS=6000;
-const isSafeSourceUrl=url=>typeof url==="string"&&url.startsWith("/")&&!url.startsWith("//")&&!url.includes("\\");
+const isSafeSourceUrl=url=>typeof url==="string"&&url.startsWith("/")&&!url.startsWith("//")&&!url.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(url)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(url);
 function contextText(sources){
   if(!sources.length)return "No matching Jawed.co.in pages were found for this question.";
   return sources.map((source,index)=>[
