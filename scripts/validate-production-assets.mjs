@@ -24,7 +24,7 @@ if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.pr
 if(contract.max_redirects!==0) failures.push("production asset checks must not follow redirects");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production asset contract must contain at least one check");
 for(const item of contract.checks||[]){
- if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")) failures.push("production asset check path must be an absolute site path");
+ if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path)) failures.push("production asset check path must be an absolute site path");
  if(!Number.isInteger(item.status)||item.status<100||item.status>599) failures.push(item.path+": expected status must be a valid HTTP status");
  if(typeof item.content_type!=="string"||!item.content_type.trim()) failures.push(item.path+": content_type must be non-empty");
  if(!Number.isInteger(item.min_body_bytes)||item.min_body_bytes<0) failures.push(item.path+": min_body_bytes must be a non-negative integer");
