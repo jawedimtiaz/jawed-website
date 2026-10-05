@@ -44,12 +44,12 @@ function deterministicIntentReply(question){
   const identity=["who is jawed","who is jawed imtiaz","who was jawed","who was jawed imtiaz","about jawed","about jawed imtiaz"];
   if(identity.includes(value)){
     const source=knowledgeEntry("/about/");
-    return source&&isSafeSourceUrl(source.url)?{reply:ensureAllowedSourceLink(source.summary,[source]),sources:[source]}:null;
+    return source&&isSafeSourceMetadata(source)?{reply:ensureAllowedSourceLink(source.summary,[source]),sources:[source]}:null;
   }
   const workQuestion=(value.startsWith("where ")||value.startsWith("what "))&&["work","working","job","employed","employer","employment","company","client"].some(term=>value.includes(term));
   if(workQuestion){
     const source=knowledgeEntry("/work/experience/");
-    return source&&isSafeSourceUrl(source.url)?{reply:ensureAllowedSourceLink(source.summary,[source]),sources:[source]}:null;
+    return source&&isSafeSourceMetadata(source)?{reply:ensureAllowedSourceLink(source.summary,[source]),sources:[source]}:null;
   }
   return null;
 }
