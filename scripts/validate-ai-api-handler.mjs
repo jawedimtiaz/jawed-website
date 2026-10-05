@@ -20,6 +20,13 @@ assert.equal(getClientKey(null),"anonymous");
 assert.equal(getClientKey({}),"anonymous");
 assert.equal(checkRateLimit(null,Number.NaN).allowed,true);
 
+const malformedContext=await onRequestPost({});
+assert.equal(malformedContext.status,502);
+assert.equal((await malformedContext.json()).code,"AI_HANDLER_ERROR");
+const nullRequestContext=await onRequestPost({request:null,env:{}});
+assert.equal(nullRequestContext.status,502);
+assert.equal((await nullRequestContext.json()).code,"AI_HANDLER_ERROR");
+
 
 const malformedProviderContext=buildGroundingInstructions(null,null);
 assert.equal(malformedProviderContext.includes("No valid conversation context was supplied."),true);
