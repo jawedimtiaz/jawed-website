@@ -2,7 +2,7 @@ import {findRelevantKnowledge,knowledgeCount} from "../lib/ai-knowledge.js";
 import knowledge from "../lib/ai-knowledge-data.js";
 import {checkRateLimit,getClientKey,MAX_REQUESTS,WINDOW_MS} from "../lib/ai-rate-limit.js";
 import {DEFAULT_MODEL,generateGroundedReply} from "../lib/cloudflare-ai-provider.js";
-import {isSafeSourceUrl,ensureAllowedSourceLink} from "../lib/ai-provider-common.js";
+import {isSafeSourceMetadata,ensureAllowedSourceLink} from "../lib/ai-provider-common.js";
 import {buildRetrievalQuery} from "../lib/ai-retrieval.js";
 import {aiConfigurationStatus} from "../lib/ai-config.js";
 
@@ -26,7 +26,7 @@ function validConversation(messages){
 }
 
 function publicSources(sources){
-  return sources.filter(source=>isSafeSourceUrl(source?.url)&&typeof source.title==="string"&&source.title.trim()&&typeof source.summary==="string"&&Array.isArray(source.keywords)).map(source=>({url:source.url,title:source.title,summary:source.summary,keywords:source.keywords.filter(keyword=>typeof keyword==="string").slice(0,20)}));
+  return sources.filter(isSafeSourceMetadata).map(source=>({url:source.url,title:source.title,summary:source.summary,keywords:source.keywords.slice(0,40)}));
 }
 
 function publicSourceReferences(sources){

@@ -1,5 +1,9 @@
 const MAX_OUTPUT_TOKENS=700;
 const MAX_REPLY_CHARS=6000;
+const MAX_SOURCE_TITLE_CHARS=120;
+const MAX_SOURCE_SUMMARY_CHARS=1000;
+const MAX_SOURCE_KEYWORD_CHARS=80;
+const MAX_SOURCE_KEYWORDS=40;
 const isSafeSourceUrl=url=>typeof url==="string"&&url.startsWith("/")&&!url.startsWith("//")&&!url.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(url)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(url)&&!/%(?:2e|2f|5c)/i.test(url);
 function contextText(sources){
   if(!sources.length)return "No matching Jawed.co.in pages were found for this question.";
@@ -21,6 +25,12 @@ function validateProviderReply(reply,sources){
 }
 function hasAllowedSourceLink(reply,sources){
   return sources.filter(source=>isSafeSourceUrl(source.url)).some(source=>reply.includes("](https://jawed.co.in"+source.url+")"));
+}
+function hasUnsupportedControlCharacters(value){
+  return typeof value==="string"&&/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value);
+}
+function isSafeSourceMetadata(source){
+  return Boolean(source&&isSafeSourceUrl(source.url)&&typeof source.title==="string"&&source.title.trim()&&source.title.length<=MAX_SOURCE_TITLE_CHARS&&!hasUnsupportedControlCharacters(source.title)&&typeof source.summary==="string"&&source.summary.trim()&&source.summary.length<=MAX_SOURCE_SUMMARY_CHARS&&!hasUnsupportedControlCharacters(source.summary)&&Array.isArray(source.keywords)&&source.keywords.length<=MAX_SOURCE_KEYWORDS&&source.keywords.every(keyword=>typeof keyword==="string"&&keyword.trim()&&keyword.length<=MAX_SOURCE_KEYWORD_CHARS&&!hasUnsupportedControlCharacters(keyword)));
 }
 function escapeMarkdownLabel(value){
   return String(value??"").replace(/[\\[\]]/g,"\\$&").replace(/[\u0000-\u001F\u007F]/g," ");
@@ -72,4 +82,4 @@ function conversationText(input){
     return "TURN "+(index+1)+" ["+label+"]\n<UNTRUSTED_TEXT>\n"+message.content+"\n</UNTRUSTED_TEXT>";
   }).join("\n\n");
 }
-export {MAX_OUTPUT_TOKENS,MAX_REPLY_CHARS,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,ensureAllowedSourceLink,validateProviderReply,buildGroundingInstructions};
+export {MAX_OUTPUT_TOKENS,MAX_REPLY_CHARS,MAX_SOURCE_TITLE_CHARS,MAX_SOURCE_SUMMARY_CHARS,MAX_SOURCE_KEYWORD_CHARS,MAX_SOURCE_KEYWORDS,isSafeSourceUrl,isSafeSourceMetadata,sanitizeMarkdownLinks,hasAllowedSourceLink,ensureAllowedSourceLink,validateProviderReply,buildGroundingInstructions};
