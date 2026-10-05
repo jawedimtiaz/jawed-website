@@ -58,6 +58,23 @@ const nonUserIdentityMessages=[
 assert.equal(buildRetrievalQuery(nonUserIdentityMessages).includes("Jawed"),false);
 assert.equal(buildRetrievalQuery([{role:"user",content:"x".repeat(MAX_RETRIEVAL_QUERY_CHARS+500)}]).length,MAX_RETRIEVAL_QUERY_CHARS);
 
+const malformedRetrievalInputs=[
+  null,
+  undefined,
+  "not-an-array",
+  {},
+  [null,{role:"user",content:"What does he do?"}],
+  [{role:"user",content:"Who is Jawed?"},null,{role:"user",content:"What does he do?"}],
+  [{role:"user",content:"Who is Jawed?"},{role:"assistant"}, {role:"user",content:"What does he do?"}]
+];
+for(const messages of malformedRetrievalInputs){
+  assert.doesNotThrow(()=>buildRetrievalQuery(messages),String(messages));
+  assert.equal(typeof buildRetrievalQuery(messages),"string");
+}
+assert.equal(buildRetrievalQuery(null),"");
+assert.equal(buildRetrievalQuery([]),"");
+assert.equal(buildRetrievalQuery([{role:"assistant",content:"context"}]),"");
+
 const health=await onRequestGet({request:makeRequest("https://jawed.co.in/api/ai"),env:{}});
 assert.equal(health.status,200);
 assert.equal(health.headers.get("cache-control"),"no-store");
@@ -236,4 +253,5 @@ console.log("Identity context is user-message scoped: yes");
 console.log("Non-user role context boundary exercised: yes");
 console.log("Assistant source-path role boundary exercised: yes");
 console.log("Assistant source-path limit/dedup exercised: yes");
+console.log("Malformed retrieval input shape exercised: yes");
 console.log("Live provider call: explicitly blocked: yes");
