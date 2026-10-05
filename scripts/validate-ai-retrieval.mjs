@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import {buildRetrievalQuery,MAX_RETRIEVAL_QUERY_CHARS,PRIOR_USER_TURNS} from "../functions/lib/ai-retrieval.js";
+import {buildRetrievalQuery,MAX_RETRIEVAL_QUERY_CHARS,PRIOR_USER_TURNS,lastSourcePaths,resolveContextualReference} from "../functions/lib/ai-retrieval.js";
 import {findRelevantKnowledge} from "../functions/lib/ai-knowledge.js";
 
 const followUp=buildRetrievalQuery([
@@ -37,6 +37,13 @@ assert.equal(buildRetrievalQuery([null,{},undefined]),"");
 const unsafeSourceContext=buildRetrievalQuery([{role:"user",content:"What is Jamf?"},{role:"assistant",content:"See https://jawed.co.in/../secret and https://jawed.co.in/notes/jamf/"},{role:"user",content:"Tell me more about that"}]);
 assert.equal(unsafeSourceContext.includes("https://jawed.co.in/../secret"),false);
 assert.equal(unsafeSourceContext.includes("https://jawed.co.in/notes/jamf/"),true);
+
+const sourceMessages=[{role:"user",content:"What is Jamf?"},{role:"assistant",content:"Sources: https://jawed.co.in/notes/jamf/ https://jawed.co.in/work/skills/ https://jawed.co.in/tools/retirement-planning-calculator/ https://jawed.co.in/notes/retirement-planning-start-with-the-number/"}];
+assert.equal(lastSourcePaths(sourceMessages,0).length,3);
+assert.equal(lastSourcePaths(sourceMessages,-1).length,3);
+assert.equal(lastSourcePaths(sourceMessages,99).length,3);
+assert.equal(resolveContextualReference(null,sourceMessages),"");
+assert.equal(resolveContextualReference(123,sourceMessages),"");
 
 const urls=(query,options={})=>findRelevantKnowledge(query,5,options).map(entry=>entry.url);
 const retirement=urls("retirement planning");
@@ -80,6 +87,8 @@ console.log("Prior user turns included:",PRIOR_USER_TURNS);
 console.log("Assistant turns excluded: yes");
 console.log("Malformed history boundary: yes");
 console.log("Unsafe source context rejected: yes");
+console.log("Source-path limit boundary: yes");
+console.log("Context reference type boundary: yes");
 console.log("Query character cap:",MAX_RETRIEVAL_QUERY_CHARS);
 console.log("Knowledge ranking precision: yes");
 console.log("Vague follow-up topic boundary: yes");
