@@ -4,10 +4,24 @@ import {onRequestGet,onRequestPost} from "../functions/api/ai.js";
 import {buildRetrievalQuery,lastSourcePaths,MAX_RETRIEVAL_QUERY_CHARS} from "../functions/lib/ai-retrieval.js";
 import {DEFAULT_MODEL,MAX_OUTPUT_TOKENS,PROVIDER_TEMPERATURE} from "../functions/lib/cloudflare-ai-provider.js";
 import {isSafeSourceUrl,isSafeSourceMetadata,MAX_SOURCE_TITLE_CHARS,MAX_SOURCE_SUMMARY_CHARS,MAX_SOURCE_KEYWORD_CHARS,MAX_SOURCE_KEYWORDS,MAX_REPLY_CHARS} from "../functions/lib/ai-provider-common.js";
-import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
+import {MAX_REQUESTS,WINDOW_MS,checkRateLimit,getClientKey} from "../functions/lib/ai-rate-limit.js";
 import {findRelevantKnowledge,MAX_KNOWLEDGE_RESULTS} from "../functions/lib/ai-knowledge.js";
 
 const makeRequest=(url,options={})=>new Request(url,options);
+const rateLimitKey="phase-61d-"+Date.now()+"-"+Math.random();
+for(let i=0;i<MAX_REQUESTS;i++){
+  const result=checkRateLimit(rateLimitKey,1_000+i);
+  assert.equal(result.allowed,true);
+  assert.equal(result.retryAfter,0);
+}
+const limited=checkRateLimit(rateLimitKey,1_000+MAX_REQUESTS);
+assert.equal(limited.allowed,false);
+assert.equal(limited.retryAfter,61);
+assert.equal(checkRateLimit(rateLimitKey,61_001).allowed,true);
+const anonymousRequest=makeRequest("https://jawed.co.in/api/ai");
+assert.equal(getClientKey(anonymousRequest),"anonymous");
+const boundedIpRequest=makeRequest("https://jawed.co.in/api/ai",{headers:{"cf-connecting-ip":"203.0.113.10"}});
+assert.equal(getClientKey(boundedIpRequest),"203.0.113.10");
 let providerCalls=0;
 globalThis.fetch=async()=>{providerCalls+=1;throw new Error("Provider calls are forbidden in deterministic API handler regression tests.");};
 
