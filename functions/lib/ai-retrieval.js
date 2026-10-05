@@ -1,3 +1,5 @@
+import {isSafeSourceUrl} from "./ai-provider-common.js";
+
 const MAX_RETRIEVAL_QUERY_CHARS=6000;
 const PRIOR_USER_TURNS=2;
 const SOURCE_PATH_PATTERN=/https:\/\/jawed\.co\.in(\/[^\s)\]]*)/g;
@@ -23,6 +25,7 @@ function lastSourcePaths(messages,limit=3){
   const paths=[];
   for(const match of latest.content.matchAll(SOURCE_PATH_PATTERN)){
     const path=match[1];
+    if(!isSafeSourceUrl(path))continue;
     if(!paths.includes(path))paths.push(path);
     if(paths.length>=limit)break;
   }
