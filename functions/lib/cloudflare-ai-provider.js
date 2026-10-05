@@ -11,7 +11,7 @@ function normalizeProviderError(error){
   normalized.status=status;
   normalized.category=status===429?"PROVIDER_HTTP_429":"PROVIDER_HTTP_"+status;
   normalized.providerStage="AI_RUN";
-  normalized.providerErrorCode=typeof error?.code==="string"&&/^[a-z0-9_.-]{1,80}$/i.test(error.code)?error.code:typeof error?.code==="number"?String(error.code):/\b(3036|5035)\b/.exec(normalized.message)?.[1]||"";
+  normalized.providerErrorCode=typeof error?.code==="string"&&/^[a-z0-9_.-]{1,80}$/i.test(error.code)?error.code:Number.isInteger(error?.code)&&error.code>=0&&error.code<=999999?String(error.code):/\b(3036|5035)\b/.exec(normalized.message)?.[1]||"";
   return normalized;
 }
 
