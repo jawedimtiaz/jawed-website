@@ -6,7 +6,7 @@ if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("pro
 for(const item of contract.checks||[]){
  if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path)) failures.push("AI POST path must be an absolute site path");
  if(item.method!=="POST") failures.push(item.path+": production AI POST contract must use POST");
- if(typeof item.origin!=="string"||!/^https:\/\//.test(item.origin)) failures.push(item.path+": origin must be HTTPS");
+ if(typeof item.origin!=="string"||!/^https:\/\//.test(item.origin)||(()=>{try{const url=new URL(item.origin);return url.origin===item.origin&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}})() ) failures.push(item.path+": origin must be an origin-only HTTPS URL");
  if(typeof item.content_type!=="string"||item.content_type!=="application/json") failures.push(item.path+": content_type must be application/json");
  if(!Number.isInteger(item.expected_status)||item.expected_status<100||item.expected_status>599) failures.push(item.path+": expected_status must be a valid HTTP status");
  if(typeof item.expected_code!=="string"||!item.expected_code.trim()) failures.push(item.path+": expected_code must be non-empty");
