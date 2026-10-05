@@ -17,8 +17,12 @@ async function readBoundedText(response,maxBytes){
 if(contract.max_redirects!==0) failures.push("production checks must not follow redirects");
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production max_body_bytes must be a positive integer");
 let locs=[];
-const url=new URL(contract.sitemap_path,contract.production_origin);
-const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+const validPath=typeof contract.sitemap_path==="string"&&contract.sitemap_path.startsWith("/")&&!contract.sitemap_path.startsWith("//")&&!contract.sitemap_path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(contract.sitemap_path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(contract.sitemap_path);
+const validOrigin=isHttpsOrigin(contract.production_origin);
+const url=validPath&&validOrigin?new URL(contract.sitemap_path,contract.production_origin):null;
+if(!url){failures.push("sitemap probe skipped: contract URL is invalid");}
+else{
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
 try{
  const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"accept":"application/xml,text/xml","user-agent":"jawed-production-sitemap/39E"}});
  const type=(response.headers.get("content-type")||"").toLowerCase();
@@ -43,6 +47,7 @@ try{
  }
 }catch(error){failures.push(`sitemap: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
 finally{clearTimeout(timer)}
+}
 if(failures.length){console.error("Production Sitemap Integrity Gate FAILED");for(const failure of failures)console.error("- "+failure);process.exit(1)}
 console.log("Production Sitemap Integrity Gate PASSED");
 console.log(`Canonical origin: ${contract.canonical_origin}`);
