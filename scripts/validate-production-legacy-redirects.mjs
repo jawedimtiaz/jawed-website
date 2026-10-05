@@ -22,6 +22,9 @@ const contractedPaths=new Set(contract.checks.map(item=>item.path));
 for(const item of configured) if(!contractedPaths.has(item.path)) failures.push(item.path+": _redirects entry missing from legacy redirect contract");
 
 for(const item of contract.checks||[]){
+ const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path);
+ const validOrigin=isHttpsOrigin(contract.production_origin);
+ if(!validPath||!validOrigin){failures.push(`${item.path}: redirect probe URL is invalid`);continue;}
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
   const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-redirect/39I"}});
