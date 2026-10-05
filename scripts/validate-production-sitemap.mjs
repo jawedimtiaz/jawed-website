@@ -6,6 +6,7 @@ if(!isHttpsOrigin(contract.production_origin)) failures.push("production sitemap
 if(typeof contract.sitemap_path!=="string"||!contract.sitemap_path.startsWith("/")||contract.sitemap_path.startsWith("//")||contract.sitemap_path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(contract.sitemap_path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(contract.sitemap_path)) failures.push("sitemap_path must be absolute");
 if(typeof contract.expected_content_type!=="string"||!contract.expected_content_type.trim()) failures.push("sitemap expected_content_type must be non-empty");
 if(!isHttpsOrigin(contract.canonical_origin)) failures.push("sitemap canonical_origin must be an origin-only HTTPS URL");
+if(contract.canonical_origin!==contract.production_origin) failures.push("sitemap canonical_origin must match production_origin");
 async function readBoundedText(response,maxBytes){
  const declared=Number(response.headers.get("content-length"));
  if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared body limit");
