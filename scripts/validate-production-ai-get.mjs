@@ -21,7 +21,8 @@ import fs from "node:fs";
 
 const contract=JSON.parse(fs.readFileSync("config/production-ai-get-contract.json","utf8"));
 const failures=[];
-if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) failures.push("production AI GET origin must be HTTPS");
+const isHttpsOrigin=value=>{if(typeof value!=="string"||!/^https:\/\//.test(value))return false;try{const url=new URL(value);return url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
+if(!isHttpsOrigin(contract.production_origin)) failures.push("production AI GET origin must be an origin-only HTTPS URL");
 if(contract.max_redirects!==0) failures.push("production AI GET checks must not follow redirects");
 if(typeof contract.path!=="string"||!contract.path.startsWith("/")||contract.path.startsWith("//")||contract.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(contract.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(contract.path)) failures.push("production AI GET path must be an absolute site path");
 if(contract.method!=="GET") failures.push("production AI GET contract must use GET");
