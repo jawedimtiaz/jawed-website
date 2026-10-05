@@ -16,7 +16,6 @@ const workflow=fs.readFileSync(".github/workflows/ai-regression.yml","utf8");
 const indexPaths=knowledge.entries.map(entry=>entry.url);
 const sourcePath=(url)=>url==="/"?"index.html":url.replace(/^\/+|\/+$/g,"")+"/index.html";
 const missingSourceFiles=sitemapPaths.filter(path=>!excluded.has(path)).filter(path=>!fs.existsSync(sourcePath(path)));
-const unique=(items)=>new Set(items);
 const duplicates=indexPaths.filter((path,index)=>indexPaths.indexOf(path)!==index);
 const missing=sitemapPaths.filter(path=>!excluded.has(path)&&!indexPaths.includes(path));
 const unexpected=indexPaths.filter(path=>!sitemapPaths.includes(path));
@@ -41,6 +40,11 @@ const contextualIdentity=findRelevantKnowledge("Tell me more about that Previous
 assert.equal(contextualIdentity[0]?.url,"/about/","Explicit primary identity intent must remain highest priority over contextual source text.");
 const contextualWork=findRelevantKnowledge("Tell me more about that Previous source context: /about/",5,{primaryQuery:"Where does Jawed work?"});
 assert.equal(contextualWork[0]?.url,"/work/experience/","Explicit primary work intent must remain highest priority over contextual source text.");
+const duplicatedContext=findRelevantKnowledge("Tell me more about that Previous source context: /about/, /about/, /work/experience/",5,{primaryQuery:"Tell me more about that"});
+assert.equal(new Set(duplicatedContext.map(entry=>entry.url)).size,duplicatedContext.length,"Contextual retrieval must not return duplicate source URLs.");
+assert.equal(duplicatedContext[0]?.url,"/about/","First explicit contextual source must retain priority.");
+const unknownContext=findRelevantKnowledge("Tell me more about that Previous source context: /not-a-source/, /about/",5,{primaryQuery:"Tell me more about that"});
+assert.equal(unknownContext[0]?.url,"/about/","Unknown contextual source paths must be ignored without displacing valid context.");
 const unsafeUrls=knowledge.entries.filter(entry=>!isSafeSourceUrl(entry.url));
 const unsafeUrlContractCases={
   "/../admin/":false,
@@ -100,3 +104,4 @@ console.log("Sitemap source files verified:",sitemapPaths.filter(path=>!excluded
 console.log("Reviewed against sitemap:",knowledge.reviewed_against_sitemap_on||"not recorded");
 console.log("Source freshness since review date: clean");
 console.log("Primary-query priority over contextual source text exercised: yes");
+console.log("Contextual source deduplication and unknown-path handling exercised: yes");
