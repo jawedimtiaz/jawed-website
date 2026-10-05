@@ -30,7 +30,7 @@ function publicSources(sources){
 }
 
 function publicSourceReferences(sources){
-  return sources.map(({url,title})=>({url,title}));
+  return sources.filter(isSafeSourceMetadata).map(({url,title})=>({url,title}));
 }
 function knowledgeEntry(url){
   const source=knowledge.entries.find(entry=>entry.url===url);
