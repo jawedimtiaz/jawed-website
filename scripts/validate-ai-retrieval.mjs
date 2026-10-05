@@ -40,6 +40,24 @@ const topicSwitch=buildRetrievalQuery([
 assert.equal(topicSwitch.includes("What is Jamf?"),true);
 assert.equal(topicSwitch.includes("Tell me about retirement planning."),false);
 
+const malformedHistory=buildRetrievalQuery([
+  null,
+  {role:"assistant",content:"assistant-only context"},
+  {role:"user",content:""},
+  {role:"user",content:"What is Jamf?"}
+]);
+assert.equal(malformedHistory,"What is Jamf?");
+
+const malformedOnly=buildRetrievalQuery([null,{},undefined]);
+assert.equal(malformedOnly,"");
+
+const unsafeSourceContext=buildRetrievalQuery([
+  {role:"user",content:"What is Jamf?"},
+  {role:"assistant",content:"See https://jawed.co.in/../secret and https://jawed.co.in/notes/jamf/"},
+  {role:"user",content:"Tell me more about that"}
+]);
+assert.equal(unsafeSourceContext.includes("https://jawed.co.in/../secret"),false);
+assert.equal(unsafeSourceContext.includes("https://jawed.co.in/notes/jamf/"),true);
 
 import {findRelevantKnowledge} from "../functions/lib/ai-knowledge.js";
 
@@ -73,6 +91,8 @@ console.log("AI retrieval context validation OK");
 console.log("Current user turns prioritized: yes");
 console.log("Prior user turns included:",PRIOR_USER_TURNS);
 console.log("Assistant turns excluded: yes");
+console.log("Malformed history boundary: yes");
+console.log("Unsafe source context rejected: yes");
 console.log("Query character cap:",MAX_RETRIEVAL_QUERY_CHARS);
 console.log("Knowledge ranking precision: yes");
 console.log("Vague follow-up topic boundary: yes");
