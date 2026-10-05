@@ -23,7 +23,7 @@ const contract=JSON.parse(fs.readFileSync("config/production-ai-get-contract.jso
 const failures=[];
 if(typeof contract.production_origin!=="string"||!/^https:\/\//.test(contract.production_origin)) failures.push("production AI GET origin must be HTTPS");
 if(contract.max_redirects!==0) failures.push("production AI GET checks must not follow redirects");
-if(typeof contract.path!=="string"||!contract.path.startsWith("/")) failures.push("production AI GET path must be an absolute site path");
+if(typeof contract.path!=="string"||!contract.path.startsWith("/")||contract.path.startsWith("//")) failures.push("production AI GET path must be an absolute site path");
 if(contract.method!=="GET") failures.push("production AI GET contract must use GET");
 if(!Number.isInteger(contract.expected_status)||contract.expected_status<100||contract.expected_status>599) failures.push("production AI GET expected_status must be a valid HTTP status");
 if(typeof contract.expected_content_type!=="string"||!contract.expected_content_type.trim()) failures.push("production AI GET expected_content_type must be non-empty");
@@ -31,7 +31,7 @@ if(!Array.isArray(contract.required_fields)||contract.required_fields.length<1) 
 if(!Array.isArray(contract.expected_status_values)||contract.expected_status_values.length<1) failures.push("production AI GET expected_status_values must contain at least one value");
 
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production AI GET max_body_bytes must be a positive integer");
-const url=(typeof contract.path==="string"&&contract.path.startsWith("/")&&typeof contract.production_origin==="string"&&/^https:\/\//.test(contract.production_origin))?new URL(contract.path,contract.production_origin):null;
+const url=(typeof contract.path==="string"&&contract.path.startsWith("/")&&!contract.path.startsWith("//")&&typeof contract.production_origin==="string"&&/^https:\/\//.test(contract.production_origin))?new URL(contract.path,contract.production_origin):null;
 const controller=new AbortController();
 const timer=setTimeout(()=>controller.abort(),10000);
 try{
