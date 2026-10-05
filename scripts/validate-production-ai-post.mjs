@@ -1,6 +1,8 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-ai-post-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
+const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
+if(!isHttpsOrigin(contract.production_origin)) failures.push("production AI POST production_origin must be an origin-only HTTPS URL");
 if(contract.max_redirects!==0) failures.push("production AI POST checks must not follow redirects");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production AI POST contract must contain at least one check");
 for(const item of contract.checks||[]){
