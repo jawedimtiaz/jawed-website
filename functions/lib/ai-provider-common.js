@@ -22,11 +22,19 @@ function validateProviderReply(reply,sources){
 function hasAllowedSourceLink(reply,sources){
   return sources.filter(source=>isSafeSourceUrl(source.url)).some(source=>reply.includes("](https://jawed.co.in"+source.url+")"));
 }
-function ensureAllowedSourceLink(reply,sources){
+function escapeMarkdownLabel(value){
+  return String(value??"").replace(/[\\[\\]]/g,"\\function ensureAllowedSourceLink(reply,sources){
   if(!sources.length||hasAllowedSourceLink(reply,sources))return reply;
   const source=sources.find(item=>isSafeSourceUrl(item.url));
   if(!source)return reply;
   return reply+"\n\nSource: ["+source.title+"](https://jawed.co.in"+source.url+")";
+}").replace(/[\\u0000-\\u001F\\u007F]/g," ");
+}
+function ensureAllowedSourceLink(reply,sources){
+  if(!sources.length||hasAllowedSourceLink(reply,sources))return reply;
+  const source=sources.find(item=>isSafeSourceUrl(item.url));
+  if(!source)return reply;
+  return reply+"\n\nSource: ["+escapeMarkdownLabel(source.title)+"](https://jawed.co.in"+source.url+")";
 }
 function sanitizeMarkdownLinks(reply,sources){
   const allowed=new Set(sources.filter(source=>isSafeSourceUrl(source.url)).map(source=>"https://jawed.co.in"+source.url));
