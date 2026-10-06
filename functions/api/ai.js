@@ -58,7 +58,8 @@ function deterministicIntentReply(question,messages=[]){
     /\b(?:bank account|bank account number|account number|upi id|upi handle|credit card|credit card number|debit card|debit card number|brokerage account|demat account|trading account)\b/,
     /\b(?:personal travel plans?|private travel plans?|personal itinerary|private itinerary|flight booking|flight reservation|hotel booking|hotel reservation|travel booking|travel reservation)\b/,
     /\b(?:personal vehicle|private vehicle|personal car|private car|car ownership|vehicle ownership|owns? a car|owns? a vehicle|personal property|private property|property ownership)\b/,
-    /\b(?:personal schedule|private schedule|personal calendar|private calendar|personal appointment|private appointment|personal availability|private availability)\b/,\n    /\b(?:personal bonus|private bonus|personal benefits?|private benefits?|employee benefits?|personal esop|private esop|personal stock options?|private stock options?|personal equity compensation|private equity compensation|personal investment(?:s)?|private investment(?:s)?|personal mutual funds?|private mutual funds?)\b/
+    /\b(?:personal schedule|private schedule|personal calendar|private calendar|personal appointment|private appointment|personal availability|private availability)\b/,
+    /\b(?:personal bonus|private bonus|personal benefits?|private benefits?|employee benefits?|personal esop|private esop|personal stock options?|private stock options?|personal equity compensation|private equity compensation|personal investment(?:s)?|private investment(?:s)?|personal mutual funds?|private mutual funds?)\b/
   ];
   if(personalPatterns.some(pattern=>pattern.test(value)))return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
   const recentUserMessages=Array.isArray(messages)?messages.filter(message=>message?.role==="user").slice(-3):[];
