@@ -1,6 +1,7 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-smoke-contract.json","utf8"));
 const failures=[];
+const isSafePath=value=>typeof value==="string"&&value.startsWith("/")&&!value.startsWith("//")&&!value.includes("\\")&&!value.includes("/../")&&!value.includes("/./")&&!/%(?:2e|2f|5c)/i.test(value);
 const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
 if(!/^39I$/.test(contract.phase)) failures.push("smoke contract phase must be 39I");
 if(!isHttpsOrigin(contract.canonical_origin)) failures.push("canonical origin must be an origin-only HTTPS URL");
@@ -9,7 +10,7 @@ if(contract.canonical_origin!=="https://jawed.co.in") failures.push("canonical o
 if(contract.alternate_origin!=="https://www.jawed.co.in") failures.push("alternate origin drifted");
 if(!Array.isArray(contract.redirect_checks)||contract.redirect_checks.length<1) failures.push("at least one canonical redirect check is required");
 for(const item of contract.redirect_checks||[]){
-  if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path)) failures.push(`${item.path}: redirect check path must be a safe absolute site path`);
+  if(!isSafePath(item.path)) failures.push(`${item.path}: redirect check path must be a safe absolute site path`);
   if(typeof item.max_redirects!=="number"||item.max_redirects!==0) failures.push(`${item.path}: redirect check max_redirects must be exactly 0`);
   if(!Array.isArray(item.expected_status)||item.expected_status.length<1||!item.expected_status.every(status=>Number.isInteger(status)&&status>=300&&status<=399)) failures.push(`${item.path}: expected redirect status contract must be a non-empty 3xx integer array`);
   if(typeof item.location!=="string"||item.location!==contract.canonical_origin+"/") failures.push(`${item.path}: redirect Location must equal canonical origin root`);
