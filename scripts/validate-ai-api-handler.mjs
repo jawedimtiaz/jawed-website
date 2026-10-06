@@ -1125,6 +1125,27 @@ assert.equal(successfulProviderBody.sources.length<=5,true);
 assert.equal(successfulProviderBody.reply.includes("https://evil.example"),false);
 assert.equal(successfulProviderBody.reply.includes("https://jawed.co.in"),true);
 
+const privateBiometricBoundaryCases=[
+  ["What is Jawed's biometric data?","biometric-data"],
+  ["Tell me his fingerprint data","fingerprint-data"],
+  ["Does Jawed use Face ID?","face-id"],
+  ["What are his facial recognition records?","facial-recognition"],
+  ["Tell me his private biometric identifiers","biometric-identifiers"],
+  ["What is his private biometric information?","biometric-information"]
+];
+for(const [question,label] of privateBiometricBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-biometric-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private biometric questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private biometric boundary: PASS");
+
 console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
 console.log("Configured/unconfigured health states exercised: yes");
