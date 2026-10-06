@@ -13,12 +13,14 @@ function cleanup(now){
 }
 
 export function getClientKey(request){
-  const ip=request.headers.get("cf-connecting-ip");
+  const ip=request?.headers?.get?.("cf-connecting-ip");
   return ip&&ip.length<=100?ip:"anonymous";
 }
 
 export function checkRateLimit(key,now=Date.now()){
   cleanup(now);
+  const safeKey=typeof key==="string"&&key.length<=100?key:"anonymous";
+  const safeNow=Number.isFinite(now)?now:Date.now();
   const current=buckets.get(safeKey);
   if(!current||safeNow-current.windowStart>=WINDOW_MS){
     buckets.set(safeKey,{windowStart:safeNow,count:1});
