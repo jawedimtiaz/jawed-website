@@ -252,6 +252,40 @@ const nonDeterministicIdentity=await onRequestPost({
 assert.equal(nonDeterministicIdentity.status,503);
 assert.equal((await nonDeterministicIdentity.json()).code,"AI_NOT_CONFIGURED");
 
+const personalBoundaryCases=[
+  ["Is Jawed married?","married"],
+  ["Married or bachelor?","marital"],
+  ["Where does Jawed stay?","private location"],
+  ["What is Jawed's salary?","salary"],
+  ["What is his net worth?","net worth"],
+  ["How old is Jawed?","age"],
+  ["Who is Jawed's wife?","family"]
+];
+for(const [question,label] of personalBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-personal-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Personal questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("public professional information"),true,question);
+}
+const allowedProfessional=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-professional","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Where does Jawed work?"}]})}),
+  env:{}
+});
+assert.equal(allowedProfessional.status,200);
+assert.equal((await allowedProfessional.json()).model,"deterministic-site-intent");
+
+const nonDeterministicIdentity=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-identity-detail","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Tell me more about Jawed's projects"}]})}),
+  env:{}
+});
+assert.equal(nonDeterministicIdentity.status,503);
+assert.equal((await nonDeterministicIdentity.json()).code,"AI_NOT_CONFIGURED");
+
 const deterministicClosing=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-closing","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Thanks!"}]})}),
   env:{}
