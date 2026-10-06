@@ -84,7 +84,7 @@ async function check(item){
 for(const item of contract.checks||[]) await check(item);
 
 async function checkRedirect(item){
-  const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path);
+  const validPath=isSafePath(item.path);
   const validOrigin=isHttpsOrigin(contract.alternate_origin);
   if(!validPath||!validOrigin){failures.push(item.path+": alternate-origin redirect URL is invalid");return;}
   const url=new URL(item.path,contract.alternate_origin);
