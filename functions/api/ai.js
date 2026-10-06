@@ -59,7 +59,7 @@ function deterministicIntentReply(question,messages=[]){
     /\b(?:personal travel plans?|private travel plans?|personal itinerary|private itinerary|flight booking|flight reservation|hotel booking|hotel reservation|travel booking|travel reservation)\b/,
     /\b(?:personal vehicle|private vehicle|personal car|private car|car ownership|vehicle ownership|owns? a car|owns? a vehicle|personal property|private property|property ownership)\b/,
     /\b(?:personal schedule|private schedule|personal calendar|private calendar|personal appointment|private appointment|personal availability|private availability)\b/,
-    /\b(?:personal bonus|private bonus|personal benefits?|private benefits?|employee benefits?|personal esop|private esop|personal stock options?|private stock options?|personal equity compensation|private equity compensation|personal investment(?:s)?|private investment(?:s)?|personal mutual funds?|private mutual funds?)\b/
+    /\b(?:personal bonus|private bonus|personal benefits?|private benefits?|employee benefits?|personal esop|private esop|personal stock options?|private stock options?|personal equity compensation|private equity compensation|personal investment(?:s)?|private investment(?:s)?|personal mutual funds?|private mutual funds?)\b/,\n    /\b(?:personal password|private password|password for his|his password|personal credential(?:s)?|private credential(?:s)?|login credential(?:s)?|private api key|personal api key|private secret|personal secret|security question(?:s)?|security answer(?:s)?)\b/
   ];
   if(personalPatterns.some(pattern=>pattern.test(value)))return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
   const recentUserMessages=Array.isArray(messages)?messages.filter(message=>message?.role==="user").slice(-3):[];
