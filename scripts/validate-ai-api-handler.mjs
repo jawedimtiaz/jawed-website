@@ -1254,6 +1254,27 @@ for(const [question,label] of privateWishlistBoundaryCases){
 }
 console.log("Private wishlist boundary: PASS");
 
+const privateVoiceRecordingsBoundaryCases=[
+  ["What are Jawed's private voice recordings?","voice-recordings"],
+  ["Tell me his audio recordings","audio-recordings"],
+  ["What is his private voice history?","voice-history"],
+  ["Tell me his recording history","recording-history"],
+  ["What private voice messages does he have?","voice-messages"],
+  ["Which recordings has Jawed kept personally?","personal-recordings"]
+];
+for(const [question,label] of privateVoiceRecordingsBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-voice-recordings-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private voice-recording questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private voice-recordings boundary: PASS");
+
 console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
 console.log("Configured/unconfigured health states exercised: yes");
