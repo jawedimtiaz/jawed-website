@@ -61,6 +61,7 @@ function deterministicIntentReply(question,messages=[]){
     /\b(?:personal schedule|private schedule|personal calendar|private calendar|personal appointment|private appointment|personal availability|private availability)\b/,
     /\b(?:personal bonus|private bonus|personal benefits?|private benefits?|employee benefits?|personal esop|private esop|personal stock options?|private stock options?|personal equity compensation|private equity compensation|personal investment(?:s)?|private investment(?:s)?|personal mutual funds?|private mutual funds?)\b/,
     /\b(?:personal password|private password|password for his|his password|(?:jawed(?:\s+imtiaz)?)\x27s password|personal credential(?:s)?|private credential(?:s)?|login credential(?:s)?|private api key|personal api key|(?:jawed(?:\s+imtiaz)?)\x27s api key|private secret|personal secret|security question(?:s)?|security answer(?:s)?)\b/
+    /\b(?:personal insurance|private insurance|health insurance policy|health insurance number|insurance policy number|insurance policy|insurance claim|insurance claims|policy number|policy details|personal insurance claim|private insurance claim|insurance member id|insurance membership id)\b/,
   ];
   if(personalPatterns.some(pattern=>pattern.test(value)))return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
   const recentUserMessages=Array.isArray(messages)?messages.filter(message=>message?.role==="user").slice(-3):[];
