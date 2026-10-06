@@ -291,6 +291,24 @@ assert.equal(personalFollowUpBody.model,"deterministic-site-intent");
 assert.deepEqual(personalFollowUpBody.sources,[]);
 assert.equal(personalFollowUpBody.reply.includes("public professional information"),true);
 
+const personalContextFollowUps=[
+  ["What about that?","that"],
+  ["Tell me more","more"],
+  ["What else?","else"],
+  ["What about him?","him"]
+];
+for(const [question,label] of personalContextFollowUps){
+  const followUp=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-personal-context-followup-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Tell me his brother name"},{role:"assistant",content:"I can help with Jawed.co.in's public professional information, notes, tools and resources, but I don't provide personal-life details such as marital status, family details, private location, salary, age, or net worth."},{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Personal contextual follow-ups must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(followUp.status,200,question);
+  const followUpBody=await followUp.json();
+  assert.equal(followUpBody.model,"deterministic-site-intent",question);
+  assert.deepEqual(followUpBody.sources,[],question);
+  assert.equal(followUpBody.reply.includes("public professional information"),true,question);
+}
+
 const deterministicClosing=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-closing","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Thanks!"}]})}),
   env:{}

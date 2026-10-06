@@ -55,7 +55,7 @@ function deterministicIntentReply(question,messages=[]){
   if(personalPatterns.some(pattern=>pattern.test(value)))return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
   const recentUserMessages=Array.isArray(messages)?messages.filter(message=>message?.role==="user").slice(-3):[];
   const priorPersonal=recentUserMessages.slice(0,-1).some(message=>personalPatterns.some(pattern=>pattern.test(String(message.content||"").trim().toLowerCase())));
-  const personalFollowUp=/^(?:really|really\?|are you sure|are you certain|sure\?|is that true|is that correct|correct\?|what do you mean|why\??|how do you know\??)$/i.test(value);
+  const personalFollowUp=/^(?:really|really\?|are you sure|are you certain|sure\?|is that true|is that correct|correct\?|what do you mean|why\??|how do you know\??|what about that\??|what about him\??|what about her\??|tell me more|tell me more\??|what else\??|and then\??|then what\??)$/i.test(value);
   if(personalFollowUp&&priorPersonal)return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
 
   const identity=["who is jawed","who is jawed imtiaz","who was jawed","who was jawed imtiaz","about jawed","about jawed imtiaz"];
