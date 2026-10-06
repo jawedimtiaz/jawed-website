@@ -38,10 +38,23 @@ function knowledgeEntry(url){
   return source?{url:source.url,title:source.title,summary:source.summary,keywords:source.keywords}:null;
 }
 
+const PERSONAL_BOUNDARY_REPLY="I can help with Jawed.co.in's public professional information, notes, tools and resources, but I don't provide personal-life details such as marital status, family details, private location, salary, age, or net worth.";
+
 function deterministicIntentReply(question){
   const value=question.trim().toLowerCase().replace(/[?!.]+$/g,"").trim();
   const closing=["bye","goodbye","good night","see you","see ya","talk to you later","thanks","thank you","thx","ok bye","okay bye"];
   if(closing.includes(value))return {reply:"Goodbye! 👋",sources:[]};
+
+  const personalPatterns=[
+    /\b(?:is|was|are)\s+jawed(?:\s+imtiaz)?\s+(?:married|single|bachelor|divorced|widowed)\b/,
+    /\b(?:married|single|bachelor|divorced|widowed)\b.*\b(?:jawed|imtiaz)\b/,
+    /\b(?:wife|husband|spouse|children|child|son|daughter|family|kids?)\b/,
+    /\b(?:where|which city|what city)\b.*\b(?:live|lives|stay|stays|reside|resides|home|house|location|address)\b/,
+    /\b(?:salary|pay|income|earnings|ctc|compensation|net\s*worth|wealth|assets)\b/,
+    /\b(?:how old|age|date of birth|dob|birthday)\b/
+  ];
+  if(personalPatterns.some(pattern=>pattern.test(value)))return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
+
   const identity=["who is jawed","who is jawed imtiaz","who was jawed","who was jawed imtiaz","about jawed","about jawed imtiaz"];
   if(identity.includes(value)){
     const source=knowledgeEntry("/about/");
