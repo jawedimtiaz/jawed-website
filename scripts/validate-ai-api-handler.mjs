@@ -521,7 +521,12 @@ const privateInsuranceBoundaryCases=[
   ["Tell me his private insurance details","private-details"],
   ["What is his health insurance policy number?","policy-number"],
   ["Tell me his insurance claim details","claim-details"],
-  ["What is his insurance member ID?","member-id"]
+  ["What is his insurance member ID?","member-id"],
+  ["What insurance does Jawed have?","insurance-held"],
+  ["Which insurance does he have?","insurance-held"],
+  ["Tell me his insurance coverage","insurance-coverage"],
+  ["What is his insurance plan?","insurance-plan"],
+  ["What are Jawed's insurance benefits?","insurance-benefits"]
 ];
 for(const [question,label] of privateInsuranceBoundaryCases){
   const boundary=await onRequestPost({
