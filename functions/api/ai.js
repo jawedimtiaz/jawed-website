@@ -54,7 +54,8 @@ function deterministicIntentReply(question,messages=[]){
     /\b(?:religion|religious|political affiliation|political party|party membership|sexual orientation|sexuality|health condition|medical condition|medical history|diagnosis|disability)\b/,
     /\b(?:nationality|citizenship|citizen of|passport|passport number|government id|government identification|aadhaar|pan number|tax id|identity card|id number)\b/,
     /\b(?:personal social media|private social media|personal instagram|private instagram|personal facebook|private facebook|personal twitter|private twitter|social media handle|instagram account|facebook account|twitter account)\b/,
-    /\b(?:how old|age|date of birth|dob|birthday)\b/
+    /\b(?:how old|age|date of birth|dob|birthday)\b/,
+    /\b(?:bank account|bank account number|account number|upi id|upi handle|credit card|credit card number|debit card|debit card number|brokerage account|demat account|trading account)\b/
   ];
   if(personalPatterns.some(pattern=>pattern.test(value)))return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
   const recentUserMessages=Array.isArray(messages)?messages.filter(message=>message?.role==="user").slice(-3):[];
