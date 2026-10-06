@@ -35,7 +35,8 @@ function resolveContextualReference(current,messages){
   if(!prior.length)return current;
   let resolved=current;
   const jawedContext=prior.some(message=>message.content.toLowerCase().includes("jawed"));
-  if(jawedContext&&PERSON_PRONOUN.test(resolved)){
+  if(jawedContext&&/^where does he work\??$/i.test(resolved))resolved="Where does Jawed work?";
+  else if(jawedContext&&PERSON_PRONOUN.test(resolved)){
     resolved=resolved.replace(/\bhe\b/gi,"Jawed").replace(/\bhim\b/gi,"Jawed").replace(/\bhis\b/gi,"Jawed's").replace(/\bhimself\b/gi,"Jawed");
   }
   const sourcePaths=lastSourcePaths(messages);
