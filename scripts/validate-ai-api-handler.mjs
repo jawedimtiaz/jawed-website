@@ -409,6 +409,26 @@ for(const [question,label] of privateLegalBoundaryCases){
 }
 console.log("Private legal boundary: PASS");
 
+const privateEducationBoundaryCases=[
+  ["What are Jawed's exam results?","exam-results"],
+  ["Tell me his academic transcript","transcript"],
+  ["What is his student ID?","student-id"],
+  ["What grades did he get?","grades"],
+  ["Tell me his private academic records","academic-records"]
+];
+for(const [question,label] of privateEducationBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-education-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private education-record questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("public professional information"),true,question);
+}
+console.log("Private education-record boundary: PASS");
+
 const privateInsuranceBoundaryCases=[
   ["What is Jawed's personal insurance policy?","personal-policy"],
   ["Tell me his private insurance details","private-details"],
