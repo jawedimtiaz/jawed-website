@@ -1,4 +1,4 @@
-const WINDOW_MS=60_000;
+const WINDOW_MS=60000;
 const MAX_REQUESTS=8;
 const buckets=new Map();
 const MAX_BUCKETS=2_000;
