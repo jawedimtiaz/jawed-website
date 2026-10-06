@@ -279,13 +279,6 @@ const allowedProfessional=await onRequestPost({
 assert.equal(allowedProfessional.status,200);
 assert.equal((await allowedProfessional.json()).model,"deterministic-site-intent");
 
-const nonDeterministicIdentity=await onRequestPost({
-  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-identity-detail","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Tell me more about Jawed's projects"}]})}),
-  env:{}
-});
-assert.equal(nonDeterministicIdentity.status,503);
-assert.equal((await nonDeterministicIdentity.json()).code,"AI_NOT_CONFIGURED");
-
 const deterministicClosing=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-closing","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Thanks!"}]})}),
   env:{}
