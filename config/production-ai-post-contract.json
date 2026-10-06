@@ -1,7 +1,7 @@
 {
   "phase": "39H",
   "scope": "production-ai-post-runtime-reliability",
-  "production_origin": "https://jawed.co.in",
+  "production_origin": "https://www.jawed.co.in",
   "max_redirects": 0,
   "checks": [
     {
@@ -38,5 +38,6 @@
         }
       ]
     }
-  ]
+  ],
+  "max_body_bytes": 20000
 }
