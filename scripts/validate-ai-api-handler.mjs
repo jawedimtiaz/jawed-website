@@ -748,6 +748,28 @@ for(const [question,label] of privateBankingTransactionsBoundaryCases){
 console.log("Private banking/transaction boundary: PASS");
 
 
+const privateMedicationPrescriptionBoundaryCases=[
+  ["What is Jawed's prescription?","prescription"],
+  ["Tell me his medications","medications"],
+  ["What medicines does Jawed take?","medicines"],
+  ["Tell me his private medication details","private-medication"],
+  ["What are his prescription records?","prescription-records"],
+  ["Which medications does he take?","medication-question"]
+];
+for(const [question,label] of privateMedicationPrescriptionBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-medication-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private medication/prescription questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private medication/prescription boundary: PASS");
+
+
 const privateCalendarMeetingBoundaryCases=[
   ["What is Jawed's private calendar?","private-calendar"],
   ["Tell me his calendar invitation","calendar-invitation"],
