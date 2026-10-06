@@ -294,7 +294,7 @@ assert.equal(oversizedProvider.headers.get("x-ai-provider-diagnostic"),"PROVIDER
 
 const controlCharacterProvider=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-control","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"retirement planning"}]})}),
-  env:{AI:{run:async()=>({response:"unsafe\\u0007response"})}}
+  env:{AI:{run:async()=>({response:"unsafe"+String.fromCharCode(7)+"response"})}}
 });
 assert.equal(controlCharacterProvider.status,502);
 const controlCharacterBody=await controlCharacterProvider.json();
