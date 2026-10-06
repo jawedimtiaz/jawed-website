@@ -52,6 +52,7 @@ function deterministicIntentReply(question,messages=[]){
     /\b(?:where|which city|what city)\b.*\b(?:live|lives|stay|stays|reside|resides|home|house|location|address)\b|\b(?:home address|private address|personal address|phone number|mobile number|personal phone|private phone|personal email|private email)\b|\b(?:what is|what's|give me|tell me)\s+(?:(?:his|her)|(?:jawed(?:\s+imtiaz)?)'s)\s+(?:address|phone|mobile|email)\b|\b(?:where|which city|what city)\b.*\b(?:born|birthplace|hometown|native place)\b|\b(?:birthplace|hometown|native place)\b/,
     /\b(?:salary|pay|income|earnings|ctc|compensation|net\s*worth|wealth|assets)\b/,
     /\b(?:religion|religious|political affiliation|political party|party membership|sexual orientation|sexuality|health condition|medical condition|medical history|diagnosis|disability)\b/,
+    /\b(?:nationality|citizenship|citizen of|passport|passport number|government id|government identification|aadhaar|pan number|tax id|identity card|id number)\b/,
     /\b(?:how old|age|date of birth|dob|birthday)\b/
   ];
   if(personalPatterns.some(pattern=>pattern.test(value)))return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
