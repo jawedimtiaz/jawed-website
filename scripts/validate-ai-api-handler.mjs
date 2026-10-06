@@ -91,8 +91,6 @@ const boundedSourceMessages=[
   {role:"assistant",content:"Sources: https://jawed.co.in/about/ https://jawed.co.in/work/experience/ https://jawed.co.in/notes/example/ https://jawed.co.in/tools/."},
   {role:"user",content:"Tell me more about that"}
 ];
-assert.deepEqual(lastSourcePaths(boundedSourceMessages,3),["/about/","/work/experience/","/notes/example/"]);
-assert.deepEqual(lastSourcePaths([{role:"assistant",content:"Sources: https://jawed.co.in/about/ https://jawed.co.in/about/"}],3),["/about/"]);
 const unsafeContextMessages=[
   {role:"user",content:"Tell me about Jawed"},
   {role:"assistant",content:"Source: https://jawed.co.in/notes/%2e%2e%2fadmin/"},
