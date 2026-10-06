@@ -70,7 +70,7 @@ const boundedProviderResult=await mockedProvider({
   input:[{role:"user",content:"What is this?"}],
   sources:[null,{url:"https://evil.example/unsafe",title:"Bad",summary:"Bad",keywords:["bad"]},validSource]
 });
-assert.equal(boundedProviderResult.reply,"Grounded answer.\\n\\nSource: [Example](https://jawed.co.in/notes/example/)");
+assert.equal(boundedProviderResult.reply,`Grounded answer.\n\nSource: [Example](https://jawed.co.in/notes/example/)`);
 assert.equal(boundedProviderResult.model,DEFAULT_MODEL);
 
 assert.equal(isSafeSourceMetadata(validSource),true);
