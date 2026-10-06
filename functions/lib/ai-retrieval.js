@@ -52,7 +52,9 @@ export function buildRetrievalQuery(messages){
   const current=hasJawedPrior?rawCurrent.replace(/\bhe\b/gi,"Jawed").replace(/\bhim\b/gi,"Jawed").replace(/\bhis\b/gi,"Jawed's").replace(/\bhimself\b/gi,"Jawed"):rawCurrent;
   if(!current)return "";
 
-  const contextualCurrent=resolveContextualReference(current,history);
+  let contextualCurrent=resolveContextualReference(current,history);
+  const sourcePaths=lastSourcePaths(history);
+  if(sourcePaths.length&&FOLLOW_UP_REFERENCE.test(current)&&!contextualCurrent.includes("Previous source context:"))contextualCurrent=current+" Previous source context: "+sourcePaths.join(", ");
   if(current.length>=MAX_RETRIEVAL_QUERY_CHARS)return current.slice(0,MAX_RETRIEVAL_QUERY_CHARS);
 
   const contextualSuffix=contextualCurrent.startsWith(current)?contextualCurrent.slice(current.length):"";
