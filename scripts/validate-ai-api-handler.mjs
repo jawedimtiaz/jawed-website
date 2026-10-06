@@ -269,6 +269,26 @@ for(const [question,label] of socialConnectionBoundaryCases){
   assert.equal(body.reply.includes("public professional information"),true,question);
 }
 
+const privateSocialBoundaryCases=[
+  ["What is Jawed's Instagram account?","instagram"],
+  ["Tell me his Facebook account","facebook"],
+  ["What is his Twitter account?","twitter"],
+  ["What is his social media handle?","handle"],
+  ["Tell me his personal social media","personal-social"]
+];
+for(const [question,label] of privateSocialBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-social-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private social-account questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private social-account boundary: PASS");
+
 const privateOriginBoundaryCases=[
   ["Where was Jawed born?","born"],
   ["What is Jawed's birthplace?","birthplace"],
