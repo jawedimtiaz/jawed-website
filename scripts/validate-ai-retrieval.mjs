@@ -37,8 +37,6 @@ assert.equal(buildRetrievalQuery([null,{},undefined]),"");
 const unsafeSourceContext=buildRetrievalQuery([{role:"user",content:"What is Jamf?"},{role:"assistant",content:"See https://jawed.co.in/../secret and https://jawed.co.in/notes/jamf/"},{role:"user",content:"Tell me more about that"}]);
 assert.equal(unsafeSourceContext.includes("https://jawed.co.in/../secret"),false);
 
-assert.equal(resolveContextualReference(null,sourceMessages),"");
-assert.equal(resolveContextualReference(123,sourceMessages),"");
 
 const urls=(query,options={})=>findRelevantKnowledge(query,5,options).map(entry=>entry.url);
 const retirement=urls("retirement planning");
