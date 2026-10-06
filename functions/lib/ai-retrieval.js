@@ -35,7 +35,7 @@ function resolveContextualReference(current,messages){
   if(typeof current!=="string"||!current.trim())return "";
   if(!prior.length)return current;
   let resolved=current;
-  const jawedContext=prior.some(message=>message.content.toLowerCase().includes("jawed"));
+  const jawedContext=priorUserMessages(messages).some(message=>message.content.toLowerCase().includes("jawed"));
   if(jawedContext&&/^where does he work\??$/i.test(resolved))resolved="Where does Jawed work?";
   else if(jawedContext&&PERSON_PRONOUN.test(resolved)){
     resolved=resolved.replace(/\bhe\b/gi,"Jawed").replace(/\bhim\b/gi,"Jawed").replace(/\bhis\b/gi,"Jawed's").replace(/\bhimself\b/gi,"Jawed");
@@ -48,7 +48,7 @@ function resolveContextualReference(current,messages){
 export function buildRetrievalQuery(messages){
   const history=normalizedMessages(messages);
   const rawCurrent=history.at(-1)?.role==="user"&&typeof history.at(-1)?.content==="string"?history.at(-1).content.trim():"";
-  const hasJawedPrior=history.slice(0,-1).some(message=>typeof message?.content==="string"&&message.content.toLowerCase().includes("jawed"));
+  const hasJawedPrior=history.slice(0,-1).some(message=>message?.role==="user"&&typeof message?.content==="string"&&message.content.toLowerCase().includes("jawed"));
   const current=hasJawedPrior?rawCurrent.replace(/\bhe\b/gi,"Jawed").replace(/\bhim\b/gi,"Jawed").replace(/\bhis\b/gi,"Jawed's").replace(/\bhimself\b/gi,"Jawed"):rawCurrent;
   if(!current)return "";
 
