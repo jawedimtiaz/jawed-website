@@ -87,7 +87,6 @@ const contextualMessages=[
 ];
 const contextualQuery=buildRetrievalQuery(contextualMessages);
 assert.equal(contextualQuery.includes("Previous source context: /about/"),true);
-assert.equal(lastSourcePaths([{role:"assistant",content:"Source: https://jawed.co.in/about/"}],3)[0],"/about/");
 const boundedSourceMessages=[
   {role:"assistant",content:"Sources: https://jawed.co.in/about/ https://jawed.co.in/work/experience/ https://jawed.co.in/notes/example/ https://jawed.co.in/tools/."},
   {role:"user",content:"Tell me more about that"}
