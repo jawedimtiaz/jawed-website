@@ -1,13 +1,13 @@
 {
   "phase": "39H",
   "scope": "production-ai-post-runtime-reliability",
-  "production_origin": "https://www.jawed.co.in",
+  "production_origin": "https://jawed.co.in",
   "max_redirects": 0,
   "checks": [
     {
       "path": "/api/ai",
       "method": "POST",
-      "origin": "https://example.com",
+      "origin": "https://invalid-phase-39h.example",
       "content_type": "application/json",
       "body": {
         "messages": [
