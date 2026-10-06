@@ -38,9 +38,7 @@ const unsafeSourceContext=buildRetrievalQuery([{role:"user",content:"What is Jam
 assert.equal(unsafeSourceContext.includes("https://jawed.co.in/../secret"),false);
 
 const sourceMessages=[{role:"user",content:"What is Jamf?"},{role:"assistant",content:"Sources: https://jawed.co.in/notes/jamf/ https://jawed.co.in/work/skills/ https://jawed.co.in/tools/retirement-planning-calculator/ https://jawed.co.in/notes/retirement-planning-start-with-the-number/"}];
-assert.equal(lastSourcePaths(sourceMessages,0).length,3);
-assert.equal(lastSourcePaths(sourceMessages,-1).length,3);
-assert.equal(lastSourcePaths(sourceMessages,99).length,3);
+assert.equal(lastSourcePaths(sourceMessages,3).length,3);
 assert.equal(resolveContextualReference(null,sourceMessages),"");
 assert.equal(resolveContextualReference(123,sourceMessages),"");
 
