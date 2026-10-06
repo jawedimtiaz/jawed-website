@@ -1232,6 +1232,28 @@ for(const [question,label] of privateDonationBoundaryCases){
 }
 console.log("Private donation boundary: PASS");
 
+
+const privateWishlistBoundaryCases=[
+  ["What is Jawed's private wishlist?","private-wishlist"],
+  ["Tell me his personal wish list","personal-wish-list"],
+  ["What are his wishlist items?","wishlist-items"],
+  ["What private wishlist does he have?","private-wishlist-question"],
+  ["What items has he saved to his private wishlist?","saved-wishlist"],
+  ["Which personal wish list items does Jawed have?","personal-wishlist-items"]
+];
+for(const [question,label] of privateWishlistBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-wishlist-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private wishlist questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private wishlist boundary: PASS");
+
 console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
 console.log("Configured/unconfigured health states exercised: yes");
