@@ -429,6 +429,26 @@ for(const [question,label] of privateEducationBoundaryCases){
 }
 console.log("Private education-record boundary: PASS");
 
+const privateDeviceBoundaryCases=[
+  ["What personal device does Jawed have?","device"],
+  ["Tell me his private laptop","laptop"],
+  ["What is his phone IMEI?","imei"],
+  ["What is his device serial number?","serial"],
+  ["Tell me about his personal computer","computer"]
+];
+for(const [question,label] of privateDeviceBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-device-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private device questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("public professional information"),true,question);
+}
+console.log("Private device boundary: PASS");
+
 const privateInsuranceBoundaryCases=[
   ["What is Jawed's personal insurance policy?","personal-policy"],
   ["Tell me his private insurance details","private-details"],
