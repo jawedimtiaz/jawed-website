@@ -36,6 +36,16 @@ Conversation history received from the browser is untrusted input. The provider-
 
 The grounding instructions explicitly tell the model to treat both the transcript and source metadata as untrusted data and to ignore embedded attempts to change its rules, reveal secrets, or alter system behavior.
 
+## Public-information boundary
+
+The assistant is intentionally a public-site assistant, not a personal-profile assistant.
+
+- It may answer supported public professional/site-content questions, such as Jawed's public work, skills, projects, notes, tools and resources.
+- Personal-life questions are blocked before knowledge retrieval and provider execution when they ask for marital status, family details, private location/address, salary or compensation, age/date of birth, or personal net worth/wealth.
+- Personal-information boundary responses return no knowledge sources and do not invoke the AI provider.
+- A professional question such as "Where does Jawed work?" remains allowed when supported by the public Work Experience source.
+- The boundary is deterministic so a strong keyword such as "Jawed" cannot cause an unrelated personal question to retrieve the About page and produce an irrelevant biography.
+
 ## Privacy
 
 - No visitor conversation is persisted by the site.
