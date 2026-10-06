@@ -557,6 +557,27 @@ for(const [question,label] of privateUtilityBoundaryCases){
 }
 console.log("Private utility-account boundary: PASS");
 
+const privateShoppingDeliveryBoundaryCases=[
+  ["What is Jawed's shipping address?","shipping-address"],
+  ["Tell me his delivery address","delivery-address"],
+  ["What is his billing address?","billing-address"],
+  ["What is his package delivery address?","package-delivery"],
+  ["Where should his parcel be delivered?","parcel-destination"],
+  ["Tell me his order delivery details","order-delivery"]
+];
+for(const [question,label] of privateShoppingDeliveryBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-shopping-delivery-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private shopping/delivery questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private shopping/delivery boundary: PASS");
+
 const privateScheduleBoundaryCases=[
   ["What is Jawed's personal schedule?","personal-schedule"],
   ["Tell me his private calendar","private-calendar"],
