@@ -641,6 +641,27 @@ for(const [question,label] of privateTaxFilingBoundaryCases){
 }
 console.log("Private tax-filing boundary: PASS");
 
+const privateLoyaltyRewardsBoundaryCases=[
+  ["What is Jawed's loyalty account?","loyalty-account"],
+  ["Tell me his rewards account number","rewards-account"],
+  ["What is his membership number?","membership-number"],
+  ["Tell me his member ID","member-id"],
+  ["What are his reward points?","reward-points"],
+  ["Tell me his private rewards details","private-rewards"]
+];
+for(const [question,label] of privateLoyaltyRewardsBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-loyalty-rewards-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private loyalty/rewards questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private loyalty/rewards boundary: PASS");
+
 const privateScheduleBoundaryCases=[
   ["What is Jawed's personal schedule?","personal-schedule"],
   ["Tell me his private calendar","private-calendar"],
