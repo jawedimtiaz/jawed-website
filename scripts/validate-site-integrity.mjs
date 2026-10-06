@@ -103,6 +103,12 @@ for(const file of publishedHtml){
 if(internalLinkIssues.length)errors.push("Internal links or fragment targets are invalid: "+internalLinkIssues.join(", "));
 
 const careerMatch=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchInlineScripts=[...careerMatch.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match=>match[1]).filter(script=>script.trim());
+for(const [index,script] of careerMatchInlineScripts.entries()){
+  try{new Function(script)}catch(error){errors.push(`Career Match inline script ${index+1} has invalid JavaScript syntax: ${error.message}`)}
+}
+if(!careerMatchInlineScripts.length)errors.push("Career Match inline runtime script is missing");
+else if(!errors.some(error=>error.startsWith("Career Match inline script")))console.log("Career Match inline JavaScript syntax contract: PASS");
 const careerMatchSavedContentContract=[
   ["Career Match saved content is sanitized before storage",careerMatch.includes("function parseSanitizedSavedHtml(html)")&&careerMatch.includes('serializeChildren(parseSanitizedSavedHtml(serializeChildren($("#results"))))')],
   ["Career Match saved content is sanitized before restore",careerMatch.includes("const safe=parseSanitizedSavedHtml(x.html)")&&careerMatch.includes('$("#results").replaceChildren(frag)')],
