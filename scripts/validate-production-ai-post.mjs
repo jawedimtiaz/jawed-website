@@ -6,7 +6,7 @@ if(!isHttpsOrigin(contract.production_origin)) failures.push("production AI POST
 if(contract.max_redirects!==0) failures.push("production AI POST checks must not follow redirects");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production AI POST contract must contain at least one check");
 for(const item of contract.checks||[]){
- if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path)) failures.push("AI POST path must be an absolute site path");
+ if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\/)(?:\.{1,2})(?:$|\/)/.test(item.path)||/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(item.path)) failures.push("AI POST path must be an absolute site path");
  if(item.method!=="POST") failures.push(item.path+": production AI POST contract must use POST");
  if(typeof item.origin!=="string"||!/^https:\/\//.test(item.origin)||(()=>{try{const url=new URL(item.origin);return url.origin===item.origin&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}})() ) failures.push(item.path+": origin must be an origin-only HTTPS URL");
  if(typeof item.content_type!=="string"||item.content_type!=="application/json") failures.push(item.path+": content_type must be application/json");
@@ -40,7 +40,7 @@ function readBoundedText(response,maxBytes){
 }
 for(const item of contract.checks||[]){
  if(item.method!=="POST") failures.push(`${item.path}: production AI POST contract must use POST`);
- const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path);
+ const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\/)(?:\.{1,2})(?:$|\/)/.test(item.path)&&!/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(item.path);
  const validOrigin=isHttpsOrigin(contract.production_origin);
  if(!validPath||!validOrigin){failures.push(`${item.path}: AI POST probe URL is invalid`);continue;}
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
