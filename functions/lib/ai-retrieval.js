@@ -11,7 +11,7 @@ const FOLLOW_UP_REFERENCE=/^\s*(?:tell me more|more about that|what about that|a
 function normalizedMessages(messages){return Array.isArray(messages)?messages:[];}
 function priorMessages(messages){return normalizedMessages(messages).slice(0,-1).filter(message=>typeof message?.content==="string"&&message.content.trim());}
 function priorUserMessages(messages){return normalizedMessages(messages).slice(0,-1).filter(message=>message?.role==="user"&&typeof message.content==="string"&&message.content.trim());}
-function hasJawedContext(messages){return priorUserMessages(messages).some(message=>JAWED_REFERENCE.test(message.content));}
+function hasJawedContext(messages){return priorMessages(messages).some(message=>JAWED_REFERENCE.test(message.content));}
 
 function lastSourcePaths(messages,limit=3){
   const assistantMessages=normalizedMessages(messages).slice(0,-1).filter(message=>message?.role==="assistant"&&typeof message.content==="string"&&message.content.trim());
