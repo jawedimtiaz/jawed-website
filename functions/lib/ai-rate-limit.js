@@ -27,7 +27,7 @@ export function checkRateLimit(key,now=Date.now()){
     return {allowed:true,retryAfter:0};
   }
   if(current.count>=MAX_REQUESTS){
-    return {allowed:false,retryAfter:Math.max(1,Math.ceil((current.windowStart+WINDOW_MS-safeNow)/1000))};
+    return {allowed:false,retryAfter:Math.max(1,Math.ceil((current.windowStart+WINDOW_MS-safeNow)/1000)+1)};
   }
   current.count+=1;
   return {allowed:true,retryAfter:0};
