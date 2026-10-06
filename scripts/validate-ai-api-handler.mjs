@@ -1275,6 +1275,27 @@ for(const [question,label] of privateVoiceRecordingsBoundaryCases){
 }
 console.log("Private voice-recordings boundary: PASS");
 
+const privatePreferenceBoundaryCases=[
+  ["What are Jawed's private preferences?","private-preferences"],
+  ["Tell me his personal likes","personal-likes"],
+  ["What are his private dislikes?","private-dislikes"],
+  ["Tell me his favorite things personally","personal-favorites"],
+  ["What personal tastes does Jawed have?","personal-tastes"],
+  ["What does he personally prefer?","personal-preferences"]
+];
+for(const [question,label] of privatePreferenceBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-preference-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private preference questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private preference boundary: PASS");
+
 console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
 console.log("Configured/unconfigured health states exercised: yes");
