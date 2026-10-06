@@ -46,6 +46,7 @@ function deterministicIntentReply(question,messages=[]){
 
   const personalPatterns=[
     /\b(?:is|was|are)\s+jawed(?:\s+imtiaz)?\s+(?:married|single|bachelor|divorced|widowed)\b/,
+    /\b(?:marital|marriage)\s+status\b/,
     /\b(?:married|single|bachelor|divorced|widowed)\b(?:\s+(?:or|vs\.?|versus)\s+(?:married|single|bachelor|divorced|widowed))?\b/,
     /\b(?:wife|husband|spouse|children|child|son|daughter|family|kids?|friend|friends|brother|sister|sibling|father|mother|parent|parents|cousin|uncle|aunt|relative|relatives|relationship|relationships|girlfriend|boyfriend|partner|partners)\b/,
     /\b(?:where|which city|what city)\b.*\b(?:live|lives|stay|stays|reside|resides|home|house|location|address)\b|\b(?:home address|private address|personal address|phone number|mobile number|personal phone|private phone|personal email|private email)\b|\b(?:what is|what's|give me|tell me)\s+(?:(?:his|her)|(?:jawed(?:\s+imtiaz)?)'s)\s+(?:address|phone|mobile|email)\b/,
