@@ -14,6 +14,7 @@ if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith
 for(const item of (contract.checks||[])){
 /(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(item.path)
  const validOrigin=isHttpsOrigin(contract.production_origin);
+ const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\/)\.{1,2}(?:$|\/)/.test(item.path)&&!/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(item.path);
  if(!validPath||!validOrigin){failures.push(`${item.path}: cache probe URL is invalid`);continue;}
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
