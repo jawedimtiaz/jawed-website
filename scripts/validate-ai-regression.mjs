@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import {execFileSync} from "node:child_process";
 import fs from "node:fs";
 import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
-import {MAX_REPLY_CHARS} from "../functions/lib/ai-provider-common.js";
+import {createRequire} from "node:module";
+const require=createRequire(import.meta.url);
+const {MAX_REPLY_CHARS}=require("../functions/lib/ai-provider-common.js");
 
 const VALIDATOR_TIMEOUT_MS=15_000;
 const checks=[
@@ -128,7 +130,7 @@ const contracts=[
   ["AI source citations render only allowlisted Jawed links",frontend.includes("const allowed=new Set")&&frontend.includes("allowed.has(match[2])")&&frontend.includes("https://jawed.co.in")],
 ];
 
-assert.equal(endpoint.includes("source.summary")&&endpoint.includes("source.keywords")&&endpoint.includes("keywords.filter"),true,"API must preserve provider grounding metadata");
+assert.equal(endpoint.includes("source.summary")&&endpoint.includes("source.keywords")&&endpoint.includes("keywords.slice(0,40)"),true,"API must preserve provider grounding metadata");
 assert.equal(!endpoint.includes("AI_PROVIDER_API_KEY"),true,"Production API must not depend on a paid OpenAI API key");
 console.log("PASS — API preserves provider grounding metadata");
 

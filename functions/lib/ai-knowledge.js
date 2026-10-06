@@ -77,6 +77,7 @@ function rankedEntries(query,weight=1){
 
 export function findRelevantKnowledge(query,limit=5,options={}){
   const safeQuery=typeof query==="string"?query.trim():"";
+  if(Number.isInteger(limit)&&limit<=0)return [];
   const safeLimit=Number.isInteger(limit)&&limit>0?Math.min(limit,MAX_KNOWLEDGE_RESULTS):5;
   const safeOptions=options&&typeof options==="object"?options:{};
   const intentQuery=typeof safeOptions.primaryQuery==="string"&&safeOptions.primaryQuery.trim()?safeOptions.primaryQuery.trim():safeQuery;
@@ -121,7 +122,8 @@ export function findRelevantKnowledge(query,limit=5,options={}){
   const selected=effectivePrimary.slice(0,safeLimit);
   if(selected.length>=MIN_PRIMARY_SOURCES)return selected.map(({score,...entry})=>entry);
   if(selected.length<safeLimit&&(effectivePrimary.length>0||canUseContextForVagueFollowUp)){
-    const explicitContext=contextSourceUrls.map(url=>ranked.find(entry=>entry.url===url)).filter(entry=>entry&&!primaryUrls.has(entry.url));
+    const seenContextUrls=new Set();
+    const explicitContext=contextSourceUrls.map(url=>ranked.find(entry=>entry.url===url)).filter(entry=>entry&&!primaryUrls.has(entry.url)&&!seenContextUrls.has(entry.url)&&seenContextUrls.add(entry.url));
     const explicitContextUrls=new Set(explicitContext.map(entry=>entry.url));
     const context=ranked.filter(entry=>entry.score>=2&&!primaryUrls.has(entry.url)&&!explicitContextUrls.has(entry.url)).sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title));
     selected.push(...[...explicitContext,...context].slice(0,safeLimit-selected.length));

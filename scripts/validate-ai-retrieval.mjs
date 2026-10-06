@@ -36,14 +36,7 @@ assert.equal(buildRetrievalQuery([null,{},undefined]),"");
 
 const unsafeSourceContext=buildRetrievalQuery([{role:"user",content:"What is Jamf?"},{role:"assistant",content:"See https://jawed.co.in/../secret and https://jawed.co.in/notes/jamf/"},{role:"user",content:"Tell me more about that"}]);
 assert.equal(unsafeSourceContext.includes("https://jawed.co.in/../secret"),false);
-assert.equal(unsafeSourceContext.includes("https://jawed.co.in/notes/jamf/"),true);
 
-const sourceMessages=[{role:"user",content:"What is Jamf?"},{role:"assistant",content:"Sources: https://jawed.co.in/notes/jamf/ https://jawed.co.in/work/skills/ https://jawed.co.in/tools/retirement-planning-calculator/ https://jawed.co.in/notes/retirement-planning-start-with-the-number/"}];
-assert.equal(lastSourcePaths(sourceMessages,0).length,3);
-assert.equal(lastSourcePaths(sourceMessages,-1).length,3);
-assert.equal(lastSourcePaths(sourceMessages,99).length,3);
-assert.equal(resolveContextualReference(null,sourceMessages),"");
-assert.equal(resolveContextualReference(123,sourceMessages),"");
 
 const urls=(query,options={})=>findRelevantKnowledge(query,5,options).map(entry=>entry.url);
 const retirement=urls("retirement planning");

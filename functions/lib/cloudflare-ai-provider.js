@@ -12,14 +12,14 @@ function normalizeProviderError(error){
   const message=rawMessage.slice(0,MAX_PROVIDER_ERROR_MESSAGE_CHARS);
   const normalized=new Error(message);
   normalized.status=status;
-  normalized.category=status===429?"PROVIDER_HTTP_429":"PROVIDER_HTTP_"+status;
+  normalized.category=status===429?"PROVIDER_HTTP_429":status>=400&&status<600?"PROVIDER_HTTP_"+status:"PROVIDER_UNKNOWN";
   normalized.providerStage="AI_RUN";
   normalized.providerErrorCode=typeof error?.code==="string"&&/^[a-z0-9_.-]{1,80}$/i.test(error.code)?error.code:Number.isInteger(error?.code)&&error.code>=0&&error.code<=999999?String(error.code):/\b(3036|5035)\b/.exec(message)?.[1]||"";
   return normalized;
 }
 
 function withProviderTimeout(promise,timeoutMs=PROVIDER_TIMEOUT_MS){
-  const safeTimeout=Number.isFinite(timeoutMs)&&timeoutMs>0?Math.min(timeoutMs,PROVIDER_TIMEOUT_MS):PROVIDER_TIMEOUT_MS;
+  const safeTimeout=Number.isFinite(timeoutMs)?Math.max(0,Math.min(timeoutMs,PROVIDER_TIMEOUT_MS)):0;
   let timer;
   const timeout=new Promise((_,reject)=>{
     timer=setTimeout(()=>{
@@ -69,3 +69,4 @@ export async function generateGroundedReply({ai,model,input,sources}={}){
 }
 
 export {DEFAULT_MODEL,FREE_MODEL,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,MAX_PROVIDER_ERROR_MESSAGE_CHARS,withProviderTimeout,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions,normalizeProviderError};
+export {MAX_OUTPUT_TOKENS};

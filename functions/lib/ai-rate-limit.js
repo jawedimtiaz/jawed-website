@@ -1,4 +1,4 @@
-const WINDOW_MS=60_000;
+const WINDOW_MS=60000;
 const MAX_REQUESTS=8;
 const buckets=new Map();
 const MAX_BUCKETS=2_000;
@@ -13,19 +13,21 @@ function cleanup(now){
 }
 
 export function getClientKey(request){
-  const ip=request.headers.get("cf-connecting-ip");
+  const ip=request?.headers?.get?.("cf-connecting-ip");
   return ip&&ip.length<=100?ip:"anonymous";
 }
 
 export function checkRateLimit(key,now=Date.now()){
   cleanup(now);
+  const safeKey=typeof key==="string"&&key.length<=100?key:"anonymous";
+  const safeNow=Number.isFinite(now)?now:Date.now();
   const current=buckets.get(safeKey);
   if(!current||safeNow-current.windowStart>=WINDOW_MS){
     buckets.set(safeKey,{windowStart:safeNow,count:1});
     return {allowed:true,retryAfter:0};
   }
   if(current.count>=MAX_REQUESTS){
-    return {allowed:false,retryAfter:Math.max(1,Math.ceil((current.windowStart+WINDOW_MS-safeNow)/1000))};
+    return {allowed:false,retryAfter:Math.max(1,Math.ceil((current.windowStart+WINDOW_MS-safeNow)/1000)+1)};
   }
   current.count+=1;
   return {allowed:true,retryAfter:0};

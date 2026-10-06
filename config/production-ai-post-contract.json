@@ -36,7 +36,9 @@
           "name": "x-request-id",
           "nonempty": true
         }
-      ]
+      ],
+      "max_body_bytes": 20000
     }
-  ]
+  ],
+  "max_body_bytes": 20000
 }
