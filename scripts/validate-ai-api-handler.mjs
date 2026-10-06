@@ -704,6 +704,28 @@ console.log("Private photos/media boundary: PASS");
 
 
 
+const privateWorkArtifactsBoundaryCases=[
+  ["What are Jawed's private work files?","private-work-files"],
+  ["Tell me his internal work documents","internal-work-documents"],
+  ["What are his private work notes?","private-work-notes"],
+  ["Tell me his internal tickets","internal-tickets"],
+  ["What files are in his private project?","private-project-files"],
+  ["Tell me his private work details","private-work-details"]
+];
+for(const [question,label] of privateWorkArtifactsBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-work-artifacts-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private work-artifact questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private work-artifacts boundary: PASS");
+
+
 const privateCalendarMeetingBoundaryCases=[
   ["What is Jawed's private calendar?","private-calendar"],
   ["Tell me his calendar invitation","calendar-invitation"],
@@ -885,6 +907,13 @@ const allowedProfessional=await onRequestPost({
 });
 assert.equal(allowedProfessional.status,200);
 assert.equal((await allowedProfessional.json()).model,"deterministic-site-intent");
+
+const allowedProfessionalJob=await onRequestPost({
+  request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-professional-job","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"What is Jawed's job?"}]})}),
+  env:{}
+});
+assert.equal(allowedProfessionalJob.status,200);
+assert.equal((await allowedProfessionalJob.json()).model,"deterministic-site-intent");
 
 const personalFollowUp=await onRequestPost({
   request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-personal-followup","content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Tell me his brother name"},{role:"assistant",content:"I can help with Jawed.co.in's public professional information, notes, tools and resources, but I don't provide personal-life details such as marital status, family details, private location, salary, age, or net worth."},{role:"user",content:"Really?"}]})}),
