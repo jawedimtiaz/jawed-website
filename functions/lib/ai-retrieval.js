@@ -2,7 +2,7 @@ import {isSafeSourceUrl} from "./ai-provider-common.js";
 
 const MAX_RETRIEVAL_QUERY_CHARS=6000;
 const PRIOR_USER_TURNS=2; // bounded conversational context
-const SOURCE_PATH_PATTERN=/https:\/\/jawed\.co\.in(\/[^\s)\]]*)/g;
+const SOURCE_PATH_PATTERN=/https:\/\/jawed\.co\.in(\/[^\s)\],.;!?]*)/g;
 const SAFE_CONTEXT_PATH=/^\/(?!\/)(?!.*\\\\)(?!.*(?:^|\/)\.{1,2}(?:$|\/))(?!.*%(?:2e|2f|5c))/i;
 const JAWED_REFERENCE=/\b(?:jawed|jawed\s+imtiaz)\b/i;
 const PERSON_PRONOUN=/\b(?:he|him|his|himself)\b/i;
