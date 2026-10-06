@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import {execFileSync} from "node:child_process";
 import fs from "node:fs";
 import {MAX_REQUESTS,WINDOW_MS} from "../functions/lib/ai-rate-limit.js";
-import {MAX_REPLY_CHARS} from "../functions/lib/ai-provider-common.js";
+import {createRequire} from "node:module";
+const require=createRequire(import.meta.url);
+const {MAX_REPLY_CHARS}=require("../functions/lib/ai-provider-common.js");
 
 const VALIDATOR_TIMEOUT_MS=15_000;
 const checks=[
