@@ -6,7 +6,7 @@ const MAX_SOURCE_KEYWORD_CHARS=80;
 const MAX_SOURCE_KEYWORDS=40;
 const MAX_PROVIDER_MESSAGES=12;
 const MAX_PROVIDER_MESSAGE_CHARS=2000;
-const isSafeSourceUrl=url=>typeof url==="string"&&url.startsWith("/")&&!url.startsWith("//")&&!url.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(url)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(url)&&!/%(?:2e|2f|5c)/i.test(url);
+const isSafeSourceUrl=url=>typeof url==="string"&&url.startsWith("/")&&!url.startsWith("//")&&!url.includes("\\")&&!/(^|\/)\.{1,2}(?:$|\/)/.test(url)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(url)&&!/%(?:2e|2f|5c)/i.test(url);
 function contextText(sources){
   const safeSources=Array.isArray(sources)?sources.filter(isSafeSourceMetadata).slice(0,5):[];
   if(!safeSources.length)return "No matching Jawed.co.in pages were found for this question.";
