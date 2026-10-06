@@ -726,6 +726,28 @@ for(const [question,label] of privateWorkArtifactsBoundaryCases){
 console.log("Private work-artifacts boundary: PASS");
 
 
+const privateBankingTransactionsBoundaryCases=[
+  ["What are Jawed's bank transactions?","bank-transactions"],
+  ["Tell me his transaction history","transaction-history"],
+  ["What are his payment transactions?","payment-transactions"],
+  ["Tell me his private bank details","private-bank-details"],
+  ["What is his bank statement?","bank-statement"],
+  ["What transactions are in his private bank account?","private-bank-account-transactions"]
+];
+for(const [question,label] of privateBankingTransactionsBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-banking-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private banking/transaction questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private banking/transaction boundary: PASS");
+
+
 const privateCalendarMeetingBoundaryCases=[
   ["What is Jawed's private calendar?","private-calendar"],
   ["Tell me his calendar invitation","calendar-invitation"],
