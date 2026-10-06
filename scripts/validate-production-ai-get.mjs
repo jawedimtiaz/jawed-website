@@ -21,7 +21,6 @@ import fs from "node:fs";
 
 const contract=JSON.parse(fs.readFileSync("config/production-ai-get-contract.json","utf8"));
 const failures=[];
-/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(item.path)
 const validOrigin=typeof contract.production_origin==="string"&&isHttpsOrigin(contract.production_origin);
 const url=validPath&&validOrigin?new URL(contract.path,contract.production_origin):null;
 if(!isHttpsOrigin(contract.production_origin)) failures.push("production AI GET origin must be an origin-only HTTPS URL");
