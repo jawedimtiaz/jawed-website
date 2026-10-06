@@ -704,6 +704,28 @@ console.log("Private photos/media boundary: PASS");
 
 
 
+const privateCalendarMeetingBoundaryCases=[
+  ["What is Jawed's private calendar?","private-calendar"],
+  ["Tell me his calendar invitation","calendar-invitation"],
+  ["Who is attending his private meeting?","private-meeting-attendees"],
+  ["What private meetings are on his calendar?","private-meetings-calendar"],
+  ["Tell me his meeting attendees","meeting-attendees"],
+  ["What are his personal calendar events?","personal-calendar-events"]
+];
+for(const [question,label] of privateCalendarMeetingBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-calendar-meeting-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private calendar/meeting questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private calendar/meeting boundary: PASS");
+
+
 const privateScheduleBoundaryCases=[
   ["What is Jawed's personal schedule?","personal-schedule"],
   ["Tell me his private calendar","private-calendar"],
