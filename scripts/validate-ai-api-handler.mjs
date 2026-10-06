@@ -252,6 +252,24 @@ const nonDeterministicIdentity=await onRequestPost({
 assert.equal(nonDeterministicIdentity.status,503);
 assert.equal((await nonDeterministicIdentity.json()).code,"AI_NOT_CONFIGURED");
 
+const privateContactBoundaryCases=[
+  ["What is Jawed's address?","address"],
+  ["Give me his phone number","phone"],
+  ["What is his mobile number?","mobile"],
+  ["Tell me his personal email","email"]
+];
+for(const [question,label] of privateContactBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-contact-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private contact questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("public professional information"),true,question);
+}
+
 const relationshipBoundaryCases=[
   ["Tell me about his relatives","relative"],
   ["What is Jawed's relationship status?","relationship"],
