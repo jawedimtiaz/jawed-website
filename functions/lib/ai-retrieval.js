@@ -34,7 +34,7 @@ function resolveContextualReference(current,messages){
   if(typeof current!=="string"||!current.trim())return "";
   if(!prior.length)return current;
   let resolved=current;
-  const jawedContext=prior.some(message=>/\b(?:jawed|jawed\s+imtiaz)\b/i.test(message.content));
+  const jawedContext=prior.some(message=>message.content.toLowerCase().includes("jawed"));
   if(jawedContext&&PERSON_PRONOUN.test(resolved)){
     resolved=resolved.replace(/\bhe\b/gi,"Jawed").replace(/\bhim\b/gi,"Jawed").replace(/\bhis\b/gi,"Jawed's").replace(/\bhimself\b/gi,"Jawed");
   }
