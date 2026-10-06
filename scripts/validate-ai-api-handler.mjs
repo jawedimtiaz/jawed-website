@@ -321,6 +321,25 @@ for(const [question,label] of maritalStatusAliasCases){
   assert.equal(body.reply.includes("public professional information"),true,question);
 }
 
+const personalIdentityBoundaryCases=[
+  ["What is Jawed's nationality?","nationality"],
+  ["Is he a citizen of India?","citizenship"],
+  ["What is his passport number?","passport"],
+  ["What is Jawed's Aadhaar number?","aadhaar"],
+  ["Tell me his PAN number","pan"]
+];
+for(const [question,label] of personalIdentityBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-identity-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Personal identity questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("public professional information"),true,question);
+}
+
 const sensitivePersonalBoundaryCases=[
   ["What is Jawed's religion?","religion"],
   ["Does Jawed belong to a political party?","political"],
