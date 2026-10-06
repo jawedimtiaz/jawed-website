@@ -7,7 +7,7 @@
     {
       "path": "/api/ai",
       "method": "POST",
-      "origin": "https://invalid-phase-39h.example",
+      "origin": "https://example.invalid",
       "content_type": "application/json",
       "body": {
         "messages": [
@@ -36,7 +36,8 @@
           "name": "x-request-id",
           "nonempty": true
         }
-      ]
+      ],
+      "max_body_bytes": 20000
     }
   ],
   "max_body_bytes": 20000
