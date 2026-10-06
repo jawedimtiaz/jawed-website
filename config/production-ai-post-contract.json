@@ -9,6 +9,7 @@
       "method": "POST",
       "origin": "https://invalid-phase-39h.example",
       "content_type": "application/json",
+      "max_body_bytes": 20000,
       "body": {
         "messages": [
           {
