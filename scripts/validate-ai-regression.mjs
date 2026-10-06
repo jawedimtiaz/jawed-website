@@ -130,7 +130,7 @@ const contracts=[
   ["AI source citations render only allowlisted Jawed links",frontend.includes("const allowed=new Set")&&frontend.includes("allowed.has(match[2])")&&frontend.includes("https://jawed.co.in")],
 ];
 
-assert.equal(endpoint.includes("source.summary")&&endpoint.includes("source.keywords")&&endpoint.includes("keywords.filter"),true,"API must preserve provider grounding metadata");
+assert.equal(endpoint.includes("source.summary")&&endpoint.includes("source.keywords")&&endpoint.includes("keywords.slice(0,40)"),true,"API must preserve provider grounding metadata");
 assert.equal(!endpoint.includes("AI_PROVIDER_API_KEY"),true,"Production API must not depend on a paid OpenAI API key");
 console.log("PASS — API preserves provider grounding metadata");
 
