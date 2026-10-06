@@ -4,6 +4,7 @@ const contract=JSON.parse(fs.readFileSync("config/production-smoke-contract.json
 const failures=[];
 const timeoutMs=10000;
 const isHttpsOrigin=value=>{if(typeof value!=="string"||!/^https:\/\//.test(value))return false;try{const url=new URL(value);return url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
+const isSafePath=value=>typeof value==="string"&&value.startsWith("/")&&!value.startsWith("//")&&!value.includes("\\")&&!value.includes("/../")&&!value.includes("/./")&&!/%(?:2e|2f|5c)/i.test(value);
 if(!isHttpsOrigin(contract.production_origin)) failures.push("production smoke origin must be an origin-only HTTPS URL");
 if(!isHttpsOrigin(contract.canonical_origin)) failures.push("production smoke canonical_origin must be an origin-only HTTPS URL");
 if(!isHttpsOrigin(contract.alternate_origin)) failures.push("production smoke alternate_origin must be an origin-only HTTPS URL");
@@ -13,7 +14,7 @@ if(!Array.isArray(contract.redirect_checks)||contract.redirect_checks.length<1) 
 if(contract.max_redirects!==0) failures.push("production smoke checks must not follow redirects");
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production smoke max_body_bytes must be a positive integer");
 for(const item of contract.checks||[]){
- if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path)) failures.push("smoke check path must be an absolute site path");
+ if(!isSafePath(item.path)) failures.push("smoke check path must be an absolute site path");
  if(!Number.isInteger(item.status)||item.status<100||item.status>599) failures.push(`${item.path}: status must be a valid HTTP status`);
  if(typeof item.content_type!=="string"||!item.content_type.trim()) failures.push(`${item.path}: content_type must be non-empty`);
  if(item.required_markers!==undefined&&(!Array.isArray(item.required_markers)||item.required_markers.some(marker=>typeof marker!=="string"||!marker))) failures.push(`${item.path}: required_markers must be non-empty strings`);
@@ -52,7 +53,7 @@ async function readBoundedText(response,maxBytes){
 }
 
 async function check(item){
-  const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path);
+  const validPath=isSafePath(item.path);
   const validOrigin=isHttpsOrigin(contract.production_origin);
   if(!validPath||!validOrigin){failures.push(item.path+": smoke probe URL is invalid");return;}
   const url=new URL(item.path,contract.production_origin);
