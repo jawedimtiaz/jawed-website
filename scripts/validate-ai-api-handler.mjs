@@ -309,6 +309,26 @@ for(const [question,label] of privateFinancialBoundaryCases){
 }
 console.log("Private financial-identifier boundary: PASS");
 
+const privateTravelBoundaryCases=[
+  ["What are Jawed's personal travel plans?","plans"],
+  ["Tell me his private itinerary","itinerary"],
+  ["What is his flight booking?","flight"],
+  ["Tell me his hotel reservation","hotel"],
+  ["What is his travel booking?","travel-booking"]
+];
+for(const [question,label] of privateTravelBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-travel-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private travel questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private travel boundary: PASS");
+
 const privateOriginBoundaryCases=[
   ["Where was Jawed born?","born"],
   ["What is Jawed's birthplace?","birthplace"],
