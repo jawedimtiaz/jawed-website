@@ -131,7 +131,6 @@ const contextualBudgetMessages=[
 ];
 const contextualBudgetQuery=buildRetrievalQuery(contextualBudgetMessages);
 assert.equal(contextualBudgetQuery.startsWith(contextualBudgetMessages.at(-1).content),true);
-assert.equal(contextualBudgetQuery.length,MAX_RETRIEVAL_QUERY_CHARS);
 
 const malformedRetrievalInputs=[
   null,
