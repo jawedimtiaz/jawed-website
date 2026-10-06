@@ -661,6 +661,27 @@ for(const [question,label] of privateLoyaltyRewardsBoundaryCases){
   assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
 }
 console.log("Private loyalty/rewards boundary: PASS");
+const privateCloudStorageBoundaryCases=[
+  ["What files are in Jawed's cloud storage?","cloud-storage"],
+  ["Tell me his cloud drive files","cloud-drive-files"],
+  ["What documents are in his private cloud?","private-cloud-documents"],
+  ["Tell me his personal files","personal-files"],
+  ["What is his private drive?","private-drive"],
+  ["Tell me his cloud folder details","cloud-folder-details"]
+];
+for(const [question,label] of privateCloudStorageBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-cloud-storage-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private cloud-storage/file questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private cloud-storage/file boundary: PASS");
+
 
 const privateScheduleBoundaryCases=[
   ["What is Jawed's personal schedule?","personal-schedule"],
