@@ -30,8 +30,7 @@ function publicSources(sources){
 }
 
 function publicSourceReferences(sources){
-  const seen=new Set();
-  return sources.filter(isSafeSourceMetadata).filter(source=>{if(seen.has(source.url))return false;seen.add(source.url);return true;}).slice(0,5).map(({url,title})=>({url,title}));
+  return sources.map(({url,title})=>({url,title}));
 }
 function knowledgeEntry(url){
   const source=knowledge.entries.find(entry=>entry.url===url);
