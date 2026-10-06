@@ -1209,6 +1209,27 @@ for(const [question,label] of privateCorrespondenceBoundaryCases){
 }
 console.log("Private correspondence boundary: PASS");
 
+const privateContactListBoundaryCases=[
+  ["What are Jawed's private contacts?","private-contacts"],
+  ["Tell me his personal contacts","personal-contacts"],
+  ["What is his private contact list?","private-contact-list"],
+  ["Tell me his personal contact information","personal-contact-information"],
+  ["What private contact details does Jawed have?","private-contact-details"],
+  ["Which personal contacts does he have privately?","contacts-privately"]
+];
+for(const [question,label] of privateContactListBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-contact-list-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private contact questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private contact-list boundary: PASS");
+
 const privateBiometricBoundaryCases=[
   ["What is Jawed's biometric data?","biometric-data"],
   ["Tell me his fingerprint data","fingerprint-data"],
