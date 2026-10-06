@@ -3,7 +3,7 @@ import {isSafeSourceUrl} from "./ai-provider-common.js";
 const MAX_RETRIEVAL_QUERY_CHARS=6000;
 const PRIOR_USER_TURNS=2; // bounded conversational context
 const SOURCE_PATH_PATTERN=/https:\/\/jawed\.co\.in(\/[^\s)\],.;!?]*)/g;
-const SAFE_CONTEXT_PATH=/^\/(?!\/)(?!.*\\\\)(?!.*(?:^|\/)\.{1,2}(?:$|\/))(?!.*%(?:2e|2f|5c))/i;
+const SAFE_CONTEXT_PATH=path=>typeof path==="string"&&path.startsWith("/")&&!path.startsWith("//")&&!path.includes("\\")&&!path.includes("/../")&&!path.includes("/./")&&!/%(?:2e|2f|5c)/i.test(path);
 const JAWED_REFERENCE=/\b(?:jawed|jawed\s+imtiaz)\b/i;
 const PERSON_PRONOUN=/\b(?:he|him|his|himself)\b/i;
 const DEICTIC_REFERENCE=/\b(?:that|this|it)\b/i;
@@ -22,7 +22,7 @@ function lastSourcePaths(messages,limit=3){
   const paths=[];
   for(const match of latest.content.matchAll(SOURCE_PATH_PATTERN)){
     const path=match[1];
-    if(!SAFE_CONTEXT_PATH.test(path))continue;
+    if(!SAFE_CONTEXT_PATH(path))continue;
     if(!paths.includes(path))paths.push(path);
     if(paths.length>=safeLimit)break;
   }
