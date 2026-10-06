@@ -47,7 +47,8 @@ function resolveContextualReference(current,messages){
 export function buildRetrievalQuery(messages){
   const history=normalizedMessages(messages);
   const rawCurrent=history.at(-1)?.role==="user"&&typeof history.at(-1)?.content==="string"?history.at(-1).content.trim():"";
-  const current=/^where does he work\??$/i.test(rawCurrent)&&history.slice(0,-1).some(message=>typeof message?.content==="string"&&message.content.toLowerCase().includes("jawed"))?"Where does Jawed work?":rawCurrent;
+  const hasJawedPrior=history.slice(0,-1).some(message=>typeof message?.content==="string"&&message.content.toLowerCase().includes("jawed"));
+  const current=hasJawedPrior?rawCurrent.replace(/\bhe\b/gi,"Jawed").replace(/\bhim\b/gi,"Jawed").replace(/\bhis\b/gi,"Jawed's").replace(/\bhimself\b/gi,"Jawed"):rawCurrent;
   if(!current)return "";
 
   const contextualCurrent=resolveContextualReference(current,history);
