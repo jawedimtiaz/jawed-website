@@ -18,7 +18,9 @@ export function getClientKey(request){
 }
 
 export function checkRateLimit(key,now=Date.now()){
-  cleanup(now);
+  const safeKey=typeof key==="string"&&key.length<=100?key:"anonymous";
+  const safeNow=Number.isFinite(now)?now:Date.now();
+  cleanup(safeNow);
   const current=buckets.get(safeKey);
   if(!current||safeNow-current.windowStart>=WINDOW_MS){
     buckets.set(safeKey,{windowStart:safeNow,count:1});
