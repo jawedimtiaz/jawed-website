@@ -770,6 +770,28 @@ for(const [question,label] of privateMedicationPrescriptionBoundaryCases){
 console.log("Private medication/prescription boundary: PASS");
 
 
+const privateLocationHistoryBoundaryCases=[
+  ["What is Jawed's location history?","location-history"],
+  ["Tell me his current location","current-location"],
+  ["What are his whereabouts?","whereabouts"],
+  ["Tell me his GPS history","gps-history"],
+  ["Where is Jawed now?","where-now"],
+  ["Where was he yesterday?","where-yesterday"]
+];
+for(const [question,label] of privateLocationHistoryBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-location-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private location/whereabouts questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private location-history boundary: PASS");
+
+
 const privateCalendarMeetingBoundaryCases=[
   ["What is Jawed's private calendar?","private-calendar"],
   ["Tell me his calendar invitation","calendar-invitation"],
