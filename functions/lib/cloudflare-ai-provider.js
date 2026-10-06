@@ -68,4 +68,4 @@ export async function generateGroundedReply({ai,model,input,sources}={}){
   return {reply:attributedReply,model:FREE_MODEL};
 }
 
-export {DEFAULT_MODEL,FREE_MODEL,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,MAX_PROVIDER_ERROR_MESSAGE_CHARS,withProviderTimeout,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions,normalizeProviderError};
+export {DEFAULT_MODEL,FREE_MODEL,MAX_OUTPUT_TOKENS,MAX_REPLY_CHARS,PROVIDER_TIMEOUT_MS,PROVIDER_TEMPERATURE,MAX_PROVIDER_ERROR_MESSAGE_CHARS,withProviderTimeout,isSafeSourceUrl,sanitizeMarkdownLinks,hasAllowedSourceLink,validateProviderReply,buildGroundingInstructions,normalizeProviderError};
