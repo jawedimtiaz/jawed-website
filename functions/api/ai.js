@@ -53,7 +53,7 @@ function deterministicIntentReply(question,messages=[]){
     /\b(?:salary|pay|income|earnings|ctc|compensation|net\s*worth|wealth|assets)\b/,
     /\b(?:religion|religious|political affiliation|political party|party membership|sexual orientation|sexuality|health condition|medical condition|medical history|diagnosis|disability)\b/,
     /\b(?:nationality|citizenship|citizen of|passport|passport number|government id|government identification|aadhaar|pan number|tax id|identity card|id number)\b/,
-    /\b(?:personal social media|private social media|personal instagram|private instagram|personal facebook|private facebook|personal twitter|private twitter|social media handle|instagram account|facebook account|twitter account)\b/
+    /\b(?:personal social media|private social media|personal instagram|private instagram|personal facebook|private facebook|personal twitter|private twitter|social media handle|instagram account|facebook account|twitter account)\b/,
     /\b(?:how old|age|date of birth|dob|birthday)\b/
   ];
   if(personalPatterns.some(pattern=>pattern.test(value)))return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
