@@ -1146,6 +1146,27 @@ for(const [question,label] of privateRelationshipHistoryBoundaryCases){
 }
 console.log("Private relationship-history boundary: PASS");
 
+const privateHobbiesBoundaryCases=[
+  ["What are Jawed's private hobbies?","private-hobbies"],
+  ["Tell me his personal hobbies","personal-hobbies"],
+  ["What are his private leisure activities?","private-leisure"],
+  ["Tell me about his personal hobbies","personal-hobbies-2"],
+  ["What personal leisure activities does he have?","personal-leisure"],
+  ["Which hobbies does Jawed have privately?","hobbies-privately"]
+];
+for(const [question,label] of privateHobbiesBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-hobbies-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private hobby questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private hobbies boundary: PASS");
+
 const privateBiometricBoundaryCases=[
   ["What is Jawed's biometric data?","biometric-data"],
   ["Tell me his fingerprint data","fingerprint-data"],
