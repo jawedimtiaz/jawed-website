@@ -681,6 +681,27 @@ for(const [question,label] of privateCloudStorageBoundaryCases){
   assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
 }
 console.log("Private cloud-storage/file boundary: PASS");
+const privatePhotosMediaBoundaryCases=[
+  ["What photos does Jawed have privately?","private-photos"],
+  ["Tell me his personal photos","personal-photos"],
+  ["What videos are in his private media?","private-videos"],
+  ["Tell me his private gallery","private-gallery"],
+  ["What is his photo album?","photo-album"],
+  ["Tell me his private media files","private-media-files"]
+];
+for(const [question,label] of privatePhotosMediaBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-photos-media-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private photos/media questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private photos/media boundary: PASS");
+
 
 
 const privateScheduleBoundaryCases=[
