@@ -19,6 +19,7 @@ async function readBoundedText(response,maxBytes){
 }
 import fs from "node:fs";
 
+const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
 const contract=JSON.parse(fs.readFileSync("config/production-ai-get-contract.json","utf8"));
 const failures=[];
 const validOrigin=typeof contract.production_origin==="string"&&isHttpsOrigin(contract.production_origin);
