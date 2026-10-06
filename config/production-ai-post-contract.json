@@ -7,7 +7,7 @@
     {
       "path": "/api/ai",
       "method": "POST",
-      "origin": "https://example.invalid",
+      "origin": "https://example.com",
       "content_type": "application/json",
       "body": {
         "messages": [
