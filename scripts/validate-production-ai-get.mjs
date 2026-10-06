@@ -21,12 +21,12 @@ import fs from "node:fs";
 
 const contract=JSON.parse(fs.readFileSync("config/production-ai-get-contract.json","utf8"));
 const failures=[];
-const validPath=typeof contract.path==="string"&&contract.path.startsWith("/")&&!contract.path.startsWith("//")&&!contract.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(contract.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(contract.path);
+const validPath=typeof contract.path==="string"&&contract.path.startsWith("/")&&!contract.path.startsWith("//")&&!contract.path.includes("\\")&&!/(^|\/)(?:\.{1,2})(?:$|\/)/.test(contract.path)&&!/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(contract.path);
 const validOrigin=typeof contract.production_origin==="string"&&isHttpsOrigin(contract.production_origin);
 const url=validPath&&validOrigin?new URL(contract.path,contract.production_origin):null;
 if(!isHttpsOrigin(contract.production_origin)) failures.push("production AI GET origin must be an origin-only HTTPS URL");
 if(contract.max_redirects!==0) failures.push("production AI GET checks must not follow redirects");
-if(typeof contract.path!=="string"||!contract.path.startsWith("/")||contract.path.startsWith("//")||contract.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(contract.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(contract.path)) failures.push("production AI GET path must be an absolute site path");
+if(typeof contract.path!=="string"||!contract.path.startsWith("/")||contract.path.startsWith("//")||contract.path.includes("\\")||/(^|\/)(?:\.{1,2})(?:$|\/)/.test(contract.path)||/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(contract.path)) failures.push("production AI GET path must be an absolute site path");
 if(contract.method!=="GET") failures.push("production AI GET contract must use GET");
 if(!Number.isInteger(contract.expected_status)||contract.expected_status<100||contract.expected_status>599) failures.push("production AI GET expected_status must be a valid HTTP status");
 if(typeof contract.expected_content_type!=="string"||!contract.expected_content_type.trim()) failures.push("production AI GET expected_content_type must be non-empty");
