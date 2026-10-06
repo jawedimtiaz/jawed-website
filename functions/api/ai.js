@@ -39,7 +39,7 @@ function knowledgeEntry(url){
 
 const PERSONAL_BOUNDARY_REPLY="I can help with Jawed.co.in's public professional information, notes, tools and resources, but I don't provide personal-life details such as marital status, family details, private location, salary, age, or net worth.";
 
-function deterministicIntentReply(question){
+function deterministicIntentReply(question,messages=[]){
   const value=question.trim().toLowerCase().replace(/[?!.]+$/g,"").trim();
   const closing=["bye","goodbye","good night","see you","see ya","talk to you later","thanks","thank you","thx","ok bye","okay bye"];
   if(closing.includes(value))return {reply:"Goodbye! 👋",sources:[]};
@@ -47,12 +47,16 @@ function deterministicIntentReply(question){
   const personalPatterns=[
     /\b(?:is|was|are)\s+jawed(?:\s+imtiaz)?\s+(?:married|single|bachelor|divorced|widowed)\b/,
     /\b(?:married|single|bachelor|divorced|widowed)\b(?:\s+(?:or|vs\.?|versus)\s+(?:married|single|bachelor|divorced|widowed))?\b/,
-    /\b(?:wife|husband|spouse|children|child|son|daughter|family|kids?)\b/,
+    /\b(?:wife|husband|spouse|children|child|son|daughter|family|kids?|brother|sister|sibling|father|mother|parent|parents|cousin|uncle|aunt)\b/,
     /\b(?:where|which city|what city)\b.*\b(?:live|lives|stay|stays|reside|resides|home|house|location|address)\b/,
     /\b(?:salary|pay|income|earnings|ctc|compensation|net\s*worth|wealth|assets)\b/,
     /\b(?:how old|age|date of birth|dob|birthday)\b/
   ];
   if(personalPatterns.some(pattern=>pattern.test(value)))return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
+  const recentUserMessages=Array.isArray(messages)?messages.filter(message=>message?.role==="user").slice(-3):[];
+  const priorPersonal=recentUserMessages.slice(0,-1).some(message=>personalPatterns.some(pattern=>pattern.test(String(message.content||"").trim().toLowerCase())));
+  const personalFollowUp=/^(?:really|really\?|are you sure|are you certain|sure\?|is that true|is that correct|correct\?|what do you mean|why\??|how do you know\??)$/i.test(value);
+  if(personalFollowUp&&priorPersonal)return {reply:PERSONAL_BOUNDARY_REPLY,sources:[]};
 
   const identity=["who is jawed","who is jawed imtiaz","who was jawed","who was jawed imtiaz","about jawed","about jawed imtiaz"];
   if(identity.includes(value)){
@@ -86,7 +90,7 @@ async function handlePost({request,env}){
   if(!validConversation(messages))return failure("Conversation messages must alternate between user and assistant, starting with the user.","AI_INVALID_CONVERSATION",400,id);
   if(messages.at(-1).role!=="user")return failure("The latest message must be from the user.","AI_INVALID_CONVERSATION",400,id);
 
-  const deterministic=deterministicIntentReply(messages.at(-1).content);
+  const deterministic=deterministicIntentReply(messages.at(-1).content,messages);
   if(deterministic){
     return json({reply:deterministic.reply,sources:publicSourceReferences(deterministic.sources),model:"deterministic-site-intent",request_id:id},200,{"x-request-id":id});
   }
