@@ -48,7 +48,7 @@ function deterministicIntentReply(question,messages=[]){
     /\b(?:is|was|are)\s+jawed(?:\s+imtiaz)?\s+(?:married|single|bachelor|divorced|widowed)\b/,
     /\b(?:married|single|bachelor|divorced|widowed)\b(?:\s+(?:or|vs\.?|versus)\s+(?:married|single|bachelor|divorced|widowed))?\b/,
     /\b(?:wife|husband|spouse|children|child|son|daughter|family|kids?|brother|sister|sibling|father|mother|parent|parents|cousin|uncle|aunt|relative|relatives|relationship|relationships|girlfriend|boyfriend|partner|partners)\b/,
-    /\b(?:where|which city|what city)\b.*\b(?:live|lives|stay|stays|reside|resides|home|house|location|address)\b/,
+    /\b(?:where|which city|what city)\b.*\b(?:live|lives|stay|stays|reside|resides|home|house|location|address)\b|\b(?:home address|private address|personal address|phone number|mobile number|personal phone|private phone|personal email|private email)\b|\b(?:what is|what's|give me|tell me)\s+(?:his|her|jawed(?:\s+imtiaz)?)\s+(?:address|phone|mobile|email)\b/,
     /\b(?:salary|pay|income|earnings|ctc|compensation|net\s*worth|wealth|assets)\b/,
     /\b(?:how old|age|date of birth|dob|birthday)\b/
   ];
