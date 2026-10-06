@@ -13,7 +13,7 @@ function cleanup(now){
 }
 
 export function getClientKey(request){
-  const ip=request.headers.get("cf-connecting-ip");
+  const ip=request?.headers?.get?.("cf-connecting-ip");
   return ip&&ip.length<=100?ip:"anonymous";
 }
 
