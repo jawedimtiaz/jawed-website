@@ -19,7 +19,7 @@ function normalizeProviderError(error){
 }
 
 function withProviderTimeout(promise,timeoutMs=PROVIDER_TIMEOUT_MS){
-  const safeTimeout=Number.isFinite(timeoutMs)&&timeoutMs>0?Math.min(timeoutMs,PROVIDER_TIMEOUT_MS):PROVIDER_TIMEOUT_MS;
+  const safeTimeout=Number.isFinite(timeoutMs)?Math.max(0,Math.min(timeoutMs,PROVIDER_TIMEOUT_MS)):0;
   let timer;
   const timeout=new Promise((_,reject)=>{
     timer=setTimeout(()=>{
