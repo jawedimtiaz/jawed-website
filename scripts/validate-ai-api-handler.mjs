@@ -1296,6 +1296,27 @@ for(const [question,label] of privatePreferenceBoundaryCases){
 }
 console.log("Private preference boundary: PASS");
 
+const privateDeviceHistoryBoundaryCases=[
+  ["What is Jawed's private device history?","device-history"],
+  ["Tell me his personal device records","device-records"],
+  ["What are his private devices?","private-devices"],
+  ["Tell me his device usage history","device-usage"],
+  ["What personal device activity records does he have?","device-activity"],
+  ["Which devices has Jawed used privately?","devices-used"]
+];
+for(const [question,label] of privateDeviceHistoryBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-device-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private device-history questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private device-history boundary: PASS");
+
 console.log("AI API handler behavioral coverage: PASS");
 console.log("GET health contract exercised: yes");
 console.log("Configured/unconfigured health states exercised: yes");
