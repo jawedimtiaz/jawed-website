@@ -77,6 +77,7 @@ function rankedEntries(query,weight=1){
 
 export function findRelevantKnowledge(query,limit=5,options={}){
   const safeQuery=typeof query==="string"?query.trim():"";
+  if(limit===0)return [];
   const safeLimit=Number.isInteger(limit)&&limit>0?Math.min(limit,MAX_KNOWLEDGE_RESULTS):5;
   const safeOptions=options&&typeof options==="object"?options:{};
   const intentQuery=typeof safeOptions.primaryQuery==="string"&&safeOptions.primaryQuery.trim()?safeOptions.primaryQuery.trim():safeQuery;
