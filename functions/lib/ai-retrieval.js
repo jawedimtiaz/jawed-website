@@ -1,7 +1,7 @@
 import {isSafeSourceUrl} from "./ai-provider-common.js";
 
 const MAX_RETRIEVAL_QUERY_CHARS=6000;
-const PRIOR_USER_TURNS=2;
+const PRIOR_USER_TURNS=2; // bounded conversational context
 const SOURCE_PATH_PATTERN=/https:\/\/jawed\.co\.in(\/[^\s)\]]*)/g;
 const JAWED_REFERENCE=/\b(?:jawed|jawed\s+imtiaz)\b/i;
 const PERSON_PRONOUN=/\b(?:he|him|his|himself)\b/i;
