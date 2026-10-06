@@ -349,6 +349,26 @@ for(const [question,label] of privatePossessionsBoundaryCases){
 }
 console.log("Private possessions boundary: PASS");
 
+const privateEmploymentFinancialBoundaryCases=[
+  ["What is Jawed's personal bonus?","personal-bonus"],
+  ["Tell me his employee benefits","employee-benefits"],
+  ["What are his private stock options?","private-stock-options"],
+  ["Tell me about his personal investments","personal-investments"],
+  ["What personal mutual funds does he own?","personal-mutual-funds"]
+];
+for(const [question,label] of privateEmploymentFinancialBoundaryCases){
+  const boundary=await onRequestPost({
+    request:makeRequest("https://jawed.co.in/api/ai",{method:"POST",headers:{"cf-connecting-ip":uniqueIp+"-private-employment-financial-"+label,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:question}]})}),
+    env:{AI:{run:async()=>{throw new Error("Private employment/financial questions must be blocked before provider retrieval.");}}}
+  });
+  assert.equal(boundary.status,200,question);
+  const body=await boundary.json();
+  assert.equal(body.model,"deterministic-site-intent",question);
+  assert.deepEqual(body.sources,[],question);
+  assert.equal(body.reply.includes("I can help with Jawed.co.in's public professional information"),true,question);
+}
+console.log("Private employment/financial boundary: PASS");
+
 const privateScheduleBoundaryCases=[
   ["What is Jawed's personal schedule?","personal-schedule"],
   ["Tell me his private calendar","private-calendar"],
