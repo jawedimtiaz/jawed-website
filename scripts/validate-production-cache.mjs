@@ -7,7 +7,7 @@ if(!isHttpsOrigin(contract.production_origin)) failures.push("cache production_o
 if(contract.max_redirects!==0) failures.push("production cache checks must not follow redirects");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production cache contract must contain at least one check");
 for(const item of contract.checks||[]){
- if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\/)\.{1,2}(?:$|\/)/.test(item.path)||/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(item.path)
+if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\/)\.{1,2}(?:$|\/)/.test(item.path)||/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(item.path)) failures.push("cache check path must be an absolute site path");
  if(typeof item.require_cache_control!=="boolean") failures.push(item.path+": require_cache_control must be boolean");
  if(!["public","no-store"].includes(item.cache_policy)) failures.push(item.path+": cache_policy must be public or no-store");
 }
