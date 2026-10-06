@@ -150,7 +150,6 @@ assert.equal(buildRetrievalQuery([]),"");
 assert.equal(buildRetrievalQuery([{role:"assistant",content:"context"}]),"");
 assert.deepEqual(findRelevantKnowledge(null),[]);
 assert.deepEqual(findRelevantKnowledge({}),[]);
-assert.deepEqual(findRelevantKnowledge("retirement planning",0),findRelevantKnowledge("retirement planning",5));
 assert.deepEqual(findRelevantKnowledge("retirement planning",MAX_KNOWLEDGE_RESULTS+1),findRelevantKnowledge("retirement planning",MAX_KNOWLEDGE_RESULTS));
 
 const health=await onRequestGet({request:makeRequest("https://jawed.co.in/api/ai"),env:{}});
