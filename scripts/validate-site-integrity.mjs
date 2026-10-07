@@ -292,8 +292,8 @@ const interactiveToolContracts=[
  ["AI Prompt Builder","tools/ai-prompt-builder/index.html","#prompt-tool","#prompt-clear","#prompt-copy"],
  ["Service Desk Note Formatter","tools/service-desk-note-formatter/index.html","#note-tool","#note-clear","#note-copy"],
  ["Ticket to Knowledge Base Draft","tools/ticket-to-knowledge-base-draft/index.html","#kb-tool","#kb-clear","#kb-copy"],
- ["Personal Finance Snapshot","tools/personal-finance-snapshot/index.html","#snapshot-tool","#snapshot-reset",null],
- ["Compound Growth & SIP","tools/compound-growth-sip-calculator/index.html","#compound-tool","#compound-reset",null],
+ ["Personal Finance Snapshot","tools/personal-finance-snapshot/index.html","#finance-tool","#reset",null],
+ ["Compound Growth & SIP","tools/compound-growth-sip-calculator/index.html","#growth-tool","#growth-reset",null],
  ["Inflation Goal Planning","tools/inflation-goal-planning-calculator/index.html","#goal-tool","#goal-reset",null],
  ["Retirement Planning","tools/retirement-planning-calculator/index.html","#retirement-tool","#retirement-reset",null]
 ];
