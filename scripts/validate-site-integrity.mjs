@@ -589,6 +589,14 @@ const financePlanningSummaryLiveRegionContract=
 if(!financePlanningSummaryLiveRegionContract)errors.push("Finance Planning Workspace dynamic summaries must expose atomic polite live regions");
 else console.log("Finance Planning summary live-region contract: PASS");
 
+const financePlanningErrorRegions=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
+const financePlanningErrorRegionContract=
+  financePlanningErrorRegions.includes('id="snapshotError" role="alert" aria-atomic="true"')&&
+  financePlanningErrorRegions.includes('id="goalError" role="alert" aria-atomic="true"')&&
+  financePlanningErrorRegions.includes('id="retError" role="alert" aria-live="polite" aria-atomic="true"');
+if(!financePlanningErrorRegionContract)errors.push("Finance Planning Workspace validation errors must expose atomic alert regions");
+else console.log("Finance Planning error live-region contract: PASS");
+
 const sharedRuntime=fs.readFileSync("assets/js/main.js","utf8");
 const sharedRuntimeContracts=[
   ["skip-link runtime",sharedRuntime.includes("s.className='skip-link'")&&sharedRuntime.includes("s.href='#main-content'")],
