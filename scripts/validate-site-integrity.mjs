@@ -583,6 +583,11 @@ const careerMatchTrackerRenderContract=careerMatchTrackerRender.includes("functi
 if(!careerMatchTrackerRenderContract)errors.push("Career Match tracker rendering must use validated persisted records");
 else console.log("Career Match tracker render integrity contract: PASS");
 
+const careerMatchEditableResult=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchEditableResultContract=careerMatchEditableResult.includes('bd.setAttribute("contenteditable","true");bd.setAttribute("aria-label",`${t} editable content`);bd.focus();b.textContent="Done"')&&careerMatchEditableResult.includes('bd.removeAttribute("contenteditable");bd.removeAttribute("aria-label");b.textContent="Edit"');
+if(!careerMatchEditableResultContract)errors.push("Career Match editable result bodies must expose a contextual accessible name while editing");
+else console.log("Career Match editable-result naming contract: PASS");
+
 const careerMatchThemeToggle=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchThemeToggleContract=careerMatchThemeToggle.includes('id="theme" aria-label="Toggle light/dark mode" aria-pressed="false"')&&careerMatchThemeToggle.includes('const b=$("#theme");if(b)b.setAttribute("aria-pressed",String(theme==="dark"))');
 if(!careerMatchThemeToggleContract)errors.push("Career Match theme toggle must expose and synchronize its dark-mode pressed state");
