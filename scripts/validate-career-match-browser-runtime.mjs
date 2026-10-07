@@ -42,7 +42,7 @@ async function runViewport(width,height){
   try{
     await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
     try{await waitForElement("#file")}catch(error){let current="unknown",source="",logs=[];try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}try{logs=await command("POST","/log",{type:"browser"})}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" sourceLength="+String(source?.length||0)+" hasFileMarkup="+String(String(source).includes('id="file"'))+" logs="+JSON.stringify(logs?.slice?.(-12)||[]));} await sleep(700);
-    console.log("Viewport "+width+"x"+height+": loaded");
+    console.log("Viewport "+width+"x"+height+": loaded"); if(width===390){console.log("Mobile geometry "+JSON.stringify(await js("return {innerWidth,innerHeight,main:document.querySelector("main")?.getBoundingClientRect().toJSON(),grid:document.querySelector(".grid2")?.getBoundingClientRect().toJSON(),cols:getComputedStyle(document.querySelector(".grid2")).gridTemplateColumns,resume:document.querySelector("#resume")?.getBoundingClientRect().toJSON(),jd:document.querySelector("#jd")?.getBoundingClientRect().toJSON(),row:document.querySelector("#sample")?.parentElement?.getBoundingClientRect().toJSON()}")));}
     for(const s of ["#theme","#sample","#go","#file","#tab-analyze","#tab-results","#tab-tracker","#tab-saved"]){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
     }
