@@ -309,6 +309,18 @@ if(interactiveToolContracts.every(([name,path,formId,resetId,copyId])=>{
  return (html.includes('addEventListener("submit"')||html.includes("addEventListener('submit'"))&&html.includes(resetId.slice(1))&&(!copyId||html.includes(copyId.slice(1)));
 }))console.log("Interactive tool primary-action wiring contract: PASS");
 
+const calculatorResetContracts=[
+ ["Personal Finance Snapshot","tools/personal-finance-snapshot/index.html",["const defaults=Object.fromEntries(ids.map(id=>[id,$(id).value]))","ids.forEach(id=>$(id).value=defaults[id])"]],
+ ["Compound Growth & SIP","tools/compound-growth-sip-calculator/index.html",["fields.initial.value=\"100000\"","fields.monthly.value=\"10000\"","fields.years.value=\"10\"","fields.returnRate.value=\"10\""]],
+ ["Inflation Goal Planning","tools/inflation-goal-planning-calculator/index.html",["document.querySelector(\"#goal-reset\").addEventListener(\"click\",()=>{f.reset();calculate()})"]],
+ ["Retirement Planning","tools/retirement-planning-calculator/index.html",["reset.addEventListener(\"click\",()=>{f.reset();out.error.textContent=\"\";calculate()})"]]
+];
+for(const [name,path,patterns] of calculatorResetContracts){
+ const html=fs.readFileSync(path,"utf8");
+ if(!patterns.every(pattern=>html.includes(pattern)))errors.push(name+" must preserve its intended reset-state behavior");
+}
+if(calculatorResetContracts.every(([name,path,patterns])=>patterns.every(pattern=>fs.readFileSync(path,"utf8").includes(pattern))))console.log("Calculator reset-state integrity contract: PASS");
+
 console.log("Internal link and fragment integrity: PASS");
 const troubleshootingTool=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
 const troubleshootingFocusContract=troubleshootingTool.includes("state.node=flows[state.type].start;renderIntro();const first=r.querySelector('[data-answer]');if(first)first.focus({preventScroll:true})")&&troubleshootingTool.includes("r.setAttribute('tabindex','-1');r.focus({preventScroll:true});return}state.node=flows[state.type][nextKey];");
