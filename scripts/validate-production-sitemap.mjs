@@ -2,8 +2,9 @@ import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-sitemap-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
 const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
+const hasUnsafeDotSegments=value=>value.split("/").some(segment=>{const normalized=segment.toLowerCase();return segment==="."||segment===".."||normalized==="%2e"||normalized==="%2e%2e";});
 if(!isHttpsOrigin(contract.production_origin)) failures.push("production sitemap origin must be an origin-only HTTPS URL");
-if(typeof contract.sitemap_path!=="string"||!contract.sitemap_path.startsWith("/")||contract.sitemap_path.startsWith("//")||contract.sitemap_path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(contract.sitemap_path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(contract.sitemap_path)) failures.push("sitemap_path must be absolute");
+if(typeof contract.sitemap_path!=="string"||!contract.sitemap_path.startsWith("/")||contract.sitemap_path.startsWith("//")||contract.sitemap_path.includes("\\")||hasUnsafeDotSegments(contract.sitemap_path)||hasUnsafeDotSegments(contract.sitemap_path)) failures.push("sitemap_path must be absolute");
 if(typeof contract.expected_content_type!=="string"||!contract.expected_content_type.trim()) failures.push("sitemap expected_content_type must be non-empty");
 if(!isHttpsOrigin(contract.canonical_origin)) failures.push("sitemap canonical_origin must be an origin-only HTTPS URL");
 if(contract.canonical_origin!==contract.production_origin) failures.push("sitemap canonical_origin must match production_origin");
@@ -18,7 +19,7 @@ async function readBoundedText(response,maxBytes){
 if(contract.max_redirects!==0) failures.push("production checks must not follow redirects");
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production max_body_bytes must be a positive integer");
 let locs=[];
-const validPath=typeof contract.sitemap_path==="string"&&contract.sitemap_path.startsWith("/")&&!contract.sitemap_path.startsWith("//")&&!contract.sitemap_path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(contract.sitemap_path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(contract.sitemap_path);
+const validPath=typeof contract.sitemap_path==="string"&&contract.sitemap_path.startsWith("/")&&!contract.sitemap_path.startsWith("//")&&!contract.sitemap_path.includes("\\")&&!hasUnsafeDotSegments(contract.sitemap_path)&&!hasUnsafeDotSegments(contract.sitemap_path);
 const validOrigin=isHttpsOrigin(contract.production_origin);
 const url=validPath&&validOrigin?new URL(contract.sitemap_path,contract.production_origin):null;
 if(!url){failures.push("sitemap probe skipped: contract URL is invalid");}
@@ -42,7 +43,7 @@ try{
    if(contract.require_absolute_urls&&!/^https:$/.test(parsed.protocol)) failures.push(`sitemap: non-HTTPS URL ${loc}`);
    if(parsed.origin!==contract.canonical_origin) failures.push(`sitemap: non-canonical origin URL ${loc}`);
    if(parsed.username||parsed.password) failures.push(`sitemap: credential-bearing URL ${loc}`);
-   if(parsed.pathname.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(parsed.pathname)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(parsed.pathname)) failures.push(`sitemap: unsafe path URL ${loc}`);
+   if(parsed.pathname.includes("\\")||hasUnsafeDotSegments(parsed.pathname)||hasUnsafeDotSegments(parsed.pathname)) failures.push(`sitemap: unsafe path URL ${loc}`);
    for(const origin of contract.forbidden_origins||[]) if(parsed.origin===origin) failures.push(`sitemap: forbidden alternate-origin URL ${loc}`);
    for(const extension of contract.forbidden_extensions||[]) if(parsed.pathname.toLowerCase().endsWith(extension)) failures.push(`sitemap: legacy extension URL ${loc}`);
    if(parsed.search||parsed.hash) failures.push(`sitemap: query/hash URL ${loc}`);
