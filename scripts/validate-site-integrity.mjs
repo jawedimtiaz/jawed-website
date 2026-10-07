@@ -229,6 +229,14 @@ const careerMatchTabPanelAccessibilityContract=
   careerMatch.includes('id="v-saved" class="view hidden" role="tabpanel" aria-labelledby="tab-saved"');
 if(!careerMatchTabPanelAccessibilityContract)errors.push("Career Match tabpanels must remain programmatically labelled by their controlling tabs");
 else console.log("Career Match tabpanel labelling contract: PASS");
+const careerMatchHiddenStateContract=
+  careerMatch.includes('id="v-analyze" class="view" role="tabpanel" aria-labelledby="tab-analyze" aria-hidden="false"')&&
+  careerMatch.includes('id="v-results" class="view hidden" role="tabpanel" aria-labelledby="tab-results" aria-hidden="true" hidden')&&
+  careerMatch.includes('id="v-tracker" class="view hidden" role="tabpanel" aria-labelledby="tab-tracker" aria-hidden="true" hidden')&&
+  careerMatch.includes('id="v-saved" class="view hidden" role="tabpanel" aria-labelledby="tab-saved" aria-hidden="true" hidden')&&
+  careerMatch.includes('e.setAttribute("aria-hidden",String(!active));e.hidden=!active');
+if(!careerMatchHiddenStateContract)errors.push("Career Match tabpanels must synchronize native hidden state with aria-hidden and the active tab");
+else console.log("Career Match tabpanel hidden-state contract: PASS");
 
 const careerMatchStatusRegionContract=
   careerMatchStatusRegions.includes('<div class="muted" id="fileMsg" role="status" aria-live="polite">')&&
