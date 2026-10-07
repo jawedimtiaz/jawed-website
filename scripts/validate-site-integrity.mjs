@@ -531,7 +531,7 @@ const sharedRuntimeContracts=[
   ["contact form submit handler",sharedRuntime.includes("f.addEventListener('submit',e=>{e.preventDefault()")],
   ["filter URL synchronization",sharedRuntime.includes("window.history.replaceState({},'',next)")&&sharedRuntime.includes("i.addEventListener('input',()=>update(true))")],
   ["filter reset control",sharedRuntime.includes("data-reset-filter")&&sharedRuntime.includes("i.focus()")],
-  ["AI widget starts closed",sharedRuntime.includes('panel.hidden=true')&&!sharedRuntime.includes('setOpen(true)'),
+  ["AI widget starts closed",sharedRuntime.includes('panel.hidden=true')&&!sharedRuntime.includes('setOpen(true)')],
   ["AI widget form uses no-store POST",sharedRuntime.includes('cache:"no-store"')]
 ];
 const sharedRuntimeErrors=sharedRuntimeContracts.filter(([,ok])=>!ok).map(([name])=>name);
