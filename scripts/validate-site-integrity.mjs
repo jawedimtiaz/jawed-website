@@ -460,6 +460,11 @@ const careerMatchTrackerMetadata=fs.readFileSync("tools/career-match-resume-revi
 const careerMatchTrackerMetadataContract=careerMatchTrackerMetadata.includes('typeof x.date==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(x.date)');
 if(!careerMatchTrackerMetadataContract)errors.push("Career Match tracker records must validate their persisted date before rendering");
 else console.log("Career Match tracker metadata integrity contract: PASS");
+const careerMatchSavedActions=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchSavedActionNameContract=careerMatchSavedActions.includes('btn.setAttribute("aria-label",`${action[0]} saved analysis: ${x.title}`);row.append(btn)');
+if(!careerMatchSavedActionNameContract)errors.push("Career Match saved-analysis actions must expose contextual accessible names");
+else console.log("Career Match saved-action naming contract: PASS");
+
 const careerMatchSavedMetadata=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedMetadataContract=careerMatchSavedMetadata.includes('typeof x.title==="string"')&&careerMatchSavedMetadata.includes('typeof x.date==="string"')&&careerMatchSavedMetadata.includes('Number.isFinite(x.score)&&x.score>=0&&x.score<=100');
 if(!careerMatchSavedMetadataContract)errors.push("Career Match saved analysis metadata must validate title, date and a finite 0-100 score before rendering");
