@@ -326,6 +326,11 @@ const retirementLogicalValidationContract=(()=>{const html=fs.readFileSync("tool
 if(!retirementLogicalValidationContract)errors.push("Retirement Planning must clear prior calculated results when retirement-age or lifespan assumptions are invalid");
 else console.log("Retirement Planning logical-validation stale-result contract: PASS");
 
+
+const compoundGrowthOverflowContract=(()=>{const html=fs.readFileSync("tools/compound-growth-sip-calculator/index.html","utf8");return html.includes('if(!Number.isFinite(value)){err.textContent="The inputs are too large for this calculator. Try a smaller value.";fv.textContent=ti.textContent=eg.textContent="—";summary.textContent="";return}')})();
+if(!compoundGrowthOverflowContract)errors.push("Compound Growth & SIP must clear stale results when inputs overflow numeric calculation");
+else console.log("Compound Growth & SIP overflow stale-result contract: PASS");
+
 const financeSnapshotInvalidInputContract=(()=>{const html=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");return html.includes('if(bad){["spending","surplus","rate","reserveTarget","reserveGap","covered","assets","liabilities","netWorth"].forEach(id=>$(id).textContent="—");$("reserveSummary").textContent="";return;}')})();
 if(!financeSnapshotInvalidInputContract)errors.push("Personal Finance Snapshot must clear stale results when submitted inputs become invalid");
 else console.log("Personal Finance Snapshot invalid-input stale-result contract: PASS");
