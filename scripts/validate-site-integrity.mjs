@@ -267,6 +267,14 @@ const financeWorkspaceTabContract=
   financeWorkspace.includes('activateTab(tabs[next])');
 if(!financeWorkspaceTabContract)errors.push("Finance Planning Workspace tabs must preserve accessible ARIA semantics and keyboard navigation");
 else console.log("Finance Planning Workspace tab accessibility contract: PASS");
+const financeWorkspaceHiddenStateContract=
+  financeWorkspace.includes('id="snapshot" class="view on" role="tabpanel" aria-labelledby="tab-snapshot" aria-hidden="false" tabindex="0"')&&
+  financeWorkspace.includes('id="goals" class="view" role="tabpanel" aria-labelledby="tab-goals" aria-hidden="true" hidden tabindex="0"')&&
+  financeWorkspace.includes('id="retirement" class="view" role="tabpanel" aria-labelledby="tab-retirement" aria-hidden="true" hidden tabindex="0"')&&
+  financeWorkspace.includes('id="review" class="view" role="tabpanel" aria-labelledby="tab-review" aria-hidden="true" hidden tabindex="0"')&&
+  financeWorkspace.includes('x.setAttribute("aria-hidden",String(!active));x.hidden=!active');
+if(!financeWorkspaceHiddenStateContract)errors.push("Finance Planning Workspace tabpanels must synchronize the native hidden state with aria-hidden and the active tab");
+else console.log("Finance Planning Workspace tabpanel hidden-state contract: PASS");
 const financeWorkspaceInputContract=!financeWorkspace.includes('id="contrib"')&&!financeWorkspace.includes('for="contrib"')&&!financeWorkspace.match(/const fields=\[[^\]]*contrib/);
 if(!financeWorkspaceInputContract)errors.push("Finance Planning Workspace must not expose an unused Savings / contributions input");
 else console.log("Finance Planning Workspace input contract: PASS");
