@@ -22,7 +22,7 @@ for(const item of contract.checks||[]){
 for(const item of (contract.redirect_checks||[])){
  if(!isSafePath(item.path)) failures.push("redirect check path must be an absolute site path");
  if(!Array.isArray(item.expected_status)||item.expected_status.length<1||!item.expected_status.every(status=>Number.isInteger(status)&&status>=300&&status<=399)) failures.push(`${item.path||"<unknown>"}: redirect expected_status must be a non-empty 3xx integer array`);
- if(typeof item.location!=="string"||item.location!==contract.canonical_origin+"/") failures.push(`${item.path||"<unknown>"}: redirect location must equal canonical origin root`);
+ if(typeof item.location!=="string"||!item.location.startsWith(contract.canonical_origin+"/")) failures.push(`${item.path||"<unknown>"}: redirect location must stay on the canonical origin`);
  if(item.max_redirects!==0) failures.push(`${item.path||"<unknown>"}: canonical redirect check must not follow redirects`);
 }
 
