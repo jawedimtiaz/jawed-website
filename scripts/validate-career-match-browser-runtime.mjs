@@ -27,7 +27,7 @@ const elementId=e=>e["element-6066-11e4-a52e-4f735466cecf"]||e.ELEMENT;
 async function click(selector){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/click",{});await sleep(150)}
 async function type(selector,value){const e=await find(selector);const id=elementId(e);await command("POST","/element/"+id+"/clear",{});await command("POST","/element/"+id+"/value",{text:value,value:[...value]})}
 async function hitTest(selector){
-  return js('return (()=>{const e=document.querySelector(arguments[0]);if(!e)return {missing:true};const r=e.getBoundingClientRect();const x=Math.max(0,Math.min(innerWidth-1,r.left+r.width/2));const y=Math.max(0,Math.min(innerHeight-1,r.top+r.height/2));const h=document.elementFromPoint(x,y);return {missing:false,display:getComputedStyle(e).display,visibility:getComputedStyle(e).visibility,pointerEvents:getComputedStyle(e).pointerEvents,top:r.top,left:r.left,width:r.width,height:r.height,hitTag:h?.tagName||null,hitId:h?.id||null,hitClass:typeof h?.className==="string"?h.className:"",hitInside:!!h&&(h===e||e.contains(h))}})()',[selector]);
+  return js('return (()=>{const e=document.querySelector(arguments[0]);if(!e)return {missing:true};e.scrollIntoView({block:"center",inline:"center"});const r=e.getBoundingClientRect();const x=r.left+r.width/2;const y=r.top+r.height/2;const h=document.elementFromPoint(x,y);return {missing:false,display:getComputedStyle(e).display,visibility:getComputedStyle(e).visibility,pointerEvents:getComputedStyle(e).pointerEvents,top:r.top,left:r.left,width:r.width,height:r.height,hitTag:h?.tagName||null,hitId:h?.id||null,hitClass:typeof h?.className==="string"?h.className:"",hitInside:!!h&&(h===e||e.contains(h))}})()',[selector]);
 }
 async function checkControl(selector,label){
   const h=await hitTest(selector);
@@ -42,7 +42,7 @@ async function runViewport(width,height){
   try{
     await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
     try{await waitForElement("#file")}catch(error){let current="unknown",source="",logs=[];try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}try{logs=await command("POST","/log",{type:"browser"})}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" sourceLength="+String(source?.length||0)+" hasFileMarkup="+String(String(source).includes('id="file"'))+" logs="+JSON.stringify(logs?.slice?.(-12)||[]));} await sleep(700);
-    console.log("Viewport "+width+"x"+height+": loaded"); if(width===390){const g=await js('return {innerWidth,innerHeight,grid:document.querySelector(".grid2").getBoundingClientRect().toJSON(),cols:getComputedStyle(document.querySelector(".grid2")).gridTemplateColumns,resume:document.querySelector("#resume").getBoundingClientRect().toJSON(),jd:document.querySelector("#jd").getBoundingClientRect().toJSON(),sample:document.querySelector("#sample").getBoundingClientRect().toJSON(),go:document.querySelector("#go").getBoundingClientRect().toJSON()}'); console.log("Mobile geometry "+JSON.stringify(g));}
+    console.log("Viewport "+width+"x"+height+": loaded");
     for(const s of ["#theme","#sample","#go","#file","#tab-analyze","#tab-results","#tab-tracker","#tab-saved"]){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
     }
