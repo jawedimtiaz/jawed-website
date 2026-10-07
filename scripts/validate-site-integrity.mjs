@@ -627,6 +627,10 @@ const financePlanningErrorRegionContract=
   financePlanningErrorRegions.includes('id="retError" role="alert" aria-live="polite" aria-atomic="true"');
 if(!financePlanningErrorRegionContract)errors.push("Finance Planning Workspace validation errors must expose atomic alert regions");
 else console.log("Finance Planning error live-region contract: PASS");
+const financePlanningInvalidStateContract=financePlanningErrorRegions.includes('markInvalid=(fields,bad)=>fields.forEach(id=>$(id).setAttribute("aria-invalid",String(bad)))')&&financePlanningErrorRegions.includes('markInvalid(fields,true)')&&financePlanningErrorRegions.includes('markInvalid(fields,false)');
+if(!financePlanningInvalidStateContract)errors.push("Finance Planning Workspace validation must synchronize aria-invalid on affected inputs");
+else console.log("Finance Planning invalid-field state contract: PASS");
+
 
 const formErrorSummaryAtomicContract=fs.readFileSync("assets/js/main.js","utf8").includes("summary.setAttribute(\'role\',\'alert\');summary.setAttribute(\'aria-atomic\',\'true\');");
 if(!formErrorSummaryAtomicContract)errors.push("Shared form validation summaries must expose atomic alert semantics");
