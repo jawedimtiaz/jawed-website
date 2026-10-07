@@ -64,7 +64,7 @@
     {
       "path": "/work/",
       "canonical": "https://jawed.co.in/work/",
-      "expected_title": "IT Support Experience & Skills | Jawed Imtiaz",
+      "expected_title": "IT Support Experience &amp; Skills | Jawed Imtiaz",
       "expected_description": "Explore Jawed Imtiaz's IT support experience, technical skills, certifications and practical workplace technology projects.",
       "required": [
         "<title>",
