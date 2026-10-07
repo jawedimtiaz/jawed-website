@@ -2,9 +2,10 @@ import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-robots-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
 const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
+const hasUnsafeDotSegments=value=>value.split("/").some(segment=>{const normalized=segment.toLowerCase();return segment==="."||segment===".."||normalized==="%2e"||normalized==="%2e%2e";});
 if(!isHttpsOrigin(contract.production_origin)) failures.push("production robots origin must be an origin-only HTTPS URL");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("robots contract must contain at least one check");
-for(const item of contract.checks||[]){if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)||/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path)) failures.push("robots path must be absolute");if(!Number.isInteger(item.status)||item.status<100||item.status>599) failures.push(`${item.path}: status must be valid`);if(typeof item.content_type!=="string"||!item.content_type.trim()) failures.push(`${item.path}: content_type must be non-empty`);if(!Array.isArray(item.required_directives)||item.required_directives.length<1) failures.push(`${item.path}: required_directives must be non-empty`);}
+for(const item of contract.checks||[]){if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||hasUnsafeDotSegments(item.path)) failures.push("robots path must be absolute");if(!Number.isInteger(item.status)||item.status<100||item.status>599) failures.push(`${item.path}: status must be valid`);if(typeof item.content_type!=="string"||!item.content_type.trim()) failures.push(`${item.path}: content_type must be non-empty`);if(!Array.isArray(item.required_directives)||item.required_directives.length<1) failures.push(`${item.path}: required_directives must be non-empty`);}
 async function readBoundedText(response,maxBytes){
  const declared=Number(response.headers.get("content-length"));
  if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared body limit");
@@ -16,7 +17,7 @@ async function readBoundedText(response,maxBytes){
 if(contract.max_redirects!==0) failures.push("production checks must not follow redirects");
 if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production max_body_bytes must be a positive integer");
 for(const item of contract.checks||[]){
- const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\\/)\\.{1,2}(?:$|\\/)/.test(item.path)&&!/(^|\\/)(?:%2e){1,2}(?:$|\\/)/i.test(item.path);
+ const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!hasUnsafeDotSegments(item.path)&&!hasUnsafeDotSegments(item.path);
  const validOrigin=isHttpsOrigin(contract.production_origin);
  if(!validPath||!validOrigin){failures.push(`${item.path}: robots probe URL is invalid`);continue;}
  const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
