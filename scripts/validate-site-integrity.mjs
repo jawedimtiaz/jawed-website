@@ -199,6 +199,9 @@ const discoveryAiContract=[
   ["AI handoff bounds copied discovery context",mainJs.includes("raw.slice(0,200)")],
   ["AI handoff encodes the contextual prompt through URLSearchParams",mainJs.includes("aiUrl.searchParams.set('q',handoff)")]
 ];
+const discoveryFilterStatusAtomicContract=mainJs.includes('const i=document.getElementById(input),s=document.getElementById(status);if(!i||!s)return;s.setAttribute("aria-atomic","true");');
+if(!discoveryFilterStatusAtomicContract)errors.push("Discovery filter status regions must expose atomic live-region updates");
+else console.log("Discovery filter status atomicity contract: PASS");
 const discoveryFilterContract=[
   ["notes filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card),main section[id^=\"subject-\"],main section[id^=\"task-\"]'")&&mainJs.includes("label:'note results'")],
   ["tools filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card)',label:'tool results'")],
