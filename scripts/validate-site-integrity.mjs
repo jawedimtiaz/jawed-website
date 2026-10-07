@@ -120,6 +120,9 @@ const careerMatchInteractionContract=[
   ["#board click",careerMatch.includes('$("#board").addEventListener("click"')],
   ["#board change",careerMatch.includes('$("#board").addEventListener("change"')]
 ];
+const careerMatchLabelAssociationContract=careerMatch.includes('<label for="file">1. Your resume file</label>')&&!careerMatch.includes('<label for="resume">1. Your resume</label>');
+if(!careerMatchLabelAssociationContract)errors.push("Career Match resume-file label must be explicitly associated with the file input");
+else console.log("Career Match resume-file label association contract: PASS");
 const careerMatchInteractionErrors=careerMatchInteractionContract.filter(([,present])=>!present).map(([name])=>name);
 if(careerMatchInteractionErrors.length)errors.push("Career Match interaction wiring missing: "+careerMatchInteractionErrors.join(", "));
 else console.log("Career Match interaction wiring contract: PASS");
