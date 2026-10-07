@@ -331,6 +331,23 @@ const compoundGrowthOverflowContract=(()=>{const html=fs.readFileSync("tools/com
 if(!compoundGrowthOverflowContract)errors.push("Compound Growth & SIP must clear stale results when inputs overflow numeric calculation");
 else console.log("Compound Growth & SIP overflow stale-result contract: PASS");
 
+
+const interactiveToolSyntaxContracts=[
+ ["AI Prompt Builder","tools/ai-prompt-builder/index.html"],
+ ["Service Desk Note Formatter","tools/service-desk-note-formatter/index.html"],
+ ["Ticket to Knowledge Base Draft","tools/ticket-to-knowledge-base-draft/index.html"],
+ ["Personal Finance Snapshot","tools/personal-finance-snapshot/index.html"],
+ ["Compound Growth & SIP Calculator","tools/compound-growth-sip-calculator/index.html"],
+ ["Inflation & Goal Planning Calculator","tools/inflation-goal-planning-calculator/index.html"],
+ ["Retirement Planning Calculator","tools/retirement-planning-calculator/index.html"]
+];
+for(const [name,path] of interactiveToolSyntaxContracts){
+ const html=fs.readFileSync(path,"utf8"),scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(Boolean);
+ if(!scripts.length)errors.push(name+" inline runtime script is missing");
+ for(const [index,script] of scripts.entries()){try{new Function(script)}catch(error){errors.push(name+" inline script "+(index+1)+" has invalid JavaScript syntax: "+error.message)}}
+ if(scripts.length&&!errors.some(error=>error.startsWith(name+" inline script")))console.log(name+" inline JavaScript syntax contract: PASS");
+}
+
 const financeSnapshotInvalidInputContract=(()=>{const html=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");return html.includes('if(bad){["spending","surplus","rate","reserveTarget","reserveGap","covered","assets","liabilities","netWorth"].forEach(id=>$(id).textContent="—");$("reserveSummary").textContent="";return;}')})();
 if(!financeSnapshotInvalidInputContract)errors.push("Personal Finance Snapshot must clear stale results when submitted inputs become invalid");
 else console.log("Personal Finance Snapshot invalid-input stale-result contract: PASS");
