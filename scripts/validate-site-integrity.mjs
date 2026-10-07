@@ -224,7 +224,7 @@ const careerMatchTabPanelAccessibilityContract=
   careerMatch.includes('id="tab-tracker"')&&
   careerMatch.includes('id="tab-saved"')&&
   careerMatch.includes('id="v-analyze" class="view" role="tabpanel" aria-labelledby="tab-analyze"')&&
-  careerMatch.includes('id="v-results" class="view hidden" role="tabpanel" aria-labelledby="results-heading"')&&
+  careerMatch.includes('id="v-results" class="view hidden" role="tabpanel" aria-labelledby="tab-results"')&&
   careerMatch.includes('id="v-tracker" class="view hidden" role="tabpanel" aria-labelledby="tab-tracker"')&&
   careerMatch.includes('id="v-saved" class="view hidden" role="tabpanel" aria-labelledby="tab-saved"');
 if(!careerMatchTabPanelAccessibilityContract)errors.push("Career Match tabpanels must remain programmatically labelled by their controlling tabs");
