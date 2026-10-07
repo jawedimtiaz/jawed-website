@@ -36,11 +36,11 @@ async function checkControl(selector,label){
   if(!h.hitInside)throw new Error(label+": center hit is "+h.hitTag+"#"+(h.hitId||"")+"."+(h.hitClass||""));
 }
 async function runViewport(width,height){
-  const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
+  const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps); sessionId=created.sessionId;
   try{
     await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
-    try{await waitFor('()=>!!document.querySelector("#file")')}catch(error){let current="unknown",source="";try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" sourceLength="+String(source?.length||0)+" hasFileMarkup="+String(String(source).includes('id="file"'))+" hasBody="+String(String(source).includes("<body")));} await sleep(700);
+    try{await waitFor('()=>!!document.querySelector("#file")')}catch(error){let current="unknown",source="",logs=[];try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}try{logs=await command("POST","/log",{type:"browser"})}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" sourceLength="+String(source?.length||0)+" hasFileMarkup="+String(String(source).includes('id="file"'))+" logs="+JSON.stringify(logs?.slice?.(-12)||[]));} await sleep(700);
     console.log("Viewport "+width+"x"+height+": loaded");
     for(const s of ["#theme","#sample","#go","#file","#tab-analyze","#tab-results","#tab-tracker","#tab-saved"]){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
