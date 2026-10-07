@@ -120,6 +120,9 @@ const careerMatchInteractionContract=[
   ["#board click",careerMatch.includes('$("#board").addEventListener("click"')],
   ["#board change",careerMatch.includes('$("#board").addEventListener("change"')]
 ];
+const careerMatchTrackerControlNameContract=careerMatch.includes('select.setAttribute("aria-label",`Move ${x.role} at ${x.company} to`)')&&careerMatch.includes('btn.setAttribute("aria-label",`Remove ${x.role} at ${x.company}`)');
+if(!careerMatchTrackerControlNameContract)errors.push("Career Match tracker controls must expose application-specific accessible names");
+else console.log("Career Match tracker control naming contract: PASS");
 const careerMatchLabelAssociationContract=careerMatch.includes('<label for="file">1. Your resume file</label>')&&!careerMatch.includes('<label for="resume">1. Your resume</label>');
 if(!careerMatchLabelAssociationContract)errors.push("Career Match resume-file label must be explicitly associated with the file input");
 else console.log("Career Match resume-file label association contract: PASS");
