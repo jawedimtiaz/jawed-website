@@ -589,6 +589,11 @@ const financePlanningSummaryLiveRegionContract=
 if(!financePlanningSummaryLiveRegionContract)errors.push("Finance Planning Workspace dynamic summaries must expose atomic polite live regions");
 else console.log("Finance Planning summary live-region contract: PASS");
 
+const financeSnapshotErrorRegion=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");
+const financeSnapshotErrorRegionContract=financeSnapshotErrorRegion.includes('id="error" class="form-note" role="alert" aria-atomic="true"');
+if(!financeSnapshotErrorRegionContract)errors.push("Personal Finance Snapshot validation errors must expose atomic alert semantics");
+else console.log("Personal Finance Snapshot error live-region contract: PASS");
+
 const financePlanningErrorRegions=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
 const financePlanningErrorRegionContract=
   financePlanningErrorRegions.includes('id="snapshotError" role="alert" aria-atomic="true"')&&
