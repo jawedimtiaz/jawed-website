@@ -20,7 +20,7 @@ async function startDriver(){
 }
 async function command(method,path,body){return http(method,"/session/"+sessionId+path,body)}
 async function js(script,args=[]){return (await command("POST","/execute/sync",{script,args}))?.value}
-async function waitFor(expression,timeout=10000){const start=Date.now();while(Date.now()-start<timeout){if(await js("return ("+expression+")();"))return;await sleep(100)}throw new Error("Timed out waiting for "+expression)}
+async function waitForElement(selector,timeout=10000){const start=Date.now();while(Date.now()-start<timeout){try{await find(selector);return}catch{}await sleep(100)}throw new Error("Timed out waiting for element "+selector)}
 async function find(selector){return command("POST","/element",{using:"css selector",value:selector})}
 const elementId=e=>e["element-6066-11e4-a52e-4f735466cecf"]||e.ELEMENT;
 async function click(selector){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/click");await sleep(150)}
@@ -40,7 +40,7 @@ async function runViewport(width,height){
   const created=await http("POST","/session",caps); sessionId=created.sessionId;
   try{
     await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
-    try{await waitFor('()=>!!document.querySelector("#file")')}catch(error){let current="unknown",source="",logs=[];try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}try{logs=await command("POST","/log",{type:"browser"})}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" sourceLength="+String(source?.length||0)+" hasFileMarkup="+String(String(source).includes('id="file"'))+" logs="+JSON.stringify(logs?.slice?.(-12)||[]));} await sleep(700);
+    try{await waitForElement("#file")}catch(error){let current="unknown",source="",logs=[];try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}try{logs=await command("POST","/log",{type:"browser"})}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" sourceLength="+String(source?.length||0)+" hasFileMarkup="+String(String(source).includes('id="file"'))+" logs="+JSON.stringify(logs?.slice?.(-12)||[]));} await sleep(700);
     console.log("Viewport "+width+"x"+height+": loaded");
     for(const s of ["#theme","#sample","#go","#file","#tab-analyze","#tab-results","#tab-tracker","#tab-saved"]){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
