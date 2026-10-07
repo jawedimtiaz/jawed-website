@@ -597,6 +597,10 @@ const financePlanningErrorRegionContract=
 if(!financePlanningErrorRegionContract)errors.push("Finance Planning Workspace validation errors must expose atomic alert regions");
 else console.log("Finance Planning error live-region contract: PASS");
 
+const formErrorSummaryAtomicContract=fs.readFileSync("assets/js/main.js","utf8").includes("summary.setAttribute(\'role\',\'alert\');summary.setAttribute(\'aria-atomic\',\'true\');");
+if(!formErrorSummaryAtomicContract)errors.push("Shared form validation summaries must expose atomic alert semantics");
+else console.log("Shared form error-summary atomicity contract: PASS");
+
 const sharedRuntime=fs.readFileSync("assets/js/main.js","utf8");
 const sharedRuntimeContracts=[
   ["skip-link runtime",sharedRuntime.includes("s.className='skip-link'")&&sharedRuntime.includes("s.href='#main-content'")],
