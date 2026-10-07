@@ -111,6 +111,30 @@
       "expected_status": 301,
       "location": "/",
       "max_redirects": 0
+    },
+    {
+      "path": "/CCNA",
+      "expected_status": 301,
+      "location": "/work/skills/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Tips_&_Tricks",
+      "expected_status": 301,
+      "location": "/resources/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/Tips_&_Tricks2",
+      "expected_status": 301,
+      "location": "/resources/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/fortune_",
+      "expected_status": 301,
+      "location": "/",
+      "max_redirects": 0
     }
   ]
 }
