@@ -321,6 +321,11 @@ for(const [name,path,patterns] of calculatorResetContracts){
 }
 if(calculatorResetContracts.every(([name,path,patterns])=>patterns.every(pattern=>fs.readFileSync(path,"utf8").includes(pattern))))console.log("Calculator reset-state integrity contract: PASS");
 
+
+const retirementLogicalValidationContract=(()=>{const html=fs.readFileSync("tools/retirement-planning-calculator/index.html","utf8");return html.includes('out.error.textContent="Planned retirement age must be greater than current age.";["years","futureSpending","horizon","required","projected","gap"].forEach(k=>out[k].textContent="—");out.summary.textContent="";return}')&&html.includes('out.error.textContent="Planning lifespan must be greater than planned retirement age.";["years","futureSpending","horizon","required","projected","gap"].forEach(k=>out[k].textContent="—");out.summary.textContent="";return}')})();
+if(!retirementLogicalValidationContract)errors.push("Retirement Planning must clear prior calculated results when retirement-age or lifespan assumptions are invalid");
+else console.log("Retirement Planning logical-validation stale-result contract: PASS");
+
 const financeSnapshotInvalidInputContract=(()=>{const html=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");return html.includes('if(bad){["spending","surplus","rate","reserveTarget","reserveGap","covered","assets","liabilities","netWorth"].forEach(id=>$(id).textContent="—");$("reserveSummary").textContent="";return;}')})();
 if(!financeSnapshotInvalidInputContract)errors.push("Personal Finance Snapshot must clear stale results when submitted inputs become invalid");
 else console.log("Personal Finance Snapshot invalid-input stale-result contract: PASS");
