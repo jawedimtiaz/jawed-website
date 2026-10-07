@@ -21,6 +21,7 @@ async function startDriver(){
 async function command(method,path,body){return http(method,"/session/"+sessionId+path,body)}
 async function js(script,args=[]){return command("POST","/execute/sync",{script,args})}
 async function waitForElement(selector,timeout=10000){const start=Date.now();while(Date.now()-start<timeout){try{await find(selector);return}catch{}await sleep(100)}throw new Error("Timed out waiting for element "+selector)}
+async function waitFor(expression,timeout=10000){const start=Date.now();while(Date.now()-start<timeout){if(await js("return ("+expression+")();"))return;await sleep(100)}throw new Error("Timed out waiting for "+expression)}
 async function find(selector){return command("POST","/element",{using:"css selector",value:selector})}
 const elementId=e=>e["element-6066-11e4-a52e-4f735466cecf"]||e.ELEMENT;
 async function click(selector){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/click",{});await sleep(150)}
