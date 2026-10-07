@@ -400,6 +400,22 @@ const financeSnapshotInvalidInputContract=(()=>{const html=fs.readFileSync("tool
 if(!financeSnapshotInvalidInputContract)errors.push("Personal Finance Snapshot must clear stale results when submitted inputs become invalid");
 else console.log("Personal Finance Snapshot invalid-input stale-result contract: PASS");
 
+const interactiveOutputLiveRegionContracts=[
+ ["AI Prompt Builder","tools/ai-prompt-builder/index.html",'id="prompt-generated-output" class="tool-output">','<section class="content-section" aria-live="polite" aria-atomic="true">'],
+ ["Compound Growth & SIP Calculator","tools/compound-growth-sip-calculator/index.html",'id="future-value"','<section class="content-section" aria-live="polite" aria-atomic="true">'],
+ ["Inflation & Goal Planning Calculator","tools/inflation-goal-planning-calculator/index.html",'id="future"','<section class="content-section" aria-live="polite" aria-atomic="true">'],
+ ["Retirement Planning Calculator","tools/retirement-planning-calculator/index.html",'id="years"','<section class="content-section" aria-live="polite" aria-atomic="true">'],
+ ["Service Desk Note Formatter","tools/service-desk-note-formatter/index.html",'id="note-output" class="tool-output">','<section class="content-section" aria-live="polite" aria-atomic="true">'],
+ ["Ticket to Knowledge Base Draft","tools/ticket-to-knowledge-base-draft/index.html",'id="kb-output" class="tool-output">','<section class="content-section" aria-live="polite" aria-atomic="true">'],
+ ["Personal Finance Snapshot","tools/personal-finance-snapshot/index.html",'id="spending"','<div class="stats-grid" aria-live="polite" aria-atomic="true">'],
+ ["Finance Planning Workspace","tools/finance-planning-workspace/index.html",'id="spending"','<div class="stats-grid" aria-live="polite" aria-atomic="true">']
+];
+for(const [name,path,outputMarker,liveMarker] of interactiveOutputLiveRegionContracts){
+ const html=fs.readFileSync(path,"utf8");
+ if(!html.includes(liveMarker)||!html.includes(outputMarker))errors.push(name+" generated output must remain exposed as one atomic live region");
+}
+if(interactiveOutputLiveRegionContracts.every(([name,path,outputMarker,liveMarker])=>{const html=fs.readFileSync(path,"utf8");return html.includes(liveMarker)&&html.includes(outputMarker)}))console.log("Interactive generated-output live-region atomicity contract: PASS");
+
 console.log("Internal link and fragment integrity: PASS");
 const troubleshootingTool=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
 const troubleshootingFocusContract=troubleshootingTool.includes("state.node=flows[state.type].start;renderIntro();const first=r.querySelector('[data-answer]');if(first)first.focus({preventScroll:true})")&&troubleshootingTool.includes("r.setAttribute('tabindex','-1');r.focus({preventScroll:true});return}state.node=flows[state.type][nextKey];");
