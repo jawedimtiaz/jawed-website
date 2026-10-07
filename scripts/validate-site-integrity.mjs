@@ -123,6 +123,13 @@ const careerMatchInteractionContract=[
 const careerMatchInteractionErrors=careerMatchInteractionContract.filter(([,present])=>!present).map(([name])=>name);
 if(careerMatchInteractionErrors.length)errors.push("Career Match interaction wiring missing: "+careerMatchInteractionErrors.join(", "));
 else console.log("Career Match interaction wiring contract: PASS");
+const financePlanning=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
+const financeInlineScripts=[...financePlanning.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)].map(match=>match[1]).filter(script=>script.trim()&&!/^\\s*\\{/.test(script));
+for(const [index,script] of financeInlineScripts.entries()){
+  try{new Function(script)}catch(error){errors.push(`Finance Planning Workspace inline script ${index+1} has invalid JavaScript syntax: ${error.message}`)}
+}
+if(!financeInlineScripts.length)errors.push("Finance Planning Workspace inline runtime script is missing");
+else if(!errors.some(error=>error.startsWith("Finance Planning Workspace inline script")))console.log("Finance Planning Workspace inline JavaScript syntax contract: PASS");
 const careerMatchSavedContentContract=[
   ["Career Match saved content is sanitized before storage",careerMatch.includes("function parseSanitizedSavedHtml(html)")&&careerMatch.includes('serializeChildren(parseSanitizedSavedHtml(serializeChildren($("#results"))))')],
   ["Career Match saved content is sanitized before restore",careerMatch.includes("const safe=parseSanitizedSavedHtml(x.html)")&&careerMatch.includes('$("#results").replaceChildren(frag)')],
