@@ -33,5 +33,5 @@ jobs:
           chromedriver --version
       - name: Run production browser runtime smoke
         env:
-          BASE_URL: https://jawed.co.in
+          BASE_URL: https://phase-71-career-match-browse.jawed-website.pages.dev
         run: node scripts/validate-career-match-browser-runtime.mjs
