@@ -583,6 +583,11 @@ const careerMatchTrackerRenderContract=careerMatchTrackerRender.includes("functi
 if(!careerMatchTrackerRenderContract)errors.push("Career Match tracker rendering must use validated persisted records");
 else console.log("Career Match tracker render integrity contract: PASS");
 
+const careerMatchResultActions=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchResultActionNameContract=careerMatchResultActions.includes('<button data-a="copy" aria-label="Copy ${title}">Copy</button><button data-a="edit" aria-label="Edit ${title}">Edit</button><button data-a="dl" aria-label="Download ${title}">Download</button><button data-a="save" aria-label="Save ${title} analysis">Save Analysis</button>');
+if(!careerMatchResultActionNameContract)errors.push("Career Match generated result actions must expose contextual accessible names");
+else console.log("Career Match result-action naming contract: PASS");
+
 const careerMatchEditableResult=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchEditableResultContract=careerMatchEditableResult.includes('bd.setAttribute("contenteditable","true");bd.setAttribute("aria-label",`${t} editable content`);bd.focus();b.textContent="Done"')&&careerMatchEditableResult.includes('bd.removeAttribute("contenteditable");bd.removeAttribute("aria-label");b.textContent="Edit"');
 if(!careerMatchEditableResultContract)errors.push("Career Match editable result bodies must expose a contextual accessible name while editing");
