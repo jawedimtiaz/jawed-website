@@ -109,6 +109,20 @@ for(const [index,script] of careerMatchInlineScripts.entries()){
 }
 if(!careerMatchInlineScripts.length)errors.push("Career Match inline runtime script is missing");
 else if(!errors.some(error=>error.startsWith("Career Match inline script")))console.log("Career Match inline JavaScript syntax contract: PASS");
+const careerMatchInteractionContract=[
+  ["#theme",careerMatch.includes('$("#theme").onclick=')],
+  ["#sample",careerMatch.includes('$("#sample").onclick=')],
+  ["#go",careerMatch.includes('$("#go").onclick=')],
+  ["#file",careerMatch.includes('$("#file").onchange=')],
+  ["#results",careerMatch.includes('$("#results").addEventListener("click"')],
+  ["#savedList",careerMatch.includes('$("#savedList").onclick=')],
+  ["#addJob",careerMatch.includes('$("#addJob").onclick=')],
+  ["#board click",careerMatch.includes('$("#board").addEventListener("click"')],
+  ["#board change",careerMatch.includes('$("#board").addEventListener("change"')]
+];
+const careerMatchInteractionErrors=careerMatchInteractionContract.filter(([,present])=>!present).map(([name])=>name);
+if(careerMatchInteractionErrors.length)errors.push("Career Match interaction wiring missing: "+careerMatchInteractionErrors.join(", "));
+else console.log("Career Match interaction wiring contract: PASS");
 const careerMatchSavedContentContract=[
   ["Career Match saved content is sanitized before storage",careerMatch.includes("function parseSanitizedSavedHtml(html)")&&careerMatch.includes('serializeChildren(parseSanitizedSavedHtml(serializeChildren($("#results"))))')],
   ["Career Match saved content is sanitized before restore",careerMatch.includes("const safe=parseSanitizedSavedHtml(x.html)")&&careerMatch.includes('$("#results").replaceChildren(frag)')],
