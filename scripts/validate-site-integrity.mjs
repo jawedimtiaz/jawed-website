@@ -415,6 +415,22 @@ for(const [name,path,outputMarker,liveMarker] of interactiveOutputLiveRegionCont
  if(!html.includes(liveMarker)||!html.includes(outputMarker))errors.push(name+" generated output must remain exposed as one atomic live region");
 }
 if(interactiveOutputLiveRegionContracts.every(([name,path,outputMarker,liveMarker])=>{const html=fs.readFileSync(path,"utf8");return html.includes(liveMarker)&&html.includes(outputMarker)}))console.log("Interactive generated-output live-region atomicity contract: PASS");
+const toolStatusLiveRegionContracts=[
+ ["AI Prompt Builder","tools/ai-prompt-builder/index.html",'id="prompt-status" class="form-note" role="status" aria-live="polite" aria-atomic="true"'],
+ ["Compound Growth & SIP Calculator","tools/compound-growth-sip-calculator/index.html",'id="growth-summary" class="form-note" role="status" aria-live="polite" aria-atomic="true"'],
+ ["Inflation & Goal Planning Calculator","tools/inflation-goal-planning-calculator/index.html",'id="goal-summary" class="form-note" role="status" aria-live="polite" aria-atomic="true"'],
+ ["Retirement Planning Calculator","tools/retirement-planning-calculator/index.html",'id="retirement-summary" class="form-note" role="status" aria-live="polite" aria-atomic="true"'],
+ ["Personal Finance Snapshot","tools/personal-finance-snapshot/index.html",'id="reserveSummary" class="form-note" role="status" aria-live="polite" aria-atomic="true"'],
+ ["Service Desk Note Formatter","tools/service-desk-note-formatter/index.html",'id="note-status" class="form-note" role="status" aria-live="polite" aria-atomic="true"'],
+ ["Ticket to Knowledge Base Draft","tools/ticket-to-knowledge-base-draft/index.html",'id="kb-status" class="form-note" role="status" aria-live="polite" aria-atomic="true"']
+];
+for(const [name,path,markerText] of toolStatusLiveRegionContracts){
+ const html=fs.readFileSync(path,"utf8");
+ if(!html.includes(markerText))errors.push(name+" status feedback must expose an atomic polite live region");
+}
+if(toolStatusLiveRegionContracts.every(([name,path,markerText])=>fs.readFileSync(path,"utf8").includes(markerText)))console.log("Tool status live-region accessibility contract: PASS");
+
+
 
 console.log("Internal link and fragment integrity: PASS");
 const troubleshootingTool=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
