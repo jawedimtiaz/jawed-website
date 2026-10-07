@@ -61,15 +61,42 @@
   "redirect_checks": [
     {
       "path": "/",
-      "expected_status": [301,308],
+      "expected_status": [
+        301,
+        308
+      ],
       "location": "https://jawed.co.in/",
       "max_redirects": 0
     },
     {
       "path": "/sitemap.xml",
-      "expected_status": [301,308],
+      "expected_status": [
+        301,
+        308
+      ],
       "location": "https://jawed.co.in/sitemap.xml",
       "max_redirects": 0
+    }
+  ],
+  "googlebot_checks": [
+    {
+      "path": "/sitemap.xml",
+      "status": 200,
+      "content_type": "application/xml",
+      "required_markers": [
+        "<urlset",
+        "https://jawed.co.in/"
+      ]
+    },
+    {
+      "path": "/robots.txt",
+      "status": 200,
+      "content_type": "text/plain",
+      "required_markers": [
+        "User-agent: *",
+        "Allow: /",
+        "Sitemap: https://jawed.co.in/sitemap.xml"
+      ]
     }
   ]
 }
