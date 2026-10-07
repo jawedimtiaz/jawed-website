@@ -61,11 +61,14 @@
   "redirect_checks": [
     {
       "path": "/",
-      "expected_status": [
-        301,
-        308
-      ],
+      "expected_status": [301,308],
       "location": "https://jawed.co.in/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/sitemap.xml",
+      "expected_status": [301,308],
+      "location": "https://jawed.co.in/sitemap.xml",
       "max_redirects": 0
     }
   ]
