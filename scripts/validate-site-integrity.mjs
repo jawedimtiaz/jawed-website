@@ -582,6 +582,13 @@ const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fro
 if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
 else console.log("Personal Finance Snapshot reset contract: PASS");
 
+const financePlanningSummary=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
+const financePlanningSummaryLiveRegionContract=
+  financePlanningSummary.includes('<p class="summary" id="reserveText" role="status" aria-live="polite" aria-atomic="true"></p>')&&
+  financePlanningSummary.includes('<p class="summary" id="retSummary" role="status" aria-live="polite" aria-atomic="true"></p>');
+if(!financePlanningSummaryLiveRegionContract)errors.push("Finance Planning Workspace dynamic summaries must expose atomic polite live regions");
+else console.log("Finance Planning summary live-region contract: PASS");
+
 const sharedRuntime=fs.readFileSync("assets/js/main.js","utf8");
 const sharedRuntimeContracts=[
   ["skip-link runtime",sharedRuntime.includes("s.className='skip-link'")&&sharedRuntime.includes("s.href='#main-content'")],
