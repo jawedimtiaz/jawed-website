@@ -1,5 +1,5 @@
 # Canonical host and legacy entry points
-/index.html /
+/index.html / 301
 /About_Me.html /about/ 301
 /Feedback.html /contact/ 301
 /Disclaimer.html /privacy/ 301
