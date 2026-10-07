@@ -342,7 +342,7 @@ const interactiveToolSyntaxContracts=[
  ["Retirement Planning Calculator","tools/retirement-planning-calculator/index.html"]
 ];
 for(const [name,path] of interactiveToolSyntaxContracts){
- const html=fs.readFileSync(path,"utf8"),scripts=[...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)].map(m=>m[1]).filter(Boolean);
+ const html=fs.readFileSync(path,"utf8"),scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(Boolean);
  if(!scripts.length)errors.push(name+" inline runtime script is missing");
  for(const [index,script] of scripts.entries()){try{new Function(script)}catch(error){errors.push(name+" inline script "+(index+1)+" has invalid JavaScript syntax: "+error.message)}}
  if(scripts.length&&!errors.some(error=>error.startsWith(name+" inline script")))console.log(name+" inline JavaScript syntax contract: PASS");
