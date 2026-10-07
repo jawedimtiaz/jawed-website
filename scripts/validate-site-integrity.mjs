@@ -130,6 +130,15 @@ for(const [index,script] of financeInlineScripts.entries()){
 }
 if(!financeInlineScripts.length)errors.push("Finance Planning Workspace inline runtime script is missing");
 else if(!errors.some(error=>error.startsWith("Finance Planning Workspace inline script")))console.log("Finance Planning Workspace inline JavaScript syntax contract: PASS");
+const financeInteractionContract=[
+  ["input recalculation listener",financePlanning.includes('ids.forEach(i=>i.addEventListener("input",calc))')],
+  ["tab click activation",financePlanning.includes('tabs.forEach(b=>b.onclick=()=>activateTab(b))')],
+  ["tab keyboard navigation",financePlanning.includes('tabs.forEach((b,index)=>b.addEventListener("keydown"')],
+  ["initial calculation",financePlanning.includes("calc()})();")]
+];
+const financeInteractionErrors=financeInteractionContract.filter(([,present])=>!present).map(([name])=>name);
+if(financeInteractionErrors.length)errors.push("Finance Planning Workspace interaction wiring missing: "+financeInteractionErrors.join(", "));
+else console.log("Finance Planning Workspace interaction wiring contract: PASS");
 const careerMatchSavedContentContract=[
   ["Career Match saved content is sanitized before storage",careerMatch.includes("function parseSanitizedSavedHtml(html)")&&careerMatch.includes('serializeChildren(parseSanitizedSavedHtml(serializeChildren($("#results"))))')],
   ["Career Match saved content is sanitized before restore",careerMatch.includes("const safe=parseSanitizedSavedHtml(x.html)")&&careerMatch.includes('$("#results").replaceChildren(frag)')],
