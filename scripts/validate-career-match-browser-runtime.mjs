@@ -36,11 +36,11 @@ async function checkControl(selector,label){
   if(!h.hitInside)throw new Error(label+": center hit is "+h.hitTag+"#"+(h.hitId||"")+"."+(h.hitClass||""));
 }
 async function runViewport(width,height){
-  const caps={capabilities:{alwaysMatch:{browserName:"chrome","goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
+  const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps); sessionId=created.sessionId;
   try{
     await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
-    await waitFor('()=>document.readyState==="complete"'); await sleep(700);
+    await waitFor('()=>!!document.querySelector("#file")'); await sleep(700);
     console.log("Viewport "+width+"x"+height+": loaded");
     for(const s of ["#theme","#sample","#go","#file","#tab-analyze","#tab-results","#tab-tracker","#tab-saved"]){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
