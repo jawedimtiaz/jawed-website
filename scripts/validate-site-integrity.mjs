@@ -522,6 +522,22 @@ const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fro
 if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
 else console.log("Personal Finance Snapshot reset contract: PASS");
 
+const sharedRuntime=fs.readFileSync("assets/js/main.js","utf8");
+const sharedRuntimeContracts=[
+  ["skip-link runtime",sharedRuntime.includes("s.className='skip-link'")&&sharedRuntime.includes("s.href='#main-content'")],
+  ["mobile navigation toggle",sharedRuntime.includes("b.addEventListener('click'")&&sharedRuntime.includes("b.setAttribute('aria-expanded',String(o))")],
+  ["mobile navigation Escape close",sharedRuntime.includes("if(e.key==='Escape'){n.classList.remove('is-open')")],
+  ["global form validation",sharedRuntime.includes("document.addEventListener('submit',e=>{const form=e.target")&&sharedRuntime.includes("invalid[0].focus()")],
+  ["contact form submit handler",sharedRuntime.includes("f.addEventListener('submit',e=>{e.preventDefault()")],
+  ["filter URL synchronization",sharedRuntime.includes("window.history.replaceState({},'',next)")&&sharedRuntime.includes("i.addEventListener('input',()=>update(true))")],
+  ["filter reset control",sharedRuntime.includes("data-reset-filter")&&sharedRuntime.includes("i.focus()")],
+  ["AI widget starts closed",sharedRuntime.includes('panel.hidden=true')&&!sharedRuntime.includes('setOpen(true)')],
+  ["AI widget form uses no-store POST",sharedRuntime.includes('cache:"no-store"')]
+];
+const sharedRuntimeErrors=sharedRuntimeContracts.filter(([,ok])=>!ok).map(([name])=>name);
+if(sharedRuntimeErrors.length)errors.push("Shared runtime regression contract missing: "+sharedRuntimeErrors.join(", "));
+else console.log("Shared runtime interaction contract: PASS");
+
 assert.equal(errors.length,0,errors.join("\n"));
 console.log("All site-integrity contracts: PASS");
 console.log("Discovery filter exclusion contract: PASS");
