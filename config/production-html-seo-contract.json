@@ -15,7 +15,9 @@
         "<meta property=\"og:url\" content=\"https://jawed.co.in/\">",
         "<meta name=\"twitter:card\""
       ],
-      "forbidden": ["noindex"]
+      "forbidden": [
+        "noindex"
+      ]
     },
     {
       "path": "/about/",
@@ -27,7 +29,9 @@
         "<meta property=\"og:url\" content=\"https://jawed.co.in/about/\">",
         "<meta name=\"twitter:card\""
       ],
-      "forbidden": ["noindex"]
+      "forbidden": [
+        "noindex"
+      ]
     },
     {
       "path": "/ai/",
@@ -39,7 +43,9 @@
         "<meta property=\"og:url\" content=\"https://jawed.co.in/ai/\">",
         "<meta name=\"twitter:card\""
       ],
-      "forbidden": ["noindex"]
+      "forbidden": [
+        "noindex"
+      ]
     },
     {
       "path": "/notes/",
@@ -51,7 +57,41 @@
         "<meta property=\"og:url\" content=\"https://jawed.co.in/notes/\">",
         "<meta name=\"twitter:card\""
       ],
-      "forbidden": ["noindex"]
+      "forbidden": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/work/",
+      "canonical": "https://jawed.co.in/work/",
+      "expected_title": "IT Support Experience & Skills | Jawed Imtiaz",
+      "expected_description": "Explore Jawed Imtiaz's IT support experience, technical skills, certifications and practical workplace technology projects.",
+      "required": [
+        "<title>",
+        "<meta name=\"description\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/work/\">",
+        "<meta property=\"og:url\"",
+        "<meta name=\"twitter:card\""
+      ],
+      "forbidden": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/topics/",
+      "canonical": "https://jawed.co.in/topics/",
+      "expected_title": "Topics | Jawed Imtiaz",
+      "expected_description": "Browse Jawed Imtiaz's practical knowledge topics across technology, AI, investing, personal finance and tools.",
+      "required": [
+        "<title>",
+        "<meta name=\"description\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/topics/\">",
+        "<meta property=\"og:url\"",
+        "<meta name=\"twitter:card\""
+      ],
+      "forbidden": [
+        "noindex"
+      ]
     }
   ]
 }
