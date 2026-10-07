@@ -124,7 +124,7 @@ const careerMatchInteractionErrors=careerMatchInteractionContract.filter(([,pres
 if(careerMatchInteractionErrors.length)errors.push("Career Match interaction wiring missing: "+careerMatchInteractionErrors.join(", "));
 else console.log("Career Match interaction wiring contract: PASS");
 const financePlanning=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
-const financeInlineScripts=[...financePlanning.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)].map(match=>match[1]).filter(script=>script.trim()&&!/^\\s*\\{/.test(script));
+const financeInlineScripts=[...financePlanning.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match=>match[1]).filter(script=>script.trim()&&!/^\s*\{/.test(script));
 for(const [index,script] of financeInlineScripts.entries()){
   try{new Function(script)}catch(error){errors.push(`Finance Planning Workspace inline script ${index+1} has invalid JavaScript syntax: ${error.message}`)}
 }
