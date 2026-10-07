@@ -362,6 +362,15 @@ const staleCopyPreventionContracts=[
 for(const [name,path,message] of staleCopyPreventionContracts){const html=fs.readFileSync(path,"utf8");if(!html.includes("c.hidden=true")||!html.includes(message))errors.push(name+" must hide its copy action when inputs change");}
 if(staleCopyPreventionContracts.every(([name,path,message])=>{const html=fs.readFileSync(path,"utf8");return html.includes("c.hidden=true")&&html.includes(message)}))console.log("Stale-copy prevention contract: PASS");
 
+
+const staleOutputClearContracts=[
+ ["AI Prompt Builder","tools/ai-prompt-builder/index.html","o.textContent='Your prompt will appear here.'"],
+ ["Service Desk Note Formatter","tools/service-desk-note-formatter/index.html","o.textContent='Your formatted note will appear here.'"],
+ ["Ticket to Knowledge Base Draft","tools/ticket-to-knowledge-base-draft/index.html","o.textContent='Your draft will appear here.'"]
+];
+for(const [name,path,marker] of staleOutputClearContracts){if(!fs.readFileSync(path,"utf8").includes(marker))errors.push(name+" must clear generated output when inputs change");}
+if(staleOutputClearContracts.every(([name,path,marker])=>fs.readFileSync(path,"utf8").includes(marker)))console.log("Stale generated-output clearing contract: PASS");
+
 const financeSnapshotInvalidInputContract=(()=>{const html=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");return html.includes('if(bad){["spending","surplus","rate","reserveTarget","reserveGap","covered","assets","liabilities","netWorth"].forEach(id=>$(id).textContent="—");$("reserveSummary").textContent="";return;}')})();
 if(!financeSnapshotInvalidInputContract)errors.push("Personal Finance Snapshot must clear stale results when submitted inputs become invalid");
 else console.log("Personal Finance Snapshot invalid-input stale-result contract: PASS");
