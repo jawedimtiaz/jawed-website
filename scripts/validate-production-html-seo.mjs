@@ -33,8 +33,10 @@ for(const item of contract.checks||[]){
   else if(!canonicalMatches[0].includes(`href="${item.canonical}"`)) failures.push(`${item.path}: canonical URL mismatch`);
   const title=(body.match(/<title>([^<]*)<\/title>/i)||[])[1]?.trim()||"";
   if(!title) failures.push(`${item.path}: empty title`);
+  if(typeof item.expected_title==="string"&&title!==item.expected_title) failures.push(`${item.path}: title mismatch`);
   const description=(body.match(/<meta name="description" content="([^"]*)"/i)||[])[1]?.trim()||"";
   if(!description) failures.push(`${item.path}: empty meta description`);
+  if(typeof item.expected_description==="string"&&description!==item.expected_description) failures.push(`${item.path}: meta description mismatch`);
  }catch(error){failures.push(`${item.path}: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
  finally{clearTimeout(timer)}
 }
