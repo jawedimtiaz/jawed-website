@@ -40,7 +40,7 @@ async function runViewport(width,height){
   const created=await http("POST","/session",caps); sessionId=created.sessionId;
   try{
     await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
-    try{await waitFor('()=>!!document.querySelector("#file")')}catch(error){const diag=await js('return {url:location.href,title:document.title,ready:document.readyState,body:document.body?.innerText?.slice(0,500)||"",html:document.documentElement?.outerHTML?.slice(0,1200)||""}');throw new Error("page did not expose #file: "+JSON.stringify(diag));} await sleep(700);
+    try{await waitFor('()=>!!document.querySelector("#file")')}catch(error){let current="unknown",source="";try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" source="+JSON.stringify(String(source).slice(0,1600)));} await sleep(700);
     console.log("Viewport "+width+"x"+height+": loaded");
     for(const s of ["#theme","#sample","#go","#file","#tab-analyze","#tab-results","#tab-tracker","#tab-saved"]){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
