@@ -256,6 +256,9 @@ const financeWorkspaceTabContract=
   financeWorkspace.includes('aria-controls="snapshot"')&&
   financeWorkspace.includes('aria-selected="true"')&&
   financeWorkspace.includes('tabIndex=active?0:-1')&&
+  financeWorkspace.includes('x.setAttribute("aria-hidden",String(!active))')&&
+  financeWorkspace.includes('id="snapshot" class="view on" role="tabpanel" aria-labelledby="tab-snapshot" aria-hidden="false"')&&
+  financeWorkspace.includes('id="goals" class="view" role="tabpanel" aria-labelledby="tab-goals" aria-hidden="true"')&&
   financeWorkspace.includes('e.preventDefault();let next=index')&&
   financeWorkspace.includes('e.key==="ArrowRight"')&&
   financeWorkspace.includes('e.key==="ArrowLeft"')&&
