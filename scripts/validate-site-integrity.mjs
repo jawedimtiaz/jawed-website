@@ -103,7 +103,7 @@ for(const file of publishedHtml){
 if(internalLinkIssues.length)errors.push("Internal links or fragment targets are invalid: "+internalLinkIssues.join(", "));
 
 const careerMatch=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchInlineScripts=[...careerMatch.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match=>match[1]).filter(script=>script.trim());
+const careerMatchInlineScripts=[...careerMatch.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].filter(match=>!/<script[^>]*type=["\']application\/ld\+json["\']/i.test(match[0])).map(match=>match[1]).filter(script=>script.trim());
 for(const [index,script] of careerMatchInlineScripts.entries()){
   try{new Function(script)}catch(error){errors.push(`Career Match inline script ${index+1} has invalid JavaScript syntax: ${error.message}`)}
 }
