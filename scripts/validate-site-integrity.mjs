@@ -267,6 +267,9 @@ const financeWorkspaceTabContract=
   financeWorkspace.includes('activateTab(tabs[next])');
 if(!financeWorkspaceTabContract)errors.push("Finance Planning Workspace tabs must preserve accessible ARIA semantics and keyboard navigation");
 else console.log("Finance Planning Workspace tab accessibility contract: PASS");
+const financeWorkspaceInputContract=!financeWorkspace.includes('id="contrib"')&&!financeWorkspace.includes('for="contrib"')&&!financeWorkspace.match(/const fields=\[[^\]]*contrib/);
+if(!financeWorkspaceInputContract)errors.push("Finance Planning Workspace must not expose an unused Savings / contributions input");
+else console.log("Finance Planning Workspace input contract: PASS");
 const generatorFreshnessChecks=[
  ["AI Prompt Builder", "tools/ai-prompt-builder/index.html", "Inputs changed. Build the prompt again to refresh the output.", ["#prompt-goal","#prompt-context","#prompt-desired-output","#prompt-constraints","#prompt-example"]],
  ["Service Desk Note Formatter", "tools/service-desk-note-formatter/index.html", "Inputs changed. Format the note again to refresh the output.", ["#note-issue","#note-actions","#note-resolution","#note-followup"]],
