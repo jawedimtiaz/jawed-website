@@ -101,6 +101,27 @@ async function checkRedirect(item){
 }
 
 for(const item of (contract.redirect_checks||[])) await checkRedirect(item);
+async function checkGooglebot(item){
+ const validPath=isSafePath(item.path);
+ const validOrigin=isHttpsOrigin(contract.production_origin);
+ if(!validPath||!validOrigin){failures.push(item.path+": Googlebot probe URL is invalid");return;}
+ const url=new URL(item.path,contract.production_origin);
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{
+  const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}});
+  const type=(response.headers.get("content-type")||"").toLowerCase();
+  const body=await readBoundedText(response,contract.max_body_bytes);
+  if(response.status!==item.status) failures.push(`Googlebot ${item.path}: expected HTTP ${item.status}, got ${response.status}`);
+  if(item.content_type&&!type.startsWith(item.content_type)) failures.push(`Googlebot ${item.path}: expected content type ${item.content_type}, got ${type||"missing"}`);
+  if(response.status>=300&&response.status<400) failures.push(`Googlebot ${item.path}: unexpected redirect during Googlebot probe`);
+  for(const marker of (item.required_markers||[])) if(!body.includes(marker)) failures.push(`Googlebot ${item.path}: missing required marker ${marker}`);
+ }catch(error){failures.push(`Googlebot ${item.path}: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
+ finally{clearTimeout(timer)}
+}
+
+for(const item of (contract.googlebot_checks||[])) await checkGooglebot(item);
+
 
 if(failures.length){
   console.error("Production Smoke Reliability Gate FAILED");
