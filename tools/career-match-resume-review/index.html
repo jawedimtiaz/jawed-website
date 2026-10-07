@@ -62,7 +62,7 @@ ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
     <button type="button" role="tab" aria-selected="false" aria-controls="v-tracker" id="tab-tracker" tabindex="-1" data-v="tracker">Application Tracker</button>
     <button type="button" role="tab" aria-selected="false" aria-controls="v-saved" id="tab-saved" tabindex="-1" data-v="saved">Saved</button>
   </nav>
-  <button class="btn" id="theme" aria-label="Toggle light/dark mode">◐ Theme</button>
+  <button class="btn" id="theme" aria-label="Toggle light/dark mode" aria-pressed="false">◐ Theme</button>
 </header>
 <main id="main-content">
 <section id="v-analyze" class="view" role="tabpanel" aria-labelledby="tab-analyze" aria-hidden="false">
@@ -208,7 +208,7 @@ const $=s=>document.querySelector(s);
 const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch{toast("Browser storage unavailable");return false}}};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),1800)}
-function setTheme(t){const theme=t==="dark"||t==="light"?t:"light";document.documentElement.dataset.theme=theme;store.set("cm_theme",theme)}
+function setTheme(t){const theme=t==="dark"||t==="light"?t:"light";document.documentElement.dataset.theme=theme;store.set("cm_theme",theme);const b=$("#theme");if(b)b.setAttribute("aria-pressed",String(theme==="dark"))}
 setTheme(store.get("cm_theme",matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"));
 $("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
 function show(v){const tabs=[...document.querySelectorAll('nav[role="tablist"] [role="tab"]')];document.querySelectorAll(".view").forEach(e=>{const active=e.id==="v-"+v;e.classList.toggle("hidden",!active);e.setAttribute("aria-hidden",String(!active));e.hidden=!active});tabs.forEach(b=>{const active=b.dataset.v===v;b.classList.toggle("on",active);b.setAttribute("aria-selected",String(active));b.tabIndex=active?0:-1});if(v==="tracker")renderTracker();if(v==="saved")renderSaved();const target=document.querySelector("#v-"+v);if(target){target.setAttribute("tabindex","-1");target.focus({preventScroll:true})}}
