@@ -321,6 +321,10 @@ for(const [name,path,patterns] of calculatorResetContracts){
 }
 if(calculatorResetContracts.every(([name,path,patterns])=>patterns.every(pattern=>fs.readFileSync(path,"utf8").includes(pattern))))console.log("Calculator reset-state integrity contract: PASS");
 
+const financeSnapshotInvalidInputContract=(()=>{const html=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");return html.includes('if(bad){["spending","surplus","rate","reserveTarget","reserveGap","covered","assets","liabilities","netWorth"].forEach(id=>$(id).textContent="—");$("reserveSummary").textContent="";return;}')})();
+if(!financeSnapshotInvalidInputContract)errors.push("Personal Finance Snapshot must clear stale results when submitted inputs become invalid");
+else console.log("Personal Finance Snapshot invalid-input stale-result contract: PASS");
+
 console.log("Internal link and fragment integrity: PASS");
 const troubleshootingTool=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
 const troubleshootingFocusContract=troubleshootingTool.includes("state.node=flows[state.type].start;renderIntro();const first=r.querySelector('[data-answer]');if(first)first.focus({preventScroll:true})")&&troubleshootingTool.includes("r.setAttribute('tabindex','-1');r.focus({preventScroll:true});return}state.node=flows[state.type][nextKey];");
