@@ -353,6 +353,15 @@ const troubleshootingTreeBranchContract=(()=>{const html=fs.readFileSync("tools/
 if(!troubleshootingTreeBranchContract)errors.push("IT Troubleshooting Assistant must keep Apple and Windows change branches distinct");
 else console.log("IT Troubleshooting decision-tree branch integrity contract: PASS");
 
+
+const staleCopyPreventionContracts=[
+ ["AI Prompt Builder","tools/ai-prompt-builder/index.html","Inputs changed. Build the prompt again to refresh the output."],
+ ["Service Desk Note Formatter","tools/service-desk-note-formatter/index.html","Inputs changed. Format the note again to refresh the output."],
+ ["Ticket to Knowledge Base Draft","tools/ticket-to-knowledge-base-draft/index.html","Inputs changed. Build the draft again to refresh the output."]
+];
+for(const [name,path,message] of staleCopyPreventionContracts){const html=fs.readFileSync(path,"utf8");if(!html.includes("c.hidden=true")||!html.includes(message))errors.push(name+" must hide its copy action when inputs change");}
+if(staleCopyPreventionContracts.every(([name,path,message])=>{const html=fs.readFileSync(path,"utf8");return html.includes("c.hidden=true")&&html.includes(message)}))console.log("Stale-copy prevention contract: PASS");
+
 const financeSnapshotInvalidInputContract=(()=>{const html=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");return html.includes('if(bad){["spending","surplus","rate","reserveTarget","reserveGap","covered","assets","liabilities","netWorth"].forEach(id=>$(id).textContent="—");$("reserveSummary").textContent="";return;}')})();
 if(!financeSnapshotInvalidInputContract)errors.push("Personal Finance Snapshot must clear stale results when submitted inputs become invalid");
 else console.log("Personal Finance Snapshot invalid-input stale-result contract: PASS");
