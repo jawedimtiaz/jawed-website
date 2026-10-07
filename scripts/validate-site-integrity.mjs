@@ -124,7 +124,7 @@ const careerMatchInteractionErrors=careerMatchInteractionContract.filter(([,pres
 if(careerMatchInteractionErrors.length)errors.push("Career Match interaction wiring missing: "+careerMatchInteractionErrors.join(", "));
 else console.log("Career Match interaction wiring contract: PASS");
 const troubleshootingAssistant=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
-const troubleshootingInlineScripts=[...troubleshootingAssistant.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)].map(match=>match[1]).filter(script=>script.trim());
+const troubleshootingInlineScripts=[...troubleshootingAssistant.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match=>match[1]).filter(script=>script.trim());
 for(const [index,script] of troubleshootingInlineScripts.entries()){
   try{new Function(script)}catch(error){errors.push(`IT Troubleshooting Assistant inline script ${index+1} has invalid JavaScript syntax: ${error.message}`)}
 }
