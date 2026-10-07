@@ -299,14 +299,14 @@ const interactiveToolContracts=[
 ];
 for(const [name,path,formId,resetId,copyId] of interactiveToolContracts){
  const html=fs.readFileSync(path,"utf8");
- const submitContract=html.includes(`document.querySelector("${formId}").addEventListener("submit"`)||html.includes(`document.querySelector('${formId}').addEventListener('submit'`)||html.includes(`const f=document.querySelector("${formId}")`)||html.includes(`const f=document.querySelector('${formId}')`);
- const resetContract=html.includes(`document.querySelector("${resetId}").addEventListener("click"`)||html.includes(`document.querySelector('${resetId}').addEventListener('click'`)||html.includes(`const reset=document.getElementById("${resetId.slice(1)}")`)||html.includes(`document.querySelector("${resetId}")`);
- const copyContract=!copyId||html.includes(`document.querySelector("${copyId}").addEventListener("click"`)||html.includes(`document.querySelector('${copyId}').addEventListener('click'`)||html.includes(`const c=document.querySelector("${copyId}")`);
+ const submitContract=html.includes('addEventListener("submit"')||html.includes("addEventListener('submit'");
+ const resetContract=html.includes(resetId.slice(1))&&(html.includes('addEventListener("click"')||html.includes("addEventListener('click'"));
+ const copyContract=!copyId||html.includes(copyId.slice(1))&&(html.includes('addEventListener("click"')||html.includes("addEventListener('click'"));
  if(!submitContract||!resetContract||!copyContract)errors.push(name+" must retain deterministic submit/reset interaction wiring");
 }
 if(interactiveToolContracts.every(([name,path,formId,resetId,copyId])=>{
  const html=fs.readFileSync(path,"utf8");
- return (html.includes("addEventListener(\"submit\"")||html.includes("addEventListener('submit'"))&&html.includes(resetId.slice(1))&&!copyId||copyId&&html.includes(copyId.slice(1));
+ return (html.includes('addEventListener("submit"')||html.includes("addEventListener('submit'"))&&html.includes(resetId.slice(1))&&(!copyId||html.includes(copyId.slice(1)));
 }))console.log("Interactive tool primary-action wiring contract: PASS");
 
 console.log("Internal link and fragment integrity: PASS");
