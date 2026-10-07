@@ -71,22 +71,22 @@ ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
   <div class="grid2">
     <div class="panel"><label for="resume">1. Your resume</label>
       <input type="file" id="file" accept=".pdf,.docx,.txt" aria-label="Upload resume">
-      <div class="muted" id="fileMsg" role="status" aria-live="polite">PDF, DOCX or TXT — or paste text below.</div>
+      <div class="muted" id="fileMsg" role="status" aria-live="polite" aria-atomic="true">PDF, DOCX or TXT — or paste text below.</div>
       <textarea id="resume" placeholder="Paste resume text here"></textarea></div>
     <div class="panel"><label for="jd">2. Job description</label>
       <textarea id="jd" style="min-height:322px" placeholder="Paste the full job description here"></textarea></div>
   </div>
   <div class="row" style="margin-top:18px"><button class="btn primary" id="go">Analyze My Match</button>
-    <button class="btn" id="sample">Load sample (fictional)</button><span class="muted" id="err" role="alert" aria-live="assertive"></span></div>
+    <button class="btn" id="sample">Load sample (fictional)</button><span class="muted" id="err" role="alert" aria-live="assertive" aria-atomic="true"></span></div>
 </section>
-<section id="v-results" class="view hidden" role="tabpanel" aria-labelledby="tab-results" aria-hidden="true" hidden><div id="results" tabindex="-1" aria-live="polite"><h2 id="results-heading">Analysis results</h2><p class="empty">Run an analysis to see your dashboard.</p></div></section>
+<section id="v-results" class="view hidden" role="tabpanel" aria-labelledby="tab-results" aria-hidden="true" hidden><div id="results" tabindex="-1" aria-live="polite" aria-atomic="true"><h2 id="results-heading">Analysis results</h2><p class="empty">Run an analysis to see your dashboard.</p></div></section>
 <section id="v-tracker" class="view hidden" role="tabpanel" aria-labelledby="tab-tracker" aria-hidden="true" hidden>
   <div class="panel"><h2 style="margin-top:0">Application Tracker</h2>
     <div class="row"><div><label for="tCo">Company</label><input id="tCo" placeholder="Company" style="flex:1"></div><div><label for="tRole">Role</label><input id="tRole" placeholder="Role" style="flex:1"></div><div><label for="tSt">Application status</label><select id="tSt" style="width:auto"><option>Applied</option><option>Interview</option><option>Rejected</option><option>Offer</option></select></div>
     <button class="btn primary" id="addJob" style="padding:9px 18px;font-size:15px">Add</button></div></div>
-  <div class="board" id="board" aria-live="polite"></div>
+  <div class="board" id="board" aria-live="polite" aria-atomic="true"></div>
 </section>
-<section id="v-saved" class="view hidden" role="tabpanel" aria-labelledby="tab-saved" aria-hidden="true" hidden><div class="panel"><h2 style="margin-top:0">Saved analyses</h2><div id="savedList" aria-live="polite"></div></div></section>
+<section id="v-saved" class="view hidden" role="tabpanel" aria-labelledby="tab-saved" aria-hidden="true" hidden><div class="panel"><h2 style="margin-top:0">Saved analyses</h2><div id="savedList" aria-live="polite" aria-atomic="true"></div></div></section>
 <section class="panel" style="margin-top:18px">
   <h2 style="margin-top:0">Data, storage and privacy</h2>
   <ul>
