@@ -149,6 +149,10 @@ const missingCareerMatchContracts=careerMatchSavedContentContract.filter(([,ok])
 if(missingCareerMatchContracts.length)errors.push("Career Match saved-content contract missing: "+missingCareerMatchContracts.join(", "));
 
 const mainJs=fs.readFileSync("assets/js/main.js","utf8");
+let mainJsSyntaxError=null;
+try{new Function(mainJs)}catch(error){mainJsSyntaxError=error}
+if(mainJsSyntaxError)errors.push("assets/js/main.js has invalid JavaScript syntax: "+mainJsSyntaxError.message);
+else console.log("assets/js/main.js JavaScript syntax contract: PASS");
 const jawedAiWidgetAccessibilityContract=mainJs.includes('panel.setAttribute("role","dialog")')&&mainJs.includes('panel.setAttribute("aria-modal","false")')&&mainJs.includes('panel.setAttribute("aria-labelledby","jawed-ai-title")')&&mainJs.includes('title.id="jawed-ai-title"')&&mainJs.includes('if(open)input.focus();else toggle.focus()')&&mainJs.includes('document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!panel.hidden)setOpen(false)})');
 if(!jawedAiWidgetAccessibilityContract)errors.push("Jawed AI floating widget must expose dialog semantics, an accessible title, and keyboard focus return");
 else console.log("Jawed AI widget accessibility contract: PASS");
