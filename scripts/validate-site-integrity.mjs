@@ -583,6 +583,11 @@ const careerMatchTrackerRenderContract=careerMatchTrackerRender.includes("functi
 if(!careerMatchTrackerRenderContract)errors.push("Career Match tracker rendering must use validated persisted records");
 else console.log("Career Match tracker render integrity contract: PASS");
 
+const careerMatchThemeToggle=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchThemeToggleContract=careerMatchThemeToggle.includes('id="theme" aria-label="Toggle light/dark mode" aria-pressed="false"')&&careerMatchThemeToggle.includes('const b=$("#theme");if(b)b.setAttribute("aria-pressed",String(theme==="dark"))');
+if(!careerMatchThemeToggleContract)errors.push("Career Match theme toggle must expose and synchronize its dark-mode pressed state");
+else console.log("Career Match theme-toggle state contract: PASS");
+
 const financeSnapshot=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");
 const financeSnapshotResetContract=financeSnapshot.includes("defaults=Object.fromEntries(ids.map(id=>[id,$(id).value]))")&&financeSnapshot.includes("ids.forEach(id=>$(id).value=defaults[id])");
 if(!financeSnapshotResetContract)errors.push("Personal Finance Snapshot reset must restore all calculator fields, including fields outside the form");
