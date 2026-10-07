@@ -1,5 +1,5 @@
 # Canonical host and legacy entry points
-/index.html / 301
+/index.html /
 /About_Me.html /about/ 301
 /Feedback.html /contact/ 301
 /Disclaimer.html /privacy/ 301
@@ -17,3 +17,7 @@
 /Interview.html /work/experience/ 301
 /Quotes.html / 301
 /Gallery.html / 301
+/CCNA /work/skills/ 301
+/Tips_&_Tricks /resources/ 301
+/Tips_&_Tricks2 /resources/ 301
+/fortune_ / 301
