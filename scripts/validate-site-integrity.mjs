@@ -288,6 +288,27 @@ if(calculatorInvalidResultChecks.every(([name,path,patterns])=>patterns.every(pa
 
 
 
+const interactiveToolContracts=[
+ ["AI Prompt Builder","tools/ai-prompt-builder/index.html","#prompt-tool","#prompt-clear","#prompt-copy"],
+ ["Service Desk Note Formatter","tools/service-desk-note-formatter/index.html","#note-tool","#note-clear","#note-copy"],
+ ["Ticket to Knowledge Base Draft","tools/ticket-to-knowledge-base-draft/index.html","#kb-tool","#kb-clear","#kb-copy"],
+ ["Personal Finance Snapshot","tools/personal-finance-snapshot/index.html","#snapshot-tool","#snapshot-reset",null],
+ ["Compound Growth & SIP","tools/compound-growth-sip-calculator/index.html","#compound-tool","#compound-reset",null],
+ ["Inflation Goal Planning","tools/inflation-goal-planning-calculator/index.html","#goal-tool","#goal-reset",null],
+ ["Retirement Planning","tools/retirement-planning-calculator/index.html","#retirement-tool","#retirement-reset",null]
+];
+for(const [name,path,formId,resetId,copyId] of interactiveToolContracts){
+ const html=fs.readFileSync(path,"utf8");
+ const submitContract=html.includes(`document.querySelector("${formId}").addEventListener("submit"`)||html.includes(`document.querySelector('${formId}').addEventListener('submit'`)||html.includes(`const f=document.querySelector("${formId}")`)||html.includes(`const f=document.querySelector('${formId}')`);
+ const resetContract=html.includes(`document.querySelector("${resetId}").addEventListener("click"`)||html.includes(`document.querySelector('${resetId}').addEventListener('click'`)||html.includes(`const reset=document.getElementById("${resetId.slice(1)}")`)||html.includes(`document.querySelector("${resetId}")`);
+ const copyContract=!copyId||html.includes(`document.querySelector("${copyId}").addEventListener("click"`)||html.includes(`document.querySelector('${copyId}').addEventListener('click'`)||html.includes(`const c=document.querySelector("${copyId}")`);
+ if(!submitContract||!resetContract||!copyContract)errors.push(name+" must retain deterministic submit/reset interaction wiring");
+}
+if(interactiveToolContracts.every(([name,path,formId,resetId,copyId])=>{
+ const html=fs.readFileSync(path,"utf8");
+ return (html.includes("addEventListener(\"submit\"")||html.includes("addEventListener('submit'"))&&html.includes(resetId.slice(1))&&!copyId||copyId&&html.includes(copyId.slice(1));
+}))console.log("Interactive tool primary-action wiring contract: PASS");
+
 console.log("Internal link and fragment integrity: PASS");
 const troubleshootingTool=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
 const troubleshootingFocusContract=troubleshootingTool.includes("state.node=flows[state.type].start;renderIntro();const first=r.querySelector('[data-answer]');if(first)first.focus({preventScroll:true})")&&troubleshootingTool.includes("r.setAttribute('tabindex','-1');r.focus({preventScroll:true});return}state.node=flows[state.type][nextKey];");
