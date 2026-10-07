@@ -239,10 +239,13 @@ if(!careerMatchHiddenStateContract)errors.push("Career Match tabpanels must sync
 else console.log("Career Match tabpanel hidden-state contract: PASS");
 
 const careerMatchStatusRegionContract=
-  careerMatchStatusRegions.includes('<div class="muted" id="fileMsg" role="status" aria-live="polite">')&&
-  careerMatchStatusRegions.includes('<span class="muted" id="err" role="alert" aria-live="assertive">')&&
+  careerMatchStatusRegions.includes('<div class="muted" id="fileMsg" role="status" aria-live="polite" aria-atomic="true">')&&
+  careerMatchStatusRegions.includes('<span class="muted" id="err" role="alert" aria-live="assertive" aria-atomic="true">')&&
+  careerMatchStatusRegions.includes('id="results" tabindex="-1" aria-live="polite" aria-atomic="true"')&&
+  careerMatchStatusRegions.includes('id="board" aria-live="polite" aria-atomic="true"')&&
+  careerMatchStatusRegions.includes('id="savedList" aria-live="polite" aria-atomic="true"')&&
   careerMatchStatusRegions.includes('id="toast" role="status"');
-if(!careerMatchStatusRegionContract)errors.push("Career Match dynamic status and validation messages must expose live-region semantics");
+if(!careerMatchStatusRegionContract)errors.push("Career Match dynamic status, results, tracker and saved-analysis regions must expose atomic live-region semantics");
 else console.log("Career Match status live-region accessibility contract: PASS");
 
 const aiPage=fs.readFileSync("ai/index.html","utf8");
