@@ -400,6 +400,9 @@ else console.log("Personal Finance Snapshot invalid-input stale-result contract:
 console.log("Internal link and fragment integrity: PASS");
 const troubleshootingTool=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
 const troubleshootingFocusContract=troubleshootingTool.includes("state.node=flows[state.type].start;renderIntro();const first=r.querySelector('[data-answer]');if(first)first.focus({preventScroll:true})")&&troubleshootingTool.includes("r.setAttribute('tabindex','-1');r.focus({preventScroll:true});return}state.node=flows[state.type][nextKey];");
+const troubleshootingLiveRegionContract=troubleshootingTool.includes('id="result" aria-live="polite" aria-atomic="true"');
+if(!troubleshootingLiveRegionContract)errors.push("IT Troubleshooting Assistant result updates must be exposed as one atomic live region");
+else console.log("IT Troubleshooting result live-region atomicity contract: PASS");
 if(!troubleshootingFocusContract)errors.push("IT Troubleshooting Assistant must move focus to decision controls and terminal results");
 else console.log("IT Troubleshooting result focus contract: PASS");
 
