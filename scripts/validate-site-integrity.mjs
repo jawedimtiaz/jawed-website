@@ -123,6 +123,13 @@ const careerMatchInteractionContract=[
 const careerMatchInteractionErrors=careerMatchInteractionContract.filter(([,present])=>!present).map(([name])=>name);
 if(careerMatchInteractionErrors.length)errors.push("Career Match interaction wiring missing: "+careerMatchInteractionErrors.join(", "));
 else console.log("Career Match interaction wiring contract: PASS");
+const troubleshootingAssistant=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
+const troubleshootingInlineScripts=[...troubleshootingAssistant.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match=>match[1]).filter(script=>script.trim());
+for(const [index,script] of troubleshootingInlineScripts.entries()){
+  try{new Function(script)}catch(error){errors.push(`IT Troubleshooting Assistant inline script ${index+1} has invalid JavaScript syntax: ${error.message}`)}
+}
+if(!troubleshootingInlineScripts.length)errors.push("IT Troubleshooting Assistant inline runtime script is missing");
+else if(!errors.some(error=>error.startsWith("IT Troubleshooting Assistant inline script")))console.log("IT Troubleshooting Assistant inline JavaScript syntax contract: PASS");
 const financePlanning=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
 const financeInlineScripts=[...financePlanning.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match=>match[1]).filter(script=>script.trim()&&!/^\s*\{/.test(script));
 for(const [index,script] of financeInlineScripts.entries()){
