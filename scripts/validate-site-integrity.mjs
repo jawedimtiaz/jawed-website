@@ -348,6 +348,11 @@ for(const [name,path] of interactiveToolSyntaxContracts){
  if(scripts.length&&!errors.some(error=>error.startsWith(name+" inline script")))console.log(name+" inline JavaScript syntax contract: PASS");
 }
 
+
+const troubleshootingTreeBranchContract=(()=>{const html=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");return html.includes("yesNext:'appleChange'")&&html.includes("appleChange:{q:'Was there a recent update, configuration or application change?'")&&html.includes("yesNext:'windowsChange'")&&html.includes("windowsChange:{q:'Did the problem begin after a recent update, configuration or application change?'")&&!html.includes("}},change:{q:")})();
+if(!troubleshootingTreeBranchContract)errors.push("IT Troubleshooting Assistant must keep Apple and Windows change branches distinct");
+else console.log("IT Troubleshooting decision-tree branch integrity contract: PASS");
+
 const financeSnapshotInvalidInputContract=(()=>{const html=fs.readFileSync("tools/personal-finance-snapshot/index.html","utf8");return html.includes('if(bad){["spending","surplus","rate","reserveTarget","reserveGap","covered","assets","liabilities","netWorth"].forEach(id=>$(id).textContent="—");$("reserveSummary").textContent="";return;}')})();
 if(!financeSnapshotInvalidInputContract)errors.push("Personal Finance Snapshot must clear stale results when submitted inputs become invalid");
 else console.log("Personal Finance Snapshot invalid-input stale-result contract: PASS");
