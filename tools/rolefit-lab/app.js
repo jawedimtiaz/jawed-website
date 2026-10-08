@@ -33,11 +33,12 @@ var store="rolefit_lab_tracker_v1";function jobs(){try{return JSON.parse(localSt
 $$(".rf-step").forEach(function(b){b.addEventListener("click",function(){var target=b.dataset.step;if(target)go(target)})});
 
 }
-if(document.readyState==="loading"){
-  document.addEventListener("DOMContentLoaded",init,{once:true});
-}else{init()}
 document.addEventListener("click",function(e){
   var step=e.target.closest&&e.target.closest(".rf-step");
   if(step&&step.dataset.step){basicGo(step.dataset.step);return}
 });
+function safeInit(){try{init()}catch(error){console.error("RoleFit Lab initialization failed:",error);document.documentElement.setAttribute("data-rolefit-error","true")}}
+if(document.readyState==="loading"){
+  document.addEventListener("DOMContentLoaded",safeInit,{once:true});
+}else{safeInit()}
 }();
