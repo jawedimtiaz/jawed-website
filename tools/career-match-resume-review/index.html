@@ -19,7 +19,7 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:fl
 .btn.primary{background:linear-gradient(90deg,var(--brand),var(--brand2));color:#fff;border:0;padding:12px 24px;font-weight:600;font-size:16px}
 .btn:hover,.tool-nav button:hover,.acts button:hover{filter:brightness(1.08)}
 main{max-width:1180px;margin:0 auto;padding:24px}
-.hero h1{margin:.2em 0;font-size:clamp(26px,4vw,38px)}.hero p{color:var(--muted);max-width:720px}
+.tool-hero{margin-bottom:18px}.tool-hero h1{margin:.2em 0;font-size:clamp(30px,4vw,38px);line-height:1.15}.tool-hero p{color:var(--muted);max-width:720px}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
 .panel,.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
 textarea,input,select{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
@@ -67,7 +67,7 @@ ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
 </header>
 <main id="main-content">
 <section id="v-analyze" class="view" role="tabpanel" aria-labelledby="tab-analyze" aria-hidden="false">
-  <div class="hero"><h1>How well does your resume match this job?</h1>
+  <div class="tool-hero"><h1>How well does your resume match this job?</h1>
   <p>Paste or upload your resume and the job description. Analysis runs in your browser. The tool does not send your resume or job description to a server.</p></div>
   <div class="grid2">
     <div class="panel"><label for="file">1. Your resume file</label>
