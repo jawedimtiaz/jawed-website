@@ -1,4 +1,18 @@
-!function(){function init(){
+!function(){
+function basicGo(v){
+  var views=document.querySelectorAll(".rf-view");
+  var steps=document.querySelectorAll(".rf-step");
+  views.forEach(function(x){x.classList.toggle("on",x.id==="v-"+v)});
+  var n=["start","signals","evidence","plan","tracker"].indexOf(v);
+  steps.forEach(function(x,i){
+    var active=i===n;
+    x.classList.toggle("on",active);
+    x.setAttribute("aria-selected",active?"true":"false");
+    x.setAttribute("aria-current",active?"step":"false");
+  });
+}
+function init(){
+
 var $=function(s){return document.querySelector(s)},$$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
 var S={r:"",j:"",signals:[],rows:[],score:0};
 var SK="javascript,typescript,python,java,sql,react,angular,vue,node.js,rest api,graphql,aws,azure,gcp,docker,kubernetes,terraform,linux,git,github,jenkins,ci/cd,postgresql,mysql,mongodb,excel,power bi,tableau,data analysis,reporting,project management,stakeholder management,service management,itil,jamf,servicenow,jira,slack,customer support,technical support,troubleshooting,incident management,problem management,documentation,asset management,device management,macos,windows,networking,cybersecurity,automation,google sheets,apps script,communication,leadership,mentoring,training,technical writing,analytics".split(",");
@@ -19,5 +33,11 @@ var store="rolefit_lab_tracker_v1";function jobs(){try{return JSON.parse(localSt
 $$(".rf-step").forEach(function(b){b.addEventListener("click",function(){var target=b.dataset.step;if(target)go(target)})});
 
 }
-if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init,{once:true})}else{init()}
+if(document.readyState==="loading"){
+  document.addEventListener("DOMContentLoaded",init,{once:true});
+}else{init()}
+document.addEventListener("click",function(e){
+  var step=e.target.closest&&e.target.closest(".rf-step");
+  if(step&&step.dataset.step){basicGo(step.dataset.step);return}
+});
 }();
