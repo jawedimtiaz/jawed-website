@@ -10,7 +10,7 @@ const sitemapUrls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match
 const siteUrls=sitemapUrls.filter(url=>url.startsWith("https://jawed.co.in/"));
 const nonCanonicalSitemapUrls=sitemapUrls.filter(url=>!url.startsWith("https://jawed.co.in/"));
 const sitemapPaths=siteUrls.map(url=>url.slice("https://jawed.co.in".length)||"/");
-const sourcePaths=tree.filter(file=>file!=="404.html"&&!file.startsWith("google"));
+const sourcePaths=tree.filter(file=>file!=="404.html"&&file!=="offline.html"&&!file.startsWith("google"));
 const missingSources=sitemapPaths.filter(path=>!fs.existsSync(sourcePath(path)));
 const unsitemapPages=sourcePaths.filter(file=>{
   const path=file==="index.html"?"/":"/"+file.replace(/\/index\.html$/,"")+"/";
