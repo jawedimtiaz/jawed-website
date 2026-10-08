@@ -8,15 +8,18 @@ on:
       - ".github/workflows/twa-engineering.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   validate-twa-config:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 20
 
