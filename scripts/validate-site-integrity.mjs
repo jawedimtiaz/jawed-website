@@ -68,7 +68,7 @@ for(const file of publishedHtml){
     nav.includes('<a href="/notes/">Notes</a>')&&
     nav.includes('<a href="/blog/">Blog</a>')&&
     nav.includes('<a href="/resources/">Resources</a>')&&
-    nav.includes('<a href="/tools/">Tools</a>')&&
+    /<a href="\/tools\/"(?:\s[^>]*)?>Tools<\/a>/.test(nav)&&
     nav.includes('<a href="/ai/">AI</a>')&&
     nav.includes('<a href="/contact/">Contact</a>');
   if(!requiredNavigationContract)navigationContractErrors.push(file);
