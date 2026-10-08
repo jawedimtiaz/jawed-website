@@ -4,7 +4,9 @@
   "name": "Jawed Imtiaz",
   "launcherName": "Jawed Imtiaz",
   "display": "standalone",
-  "displayOverride": ["standalone"],
+  "displayOverride": [
+    "standalone"
+  ],
   "themeColor": "#163b7a",
   "themeColorDark": "#163b7a",
   "navigationColor": "#163b7a",
@@ -23,9 +25,8 @@
     "alias": "jawedwebsite"
   },
   "appVersionCode": 1,
-  "appVersionName": "1.0.0",
   "shortcuts": [],
-  "generatorApp": "Bubblewrap",
+  "generatorApp": "bubblewrap-cli",
   "fallbackType": "customtabs",
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
@@ -35,5 +36,8 @@
   "fingerprints": [],
   "serviceAccountJsonFile": "",
   "additionalTrustedOrigins": [],
-  "retainedBundles": 3
+  "retainedBundles": [],
+  "appVersion": "1.0.0",
+  "webManifestUrl": "https://www.jawed.co.in/manifest.json",
+  "fullScopeUrl": "https://www.jawed.co.in/"
 }
