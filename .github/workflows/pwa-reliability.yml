@@ -1,0 +1,27 @@
+name: PWA Reliability Gate
+concurrency:
+  group: pwa-reliability-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  pull_request:
+    paths: ["manifest.json","service-worker.js","offline.html","index.html","assets/js/main.js","assets/icons/**","scripts/validate-pwa.mjs",".github/workflows/pwa-reliability.yml"]
+  push:
+    branches: [main]
+    paths: ["manifest.json","service-worker.js","offline.html","index.html","assets/js/main.js","assets/icons/**","scripts/validate-pwa.mjs",".github/workflows/pwa-reliability.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pwa:
+    name: PWA contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with: {fetch-depth: 1, persist-credentials: false}
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: {node-version: 22, package-manager-cache: false}
+      - name: Run PWA validation
+        run: node scripts/validate-pwa.mjs
