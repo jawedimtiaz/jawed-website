@@ -12,7 +12,7 @@ const nonCanonicalSitemapUrls=sitemapUrls.filter(url=>!url.startsWith("https://j
 const sitemapPaths=siteUrls.map(url=>url.slice("https://jawed.co.in".length)||"/");
 const sourcePaths=tree.filter(file=>file!=="404.html"&&!file.startsWith("google")).filter(file=>{
   const html=fs.readFileSync(file,"utf8");
-  return !/<meta\\s+name=["']robots["']\\s+content=["'][^"']*\\bnoindex\\b/i.test(html);
+  return !/<meta\s+name=["']robots["']\s+content=["'][^"']*\bnoindex\b/i.test(html);
 });
 const missingSources=sitemapPaths.filter(path=>!fs.existsSync(sourcePath(path)));
 const unsitemapPages=sourcePaths.filter(file=>{
