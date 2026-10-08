@@ -129,6 +129,28 @@ else console.log("Career Match resume-file label association contract: PASS");
 const careerMatchInteractionErrors=careerMatchInteractionContract.filter(([,present])=>!present).map(([name])=>name);
 if(careerMatchInteractionErrors.length)errors.push("Career Match interaction wiring missing: "+careerMatchInteractionErrors.join(", "));
 else console.log("Career Match interaction wiring contract: PASS");
+const interviewPlanner=fs.readFileSync("tools/interview-preparation-planner/index.html","utf8");
+const interviewPlannerRuntime=fs.readFileSync("assets/js/interview-preparation-planner.js","utf8");
+const interviewPlannerRuntimeRef=interviewPlanner.includes('<script src="/assets/js/interview-preparation-planner.js" defer></script>');
+if(!interviewPlannerRuntimeRef)errors.push("Interview Preparation Planner must load its dedicated runtime");
+else console.log("Interview Preparation Planner runtime reference contract: PASS");
+for(const [index,script] of [...interviewPlannerRuntime.matchAll(/\b(?:const|let|var|function)\b/g)].entries()){}
+try{new Function(interviewPlannerRuntime)}catch(error){errors.push("Interview Preparation Planner runtime has invalid JavaScript syntax: "+error.message)}
+if(!errors.some(error=>error.startsWith("Interview Preparation Planner runtime has invalid")))console.log("Interview Preparation Planner JavaScript syntax contract: PASS");
+const interviewPlannerControls=["#jd","#resume","#results","#plan","#sample","#clear"];
+const interviewPlannerControlErrors=interviewPlannerControls.filter(selector=>!interviewPlanner.includes('id="'+selector.slice(1)+'"')).map(selector=>selector);
+if(interviewPlannerControlErrors.length)errors.push("Interview Preparation Planner controls missing: "+interviewPlannerControlErrors.join(", "));
+const interviewPlannerRuntimeContracts=[
+  ["minimum job-description length",interviewPlannerRuntime.includes("jd.length<80")],
+  ["sample action",interviewPlannerRuntime.includes("sample.addEventListener")],
+  ["clear action",interviewPlannerRuntime.includes("clear.addEventListener")],
+  ["plan action",interviewPlannerRuntime.includes("plan.addEventListener")],
+  ["duplicate initialization guard",interviewPlannerRuntime.includes("plannerReady")]
+];
+const interviewPlannerRuntimeErrors=interviewPlannerRuntimeContracts.filter(([,ok])=>!ok).map(([name])=>name);
+if(interviewPlannerRuntimeErrors.length)errors.push("Interview Preparation Planner runtime contract missing: "+interviewPlannerRuntimeErrors.join(", "));
+else console.log("Interview Preparation Planner runtime interaction contract: PASS");
+
 const troubleshootingAssistant=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
 const troubleshootingInlineScripts=[...troubleshootingAssistant.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match=>match[1]).filter(script=>script.trim());
 for(const [index,script] of troubleshootingInlineScripts.entries()){
