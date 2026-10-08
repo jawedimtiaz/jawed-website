@@ -1,0 +1,32 @@
+name: TWA Engineering Validation
+
+on:
+  pull_request:
+    paths:
+      - "android/**"
+      - "docs/phase-120-twa-engineering.md"
+      - ".github/workflows/twa-engineering.yml"
+  workflow_dispatch:
+
+jobs:
+  validate-twa-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate TWA manifest JSON
+        run: node -e "const fs=require('fs'); const x=JSON.parse(fs.readFileSync('android/twa-manifest.json','utf8')); if(x.packageId!=='in.co.jawed.website') throw new Error('Unexpected packageId'); if(x.host!=='www.jawed.co.in') throw new Error('Unexpected host'); if(x.startUrl!=='/') throw new Error('Unexpected startUrl'); if(x.signingKey?.path?.includes('..')) throw new Error('Unsafe signing key path'); console.log('TWA manifest contract: PASS')"
+
+      - name: Check signing secrets are not committed
+        run: |
+          if find android -type f \( -name "*.keystore" -o -name "*.jks" -o -name "*.p12" \) -print -quit | grep -q .; then
+            echo "Signing key material must not be committed."
+            exit 1
+          fi
+          echo "Signing-key repository boundary: PASS"
