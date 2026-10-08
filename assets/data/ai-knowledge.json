@@ -743,9 +743,41 @@
         "technical references",
         "learning"
       ]
+    },
+    {
+      "url": "/tools/interview-preparation-planner/",
+      "title": "Interview Preparation Planner",
+      "summary": "Browser-based career tool that turns a job description into practical interview preparation topics, evidence prompts, practice questions and a final checklist. It can optionally compare detected job-description signals with pasted resume text and keeps the workflow deterministic and browser-only.",
+      "keywords": [
+        "interview preparation",
+        "career",
+        "job description",
+        "interview questions",
+        "preparation plan",
+        "resume",
+        "evidence",
+        "practice questions",
+        "career tools"
+      ]
+    },
+    {
+      "url": "/tools/resume-bullet-strength-checker/",
+      "title": "Resume Bullet Strength Checker",
+      "summary": "Browser-based resume-writing tool that checks individual experience bullets for action language, measurable evidence, concise length and filler or vague phrasing. It provides a simple writing diagnostic rather than claiming to be an official ATS score.",
+      "keywords": [
+        "resume",
+        "resume bullets",
+        "career",
+        "resume writing",
+        "action verbs",
+        "measurable evidence",
+        "ats",
+        "job search",
+        "career tools"
+      ]
     }
   ],
-  "reviewed_against_sitemap_on": "2026-10-07",
+  "reviewed_against_sitemap_on": "2026-10-08",
   "coverage_policy": {
     "included": "Public site pages intended to provide factual Jawed.co.in content for AI grounding.",
     "excluded_paths": [
