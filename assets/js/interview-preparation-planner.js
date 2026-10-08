@@ -1,7 +1,7 @@
 (()=>{"use strict";
 const init=()=>{
  const j=document.getElementById("jd"),r=document.getElementById("resume"),o=document.getElementById("results"),plan=document.getElementById("plan"),sample=document.getElementById("sample"),clear=document.getElementById("clear");
- if(!j||!r||!o||!plan||!sample||!clear)return false;
+ if(!j||!r||!o||!plan||!sample||!clear)return false;if(plan.dataset.plannerReady==="true")return true;plan.dataset.plannerReady="true";
  const skills=["service desk","it support","troubleshooting","servicenow","jira","apple","jamf","macos","windows","microsoft 365","active directory","azure","networking","dns","github","javascript","html","css","python","sql","automation","powershell","linux","customer support","documentation","knowledge base","leadership","communication","problem solving","project management","excel","google sheets","apps script"];
  const esc=v=>String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
  const found=v=>skills.filter(x=>v.toLowerCase().includes(x)).slice(0,16);
