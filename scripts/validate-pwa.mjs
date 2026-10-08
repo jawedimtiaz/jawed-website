@@ -1,0 +1,17 @@
+import fs from "node:fs";
+const fail=[];
+const exists=p=>fs.existsSync(p);
+const read=p=>fs.readFileSync(p,"utf8");
+if(!exists("manifest.json"))fail.push("Missing manifest.json");
+if(!exists("service-worker.js"))fail.push("Missing service-worker.js");
+if(!exists("offline.html"))fail.push("Missing offline.html");
+if(!exists("assets/icons/pwa-192.svg")||!exists("assets/icons/pwa-512.svg"))fail.push("Missing PWA icons");
+let m=null;if(exists("manifest.json"))try{m=JSON.parse(read("manifest.json"))}catch{fail.push("manifest.json invalid JSON")};
+for(const k of ["name","short_name","description","start_url","scope","display","theme_color","background_color"])if(typeof m?.[k]!=="string"||!m[k])fail.push("Manifest missing "+k);
+if(m?.start_url!=="/")fail.push("Manifest start_url must be /");if(m?.scope!=="/")fail.push("Manifest scope must be /");if(m?.display!=="standalone")fail.push("Manifest display must be standalone");
+for(const s of ["192x192","512x512"])if(!m?.icons?.some(i=>i.sizes===s))fail.push("Manifest missing "+s+" icon");
+const sw=exists("service-worker.js")?read("service-worker.js"):"";
+for(const token of ['caches.open(CACHE_NAME)','self.skipWaiting()','self.clients.claim()','request.mode==="navigate"','url.pathname.startsWith("/api/")','request.method!=="GET"'])if(!sw.includes(token))fail.push("Service worker missing "+token);
+const main=read("assets/js/main.js");if(!main.includes('navigator.serviceWorker.register("/service-worker.js"'))fail.push("main.js service-worker registration missing");if(!main.includes('rel="manifest"'))fail.push("main.js manifest injection missing");if(!main.includes('theme-color'))fail.push("main.js theme-color injection missing");
+const index=read("index.html");if(!index.includes('<link rel="manifest" href="/manifest.json">'))fail.push("index.html manifest link missing");
+if(fail.length){console.error("PWA validation FAILED");fail.forEach(x=>console.error(" - "+x));process.exit(1)}console.log("PWA validation PASSED");
