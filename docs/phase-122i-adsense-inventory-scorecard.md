@@ -52,8 +52,9 @@ Ratings describe the repository content observed on 12 October 2026; they are no
 - **122AA:** surfaced a Career Match privacy note before the resume/job-description inputs, warning against confidential information and disclosing browser-local storage and third-party PDF/DOCX libraries. The production browser smoke initially exposed a mobile scroll/hit-test issue; the test harness was stabilized and then passed at desktop and mobile viewports.
 - **122AB:** corrected a literal escaped character in the privacy notice and refreshed this scorecard to record the privacy work.
 - **122AC:** removed a duplicate opening `<section>` tag in the Interactive Tools & AI-Assisted Experiences note after focused source inspection found unnecessary nested section markup.
+- **122AE:** added an authoritative MDN Web Docs further-reading reference to the API fundamentals note and aligned its visible update date with Article `dateModified`, preserving its original publication date.
 
-The merged remediation commits through Phase 122AC passed their applicable CI gates. Cloudflare Pages confirmed a successful production deployment for Phase 122AC commit `c4aae7f69dcdb7986f72c59c9229b73cf549da48`.
+The merged remediation commits through Phase 122AE passed their applicable CI gates. Cloudflare Pages confirmed a successful production deployment for Phase 122AE commit `3bab03216f6b031eb578632dbc4516a0cd77d154`.
 
 Each merged phase passed its applicable repository CI gates and had a successful Cloudflare Pages production deployment associated with the merge commit.
 
