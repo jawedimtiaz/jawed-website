@@ -54,7 +54,13 @@ async function waitForProductionRevision(){
     ["/tools/retirement-planning-calculator/",'el[id].value.trim()===""||!el[id].checkValidity()'],
     ["/tools/personal-finance-snapshot/",'$(id).value.trim()===""||!Number.isFinite(n(id))||n(id)<0'],
     ["/tools/personal-finance-snapshot/",'$("finance-reset").addEventListener("click"'],
-    ["/tools/finance-planning-workspace/",'if(!valid(fields))err="Retirement values must be zero or positive."']
+    ["/tools/finance-planning-workspace/",'if(!valid(fields))err="Retirement values must be zero or positive."'],
+    ["/tools/ai-prompt-builder/",'Prompt built locally in your browser.'],
+    ["/assets/js/interview-preparation-planner.js",'const sampleText="IT Support Engineer.'],
+    ["/tools/it-troubleshooting-assistant/",'Can the device reach any known website or network resource?'],
+    ["/tools/resume-bullet-strength-checker/",'const weak=[\'responsible for\''],
+    ["/tools/service-desk-note-formatter/",'Note formatted locally in your browser.'],
+    ["/tools/ticket-to-knowledge-base-draft/",'Draft built locally. Review and sanitize it before reuse.']
   ];
   for(let attempt=0;attempt<120;attempt++){
     let ready=true;
@@ -180,7 +186,7 @@ async function testBulletChecker(label){
   await checkControl("#clear",label+" bullet checker clear");
   await click("#sample");
   const output=await textOf("#results");
-  if(!output.includes("average strength")||!output.includes("bullet")||!output.includes("4/4"))throw new Error(label+" bullet checker did not produce expected sample results");
+  if(!output.includes("average strength")||!output.includes("Bullet 1:")||!output.includes("4 bullets checked locally."))throw new Error(label+" bullet checker did not produce expected sample results");
   await click("#clear");
   if(await valueOf("#bullets")!==""||!(await textOf("#results")).includes("Paste your bullets"))throw new Error(label+" bullet checker clear did not reset state");
 }
