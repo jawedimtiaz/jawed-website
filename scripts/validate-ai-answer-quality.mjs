@@ -9,7 +9,9 @@ function urls(query,primaryQuery=query){
 }
 
 function sourceFor(url){
-  const results=findRelevantKnowledge(url,5);
+  // This helper resolves a known source URL, so inspect the maximum supported result set
+  // instead of treating the normal conversational top-five limit as a source-lookup limit.
+  const results=findRelevantKnowledge(url,10);
   return results.find(source=>source.url===url);
 }
 
