@@ -105,6 +105,7 @@ assert.match(moneyNote, /net worth at that date is ₹5 lakh/);
 // Personal Finance Snapshot must reject a cleared numeric field instead of coercing it to zero.
 const snapshotHtml = fs.readFileSync("tools/personal-finance-snapshot/index.html", "utf8");
 assert.ok(snapshotHtml.includes('const bad=ids.some(id=>$(id).value.trim()===""||!Number.isFinite(n(id))||n(id)<0)'), "Snapshot validation must reject blank numeric fields");
+assert.ok(snapshotHtml.includes('if(bad){["spending","surplus","rate","reserveTarget","reserveGap","covered","assets","liabilities","netWorth"].forEach(id=>$(id).textContent="—");$("reserveSummary").textContent="";return;}'), "Invalid snapshot inputs must clear stale outputs and stop calculation");
 const snapshotExample = { income: 100000, essential: 40000, discretionary: 10000, debt: 10000, targetMonths: 6, emergency: 150000, assets: 100000 + 1000000 + 500000, liabilities: 0 };
 const snapshotSpending = snapshotExample.essential + snapshotExample.discretionary + snapshotExample.debt;
 closeTo(snapshotSpending, 60000);
