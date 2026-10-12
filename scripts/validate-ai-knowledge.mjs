@@ -57,7 +57,7 @@ for(const [url,expected] of Object.entries(unsafeUrlContractCases))assert.equal(
 const kbGuide=knowledge.entries.find(entry=>entry.url==="/notes/it-troubleshooting-guide-knowledge-base/");
 assert.equal(kbGuide?.title,"Writing Better IT Troubleshooting Guides: From Incident to Knowledge Base","AI knowledge title must match the public knowledge-base note");
 assert.equal(kbGuide?.summary.includes("illustrative VPN sign-in example that explicitly leaves the root cause unconfirmed"),true,"AI knowledge summary must reflect the sanitized worked example and preserve uncertainty");
-assert.equal(kbGuide?.keywords.includes("incident sanitization")&&kbGuide?.keywords.includes("facts versus hypotheses"),true,"AI knowledge keywords must preserve the guide's distinctive task coverage");
+assert.equal(kbGuide?.keywords.includes("incident sanitization")&&kbGuide?.keywords.includes("facts versus hypotheses")&&kbGuide?.keywords.includes("guide")&&kbGuide?.keywords.includes("service desk"),true,"AI knowledge keywords must preserve distinctive coverage and existing service-desk guide retrieval");
 
 const reviewDate=knowledge.reviewed_against_sitemap_on;
 const reviewDateMs=typeof reviewDate==="string"&&!Number.isNaN(Date.parse(reviewDate+"T23:59:59Z"))?Date.parse(reviewDate+"T23:59:59Z"):NaN;
