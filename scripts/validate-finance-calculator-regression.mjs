@@ -71,6 +71,12 @@ closeTo(retirementDefault.gap, -9613305.772518601);
 const zeroReal = retirement({ age: 40, retirementAge: 60, lifespan: 80, spending: 100000, corpus: 0, monthly: 0, inflation: 0, preReturn: 0, realReturn: 0 });
 closeTo(zeroReal.projected, 0);
 closeTo(zeroReal.required, 2000000);
+
+// Published retirement-corpus note example: ₹15 lakh spending, 30 years, 3% real return.
+const retirementNote = fs.readFileSync("notes/retirement-corpus-calculation-framework/index.html", "utf8");
+const exampleCorpusLakh = 15 * (1 - (1 + 0.03) ** (-30)) / 0.03;
+closeTo(exampleCorpusLakh, 294.00662024204684, 0.000001);
+assert.match(retirementNote, /roughly ₹294 lakh, or ₹2\.94 crore/, "Published corpus example must match the independently calculated result");
 assert.match(retirementHtml, /v\.spending\*Math\.pow\(1\+inflation,years\)/);
 assert.match(retirementHtml, /if\(preMonthly===0\)\{projected=v\.corpus\+v\.contribution\*months\}/);
 assert.match(retirementHtml, /if\(real===0\)\{required=futureSpending\*horizon\}/);
