@@ -19,7 +19,8 @@ const cases=[
   ["What are Apple enrollment models?","/notes/apple-device-management-enrollment-models/"],
   ["How can AI help with IT support?","/notes/ai-for-it-support-practical-workflow/"],
   ["How should interactive AI tools be architected?","/notes/interactive-tools-ai-assisted-experiences-architecture/"],
-  ["How does sequence-of-returns risk affect retirement withdrawals?","/notes/retirement-withdrawals-sequence-risk-income-review/"]
+  ["How does sequence-of-returns risk affect retirement withdrawals?","/notes/retirement-withdrawals-sequence-risk-income-review/"],
+  ["How do I calculate allocation drift in a portfolio?","/notes/portfolio-allocation-rebalancing-framework/"]
 ];
 
 for(const [query,expected] of cases){
@@ -32,7 +33,8 @@ const expandedPaths=[
   "/tools/it-troubleshooting-assistant/","/tools/career-match-resume-review/","/tools/finance-planning-workspace/",
   "/notes/it-service-desk-troubleshooting-workflow/","/notes/apple-device-management-enrollment-models/",
   "/notes/ai-for-it-support-practical-workflow/","/notes/interactive-tools-ai-assisted-experiences-architecture/",
-  "/notes/retirement-withdrawals-sequence-risk-income-review/"
+  "/notes/retirement-withdrawals-sequence-risk-income-review/",
+  "/notes/portfolio-allocation-rebalancing-framework/"
 ];
 for(const path of expandedPaths){
   const entry=knowledge.entries.find(item=>item.url===path);

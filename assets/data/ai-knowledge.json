@@ -525,12 +525,21 @@
     {
       "url": "/notes/portfolio-allocation-rebalancing-framework/",
       "title": "Portfolio Allocation & Rebalancing Framework",
-      "summary": "Framework for thinking about portfolio allocation and rebalancing, including target allocations, drift, and disciplined review.",
+      "summary": "Educational framework for setting an allocation policy around goals and risk tolerance, measuring drift between target and current weights, and deciding when a review may be warranted. Includes a hypothetical ₹10 lakh portfolio example comparing target equity, bond and cash weights with current values and percentage-point drift. Explains calendar or band-based review, contributions as one possible way to reduce drift, and why taxes, fees, liquidity, time horizon and product constraints matter. Does not prescribe a universal target allocation or predict markets.",
       "keywords": [
         "investing",
         "portfolio",
         "allocation",
-        "rebalancing"
+        "rebalancing",
+        "allocation drift",
+        "percentage points",
+        "worked example",
+        "target allocation",
+        "current allocation",
+        "rebalancing policy",
+        "taxes",
+        "fees",
+        "liquidity"
       ]
     },
     {
