@@ -219,3 +219,12 @@ The browser run exposed a second Personal Finance Snapshot defect: its Reset but
 PR #647 merged as `cdea4c2fc2f403324ff0d3cc1a6289beb81140ab`. The post-merge production browser smoke passed at both desktop and mobile viewports. Cloudflare Pages deployment, AI regression, SEO, site integrity, finance regression, privacy readiness, performance, supply-chain and Core Web Vitals checks all passed.
 
 This verifies the covered finance-tool interactions in headless Chrome at two viewport sizes; it is not a complete manual audit of every site page, device, assistive technology, or third-party service. The broader editorial review and external AdSense prerequisites remain open.
+
+
+## Phase 122BM — Expand production browser coverage across utility tools (2026-10-12)
+
+The Chrome/ChromeDriver production smoke suite now covers 11 interactive tools: the four finance calculators/snapshot, Finance Planning Workspace, AI Prompt Builder, Interview Preparation Planner, IT Troubleshooting Assistant, Resume Bullet Strength Checker, Service Desk Note Formatter, and Ticket-to-Knowledge-Base Draft. Tests exercise real browser clicks and text entry, visible/interactable controls, generated output, reset/clear behavior, input guards, and a troubleshooting decision-path transition. Production source markers are checked before interaction testing.
+
+PR #650 merged as `c3dfb99e9ed3a71ecb4491d50b2a41c4b1fd6a03`. The expanded production smoke passed on both desktop (1440×1100) and mobile (390×844) Chrome. The Cloudflare Pages production deployment, finance regression gate, supply-chain gate, and applicable preview checks passed.
+
+The Career Match & Resume Review tool remains covered by its separate browser-runtime workflow. These smoke tests do not establish full accessibility conformance, exhaustive device/browser coverage, or AdSense approval. The wider page-level editorial review and external AdSense prerequisites remain open.
