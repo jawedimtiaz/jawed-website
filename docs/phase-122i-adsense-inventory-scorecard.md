@@ -109,3 +109,12 @@ These entries record repository changes without treating engineering hardening a
 - **122AQ:** extended the TWA configuration validator to ensure the TWA icon URLs reference paths declared in the website's `manifest.json`. The TWA validation and signing-material guard passed, and the change was merged as `2f0f79a0ebf1b1f84c8002bc1fbcc223f144fe04`; Cloudflare Pages production deployment succeeded.
 
 These phases do not change the AdSense decision boundary. The content-readiness scorecard remains preliminary, the complete manual page-level editorial review remains unfinished, and AdSense stays pre-activation until external account/publisher/consent prerequisites and the final inventory review are complete.
+
+## Phase 122AS — Source-level note and tool structure sweep (2026-10-12)
+
+A repository-source sweep covered all 29 published note-page HTML files and all 12 published interactive-tool HTML files on `main`.
+
+- **Notes (29/29):** each inspected file had one `<title>`, one H1, one canonical link, a closing `</head>` before `<body>`, and JSON-LD blocks that parsed as valid JSON. Pages may have one or more valid JSON-LD blocks; uniform schema-block counts were not required.
+- **Interactive tools (12/12):** the static check found no `input`, `textarea`, or `select` element lacking either a matching HTML label or an `aria-label`/ `aria-labelledby` attribute.
+
+This was a source-level structural/accessibility-name check only. It did not verify rendered visibility, color contrast, keyboard operation, dynamic controls created at runtime, calculation correctness, factual accuracy, originality, content depth, or Google indexing. Those remain separate review items; this result does not complete the manual editorial review or change the AdSense pre-activation decision.
