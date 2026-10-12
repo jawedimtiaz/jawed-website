@@ -5,7 +5,7 @@ This directory contains the source configuration for the Android Trusted Web Act
 ## Scope
 
 - Package ID: `in.co.jawed.website`
-- Production origin: `https://www.jawed.co.in/`
+- Production origin: `https://jawed.co.in/`
 - Launch URL: `/`
 - Generator: GoogleChromeLabs Bubblewrap
 - Version: 1.0.0 / versionCode 1
