@@ -53,7 +53,7 @@ Ratings describe the repository content observed on 12 October 2026; they are no
 - **122AB:** corrected a literal escaped character in the privacy notice and refreshed this scorecard to record the privacy work.
 - **122AC:** removed a duplicate opening `<section>` tag in the Interactive Tools & AI-Assisted Experiences note after focused source inspection found unnecessary nested section markup.
 
-The merged remediation commits through Phase 122AA passed their applicable CI gates. Cloudflare Pages confirmed a successful production deployment for Phase 122AA commit `03a1cee15ba858bfe81f08850a51f7d22077fd3f`.
+The merged remediation commits through Phase 122AC passed their applicable CI gates. Cloudflare Pages confirmed a successful production deployment for Phase 122AC commit `c4aae7f69dcdb7986f72c59c9229b73cf549da48`.
 
 Each merged phase passed its applicable repository CI gates and had a successful Cloudflare Pages production deployment associated with the merge commit.
 
