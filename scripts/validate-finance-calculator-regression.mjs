@@ -89,6 +89,16 @@ assert.match(retirementNote, /Updated: 2026-10-12/);
 assert.match(taxComparisonNote, /"datePublished":"2026-09-28","dateModified":"2026-10-12"/);
 assert.match(taxComparisonNote, /Updated: 2026-10-12/);
 
+// Health-insurance guide: keep practical grievance escalation and official IRDAI channel discoverable.
+const healthInsuranceNote = fs.readFileSync("notes/health-insurance-understanding-the-basics/index.html", "utf8");
+assert.match(healthInsuranceNote, /If a claim or service grievance remains unresolved/);
+assert.match(healthInsuranceNote, /contacting its Grievance Redressal Officer/);
+assert.match(healthInsuranceNote, /href="https:\/\/bimabharosa\.irdai\.gov\.in\//);
+assert.match(healthInsuranceNote, /not to pay money or scan QR codes/);
+assert.match(healthInsuranceNote, /"datePublished":"2026-09-28","dateModified":"2026-10-12"/);
+assert.match(healthInsuranceNote, /Updated: 2026-10-12/);
+assert.match(healthInsuranceNote, /Sources checked: 2026-10-12/);
+
 // Additional published examples: inflation goal, emergency reserve, and net worth.
 const inflationNote = fs.readFileSync("notes/inflation-and-future-goal-planning/index.html", "utf8");
 const moneyNote = fs.readFileSync("notes/money-basics-budget-emergency-net-worth/index.html", "utf8");
