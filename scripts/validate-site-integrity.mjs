@@ -23,6 +23,10 @@ if(missingSources.length)errors.push("Sitemap routes missing source pages: "+mis
 if(unsitemapPages.length)errors.push("Published HTML pages missing from sitemap: "+unsitemapPages.join(", "));
 if(duplicateSitemapPaths.length)errors.push("Sitemap contains duplicate routes: "+duplicateSitemapPaths.join(", "));
 
+const projectPage=fs.readFileSync("work/projects/index.html","utf8");
+if(projectPage.includes("Provide a foundation for future Notes, Blog and Tools sections"))errors.push("Projects page still describes existing site sections as future work");
+if(!projectPage.includes("Delivered foundations and ongoing priorities")||!projectPage.includes("Current work focuses on content quality"))errors.push("Projects page must distinguish delivered foundations from current development priorities");
+
 const blogArticle=fs.readFileSync("blog/rebuilding-jawed-co-in/index.html","utf8");
 const blogBreadcrumbContract=blogArticle.includes('"@type":"BreadcrumbList"')&&blogArticle.includes('"position":1,"name":"Home"')&&blogArticle.includes('"position":2,"name":"Blog"')&&blogArticle.includes('"position":3,"name":"Rebuilding Jawed.co.in"');
 if(!blogBreadcrumbContract)errors.push("Blog article must preserve breadcrumb structured data matching the visible Home > Blog > Article path");
