@@ -25,13 +25,21 @@
     {
       "url": "/ai/",
       "title": "AI Assistant",
-      "summary": "Site AI assistant for discovering practical notes, tools, and resources, with follow-up questions supported by recent conversation context.",
+      "summary": "A site assistant for discovering public notes, tools and resources. It supports follow-up questions using recent conversation context and grounds answers in site knowledge. Questions and recent context are sent to the site's server-side AI endpoint and, when configured, processed by Cloudflare Workers AI. The page and privacy policy warn users not to submit credentials, sensitive personal data or confidential employer/customer information; answers should be verified for consequential decisions.",
       "keywords": [
-        "ai",
-        "assistant",
+        "site assistant",
+        "public site knowledge",
         "notes",
         "tools",
-        "resources"
+        "resources",
+        "follow-up questions",
+        "conversation context",
+        "Cloudflare Workers AI",
+        "privacy",
+        "data handling",
+        "sensitive information",
+        "confidential information",
+        "verification"
       ]
     },
     {
