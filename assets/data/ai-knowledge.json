@@ -781,24 +781,28 @@
     {
       "url": "/resources/",
       "title": "Resources",
-      "summary": "Jawed's resources page curates official documentation and technical references, including Apple Support, Jamf Pro documentation, Microsoft Learn, Cloudflare Pages documentation, GitHub documentation, and MDN Web Docs. The resources are intended to complement the site's practical notes rather than reproduce large amounts of third-party documentation.",
+      "summary": "Curated official technical references for Apple Support, Jamf Pro, Microsoft Learn, Cloudflare Pages, GitHub and MDN, paired with task-oriented guidance for using documentation safely. The page explains how to match guidance to the product/version/environment, distinguish reference material from a diagnosis, stay within approved support scope, verify the original workflow, and record evidence. Includes practical pathways for macOS, device management, Windows/Microsoft, networking, and website development.",
       "keywords": [
         "resources",
         "official documentation",
+        "primary sources",
         "apple support",
         "jamf pro",
-        "jamf documentation",
         "microsoft learn",
         "cloudflare pages",
         "github docs",
-        "git",
         "mdn",
-        "html",
-        "css",
-        "javascript",
-        "web apis",
-        "technical references",
-        "learning"
+        "macos",
+        "device management",
+        "windows",
+        "networking",
+        "website deployment",
+        "reference workflow",
+        "version verification",
+        "troubleshooting",
+        "evidence",
+        "validation",
+        "escalation"
       ]
     },
     {
