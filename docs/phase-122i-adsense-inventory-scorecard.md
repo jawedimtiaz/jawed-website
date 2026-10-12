@@ -237,3 +237,12 @@ A page-level editorial review found that `/work/projects/` still described Notes
 PR #652 merged as `e2e253440cf54ae125013164887a0915ed53db89`. Site integrity, AI regression, AdSense/privacy readiness, SEO, performance, supply-chain and Core Web Vitals checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
 
 The source-level regression guard prevents the stale “future Notes, Blog and Tools” description from returning. This change improves project-page accuracy but does not by itself establish AdSense approval. The wider page-level inventory review and external AdSense prerequisites remain open.
+
+
+## Phase 122BQ — Browser verification for content discovery filters (2026-10-12)
+
+Extended the production Chrome smoke suite to cover search and clear behavior on the Topics, Resources, Notes and Blog hubs. At desktop (1440×1100) and mobile (390×844), the suite checks that search and reset controls are interactable, a query updates the result status and URL query parameter, and clearing restores the unfiltered state and removes the query parameter.
+
+PR #654 merged as `2c7e179a8cd8f08daa45f5dbccacb18d35350acc`. The post-merge production browser runtime gate and Cloudflare Pages deployment succeeded, alongside the applicable supply-chain and finance regression checks.
+
+This verifies these four discovery interactions in headless Chrome; it does not prove complete accessibility conformance or exhaustive cross-browser behavior. The page-level editorial review and external AdSense prerequisites remain open.
