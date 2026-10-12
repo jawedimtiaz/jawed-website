@@ -1,5 +1,18 @@
 # PWA Feasibility Record
 
+## Current status (2026-10-12)
+
+This document began as the feasibility snapshot from 2026-10-08. Its original inventory below is historical and describes the state before implementation; it is not the current repository state.
+
+Since that baseline, the PWA has been implemented and production-verified. The repository now includes `manifest.json`, `service-worker.js`, `offline.html`, PWA icons, shared manifest/worker registration, and the deterministic validator at `scripts/validate-pwa.mjs`. The existing project record reports successful Android-device testing and production verification.
+
+Phase 122AO fixed the navigation-failure cache fallback so each lookup is awaited in sequence (requested page → cached home → offline page), and extended the PWA contract validator to guard that behavior. The PWA contract check passed on PR #624.
+
+The Android TWA remains a separate, gated distribution step. Its configuration now matches the current canonical origin, `https://jawed.co.in/`. A real signing certificate and owner-controlled Android/Google Play account actions are still required before Digital Asset Links can be configured or an Android package can be published.
+
+---
+
+
 ## Decision
 
 **Feasible: proceed with a bounded PWA implementation.**
