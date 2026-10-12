@@ -711,6 +711,28 @@ const sharedRuntimeErrors=sharedRuntimeContracts.filter(([,ok])=>!ok).map(([name
 if(sharedRuntimeErrors.length)errors.push("Shared runtime regression contract missing: "+sharedRuntimeErrors.join(", "));
 else console.log("Shared runtime interaction contract: PASS");
 
+
+const noteDateMetadataErrors=[];
+const noteFiles=sourcePaths.filter(file=>file.startsWith("notes/")&&file.endsWith("/index.html")&&file!=="notes/index.html");
+for(const file of noteFiles){
+ const html=fs.readFileSync(file,"utf8");
+ const articleData=[...html.matchAll(/<script type="application\\/ld\\+json">([\\s\\S]*?)<\\/script>/g)].map(match=>{try{return JSON.parse(match[1])}catch{return null}}).find(value=>value&&value["@type"]==="Article");
+ const body=html.slice(html.indexOf("</head>")).replace(/<script[\\s\\S]*?<\\/script>/gi," ").replace(/<style[\\s\\S]*?<\\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/\\s+/g," ");
+ const published=(body.match(/Published:\\s*(\\d{4}-\\d{2}-\\d{2})/)||[])[1]||null;
+ const updated=(body.match(/Updated:\\s*(\\d{4}-\\d{2}-\\d{2})/)||[])[1]||null;
+ if(!articleData||!/^\\d{4}-\\d{2}-\\d{2}$/.test(articleData.datePublished||"")||!/^\\d{4}-\\d{2}-\\d{2}$/.test(articleData.dateModified||"")){
+  noteDateMetadataErrors.push(file+": missing or invalid Article publication/update metadata");
+ }else if(published&&updated){
+  if(published!==articleData.datePublished||updated!==articleData.dateModified)noteDateMetadataErrors.push(file+": visible Published/Updated dates do not match Article datePublished/dateModified");
+ }else if(!published&&!updated&&articleData.datePublished===articleData.dateModified&&body.includes(articleData.datePublished)){
+  // Older note templates use a single visible publication date when no separate update is shown.
+ }else{
+  noteDateMetadataErrors.push(file+": visible date labels are incomplete or cannot be aligned with Article metadata");
+ }
+}
+if(noteDateMetadataErrors.length)errors.push("Note date metadata integrity failures: "+noteDateMetadataErrors.join("; "));
+else console.log("Note publication/update metadata alignment: PASS ("+noteFiles.length+" note pages checked)");
+
 assert.equal(errors.length,0,errors.join("\n"));
 console.log("All site-integrity contracts: PASS");
 console.log("Discovery filter exclusion contract: PASS");
