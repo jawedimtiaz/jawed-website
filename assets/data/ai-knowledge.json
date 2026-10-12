@@ -438,7 +438,7 @@
     {
       "url": "/notes/ai-for-it-support-practical-workflow/",
       "title": "AI for IT Support: Practical Workflow",
-      "summary": "A practical AI-for-IT-support workflow for low-risk assistance such as structuring notes, suggesting diagnostic questions, explaining unfamiliar terms and drafting knowledge-base outlines from verified information. The workflow emphasizes sanitized context, structured prompts, verification against documentation and observed behavior, and human judgment for scope, risk, procedures and validation.",
+      "summary": "A practical AI-for-IT-support workflow for safe assistance with scoping questions, error interpretation, ticket-note drafting and knowledge work. Includes a fictional vague-report example and a review checklist covering facts, evidence, risk, authorization and outcome validation. Emphasizes sanitized context, current vendor documentation, human responsibility for decisions and never recording AI-invented actions or results.",
       "keywords": [
         "ai for it support",
         "ai assistant",
@@ -450,10 +450,12 @@
         "sanitized context",
         "verification",
         "human judgment",
-        "risk",
-        "organizational policy",
-        "it troubleshooting",
-        "ticket notes"
+        "risk review",
+        "authorization",
+        "evidence",
+        "ticket notes",
+        "privacy",
+        "security"
       ]
     },
     {
