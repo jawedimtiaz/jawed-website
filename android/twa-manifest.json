@@ -1,6 +1,6 @@
 {
   "packageId": "in.co.jawed.website",
-  "host": "www.jawed.co.in",
+  "host": "jawed.co.in",
   "name": "Jawed Imtiaz",
   "launcherName": "Jawed Imtiaz",
   "display": "standalone",
@@ -16,9 +16,9 @@
   "backgroundColor": "#ffffff",
   "enableNotifications": false,
   "startUrl": "/",
-  "iconUrl": "https://www.jawed.co.in/assets/icons/pwa-512.svg",
-  "maskableIconUrl": "https://www.jawed.co.in/assets/icons/pwa-512.svg",
-  "monochromeIconUrl": "https://www.jawed.co.in/assets/icons/pwa-512.svg",
+  "iconUrl": "https://jawed.co.in/assets/icons/pwa-512.svg",
+  "maskableIconUrl": "https://jawed.co.in/assets/icons/pwa-512.svg",
+  "monochromeIconUrl": "https://jawed.co.in/assets/icons/pwa-512.svg",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./android-keystore/jawed-website.keystore",
@@ -38,6 +38,6 @@
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
   "appVersion": "1.0.0",
-  "webManifestUrl": "https://www.jawed.co.in/manifest.json",
-  "fullScopeUrl": "https://www.jawed.co.in/"
+  "webManifestUrl": "https://jawed.co.in/manifest.json",
+  "fullScopeUrl": "https://jawed.co.in/"
 }
