@@ -1,0 +1,49 @@
+name: Finance Tools Browser Runtime Gate
+concurrency:
+  group: finance-tools-browser-runtime-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  pull_request:
+    paths:
+      - "scripts/validate-finance-tools-browser-runtime.mjs"
+      - ".github/workflows/finance-tools-browser-runtime.yml"
+      - "tools/compound-growth-sip-calculator/index.html"
+      - "tools/inflation-goal-planning-calculator/index.html"
+      - "tools/retirement-planning-calculator/index.html"
+      - "tools/personal-finance-snapshot/index.html"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/validate-finance-tools-browser-runtime.mjs"
+      - ".github/workflows/finance-tools-browser-runtime.yml"
+      - "tools/compound-growth-sip-calculator/index.html"
+      - "tools/inflation-goal-planning-calculator/index.html"
+      - "tools/retirement-planning-calculator/index.html"
+      - "tools/personal-finance-snapshot/index.html"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-runtime:
+    name: Finance tools browser runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Verify browser tooling
+        run: |
+          google-chrome --version
+          chromedriver --version
+      - name: Run production finance tools browser smoke
+        env:
+          BASE_URL: https://jawed.co.in
+        run: node scripts/validate-finance-tools-browser-runtime.mjs
