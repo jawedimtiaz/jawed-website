@@ -97,3 +97,15 @@ PR #618 merged as `1b0a57beb3a02ce19ebee4e8f7edf46e03f66c30`. The build, product
 A focused accessibility pass across the interactive tools found that the resume-paste textarea in `tools/career-match-resume-review/index.html` relied on placeholder text without an associated visible label. A visible `label for="resume"` has been added. The Career Match browser runtime and applicable site/SEO/security/performance checks passed on the PR before merge. This is a small accessibility correction; it does not change resume processing or storage behavior.
 
 PR #621 merged as `1f2367bfad074dcd496a4120a593172e09e9410a`. The remaining page-level editorial audit and external AdSense prerequisites remain open.
+
+## Recent verified changes after Phase 122AL (2026-10-12)
+
+These entries record repository changes without treating engineering hardening as evidence of AdSense approval or as a substitute for the outstanding page-level editorial review.
+
+- **122AM:** recorded the Career Match resume-textarea accessibility correction in the scorecard.
+- **122AN:** aligned the Android TWA configuration and engineering documentation with the canonical production origin, `https://jawed.co.in/`. No Digital Asset Links fingerprint was guessed or deployed.
+- **122AO:** fixed the PWA navigation-failure fallback to await the requested-page, cached-home, and offline-page lookups in sequence; the PWA contract validator was extended to protect this behavior.
+- **122AP:** clarified that the original PWA feasibility record is historical and recorded the implemented PWA status and remaining owner-controlled TWA publication prerequisites.
+- **122AQ:** extended the TWA configuration validator to ensure the TWA icon URLs reference paths declared in the website's `manifest.json`. The TWA validation and signing-material guard passed, and the change was merged as `2f0f79a0ebf1b1f84c8002bc1fbcc223f144fe04`; Cloudflare Pages production deployment succeeded.
+
+These phases do not change the AdSense decision boundary. The content-readiness scorecard remains preliminary, the complete manual page-level editorial review remains unfinished, and AdSense stays pre-activation until external account/publisher/consent prerequisites and the final inventory review are complete.
