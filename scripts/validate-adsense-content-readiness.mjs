@@ -5,6 +5,14 @@ import fs from "node:fs";
 const audit=fs.readFileSync("docs/adsense-content-readiness.md","utf8");
 const inventory=JSON.parse(fs.readFileSync("config/adsense-inventory.json","utf8"));
 
+const publishedSitemap=fs.readFileSync("sitemap.xml","utf8");
+const publishedRoutes=[...publishedSitemap.matchAll(/<loc>https?:\\/\\/[^/]+([^<]*)<\\/loc>/g)].map(match=>match[1]||"/");
+for(const routePath of publishedRoutes){
+  const sourcePath=routePath==="/"?"index.html":routePath.replace(/\\/+$/,"")+"/index.html";
+  const publishedHtml=fs.readFileSync(sourcePath,"utf8");
+  assert.equal(/turn0search\\d+|cite|/.test(publishedHtml),false,"Published page exposes internal citation placeholders: "+sourcePath);
+}
+
 for(const route of ["/","/about/","/work/","/notes/","/topics/","/resources/","/blog/"])assert.equal(inventory.eligible_initial.includes(route),true,"Eligible content route missing from inventory: "+route);
 for(const route of ["/ai/","/tools/","/contact/","/privacy/"])assert.equal(inventory.excluded_initial.includes(route),true,"Excluded route missing from inventory: "+route);
 assert.equal(audit.includes("This is a site-specific readiness assessment, not a Google approval or policy determination."),true,"Audit must preserve its non-approval limitation");
