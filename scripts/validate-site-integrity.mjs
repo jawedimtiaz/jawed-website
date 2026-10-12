@@ -409,6 +409,11 @@ for(const [name,path] of interactiveToolSyntaxContracts){
 }
 
 
+const promptBuilderLineBreakContract=(()=>{const html=fs.readFileSync("tools/ai-prompt-builder/index.html","utf8");return html.includes("lines.join('\\n\\n')")&&!html.includes("lines.join('\\\\n\\\\n')")})();
+if(!promptBuilderLineBreakContract)errors.push("AI Prompt Builder must separate generated prompt fields with actual line breaks, not literal backslash-n text");
+else console.log("AI Prompt Builder output line-break contract: PASS");
+
+
 const troubleshootingTreeBranchContract=(()=>{const html=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");return html.includes("yesNext:'appleChange'")&&html.includes("appleChange:{q:'Was there a recent update, configuration or application change?'")&&html.includes("yesNext:'windowsChange'")&&html.includes("windowsChange:{q:'Did the problem begin after a recent update, configuration or application change?'")&&!html.includes("}},change:{q:")})();
 if(!troubleshootingTreeBranchContract)errors.push("IT Troubleshooting Assistant must keep Apple and Windows change branches distinct");
 else console.log("IT Troubleshooting decision-tree branch integrity contract: PASS");
