@@ -223,6 +223,7 @@
       "title": "Apple macOS First Response Checklist",
       "summary": "A practical macOS first-response checklist with symptom-based triage paths for application failures, network access, sign-in, performance/storage, and recent changes. Emphasizes safe evidence capture, least-disruptive approved checks, validating the original task, and escalation when a step risks data loss or changes security or device management.",
       "keywords": [
+        "mac",
         "macos",
         "apple",
         "first response",
