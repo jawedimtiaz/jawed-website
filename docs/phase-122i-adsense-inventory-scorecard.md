@@ -145,3 +145,12 @@ A focused interaction review found that the Compound Growth & SIP calculator res
 PR #632 merged as `450ae3e765f32beeff3598aae6886217380ec3de`. The finance regression gate, site integrity, AI production regression matrix, SEO, privacy readiness, performance, supply-chain and Core Web Vitals checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
 
 The change does not alter any calculation formula or financial assumption. Full rendered-browser verification and the remaining page-level editorial review remain open; AdSense remains pre-activation pending external prerequisites and final inventory review.
+
+
+## Phase 122AY — Retirement corpus example arithmetic (2026-10-12)
+
+A page-level review of the financial education notes independently recalculated the example in `notes/retirement-corpus-calculation-framework/index.html`. The finite-horizon real-return annuity formula gives approximately ₹294.01 lakh (₹2.94 crore) for ₹15 lakh of first-year spending, a 30-year horizon and a 3% real return. The published example was corrected from ₹296 lakh / ₹2.96 crore, and the finance-calculator regression gate now checks the example's arithmetic and published text.
+
+PR #634 merged as `b358956e7c173f79baf7001562e461595b879395`. The finance regression gate, site integrity, AI production regression matrix, SEO, privacy readiness, performance, supply-chain and Core Web Vitals checks passed; Cloudflare Pages production deployment succeeded.
+
+This is an arithmetic correction to an illustrative example, not a change to the retirement calculator formula or a personalized recommendation. Rendered-browser verification and the remaining page-level editorial review remain open. AdSense remains pre-activation pending external prerequisites and final inventory review.
