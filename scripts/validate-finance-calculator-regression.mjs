@@ -31,6 +31,7 @@ assert.match(growthHtml, /P\*factor\+C\*\(\(factor-1\)\/r\)/);
 assert.match(growthHtml, /if\(r===0\)\{value=P\+C\*n\}/);
 assert.match(growthHtml, /field\.value\.trim\(\)===""\|\|!field\.checkValidity\(\)/);
 assert.match(growthHtml, /id="growth-reset"/);
+assert.match(growthHtml, /reset\.addEventListener\("click",\(\)=>\{f\.reset\(\);err\.textContent="";calculate\(\)\}\)/, "SIP reset must restore defaults and recalculate the default result");
 
 // Inflation & goal planning: future cost = current cost × (1 + rate)^years.
 const goal = (cost, years, annualInflation, savings) => {
