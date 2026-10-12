@@ -3,14 +3,6 @@ concurrency:
   group: finance-tools-browser-runtime-${{ github.ref }}
   cancel-in-progress: true
 on:
-  pull_request:
-    paths:
-      - "scripts/validate-finance-tools-browser-runtime.mjs"
-      - ".github/workflows/finance-tools-browser-runtime.yml"
-      - "tools/compound-growth-sip-calculator/index.html"
-      - "tools/inflation-goal-planning-calculator/index.html"
-      - "tools/retirement-planning-calculator/index.html"
-      - "tools/personal-finance-snapshot/index.html"
   push:
     branches: [main]
     paths:
