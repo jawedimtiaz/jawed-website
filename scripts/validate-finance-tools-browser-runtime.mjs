@@ -53,7 +53,8 @@ async function waitForProductionRevision(){
     ["/tools/inflation-goal-planning-calculator/",'field.value.trim()===""||!field.checkValidity()'],
     ["/tools/retirement-planning-calculator/",'el[id].value.trim()===""||!el[id].checkValidity()'],
     ["/tools/personal-finance-snapshot/",'$(id).value.trim()===""||!Number.isFinite(n(id))||n(id)<0'],
-    ["/tools/personal-finance-snapshot/",'$("finance-reset").addEventListener("click"']
+    ["/tools/personal-finance-snapshot/",'$("finance-reset").addEventListener("click"'],
+    ["/tools/finance-planning-workspace/",'if(!valid(fields))err="Retirement values must be zero or positive."']
   ];
   for(let attempt=0;attempt<120;attempt++){
     let ready=true;
@@ -113,6 +114,27 @@ async function testSnapshot(label){
   await click("#finance-reset");
   const resetState={income:await valueOf("#income"),spending:await textOf("#spending"),netWorth:await textOf("#netWorth"),expectedSpending:spending,expectedNetWorth:netWorth};if(resetState.income!=="100000"||resetState.spending!==spending||resetState.netWorth!==netWorth)throw new Error(label+" snapshot reset mismatch: "+JSON.stringify(resetState));
 }
+async function testWorkspace(label){
+  await openPage("/tools/finance-planning-workspace/","#tab-snapshot");
+  for(const tab of ["#tab-snapshot","#tab-goals","#tab-retirement","#tab-review"])await checkControl(tab,label+" workspace "+tab);
+  const spending=await textOf("#spending"),surplus=await textOf("#surplus"),netWorth=await textOf("#netWorth");
+  if(spending.replace(/\s/g,"")!=="₹60,000"||surplus.replace(/\s/g,"")!=="₹40,000"||netWorth.replace(/\s/g,"")!=="₹0")throw new Error(label+" workspace snapshot defaults mismatch");
+  await click("#tab-goals");
+  if(await textOf("#futureGoal")==="—"||await textOf("#futureValue")==="—")throw new Error(label+" workspace goal/growth defaults missing");
+  await click("#tab-retirement");
+  const baseline=await textOf("#requiredCorpus");
+  if(!baseline||baseline==="—")throw new Error(label+" workspace retirement default result missing");
+  await clearAndDispatchInput("#retSpending");
+  if(!(await textOf("#retError")).includes("Retirement values must be zero or positive."))throw new Error(label+" workspace retirement blank input was not rejected");
+  if(await textOf("#requiredCorpus")!=="—")throw new Error(label+" workspace retirement blank input left a stale result");
+  await type("#retSpending","720000");
+  await js("const e=document.querySelector(arguments[0]);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true",["#retSpending"]);
+  await sleep(200);
+  if(await textOf("#retError")!==""||await textOf("#requiredCorpus")==="—")throw new Error(label+" workspace retirement result did not recover after valid input");
+  await click("#tab-review");
+  if(await js("return document.querySelector('#review').hidden")!==false)throw new Error(label+" workspace Review tab did not activate");
+  await click("#tab-snapshot");
+}
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
@@ -122,6 +144,7 @@ async function runViewport(width,height){
     await testGoal(label);
     await testRetirement(label);
     await testSnapshot(label);
+    await testWorkspace(label);
     console.log("Finance tools viewport "+label+": PASS");
   }finally{if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}}
 }
