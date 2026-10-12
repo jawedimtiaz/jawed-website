@@ -200,24 +200,21 @@
     {
       "url": "/notes/it-service-desk-troubleshooting-workflow/",
       "title": "IT Service Desk Troubleshooting Workflow",
-      "summary": "A repeatable first-response Service Desk workflow for understanding an IT issue, separating symptoms from likely causes, testing the least disruptive relevant change, validating the original user task, documenting the investigation and escalating with evidence when the issue exceeds support scope.",
+      "summary": "A repeatable Service Desk first-response workflow covering problem definition, evidence collection, user/device/application/service scoping, one-change-at-a-time testing, task validation, documentation and escalation. Includes a fictional worked example, a ticket-update template, and clear boundaries against unsafe changes or invented test results.",
       "keywords": [
         "service desk",
-        "it support",
-        "troubleshooting",
+        "troubleshooting workflow",
         "first response",
-        "triage",
-        "symptom",
-        "root cause",
         "evidence",
-        "connectivity",
-        "account state",
-        "device state",
-        "known good",
+        "scope",
+        "root cause",
         "validation",
-        "ticket documentation",
+        "ticket update",
+        "documentation",
         "escalation",
-        "handoff"
+        "security",
+        "privacy",
+        "worked example"
       ]
     },
     {
@@ -284,12 +281,21 @@
     {
       "url": "/notes/scoping-it-issues-user-device-service/",
       "title": "Scoping IT Issues: User, Device or Service",
-      "summary": "Framework for deciding whether an IT issue is primarily related to the user, a device, or a service before deeper troubleshooting.",
+      "summary": "A practical user/device/service scoping framework with a decision table and an explicitly illustrative application-failure walkthrough. Helps technicians compare user, device, application and shared-service patterns without treating a single test as proof. Includes safe next checks, privacy and authorization boundaries, and stop/escalation conditions.",
       "keywords": [
+        "scope",
+        "user",
+        "device",
+        "service",
         "it support",
-        "triage",
-        "scoping",
-        "troubleshooting"
+        "troubleshooting",
+        "decision table",
+        "application failure",
+        "incident scope",
+        "evidence",
+        "authorization",
+        "privacy",
+        "escalation"
       ]
     },
     {
