@@ -228,3 +228,12 @@ The Chrome/ChromeDriver production smoke suite now covers 11 interactive tools: 
 PR #650 merged as `c3dfb99e9ed3a71ecb4491d50b2a41c4b1fd6a03`. The expanded production smoke passed on both desktop (1440×1100) and mobile (390×844) Chrome. The Cloudflare Pages production deployment, finance regression gate, supply-chain gate, and applicable preview checks passed.
 
 The Career Match & Resume Review tool remains covered by its separate browser-runtime workflow. These smoke tests do not establish full accessibility conformance, exhaustive device/browser coverage, or AdSense approval. The wider page-level editorial review and external AdSense prerequisites remain open.
+
+
+## Phase 122BO — Refresh website rebuild project story (2026-10-12)
+
+A page-level editorial review found that `/work/projects/` still described Notes, Blog and Tools as future sections, although they are already published. The project story now separates delivered foundations (legacy architecture replacement, preserved history, current information architecture, mobile-first experience and automated quality checks) from ongoing priorities (content quality, accessibility, privacy and interactive-tool quality). No unverified performance claims or numerical outcomes were added.
+
+PR #652 merged as `e2e253440cf54ae125013164887a0915ed53db89`. Site integrity, AI regression, AdSense/privacy readiness, SEO, performance, supply-chain and Core Web Vitals checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
+
+The source-level regression guard prevents the stale “future Notes, Blog and Tools” description from returning. This change improves project-page accuracy but does not by itself establish AdSense approval. The wider page-level inventory review and external AdSense prerequisites remain open.
