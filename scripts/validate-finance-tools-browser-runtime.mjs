@@ -70,6 +70,7 @@ async function waitForProductionRevision(){
     ["/tools/service-desk-note-formatter/",'Note formatted locally in your browser.'],
     ["/tools/ticket-to-knowledge-base-draft/",'Draft built locally. Review and sanitize it before reuse.'],
     ["/notes/retirement-withdrawals-sequence-risk-income-review/",'Why the sequence of returns matters'],
+    ["/notes/portfolio-allocation-rebalancing-framework/",'Worked example: calculate allocation drift'],
     ["/assets/js/main.js","const filters=[{input:'notes-filter'"],
     ["/topics/",'id="topics-filter"'],
     ["/resources/",'id="resources-filter"'],
@@ -286,6 +287,22 @@ async function testRetirementWithdrawalsGuide(label){
   if(!(await textOf("main .financial-disclosure")).includes("not a SEBI-registered Investment Adviser"))throw new Error(label+" financial disclosure is missing");
 }
 
+async function testPortfolioAllocationGuide(label){
+  await openPage("/notes/portfolio-allocation-rebalancing-framework/","main h1");
+  const heading=await textOf("main h1");
+  if(heading!=="Portfolio Allocation and Rebalancing: A Practical Framework")throw new Error(label+" portfolio allocation guide heading mismatch");
+  const table=await textOf("main table tbody");
+  for(const value of ["₹6.8 lakh","₹2.2 lakh","+8 percentage points","−8 percentage points","100%"]){
+    if(!table.includes(value))throw new Error(label+" portfolio allocation worked example missing "+value);
+  }
+  const meta=await js("const s=JSON.parse(document.querySelector('script[type=\"application/ld+json\"]')?.textContent||'{}');return {type:s['@type'],headline:s.headline,canonical:s.mainEntityOfPage?.['@id'],published:s.datePublished,modified:s.dateModified}");
+  if(meta.type!=="Article"||meta.headline!=="Portfolio Allocation and Rebalancing: A Practical Framework"||meta.canonical!=="https://jawed.co.in/notes/portfolio-allocation-rebalancing-framework/"||meta.published!=="2026-09-28"||meta.modified!=="2026-10-12")throw new Error(label+" portfolio allocation guide metadata mismatch: "+JSON.stringify(meta));
+  await checkLink('main a[href^="https://www.investor.gov"]',label+" Investor.gov asset allocation reference");
+  await checkLink('main a[href="/notes/us-stocks-etfs-starting-point/"]',label+" US investing related note");
+  await checkLink('main a[href="/notes/indian-mutual-funds-index-etfs-starting-point/"]',label+" India investing related note");
+  if(!(await textOf("main .financial-disclosure")).includes("not a SEBI-registered Investment Adviser"))throw new Error(label+" portfolio financial disclosure is missing");
+}
+
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
@@ -304,6 +321,7 @@ async function runViewport(width,height){
     await testKnowledgeBaseDraft(label);
     await testContentDiscovery(label);
     await testRetirementWithdrawalsGuide(label);
+    await testPortfolioAllocationGuide(label);
     await testKnowledgeBaseNote(label);
     console.log("Finance tools viewport "+label+": PASS");
   }finally{if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}}
