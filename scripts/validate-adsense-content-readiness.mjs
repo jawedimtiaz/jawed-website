@@ -59,7 +59,7 @@ for(const phrase of [
   "₹2.5 lakh (25%)",
   "₹2.0 lakh (20%)",
   "₹4.5 lakh (45%)",
-  "does not prove diversification",
+  "not proof of diversification",
   "Financial Content Disclosure"
 ])assert.equal(usInvestingGuide.includes(phrase),true,"US stocks/ETF worked-example contract missing: "+phrase);
 assert.equal(usInvestingGuide.includes('dateModified":"2026-10-12"'),true,"US stocks/ETF Article dateModified must match visible update date");
