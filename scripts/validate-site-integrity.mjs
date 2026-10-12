@@ -403,6 +403,7 @@ else console.log("Compound Growth & SIP overflow stale-result contract: PASS");
 
 
 const interactiveToolSyntaxContracts=[
+ ["Resume Bullet Strength Checker","tools/resume-bullet-strength-checker/index.html"],
  ["AI Prompt Builder","tools/ai-prompt-builder/index.html"],
  ["Service Desk Note Formatter","tools/service-desk-note-formatter/index.html"],
  ["Ticket to Knowledge Base Draft","tools/ticket-to-knowledge-base-draft/index.html"],
@@ -422,6 +423,11 @@ for(const [name,path] of interactiveToolSyntaxContracts){
 const promptBuilderLineBreakContract=(()=>{const html=fs.readFileSync("tools/ai-prompt-builder/index.html","utf8");return html.includes("lines.join('\\n\\n')")&&!html.includes("lines.join('\\\\n\\\\n')")})();
 if(!promptBuilderLineBreakContract)errors.push("AI Prompt Builder must separate generated prompt fields with actual line breaks, not literal backslash-n text");
 else console.log("AI Prompt Builder output line-break contract: PASS");
+
+
+const resumeBulletMetricDetectionContract=(()=>{const html=fs.readFileSync("tools/resume-bullet-strength-checker/index.html","utf8");return html.includes("metric=/\\b\\d+(?:\\.\\d+)?\\+?\\s*(?:percent|x|k|m|b|hours?")&&!html.includes("|\\b(?:hours?|days?|weeks?|months?|users?|tickets?|clients?|projects?)\\b/i.test(line)")})();
+if(!resumeBulletMetricDetectionContract)errors.push("Resume Bullet Strength Checker must require a quantity when identifying a metric, rather than flagging unquantified words such as tickets or users");
+else console.log("Resume Bullet metric-detection contract: PASS");
 
 
 const troubleshootingTreeBranchContract=(()=>{const html=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");return html.includes("yesNext:'appleChange'")&&html.includes("appleChange:{q:'Was there a recent update, configuration or application change?'")&&html.includes("yesNext:'windowsChange'")&&html.includes("windowsChange:{q:'Did the problem begin after a recent update, configuration or application change?'")&&!html.includes("}},change:{q:")})();
