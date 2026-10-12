@@ -44,6 +44,7 @@ async function openPage(path,selector){
   await sleep(250);
 }
 async function submit(formSelector){await click(formSelector+" button[type=submit]");await sleep(250)}
+async function submitEvent(formSelector){await js("const f=document.querySelector(arguments[0]);f.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));return true",[formSelector]);await sleep(250)}
 async function waitForProductionRevision(){
   const checks=[
     ["/tools/compound-growth-sip-calculator/",'reset.addEventListener("click",()=>{f.reset();err.textContent="";calculate()})'],
@@ -74,7 +75,7 @@ async function testGrowth(label){
   await click("#growth-reset");
   if(await valueOf("#initial")!=="100000")throw new Error(label+" growth reset did not restore its default input");
   if(await textOf("#future-value")!==baseline)throw new Error(label+" growth reset did not restore the default result");
-  await type("#initial","");await submit("#growth-tool");
+  await type("#initial","");await submitEvent("#growth-tool");
   const blankGrowthValue=await valueOf("#initial"),growthError=await textOf("#growth-error");if(blankGrowthValue!==""||!growthError.includes("Enter a value")){const state=await js("const f=document.querySelector('#growth-tool'),i=document.querySelector('#initial');return {noValidate:f.noValidate,required:i.required,value:i.value,valueMissing:i.validity.valueMissing,error:document.querySelector('#growth-error').textContent,output:document.querySelector('#future-value').textContent}");throw new Error(label+" growth blank input validation mismatch: value="+JSON.stringify(blankGrowthValue)+" error="+JSON.stringify(growthError)+" state="+JSON.stringify(state));}
   if(await textOf("#future-value")!=="—")throw new Error(label+" growth blank input left a stale result visible");
   await click("#growth-reset");
@@ -85,7 +86,7 @@ async function testGoal(label){
   await checkControl("#goal-reset",label+" goal reset");
   const baseline=await textOf("#future");
   if(!baseline||baseline==="—")throw new Error(label+" goal default result is missing");
-  await type("#cost","");await submit("#goal-tool");
+  await type("#cost","");await submitEvent("#goal-tool");
   if(!(await textOf("#goal-error")).includes("Enter a value"))throw new Error(label+" goal blank input did not show validation feedback");
   if(await textOf("#future")!=="—")throw new Error(label+" goal blank input left a stale result visible");
   await click("#goal-reset");
@@ -97,7 +98,7 @@ async function testRetirement(label){
   await checkControl("#retirement-reset",label+" retirement reset");
   const baseline=await textOf("#required-corpus");
   if(!baseline||baseline==="—")throw new Error(label+" retirement default result is missing");
-  await type("#age","");await submit("#retirement-tool");
+  await type("#age","");await submitEvent("#retirement-tool");
   if(!(await textOf("#retirement-error")).includes("Enter a value"))throw new Error(label+" retirement blank input did not show validation feedback");
   if(await textOf("#required-corpus")!=="—")throw new Error(label+" retirement blank input left a stale result visible");
   await click("#retirement-reset");
