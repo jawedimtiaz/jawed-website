@@ -65,7 +65,8 @@ async function waitForProductionRevision(){
     ["/topics/",'id="topics-filter"'],
     ["/resources/",'id="resources-filter"'],
     ["/notes/",'id="notes-filter"'],
-    ["/blog/",'id="blog-filter"']
+    ["/blog/",'id="blog-filter"'],
+    ["/notes/it-troubleshooting-guide-knowledge-base/",'Worked example: turn one ticket into a reusable guide']
   ];
   for(let attempt=0;attempt<120;attempt++){
     let ready=true;
@@ -244,6 +245,23 @@ async function testContentDiscovery(label){
   }
 }
 
+async function testKnowledgeBaseNote(label){
+  await openPage("/notes/it-troubleshooting-guide-knowledge-base/","main h1");
+  const title=await textOf("main h1");
+  if(title!=="Writing Better IT Troubleshooting Guides: From Incident to Knowledge Base")throw new Error(label+" knowledge-base note title mismatch: "+title);
+  const mainText=await textOf("main");
+  for(const phrase of [
+    "Worked example: turn one ticket into a reusable guide",
+    "Illustrative example only; not a record of a real user or employer.",
+    "The cause has not been confirmed.",
+    "Do not state that the password reset caused the failure."
+  ])if(!mainText.includes(phrase))throw new Error(label+" knowledge-base note is missing expected visible content: "+phrase);
+  const dates=await js("return [...document.querySelectorAll('main .meta')].map(e=>e.textContent.trim())");
+  if(!dates.some(value=>value.includes("Published: 2026-09-29")&&value.includes("Updated: 2026-10-12")))throw new Error(label+" knowledge-base note visible publication/update dates are missing or stale: "+JSON.stringify(dates));
+  const headingState=await js("const e=[...document.querySelectorAll('main h2')].find(x=>x.textContent.trim()==='Worked example: turn one ticket into a reusable guide');if(!e)return null;const s=getComputedStyle(e);const r=e.getBoundingClientRect();return {display:s.display,visibility:s.visibility,width:r.width,height:r.height}");
+  if(!headingState||headingState.display==="none"||headingState.visibility==="hidden"||headingState.width<1||headingState.height<1)throw new Error(label+" knowledge-base worked-example heading is not visibly rendered");
+}
+
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
@@ -261,6 +279,7 @@ async function runViewport(width,height){
     await testNoteFormatter(label);
     await testKnowledgeBaseDraft(label);
     await testContentDiscovery(label);
+    await testKnowledgeBaseNote(label);
     console.log("Finance tools viewport "+label+": PASS");
   }finally{if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}}
 }
