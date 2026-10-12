@@ -154,3 +154,12 @@ A page-level review of the financial education notes independently recalculated 
 PR #634 merged as `b358956e7c173f79baf7001562e461595b879395`. The finance regression gate, site integrity, AI production regression matrix, SEO, privacy readiness, performance, supply-chain and Core Web Vitals checks passed; Cloudflare Pages production deployment succeeded.
 
 This is an arithmetic correction to an illustrative example, not a change to the retirement calculator formula or a personalized recommendation. Rendered-browser verification and the remaining page-level editorial review remain open. AdSense remains pre-activation pending external prerequisites and final inventory review.
+
+
+## Phase 122BA — Tax-regime comparison table clarity (2026-10-12)
+
+A page-level financial content review found that the AY 2026-27 tax-regime comparison mixed marginal slab rates with wording that could be mistaken for standalone cumulative tax formulas. The table now consistently shows the marginal rate for each income band, and its note explicitly says that these are not total-tax amounts. The published tax year and rate values were preserved, and the finance-content regression gate now guards the table's rate presentation and explanation.
+
+PR #636 merged as `607b8b9114520615bcf855e406b98be350702b17`. The finance-content regression gate, site integrity, AI production regression matrix, SEO, privacy readiness, performance, supply-chain and Core Web Vitals checks passed. Cloudflare Pages production deployment is being verified for the merge commit.
+
+This change clarifies educational content; it does not calculate individual tax liability. The official Income Tax Department guidance and calculator remain the appropriate sources for a taxpayer's actual case. The remaining page-level editorial review and external AdSense prerequisites remain open.
