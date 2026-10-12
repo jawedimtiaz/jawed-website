@@ -91,3 +91,9 @@ PR #616 merged as `a2d052efd9acbbecfca018614db3b7e24c6d1921`. Applicable reposit
 A focused page-level inspection found that `notes/microsoft-sign-in-troubleshooting-guide/index.html` opened the document body without closing the head and lacked the Article and BreadcrumbList JSON-LD present on comparable note pages. The remediation closes the head correctly and adds Article and BreadcrumbList metadata aligned to the existing visible title, description, canonical URL, author and publication date. The article's prose and visible publication date were preserved.
 
 PR #618 merged as `1b0a57beb3a02ce19ebee4e8f7edf46e03f66c30`. The build, production smoke reliability, site integrity, HTML SEO reliability, performance baseline, AdSense privacy readiness, AI regression matrix, supply-chain baseline and Cloudflare Pages checks passed; the corresponding Cloudflare Pages production deployment succeeded.
+
+## Phase 122AL — Career Match textarea accessibility (2026-10-12)
+
+A focused accessibility pass across the interactive tools found that the resume-paste textarea in `tools/career-match-resume-review/index.html` relied on placeholder text without an associated visible label. A visible `label for="resume"` has been added. The Career Match browser runtime and applicable site/SEO/security/performance checks passed on the PR before merge. This is a small accessibility correction; it does not change resume processing or storage behavior.
+
+PR #621 merged as `1f2367bfad074dcd496a4120a593172e09e9410a`. The remaining page-level editorial audit and external AdSense prerequisites remain open.
