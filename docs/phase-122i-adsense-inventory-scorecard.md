@@ -301,3 +301,58 @@ Extended the browser smoke suite to verify the portfolio note's heading, target/
 PR #664 merged as `3a30068873ef9713ca1e0e2ab6e3c0c3dcdcd0ee`. The browser runtime gate passed at desktop (1440×1100) and mobile (390×844) Chrome before and after merge. The Cloudflare Pages production deployment and post-merge browser gate succeeded.
 
 The example adds a concrete, reproducible calculation without prescribing an asset mix. The browser check covers the stated rendering and links; it does not prove complete accessibility conformance, exhaustive cross-browser behavior or AdSense approval. The remaining page-level editorial inventory and external AdSense prerequisites remain open.
+
+
+## Phase 122CZ — Clarify the Indian tax-year transition (2026-10-12)
+
+A page-level review found that the tax starting-point guide and regime-comparison guide described AY 2026-27 but did not clearly warn readers about the change to Tax Year 2026-27 under the Income-tax Act, 2025. Both pages now distinguish income earned during FY 2025-26 / AY 2026-27 under the 1961 Act from income earned from 1 April 2026 under the 2025 Act. They link to the Income Tax Department's transition FAQs and current tax-rate guidance. The guide's visible update date, source-check date and Article `dateModified` now align.
+
+The new AdSense content-readiness assertions cover both pages, and the readiness workflow explicitly watches those files. PR #670 merged as `dee199aa953ae79a1e5684871366ba5bf374d029`. AdSense readiness, site integrity, SEO, security, performance, AI regression, Cloudflare Pages and the separate GitHub Pages build/deployment passed.
+
+## Phase 122DA — Improve blog-index editorial context (2026-10-12)
+
+The blog index had two long-form posts but only a short generic introduction. It now explains the distinct purpose of the illustrative workplace-app triage walkthrough and the website-rebuild case study, clearly states that the triage scenario is not a real user/employer incident, and guides readers to task-oriented Notes and primary documentation in Resources. This adds useful selection context without adding filler posts.
+
+A content-readiness regression check guards the new guidance. PR #671 merged as `04d8e9b281698d32ea8ea3d8c02d05c06f0d82ad`. Cloudflare production deployment, site integrity, SEO, privacy/readiness, performance, security, AI regression and the browser-runtime gate passed.
+
+## Phase 122DB — Strengthen skills-page evidence (2026-10-12)
+
+The skills page was list-heavy. It now explains a practical support method—clarify the user's task, determine user/device/service scope, choose a low-risk diagnostic check, validate the original workflow, document evidence and identify escalation boundaries. It also clarifies that the listed technologies do not imply equal depth across every product and that the linked examples do not replace vendor or employer procedures.
+
+The content-readiness validator now guards this context and the readiness workflow explicitly watches the page. PR #672 merged as `6547164c27bd6bb91b22c286cf0c600d23f45fa1`. All post-merge checks passed, including Cloudflare Pages production deployment, site integrity, SEO, AdSense readiness, AI regression, performance, security and the separate GitHub Pages build/deployment.
+
+## 2026-10-12 — Published-content inventory sweep
+
+### Inventory coverage
+
+- `sitemap.xml` contains **59 published URLs**. Each maps to a corresponding tracked HTML source.
+- The repository contains **62 tracked HTML files**: the 59 sitemap pages plus the 404 page, offline page and Google site-verification file.
+- The 59 sitemap pages comprise 7 home/work-profile pages, 31 Notes routes (including the Notes index), 3 Blog routes, 13 Tools routes (including the Tools index), and the Topics, Resources, Contact, Privacy and AI pages.
+- The initial AdSense placement inventory remains 11 candidate routes. Tools, AI, Contact and Privacy remain excluded from initial ad placement. These exclusions are placement boundaries, not a claim that excluded pages are irrelevant to Google's site-wide content review.
+
+### Editorial observations from the sweep
+
+- **Practical Notes:** the individual notes generally have task-specific headings and distinct scopes—troubleshooting, device handoff, escalation, documentation, networking, AI workflow and finance education. The reviewed individual notes are mostly in the approximate 438–1,111-word range and often include decision points, worked examples, validation, escalation boundaries or related links. They should continue to be judged by task usefulness and distinctiveness, not word count alone.
+- **Finance and tax content:** the reviewed finance notes retain the Financial Content Disclosure and avoid personalized product recommendations. Several include transparent hypothetical calculations and official references. The health-insurance guide now includes the insurer grievance route, the IRDAI Bima Bharosa portal and an anti-scam warning. The two tax guides now explicitly scope the transition between AY 2026-27 and Tax Year 2026-27.
+- **Blog:** there are currently two long-form articles—an approximately 1,041-word website rebuild case study and an approximately 864-word illustrative IT triage walkthrough. The index now explains how the articles differ and where to go for checklists or primary references. Do not add posts solely to increase the count.
+- **Portfolio pages:** Home, About, Experience and Projects provide identity, background and public-safe work context. Skills now connects technology categories to a practical diagnostic method. Certifications remains a credential-oriented page by design, with current learning distinguished from historical qualifications and links to applied notes. Work is a navigation hub and should not be padded with duplicate prose.
+- **Discovery hubs:** Notes is a large searchable index; Topics provides subject-level discovery and a financial disclosure; Resources contains contextual guidance and links to primary documentation. These are useful gateways, but their value still depends on the quality of destination pages.
+- **Interactive surfaces:** Tools and AI pages are functional experiences, not conventional articles. Their instructions, privacy boundaries, methodology and limitations should be assessed in that context; all remain excluded from initial ad placement.
+- **Technical checks:** sitemap/source integrity, SEO, privacy/readiness, performance, security and AI regression checks have passed on the current merged content. These checks establish technical safeguards, not editorial approval by Google.
+
+### What this sweep does—and does not—close
+
+The sitemap-to-source inventory and structural scan cover all 59 published routes. Selected IT, finance, tax, health-insurance, blog and portfolio pages received deeper content review and targeted fixes. **A full line-by-line editorial read of every page is still not complete**, so the overall page-quality audit remains in progress. Any remaining weak or repetitive page should be improved only where a concrete reader need is unmet; do not add filler or use a word-count threshold as a proxy for quality.
+
+### Current decision status
+
+- **A — Full inventory audit:** sitemap/source inventory and structural sweep complete; exhaustive editorial read still pending.
+- **B — Editorial improvements:** ongoing; the tax-year scope, blog-index context and skills-page evidence fixes are merged.
+- **C — Original content:** a substantial Notes library and two distinct long-form blog posts exist; add more only when there is demonstrable new value.
+- **D — Structure and navigation:** hub guidance and internal discovery are in place; final manual orphan/discovery review remains.
+- **E — Page-level quality verification:** partial; targeted checks and representative deep reviews exist, but not every page has received a complete editorial read.
+- **F — AdSense compliance:** repository safeguards and the initial exclusion boundary are present; recheck current account/site prerequisites before any readiness decision.
+- **G — Final readiness assessment:** pending until the remaining editorial review and external prerequisites are verified.
+- **H — Resubmission:** not started.
+
+The last recorded AdSense account view on 12 October 2026 showed **Needs attention / Low value content** and separate prompts concerning ads.txt, payment information and site/account setup. Recheck the live account before acting; these operational prompts do not themselves resolve the content rejection. Do not enable live ad scripts or resubmit until the audit is complete and the actual AdSense status and prerequisites have been verified. Internal CI success is not Google approval.
