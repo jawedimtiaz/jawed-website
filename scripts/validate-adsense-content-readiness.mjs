@@ -96,6 +96,16 @@ for(const phrase of [
   'href="/resources/"'
 ])assert.equal(blogIndex.includes(phrase),true,"Blog index editorial context missing: "+phrase);
 
+const skillsPage=fs.readFileSync("work/skills/index.html","utf8");
+for(const phrase of [
+  "How I apply these skills",
+  "establish whether the symptoms follow a user, device or service",
+  "choose a low-risk check that can distinguish likely causes",
+  "not a claim of equal depth across every listed product",
+  'href="/notes/it-service-desk-troubleshooting-workflow/"',
+  'href="/notes/network-connectivity-first-response-checklist/"'
+])assert.equal(skillsPage.includes(phrase),true,"Skills page evidence context missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
