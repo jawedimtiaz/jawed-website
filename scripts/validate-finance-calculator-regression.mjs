@@ -82,6 +82,12 @@ assert.match(retirementNote, /roughly ₹294 lakh, or ₹2\.94 crore/, "Publishe
 const taxComparisonNote = fs.readFileSync("notes/new-vs-old-tax-regime-comparison/index.html", "utf8");
 assert.match(taxComparisonNote, /<td>₹5–8 lakh<\/td><td>20%<\/td><td>5%<\/td>/, "Tax comparison must display marginal slab rates consistently");
 assert.match(taxComparisonNote, /marginal slab rates on income within each band/, "Tax comparison must explain that rates are marginal");
+
+// Meaningful financial-note edits must keep visible update dates and Article metadata aligned.
+assert.match(retirementNote, /"datePublished":"2026-09-28","dateModified":"2026-10-12"/);
+assert.match(retirementNote, /Updated: 2026-10-12/);
+assert.match(taxComparisonNote, /"datePublished":"2026-09-28","dateModified":"2026-10-12"/);
+assert.match(taxComparisonNote, /Updated: 2026-10-12/);
 assert.match(retirementHtml, /v\.spending\*Math\.pow\(1\+inflation,years\)/);
 assert.match(retirementHtml, /if\(preMonthly===0\)\{projected=v\.corpus\+v\.contribution\*months\}/);
 assert.match(retirementHtml, /if\(real===0\)\{required=futureSpending\*horizon\}/);
