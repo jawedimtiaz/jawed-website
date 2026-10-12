@@ -25,9 +25,8 @@
     {
       "url": "/ai/",
       "title": "AI Assistant",
-      "summary": "Jawed AI is a site assistant for discovering public notes, tools, resources and professional information on Jawed.co.in. It supports follow-up questions using recent conversation context and grounds answers in site knowledge. Questions and recent context are sent to the site's server-side AI endpoint and, when configured, processed by Cloudflare Workers AI. The page and privacy policy warn users not to submit credentials, sensitive personal data or confidential employer/customer information; answers should be verified for consequential decisions.",
+      "summary": "A site assistant for discovering public notes, tools and resources. It supports follow-up questions using recent conversation context and grounds answers in site knowledge. Questions and recent context are sent to the site's server-side AI endpoint and, when configured, processed by Cloudflare Workers AI. The page and privacy policy warn users not to submit credentials, sensitive personal data or confidential employer/customer information; answers should be verified for consequential decisions.",
       "keywords": [
-        "Jawed AI",
         "site assistant",
         "public site knowledge",
         "notes",
