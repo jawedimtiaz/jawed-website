@@ -2,6 +2,35 @@
 <section class="content-section"><h2>Before provisioning</h2><ul><li>Confirm the assigned user and required device type.</li><li>Verify the asset record and required accessories.</li><li>Confirm the device is eligible for the organization's management and security requirements.</li><li>Check the provisioning instructions for the current environment.</li></ul></section>
 <section class="content-section"><h2>During provisioning</h2><ul><li>Apply the approved operating system and configuration process.</li><li>Enroll the device in the required management and security services.</li><li>Install or deploy required applications through the approved process.</li><li>Confirm the device receives expected policies and configuration.</li><li>Record exceptions rather than silently working around them.</li></ul></section>
 <section class="content-section"><h2>Validation before handoff</h2><p>Test the device from the user's perspective rather than checking only whether provisioning completed.</p><ul><li>Sign-in works as expected.</li><li>Network connectivity works.</li><li>Required applications launch.</li><li>Management status is healthy.</li><li>Security requirements are applied.</li><li>Accessories and asset information are correct.</li></ul></section>
-<section class="content-section"><h2>Handoff</h2><p>Give the user the information needed to start working without exposing credentials or other sensitive information. Confirm the device identity and provide the appropriate support path for future issues.</p></section>
+<section class="content-section"><h2>Decision points before handoff</h2>
+<p>Provisioning status is one signal, not the final definition of readiness. Use the approved build standard and the user's required workflow to decide what to check next.</p>
+<ul>
+<li><strong>Enrollment or management is incomplete:</strong> do not treat the device as ready merely because it reaches the desktop. Follow the approved enrollment and compliance process, and escalate if ownership, enrollment or policy state is unclear.</li>
+<li><strong>A required application is missing or will not launch:</strong> record the application, expected state and observed result. Check the approved deployment status or support instructions before repeatedly reinstalling or changing device settings.</li>
+<li><strong>Sign-in or access fails:</strong> separate device sign-in from access to a particular application or service. Record the exact user-visible error and use approved identity support paths; never collect passwords or authentication codes.</li>
+<li><strong>Security or configuration validation fails:</strong> stop the handoff and use the documented remediation or escalation path. Do not bypass endpoint protection, encryption, management or access controls to make a checklist pass.</li>
+<li><strong>An exception is approved:</strong> record who owns the follow-up, what remains incomplete, the approval/reference where appropriate, and how the user should get help. Do not silently mark a failed check as complete.</li>
+</ul></section>
+<section class="content-section"><h2>Worked example: device starts, but the user cannot work</h2>
+<p><em>Illustrative example only; not a report of a real deployment.</em></p>
+<p>A newly prepared laptop powers on and the user can sign in, but a required work application is not available. The device is not ready for normal handoff just because startup and sign-in succeeded.</p>
+<ol>
+<li>Confirm the expected application and the approved provisioning requirement.</li>
+<li>Check the available deployment or management status using the authorized process.</li>
+<li>Record the observed state and any error; do not assume a deployment delay, network issue or policy failure without evidence.</li>
+<li>Follow the documented remediation or escalate to the responsible team if the cause or next step is outside your scope.</li>
+<li>After the issue is resolved, launch the application and have the user repeat the relevant task. Record the result and any remaining limitation.</li>
+</ol></section>
+<section class="content-section"><h2>Minimum handoff record</h2>
+<ul>
+<li>Device/asset identifier recorded in the approved internal system.</li>
+<li>Assigned user or team confirmed using the approved process.</li>
+<li>Required configuration and management state checked.</li>
+<li>Sign-in, network and required applications validated as applicable.</li>
+<li>Exceptions, failed checks and follow-up owners clearly recorded.</li>
+<li>User guidance and the support path communicated.</li>
+<li>Final result documented without passwords, recovery keys, authentication codes or unnecessary personal data.</li>
+</ul>
+<p>For public examples, keep device IDs, serial numbers, employee details, internal URLs and company-specific configuration private.</p></section><section class="content-section"><h2>Handoff</h2><p>Give the user the information needed to start working without exposing credentials or other sensitive information. Confirm the device identity and provide the appropriate support path for future issues.</p></section>
 <section class="content-section"><h2>Close the record</h2><p>Document the final validation, asset details and any follow-up work. A clean handoff record makes later troubleshooting faster and reduces repeated setup work.</p></section>
 <section class="content-section"><h2>Related Notes</h2><div class="card-grid two"><article class="card"><p class="eyebrow">IT & Service Desk</p><h3>A Practical Service Desk Troubleshooting Workflow</h3><a href="/notes/it-service-desk-troubleshooting-workflow/">Read note →</a></article><article class="card"><p class="eyebrow">Apple / Jamf</p><h3>macOS First-Response Troubleshooting Checklist</h3><a href="/notes/apple-macos-first-response-checklist/">Read note →</a></article></div></section></main><footer class="site-footer"><div class="container footer-inner"><p>© <span id="year"></span> Jawed Imtiaz</p><div><a href="/contact/">Contact</a><a href="/privacy/">Privacy</a></div></div></footer><script src="/assets/js/main.js" defer></script></body></html>
