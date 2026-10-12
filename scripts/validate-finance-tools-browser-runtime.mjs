@@ -39,6 +39,14 @@ async function checkControl(selector,label){
   if(h.pointerEvents==="none")throw new Error(label+": pointer-events:none");
   if(!h.hitInside)throw new Error(label+": center hit is "+h.hitTag+"#"+(h.hitId||""));
 }
+async function checkLink(selector,label){
+  const state=await js("return (()=>{const e=document.querySelector(arguments[0]);if(!e)return {missing:true};e.scrollIntoView({block:'center',inline:'center',behavior:'instant'});const style=getComputedStyle(e),rects=[...e.getClientRects()];let hitInside=false,hitTag=null;for(const r of rects){if(r.width<1||r.height<1)continue;const h=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);hitTag=h?.tagName||null;if(h&&(h===e||e.contains(h))){hitInside=true;break}}return {missing:false,display:style.display,visibility:style.visibility,pointerEvents:style.pointerEvents,rects:rects.length,hitInside,hitTag,href:e.href}})()",[selector]);
+  if(state.missing)throw new Error(label+": missing");
+  if(state.display==="none"||state.visibility==="hidden"||state.rects<1)throw new Error(label+": not visibly rendered");
+  if(state.pointerEvents==="none")throw new Error(label+": pointer-events:none");
+  if(!state.hitInside)throw new Error(label+": link hit-test did not reach anchor (hit "+state.hitTag+")");
+  if(!/^https?:/.test(state.href||""))throw new Error(label+": missing valid link destination");
+}
 async function assertRequiredInvalid(formSelector,inputSelector,label){const state=await js("const f=document.querySelector(arguments[0]),i=document.querySelector(arguments[1]);return {formValid:f.checkValidity(),valueMissing:i.validity.valueMissing}",[formSelector,inputSelector]);if(state.formValid||!state.valueMissing)throw new Error(label+": blank required input was not marked invalid: "+JSON.stringify(state))}
 async function openPage(path,selector){
   await command("POST","/url",{url:BASE_URL+path});
@@ -61,6 +69,7 @@ async function waitForProductionRevision(){
     ["/tools/resume-bullet-strength-checker/",'const weak=[\'responsible for\''],
     ["/tools/service-desk-note-formatter/",'Note formatted locally in your browser.'],
     ["/tools/ticket-to-knowledge-base-draft/",'Draft built locally. Review and sanitize it before reuse.'],
+    ["/notes/retirement-withdrawals-sequence-risk-income-review/",'Why the sequence of returns matters'],
     ["/assets/js/main.js","const filters=[{input:'notes-filter'"],
     ["/topics/",'id="topics-filter"'],
     ["/resources/",'id="resources-filter"'],
@@ -262,6 +271,21 @@ async function testKnowledgeBaseNote(label){
   if(!headingState||headingState.display==="none"||headingState.visibility==="hidden"||headingState.width<1||headingState.height<1)throw new Error(label+" knowledge-base worked-example heading is not visibly rendered");
 }
 
+async function testRetirementWithdrawalsGuide(label){
+  await openPage("/notes/retirement-withdrawals-sequence-risk-income-review/","main h1");
+  const heading=await textOf("main h1");
+  if(heading!=="Retirement Withdrawals: Sequence Risk, Income and Annual Reviews")throw new Error(label+" retirement withdrawal guide heading mismatch");
+  const table=await textOf("main table tbody");
+  if(!table.includes("₹78L")||!table.includes("₹74L"))throw new Error(label+" retirement sequence-risk example values are missing");
+  const meta=await js("const s=JSON.parse(document.querySelector('script[type=\"application/ld+json\"]')?.textContent||'{}');return {type:s['@type'],headline:s.headline,canonical:s.mainEntityOfPage?.['@id'],published:s.datePublished,modified:s.dateModified}");
+  if(meta.type!=="Article"||meta.headline!=="Retirement Withdrawals: Sequence Risk, Income and Annual Reviews"||meta.canonical!=="https://jawed.co.in/notes/retirement-withdrawals-sequence-risk-income-review/"||meta.published!=="2026-10-12"||meta.modified!=="2026-10-12")throw new Error(label+" retirement withdrawal guide metadata mismatch: "+JSON.stringify(meta));
+  await checkLink('main a[href^="https://pfrda.org.in"]',label+" PFRDA reference");
+  await checkLink('main a[href^="https://www.investor.gov"]',label+" general retirement reference");
+  await checkLink('main a[href="/notes/retirement-corpus-calculation-framework/"]',label+" related corpus note");
+  await checkLink('main a[href="/tools/retirement-planning-calculator/"]',label+" retirement calculator");
+  if(!(await textOf("main .financial-disclosure")).includes("not a SEBI-registered Investment Adviser"))throw new Error(label+" financial disclosure is missing");
+}
+
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
@@ -279,6 +303,7 @@ async function runViewport(width,height){
     await testNoteFormatter(label);
     await testKnowledgeBaseDraft(label);
     await testContentDiscovery(label);
+    await testRetirementWithdrawalsGuide(label);
     await testKnowledgeBaseNote(label);
     console.log("Finance tools viewport "+label+": PASS");
   }finally{if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}}
