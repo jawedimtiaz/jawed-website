@@ -683,21 +683,38 @@
     {
       "url": "/tools/service-desk-note-formatter/",
       "title": "Service Desk Note Formatter",
-      "summary": "Browser-based utility for turning service desk notes into a more consistent and usable format.",
+      "summary": "A browser-only Service Desk note formatter that structures an issue/request, actions actually taken, current resolution/status and follow-up. Includes guidance and a template for recording observed results, distinguishing confirmed resolution from unresolved state, avoiding invented root causes, and reviewing output for confidential information before copying it into an authorized ticketing system.",
       "keywords": [
         "service desk",
+        "ticket notes",
+        "note formatter",
         "documentation",
-        "tool"
+        "observed results",
+        "validation",
+        "follow-up",
+        "privacy",
+        "browser-only",
+        "no server submission",
+        "evidence"
       ]
     },
     {
       "url": "/tools/ai-prompt-builder/",
       "title": "AI Prompt Builder",
-      "summary": "Browser-based utility for constructing clearer, more structured prompts for AI tasks and repeatable prompt-writing workflows.",
+      "summary": "A browser-only AI Prompt Builder that structures a prompt around goal, context, desired output, constraints and an optional example. Includes an example of improving a vague troubleshooting-guide request and a checklist for removing sensitive data, stating assumptions, defining review criteria and verifying eventual AI output against trusted sources.",
       "keywords": [
-        "ai",
-        "prompting",
-        "tool"
+        "ai prompt builder",
+        "prompt engineering",
+        "goal",
+        "context",
+        "desired output",
+        "constraints",
+        "example",
+        "privacy",
+        "browser-only",
+        "verification",
+        "human review",
+        "troubleshooting"
       ]
     },
     {
