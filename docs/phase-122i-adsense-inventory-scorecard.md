@@ -34,12 +34,20 @@ Ratings describe the repository content observed on 12 October 2026; they are no
 - **122F:** added task-oriented guidance to the resource hub.
 - **122G:** added a distinct, clearly illustrative IT triage article, sitemap entry, AI knowledge entry and integrity contract.
 - **122H:** connected credentials/current learning to practical notes.
+- **122J:** added a scoping decision table, an illustrative troubleshooting example and a ticket-update template to two foundational IT notes.
+- **122K:** strengthened AI-for-IT-support guidance with an applied example and an output-review checklist.
+- **122L:** added practical usage instructions to the Service Desk Note Formatter and AI Prompt Builder.
+- **122M:** added evidence-based interview preparation guidance and a truthful resume-bullet revision pattern.
+- **122N:** added illustrative cash-flow, emergency-reserve and net-worth examples to the money-basics note and replaced a US-oriented reference with RBI financial-education material.
+- **122O:** fixed a double-escaped newline defect in the AI Prompt Builder and added a regression contract.
+
+The merged remediation commits through Phase 122O passed their applicable CI gates. Cloudflare Pages confirmed a successful production deployment for commit `4c176982ef4bf0337eeabac42c20f2a5cb912190`.
 
 Each merged phase passed its applicable repository CI gates and had a successful Cloudflare Pages production deployment associated with the merge commit.
 
 ## Important limits and remaining work
 
-1. This is not yet a manual review of every published page. The public sitemap and repository contain many additional notes and interactive routes outside the initial AdSense inventory.
+1. A structural inventory screen has now covered all 58 sitemap URLs: 30 notes, 13 tool URLs (including the tools hub), 3 blog URLs, and the remaining profile, work, topic, resource, AI, contact and privacy pages. This included title/visible-content counts and focused inspection of several lower-depth pages. It is not yet a full manual editorial review of every page or every interactive tool state.
 2. Google may evaluate the whole site, not only pages intended for ads. The remaining notes and tools should be checked for thin, duplicate, outdated or misleading content.
 3. The financial education section is broader than the site's primary IT-support focus. Maintain clear disclosures, source current claims, avoid personalized recommendations, and decide whether any pages need further qualification or consolidation.
 4. The site has a small blog collection. Continue building original depth without repetitive articles or arbitrary word-count targets.
