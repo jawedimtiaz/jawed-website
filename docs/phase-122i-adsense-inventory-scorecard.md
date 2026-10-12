@@ -190,3 +190,12 @@ The site-integrity validator now checks visible and structured publication/updat
 PR #640 merged as `9454525fce73dff3f4b802a054f5f0955dc2c75b`. The applicable site-integrity, AI regression, supply-chain and Cloudflare Pages checks passed. Cloudflare Pages production deployment for the merge commit `d13bd75300af095c47322693b6858ca0e4b4df8d` succeeded.
 
 The gate checks source consistency, not rendered date visibility or search-engine indexing. The broader editorial review and external AdSense prerequisites remain open.
+
+
+## Phase 122BH — Regression coverage for published finance examples (2026-10-12)
+
+The finance regression gate now includes independent arithmetic checks for the inflation-goal example (₹10 lakh at 6% for 10 years), emergency-reserve examples (three and six months of ₹35,000 essential costs), and a net-worth example (₹8 lakh of assets minus ₹3 lakh of liabilities). These examples were consistent with their stated assumptions; the tests protect them from future arithmetic drift.
+
+PR #643 merged as `7498f5d2a5e37bb007d3992b645ef3412fe8b5e0`. The finance regression gate and applicable supply-chain and Cloudflare Pages checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
+
+The tests validate arithmetic and selected source wording only. They do not validate the suitability of any financial assumption, provide personal advice, or replace rendered-browser testing. The wider editorial review and external AdSense prerequisites remain open.
