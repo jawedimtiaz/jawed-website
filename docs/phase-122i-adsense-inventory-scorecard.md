@@ -366,7 +366,7 @@ The topic-label change is present on `main` at `1873c912b85102cb9ec1b81ef1dd42c7
 
 ## Phase 122DG — Remove leaked citation placeholders from a published note (2026-10-12)
 
-A page-level editorial read of `notes/building-safe-browser-based-it-tools/index.html` found eight rendered internal citation-token fragments (six token IDs across four paragraphs) instead of usable reader citations. Replaced them with contextual links to the already-listed official MDN File API, Web Storage API and Clipboard API references and the OWASP HTML5 Security Cheat Sheet. The visible metadata now distinguishes the original publication date (2026-09-29) from the update date (2026-10-12), and Article `dateModified` matches the update date.
+A page-level editorial read of `notes/building-safe-browser-based-it-tools/index.html` found seven rendered internal citation-token fragments (seven distinct token IDs across four paragraphs) instead of usable reader citations. Replaced them with contextual links to the already-listed official MDN File API, Web Storage API and Clipboard API references and the OWASP HTML5 Security Cheat Sheet. The visible metadata now distinguishes the original publication date (2026-09-29) from the update date (2026-10-12), and Article `dateModified` matches the update date.
 
 The AdSense content-readiness validator now rejects leaked `turn0search` / citation-wrapper tokens and checks for the contextual references and aligned dates. The existing readiness workflow already watches `notes/**`, so no new trigger path was needed.
 
