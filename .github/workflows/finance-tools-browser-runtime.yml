@@ -24,6 +24,7 @@ on:
       - "resources/index.html"
       - "notes/index.html"
       - "blog/index.html"
+      - "notes/it-troubleshooting-guide-knowledge-base/index.html"
   push:
     branches: [main]
     paths:
