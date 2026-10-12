@@ -75,7 +75,7 @@ async function testGrowth(label){
   if(await valueOf("#initial")!=="100000")throw new Error(label+" growth reset did not restore its default input");
   if(await textOf("#future-value")!==baseline)throw new Error(label+" growth reset did not restore the default result");
   await type("#initial","");await submit("#growth-tool");
-  const blankGrowthValue=await valueOf("#initial"),growthError=await textOf("#growth-error");if(blankGrowthValue!==""||!growthError.includes("Enter a value"))throw new Error(label+" growth blank input validation mismatch: value="+JSON.stringify(blankGrowthValue)+" error="+JSON.stringify(growthError));
+  const blankGrowthValue=await valueOf("#initial"),growthError=await textOf("#growth-error");if(blankGrowthValue!==""||!growthError.includes("Enter a value")){const state=await js("const f=document.querySelector('#growth-tool'),i=document.querySelector('#initial');return {noValidate:f.noValidate,required:i.required,value:i.value,valueMissing:i.validity.valueMissing,error:document.querySelector('#growth-error').textContent,output:document.querySelector('#future-value').textContent}");throw new Error(label+" growth blank input validation mismatch: value="+JSON.stringify(blankGrowthValue)+" error="+JSON.stringify(growthError)+" state="+JSON.stringify(state));}
   if(await textOf("#future-value")!=="—")throw new Error(label+" growth blank input left a stale result visible");
   await click("#growth-reset");
 }
