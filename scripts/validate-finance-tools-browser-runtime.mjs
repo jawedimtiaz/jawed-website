@@ -71,6 +71,7 @@ async function waitForProductionRevision(){
     ["/tools/ticket-to-knowledge-base-draft/",'Draft built locally. Review and sanitize it before reuse.'],
     ["/notes/retirement-withdrawals-sequence-risk-income-review/",'Why the sequence of returns matters'],
     ["/notes/portfolio-allocation-rebalancing-framework/",'Worked example: calculate allocation drift'],
+    ["/notes/us-stocks-etfs-starting-point/",'Worked example: two ETFs can still overlap'],
     ["/assets/js/main.js","const filters=[{input:'notes-filter'"],
     ["/topics/",'id="topics-filter"'],
     ["/resources/",'id="resources-filter"'],
@@ -303,6 +304,22 @@ async function testPortfolioAllocationGuide(label){
   if(!(await textOf("main .financial-disclosure")).includes("not a SEBI-registered Investment Adviser"))throw new Error(label+" portfolio financial disclosure is missing");
 }
 
+async function testUsStocksEtfsGuide(label){
+  await openPage("/notes/us-stocks-etfs-starting-point/","main h1");
+  const heading=await textOf("main h1");
+  if(heading!=="US Stocks and ETFs: A Practical Starting Point")throw new Error(label+" US stocks/ETF guide heading mismatch");
+  const table=await textOf("main table tbody");
+  for(const value of ["₹5 lakh","50%","40%","₹2.5 lakh (25%)","₹2.0 lakh (20%)","₹4.5 lakh (45%)"]){
+    if(!table.includes(value))throw new Error(label+" ETF overlap example missing "+value);
+  }
+  const meta=await js("const s=JSON.parse(document.querySelector('script[type=\"application/ld+json\"]')?.textContent||'{}');return {type:s['@type'],headline:s.headline,canonical:s.mainEntityOfPage?.['@id'],published:s.datePublished,modified:s.dateModified}");
+  if(meta.type!=="Article"||meta.headline!=="US Stocks and ETFs: A Practical Starting Point"||meta.canonical!=="https://jawed.co.in/notes/us-stocks-etfs-starting-point/"||meta.published!=="2026-09-28"||meta.modified!=="2026-10-12")throw new Error(label+" US stocks/ETF guide metadata mismatch: "+JSON.stringify(meta));
+  await checkLink('main a[href^="https://www.investor.gov"]',label+" Investor.gov reference");
+  await checkLink('main a[href="/notes/portfolio-allocation-rebalancing-framework/"]',label+" portfolio allocation related note");
+  await checkLink('main a[href="/notes/indian-mutual-funds-index-etfs-starting-point/"]',label+" Indian funds related note");
+  if(!(await textOf("main .financial-disclosure")).includes("not a SEBI-registered Investment Adviser"))throw new Error(label+" US stocks/ETF financial disclosure is missing");
+}
+
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
@@ -322,6 +339,7 @@ async function runViewport(width,height){
     await testContentDiscovery(label);
     await testRetirementWithdrawalsGuide(label);
     await testPortfolioAllocationGuide(label);
+    await testUsStocksEtfsGuide(label);
     await testKnowledgeBaseNote(label);
     console.log("Finance tools viewport "+label+": PASS");
   }finally{if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}}
