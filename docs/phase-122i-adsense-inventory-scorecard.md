@@ -267,3 +267,20 @@ Extended the production browser smoke to check the knowledge-base note's rendere
 PR #658 merged as `dcbd21fe818b37c348fed90f1fbecf454fcdee9d`. The post-merge production Chrome smoke passed at both viewport sizes, and the Cloudflare Pages deployment succeeded. This verifies the covered rendered content in headless Chrome, not full accessibility conformance or exhaustive browser/device coverage.
 
 The note improvement strengthens practical usefulness and the AI's grounded summary; it does not establish AdSense approval. The broader page-level editorial inventory and external AdSense prerequisites remain open.
+
+
+## Phase 122BW — Add retirement withdrawals and sequence-risk guidance (2026-10-12)
+
+The retirement corpus framework promised a follow-up about withdrawals, sequence risk, income sources and periodic review, but the linked follow-up did not exist. Added an India-context educational guide that distinguishes corpus estimation from the ongoing withdrawal process. It includes a reproducible two-year example with a ₹100 lakh starting portfolio and ₹10 lakh end-of-year withdrawals: +20% then −20% ends at ₹78 lakh, while −20% then +20% ends at ₹74 lakh. The example explicitly excludes taxes, fees, inflation and other cash flows and does not recommend a withdrawal rate or product.
+
+The new guide is linked from the corpus note and Notes hub, included in the sitemap, and represented in both canonical Jawed AI runtime knowledge and the JSON knowledge dataset. AI retrieval regression coverage was added. The first CI run exposed a malformed object boundary in the runtime knowledge entry; this was corrected before merge. The next retrieval run exposed a source-set precision assertion that was resolved by keeping the AI summary focused on the article's actual scope rather than advertising a calculator as part of that note.
+
+PR #660 merged as `2ca1e83cd466395cca6b67ab10709676c884c4ba`. The AdSense readiness/content checks, AI regression matrix, site integrity, sitemap, SEO, security, performance, production AI GET/POST reliability, Cloudflare Pages and applicable browser smoke checks passed. Production deployment succeeded.
+
+## Phase 122BX — Verify retirement withdrawal guide in desktop/mobile Chrome (2026-10-12)
+
+Extended the production browser smoke to verify the retirement withdrawal guide's visible heading, worked sequence-risk outcomes, Article structured data, canonical URL, publication/update dates, financial disclosure, and source/related-page links. The test uses inline-link-aware hit testing so wrapped links are checked at their actual rendered text positions rather than the center of a multi-line bounding box.
+
+PR #661 merged as `8bf9fd7499d937fce0e3da5f83ef096f4acca85b`. The browser runtime gate passed at desktop (1440×1100) and mobile (390×844) Chrome after the note was deployed. The post-merge Cloudflare Pages deployment and production browser gate succeeded.
+
+These changes improve the practical depth of retirement content and verify the covered page in headless Chrome. They do not establish full accessibility conformance, exhaustive cross-browser/device behavior, or Google AdSense approval. The remaining page-level editorial inventory and external AdSense prerequisites remain open.
