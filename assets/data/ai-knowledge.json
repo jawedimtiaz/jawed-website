@@ -6,7 +6,7 @@
     {
       "url": "/",
       "title": "Home",
-      "summary": "Professional homepage for Jawed Imtiaz, an IT Field Tech focused on IT support, Service Desk operations, workplace technology, Apple and macOS, device management, practical problem-solving, and useful browser-based tools, with AI and productivity as secondary areas.",
+      "summary": "Professional homepage for Jawed Imtiaz, an IT Field Tech focused on IT support, Service Desk operations, workplace technology, Apple and macOS, device management, practical problem-solving and browser-based tools. The homepage connects visitors to public-safe work examples, career experience, current learning, professional recognition, technical notes, tools and Jawed AI. Recognition is presented by title without year-based labels or numerical performance claims.",
       "keywords": [
         "site",
         "it support",
@@ -16,7 +16,10 @@
         "apple",
         "macos",
         "device management",
-        "tools"
+        "tools",
+        "professional recognition",
+        "work examples",
+        "technical notes"
       ]
     },
     {
