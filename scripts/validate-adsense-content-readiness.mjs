@@ -22,6 +22,24 @@ for(const phrase of [
   "Confirm the user can complete the original VPN connection workflow"
 ])assert.equal(knowledgeBase.includes(phrase),true,"Knowledge-base worked-example contract missing: "+phrase);
 
+const retirementWithdrawals=fs.readFileSync("notes/retirement-withdrawals-sequence-risk-income-review/index.html","utf8");
+for(const phrase of [
+  "Retirement Withdrawals: Sequence Risk, Income and Annual Reviews",
+  "Why the sequence of returns matters",
+  "Both paths contain a 20% gain and a 20% loss.",
+  "PFRDA NPS All Citizen Model information",
+  "Investor.gov retirement income guidance",
+  "Financial Content Disclosure"
+])assert.equal(retirementWithdrawals.includes(phrase),true,"Retirement withdrawal guide contract missing: "+phrase);
+const startPortfolio=100,annualWithdrawal=10;
+const gainThenLoss=(startPortfolio*1.2-annualWithdrawal)*0.8-annualWithdrawal;
+const lossThenGain=(startPortfolio*0.8-annualWithdrawal)*1.2-annualWithdrawal;
+assert.equal(gainThenLoss,78,"Gain-then-loss illustrative sequence arithmetic changed");
+assert.equal(lossThenGain,74,"Loss-then-gain illustrative sequence arithmetic changed");
+assert.equal(retirementWithdrawals.includes("₹78L")&&retirementWithdrawals.includes("₹74L"),true,"Published sequence-risk example must match its independently calculated outcomes");
+assert.equal(retirementWithdrawals.includes("/notes/retirement-corpus-calculation-framework/"),true,"Withdrawal guide must link to the corpus framework");
+assert.equal(retirementWithdrawals.includes("/tools/retirement-planning-calculator/"),true,"Withdrawal guide must link to the retirement calculator");
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
