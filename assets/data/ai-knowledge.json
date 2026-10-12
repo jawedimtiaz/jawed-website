@@ -302,21 +302,42 @@
     {
       "url": "/notes/windows-first-response-troubleshooting-checklist/",
       "title": "Windows First Response Troubleshooting Checklist",
-      "summary": "First-response Windows troubleshooting checklist for structured triage and common support investigation steps.",
+      "summary": "A practical Windows first-response checklist with symptom-based triage for application failures, sign-in issues, performance, updates and multi-user incidents. Emphasizes capturing exact errors and context, using approved low-risk checks, separating scope from diagnosis, validating the original task, and escalating before security-sensitive or disruptive changes.",
       "keywords": [
         "windows",
-        "it support",
-        "troubleshooting"
+        "microsoft",
+        "first response",
+        "troubleshooting",
+        "application failure",
+        "sign-in",
+        "performance",
+        "updates",
+        "incident scope",
+        "validation",
+        "security",
+        "escalation",
+        "evidence"
       ]
     },
     {
       "url": "/notes/network-connectivity-first-response-checklist/",
       "title": "Network Connectivity First Response Checklist",
-      "summary": "First-response network troubleshooting checklist for structured connectivity triage and isolation of likely problem areas.",
+      "summary": "A network connectivity first-response checklist that moves from defining the failed destination to checking local connection state, comparing scope, considering name resolution and reachability, and identifying shared dependencies. Explains why one successful test does not prove every network layer is healthy and reinforces approved diagnostics, task validation, sanitized evidence and escalation boundaries.",
       "keywords": [
+        "network",
         "networking",
-        "it support",
-        "troubleshooting"
+        "connectivity",
+        "dns",
+        "reachability",
+        "routing",
+        "vpn",
+        "first response",
+        "troubleshooting",
+        "scope",
+        "shared service",
+        "validation",
+        "evidence",
+        "escalation"
       ]
     },
     {
