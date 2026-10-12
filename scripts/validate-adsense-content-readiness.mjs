@@ -47,7 +47,7 @@ for(const phrase of [
   "₹10 lakh portfolio",
   "+8 percentage points",
   "−8 percentage points",
-  "It does not, by itself, tell you that a trade is required.",
+  "does not, by itself, tell you that a trade is required.",
   "Financial Content Disclosure"
 ])assert.equal(portfolioGuide.includes(phrase),true,"Portfolio allocation worked-example contract missing: "+phrase);
 assert.equal(portfolioGuide.includes('dateModified":"2026-10-12"'),true,"Portfolio allocation Article dateModified must match the visible update date");
