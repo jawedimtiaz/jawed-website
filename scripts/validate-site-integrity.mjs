@@ -428,6 +428,15 @@ else console.log("AI Prompt Builder output line-break contract: PASS");
 const resumeBulletMetricDetectionContract=(()=>{const html=fs.readFileSync("tools/resume-bullet-strength-checker/index.html","utf8");return html.includes("metric=/\\b\\d+(?:\\.\\d+)?\\+?\\s*(?:percent|x|k|m|b|hours?")&&!html.includes("|\\b(?:hours?|days?|weeks?|months?|users?|tickets?|clients?|projects?)\\b/i.test(line)")})();
 if(!resumeBulletMetricDetectionContract)errors.push("Resume Bullet Strength Checker must require a quantity when identifying a metric, rather than flagging unquantified words such as tickets or users");
 else console.log("Resume Bullet metric-detection contract: PASS");
+const resumeBulletMetricSource=fs.readFileSync("tools/resume-bullet-strength-checker/index.html","utf8").match(/metric=(\\/[^/]+\\/i)\\.test\\(line\\)/)?.[1];
+const resumeBulletMetricPattern=resumeBulletMetricSource?new RegExp(resumeBulletMetricSource.slice(1,resumeBulletMetricSource.lastIndexOf("/")),"i"):null;
+const resumeBulletMetricBehaviorContract=!!resumeBulletMetricPattern&&
+  !resumeBulletMetricPattern.test("Responsible for handling IT support tickets.")&&
+  resumeBulletMetricPattern.test("Resolved 120+ tickets per month")&&
+  resumeBulletMetricPattern.test("Maintained 98% satisfaction")&&
+  !resumeBulletMetricPattern.test("Managed Microsoft 365");
+if(!resumeBulletMetricBehaviorContract)errors.push("Resume Bullet metric detection must distinguish quantified results from unquantified nouns and product/version numbers");
+else console.log("Resume Bullet metric behavior contract: PASS");
 
 
 const troubleshootingTreeBranchContract=(()=>{const html=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");return html.includes("yesNext:'appleChange'")&&html.includes("appleChange:{q:'Was there a recent update, configuration or application change?'")&&html.includes("yesNext:'windowsChange'")&&html.includes("windowsChange:{q:'Did the problem begin after a recent update, configuration or application change?'")&&!html.includes("}},change:{q:")})();
