@@ -295,11 +295,21 @@
     {
       "url": "/notes/small-it-automation-starting-point/",
       "title": "Small IT Automation: Starting Point",
-      "summary": "Practical starting point for identifying small IT support tasks that can be simplified through lightweight automation and repeatable workflows.",
+      "summary": "A practical method for selecting small, repetitive IT automation tasks and keeping the first version reversible. Defines inputs and outputs, emphasizes testing with sanitized sample data, visible failure handling, manual comparison and recovery. Includes an illustrative note-standardization workflow and pre-release checklist; advises against automating consequential external actions before authorization and recovery are established.",
       "keywords": [
         "automation",
         "it support",
-        "workflow"
+        "workflow",
+        "repetitive tasks",
+        "input output",
+        "validation",
+        "sample data",
+        "reversible",
+        "error handling",
+        "recovery",
+        "privacy",
+        "human review",
+        "documentation"
       ]
     },
     {
@@ -443,11 +453,24 @@
     {
       "url": "/notes/ai-prompting-everyday-work/",
       "title": "AI Prompting for Everyday Work",
-      "summary": "Practical prompting guidance for everyday AI tasks, with an emphasis on clearer requests and useful, repeatable outputs.",
+      "summary": "A reusable prompting framework for everyday writing, summarization, research and knowledge work, built around goal, context, output and constraints. Includes a fictional before/after handoff-summary prompt, a review loop for checking facts and assumptions, and privacy boundaries for sensitive information. Emphasizes that AI output requires verification and does not replace authoritative systems or human responsibility.",
       "keywords": [
         "ai",
         "prompting",
-        "productivity"
+        "productivity",
+        "goal",
+        "context",
+        "output format",
+        "constraints",
+        "example prompt",
+        "verification",
+        "fact checking",
+        "uncertainty",
+        "privacy",
+        "sensitive information",
+        "human review",
+        "summarization",
+        "knowledge work"
       ]
     },
     {
