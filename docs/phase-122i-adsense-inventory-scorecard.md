@@ -284,3 +284,20 @@ Extended the production browser smoke to verify the retirement withdrawal guide'
 PR #661 merged as `8bf9fd7499d937fce0e3da5f83ef096f4acca85b`. The browser runtime gate passed at desktop (1440×1100) and mobile (390×844) Chrome after the note was deployed. The post-merge Cloudflare Pages deployment and production browser gate succeeded.
 
 These changes improve the practical depth of retirement content and verify the covered page in headless Chrome. They do not establish full accessibility conformance, exhaustive cross-browser/device behavior, or Google AdSense approval. The remaining page-level editorial inventory and external AdSense prerequisites remain open.
+
+
+## Phase 122BZ — Add a worked example for portfolio allocation drift (2026-10-12)
+
+The portfolio allocation note described drift and rebalancing conceptually but did not demonstrate the calculation. Added a clearly hypothetical ₹10 lakh portfolio example with a 60/30/10 target and current equity/bond/cash weights of 68/22/10, showing +8 and −8 percentage-point drift. The note explains that drift is a review input, not an automatic trade instruction or a recommended target allocation. The visible update date and Article structured metadata were aligned.
+
+Jawed AI's canonical runtime knowledge and JSON dataset now describe the worked example and its scope. Added an AI retrieval regression case and an AdSense content-readiness contract for the example; the new article path is explicitly declared in both readiness workflow triggers.
+
+PR #663 merged as `7c4a48d1e0960ac5f3ad167062fd2267c3c917e4`. After correcting a capitalization mismatch in the new content assertion, the AdSense readiness gate, AI regression matrix, site integrity, SEO, performance, security, production AI GET/POST reliability and Cloudflare Pages checks passed. Production deployment succeeded.
+
+## Phase 122CA — Verify portfolio allocation example in desktop/mobile Chrome (2026-10-12)
+
+Extended the browser smoke suite to verify the portfolio note's heading, target/current values, percentage-point drift, Article structured data, canonical URL, publication/update dates, financial disclosure, and Investor.gov/related-note links. The deployed-revision guard now checks for the worked-example heading.
+
+PR #664 merged as `3a30068873ef9713ca1e0e2ab6e3c0c3dcdcd0ee`. The browser runtime gate passed at desktop (1440×1100) and mobile (390×844) Chrome before and after merge. The Cloudflare Pages production deployment and post-merge browser gate succeeded.
+
+The example adds a concrete, reproducible calculation without prescribing an asset mix. The browser check covers the stated rendering and links; it does not prove complete accessibility conformance, exhaustive cross-browser behavior or AdSense approval. The remaining page-level editorial inventory and external AdSense prerequisites remain open.
