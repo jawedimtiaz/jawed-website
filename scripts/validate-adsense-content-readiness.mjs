@@ -133,7 +133,7 @@ assert.equal(notesIndex.includes('<h3>Personal Finance · Retirement <span class
 
 
 const safeBrowserTools=fs.readFileSync("notes/building-safe-browser-based-it-tools/index.html","utf8");
-assert.equal(/turn0search\\d+|cite|/.test(safeBrowserTools),false,"Published browser-tools note must not expose internal citation placeholders");
+assert.equal(citationPlaceholderPattern.test(safeBrowserTools),false,"Published browser-tools note must not expose internal citation placeholders");
 for(const phrase of [
   "browser File API</a>",
   "MDN’s Web Storage API reference</a>",
