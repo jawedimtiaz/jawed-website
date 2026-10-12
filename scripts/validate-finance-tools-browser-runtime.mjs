@@ -26,6 +26,7 @@ async function find(selector){return command("POST","/element",{using:"css selec
 const elementId=e=>e["element-6066-11e4-a52e-4f735466cecf"]||e.ELEMENT;
 async function click(selector){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/click",{});await sleep(180)}
 async function type(selector,value){const e=await find(selector);const id=elementId(e);await command("POST","/element/"+id+"/clear",{});if(value!=="")await command("POST","/element/"+id+"/value",{text:value,value:[...value]});await sleep(180)}
+async function clearAndDispatchInput(selector){await type(selector,"");await js("const e=document.querySelector(arguments[0]);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true",[selector]);await sleep(180)}
 async function textOf(selector){return js("return document.querySelector(arguments[0])?.textContent.trim()||''",[selector])}
 async function valueOf(selector){return js("return document.querySelector(arguments[0])?.value||''",[selector])}
 async function hitTest(selector){
@@ -105,7 +106,7 @@ async function testSnapshot(label){
   await checkControl("#reset",label+" snapshot reset");
   const spending=await textOf("#spending"),netWorth=await textOf("#netWorth");
   if(spending.replace(/\s/g,"")!=="₹60,000"||netWorth.replace(/\s/g,"")!=="₹16,00,000")throw new Error(label+" snapshot default math mismatch: spending="+spending+", netWorth="+netWorth);
-  await type("#income","");await sleep(200);
+  await clearAndDispatchInput("#income");
   if(!(await textOf("#error")).includes("Enter zero or a positive number"))throw new Error(label+" snapshot blank input did not show validation feedback");
   if(await textOf("#spending")!=="—"||await textOf("#netWorth")!=="—")throw new Error(label+" snapshot blank input left stale outputs visible");
   await click("#reset");
