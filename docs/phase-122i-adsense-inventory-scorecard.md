@@ -208,3 +208,14 @@ A source-level sweep of the 12 interactive tool pages found one additional blank
 PR #645 merged as `6c5ee0a6b8796d90366d1fde03968bd752409072`. The finance regression gate, site integrity, AI production regression matrix, SEO, privacy readiness, performance, supply-chain and Core Web Vitals checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
 
 This source-level sweep is not a substitute for rendered-browser testing across the tool inventory. The broader page-level editorial review and external AdSense prerequisites remain open.
+
+
+## Phase 122BL — Finance tools browser runtime verification (2026-10-12)
+
+Added a production Chrome/ChromeDriver browser smoke gate for the Compound Growth & SIP, Inflation Goal Planning, Retirement Planning, and Personal Finance Snapshot tools. It waits until the expected source revision is served, then checks desktop (1440×1100) and mobile (390×844) layouts, default outputs, valid form submission, blank required-field validity, reset restoration, snapshot blank-input feedback, and control hit-testing.
+
+The browser run exposed a second Personal Finance Snapshot defect: its Reset button used `id="reset"`, which shadowed the form's native `reset()` method and prevented the handler from restoring defaults. The button ID and handler now use `finance-reset`, and a source regression guard protects that contract.
+
+PR #647 merged as `cdea4c2fc2f403324ff0d3cc1a6289beb81140ab`. The post-merge production browser smoke passed at both desktop and mobile viewports. Cloudflare Pages deployment, AI regression, SEO, site integrity, finance regression, privacy readiness, performance, supply-chain and Core Web Vitals checks all passed.
+
+This verifies the covered finance-tool interactions in headless Chrome at two viewport sizes; it is not a complete manual audit of every site page, device, assistive technology, or third-party service. The broader editorial review and external AdSense prerequisites remain open.
