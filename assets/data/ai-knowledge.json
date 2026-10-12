@@ -427,7 +427,7 @@
     },
     {
       "url": "/notes/it-troubleshooting-guide-knowledge-base/",
-      "title": "Writing Better IT Troubleshooting Guides: From Incident to Knowledge Base",
+      "title": "IT Troubleshooting Guide: From Incident to Knowledge Base",
       "summary": "Explains how to turn a case-specific IT incident into a sanitized, reusable knowledge-base guide. Separates observed facts from hypotheses, structures the article around problem, scope, checks, resolution, validation and escalation, and includes an illustrative VPN sign-in example that explicitly leaves the root cause unconfirmed.",
       "keywords": [
         "it troubleshooting",
