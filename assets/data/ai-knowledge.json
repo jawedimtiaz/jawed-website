@@ -602,11 +602,28 @@
     {
       "url": "/blog/rebuilding-jawed-co-in/",
       "title": "Rebuilding Jawed.co.in",
-      "summary": "Blog article documenting the process and considerations involved in rebuilding Jawed.co.in.",
+      "summary": "A detailed case study of rebuilding Jawed.co.in as a content-led professional portfolio using static HTML, CSS and JavaScript, GitHub source control and Cloudflare Pages deployment. Explains purpose-led information architecture, retiring outdated material, separating editorial pages from interactive tools and AI, automated route/link/metadata/security/performance checks, SEO discovery limits, and lessons about maintainability, privacy and production verification.",
       "keywords": [
-        "blog",
-        "website",
-        "development"
+        "website rebuild",
+        "case study",
+        "static site",
+        "html",
+        "css",
+        "javascript",
+        "github",
+        "cloudflare pages",
+        "information architecture",
+        "content quality",
+        "legacy migration",
+        "sitemap",
+        "seo",
+        "structured data",
+        "accessibility",
+        "security",
+        "performance",
+        "deployment verification",
+        "maintainability",
+        "privacy"
       ]
     },
     {
