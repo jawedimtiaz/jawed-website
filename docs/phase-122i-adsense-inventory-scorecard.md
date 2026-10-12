@@ -246,3 +246,24 @@ Extended the production Chrome smoke suite to cover search and clear behavior on
 PR #654 merged as `2c7e179a8cd8f08daa45f5dbccacb18d35350acc`. The post-merge production browser runtime gate and Cloudflare Pages deployment succeeded, alongside the applicable supply-chain and finance regression checks.
 
 This verifies these four discovery interactions in headless Chrome; it does not prove complete accessibility conformance or exhaustive cross-browser behavior. The page-level editorial review and external AdSense prerequisites remain open.
+
+
+## Phase 122BS — Add a sanitized worked example to the knowledge-base guide (2026-10-12)
+
+The knowledge-base note explained how to separate observations from hypotheses and sanitize incident records, but lacked a concrete demonstration of converting a case-specific ticket into a reusable article. Added an explicitly illustrative VPN sign-in example with problem pattern, scope, checks, unresolved root cause, validation and escalation boundaries. The example avoids real user/employer details and does not claim a fix where the cause is unconfirmed. Visible publication/update dates and Article structured metadata were aligned.
+
+PR #656 merged as `2a0c93287c9725c045cc4e33cfb37b2781e7571f`. The AdSense readiness gate initially exposed a missing exact-file trigger dependency for the content validator; the workflow now explicitly lists that note in both PR and push filters. The full readiness gate then passed, along with site integrity, AI regression, SEO, performance, privacy, supply-chain and Core Web Vitals checks. Cloudflare Pages production deployment succeeded.
+
+## Phase 122BT — Synchronize Jawed AI knowledge for the updated note (2026-10-12)
+
+Updated the AI knowledge entry to reflect the sanitized worked example, facts-versus-hypotheses distinction and uncertainty boundary, then regenerated the runtime copy from the canonical JSON source. A regression run caught a retrieval-ranking change for “I need a guide for service desk troubleshooting”; the AI index title/keywords were adjusted to preserve the established primary source while retaining the new, page-grounded summary. A validator now guards both the distinctive summary and the retrieval-compatible metadata.
+
+PR #657 merged as `103059910360518ba496b59682ffac388cc702b8`. The AI regression matrix, production AI GET/POST reliability, static-asset reliability, deployment runtime, site integrity, AdSense readiness, supply-chain and Cloudflare Pages checks passed. Production deployment succeeded.
+
+## Phase 122BU — Verify knowledge-base note rendering in Chrome (2026-10-12)
+
+Extended the production browser smoke to check the knowledge-base note's rendered heading, visible worked-example section, illustrative disclosure, unresolved-root-cause wording and visible publication/update dates at desktop (1440×1100) and mobile (390×844) viewport sizes. The workflow now runs when this note changes.
+
+PR #658 merged as `dcbd21fe818b37c348fed90f1fbecf454fcdee9d`. The post-merge production Chrome smoke passed at both viewport sizes, and the Cloudflare Pages deployment succeeded. This verifies the covered rendered content in headless Chrome, not full accessibility conformance or exhaustive browser/device coverage.
+
+The note improvement strengthens practical usefulness and the AI's grounded summary; it does not establish AdSense approval. The broader page-level editorial inventory and external AdSense prerequisites remain open.
