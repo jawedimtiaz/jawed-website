@@ -60,7 +60,12 @@ async function waitForProductionRevision(){
     ["/tools/it-troubleshooting-assistant/",'Can the device reach any known website or network resource?'],
     ["/tools/resume-bullet-strength-checker/",'const weak=[\'responsible for\''],
     ["/tools/service-desk-note-formatter/",'Note formatted locally in your browser.'],
-    ["/tools/ticket-to-knowledge-base-draft/",'Draft built locally. Review and sanitize it before reuse.']
+    ["/tools/ticket-to-knowledge-base-draft/",'Draft built locally. Review and sanitize it before reuse.'],
+    ["/assets/js/main.js","const filters=[{input:'notes-filter'"],
+    ["/topics/",'id="topics-filter"'],
+    ["/resources/",'id="resources-filter"'],
+    ["/notes/",'id="notes-filter"'],
+    ["/blog/",'id="blog-filter"']
   ];
   for(let attempt=0;attempt<120;attempt++){
     let ready=true;
@@ -215,6 +220,30 @@ async function testKnowledgeBaseDraft(label){
   if(await valueOf("#kb-problem")!==""||!(await textOf("#kb-output")).includes("Your draft will appear here."))throw new Error(label+" KB draft clear did not reset state");
 }
 
+async function testContentDiscovery(label){
+  const cases=[
+    {path:"/topics/",input:"#topics-filter",reset:'[data-reset-filter="topics-filter"]',status:"#topics-filter-status",query:"Apple",kind:"topic results"},
+    {path:"/resources/",input:"#resources-filter",reset:'[data-reset-filter="resources-filter"]',status:"#resources-filter-status",query:"Apple",kind:"resource results"},
+    {path:"/notes/",input:"#notes-filter",reset:'[data-reset-filter="notes-filter"]',status:"#notes-filter-status",query:"Jamf",kind:"note results"},
+    {path:"/blog/",input:"#blog-filter",reset:'[data-reset-filter="blog-filter"]',status:"#blog-filter-status",query:"triage",kind:"post results"}
+  ];
+  for(const item of cases){
+    await openPage(item.path,item.input);
+    await checkControl(item.input,label+" "+item.kind+" search");
+    await checkControl(item.reset,label+" "+item.kind+" clear");
+    if(!(await textOf(item.status)).startsWith("Showing all"))throw new Error(label+" "+item.kind+" initial status is incorrect");
+    await type(item.input,item.query);
+    const filtered=await textOf(item.status);
+    if(!filtered.includes("matching")||!filtered.includes(item.kind))throw new Error(label+" "+item.kind+" search did not update status: "+filtered);
+    const query=await js("return new URL(window.location.href).searchParams.get('q')");
+    if(query!==item.query)throw new Error(label+" "+item.kind+" search did not synchronize the URL query");
+    await click(item.reset);
+    if(await valueOf(item.input)!==""||!(await textOf(item.status)).startsWith("Showing all"))throw new Error(label+" "+item.kind+" clear did not restore all results");
+    const clearedQuery=await js("return new URL(window.location.href).searchParams.get('q')");
+    if(clearedQuery!==null)throw new Error(label+" "+item.kind+" clear left a stale URL query");
+  }
+}
+
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
@@ -231,6 +260,7 @@ async function runViewport(width,height){
     await testBulletChecker(label);
     await testNoteFormatter(label);
     await testKnowledgeBaseDraft(label);
+    await testContentDiscovery(label);
     console.log("Finance tools viewport "+label+": PASS");
   }finally{if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}}
 }
