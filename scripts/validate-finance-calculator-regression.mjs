@@ -76,7 +76,7 @@ closeTo(zeroReal.required, 2000000);
 const retirementNote = fs.readFileSync("notes/retirement-corpus-calculation-framework/index.html", "utf8");
 const exampleCorpusLakh = 15 * (1 - (1 + 0.03) ** (-30)) / 0.03;
 closeTo(exampleCorpusLakh, 294.00662024204684, 0.000001);
-assert.match(retirementNote, /roughly ₹294 lakh, or ₹2\\.94 crore/, "Published corpus example must match the independently calculated result");
+assert.match(retirementNote, /roughly ₹294 lakh, or ₹2\.94 crore/, "Published corpus example must match the independently calculated result");
 assert.match(retirementHtml, /v\.spending\*Math\.pow\(1\+inflation,years\)/);
 assert.match(retirementHtml, /if\(preMonthly===0\)\{projected=v\.corpus\+v\.contribution\*months\}/);
 assert.match(retirementHtml, /if\(real===0\)\{required=futureSpending\*horizon\}/);
