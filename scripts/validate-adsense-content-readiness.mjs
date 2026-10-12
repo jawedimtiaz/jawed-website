@@ -14,7 +14,8 @@ const publishedRoutes=publishedSitemap.split("<loc>").slice(1).map(entry=>{
 });
 const citationPlaceholderPattern=new RegExp("turn0search[0-9]+|cite|");
 for(const routePath of publishedRoutes){
-  const normalizedRoute=routePath.endsWith("/")?routePath.slice(0,-1):routePath;
+  const routeWithoutLeadingSlash=routePath.startsWith("/")?routePath.slice(1):routePath;
+  const normalizedRoute=routeWithoutLeadingSlash.endsWith("/")?routeWithoutLeadingSlash.slice(0,-1):routeWithoutLeadingSlash;
   const sourcePath=routePath==="/"?"index.html":normalizedRoute+"/index.html";
   const publishedHtml=fs.readFileSync(sourcePath,"utf8");
   assert.equal(citationPlaceholderPattern.test(publishedHtml),false,"Published page exposes internal citation placeholders: "+sourcePath);
