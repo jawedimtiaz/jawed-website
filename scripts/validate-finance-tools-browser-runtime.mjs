@@ -43,7 +43,7 @@ async function openPage(path,selector){
   await waitForElement(selector);
   await sleep(250);
 }
-async function submit(formSelector){await js("document.querySelector(arguments[0]).requestSubmit();return true",[formSelector]);await sleep(250)}
+async function submit(formSelector){await click(formSelector+" button[type=submit]");await sleep(250)}
 async function waitForProductionRevision(){
   const checks=[
     ["/tools/compound-growth-sip-calculator/",'reset.addEventListener("click",()=>{f.reset();err.textContent="";calculate()})'],
