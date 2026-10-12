@@ -48,8 +48,9 @@ Ratings describe the repository content observed on 12 October 2026; they are no
 - **122U:** added a privacy warning and Privacy Policy link to the floating AI widget.
 - **122V:** moved a compact privacy notice before the dedicated AI page’s prompt form.
 - **122W:** fixed a false-positive in resume metric detection and added a behavioral regression test.
+- **122Y:** aligned Article `dateModified` metadata with the visible update date on the AI-for-IT-support and money-basics notes, preserving their original publication dates.
 
-The merged remediation commits through Phase 122W passed their applicable CI gates. Cloudflare Pages confirmed a successful production deployment for commit `17a1a3de892c60453e9dabc0a01517fbb8bd4df7`.
+The merged remediation commits through Phase 122Y passed their applicable CI gates. Cloudflare Pages confirmed a successful production deployment for commit `53fca83017fac21e4b7761fbad92f032af65b673`.
 
 Each merged phase passed its applicable repository CI gates and had a successful Cloudflare Pages production deployment associated with the merge commit.
 
