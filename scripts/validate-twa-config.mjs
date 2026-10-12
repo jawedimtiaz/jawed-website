@@ -20,7 +20,7 @@ const web = parse("manifest.json");
 
 if (twa) {
   if (twa.packageId !== "in.co.jawed.website") fail.push("Unexpected TWA packageId");
-  if (twa.host !== "www.jawed.co.in") fail.push("Unexpected TWA host");
+  if (twa.host !== "jawed.co.in") fail.push("Unexpected TWA host");
   if (twa.startUrl !== "/") fail.push("TWA startUrl must be /");
   if (twa.display !== "standalone") fail.push("TWA display must be standalone");
   if (!Number.isInteger(twa.appVersionCode) || twa.appVersionCode < 1) fail.push("TWA appVersionCode must be a positive integer");
