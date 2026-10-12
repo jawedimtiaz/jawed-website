@@ -118,3 +118,11 @@ A repository-source sweep covered all 29 published note-page HTML files and all 
 - **Interactive tools (12/12):** the static check found no `input`, `textarea`, or `select` element lacking either a matching HTML label or an `aria-label`/ `aria-labelledby` attribute.
 
 This was a source-level structural/accessibility-name check only. It did not verify rendered visibility, color contrast, keyboard operation, dynamic controls created at runtime, calculation correctness, factual accuracy, originality, content depth, or Google indexing. Those remain separate review items; this result does not complete the manual editorial review or change the AdSense pre-activation decision.
+
+## Phase 122AT — Finance calculator input validation (2026-10-12)
+
+A focused code review found that the Retirement Planning, Compound Growth & SIP, and Inflation & Goal Planning calculators used `novalidate` forms and converted field values with `Number(...)`. Empty strings can convert to zero, allowing a cleared required field to be interpreted as a valid assumption. The calculation handlers now reject blank fields and explicitly check the HTML input validity constraints before calculating. Legitimate zero values remain accepted where the fields permit them; formulas, defaults, and financial guidance were not changed.
+
+PR #629 merged as `ee7c3c0d298a18a081c9b9aa656ccb478887cd0f`. Applicable regression, SEO, privacy readiness, performance, security supply-chain, site-integrity and Core Web Vitals checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
+
+This correction improves input handling only. It is not a substitute for independent mathematical test vectors and rendered-browser verification of each calculator, which remain part of the deeper interactive-tool audit. The site-wide editorial review and external AdSense prerequisites remain open.
