@@ -52,7 +52,8 @@ async function waitForProductionRevision(){
     ["/tools/compound-growth-sip-calculator/",'reset.addEventListener("click",()=>{f.reset();err.textContent="";calculate()})'],
     ["/tools/inflation-goal-planning-calculator/",'field.value.trim()===""||!field.checkValidity()'],
     ["/tools/retirement-planning-calculator/",'el[id].value.trim()===""||!el[id].checkValidity()'],
-    ["/tools/personal-finance-snapshot/",'$(id).value.trim()===""||!Number.isFinite(n(id))||n(id)<0']
+    ["/tools/personal-finance-snapshot/",'$(id).value.trim()===""||!Number.isFinite(n(id))||n(id)<0'],
+    ["/tools/personal-finance-snapshot/",'$("finance-reset").addEventListener("click"']
   ];
   for(let attempt=0;attempt<120;attempt++){
     let ready=true;
@@ -103,13 +104,13 @@ async function testRetirement(label){
 async function testSnapshot(label){
   await openPage("/tools/personal-finance-snapshot/","#income");
   await checkControl("#finance-tool button[type='submit']",label+" snapshot submit");
-  await checkControl("#reset",label+" snapshot reset");
+  await checkControl("#finance-reset",label+" snapshot reset");
   const spending=await textOf("#spending"),netWorth=await textOf("#netWorth");
   if(spending.replace(/\s/g,"")!=="₹60,000"||netWorth.replace(/\s/g,"")!=="₹16,00,000")throw new Error(label+" snapshot default math mismatch: spending="+spending+", netWorth="+netWorth);
   await clearAndDispatchInput("#income");
   if(!(await textOf("#error")).includes("Enter zero or a positive number"))throw new Error(label+" snapshot blank input did not show validation feedback");
   if(await textOf("#spending")!=="—"||await textOf("#netWorth")!=="—")throw new Error(label+" snapshot blank input left stale outputs visible");
-  await click("#reset");
+  await click("#finance-reset");
   const resetState={income:await valueOf("#income"),spending:await textOf("#spending"),netWorth:await textOf("#netWorth"),expectedSpending:spending,expectedNetWorth:netWorth};if(resetState.income!=="100000"||resetState.spending!==spending||resetState.netWorth!==netWorth)throw new Error(label+" snapshot reset mismatch: "+JSON.stringify(resetState));
 }
 async function runViewport(width,height){
