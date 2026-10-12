@@ -192,6 +192,11 @@ let mainJsSyntaxError=null;
 try{new Function(mainJs)}catch(error){mainJsSyntaxError=error}
 if(mainJsSyntaxError)errors.push("assets/js/main.js has invalid JavaScript syntax: "+mainJsSyntaxError.message);
 else console.log("assets/js/main.js JavaScript syntax contract: PASS");
+const jawedAiWidgetPrivacyNoticeContract=mainJs.includes('privacyNote.className="jawed-ai-widget-privacy"')&&mainJs.includes('privacyLink.href="/privacy/"')&&mainJs.includes('panel.append(header,privacyNote,messages,form)');
+if(!jawedAiWidgetPrivacyNoticeContract)errors.push("Jawed AI widget must show a privacy warning and link before users enter a prompt");
+else console.log("Jawed AI widget privacy notice contract: PASS");
+
+
 const jawedAiWidgetAccessibilityContract=mainJs.includes('panel.setAttribute("role","dialog")')&&mainJs.includes('panel.setAttribute("aria-modal","false")')&&mainJs.includes('panel.setAttribute("aria-labelledby","jawed-ai-title")')&&mainJs.includes('title.id="jawed-ai-title"')&&mainJs.includes('if(open)input.focus();else toggle.focus()')&&mainJs.includes('document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!panel.hidden)setOpen(false)})');
 if(!jawedAiWidgetAccessibilityContract)errors.push("Jawed AI floating widget must expose dialog semantics, an accessible title, and keyboard focus return");
 else console.log("Jawed AI widget accessibility contract: PASS");
