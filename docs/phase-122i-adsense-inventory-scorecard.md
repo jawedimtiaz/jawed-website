@@ -356,3 +356,11 @@ The sitemap-to-source inventory and structural scan cover all 59 published route
 - **H — Resubmission:** not started.
 
 The last recorded AdSense account view on 12 October 2026 showed **Needs attention / Low value content** and separate prompts concerning ads.txt, payment information and site/account setup. Recheck the live account before acting; these operational prompts do not themselves resolve the content rejection. Do not enable live ad scripts or resubmit until the audit is complete and the actual AdSense status and prerequisites have been verified. Internal CI success is not Google approval.
+
+
+## Phase 122DD — Replace internal-sounding topic labels (2026-10-12)
+
+The Topics hub exposed three `Active foundation` badges that read like internal taxonomy rather than visitor-facing information. Replaced them with labels that describe the destinations: `Retirement guides`, `Coverage fundamentals` and `Illustrative calculators`. The AdSense content-readiness validator now asserts that the placeholder wording cannot return and that the visitor-facing labels remain present; the workflow explicitly watches the Topics page.
+
+The topic-label change is present on `main` at `1873c912b85102cb9ec1b81ef1dd42c71b80179b`. This is a small editorial polish fix, not evidence of AdSense approval.
+
