@@ -836,6 +836,29 @@
         "job search",
         "career tools"
       ]
+    },
+    {
+      "url": "/blog/triage-workplace-app-access-issue/",
+      "title": "How to Triage a Workplace App Access Issue",
+      "summary": "An explicitly illustrative IT support walkthrough for a workplace application access failure. Demonstrates defining user impact, scoping user/device/application/service, recording observed evidence, choosing one safe discriminating check, separating facts from hypotheses, validating the original workflow and preparing an actionable escalation. Emphasizes authorization, privacy, approved procedures and the limits of a generic example.",
+      "keywords": [
+        "blog",
+        "it support",
+        "application access",
+        "triage",
+        "troubleshooting",
+        "scope",
+        "user impact",
+        "device",
+        "application",
+        "service",
+        "evidence",
+        "hypothesis",
+        "validation",
+        "escalation",
+        "privacy",
+        "security"
+      ]
     }
   ],
   "reviewed_against_sitemap_on": "2026-10-12",
