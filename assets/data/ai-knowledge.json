@@ -503,12 +503,21 @@
     {
       "url": "/notes/us-stocks-etfs-starting-point/",
       "title": "US Stocks & ETFs: Starting Point",
-      "summary": "Educational introduction to US stocks and ETFs, covering basic investing concepts and considerations for getting started.",
+      "summary": "Educational starting point for understanding individual US stocks, ETFs, diversification and portfolio context. Explains company-level concentration and how to inspect holdings, costs, risks, time horizon and portfolio role. Includes a clearly fictional ₹10 lakh example showing that two equally sized ETFs with 50% and 40% exposure to the same company create a combined 45% portfolio exposure to that holding. Notes that fund labels and ticker count do not prove diversification and directs readers to Investor.gov for general allocation and diversification concepts. Does not recommend specific securities or funds.",
       "keywords": [
         "investing",
         "us stocks",
         "etfs",
-        "finance"
+        "finance",
+        "ETF overlap",
+        "holdings overlap",
+        "concentration risk",
+        "shared holdings",
+        "portfolio exposure",
+        "worked example",
+        "diversification",
+        "US stocks",
+        "ETFs"
       ]
     },
     {
