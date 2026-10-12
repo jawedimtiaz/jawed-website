@@ -163,3 +163,12 @@ A page-level financial content review found that the AY 2026-27 tax-regime compa
 PR #636 merged as `607b8b9114520615bcf855e406b98be350702b17`. The finance-content regression gate, site integrity, AI production regression matrix, SEO, privacy readiness, performance, supply-chain and Core Web Vitals checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
 
 This change clarifies educational content; it does not calculate individual tax liability. The official Income Tax Department guidance and calculator remain the appropriate sources for a taxpayer's actual case. The remaining page-level editorial review and external AdSense prerequisites remain open.
+
+
+## Phase 122BC — Align financial-note update dates and Article metadata (2026-10-12)
+
+After the retirement-corpus example and tax-regime comparison were substantively corrected, their visible `Updated` dates and Article `dateModified` fields were found to still show 2026-09-28. Both now show 2026-10-12 while preserving the original `datePublished` value. The tax note's source-check date was also refreshed after checking the official Income Tax Department guidance for AY 2026-27.
+
+PR #638 merged as `50a6f3c6ed459c13bf3b3d115a5a8bc8007c0cf1`. The finance-content regression gate, site integrity, AI production regression matrix, SEO, privacy readiness, performance, supply-chain and Core Web Vitals checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
+
+The modified-date alignment is now covered by the finance-content regression gate. This is still a source-level check; it does not claim rendered-browser verification. The wider page-level editorial review and external AdSense prerequisites remain open.
