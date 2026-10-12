@@ -45,10 +45,33 @@ if (web) {
   for (const size of ["192x192", "512x512"]) {
     if (!web.icons?.some(icon => icon.sizes === size)) fail.push(`Web manifest missing ${size} icon`);
   }
+
+  // The TWA launcher and related icon URLs must resolve to assets declared by
+  // the website's own manifest, so the Android wrapper cannot silently drift.
+  if (twa) {
+    const declaredIconPaths = new Set(
+      (Array.isArray(web.icons) ? web.icons : [])
+        .map(icon => icon?.src)
+        .filter(src => typeof src === "string" && src.startsWith("/") && !src.startsWith("//"))
+    );
+    for (const key of ["iconUrl", "maskableIconUrl", "monochromeIconUrl"]) {
+      const value = twa[key];
+      if (typeof value !== "string") continue;
+      try {
+        const url = new URL(value);
+        if (url.origin !== `https://${twa.host}`) continue;
+        if (!declaredIconPaths.has(url.pathname)) {
+          fail.push(`TWA ${key} path must be declared in manifest.json: ${url.pathname}`);
+        }
+      } catch {
+        // The host/path contract above reports malformed values.
+      }
+    }
+  }
 }
 for (const iconPath of ["assets/icons/pwa-192.svg", "assets/icons/pwa-512.svg"]) {
   const icon = read(iconPath);
-  if (icon !== null && !/<svg\b/i.test(icon)) fail.push(`PWA icon is not SVG markup: ${iconPath}`);
+  if (icon !== null && !/<svg\\b/i.test(icon)) fail.push(`PWA icon is not SVG markup: ${iconPath}`);
 }
 
 if (fail.length) {
