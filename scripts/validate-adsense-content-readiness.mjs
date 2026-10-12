@@ -106,6 +106,11 @@ for(const phrase of [
   'href="/notes/network-connectivity-first-response-checklist/"'
 ])assert.equal(skillsPage.includes(phrase),true,"Skills page evidence context missing: "+phrase);
 
+const topicsPage=fs.readFileSync("topics/index.html","utf8");
+assert.equal(topicsPage.includes("Active foundation"),false,"Topic hub must not expose internal placeholder labels");
+for(const phrase of ["Retirement guides","Coverage fundamentals","Illustrative calculators"])
+  assert.equal(topicsPage.includes(phrase),true,"Topic hub needs a visitor-facing category label: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
