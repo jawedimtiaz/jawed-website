@@ -125,4 +125,23 @@ A focused code review found that the Retirement Planning, Compound Growth & SIP,
 
 PR #629 merged as `ee7c3c0d298a18a081c9b9aa656ccb478887cd0f`. Applicable regression, SEO, privacy readiness, performance, security supply-chain, site-integrity and Core Web Vitals checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
 
-This correction improves input handling only. It is not a substitute for independent mathematical test vectors and rendered-browser verification of each calculator, which remain part of the deeper interactive-tool audit. The site-wide editorial review and external AdSense prerequisites remain open.
+This correction improves input handling only. Phase 122AV added independent numeric regression vectors and source guards for the three calculator methodologies. Rendered-browser verification of each calculator remains outstanding. The site-wide editorial review and external AdSense prerequisites remain open.
+
+
+## Phase 122AU — Record calculator validation findings (2026-10-12)
+
+The scorecard now records Phase 122AT's finance-calculator input-validation finding and the remaining test boundaries. This documentation-only phase did not change site behavior. PR #630 merged as `41b16c3c2651176e9ea92134ce64be0202d495ef`; applicable checks passed and the Cloudflare Pages deployment succeeded.
+
+## Phase 122AV — Finance calculator mathematical regression gate (2026-10-12)
+
+Added `scripts/validate-finance-calculator-regression.mjs` with independent numeric test vectors for SIP growth, inflation-adjusted goal planning, and retirement-corpus estimates, including zero-rate and zero-period cases. The new workflow runs on relevant calculator changes and on manual dispatch. It also guards the published formula implementations and explicit input validity checks. PR #631 merged as `f5110368e02e332567fe8a8216005525b49aa4a3`; the regression workflow and applicable repository checks passed, and Cloudflare Pages production deployment succeeded.
+
+This deterministic gate does not emulate a browser or prove that controls render, are usable on real devices, or behave correctly under every interaction. Rendered-browser verification remains outstanding.
+
+## Phase 122AW — SIP calculator reset consistency (2026-10-12)
+
+A focused interaction review found that the Compound Growth & SIP calculator restored its default inputs on Reset but cleared the displayed results, unlike its initial-load behavior and the other finance calculators. Reset now restores the form defaults, clears the validation message, and recalculates the default result. The finance regression gate protects this reset behavior, and the existing site-integrity reset contract was updated to match the intended behavior.
+
+PR #632 merged as `450ae3e765f32beeff3598aae6886217380ec3de`. The finance regression gate, site integrity, AI production regression matrix, SEO, privacy readiness, performance, supply-chain and Core Web Vitals checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
+
+The change does not alter any calculation formula or financial assumption. Full rendered-browser verification and the remaining page-level editorial review remain open; AdSense remains pre-activation pending external prerequisites and final inventory review.
