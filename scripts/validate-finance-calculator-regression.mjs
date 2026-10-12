@@ -88,6 +88,19 @@ assert.match(retirementNote, /"datePublished":"2026-09-28","dateModified":"2026-
 assert.match(retirementNote, /Updated: 2026-10-12/);
 assert.match(taxComparisonNote, /"datePublished":"2026-09-28","dateModified":"2026-10-12"/);
 assert.match(taxComparisonNote, /Updated: 2026-10-12/);
+
+// Additional published examples: inflation goal, emergency reserve, and net worth.
+const inflationNote = fs.readFileSync("notes/inflation-and-future-goal-planning/index.html", "utf8");
+const moneyNote = fs.readFileSync("notes/money-basics-budget-emergency-net-worth/index.html", "utf8");
+const goalExampleLakh = 10 * (1 + 0.06) ** 10;
+closeTo(goalExampleLakh, 17.908476965428547, 0.000001);
+assert.match(inflationNote, /approximately ₹17\.91 lakh in nominal terms/, "Inflation example must match the stated assumptions");
+closeTo(35000 * 3, 105000);
+closeTo(35000 * 6, 210000);
+closeTo(800000 - 300000, 500000);
+assert.match(moneyNote, /three months would equal ₹1,05,000/);
+assert.match(moneyNote, /six-month scenario would equal ₹2,10,000/);
+assert.match(moneyNote, /net worth at that date is ₹5 lakh/);
 assert.match(retirementHtml, /v\.spending\*Math\.pow\(1\+inflation,years\)/);
 assert.match(retirementHtml, /if\(preMonthly===0\)\{projected=v\.corpus\+v\.contribution\*months\}/);
 assert.match(retirementHtml, /if\(real===0\)\{required=futureSpending\*horizon\}/);
