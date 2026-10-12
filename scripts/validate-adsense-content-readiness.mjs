@@ -75,6 +75,16 @@ for(const phrase of [
   "Sources checked: 2026-10-12"
 ])assert.equal(taxYearGuide.includes(phrase),true,"Tax-year transition guidance missing: "+phrase);
 assert.equal(taxYearGuide.includes('"dateModified":"2026-10-12"'),true,"Tax guide schema modified date must match the review date");
+const taxRegimeComparison=fs.readFileSync("notes/new-vs-old-tax-regime-comparison/index.html","utf8");
+for(const phrase of [
+  "Check the tax year before using this comparison",
+  "Income-tax Act, 1961",
+  "Income-tax Act, 2025",
+  "Tax Year 2026-27",
+  "Updated-FQAs-on-Interplay%26Transitions.pdf",
+  "tax-rates-and-computation"
+])assert.equal(taxRegimeComparison.includes(phrase),true,"Tax regime comparison transition guidance missing: "+phrase);
+
 
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
