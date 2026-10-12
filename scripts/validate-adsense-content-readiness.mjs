@@ -64,6 +64,18 @@ for(const phrase of [
 ])assert.equal(usInvestingGuide.includes(phrase),true,"US stocks/ETF worked-example contract missing: "+phrase);
 assert.equal(usInvestingGuide.includes('dateModified":"2026-10-12"'),true,"US stocks/ETF Article dateModified must match visible update date");
 
+const taxYearGuide=fs.readFileSync("notes/indian-income-tax-practical-starting-point/index.html","utf8");
+for(const phrase of [
+  "Important scope update: AY 2026-27 and Tax Year 2026-27 are different periods",
+  "Income-tax Act, 1961",
+  "Income-tax Act, 2025",
+  "Tax Year 2026-27",
+  "Updated-FQAs-on-Interplay%26amp;Transitions.pdf",
+  "tax-rates-and-computation",
+  "Sources checked: 2026-10-12"
+])assert.equal(taxYearGuide.includes(phrase),true,"Tax-year transition guidance missing: "+phrase);
+assert.equal(taxYearGuide.includes('"dateModified":"2026-10-12"'),true,"Tax guide schema modified date must match the review date");
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
