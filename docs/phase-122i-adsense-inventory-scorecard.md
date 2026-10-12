@@ -40,8 +40,16 @@ Ratings describe the repository content observed on 12 October 2026; they are no
 - **122M:** added evidence-based interview preparation guidance and a truthful resume-bullet revision pattern.
 - **122N:** added illustrative cash-flow, emergency-reserve and net-worth examples to the money-basics note and replaced a US-oriented reference with RBI financial-education material.
 - **122O:** fixed a double-escaped newline defect in the AI Prompt Builder and added a regression contract.
+- **122P:** refreshed the AdSense scorecard to distinguish structural inventory screening from the still-pending deep editorial review.
+- **122Q:** standardized homepage award and recognition labels to match the Experience page and avoid year/number-based presentation.
+- **122R:** removed unsupported numerical claims from the resume checker’s sample text.
+- **122S:** aligned visible update dates and Article `dateModified` metadata on six revised technical notes.
+- **122T:** documented AI conversation processing and safe-use boundaries on the AI and Privacy pages.
+- **122U:** added a privacy warning and Privacy Policy link to the floating AI widget.
+- **122V:** moved a compact privacy notice before the dedicated AI page’s prompt form.
+- **122W:** fixed a false-positive in resume metric detection and added a behavioral regression test.
 
-The merged remediation commits through Phase 122O passed their applicable CI gates. Cloudflare Pages confirmed a successful production deployment for commit `4c176982ef4bf0337eeabac42c20f2a5cb912190`.
+The merged remediation commits through Phase 122W passed their applicable CI gates. Cloudflare Pages confirmed a successful production deployment for commit `17a1a3de892c60453e9dabc0a01517fbb8bd4df7`.
 
 Each merged phase passed its applicable repository CI gates and had a successful Cloudflare Pages production deployment associated with the merge commit.
 
