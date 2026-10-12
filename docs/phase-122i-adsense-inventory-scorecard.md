@@ -50,6 +50,8 @@ Ratings describe the repository content observed on 12 October 2026; they are no
 - **122W:** fixed a false-positive in resume metric detection and added a behavioral regression test.
 - **122Y:** aligned Article `dateModified` metadata with the visible update date on the AI-for-IT-support and money-basics notes, preserving their original publication dates.
 - **122AA:** surfaced a Career Match privacy note before the resume/job-description inputs, warning against confidential information and disclosing browser-local storage and third-party PDF/DOCX libraries. The production browser smoke initially exposed a mobile scroll/hit-test issue; the test harness was stabilized and then passed at desktop and mobile viewports.
+- **122AB:** corrected a literal escaped character in the privacy notice and refreshed this scorecard to record the privacy work.
+- **122AC:** removed a duplicate opening `<section>` tag in the Interactive Tools & AI-Assisted Experiences note after focused source inspection found unnecessary nested section markup.
 
 The merged remediation commits through Phase 122AA passed their applicable CI gates. Cloudflare Pages confirmed a successful production deployment for Phase 122AA commit `03a1cee15ba858bfe81f08850a51f7d22077fd3f`.
 
