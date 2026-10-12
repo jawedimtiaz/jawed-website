@@ -31,6 +31,10 @@ else console.log("Blog breadcrumb structured-data contract: PASS");
 const blogArticleContract=blogArticle.includes('"@type":"BlogPosting"')&&blogArticle.includes('"datePublished":"2026-09-27"')&&blogArticle.includes('"author":{"@type":"Person","name":"Jawed Imtiaz"');
 if(!blogArticleContract)errors.push("Blog article must preserve BlogPosting author/date structured data");
 else console.log("BlogPosting structured-data contract: PASS");
+const triageBlogArticle=fs.readFileSync("blog/triage-workplace-app-access-issue/index.html","utf8");
+const triageBlogArticleContract=triageBlogArticle.includes('"@type":"Article"')&&triageBlogArticle.includes('"datePublished":"2026-10-12"')&&triageBlogArticle.includes('"author":{"@type":"Person","name":"Jawed Imtiaz"')&&triageBlogArticle.includes('"@type":"BreadcrumbList"')&&triageBlogArticle.includes('"position":3,"name":"How to Triage a Workplace App Access Issue"')&&sitemap.includes("https://jawed.co.in/blog/triage-workplace-app-access-issue/");
+if(!triageBlogArticleContract)errors.push("Triage case study must preserve Article author/date/breadcrumb structured data and sitemap membership");
+else console.log("Triage case-study structured-data and sitemap contract: PASS");
 
 
 
