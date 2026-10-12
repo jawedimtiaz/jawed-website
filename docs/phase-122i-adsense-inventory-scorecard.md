@@ -199,3 +199,12 @@ The finance regression gate now includes independent arithmetic checks for the i
 PR #643 merged as `7498f5d2a5e37bb007d3992b645ef3412fe8b5e0`. The finance regression gate and applicable supply-chain and Cloudflare Pages checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
 
 The tests validate arithmetic and selected source wording only. They do not validate the suitability of any financial assumption, provide personal advice, or replace rendered-browser testing. The wider editorial review and external AdSense prerequisites remain open.
+
+
+## Phase 122BJ — Personal Finance Snapshot blank-input validation (2026-10-12)
+
+A source-level sweep of the 12 interactive tool pages found one additional blank-number issue in Personal Finance Snapshot: `Number("")` evaluates to zero, so clearing a field could pass the existing non-negative check. The snapshot now explicitly rejects blank numeric values while preserving valid zeroes and existing formulas. The regression gate covers the validation predicate, invalid-state output clearing, and independent default math vectors.
+
+PR #645 merged as `6c5ee0a6b8796d90366d1fde03968bd752409072`. The finance regression gate, site integrity, AI production regression matrix, SEO, privacy readiness, performance, supply-chain and Core Web Vitals checks passed. Cloudflare Pages production deployment is being verified.
+
+This source-level sweep is not a substitute for rendered-browser testing across the tool inventory. The broader page-level editorial review and external AdSense prerequisites remain open.
