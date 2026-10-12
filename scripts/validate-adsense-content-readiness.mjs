@@ -86,6 +86,16 @@ for(const phrase of [
 ])assert.equal(taxRegimeComparison.includes(phrase),true,"Tax regime comparison transition guidance missing: "+phrase);
 
 
+const blogIndex=fs.readFileSync("blog/index.html","utf8");
+for(const phrase of [
+  "How to use these posts",
+  "it is not a real user or employer incident",
+  "For an immediate troubleshooting sequence, start with the relevant Note.",
+  "primary documentation linked in Resources",
+  'href="/notes/"',
+  'href="/resources/"'
+])assert.equal(blogIndex.includes(phrase),true,"Blog index editorial context missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
