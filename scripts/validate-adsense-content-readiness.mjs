@@ -70,7 +70,7 @@ for(const phrase of [
   "Income-tax Act, 1961",
   "Income-tax Act, 2025",
   "Tax Year 2026-27",
-  "Updated-FQAs-on-Interplay%26amp;Transitions.pdf",
+  "Updated-FQAs-on-Interplay%26Transitions.pdf",
   "tax-rates-and-computation",
   "Sources checked: 2026-10-12"
 ])assert.equal(taxYearGuide.includes(phrase),true,"Tax-year transition guidance missing: "+phrase);
