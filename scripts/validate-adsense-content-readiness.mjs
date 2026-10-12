@@ -111,6 +111,10 @@ assert.equal(topicsPage.includes("Active foundation"),false,"Topic hub must not 
 for(const phrase of ["Retirement guides","Coverage fundamentals","Illustrative calculators"])
   assert.equal(topicsPage.includes(phrase),true,"Topic hub needs a visitor-facing category label: "+phrase);
 
+const notesIndex=fs.readFileSync("notes/index.html","utf8");
+assert.equal(notesIndex.includes('<p class="eyebrow">3 notes</p><h3>Personal Finance · Retirement</h3>'),true,"Retirement summary count must include all three published notes");
+assert.equal(notesIndex.includes('<h3>Personal Finance · Retirement <span class="badge">3 notes</span></h3>'),true,"Retirement subject count must match the summary card");
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
