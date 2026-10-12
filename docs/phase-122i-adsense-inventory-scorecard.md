@@ -79,3 +79,9 @@ Before requesting another AdSense review:
 ## Decision
 
 **Do not request another review yet.** The content remediation has made measurable repository changes, but this scorecard is a checkpoint, not a final approval recommendation. Continue with the remaining site-wide content audit and final readiness review.
+
+## Phase 122AG — Career Match storage disclosure alignment (2026-10-12)
+
+The Career Match & Resume Review tool's privacy note now explicitly names the theme preference alongside saved analyses and Application Tracker entries stored in browser local storage. This aligns the tool-specific note with the main Privacy Policy and the tool's actual storage behavior. The change is disclosure-only; no storage behavior or analytics behavior changed.
+
+PR #616 merged as `a2d052efd9acbbecfca018614db3b7e24c6d1921`. Applicable repository checks passed, including the build, AdSense privacy readiness, site integrity, AI production regression matrix, performance baseline, SEO reliability, supply-chain baseline and Cloudflare Pages deployment. Cloudflare Pages production deployment for this merge completed successfully.
