@@ -12,6 +12,7 @@ on:
       - "tools/inflation-goal-planning-calculator/index.html"
       - "tools/retirement-planning-calculator/index.html"
       - "tools/personal-finance-snapshot/index.html"
+      - "tools/finance-planning-workspace/index.html"
   workflow_dispatch:
 permissions:
   contents: read

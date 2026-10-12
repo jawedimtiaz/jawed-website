@@ -114,6 +114,11 @@ closeTo(snapshotExample.income - snapshotSpending, 40000);
 closeTo(snapshotExample.essential * snapshotExample.targetMonths, 240000);
 closeTo(snapshotExample.emergency / snapshotExample.essential, 3.75);
 closeTo(snapshotExample.assets - snapshotExample.liabilities, 1600000);
+
+// The combined workspace must validate retirement fields explicitly before using Number("") === 0.
+const workspaceHtml = fs.readFileSync("tools/finance-planning-workspace/index.html", "utf8");
+assert.ok(workspaceHtml.includes('if(!valid(fields))err="Retirement values must be zero or positive."'), "Workspace retirement must reject blank numeric inputs");
+assert.ok(workspaceHtml.includes('if(err){markInvalid(fields,true,"retError");["retYears","retFutureSpend","retHorizon","requiredCorpus","projectedCorpus","retGap","retSummary"].forEach(id=>$(id).textContent="—");return;}'), "Workspace retirement validation must clear stale results");
 assert.match(retirementHtml, /v\.spending\*Math\.pow\(1\+inflation,years\)/);
 assert.match(retirementHtml, /if\(preMonthly===0\)\{projected=v\.corpus\+v\.contribution\*months\}/);
 assert.match(retirementHtml, /if\(real===0\)\{required=futureSpending\*horizon\}/);
