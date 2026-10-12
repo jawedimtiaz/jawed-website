@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - "android/**"
+      - "manifest.json"
+      - "assets/icons/pwa-192.svg"
+      - "assets/icons/pwa-512.svg"
+      - "scripts/validate-twa-config.mjs"
       - "docs/phase-120-twa-engineering.md"
       - ".github/workflows/twa-engineering.yml"
   workflow_dispatch:
@@ -23,8 +27,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Validate TWA manifest JSON
-        run: node -e "const fs=require('fs'); const x=JSON.parse(fs.readFileSync('android/twa-manifest.json','utf8')); if(x.packageId!=='in.co.jawed.website') throw new Error('Unexpected packageId'); if(x.host!=='www.jawed.co.in') throw new Error('Unexpected host'); if(x.startUrl!=='/') throw new Error('Unexpected startUrl'); if(x.signingKey?.path?.includes('..')) throw new Error('Unsafe signing key path'); console.log('TWA manifest contract: PASS')"
+      - name: Validate TWA configuration contract
+        run: node scripts/validate-twa-config.mjs
 
       - name: Check signing secrets are not committed
         run: |
