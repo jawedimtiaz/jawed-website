@@ -77,6 +77,11 @@ const retirementNote = fs.readFileSync("notes/retirement-corpus-calculation-fram
 const exampleCorpusLakh = 15 * (1 - (1 + 0.03) ** (-30)) / 0.03;
 closeTo(exampleCorpusLakh, 294.00662024204684, 0.000001);
 assert.match(retirementNote, /roughly ₹294 lakh, or ₹2\.94 crore/, "Published corpus example must match the independently calculated result");
+
+// Tax-regime comparison: show marginal rates, not ambiguous cumulative formulas.
+const taxComparisonNote = fs.readFileSync("notes/new-vs-old-tax-regime-comparison/index.html", "utf8");
+assert.match(taxComparisonNote, /<td>₹5–8 lakh<\/td><td>20%<\/td><td>5%<\/td>/, "Tax comparison must display marginal slab rates consistently");
+assert.match(taxComparisonNote, /marginal slab rates on income within each band/, "Tax comparison must explain that rates are marginal");
 assert.match(retirementHtml, /v\.spending\*Math\.pow\(1\+inflation,years\)/);
 assert.match(retirementHtml, /if\(preMonthly===0\)\{projected=v\.corpus\+v\.contribution\*months\}/);
 assert.match(retirementHtml, /if\(real===0\)\{required=futureSpending\*horizon\}/);
