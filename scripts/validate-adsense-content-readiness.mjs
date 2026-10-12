@@ -40,6 +40,18 @@ assert.equal(retirementWithdrawals.includes("₹78L")&&retirementWithdrawals.inc
 assert.equal(retirementWithdrawals.includes("/notes/retirement-corpus-calculation-framework/"),true,"Withdrawal guide must link to the corpus framework");
 assert.equal(retirementWithdrawals.includes("/tools/retirement-planning-calculator/"),true,"Withdrawal guide must link to the retirement calculator");
 
+const portfolioGuide=fs.readFileSync("notes/portfolio-allocation-rebalancing-framework/index.html","utf8");
+for(const phrase of [
+  "Worked example: calculate allocation drift",
+  "Current allocation weight = current value of the asset category",
+  "₹10 lakh portfolio",
+  "+8 percentage points",
+  "−8 percentage points",
+  "It does not, by itself, tell you that a trade is required.",
+  "Financial Content Disclosure"
+])assert.equal(portfolioGuide.includes(phrase),true,"Portfolio allocation worked-example contract missing: "+phrase);
+assert.equal(portfolioGuide.includes('dateModified":"2026-10-12"'),true,"Portfolio allocation Article dateModified must match the visible update date");
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
