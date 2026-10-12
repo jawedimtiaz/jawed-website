@@ -135,6 +135,80 @@ async function testWorkspace(label){
   if(await js("return document.querySelector('#review').hidden")!==false)throw new Error(label+" workspace Review tab did not activate");
   await click("#tab-snapshot");
 }
+async function testPromptBuilder(label){
+  await openPage("/tools/ai-prompt-builder/","#prompt-goal");
+  await checkControl("#prompt-tool button[type=submit]",label+" prompt builder submit");
+  await checkControl("#prompt-clear",label+" prompt builder clear");
+  await type("#prompt-goal","Draft a concise troubleshooting checklist");
+  await type("#prompt-context","For first-line IT support");
+  await submit("#prompt-tool");
+  const output=await textOf("#prompt-generated-output");
+  if(!output.includes("Goal: Draft a concise troubleshooting checklist")||!output.includes("Context: For first-line IT support"))throw new Error(label+" prompt builder output mismatch");
+  await click("#prompt-clear");
+  if(await valueOf("#prompt-goal")!==""||!(await textOf("#prompt-generated-output")).includes("Your prompt will appear here."))throw new Error(label+" prompt builder clear did not reset state");
+}
+async function testInterviewPlanner(label){
+  await openPage("/tools/interview-preparation-planner/","#jd");
+  await checkControl("#plan",label+" interview planner build");
+  await checkControl("#sample",label+" interview planner sample");
+  await checkControl("#clear",label+" interview planner clear");
+  await click("#sample");
+  if(!(await textOf("#results")).includes("Interview preparation plan"))throw new Error(label+" interview planner sample did not build a plan");
+  await click("#clear");
+  if(await valueOf("#jd")!==""||!(await textOf("#results")).includes("Paste a job description"))throw new Error(label+" interview planner clear did not restore the empty state");
+  await type("#jd","Short description");
+  await click("#plan");
+  if(!(await textOf("#results")).includes("at least 80 characters"))throw new Error(label+" interview planner did not request sufficient job-description detail");
+}
+async function testTroubleshooting(label){
+  await openPage("/tools/it-troubleshooting-assistant/","#symptom");
+  await checkControl("#trouble-tool button[type=submit]",label+" troubleshooting submit");
+  await checkControl("#clear",label+" troubleshooting clear");
+  await type("#symptom","Device cannot reach any website after reconnecting to Wi-Fi.");
+  await js("const e=document.querySelector('#type');e.value='network';e.dispatchEvent(new Event('change',{bubbles:true}));return true");
+  await submit("#trouble-tool");
+  if(!(await textOf("#result")).includes("Can the device reach any known website"))throw new Error(label+" troubleshooting path did not start for selected category");
+  await click("#result [data-answer=yes]");
+  if(!(await textOf("#result")).includes("Can the device resolve a known domain name"))throw new Error(label+" troubleshooting answer did not advance the decision path");
+  await click("#clear");
+  if(await valueOf("#symptom")!==""||await js("return document.querySelectorAll('#result [data-answer]').length")!==0)throw new Error(label+" troubleshooting clear did not reset the decision path");
+}
+async function testBulletChecker(label){
+  await openPage("/tools/resume-bullet-strength-checker/","#bullets");
+  await checkControl("#check",label+" bullet checker run");
+  await checkControl("#sample",label+" bullet checker sample");
+  await checkControl("#clear",label+" bullet checker clear");
+  await click("#sample");
+  const output=await textOf("#results");
+  if(!output.includes("average strength")||!output.includes("bullet")||!output.includes("4/4"))throw new Error(label+" bullet checker did not produce expected sample results");
+  await click("#clear");
+  if(await valueOf("#bullets")!==""||!(await textOf("#results")).includes("Paste your bullets"))throw new Error(label+" bullet checker clear did not reset state");
+}
+async function testNoteFormatter(label){
+  await openPage("/tools/service-desk-note-formatter/","#note-issue");
+  await checkControl("#note-tool button[type=submit]",label+" note formatter submit");
+  await checkControl("#note-clear",label+" note formatter clear");
+  await type("#note-issue","User cannot connect to the corporate VPN.");
+  await type("#note-actions","Verified network connectivity and collected the exact error.");
+  await submit("#note-tool");
+  const output=await textOf("#note-output");
+  if(!output.includes("Issue / Request: User cannot connect to the corporate VPN.")||!output.includes("Actions Taken: Verified network connectivity"))throw new Error(label+" note formatter output mismatch");
+  await click("#note-clear");
+  if(await valueOf("#note-issue")!==""||!(await textOf("#note-output")).includes("Your formatted note will appear here."))throw new Error(label+" note formatter clear did not reset state");
+}
+async function testKnowledgeBaseDraft(label){
+  await openPage("/tools/ticket-to-knowledge-base-draft/","#kb-problem");
+  await checkControl("#kb-tool button[type=submit]",label+" KB draft submit");
+  await checkControl("#kb-clear",label+" KB draft clear");
+  await type("#kb-problem","VPN connection fails after password reset");
+  await type("#kb-scope","Managed macOS devices with approved VPN client");
+  await submit("#kb-tool");
+  const output=await textOf("#kb-output");
+  if(!output.includes("Problem:\nVPN connection fails after password reset")||!output.includes("Validation:\n[Add verified information before publishing]"))throw new Error(label+" KB draft output or safe placeholder mismatch");
+  await click("#kb-clear");
+  if(await valueOf("#kb-problem")!==""||!(await textOf("#kb-output")).includes("Your draft will appear here."))throw new Error(label+" KB draft clear did not reset state");
+}
+
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
@@ -145,6 +219,12 @@ async function runViewport(width,height){
     await testRetirement(label);
     await testSnapshot(label);
     await testWorkspace(label);
+    await testPromptBuilder(label);
+    await testInterviewPlanner(label);
+    await testTroubleshooting(label);
+    await testBulletChecker(label);
+    await testNoteFormatter(label);
+    await testKnowledgeBaseDraft(label);
     console.log("Finance tools viewport "+label+": PASS");
   }finally{if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}}
 }
