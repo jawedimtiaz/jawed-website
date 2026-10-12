@@ -6,11 +6,18 @@ const audit=fs.readFileSync("docs/adsense-content-readiness.md","utf8");
 const inventory=JSON.parse(fs.readFileSync("config/adsense-inventory.json","utf8"));
 
 const publishedSitemap=fs.readFileSync("sitemap.xml","utf8");
-const publishedRoutes=[...publishedSitemap.matchAll(/<loc>https?:\\/\\/[^/]+([^<]*)<\\/loc>/g)].map(match=>match[1]||"/");
+const publishedRoutes=publishedSitemap.split("<loc>").slice(1).map(entry=>{
+  const url=entry.split("</loc>")[0];
+  const withoutProtocol=url.replace("https://","").replace("http://","");
+  const slashIndex=withoutProtocol.indexOf("/");
+  return slashIndex<0?"/":withoutProtocol.slice(slashIndex);
+});
+const citationPlaceholderPattern=new RegExp("turn0search[0-9]+|cite|");
 for(const routePath of publishedRoutes){
-  const sourcePath=routePath==="/"?"index.html":routePath.replace(/\\/+$/,"")+"/index.html";
+  const normalizedRoute=routePath.endsWith("/")?routePath.slice(0,-1):routePath;
+  const sourcePath=routePath==="/"?"index.html":normalizedRoute+"/index.html";
   const publishedHtml=fs.readFileSync(sourcePath,"utf8");
-  assert.equal(/turn0search\\d+|cite|/.test(publishedHtml),false,"Published page exposes internal citation placeholders: "+sourcePath);
+  assert.equal(citationPlaceholderPattern.test(publishedHtml),false,"Published page exposes internal citation placeholders: "+sourcePath);
 }
 
 for(const route of ["/","/about/","/work/","/notes/","/topics/","/resources/","/blog/"])assert.equal(inventory.eligible_initial.includes(route),true,"Eligible content route missing from inventory: "+route);
