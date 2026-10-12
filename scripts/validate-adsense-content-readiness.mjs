@@ -115,6 +115,18 @@ const notesIndex=fs.readFileSync("notes/index.html","utf8");
 assert.equal(notesIndex.includes('<p class="eyebrow">3 notes</p><h3>Personal Finance · Retirement</h3>'),true,"Retirement summary count must include all three published notes");
 assert.equal(notesIndex.includes('<h3>Personal Finance · Retirement <span class="badge">3 notes</span></h3>'),true,"Retirement subject count must match the summary card");
 
+
+const safeBrowserTools=fs.readFileSync("notes/building-safe-browser-based-it-tools/index.html","utf8");
+assert.equal(/turn0search\\d+|cite|/.test(safeBrowserTools),false,"Published browser-tools note must not expose internal citation placeholders");
+for(const phrase of [
+  "browser File API</a>",
+  "MDN’s Web Storage API reference</a>",
+  "OWASP HTML5 Security Cheat Sheet</a>",
+  "MDN’s Clipboard API documentation</a>",
+  "Published: 2026-09-29 · Updated: 2026-10-12",
+  '"dateModified":"2026-10-12"'
+])assert.equal(safeBrowserTools.includes(phrase),true,"Browser-tools source and freshness contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
