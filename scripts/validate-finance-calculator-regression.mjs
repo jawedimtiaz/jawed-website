@@ -101,6 +101,17 @@ closeTo(800000 - 300000, 500000);
 assert.match(moneyNote, /three months would equal ₹1,05,000/);
 assert.match(moneyNote, /six-month scenario would equal ₹2,10,000/);
 assert.match(moneyNote, /net worth at that date is ₹5 lakh/);
+
+// Personal Finance Snapshot must reject a cleared numeric field instead of coercing it to zero.
+const snapshotHtml = fs.readFileSync("tools/personal-finance-snapshot/index.html", "utf8");
+assert.ok(snapshotHtml.includes('const bad=ids.some(id=>$(id).value.trim()===""||!Number.isFinite(n(id))||n(id)<0)'), "Snapshot validation must reject blank numeric fields");
+const snapshotExample = { income: 100000, essential: 40000, discretionary: 10000, debt: 10000, targetMonths: 6, emergency: 150000, assets: 100000 + 1000000 + 500000, liabilities: 0 };
+const snapshotSpending = snapshotExample.essential + snapshotExample.discretionary + snapshotExample.debt;
+closeTo(snapshotSpending, 60000);
+closeTo(snapshotExample.income - snapshotSpending, 40000);
+closeTo(snapshotExample.essential * snapshotExample.targetMonths, 240000);
+closeTo(snapshotExample.emergency / snapshotExample.essential, 3.75);
+closeTo(snapshotExample.assets - snapshotExample.liabilities, 1600000);
 assert.match(retirementHtml, /v\.spending\*Math\.pow\(1\+inflation,years\)/);
 assert.match(retirementHtml, /if\(preMonthly===0\)\{projected=v\.corpus\+v\.contribution\*months\}/);
 assert.match(retirementHtml, /if\(real===0\)\{required=futureSpending\*horizon\}/);
