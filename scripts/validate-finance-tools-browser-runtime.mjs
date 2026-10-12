@@ -110,7 +110,7 @@ async function testSnapshot(label){
   if(!(await textOf("#error")).includes("Enter zero or a positive number"))throw new Error(label+" snapshot blank input did not show validation feedback");
   if(await textOf("#spending")!=="—"||await textOf("#netWorth")!=="—")throw new Error(label+" snapshot blank input left stale outputs visible");
   await click("#reset");
-  if(await valueOf("#income")!=="100000"||await textOf("#spending")!==spending||await textOf("#netWorth")!==netWorth)throw new Error(label+" snapshot reset did not restore default inputs and outputs");
+  const resetState={income:await valueOf("#income"),spending:await textOf("#spending"),netWorth:await textOf("#netWorth"),expectedSpending:spending,expectedNetWorth:netWorth};if(resetState.income!=="100000"||resetState.spending!==spending||resetState.netWorth!==netWorth)throw new Error(label+" snapshot reset mismatch: "+JSON.stringify(resetState));
 }
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
