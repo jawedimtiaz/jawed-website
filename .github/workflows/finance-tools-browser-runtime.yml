@@ -1,4 +1,4 @@
-name: Finance Tools Browser Runtime Gate
+name: Interactive Tools and Content Discovery Browser Runtime Gate
 concurrency:
   group: finance-tools-browser-runtime-${{ github.ref }}
   cancel-in-progress: true
@@ -19,6 +19,11 @@ on:
       - "tools/resume-bullet-strength-checker/index.html"
       - "tools/service-desk-note-formatter/index.html"
       - "tools/ticket-to-knowledge-base-draft/index.html"
+      - "assets/js/main.js"
+      - "topics/index.html"
+      - "resources/index.html"
+      - "notes/index.html"
+      - "blog/index.html"
   push:
     branches: [main]
     paths:
@@ -41,7 +46,7 @@ permissions:
   contents: read
 jobs:
   browser-runtime:
-    name: Finance tools browser runtime
+    name: Interactive tools and content discovery browser runtime
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
@@ -59,7 +64,7 @@ jobs:
         run: |
           google-chrome --version
           chromedriver --version
-      - name: Run production finance tools browser smoke
+      - name: Run production interactive tools and content discovery browser smoke
         env:
           BASE_URL: https://jawed.co.in
         run: node scripts/validate-finance-tools-browser-runtime.mjs
