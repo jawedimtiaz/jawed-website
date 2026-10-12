@@ -7,6 +7,8 @@ on:
       - "tools/compound-growth-sip-calculator/index.html"
       - "tools/inflation-goal-planning-calculator/index.html"
       - "scripts/validate-finance-calculator-regression.mjs"
+      - "scripts/validate-finance-tools-browser-runtime.mjs"
+      - ".github/workflows/finance-tools-browser-runtime.yml"
       - ".github/workflows/finance-calculator-regression.yml"
   push:
     branches: [main]
@@ -36,3 +38,5 @@ jobs:
           package-manager-cache: false
       - name: Run independent calculator vectors and source guards
         run: node scripts/validate-finance-calculator-regression.mjs
+      - name: Check browser runtime test syntax
+        run: node --check scripts/validate-finance-tools-browser-runtime.mjs
