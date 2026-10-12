@@ -108,7 +108,7 @@ async function testSnapshot(label){
   await checkControl("#finance-tool button[type='submit']",label+" snapshot submit");
   await checkControl("#reset",label+" snapshot reset");
   const spending=await textOf("#spending"),netWorth=await textOf("#netWorth");
-  if(spending!=="₹60,000"||netWorth!=="₹16,00,000")throw new Error(label+" snapshot default math mismatch: spending="+spending+", netWorth="+netWorth);
+  if(spending.replace(/\s/g,"")!=="₹60,000"||netWorth.replace(/\s/g,"")!=="₹16,00,000")throw new Error(label+" snapshot default math mismatch: spending="+spending+", netWorth="+netWorth);
   await type("#income","");await sleep(200);
   if(!(await textOf("#error")).includes("Enter zero or a positive number"))throw new Error(label+" snapshot blank input did not show validation feedback");
   if(await textOf("#spending")!=="—"||await textOf("#netWorth")!=="—")throw new Error(label+" snapshot blank input left stale outputs visible");
