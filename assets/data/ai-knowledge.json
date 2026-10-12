@@ -221,12 +221,20 @@
     {
       "url": "/notes/apple-macos-first-response-checklist/",
       "title": "Apple macOS First Response Checklist",
-      "summary": "First-response checklist for macOS support, focused on practical troubleshooting and service-desk handling.",
+      "summary": "A practical macOS first-response checklist with symptom-based triage paths for application failures, network access, sign-in, performance/storage, and recent changes. Emphasizes safe evidence capture, least-disruptive approved checks, validating the original task, and escalation when a step risks data loss or changes security or device management.",
       "keywords": [
-        "apple",
         "macos",
-        "it support",
-        "troubleshooting"
+        "apple",
+        "first response",
+        "troubleshooting",
+        "application launch",
+        "network access",
+        "sign-in",
+        "device management",
+        "validation",
+        "escalation",
+        "security",
+        "evidence capture"
       ]
     },
     {
@@ -242,11 +250,20 @@
     {
       "url": "/notes/service-desk-ticket-documentation/",
       "title": "Service Desk Ticket Documentation",
-      "summary": "Practical guidance for documenting service desk tickets clearly and consistently for support continuity and knowledge reuse.",
+      "summary": "A practical guide to writing evidence-based Service Desk ticket notes. Covers symptom and impact, meaningful check results, actions and outcomes, validation of the original workflow, useful escalation context, and distinguishing observed facts from hypotheses. Includes illustrative note-writing examples and a quality checklist while protecting confidential and personal information.",
       "keywords": [
         "service desk",
-        "tickets",
-        "documentation"
+        "ticket documentation",
+        "incident notes",
+        "troubleshooting evidence",
+        "validation",
+        "escalation",
+        "handoff",
+        "root cause",
+        "observations",
+        "hypotheses",
+        "privacy",
+        "knowledge management"
       ]
     },
     {
@@ -777,7 +794,7 @@
       ]
     }
   ],
-  "reviewed_against_sitemap_on": "2026-10-08",
+  "reviewed_against_sitemap_on": "2026-10-12",
   "coverage_policy": {
     "included": "Public site pages intended to provide factual Jawed.co.in content for AI grounding.",
     "excluded_paths": [
