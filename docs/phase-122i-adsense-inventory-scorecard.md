@@ -196,6 +196,6 @@ The gate checks source consistency, not rendered date visibility or search-engin
 
 The finance regression gate now includes independent arithmetic checks for the inflation-goal example (₹10 lakh at 6% for 10 years), emergency-reserve examples (three and six months of ₹35,000 essential costs), and a net-worth example (₹8 lakh of assets minus ₹3 lakh of liabilities). These examples were consistent with their stated assumptions; the tests protect them from future arithmetic drift.
 
-PR #643 merged as `7498f5d2a5e37bb007d3992b645ef3412fe8b5e0`. The finance regression gate and applicable supply-chain and Cloudflare Pages checks passed. The production deployment for the merge commit is being verified.
+PR #643 merged as `7498f5d2a5e37bb007d3992b645ef3412fe8b5e0`. The finance regression gate and applicable supply-chain and Cloudflare Pages checks passed. Cloudflare Pages production deployment for the merge commit succeeded.
 
 The tests validate arithmetic and selected source wording only. They do not validate the suitability of any financial assumption, provide personal advice, or replace rendered-browser testing. The wider editorial review and external AdSense prerequisites remain open.
