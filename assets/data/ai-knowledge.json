@@ -128,7 +128,7 @@
     {
       "url": "/work/certifications/",
       "title": "Certifications",
-      "summary": "Jawed's certifications and education include Microsoft Azure Fundamentals (AZ-900), Apple Certified Support Professional 10.9 and 10.11, an Advanced Diploma in Hardware & Networking, a historical MCSE qualification, and a Bachelor of Science from the University of Calcutta. Current learning includes Jamf 100 for Apple device management and ITIL for IT service-management practices.",
+      "summary": "Jawed's education, completed qualifications, historical MCSE qualification, and current Jamf 100 and ITIL learning. The page distinguishes historical credentials from current learning and connects the background to practical public notes on Apple/macOS support, device management, networking, ticket documentation and escalation. It clarifies that credentials provide learning context but do not replace current vendor documentation or practical evidence.",
       "keywords": [
         "certifications",
         "education",
@@ -137,7 +137,7 @@
         "apple certified support professional",
         "hardware",
         "networking",
-        "mcse",
+        "mcse historical",
         "windows server",
         "bachelor of science",
         "university of calcutta",
@@ -146,7 +146,8 @@
         "apple device management",
         "itil",
         "it service management",
-        "current learning"
+        "practical work",
+        "learning"
       ]
     },
     {
