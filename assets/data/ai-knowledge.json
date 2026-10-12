@@ -243,11 +243,23 @@
     {
       "url": "/notes/device-provisioning-handoff-checklist/",
       "title": "Device Provisioning Handoff Checklist",
-      "summary": "Checklist for device provisioning handoff, focusing on support readiness, ownership transfer, and clear handoff information.",
+      "summary": "A practical device provisioning and handoff checklist covering preparation, approved configuration, enrollment and management state, required applications, user-facing validation, exception handling and follow-up ownership. Includes decision points for incomplete enrollment, missing applications, sign-in/access problems and failed security checks, plus a clearly illustrative case. Emphasizes not bypassing controls and keeping device identifiers and user data private.",
       "keywords": [
         "device provisioning",
-        "handoff",
-        "it support"
+        "device handoff",
+        "device lifecycle",
+        "asset management",
+        "enrollment",
+        "device management",
+        "required applications",
+        "validation",
+        "exceptions",
+        "sign-in",
+        "security controls",
+        "support documentation",
+        "escalation",
+        "privacy",
+        "user readiness"
       ]
     },
     {
