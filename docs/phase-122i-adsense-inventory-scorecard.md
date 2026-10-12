@@ -181,3 +181,12 @@ A source-level audit checked visible publication/update dates against Article st
 PR #640 merged as `9454525fce73dff3f4b802a054f5f0955dc2c75b`. Site integrity, AI production regression matrix, supply-chain checks and Cloudflare Pages preview checks passed; production deployment for the merge commit succeeded.
 
 This is a source-level consistency check, not proof of rendered page visibility or Google indexing. The wider page-level editorial review and external AdSense prerequisites remain open.
+
+
+## Phase 122BF — Record note date integrity gate (2026-10-12)
+
+The site-integrity validator now checks visible and structured publication/update dates across all 29 published note pages. Explicit Published/Updated labels must match Article `datePublished`/`dateModified`; legacy single-date note templates must show a date matching equal publication/modification metadata.
+
+PR #640 merged as `9454525fce73dff3f4b802a054f5f0955dc2c75b`. The applicable site-integrity, AI regression, supply-chain and Cloudflare Pages checks passed. Cloudflare Pages production deployment for the merge commit `d13bd75300af095c47322693b6858ca0e4b4df8d` succeeded.
+
+The gate checks source consistency, not rendered date visibility or search-engine indexing. The broader editorial review and external AdSense prerequisites remain open.
