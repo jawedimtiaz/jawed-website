@@ -13,6 +13,13 @@ on:
       - "tools/retirement-planning-calculator/index.html"
       - "tools/personal-finance-snapshot/index.html"
       - "tools/finance-planning-workspace/index.html"
+      - "tools/ai-prompt-builder/index.html"
+      - "assets/js/interview-preparation-planner.js"
+      - "tools/interview-preparation-planner/index.html"
+      - "tools/it-troubleshooting-assistant/index.html"
+      - "tools/resume-bullet-strength-checker/index.html"
+      - "tools/service-desk-note-formatter/index.html"
+      - "tools/ticket-to-knowledge-base-draft/index.html"
   workflow_dispatch:
 permissions:
   contents: read
