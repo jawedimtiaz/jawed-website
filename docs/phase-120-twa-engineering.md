@@ -10,7 +10,7 @@ The production PWA is already installed/tested on Android. Current official Bubb
 
 - Reserved Android application ID: `in.co.jawed.website`
 - Added Bubblewrap `twa-manifest.json`
-- Bound the TWA to `https://www.jawed.co.in/`
+- Bound the TWA to `https://jawed.co.in/`
 - Preserved standalone presentation and existing PWA branding
 - Disabled unnecessary notification capability
 - Added a reproducible local build procedure
