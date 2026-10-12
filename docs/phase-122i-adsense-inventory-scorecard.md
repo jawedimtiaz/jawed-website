@@ -85,3 +85,9 @@ Before requesting another AdSense review:
 The Career Match & Resume Review tool's privacy note now explicitly names the theme preference alongside saved analyses and Application Tracker entries stored in browser local storage. This aligns the tool-specific note with the main Privacy Policy and the tool's actual storage behavior. The change is disclosure-only; no storage behavior or analytics behavior changed.
 
 PR #616 merged as `a2d052efd9acbbecfca018614db3b7e24c6d1921`. Applicable repository checks passed, including the build, AdSense privacy readiness, site integrity, AI production regression matrix, performance baseline, SEO reliability, supply-chain baseline and Cloudflare Pages deployment. Cloudflare Pages production deployment for this merge completed successfully.
+
+## Phase 122AI — Microsoft sign-in note markup and structured data (2026-10-12)
+
+A focused page-level inspection found that `notes/microsoft-sign-in-troubleshooting-guide/index.html` opened the document body without closing the head and lacked the Article and BreadcrumbList JSON-LD present on comparable note pages. The remediation closes the head correctly and adds Article and BreadcrumbList metadata aligned to the existing visible title, description, canonical URL, author and publication date. The article's prose and visible publication date were preserved.
+
+PR #618 merged as `1b0a57beb3a02ce19ebee4e8f7edf46e03f66c30`. The build, production smoke reliability, site integrity, HTML SEO reliability, performance baseline, AdSense privacy readiness, AI regression matrix, supply-chain baseline and Cloudflare Pages checks passed; the corresponding Cloudflare Pages production deployment succeeded.
