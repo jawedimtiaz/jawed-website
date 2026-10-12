@@ -13,6 +13,15 @@ assert.equal(audit.includes("interactive AI surface"),true,"AI exclusion rationa
 assert.equal(audit.includes("interactive utilities"),true,"Tool exclusion rationale is missing");
 assert.equal(audit.includes("original long-form writing"),true,"Blog content assessment is missing");
 
+const knowledgeBase=fs.readFileSync("notes/it-troubleshooting-guide-knowledge-base/index.html","utf8");
+for(const phrase of [
+  "Worked example: turn one ticket into a reusable guide",
+  "Illustrative example only; not a record of a real user or employer.",
+  "The cause has not been confirmed.",
+  "Do not state that the password reset caused the failure.",
+  "Confirm the user can complete the original VPN connection workflow"
+])assert.equal(knowledgeBase.includes(phrase),true,"Knowledge-base worked-example contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
