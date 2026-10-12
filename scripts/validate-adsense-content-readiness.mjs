@@ -5,6 +5,22 @@ import fs from "node:fs";
 const audit=fs.readFileSync("docs/adsense-content-readiness.md","utf8");
 const inventory=JSON.parse(fs.readFileSync("config/adsense-inventory.json","utf8"));
 
+const publishedSitemap=fs.readFileSync("sitemap.xml","utf8");
+const publishedRoutes=publishedSitemap.split("<loc>").slice(1).map(entry=>{
+  const url=entry.split("</loc>")[0];
+  const withoutProtocol=url.replace("https://","").replace("http://","");
+  const slashIndex=withoutProtocol.indexOf("/");
+  return slashIndex<0?"/":withoutProtocol.slice(slashIndex);
+});
+const citationPlaceholderPattern=new RegExp("turn0search[0-9]+|cite|");
+for(const routePath of publishedRoutes){
+  const routeWithoutLeadingSlash=routePath.startsWith("/")?routePath.slice(1):routePath;
+  const normalizedRoute=routeWithoutLeadingSlash.endsWith("/")?routeWithoutLeadingSlash.slice(0,-1):routeWithoutLeadingSlash;
+  const sourcePath=routePath==="/"?"index.html":normalizedRoute+"/index.html";
+  const publishedHtml=fs.readFileSync(sourcePath,"utf8");
+  assert.equal(citationPlaceholderPattern.test(publishedHtml),false,"Published page exposes internal citation placeholders: "+sourcePath);
+}
+
 for(const route of ["/","/about/","/work/","/notes/","/topics/","/resources/","/blog/"])assert.equal(inventory.eligible_initial.includes(route),true,"Eligible content route missing from inventory: "+route);
 for(const route of ["/ai/","/tools/","/contact/","/privacy/"])assert.equal(inventory.excluded_initial.includes(route),true,"Excluded route missing from inventory: "+route);
 assert.equal(audit.includes("This is a site-specific readiness assessment, not a Google approval or policy determination."),true,"Audit must preserve its non-approval limitation");
@@ -114,6 +130,18 @@ for(const phrase of ["Retirement guides","Coverage fundamentals","Illustrative c
 const notesIndex=fs.readFileSync("notes/index.html","utf8");
 assert.equal(notesIndex.includes('<p class="eyebrow">3 notes</p><h3>Personal Finance · Retirement</h3>'),true,"Retirement summary count must include all three published notes");
 assert.equal(notesIndex.includes('<h3>Personal Finance · Retirement <span class="badge">3 notes</span></h3>'),true,"Retirement subject count must match the summary card");
+
+
+const safeBrowserTools=fs.readFileSync("notes/building-safe-browser-based-it-tools/index.html","utf8");
+assert.equal(citationPlaceholderPattern.test(safeBrowserTools),false,"Published browser-tools note must not expose internal citation placeholders");
+for(const phrase of [
+  "browser File API</a>",
+  "MDN’s Web Storage API reference</a>",
+  "OWASP HTML5 Security Cheat Sheet</a>",
+  "MDN’s Clipboard API documentation</a>",
+  "Published: 2026-09-29 · Updated: 2026-10-12",
+  '"dateModified":"2026-10-12"'
+])assert.equal(safeBrowserTools.includes(phrase),true,"Browser-tools source and freshness contract missing: "+phrase);
 
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
