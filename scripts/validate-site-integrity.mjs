@@ -197,6 +197,11 @@ if(!jawedAiWidgetPrivacyNoticeContract)errors.push("Jawed AI widget must show a 
 else console.log("Jawed AI widget privacy notice contract: PASS");
 
 
+const aiPagePrivacyEntryContract=(()=>{const html=fs.readFileSync("ai/index.html","utf8");const notice=html.indexOf('class="form-note ai-privacy-note"');const form=html.indexOf('<form id="ai-form"');return notice>=0&&form>notice&&html.includes('href="/privacy/"')})();
+if(!aiPagePrivacyEntryContract)errors.push("Dedicated AI page must show its privacy warning and policy link before the prompt form");
+else console.log("Dedicated AI page privacy-entry contract: PASS");
+
+
 const jawedAiWidgetAccessibilityContract=mainJs.includes('panel.setAttribute("role","dialog")')&&mainJs.includes('panel.setAttribute("aria-modal","false")')&&mainJs.includes('panel.setAttribute("aria-labelledby","jawed-ai-title")')&&mainJs.includes('title.id="jawed-ai-title"')&&mainJs.includes('if(open)input.focus();else toggle.focus()')&&mainJs.includes('document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!panel.hidden)setOpen(false)})');
 if(!jawedAiWidgetAccessibilityContract)errors.push("Jawed AI floating widget must expose dialog semantics, an accessible title, and keyboard focus return");
 else console.log("Jawed AI widget accessibility contract: PASS");
