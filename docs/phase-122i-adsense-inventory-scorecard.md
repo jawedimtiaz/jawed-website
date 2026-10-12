@@ -178,6 +178,6 @@ The modified-date alignment is now covered by the finance-content regression gat
 
 A source-level audit checked visible publication/update dates against Article structured data across all 29 published note pages. No mismatches remained after the corrections in Phases 122BC and 122BA. The site-integrity validator now enforces the same contract: notes with separate Published/Updated labels must match `datePublished`/`dateModified`, while older single-date templates must use matching publication/modification metadata and display the date.
 
-PR #640 merged as `9454525fce73dff3f4b802a054f5f0955dc2c75b`. Site integrity, AI production regression matrix, supply-chain checks and Cloudflare Pages preview checks passed; production deployment for the merge commit is being verified.
+PR #640 merged as `9454525fce73dff3f4b802a054f5f0955dc2c75b`. Site integrity, AI production regression matrix, supply-chain checks and Cloudflare Pages preview checks passed; production deployment for the merge commit succeeded.
 
 This is a source-level consistency check, not proof of rendered page visibility or Google indexing. The wider page-level editorial review and external AdSense prerequisites remain open.
