@@ -52,6 +52,18 @@ for(const phrase of [
 ])assert.equal(portfolioGuide.includes(phrase),true,"Portfolio allocation worked-example contract missing: "+phrase);
 assert.equal(portfolioGuide.includes('dateModified":"2026-10-12"'),true,"Portfolio allocation Article dateModified must match the visible update date");
 
+const usInvestingGuide=fs.readFileSync("notes/us-stocks-etfs-starting-point/index.html","utf8");
+for(const phrase of [
+  "Worked example: two ETFs can still overlap",
+  "Company X",
+  "₹2.5 lakh (25%)",
+  "₹2.0 lakh (20%)",
+  "₹4.5 lakh (45%)",
+  "not proof of diversification",
+  "Financial Content Disclosure"
+])assert.equal(usInvestingGuide.includes(phrase),true,"US stocks/ETF worked-example contract missing: "+phrase);
+assert.equal(usInvestingGuide.includes('dateModified":"2026-10-12"'),true,"US stocks/ETF Article dateModified must match visible update date");
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
