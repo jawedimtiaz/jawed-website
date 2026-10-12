@@ -71,7 +71,7 @@ if (web) {
 }
 for (const iconPath of ["assets/icons/pwa-192.svg", "assets/icons/pwa-512.svg"]) {
   const icon = read(iconPath);
-  if (icon !== null && !/<svg\\b/i.test(icon)) fail.push(`PWA icon is not SVG markup: ${iconPath}`);
+  if (icon !== null && !/<svg\b/i.test(icon)) fail.push(`PWA icon is not SVG markup: ${iconPath}`);
 }
 
 if (fail.length) {
