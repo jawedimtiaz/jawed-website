@@ -869,7 +869,7 @@
     {
       "url": "/tools/interview-preparation-planner/",
       "title": "Interview Preparation Planner",
-      "summary": "Browser-based career tool that turns a job description into practical interview preparation topics, evidence prompts, practice questions and a final checklist. It can optionally compare detected job-description signals with pasted resume text and keeps the workflow deterministic and browser-only.",
+      "summary": "A browser-only interview preparation planner that detects common skill and responsibility signals in a job description and creates practice topics and questions. Includes guidance for prioritizing requirements, preparing real evidence, practicing follow-ups and identifying learning gaps honestly. Text matching cannot predict an employer's interview format or hiring criteria.",
       "keywords": [
         "interview preparation",
         "career",
@@ -879,13 +879,15 @@
         "resume",
         "evidence",
         "practice questions",
+        "honest skills",
+        "browser-only",
         "career tools"
       ]
     },
     {
       "url": "/tools/resume-bullet-strength-checker/",
       "title": "Resume Bullet Strength Checker",
-      "summary": "Browser-based resume-writing tool that checks individual experience bullets for action language, measurable evidence, concise length and filler or vague phrasing. It provides a simple writing diagnostic rather than claiming to be an official ATS score.",
+      "summary": "A browser-based resume-writing tool that checks experience bullets for action language, measurable evidence, concise length and vague phrasing. Includes an action-plus-scope-plus-verified-result revision pattern and warns against invented metrics. It is a writing diagnostic, not an official ATS score or a guarantee of hiring outcomes.",
       "keywords": [
         "resume",
         "resume bullets",
@@ -893,6 +895,7 @@
         "resume writing",
         "action verbs",
         "measurable evidence",
+        "truthful metrics",
         "ats",
         "job search",
         "career tools"
