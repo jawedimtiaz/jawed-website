@@ -571,3 +571,8 @@ This is a bounded explanatory change; formatting logic and data handling are unc
 The live on-page crawl for `/notes/service-desk-ticket-documentation/` found HTTP 200, a self-referencing canonical and indexable status, but reported a medium structured-data heuristic because its Article JSON-LD lacked the `image` property. The page already publishes `https://jawed.co.in/assets/images/social-preview.png` in Open Graph and Twitter metadata. Added that same existing image URL to the Article JSON-LD; no new asset or unsupported claim was introduced. Added a regression assertion that parses the JSON-LD, verifies the Article type and image URL, and checks consistency with the existing social metadata. Registered the page in final-readiness content dependencies.
 
 This is a bounded metadata consistency fix, not proof of Google indexing or AdSense approval. No content, inventory eligibility, ad runtime, or activation setting changes. Re-crawl production after merge; continue the manual content/tool audit and keep AdSense inactive.
+
+
+### Phase 122EL validation follow-up
+
+The first CI run correctly caught that the final-readiness dependency validator requires an explicit workflow path trigger even though the general `notes/**` glob already covers this page. Added the exact article path to both PR and push trigger lists. The PR remains unmerged until the rerun passes all required gates.
