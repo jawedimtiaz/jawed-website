@@ -84,7 +84,7 @@ assert.match(taxComparisonNote, /<td>₹5–8 lakh<\/td><td>20%<\/td><td>5%<\/td
 assert.match(taxComparisonNote, /marginal slab rates on income within each band/, "Tax comparison must explain that rates are marginal");
 
 // Meaningful financial-note edits must keep visible update dates and Article metadata aligned.
-assert.match(retirementNote, /"datePublished":"2026-09-28","dateModified":"2026-10-12"/);
+assert.match(retirementNote, /"datePublished":"2026-09-28","dateModified":"2026-10-13"/);
 assert.match(retirementNote, /Updated: 2026-10-12/);
 assert.match(taxComparisonNote, /"datePublished":"2026-09-28","dateModified":"2026-10-12"/);
 assert.match(taxComparisonNote, /Updated: 2026-10-12/);
