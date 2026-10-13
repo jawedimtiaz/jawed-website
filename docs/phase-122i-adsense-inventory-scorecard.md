@@ -409,3 +409,11 @@ A manual page review of `notes/choosing-ai-tools-privacy-cost-fit/index.html` fo
 The AdSense content-readiness validator now protects the example's fictional scope, verification lesson, privacy boundary and date alignment. Jawed AI's matching grounding summary/keywords were updated, the reviewed-against-sitemap date advanced to 2026-10-13, and the generated runtime knowledge copy was synchronized.
 
 This is a bounded improvement to one educational page, not completion of the site-wide manual audit, Google approval, or authorization to activate ads or resubmit.
+
+## Phase 122DN — Add an API request/response troubleshooting example (2026-10-13)
+
+A manual review of `notes/apis-explained-for-it-support/index.html` found that the page explained request/response concepts and status codes but did not show a complete example of using a response to choose the next troubleshooting question. Added a clearly labelled fictional device-inventory lookup and a status-code question table covering successful responses with unexpected data, 400, 401, 403, 404, 429 and 5xx responses. The page explicitly says these are clues rather than guaranteed diagnoses, directs readers to the relevant API documentation, discourages rapid retries, and protects credentials, cookies and private payloads. Preserved the original publication date and aligned visible update metadata and Article `dateModified` to 2026-10-13.
+
+The AdSense content-readiness validator now protects the example's key status-code distinctions, safety boundaries and date alignment. Jawed AI's matching grounding summary/keywords were updated, the reviewed-against-sitemap date advanced to 2026-10-13, and the generated runtime knowledge copy was synchronized.
+
+This is a bounded reader-value improvement to one educational page, not completion of the site-wide manual audit, Google approval, or authorization to activate ads or resubmit.
