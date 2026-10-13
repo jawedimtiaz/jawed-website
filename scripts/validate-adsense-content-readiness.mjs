@@ -97,9 +97,12 @@ for(const phrase of [
   "Tax Year 2026-27",
   "Updated-FQAs-on-Interplay%26Transitions.pdf",
   "tax-rates-and-computation",
-  "Sources checked: 2026-10-12"
+  "Sources checked: 2026-10-13",
+  "https://www.incometax.gov.in/iec/foportal/node/11724",
+  "income earned from 1 April 2026 onward"
 ])assert.equal(taxYearGuide.includes(phrase),true,"Tax-year transition guidance missing: "+phrase);
-assert.equal(taxYearGuide.includes('"dateModified":"2026-10-12"'),true,"Tax guide schema modified date must match the review date");
+assert.equal(taxYearGuide.includes('"dateModified":"2026-10-13"'),true,"Tax guide schema modified date must match the review date");
+assert.equal(taxYearGuide.includes("Sources checked: 2026-10-12"),false,"Tax source date must reflect the current source review");
 const taxRegimeComparison=fs.readFileSync("notes/new-vs-old-tax-regime-comparison/index.html","utf8");
 for(const phrase of [
   "Check the tax year before using this comparison",
@@ -107,8 +110,13 @@ for(const phrase of [
   "Income-tax Act, 2025",
   "Tax Year 2026-27",
   "Updated-FQAs-on-Interplay%26Transitions.pdf",
-  "tax-rates-and-computation"
+  "tax-rates-and-computation",
+  "Sources checked: 2026-10-13",
+  "https://www.incometaxindia.gov.in/Documents/Budget2026/FAQs-Budget-2026.pdf",
+  "do not carry this page's old-Act section references forward"
 ])assert.equal(taxRegimeComparison.includes(phrase),true,"Tax regime comparison transition guidance missing: "+phrase);
+assert.equal(taxRegimeComparison.includes('"dateModified":"2026-10-13"'),true,"Tax regime comparison schema date must match source review");
+assert.equal(taxRegimeComparison.includes("Sources checked: 2026-10-12"),false,"Tax comparison source date must reflect the current source review");
 
 
 
