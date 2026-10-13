@@ -504,3 +504,9 @@ Added regression assertions for section placement and badge labels, and added th
 A focused review of the Topics hub found that the “AI Tools & Prompts” card linked to both the AI Prompt Builder and the everyday prompting note, duplicating the destinations already linked by the dedicated “Prompt Building for Everyday Work” and “AI for Work” cards. Removed only the redundant discovery card; the underlying tool and note remain published and linked through their clearer, purpose-specific paths. The separate AI for IT Support and Choosing AI Tools pathways remain intact because they serve different tasks.
 
 Added regression assertions to preserve the distinct AI pathways and prevent the duplicate card from returning, and added the Topics hub to the final-readiness reviewed-content dependency contract. This is a small information-architecture correction, not a content expansion or AdSense approval signal. The broader page-level audit remains incomplete.
+
+## Phase 122EC — Link every Notes subject section from the directory (2026-10-13)
+
+A manual navigation audit found that the Notes directory contained sections for `General Tech` and `Investing & Personal Finance`, but neither section had a shortcut in the “Browse by Subject” card grid. Added both cards with accurate counts and descriptions tied to the content already present. No note was added or duplicated.
+
+Extended the content-readiness validator to assert the two missing pathways and, more generally, require every `subject-*` section in the Notes directory to have a matching subject-menu anchor. Added the directory to the final-readiness reviewed-content dependency list; the existing readiness workflow already explicitly watches `notes/index.html` for pull requests and main pushes. This is a bounded discoverability fix; the full manual audit of all published pages and interactive tools remains open.
