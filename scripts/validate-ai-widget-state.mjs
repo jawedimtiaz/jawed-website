@@ -22,7 +22,7 @@ const checks=[
   ["AI widget close returns focus to toggle",/else toggle\.focus\(\)/],
   ["AI widget toggle reflects expanded state",/toggle\.setAttribute\("aria-expanded",String\(open\)\)/],
   ["AI widget label reflects open/close state",/toggle\.setAttribute\("aria-label",open\?"Close Jawed AI":"Open Jawed AI"\)/],
-  ["AI widget request completion does not steal focus after close",/if\(!panel\.hidden\)input\.focus\(\)/]
+  ["AI widget request completion does not steal focus after close",/if\(!panel\.hidden\)input\.focus\(\)/],
   ["AI widget panel has a dialog role",/panel\.setAttribute\("role","dialog"\)/],
   ["AI widget is explicitly non-modal",/panel\.setAttribute\("aria-modal","false"\)/],
   ["AI widget dialog is named by its visible title",/panel\.setAttribute\("aria-labelledby","jawed-ai-title"\)/],
