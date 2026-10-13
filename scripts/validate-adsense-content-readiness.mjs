@@ -113,7 +113,7 @@ for(const phrase of [
   "tax-rates-and-computation",
   "Sources checked: 2026-10-13",
   "https://www.incometaxindia.gov.in/Documents/Budget2026/FAQs-Budget-2026.pdf",
-  "do not carry this page's old-Act section references forward"
+  "rather than carrying this page's old-Act section references forward"
 ])assert.equal(taxRegimeComparison.includes(phrase),true,"Tax regime comparison transition guidance missing: "+phrase);
 assert.equal(taxRegimeComparison.includes('"dateModified":"2026-10-13"'),true,"Tax regime comparison schema date must match source review");
 assert.equal(taxRegimeComparison.includes("Sources checked: 2026-10-12"),false,"Tax comparison source date must reflect the current source review");
