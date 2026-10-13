@@ -45,7 +45,7 @@ The last recorded account status in project notes was “Needs attention — Low
 
 ## Activation decision boundary
 
-Do not activate ad scripts, visible ad slots, ads.txt, or publisher-specific CSP changes while the account is not explicitly marked ready and the final content, policy, consent, and inventory checks remain incomplete. Do not request review until the evidence checklist above is satisfied.
+Do not activate ad scripts, visible ad slots, `ads.txt`, or publisher-specific CSP changes while the account is not explicitly marked ready and the final content, policy, consent, and inventory checks remain incomplete. Do not request review until the evidence checklist above is satisfied.
 
 ## Final verification sequence
 
