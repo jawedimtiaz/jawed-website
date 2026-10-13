@@ -146,7 +146,7 @@ const retirementCorpusGuide=fs.readFileSync("notes/retirement-corpus-calculation
 for(const phrase of [
   "Sources and scope",
   "esankhyiki.mospi.gov.in/catalogue-main/catalogue?product=CPI",
-  "pension-fund-regulatory-and-development-authority-exits-and-withdrawals-under-the-national-pension-system-regulations-2015-last-amended-on-20th-july-2026-",
+  "pfrda.org.in/en/regulatory-framework/regulations",
   "investor.gov/additional-resources/retirement-toolkit/managing-lifetime-income",
   "not official projections",
   "Sources checked: 2026-10-13",
