@@ -58,12 +58,6 @@ The merged remediation commits through Phase 122AE passed their applicable CI ga
 
 Each merged phase passed its applicable repository CI gates and had a successful Cloudflare Pages production deployment associated with the merge commit.
 
-## Phase 122DP — Connect the skills inventory to observable support practice (2026-10-13)
-
-A review of `work/skills/index.html` found that the page named skill categories and linked four selected examples, but did not consistently show how several other categories translate into observable support actions. Added a compact mapping for service desk work, Apple/device management, identity/collaboration, networking/VPN, ticket documentation, and small automation. Each row connects a bounded practice to an existing guide. The copy avoids claiming equal depth or administrator access across every product and clarifies that the examples are not records of a particular employer incident.
-
-Added regression assertions for the new mapping, links, scope limits and safety wording. The existing AdSense readiness workflow already watches `work/**` and the content validator, so no additional trigger path was needed. This remains a page-level improvement; the complete manual audit, Google approval and any authorization to activate ads or resubmit remain outstanding.
-
 ## Important limits and remaining work
 
 1. A structural inventory screen has now covered all 58 sitemap URLs: 30 notes, 13 tool URLs (including the tools hub), 3 blog URLs, and the remaining profile, work, topic, resource, AI, contact and privacy pages. This included title/visible-content counts and focused inspection of several lower-depth pages. It is not yet a full manual editorial review of every page or every interactive tool state.
@@ -431,3 +425,9 @@ A manual review of `notes/apple-device-management-enrollment-models/index.html` 
 The AdSense content-readiness validator now protects the model distinctions, safety boundary and date alignment. Jawed AI's matching grounding summary/keywords were updated, the reviewed-against-sitemap date advanced to 2026-10-13, and the generated runtime knowledge copy was synchronized.
 
 This is a bounded reader-value improvement to one educational page, not completion of the site-wide manual audit, Google approval, or authorization to activate ads or resubmit.
+
+## Phase 122DP — Connect the skills inventory to observable support practice (2026-10-13)
+
+A review of `work/skills/index.html` found that the page named skill categories and linked four selected examples, but did not consistently show how several other categories translate into observable support actions. Added a compact mapping for service desk work, Apple/device management, identity/collaboration, networking/VPN, ticket documentation, and small automation. Each row connects a bounded practice to an existing guide. The copy avoids claiming equal depth or administrator access across every product and clarifies that the examples are not records of a particular employer incident.
+
+Added regression assertions for the new mapping, links, scope limits and safety wording. The existing AdSense readiness workflow already watches `work/**` and the content validator, so no additional trigger path was needed. This remains a page-level improvement; the complete manual audit, Google approval and any authorization to activate ads or resubmit remain outstanding.
