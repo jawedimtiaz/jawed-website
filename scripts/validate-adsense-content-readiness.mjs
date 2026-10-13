@@ -648,6 +648,12 @@ for(const guide of taxRebateGuides){
   assert.equal(guide.html.includes("rebate cannot be applied against tax on special-rate income"),true,"Tax rebate special-rate limitation missing: "+guide.path);
 }
 
+const taxRegimeComparisonStandardDeduction=fs.readFileSync("notes/new-vs-old-tax-regime-comparison/index.html","utf8");
+for(const phrase of [
+  "up to ₹50,000 under the old regime and up to ₹75,000 under the new regime for AY 2026-27",
+  "limited to the amount of qualifying salary or pension"
+])assert.equal(taxRegimeComparisonStandardDeduction.includes(phrase),true,"Standard-deduction comparison guidance missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
