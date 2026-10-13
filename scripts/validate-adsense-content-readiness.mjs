@@ -521,7 +521,13 @@ const articleImagePages=[
   "notes/service-desk-ticket-documentation/index.html",
   "notes/health-insurance-understanding-the-basics/index.html",
   "notes/apple-device-management-enrollment-models/index.html",
-  "notes/it-support-escalation-handoff-checklist/index.html"
+  "notes/it-support-escalation-handoff-checklist/index.html",
+  "notes/apis-explained-for-it-support/index.html",
+  "notes/choosing-ai-tools-privacy-cost-fit/index.html",
+  "notes/retirement-planning-start-with-the-number/index.html",
+  "notes/inflation-and-future-goal-planning/index.html",
+  "notes/indian-income-tax-practical-starting-point/index.html",
+  "notes/new-vs-old-tax-regime-comparison/index.html"
 ];
 for(const pagePath of articleImagePages){
   const articleHtml=fs.readFileSync(pagePath,"utf8");
