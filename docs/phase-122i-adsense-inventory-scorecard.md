@@ -657,3 +657,19 @@ Source-reviewed eleven finance-related notes:
 All reviewed pages include a visible Financial Content Disclosure section, state meaningful limitations or risk context, and include relevant official or regulator sources. The investment and retirement guides use examples and scenario-based assumptions rather than presenting a formula as a guarantee. Tax pages distinguish assessment year from financial/tax year, include date-specific context and point to official Income Tax Department resources. Health-insurance guidance points to IRDAI grievance/reference resources.
 
 No wording change was warranted from this source-presence pass. Important limitation: this review checked page structure, disclosures, date specificity and the presence of primary-source links; it did not independently recalculate every tax slab, policy term, market assumption or regulatory detail against live official sources. A final current-fact verification of changeable finance/tax claims remains required before AdSense readiness can be declared. AdSense stays inactive.
+
+
+## Phase 122EU — Targeted tax and retirement example fact-check (2026-10-13)
+
+Checked the stated AY 2026-27 new-regime slab bands and the resident-individual rebate statement on `/notes/indian-income-tax-practical-starting-point/` against the current Income Tax Department tax-rate page and Budget 2026 FAQ. The published slab bands (nil through ₹4 lakh, then 5%, 10%, 15%, 20%, 25% and 30% across the stated bands) and the stated rebate of up to ₹60,000 for eligible resident individuals with taxable income up to ₹12 lakh align with those official sources. The page explicitly limits its coverage to FY 2025-26 / AY 2026-27 and warns that Tax Year 2026-27 uses the Income-tax Act, 2025; the official Budget 2026 FAQ confirms the same headline new-regime slabs for TY 2026-27 while preserving the need to check the relevant Act and transition rules.
+
+Checked the comparison table on `/notes/new-vs-old-tax-regime-comparison/` against the same official sources. Its simplified old-regime marginal bands for individuals below age 60 and new-regime bands match the stated AY 2026-27 structure; the page cautions that rebates, special-rate income, deductions, age and other circumstances affect final liability.
+
+Recalculated the illustrative arithmetic in the retirement guides: ₹6 lakh annual spending grown at 6% for 15 years is approximately ₹14.38 lakh; a 10% nominal return with 6% inflation is approximately 3.77% real return; a 30-year finite-horizon model at ₹15 lakh annual spending and 3% real return is approximately ₹2.94 crore; and the two-order sequence-risk illustration produces ₹78 lakh versus ₹74 lakh after two ₹10 lakh end-of-year withdrawals. These are correctly labelled as simplified assumptions, not forecasts or safe-withdrawal guarantees. The retirement-planning guide also points to PFRDA's NPS withdrawal/exit regulations last amended on 20 July 2026; that amendment date matches PFRDA's current official page.
+
+Primary references checked:
+- Income Tax Department: https://www.incometaxindia.gov.in/w/tax-rates-and-computation
+- Income Tax Department Budget 2026 FAQs: https://www.incometaxindia.gov.in/Documents/Budget2026/FAQs-Budget-2026.pdf
+- PFRDA NPS exit and withdrawal regulations (last amended 20 July 2026): https://www.pfrda.org.in/w/pension-fund-regulatory-and-development-authority-exits-and-withdrawals-under-the-national-pension-system-regulations-2015-last-amended-on-20th-july-2026-
+
+No page correction was identified in this targeted pass. This does not complete fact-checking of every finance article, tax edge case, insurance policy detail or current market claim; remaining pages still require review where their statements depend on changeable official rules. AdSense remains inactive.
