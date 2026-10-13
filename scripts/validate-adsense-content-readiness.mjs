@@ -654,6 +654,14 @@ for(const phrase of [
   "limited to the amount of qualifying salary or pension"
 ])assert.equal(taxRegimeComparisonStandardDeduction.includes(phrase),true,"Standard-deduction comparison guidance missing: "+phrase);
 
+const usStocksNote=fs.readFileSync("notes/us-stocks-etfs-starting-point/index.html","utf8");
+for(const phrase of [
+  "If you invest from India",
+  "Reserve Bank of India’s current Liberalised Remittance Scheme (LRS) directions",
+  "foreign-asset or foreign-income reporting may also matter",
+  "https://www.incometax.gov.in/iec/foportal/nudge/nudge-schedule-fa"
+])assert.equal(usStocksNote.includes(phrase),true,"India-resident overseas investing context missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
