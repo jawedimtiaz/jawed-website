@@ -376,6 +376,20 @@ for(const phrase of [
   "do not imply administrator access to every platform"
 ])assert.equal(skillsEvidenceMappingPage.includes(phrase),true,"Skills evidence-mapping contract missing: "+phrase);
 
+const credentialsPage=fs.readFileSync("work/certifications/index.html","utf8");
+for(const phrase of [
+  "<h2>Completed Certifications &amp; Qualifications</h2>",
+  "<h3>Microsoft Azure Fundamentals — AZ-900</h3><span class=\"badge\">Completed</span>",
+  "<h3>Advanced Diploma in Hardware &amp; Networking</h3><span class=\"badge\">Completed</span>",
+  "<h2>Historical Qualifications</h2>",
+  "<h3>MCSE — Windows Server 2003</h3><span class=\"badge\">Historical</span>",
+  "<h3>Apple Certified Support Professional 10.9</h3><span class=\"badge\">Historical</span>",
+  "<h3>Apple Certified Support Professional 10.11</h3><span class=\"badge\">Historical</span>",
+  "not as a claim of current Apple certification status"
+])assert.equal(credentialsPage.includes(phrase),true,"Credential status clarity contract missing: "+phrase);
+assert.equal(credentialsPage.includes("<h3>Apple Certified Support Professional 10.9</h3><span class=\"badge\">Completed</span>"),false,"Legacy Apple 10.9 credential must not be labeled simply Completed");
+assert.equal(credentialsPage.includes("<h3>Apple Certified Support Professional 10.11</h3><span class=\"badge\">Completed</span>"),false,"Legacy Apple 10.11 credential must not be labeled simply Completed");
+
 const microsoftSigninGuide=fs.readFileSync("notes/microsoft-sign-in-troubleshooting-guide/index.html","utf8");
 for(const phrase of [
   "Worked example: separate application from account scope",
