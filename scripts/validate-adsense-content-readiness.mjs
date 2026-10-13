@@ -525,7 +525,7 @@ const articleImagePages=[
 ];
 for(const pagePath of articleImagePages){
   const articleHtml=fs.readFileSync(pagePath,"utf8");
-  const articleJsonLd=articleHtml.match(/<script type="application\\/ld\\+json">([\\s\\S]*?)<\\/script>/);
+  const articleJsonLd=articleHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
   assert.notEqual(articleJsonLd,null,"Reviewed article JSON-LD missing: "+pagePath);
   const articleSchema=JSON.parse(articleJsonLd[1]);
   assert.equal(articleSchema["@type"],"Article","Reviewed article schema must remain an Article: "+pagePath);
