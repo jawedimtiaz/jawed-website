@@ -517,6 +517,15 @@ for(const phrase of [
   "Review the article when the application version, sign-in process or support policy changes"
 ])assert.equal(kbDraft.includes(phrase),true,"Knowledge-base draft worked-example/safety contract missing: "+phrase);
 
+const noteFormatter=fs.readFileSync("tools/service-desk-note-formatter/index.html","utf8");
+for(const phrase of [
+  "Worked example (fictional)",
+  "not a record of a real user, employer or incident",
+  "Formatted output",
+  "Unresolved. The cause is not confirmed",
+  "without inventing a root cause or claiming the issue was fixed"
+])assert.equal(noteFormatter.includes(phrase),true,"Service Desk note formatter example/evidence-boundary contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
