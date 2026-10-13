@@ -717,3 +717,10 @@ These pages were reviewed against their intended role, not only word count. No f
 The full sitemap audit still flags 24 title-length heuristics and three long meta descriptions. Rather than rewriting every title to satisfy a generic character threshold, this phase addresses the clearest cases: eight titles longer than 75 characters and the three descriptions over 160 characters. The search title tags were shortened while preserving the primary topic and brand; visible H1s, article body text, Open Graph titles and structured-data headlines remain unchanged. The three descriptions were tightened without removing the page's main purpose.
 
 Added source-level regression contracts for all eight title values and three description values, with practical length ceilings. Registered the four newly reviewed pages in final-readiness dependencies and added exact PR/push triggers where absent. These are bounded metadata-display improvements, not content-policy findings; the remaining title-length heuristics will be assessed individually rather than bulk-edited. AdSense remains inactive.
+
+
+## Phase 122FA — Safe browser-tools title refinement (2026-10-13)
+
+The post-Phase 122EZ crawl still flagged `/notes/building-safe-browser-based-it-tools/` because its title remained 74 characters even after its meta description was shortened. Changed only the search title tag to `Safe Browser-Based IT Tools: Design Guide | Jawed Imtiaz` (56 characters), preserving the primary topic and brand. The visible H1, social title, structured-data headline, description and article content are unchanged. Updated the source-level title/description contract; the page is already a final-readiness dependency and has explicit workflow triggers.
+
+This is a targeted metadata display improvement based on the remaining live heuristic, not a content-policy finding. Other titles that are only slightly above the heuristic threshold will remain unchanged unless a clearer reader/search benefit is demonstrated. AdSense remains inactive.
