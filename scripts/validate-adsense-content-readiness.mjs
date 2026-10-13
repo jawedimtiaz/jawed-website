@@ -233,6 +233,26 @@ for(const phrase of [
   '"dateModified":"2026-10-13"'
 ])assert.equal(apiSupportGuide.includes(phrase),true,"API troubleshooting example/freshness contract missing: "+phrase);
 
+const skillsEvidenceMappingPage=fs.readFileSync("work/skills/index.html","utf8");
+for(const phrase of [
+  "From skill label to observable support work",
+  "Skill area",
+  "Observable support practice",
+  "Record the user goal, impact, scope, exact symptom and last known-good point",
+  "Confirm device ownership, enrollment context and expected management state",
+  "Separate sign-in failure from permission, application and service availability",
+  "avoid treating one successful ping as proof that the full workflow works",
+  "test on sample input, inspect output and define failure handling",
+  "/notes/it-service-desk-troubleshooting-workflow/",
+  "/notes/apple-device-management-enrollment-models/",
+  "/notes/microsoft-sign-in-troubleshooting-guide/",
+  "/notes/network-connectivity-first-response-checklist/",
+  "/notes/service-desk-ticket-documentation/",
+  "/notes/small-it-automation-starting-point/",
+  "not records of a particular employer incident",
+  "do not imply administrator access to every platform"
+])assert.equal(skillsEvidenceMappingPage.includes(phrase),true,"Skills evidence-mapping contract missing: "+phrase);
+
 const appleEnrollmentGuide=fs.readFileSync("notes/apple-device-management-enrollment-models/index.html","utf8");
 for(const phrase of [
   "Worked example: use ownership and deployment stage to narrow the model",
