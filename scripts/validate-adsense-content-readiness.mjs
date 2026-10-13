@@ -233,6 +233,19 @@ for(const phrase of [
   '"dateModified":"2026-10-13"'
 ])assert.equal(apiSupportGuide.includes(phrase),true,"API troubleshooting example/freshness contract missing: "+phrase);
 
+const appleEnrollmentGuide=fs.readFileSync("notes/apple-device-management-enrollment-models/index.html","utf8");
+for(const phrase of [
+  "Worked example: use ownership and deployment stage to narrow the model",
+  "Illustrative triage aid, not a substitute",
+  "Account-driven User Enrollment",
+  "Device Enrollment",
+  "Automated Device Enrollment",
+  "These are starting points, not automatic answers.",
+  "stop before erasing the device, removing management or bypassing a restriction",
+  "Published: 2026-09-29 · Updated: 2026-10-13",
+  '"dateModified":"2026-10-13"'
+])assert.equal(appleEnrollmentGuide.includes(phrase),true,"Apple enrollment example/freshness contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
