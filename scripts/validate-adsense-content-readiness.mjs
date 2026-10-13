@@ -639,6 +639,15 @@ for(const phrase of [
   "possible loss of capital"
 ])assert.equal(financeWorkspace.includes(phrase),true,"Finance Planning Workspace disclosure contract missing: "+phrase);
 
+const taxRebateGuides=[
+  {path:"notes/indian-income-tax-practical-starting-point/index.html",html:fs.readFileSync("notes/indian-income-tax-practical-starting-point/index.html","utf8")},
+  {path:"notes/new-vs-old-tax-regime-comparison/index.html",html:fs.readFileSync("notes/new-vs-old-tax-regime-comparison/index.html","utf8")}
+];
+for(const guide of taxRebateGuides){
+  assert.equal(guide.html.includes("Marginal relief may apply just above the threshold under the statutory calculation."),true,"Tax rebate marginal-relief qualification missing: "+guide.path);
+  assert.equal(guide.html.includes("the rebate cannot be applied against tax on special-rate income"),true,"Tax rebate special-rate limitation missing: "+guide.path);
+}
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
