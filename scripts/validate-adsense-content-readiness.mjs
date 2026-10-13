@@ -699,6 +699,15 @@ const lossThenGainYear2=lossThenGainYear1*1.20-10;
 assert.deepEqual([gainThenLossYear1,gainThenLossYear2,lossThenGainYear1,lossThenGainYear2],[110,78,70,74],"Retirement sequence-risk example arithmetic changed; review inputs and displayed results together");
 for(const phrase of ["₹110L","₹78L","₹70L","₹74L","₹6 lakh a year (₹9 lakh − ₹3 lakh)"])assert.equal(retirementSequenceNote.includes(phrase),true,"Retirement sequence-risk or funding-gap example is missing a calculated result: "+phrase);
 
+const moneyBasicsNote=fs.readFileSync("notes/money-basics-budget-emergency-net-worth/index.html","utf8");
+const monthlyCashFlow=35000+10000+15000;
+assert.equal(monthlyCashFlow,60000,"Monthly cash-flow example categories no longer reconcile to take-home income");
+assert.equal(60000-monthlyCashFlow,0,"Monthly cash-flow example has an unexplained remainder");
+assert.equal(35000*3,105000,"Three-month emergency reserve example arithmetic changed");
+assert.equal(35000*6,210000,"Six-month emergency reserve example arithmetic changed");
+assert.equal(800000-300000,500000,"Net-worth example arithmetic changed");
+for(const phrase of ["₹60,000","₹35,000","₹10,000","₹15,000","₹1,05,000","₹2,10,000","₹5,00,000"])assert.equal(moneyBasicsNote.includes(phrase),true,"Budget, reserve or net-worth example does not match its inputs: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
