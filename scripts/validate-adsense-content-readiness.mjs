@@ -213,6 +213,15 @@ assert.equal(topicsPage.includes("Coverage fundamentals"),false,"Insurance card 
 const notesIndex=fs.readFileSync("notes/index.html","utf8");
 assert.equal(notesIndex.includes('<p class="eyebrow">3 notes</p><h3>Personal Finance · Retirement</h3>'),true,"Retirement summary count must include all three published notes");
 assert.equal(notesIndex.includes('<h3>Personal Finance · Retirement <span class="badge">3 notes</span></h3>'),true,"Retirement subject count must match the summary card");
+for(const phrase of [
+  '<h3>General Tech</h3>',
+  '<a href="#subject-general-tech">View note →</a>',
+  '<h3>Investing &amp; Personal Finance</h3>',
+  '<a href="#subject-investing-finance">View notes →</a>'
+])assert.equal(notesIndex.includes(phrase),true,"Notes subject discovery pathway missing: "+phrase);
+const subjectSectionIds=[...notesIndex.matchAll(/id="(subject-[^"]+)"/g)].map(match=>match[1]);
+const subjectMenuTargets=new Set([...notesIndex.matchAll(/href="#(subject-[^"]+)"/g)].map(match=>match[1]));
+for(const id of subjectSectionIds)assert.equal(subjectMenuTargets.has(id),true,"Every Notes subject section must have a Browse by Subject shortcut: "+id);
 
 
 const safeBrowserTools=fs.readFileSync("notes/building-safe-browser-based-it-tools/index.html","utf8");
