@@ -931,3 +931,8 @@ Added automated regression assertions to `scripts/validate-adsense-content-readi
 ## Phase 122GK — Indian mutual-fund due-diligence context (2026-10-13)
 
 A focused review of `/notes/indian-mutual-funds-index-etfs-starting-point/` found that the comparison checklist covered objective, benchmark, portfolio, costs, liquidity, tax and overlap, but did not explicitly direct readers to the scheme’s core offer documents or SEBI Riskometer. Added a short due-diligence section covering the current SID, KIM and factsheet, asset allocation, benchmark, costs, liquidity/exit load, portfolio disclosure and Riskometer, with links to SEBI Investor’s Riskometer explanation and mutual-fund checklist. It explicitly says the Riskometer is not a guarantee or a substitute for personal suitability. Added regression checks for the section and official links. This is an educational improvement, not a fund recommendation.
+
+
+## Phase 122GL — Canonical RBI LRS link correction (2026-10-13)
+
+Post-merge link validation found the RBI LRS link added in Phase 122GI used an encoded `systemhealth.rbi.org.in` mirror URL that timed out when opened. Replaced it with the canonical RBI-hosted Master Directions URL `https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=10192`, which opens and identifies the Master Direction — Liberalised Remittance Scheme (LRS). Updated the content-readiness regression assertion to pin the canonical destination. This corrects the link destination without changing the educational caveat.
