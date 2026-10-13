@@ -257,6 +257,20 @@ for(const phrase of [
 ])assert.equal(apiSupportGuide.includes(phrase),true,"API troubleshooting example/freshness contract missing: "+phrase);
 
 
+
+const projectsEvidencePage=fs.readFileSync("work/projects/index.html","utf8");
+for(const phrase of [
+  "not named employer incidents or independently measured case outcomes",
+  "generalized examples of how I approach troubleshooting",
+  "Expected benefit:",
+  "not a measured result from a specific case",
+  "not a quantified result from a specific case",
+  'href="/notes/it-service-desk-troubleshooting-workflow/"',
+  'href="/notes/device-provisioning-handoff-checklist/"',
+  'href="/notes/service-desk-ticket-documentation/"'
+])assert.equal(projectsEvidencePage.includes(phrase),true,"Projects evidence-scope contract missing: "+phrase);
+assert.equal(projectsEvidencePage.includes("<strong>Outcome:</strong>"),false,"Generalized work examples must not present expected benefits as case outcomes");
+
 const resourcesReferenceChecklist=fs.readFileSync("resources/index.html","utf8");
 for(const phrase of [
   "Quick check before following a reference",
