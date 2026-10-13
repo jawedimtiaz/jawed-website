@@ -381,10 +381,14 @@ for(const phrase of [
   "Worked example: use ownership and deployment stage to narrow the model",
   "Illustrative triage aid, not a substitute",
   "Account-driven User Enrollment",
-  "Device Enrollment",
+  "Device Enrollment itself includes account-driven and profile-based approaches",
+  "Account-driven Device Enrollment can support organization-owned devices already in use without erasing them",
   "Automated Device Enrollment",
+  "Apple Business: Enrollment methods for built-in device management",
   "These are starting points, not automatic answers.",
   "stop before erasing the device, removing management or bypassing a restriction",
+  '"@type":"BreadcrumbList"' ,
+  '"position":3,"name":"Apple Device Management: Understanding Enrollment Models"' ,
   "Published: 2026-09-29 · Updated: 2026-10-13",
   '"dateModified":"2026-10-13"'
 ])assert.equal(appleEnrollmentGuide.includes(phrase),true,"Apple enrollment example/freshness contract missing: "+phrase);
