@@ -830,3 +830,10 @@ These tools have different, useful jobs: prompt structuring, factual ticket-note
 
 This was a demonstrated content-discovery redundancy, so the directory was shortened without deleting a tool or substantive explanation. The source-level review of other tool sections is still ongoing, and duplicate-looking career cards are retained where the second appearance serves a distinct step-by-step preparation workflow. Live AdSense remains inactive until Google reports Ready.
 
+## Phase 122FX–122FY — Finance and career-tool privacy review (2026-10-13)
+
+- **122FX — Finance calculator data boundaries (PR #746):** added pre-input notes to the Compound Growth & SIP, Retirement Planning and Inflation & Goal Planning calculators. The notes state that calculations run in the browser and the calculator logic does not submit or persist entered values, while acknowledging page-level analytics under the Privacy page. The finance regression gate initially exposed stale expected dates in two regression contracts; those contracts were updated to match the reviewed publication metadata. The finance calculator regression, browser runtime, site integrity, SEO, performance, security, AI and deployment gates then passed.
+- **122FY — Career-tool source sample:** reviewed Career Match & Resume Review, Interview Preparation Planner and Resume Bullet Strength Checker. Their current pages describe local/browser processing and the limits of keyword-based analysis; Career Match also discloses local-storage use for saved analyses, tracker entries and theme preference, plus third-party CDN libraries for PDF/DOCX reading. Interview preparation is described as deterministic keyword overlap rather than a prediction of an employer's rubric; the resume checker warns against invented metrics. No edit was made because these limitations are already visible and relevant.
+
+This sample supports transparency around privacy, storage and the limits of generated or heuristic outputs. It is not a full interactive-state/browser/device test of every tool. Continue the remaining tool audit and keep live AdSense inactive until Google reports Ready.
+
