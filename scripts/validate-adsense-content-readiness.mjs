@@ -608,7 +608,11 @@ const seoMetadataContracts=[
   {path:"notes/new-vs-old-tax-regime-comparison/index.html",title:"New vs Old Tax Regime: Key Differences | Jawed Imtiaz"},
   {path:"notes/building-safe-browser-based-it-tools/index.html",title:"Safe Browser-Based IT Tools: Design Guide | Jawed Imtiaz",description:"A practical guide to safe browser-based IT tools: validate inputs, protect privacy, handle permissions and make failures visible."},
   {path:"notes/interactive-tools-ai-assisted-experiences-architecture/index.html",description:"A practical architecture for browser tools and AI experiences, with clear boundaries for local logic, external services, storage and user review."},
-  {path:"blog/triage-workplace-app-access-issue/index.html",description:"An illustrative IT support walkthrough for scoping app access issues, testing assumptions safely, validating fixes and preparing useful escalations."}
+  {path:"work/projects/index.html",title:"IT Projects and Practical Tools | Jawed Imtiaz",description:"A portfolio of practical technology projects and browser-based tools, with public-safe examples and clear boundaries around measured outcomes."},
+  {path:"work/experience/index.html",title:"IT Support Experience and Highlights | Jawed Imtiaz"},
+  {path:"work/skills/index.html",title:"IT Support Skills and Tools | Jawed Imtiaz"},
+  {path:"privacy/index.html",title:"Website Privacy and Data Handling | Jawed Imtiaz",description:"How jawed.co.in handles contact messages, browser-based tools, local storage, analytics, third-party services and privacy choices."},
+  {path:"topics/index.html",title:"Practical Technology, AI and Finance Topics | Jawed Imtiaz"}
 ];
 for(const contract of seoMetadataContracts){
   const html=fs.readFileSync(contract.path,"utf8");
