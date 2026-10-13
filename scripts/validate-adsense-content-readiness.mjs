@@ -517,13 +517,21 @@ for(const phrase of [
   "Review the article when the application version, sign-in process or support policy changes"
 ])assert.equal(kbDraft.includes(phrase),true,"Knowledge-base draft worked-example/safety contract missing: "+phrase);
 
-const ticketDocumentation=fs.readFileSync("notes/service-desk-ticket-documentation/index.html","utf8");
-const ticketDocumentationJsonLd=ticketDocumentation.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
-assert.notEqual(ticketDocumentationJsonLd,null,"Service Desk ticket documentation Article JSON-LD missing");
-const ticketDocumentationSchema=JSON.parse(ticketDocumentationJsonLd[1]);
-assert.equal(ticketDocumentationSchema["@type"],"Article","Service Desk ticket documentation schema must remain an Article");
-assert.equal(ticketDocumentationSchema.image,"https://jawed.co.in/assets/images/social-preview.png","Article schema image must match the published social preview image");
-assert.equal(ticketDocumentation.includes('<meta property="og:image" content="https://jawed.co.in/assets/images/social-preview.png">'),true,"Article schema image must have a matching existing social image asset");
+const articleImagePages=[
+  "notes/service-desk-ticket-documentation/index.html",
+  "notes/health-insurance-understanding-the-basics/index.html",
+  "notes/apple-device-management-enrollment-models/index.html",
+  "notes/it-support-escalation-handoff-checklist/index.html"
+];
+for(const pagePath of articleImagePages){
+  const articleHtml=fs.readFileSync(pagePath,"utf8");
+  const articleJsonLd=articleHtml.match(/<script type="application\\/ld\\+json">([\\s\\S]*?)<\\/script>/);
+  assert.notEqual(articleJsonLd,null,"Reviewed article JSON-LD missing: "+pagePath);
+  const articleSchema=JSON.parse(articleJsonLd[1]);
+  assert.equal(articleSchema["@type"],"Article","Reviewed article schema must remain an Article: "+pagePath);
+  assert.equal(articleSchema.image,"https://jawed.co.in/assets/images/social-preview.png","Article schema image must match the existing social preview: "+pagePath);
+  assert.equal(articleHtml.includes('<meta property="og:image" content="https://jawed.co.in/assets/images/social-preview.png">'),true,"Article image must match existing social metadata: "+pagePath);
+}
 
 const noteFormatter=fs.readFileSync("tools/service-desk-note-formatter/index.html","utf8");
 for(const phrase of [
