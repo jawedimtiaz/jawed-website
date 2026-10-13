@@ -941,3 +941,8 @@ Post-merge link validation found the RBI LRS link added in Phase 122GI used an e
 ## Phase 122GM — Retirement sequence-risk example regression checks (2026-10-13)
 
 A further numeric review of `/notes/retirement-withdrawals-sequence-risk-income-review/` confirmed the two-year illustration is internally consistent: with a ₹100 lakh starting balance and ₹10 lakh withdrawn after each year’s return, +20% then −20% ends at ₹78 lakh, while −20% then +20% ends at ₹74 lakh. The same page’s illustrative annual funding gap of ₹9 lakh spending less ₹3 lakh dependable income is ₹6 lakh before other considerations. Added automated checks that recompute these values and assert the published outputs remain present. The note already labels the returns hypothetical and excludes taxes, fees, inflation and other cash flows; no financial recommendation or displayed assumption was changed.
+
+
+## Phase 122GN — Budget, emergency-reserve and net-worth math checks (2026-10-13)
+
+Reviewed the fictional examples in `/notes/money-basics-budget-emergency-net-worth/` and independently checked: ₹35,000 essential costs + ₹10,000 flexible spending + ₹15,000 savings/debt reduction reconcile to ₹60,000 take-home income; three and six months of ₹35,000 essential costs equal ₹1,05,000 and ₹2,10,000; ₹8 lakh assets minus ₹3 lakh liabilities equals ₹5 lakh net worth. Added regression assertions to recompute these values and verify the displayed figures. The note already frames them as examples, not recommended household targets. No public-page copy or advice changed.
