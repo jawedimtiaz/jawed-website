@@ -837,3 +837,8 @@ This was a demonstrated content-discovery redundancy, so the directory was short
 
 This sample supports transparency around privacy, storage and the limits of generated or heuristic outputs. It is not a full interactive-state/browser/device test of every tool. Continue the remaining tool audit and keep live AdSense inactive until Google reports Ready.
 
+
+
+## Phase 122GA — Personal Finance Snapshot data boundary
+
+Source-level review found that `/tools/personal-finance-snapshot/` explained that calculations run in the browser but did not state whether values were transmitted or persisted. The page source contains no `fetch`, `XMLHttpRequest`, `localStorage`, `sessionStorage`, or `indexedDB` usage. Added a pre-input notice explaining that entered values are not submitted to an account, broker or server and are not saved for a later visit, while retaining the distinction that standard page-level analytics may operate under the Privacy page. This is a source-level finding, not a claim that all site analytics are absent or a substitute for the browser-runtime gate.
