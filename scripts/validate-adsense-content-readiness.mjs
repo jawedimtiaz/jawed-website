@@ -582,6 +582,15 @@ for(const phrase of [
   "local processing of the note does not mean the whole page makes no network requests"
 ])assert.equal(safeBrowserToolsGuide.includes(phrase),true,"Safe browser tools worked-example/privacy contract missing: "+phrase);
 
+const contactPage=fs.readFileSync("contact/index.html","utf8");
+for(const phrase of [
+  "Before you send",
+  "passwords, one-time codes, recovery tokens",
+  "not an urgent IT support channel",
+  "does not transmit or store the message text",
+  "no response time or service-level agreement is promised"
+])assert.equal(contactPage.includes(phrase),true,"Contact page privacy/scope contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
