@@ -146,7 +146,7 @@ const retirementCorpusGuide=fs.readFileSync("notes/retirement-corpus-calculation
 for(const phrase of [
   "Sources and scope",
   "esankhyiki.mospi.gov.in/catalogue-main/catalogue?product=CPI",
-  "pension-fund-regulatory-and-development-authority-exits-and-withdrawals-under-the-national-pension-system-regulations-2015-last-amended-on-20th-july-2026-",
+  "pfrda.org.in/en/regulatory-framework/regulations",
   "investor.gov/additional-resources/retirement-toolkit/managing-lifetime-income",
   "not official projections",
   "Sources checked: 2026-10-13",
@@ -707,6 +707,10 @@ assert.equal(35000*3,105000,"Three-month emergency reserve example arithmetic ch
 assert.equal(35000*6,210000,"Six-month emergency reserve example arithmetic changed");
 assert.equal(800000-300000,500000,"Net-worth example arithmetic changed");
 for(const phrase of ["₹60,000","₹35,000","₹10,000","₹15,000","₹1,05,000","₹2,10,000","₹5,00,000"])assert.equal(moneyBasicsNote.includes(phrase),true,"Budget, reserve or net-worth example does not match its inputs: "+phrase);
+
+const retirementCorpusReference=fs.readFileSync("notes/retirement-corpus-calculation-framework/index.html","utf8");
+assert.equal(retirementCorpusReference.includes("https://pfrda.org.in/en/regulatory-framework/regulations"),true,"Retirement corpus note must retain the stable official PFRDA regulations index");
+assert.equal(retirementCorpusReference.includes("including the Exits and Withdrawals Regulations updated 20 July 2026"),true,"Retirement corpus PFRDA reference label must identify the relevant regulation and date");
 
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
