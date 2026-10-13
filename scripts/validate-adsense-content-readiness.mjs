@@ -495,6 +495,18 @@ for(const phrase of [
   '"dateModified":"2026-10-13"'
 ])assert.equal(appleEnrollmentGuide.includes(phrase),true,"Apple enrollment example/freshness contract missing: "+phrase);
 
+const interviewPlanner=fs.readFileSync("tools/interview-preparation-planner/index.html","utf8");
+for(const phrase of [
+  "Worked example",
+  "Illustrative job-description excerpt:",
+  "Possible preparation topics:",
+  "What this tool can and cannot tell you",
+  "keyword overlap only; it is not an ATS score",
+  "A missing keyword does not prove you lack a skill",
+  "The planner runs in your browser",
+  "does not predict an employer's interview process"
+])assert.equal(interviewPlanner.includes(phrase),true,"Interview planner reader-value/privacy/limitations contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
