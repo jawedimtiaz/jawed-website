@@ -176,8 +176,18 @@ for(const phrase of [
 
 const topicsPage=fs.readFileSync("topics/index.html","utf8");
 assert.equal(topicsPage.includes("Active foundation"),false,"Topic hub must not expose internal placeholder labels");
-for(const phrase of ["Retirement guides","Coverage fundamentals","Illustrative calculators"])
-  assert.equal(topicsPage.includes(phrase),true,"Topic hub needs a visitor-facing category label: "+phrase);
+for(const phrase of [
+  "Start with a target",
+  "/notes/retirement-corpus-calculation-framework/",
+  "/notes/inflation-and-future-goal-planning/",
+  "/notes/retirement-withdrawals-sequence-risk-income-review/",
+  "Each guide covers a different planning question",
+  "The current collection focuses on health-insurance education; it does not compare specific policies.",
+  "/notes/health-insurance-understanding-the-basics/",
+  "Illustrative calculators"
+])assert.equal(topicsPage.includes(phrase),true,"Topic hub task-pathway contract missing: "+phrase);
+assert.equal(topicsPage.includes("Retirement guides"),false,"Retirement card must not use a redundant badge instead of specific guide paths");
+assert.equal(topicsPage.includes("Coverage fundamentals"),false,"Insurance card must not use a redundant badge instead of describing the collection scope");
 
 const notesIndex=fs.readFileSync("notes/index.html","utf8");
 assert.equal(notesIndex.includes('<p class="eyebrow">3 notes</p><h3>Personal Finance · Retirement</h3>'),true,"Retirement summary count must include all three published notes");

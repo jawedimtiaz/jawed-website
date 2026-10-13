@@ -280,7 +280,7 @@ async function testRetirementWithdrawalsGuide(label){
   const table=await textOf("main table tbody");
   if(!table.includes("₹78L")||!table.includes("₹74L"))throw new Error(label+" retirement sequence-risk example values are missing");
   const meta=await js("const s=JSON.parse(document.querySelector('script[type=\"application/ld+json\"]')?.textContent||'{}');return {type:s['@type'],headline:s.headline,canonical:s.mainEntityOfPage?.['@id'],published:s.datePublished,modified:s.dateModified}");
-  if(meta.type!=="Article"||meta.headline!=="Retirement Withdrawals: Sequence Risk, Income and Annual Reviews"||meta.canonical!=="https://jawed.co.in/notes/retirement-withdrawals-sequence-risk-income-review/"||meta.published!=="2026-10-12"||meta.modified!=="2026-10-12")throw new Error(label+" retirement withdrawal guide metadata mismatch: "+JSON.stringify(meta));
+  if(meta.type!=="Article"||meta.headline!=="Retirement Withdrawals: Sequence Risk, Income and Annual Reviews"||meta.canonical!=="https://jawed.co.in/notes/retirement-withdrawals-sequence-risk-income-review/"||meta.published!=="2026-10-12"||meta.modified!=="2026-10-13")throw new Error(label+" retirement withdrawal guide metadata mismatch: "+JSON.stringify(meta));
   await checkLink('main a[href^="https://pfrda.org.in"]',label+" PFRDA reference");
   await checkLink('main a[href^="https://www.investor.gov"]',label+" general retirement reference");
   await checkLink('main a[href="/notes/retirement-corpus-calculation-framework/"]',label+" related corpus note");
