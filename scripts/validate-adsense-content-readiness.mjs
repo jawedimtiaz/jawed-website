@@ -258,6 +258,20 @@ for(const phrase of [
 
 
 
+
+const topicHubPage=fs.readFileSync("topics/index.html","utf8");
+for(const phrase of [
+  "Budgeting, Emergency Funds &amp; Net Worth",
+  "organize example figures without giving personalized financial advice",
+  'href="/notes/money-basics-budget-emergency-net-worth/"',
+  'href="/tools/personal-finance-snapshot/"',
+  "Prompt Building for Everyday Work",
+  "This pathway currently points to the AI Prompt Builder; it is not a general catalogue of productivity utilities.",
+  'href="/tools/ai-prompt-builder/"'
+])assert.equal(topicHubPage.includes(phrase),true,"Topic discovery specificity contract missing: "+phrase);
+assert.equal(topicHubPage.includes("<h3>Money Basics</h3>"),false,"Topic hub must not leave the vague Money Basics label");
+assert.equal(topicHubPage.includes("<h3>Productivity Tools</h3>"),false,"Topic hub must not imply a broader productivity-tools catalogue than exists");
+
 const projectsEvidencePage=fs.readFileSync("work/projects/index.html","utf8");
 for(const phrase of [
   "not named employer incidents or independently measured case outcomes",
