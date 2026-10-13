@@ -103,6 +103,28 @@ for(const phrase of [
 
 
 
+
+const inflationGoalGuide=fs.readFileSync("notes/inflation-and-future-goal-planning/index.html","utf8");
+for(const phrase of [
+  "Official reference and scope",
+  "esankhyiki.mospi.gov.in/catalogue-main/catalogue?product=CPI",
+  "4%:</strong> approximately ₹14.80 lakh",
+  "6%:</strong> approximately ₹17.91 lakh",
+  "8%:</strong> approximately ₹21.59 lakh",
+  "These are sensitivity scenarios, not predictions",
+  "Source checked: 2026-10-13",
+  "Published: 2026-09-28 · Updated: 2026-10-13 · 6 min read",
+  '"dateModified":"2026-10-13"',
+  "Financial Content Disclosure"
+])assert.equal(inflationGoalGuide.includes(phrase),true,"Inflation sensitivity/source contract missing: "+phrase);
+assert.equal(inflationGoalGuide.includes("turn0search"),false,"Inflation guide must not expose internal citation placeholders");
+const goalCostAt4=10*Math.pow(1.04,10);
+const goalCostAt6=10*Math.pow(1.06,10);
+const goalCostAt8=10*Math.pow(1.08,10);
+assert.equal(Math.abs(goalCostAt4-14.80)<0.01,true,"4% inflation sensitivity example must remain correct");
+assert.equal(Math.abs(goalCostAt6-17.91)<0.01,true,"6% inflation sensitivity example must remain correct");
+assert.equal(Math.abs(goalCostAt8-21.59)<0.01,true,"8% inflation sensitivity example must remain correct");
+
 const retirementCorpusGuide=fs.readFileSync("notes/retirement-corpus-calculation-framework/index.html","utf8");
 for(const phrase of [
   "Sources and scope",

@@ -379,3 +379,9 @@ A manual review of `notes/retirement-corpus-calculation-framework/index.html` fo
 The AdSense content-readiness validator now protects the source links, disclosure, date alignment, and three arithmetic examples (future spending, annuity present value, and real return). The AI grounding summary/keywords were reviewed for the updated scope, `reviewed_against_sitemap_on` advanced to 2026-10-13, and the generated runtime knowledge copy was synchronized. The readiness workflow explicitly watches this page on pull requests and pushes.
 
 This is a content transparency and calculation-regression improvement; it does not establish AdSense approval or authorize resubmission.
+
+## Phase 122DI — Add a worked inflation sensitivity comparison (2026-10-13)
+
+The inflation and future-goal note already explained the future-value formula, but its single 6% example did not show how sensitive a long-range goal is to the chosen rate. Added a worked comparison for a hypothetical ₹10 lakh goal ten years away at 4%, 6% and 8% (approximately ₹14.80 lakh, ₹17.91 lakh and ₹21.59 lakh). Added a direct link to the MoSPI CPI catalogue and clarified that CPI is broad context—not a forecast for a specific goal—and that all three rates are illustrative scenarios, not predictions or recommended assumptions. Visible update metadata and Article `dateModified` now match 2026-10-13.
+
+The content-readiness validator checks the source, visible/schema dates, disclosure, and all three calculations. The AdSense readiness workflow explicitly watches the page on pull requests and pushes. The AI knowledge summary/keywords were updated and the generated runtime index synchronized.
