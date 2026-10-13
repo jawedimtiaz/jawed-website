@@ -936,3 +936,8 @@ A focused review of `/notes/indian-mutual-funds-index-etfs-starting-point/` foun
 ## Phase 122GL — Canonical RBI LRS link correction (2026-10-13)
 
 Post-merge link validation found the RBI LRS link added in Phase 122GI used an encoded `systemhealth.rbi.org.in` mirror URL that timed out when opened. Replaced it with the canonical RBI-hosted Master Directions URL `https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=10192`, which opens and identifies the Master Direction — Liberalised Remittance Scheme (LRS). Updated the content-readiness regression assertion to pin the canonical destination. This corrects the link destination without changing the educational caveat.
+
+
+## Phase 122GM — Retirement sequence-risk example regression checks (2026-10-13)
+
+A further numeric review of `/notes/retirement-withdrawals-sequence-risk-income-review/` confirmed the two-year illustration is internally consistent: with a ₹100 lakh starting balance and ₹10 lakh withdrawn after each year’s return, +20% then −20% ends at ₹78 lakh, while −20% then +20% ends at ₹74 lakh. The same page’s illustrative annual funding gap of ₹9 lakh spending less ₹3 lakh dependable income is ₹6 lakh before other considerations. Added automated checks that recompute these values and assert the published outputs remain present. The note already labels the returns hypothetical and excludes taxes, fees, inflation and other cash flows; no financial recommendation or displayed assumption was changed.
