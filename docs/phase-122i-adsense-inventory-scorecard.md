@@ -385,3 +385,11 @@ This is a content transparency and calculation-regression improvement; it does n
 The inflation and future-goal note already explained the future-value formula, but its single 6% example did not show how sensitive a long-range goal is to the chosen rate. Added a worked comparison for a hypothetical ₹10 lakh goal ten years away at 4%, 6% and 8% (approximately ₹14.80 lakh, ₹17.91 lakh and ₹21.59 lakh). Added a direct link to the MoSPI CPI catalogue and clarified that CPI is broad context—not a forecast for a specific goal—and that all three rates are illustrative scenarios, not predictions or recommended assumptions. Visible update metadata and Article `dateModified` now match 2026-10-13.
 
 The content-readiness validator checks the source, visible/schema dates, disclosure, and all three calculations. The AdSense readiness workflow explicitly watches the page on pull requests and pushes. The AI knowledge summary/keywords were updated and the generated runtime index synchronized.
+
+## Phase 122DJ — Add a retirement cash-flow funding-gap example (2026-10-13)
+
+A page-level read of `notes/retirement-withdrawals-sequence-risk-income-review/index.html` found a useful explanatory sequence-risk calculation, but the spending/income mapping section lacked a worked arithmetic example of the initial funding gap. Added a hypothetical ₹9 lakh annual spending / ₹3 lakh reasonably dependable annual income example, showing a ₹6 lakh initial gap before taxes, timing, inflation, irregular costs or income changes. Explicitly says this arithmetic does not establish that the portfolio can safely fund the gap and is not a withdrawal-rate or product recommendation. Updated visible freshness metadata and Article `dateModified` to 2026-10-13.
+
+The content-readiness validator independently calculates the ₹6 lakh gap and checks the visible example, date alignment, and existing sequence-risk arithmetic. Jawed AI grounding and its generated runtime copy were synchronized. The existing AdSense readiness workflow already watches this page and the validator.
+
+This is a focused editorial improvement, not completion of the site-wide manual audit, Google approval, or authorization to activate ads or resubmit.

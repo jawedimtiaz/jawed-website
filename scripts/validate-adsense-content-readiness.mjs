@@ -42,6 +42,9 @@ const retirementWithdrawals=fs.readFileSync("notes/retirement-withdrawals-sequen
 for(const phrase of [
   "Retirement Withdrawals: Sequence Risk, Income and Annual Reviews",
   "Why the sequence of returns matters",
+  "Map the funding gap before choosing a withdrawal approach",
+  "Suppose a hypothetical household estimates annual retirement spending of ₹9 lakh",
+  "initial gap to plan for is ₹6 lakh a year",
   "Both paths contain a 20% gain and a 20% loss.",
   "PFRDA NPS All Citizen Model information",
   "Investor.gov retirement income guidance",
@@ -52,6 +55,12 @@ const gainThenLoss=(startPortfolio*1.2-annualWithdrawal)*0.8-annualWithdrawal;
 const lossThenGain=(startPortfolio*0.8-annualWithdrawal)*1.2-annualWithdrawal;
 assert.equal(gainThenLoss,78,"Gain-then-loss illustrative sequence arithmetic changed");
 assert.equal(lossThenGain,74,"Loss-then-gain illustrative sequence arithmetic changed");
+const annualSpending=9,dependableIncome=3;
+assert.equal(annualSpending-dependableIncome,6,"Retirement funding-gap example arithmetic changed");
+assert.equal(retirementWithdrawals.includes("₹9 lakh − ₹3 lakh"),true,"Published retirement funding-gap arithmetic must be visible");
+assert.equal(retirementWithdrawals.includes("₹6 lakh a year"),true,"Published retirement funding gap must match independent arithmetic");
+assert.equal(retirementWithdrawals.includes("Published: 2026-10-12 · Updated: 2026-10-13 · 8 min read"),true,"Retirement withdrawal visible update date must match substantive change");
+assert.equal(retirementWithdrawals.includes('"dateModified":"2026-10-13"'),true,"Retirement withdrawal schema modified date must match visible update date");
 assert.equal(retirementWithdrawals.includes("₹78L")&&retirementWithdrawals.includes("₹74L"),true,"Published sequence-risk example must match its independently calculated outcomes");
 assert.equal(retirementWithdrawals.includes("/notes/retirement-corpus-calculation-framework/"),true,"Withdrawal guide must link to the corpus framework");
 assert.equal(retirementWithdrawals.includes("/tools/retirement-planning-calculator/"),true,"Withdrawal guide must link to the retirement calculator");
