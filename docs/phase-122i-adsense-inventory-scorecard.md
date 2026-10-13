@@ -979,3 +979,10 @@ This screen is not a substitute for exercising every control, keyboard path, scr
 ## Phase 122GR — Historical blog inventory statement refreshed (2026-10-13)
 
 Cross-checking the current blog index against the Phase 122A audit found a stale present-tense statement that the index “currently” promoted one article. The initial audit did see one article, but the site now contains two original posts: the rebuild case study and the fictional workplace-app triage walkthrough. Updated the Phase 122A wording to distinguish the historical snapshot from the current inventory while retaining the accurate caveat that the blog collection remains small and should grow only when genuinely useful material exists. No public page changed.
+
+
+## Phase 122GS — Production deployment and crawl-smoke evidence (2026-10-13)
+
+Checked Cloudflare Pages through the connected account API. The `jawed-website` project has production branch `main`, custom domains `jawed.co.in` and `www.jawed.co.in`, and a successful production deployment for commit `cdabc378fda45c4a5c97b7ea1636afc61644615c` (Phase 122GR). The deployment’s build and deploy stages reported success. The latest Production Smoke Reliability Gate for the last public-content change (commit `1d2c590970cfd8a29db0cfe3d659072cdb73c8c4`, Phase 122GL) also completed successfully, including the production smoke validation step. Changes after that smoke run were documentation-only; the current main commit is deployed.
+
+Repository crawler configuration is `User-agent: *`, `Allow: /`, and `Sitemap: https://jawed.co.in/sitemap.xml`; `config/production-smoke-contract.json` and `config/production-robots-contract.json` define production checks for the robots endpoint. This confirms deployment and automated smoke evidence, not Google AdSense crawler access from Google’s infrastructure, actual Policy Center status, or approval. The direct web retrieval surface available for this audit could not fetch the production URLs, so no claim is made that every URL was manually fetched in this pass.
