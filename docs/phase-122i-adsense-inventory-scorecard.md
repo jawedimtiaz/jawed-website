@@ -528,3 +528,9 @@ Added regression assertions for the visible publication/update dates and their m
 After completing subject and task discovery, manually compared all 11 subject-section counts and all 12 task-section counts with the number of listed notes; the counts matched. Added a generic regression contract requiring each subject/task section's badge count and its corresponding menu-card count to match the actual list items. This complements the navigation-presence contracts from Phases 122EC and 122ED and prevents future additions/removals from silently leaving stale counts.
 
 No published content or navigation changed in this phase. This is maintenance protection for the audited directory; the wider manual review remains incomplete.
+
+## Phase 122EG — Recheck retirement-planning primary sources (2026-10-13)
+
+Rechecked the retirement-planning guide's primary PFRDA references against the current official NPS All Citizen Model page and the current Exits and Withdrawals Regulations page, which identifies the July 20, 2026 amendment. The guide intentionally avoids reproducing detailed withdrawal thresholds and directs readers to the current regulations for case-specific rules. Updated the visible source-check date and Article `dateModified` to 2026-10-13 while preserving the original publication date.
+
+Added regression assertions for the official source references, visible source-check date and structured/visible modification dates. Added the guide to the final-readiness content dependency list and explicit PR/push workflow triggers. This is a source freshness check, not personalized retirement or investment advice; the full manual page/tool audit remains incomplete.
