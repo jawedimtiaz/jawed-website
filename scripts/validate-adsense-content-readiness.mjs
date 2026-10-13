@@ -376,6 +376,21 @@ for(const phrase of [
   "do not imply administrator access to every platform"
 ])assert.equal(skillsEvidenceMappingPage.includes(phrase),true,"Skills evidence-mapping contract missing: "+phrase);
 
+const microsoftSigninGuide=fs.readFileSync("notes/microsoft-sign-in-troubleshooting-guide/index.html","utf8");
+for(const phrase of [
+  "Worked example: separate application from account scope",
+  "this is not a record of a real user or employer incident",
+  "The desktop application path is worth checking first",
+  "Use authorized identity troubleshooting and sign-in evidence",
+  "Check the organization’s approved Microsoft 365 service-health source",
+  "These comparisons help prioritize investigation; they do not prove a root cause.",
+  "Sanitized handoff pattern:",
+  "Keep credentials, authentication codes, session tokens and unnecessary personal or tenant data out of public examples.",
+  "Published: 2026-09-29 · Updated: 2026-10-13",
+  '"dateModified":"2026-10-13"'
+])assert.equal(microsoftSigninGuide.includes(phrase),true,"Microsoft sign-in example/safety/freshness contract missing: "+phrase);
+assert.equal(microsoftSigninGuide.includes("Updated: 2026-10-13 · Updated:"),false,"Microsoft guide must show one clear update date");
+
 const appleEnrollmentGuide=fs.readFileSync("notes/apple-device-management-enrollment-models/index.html","utf8");
 for(const phrase of [
   "Worked example: use ownership and deployment stage to narrow the model",
