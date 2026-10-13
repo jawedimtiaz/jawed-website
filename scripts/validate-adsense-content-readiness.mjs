@@ -102,6 +102,27 @@ for(const phrase of [
 ])assert.equal(taxRegimeComparison.includes(phrase),true,"Tax regime comparison transition guidance missing: "+phrase);
 
 
+
+const retirementCorpusGuide=fs.readFileSync("notes/retirement-corpus-calculation-framework/index.html","utf8");
+for(const phrase of [
+  "Sources and scope",
+  "esankhyiki.mospi.gov.in/catalogue-main/catalogue?product=CPI",
+  "pension-fund-regulatory-and-development-authority-exits-and-withdrawals-under-the-national-pension-system-regulations-2015-last-amended-on-20th-july-2026-",
+  "investor.gov/additional-resources/retirement-toolkit/managing-lifetime-income",
+  "not official projections",
+  "Sources checked: 2026-10-13",
+  "Published: 2026-09-28 · Updated: 2026-10-13 · 8 min read",
+  '"dateModified":"2026-10-13"',
+  "Financial Content Disclosure"
+])assert.equal(retirementCorpusGuide.includes(phrase),true,"Retirement corpus source-transparency contract missing: "+phrase);
+assert.equal(retirementCorpusGuide.includes("turn0search"),false,"Retirement corpus guide must not expose internal citation placeholders");
+const retirementInflationProjection=6*Math.pow(1.06,15);
+assert.equal(Math.abs(retirementInflationProjection-14.38)<0.01,true,"Retirement corpus inflation example must remain numerically correct");
+const retirementCorpusPv=15*(1-Math.pow(1.03,-30))/0.03;
+assert.equal(Math.abs(retirementCorpusPv-294.1)<0.2,true,"Retirement corpus annuity example must remain numerically correct");
+const retirementRealReturn=(1.10/1.06)-1;
+assert.equal(Math.abs(retirementRealReturn-0.0377358)<0.00001,true,"Retirement corpus real-return example must remain numerically correct");
+
 const blogIndex=fs.readFileSync("blog/index.html","utf8");
 for(const phrase of [
   "How to use these posts",
