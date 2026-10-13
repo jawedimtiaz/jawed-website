@@ -1059,3 +1059,10 @@ The detailed route list and limitations are recorded in `docs/phase-122gz-publis
 Reviewed `scripts/validate-site-integrity.mjs` and its GitHub Actions workflow. The existing repository-wide gate cross-checks sitemap/source parity, canonical metadata and navigation, scans static local `href`/`action` values, checks local route destinations, and validates fragment targets against IDs/names in target HTML.
 
 Important limits are recorded in `docs/phase-122hb-link-validation-audit.md`: this does not prove external destinations are live or authoritative, test JavaScript-generated navigation, validate rendered visibility, or replace accessibility testing. The source review did not identify a specific broken link to fix, so no public link or copy was changed. The latest passing CI run must still be confirmed against the exact target commit before treating this gate as execution evidence. AdSense remains inactive.
+
+
+## Phase 122HC — AdSense readiness evidence consolidation (2026-10-13)
+
+Added `docs/phase-122hc-adsense-readiness-evidence-consolidation.md`, consolidating completed source audits, browser coverage, internal-link checks, accessibility gaps, deployment evidence and external/account dependencies.
+
+Current decision remains **NO-GO for resubmission**. Source-level review and repository CI are not substitutes for actual rendered browser execution, manual accessibility checks, production crawler/reachability evidence, or the owner-authorized AdSense Policy Center/site status. Keep the initial ad inventory exclusions intact and live ads inactive. No publisher ID, ads.txt record, CSP exception, or account state is to be guessed.
