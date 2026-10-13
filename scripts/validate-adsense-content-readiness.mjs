@@ -662,6 +662,26 @@ for(const phrase of [
   "https://www.incometax.gov.in/iec/foportal/nudge/nudge-schedule-fa"
 ])assert.equal(usStocksNote.includes(phrase),true,"India-resident overseas investing context missing: "+phrase);
 
+const inflationNote=fs.readFileSync("notes/inflation-and-future-goal-planning/index.html","utf8");
+const retirementCorpusNote=fs.readFileSync("notes/retirement-corpus-calculation-framework/index.html","utf8");
+const allocationNote=fs.readFileSync("notes/portfolio-allocation-rebalancing-framework/index.html","utf8");
+const usEtfNote=fs.readFileSync("notes/us-stocks-etfs-starting-point/index.html","utf8");
+const futureGoalLakhs=10*Math.pow(1.06,10);
+assert.equal(futureGoalLakhs.toFixed(2),"17.91","Inflation example arithmetic changed; review before editing the displayed result");
+assert.equal(inflationNote.includes("₹17.91 lakh"),true,"Inflation example result does not match its stated inputs");
+const retirementCorpusLakhs=15*(1-Math.pow(1.03,-30))/0.03;
+assert.equal((retirementCorpusLakhs/100).toFixed(2),"2.94","Retirement corpus example arithmetic changed; review before editing the displayed result");
+assert.equal(retirementCorpusNote.includes("₹2.94 crore"),true,"Retirement corpus example result does not match its stated inputs");
+const allocationTotal=6.8+2.2+1.0;
+assert.equal(allocationTotal,10,"Portfolio allocation example total changed");
+assert.equal((6.8/allocationTotal*100).toFixed(0),"68","Equity allocation example weight changed");
+assert.equal((2.2/allocationTotal*100).toFixed(0),"22","Bond allocation example weight changed");
+for(const phrase of ["68%","22%","10%"])assert.equal(allocationNote.includes(phrase),true,"Portfolio allocation example table is missing a calculated weight: "+phrase);
+const overlapExposure=5*0.5+5*0.4;
+assert.equal(overlapExposure,4.5,"ETF overlap example exposure changed");
+assert.equal((overlapExposure/10*100).toFixed(0),"45","ETF overlap example percentage changed");
+for(const phrase of ["₹4.5 lakh","45%"])assert.equal(usEtfNote.includes(phrase),true,"ETF overlap example does not match its stated inputs: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
