@@ -842,3 +842,15 @@ This sample supports transparency around privacy, storage and the limits of gene
 ## Phase 122GA — Personal Finance Snapshot data boundary
 
 Source-level review found that `/tools/personal-finance-snapshot/` explained that calculations run in the browser but did not state whether values were transmitted or persisted. The page source contains no `fetch`, `XMLHttpRequest`, `localStorage`, `sessionStorage`, or `indexedDB` usage. Added a pre-input notice explaining that entered values are not submitted to an account, broker or server and are not saved for a later visit, while retaining the distinction that standard page-level analytics may operate under the Privacy page. This is a source-level finding, not a claim that all site analytics are absent or a substitute for the browser-runtime gate.
+
+
+## Phase 122GB — Focused practical-value sample of four notes (2026-10-13)
+
+A source-level editorial sample reviewed the visible body and section structure of four notes that had not been covered by the immediately preceding tool/profile sample:
+
+- **Choosing AI Tools: Privacy, Cost and Practical Fit:** starts from a concrete task, evaluates data handling, controls, cost, verification and continuity, and includes a clearly fictional side-by-side summary exercise. It links to the NIST AI Risk Management Framework and current provider help rather than claiming a universal tool ranking.
+- **Device Provisioning and Handoff Checklist:** separates provisioning from user-ready validation, provides decision points for incomplete enrollment, missing applications, sign-in and security failures, and includes a fictional handoff scenario. It warns against bypassing security controls and against collecting credentials or authentication codes.
+- **Networking Troubleshooting: A Layer-by-Layer Diagnostic Framework:** distinguishes addressing, DNS, reachability and application/service failures, uses scope to select the next diagnostic layer, and cautions that a failed ICMP test alone does not prove a service/path is unavailable. It includes Microsoft and Apple technical references.
+- **Building Small IT Automations: Start With the Repetitive Step:** defines input/transformation/output, favors reversible low-risk steps, asks readers to compare output with manual work, and includes a sanitized fictional documentation example. It distinguishes generating a draft from submitting or modifying another system.
+
+No public-page edit was justified by this sample: the four pages have distinct purposes, practical examples and appropriate limitations; adding generic paragraphs or padding word count would not improve them. This is a focused source-level review, not verification of every link's current destination, rendered mobile/keyboard behavior, or every published note. Continue the page-by-page editorial audit and keep the final AdSense review gate open.
