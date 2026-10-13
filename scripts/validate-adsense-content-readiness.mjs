@@ -220,6 +220,19 @@ for(const phrase of [
   '"dateModified":"2026-10-13"'
 ])assert.equal(aiToolSelectionGuide.includes(phrase),true,"AI tool-selection example/freshness contract missing: "+phrase);
 
+const apiSupportGuide=fs.readFileSync("notes/apis-explained-for-it-support/index.html","utf8");
+for(const phrase of [
+  "Worked example: an inventory lookup returns an error",
+  "This is a fictional request and not a real company endpoint or incident.",
+  "401 Unauthorized",
+  "403 Forbidden",
+  "429 Too Many Requests",
+  "These are starting questions, not guaranteed diagnoses.",
+  "never publish access tokens, cookies, private payloads or personal data",
+  "Published: 2026-09-27 · Updated: 2026-10-13",
+  '"dateModified":"2026-10-13"'
+])assert.equal(apiSupportGuide.includes(phrase),true,"API troubleshooting example/freshness contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");

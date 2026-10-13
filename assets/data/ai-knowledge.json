@@ -388,11 +388,15 @@
     {
       "url": "/notes/apis-explained-for-it-support/",
       "title": "APIs Explained for IT Support",
-      "summary": "Plain-language introduction to API concepts and how APIs relate to IT support workflows and technology integrations.",
+      "summary": "Plain-language API guide for IT support with a worked request/response example showing how status codes inform investigation without proving a root cause.",
       "keywords": [
+        "API troubleshooting",
         "apis",
         "it support",
-        "technology"
+        "request response",
+        "status codes",
+        "technology",
+        "worked example"
       ]
     },
     {
