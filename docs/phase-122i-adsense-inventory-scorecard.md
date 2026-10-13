@@ -1001,3 +1001,28 @@ The existing production sitemap gate validated sitemap XML structure, canonical 
 ## Phase 122GW — Stabilize PFRDA reference destination (2026-10-13)
 
 During external-source review, the retirement-corpus note’s deep PFRDA CMS URL did not resolve reliably through direct retrieval, while the official PFRDA Regulations index loaded and lists the current Exits and Withdrawals Regulations updated on 20 July 2026. Replaced the fragile deep link with the stable official regulations index and clarified the label so readers know which entry to select. Added a regression assertion for the destination and label. No retirement assumptions, calculation examples or financial guidance changed.
+
+
+## Phase 122GX — Core-page and blog editorial value review (2026-10-13)
+
+Completed a source-level visitor-purpose and editorial-value review of the 12 non-note/non-tool core pages plus all three blog URLs (the blog index and two posts), cross-checking the current sitemap and repository HTML.
+
+- **Home (about 381 main-content words):** clear professional identity and routes into work, notes and tools; no need to lengthen the hero.
+- **About (about 528 words):** first-person professional context, learning and site purpose; distinct from the work evidence pages.
+- **Work hub (about 271 words):** intentionally navigational, with separate paths to experience, skills, credentials, projects and task-oriented evidence. Its shortness is appropriate to its role.
+- **Experience (about 365 words):** role history and support approach; should remain factual and avoid unsupported employer/customer metrics.
+- **Skills (about 567 words):** groups capabilities and maps skills to observable support practices and related public-safe examples.
+- **Certifications & Education (about 311 words):** distinguishes completed credentials, historical product-version qualifications and current learning; connects each learning area to practical guides without implying obsolete credentials are current.
+- **Projects (about 586 words):** provides public-safe project evidence and explains methods without presenting illustrative examples as measured outcomes.
+- **Blog index (about 264 words):** clearly introduces the two-post collection and routes readers to the distinct rebuild case study and illustrative troubleshooting walkthrough. The collection is small, but the index does not imply otherwise.
+- **Rebuild case study (about 1,044 words):** explains real site-rebuild decisions, trade-offs and quality checks; explicitly avoids treating technical SEO as a substitute for useful content.
+- **Illustrative workplace-app triage article (about 1,140 words):** labels the scenario illustrative and separates scope, evidence, hypotheses, tests, validation and handoff.
+- **Resources hub (about 608 words):** organizes official vendor/platform documentation by task and includes a reference-first workflow; the six primary destinations were separately spot-checked in Phase 122GT.
+- **Contact (about 195 words):** explains the contact routes and limitations, warns against sending sensitive data and clarifies that this is not an urgent IT-support channel.
+- **Privacy (about 893 words):** covers information handling, browser tools, AI processing, analytics, external services, advertising and financial-content boundaries.
+- **Topics (about 703 words):** offers task-oriented paths across IT, AI, investing, personal finance and tools. Finance disclosure is visible, and the insurance category is scoped to health-insurance education rather than claiming a policy-comparison service.
+- **Jawed AI page (about 268 words):** explains the site-discovery purpose, AI processing boundary, sensitive-data exclusions, known limitations and official-source verification.
+
+**Outcome:** this pass did not identify a clearly justified public-page edit. The shorter hub/index pages serve navigation purposes; the two blog posts contain distinct original reasoning; and the privacy, contact and financial disclosure pages provide relevant trust and boundary information. No filler content or arbitrary word-count targets were introduced.
+
+**Limits:** this was a repository-source review, not a rendered browser/device audit, a full check of every internal/external link, or proof of Google's crawler access or AdSense approval. The web inspection surface could not retrieve the live production pages during this pass. The 30-note and 12-tool source-level depth screens are recorded separately in Phases 122GP and 122GQ; interactive controls, keyboard/screen-reader behavior, mobile states and generated outputs remain separate outstanding checks. AdSense remains inactive and another review must not be requested on the basis of this audit alone.
