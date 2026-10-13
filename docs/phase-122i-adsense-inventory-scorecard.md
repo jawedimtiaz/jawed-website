@@ -866,3 +866,15 @@ A source-level review sampled four practical IT-support notes beyond the precedi
 - **A Practical Service Desk Troubleshooting Workflow:** moves from user impact and scope to low-risk discriminating tests, validation against the original task, ticket updates and escalation boundaries. Its example and decision table reinforce one-variable-at-a-time testing and evidence-based conclusions.
 
 No public-page edit was justified by this source sample: each note has a distinct support task, actionable structure and an illustrative example or decision aid. Apple enrollment details are explicitly directed to current vendor documentation because support varies by OS, enrollment method and management service. The external links were inspected as source strings, not independently revalidated for current destination content in a live browser. This does not complete the full note inventory, live-link review, rendered accessibility/device testing or the overall AdSense readiness gate.
+
+
+## Phase 122GD — Focused AI, tax and platform-troubleshooting note review (2026-10-13)
+
+A source-level review sampled four additional notes:
+
+- **AI Prompting for Everyday Work:** provides a reusable goal/context/output/constraints pattern, a before-and-after prompt example, a review loop, and explicit privacy and task boundaries. It complements the AI tool-selection and IT-support workflow notes rather than serving as a product ranking.
+- **Indian Income Tax: A Practical Starting Point:** prominently distinguishes AY 2026-27 under the Income-tax Act, 1961 from Tax Year 2026-27 under the Income-tax Act, 2025, explains why section references and filing procedures must not be carried across periods without checking, and links to official Income Tax Department material. Because this is date-sensitive tax content, the linked official guidance and all rate/transition details must be rechecked at final readiness; this source pass did not independently validate current external-page contents or provide tax advice.
+- **Microsoft Sign-in Troubleshooting Guide:** separates account, device, application and service scope, includes a worked example, asks for exact error evidence, and links to Microsoft identity/device/service-health documentation. It stays within first-response scope rather than promising a diagnosis from one symptom.
+- **macOS First-Response Troubleshooting Checklist:** proceeds from symptom and device state through scope, least-disruptive checks, validation and escalation, with an illustrative application-launch example and Apple references. It warns against deleting system data or bypassing management/security controls as a shortcut.
+
+No public-page edit was justified by this source-level sample. The tax note remains a priority for a separate current-source verification before final AdSense readiness because its accuracy depends on changing statutory periods and official guidance. This review does not establish live-link validity, rendered interaction/accessibility behavior, complete note coverage or AdSense eligibility; those remain open.
