@@ -450,12 +450,16 @@
     {
       "url": "/notes/choosing-ai-tools-privacy-cost-fit/",
       "title": "Choosing AI Tools: Privacy, Cost and Fit",
-      "summary": "Framework for evaluating AI tools across practical considerations such as privacy, cost, capability, and suitability for the task.",
+      "summary": "Framework for evaluating AI tools across task fit, output verification effort, privacy and access controls, actual cost, and continuity, with a fictional worked comparison.",
       "keywords": [
         "ai",
-        "privacy",
         "cost",
-        "tools"
+        "data controls",
+        "evaluation framework",
+        "output verification",
+        "privacy",
+        "tools",
+        "worked example"
       ]
     },
     {
