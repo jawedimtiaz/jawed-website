@@ -991,3 +991,8 @@ Repository crawler configuration is `User-agent: *`, `Allow: /`, and `Sitemap: h
 ## Phase 122GT — Resources hub primary-reference spot check (2026-10-13)
 
 Opened all six primary reference destinations listed in `/resources/`: Apple Support (India), Jamf Pro Documentation, Microsoft Learn, Cloudflare Pages documentation, GitHub Docs and MDN Web Docs. All six destinations resolved to the expected vendor/platform documentation surfaces. The hub also includes a reference-first workflow and explains that version, configuration and access requirements should be checked before applying instructions. No link replacement or copy change was justified by this spot check. This verifies the six hub-level destinations only; it is not a full crawl of every external link across all site pages.
+
+
+## Phase 122GU — Full sitemap page reachability gate (2026-10-13)
+
+The existing production sitemap gate validated sitemap XML structure, canonical origins, uniqueness and URL safety, but did not request each listed page. Extended `scripts/validate-production-sitemap.mjs` to probe every canonical sitemap URL with bounded concurrency and timeouts, without following redirects. Each listed page must return HTTP 200 with `text/html`, a non-empty title, description and H1, a canonical link matching its sitemap URL, and no page-level `noindex` directive. The existing sitemap checks remain in place. This is intended to make reachability and basic indexability failures visible across the complete published sitemap instead of relying on a small route sample. The gate must pass in CI before merge; it will also run on the scheduled production sitemap workflow. This tests the production HTTP response from GitHub Actions, not Google AdSense crawler behavior or approval.
