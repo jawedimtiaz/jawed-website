@@ -26,7 +26,7 @@ Existing references:
 
 ### 1. Blog collection is small
 
-The blog index currently promotes one long-form article, “Rebuilding Jawed.co.in”. The existing readiness assessment already records that the blog is a small collection. This is a clear editorial-depth opportunity, but adding articles solely to reach a page count is not a remediation strategy.
+At the time of the initial Phase 122A audit, the blog index promoted one long-form article, “Rebuilding Jawed.co.in”. The blog now contains two original posts: that rebuild case study and “How to Triage a Workplace App Access Issue” (an explicitly fictional teaching scenario). The collection is still small, so editorial depth remains an opportunity, but adding articles solely to reach a page count is not a remediation strategy.
 
 ### 2. Technical notes are the strongest potential differentiator
 
