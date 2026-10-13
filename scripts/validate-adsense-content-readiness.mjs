@@ -256,6 +256,18 @@ for(const phrase of [
   '"dateModified":"2026-10-13"'
 ])assert.equal(apiSupportGuide.includes(phrase),true,"API troubleshooting example/freshness contract missing: "+phrase);
 
+
+const resourcesReferenceChecklist=fs.readFileSync("resources/index.html","utf8");
+for(const phrase of [
+  "Quick check before following a reference",
+  "confirm the product, operating-system version, enrollment or deployment model",
+  "A matching error message alone does not prove the cause.",
+  "do not combine steps from different versions",
+  "without the required permission",
+  "note the source title or URL, applicable version, relevant step and observed result",
+  "pause and seek the product owner or appropriate support team rather than guessing"
+])assert.equal(resourcesReferenceChecklist.includes(phrase),true,"Resource verification checklist contract missing: "+phrase);
+
 const skillsEvidenceMappingPage=fs.readFileSync("work/skills/index.html","utf8");
 for(const phrase of [
   "From skill label to observable support work",
