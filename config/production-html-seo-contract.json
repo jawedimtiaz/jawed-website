@@ -80,12 +80,76 @@
     {
       "path": "/topics/",
       "canonical": "https://jawed.co.in/topics/",
-      "expected_title": "Topics | Jawed Imtiaz",
+      "expected_title": "Practical Technology, AI and Finance Topics | Jawed Imtiaz",
       "expected_description": "Browse Jawed Imtiaz's practical knowledge topics across technology, AI, investing, personal finance and tools.",
       "required": [
         "<title>",
         "<meta name=\"description\"",
         "<link rel=\"canonical\" href=\"https://jawed.co.in/topics/\">",
+        "<meta property=\"og:url\"",
+        "<meta name=\"twitter:card\""
+      ],
+      "forbidden": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/work/projects/",
+      "canonical": "https://jawed.co.in/work/projects/",
+      "expected_title": "IT Projects and Practical Tools | Jawed Imtiaz",
+      "expected_description": "A portfolio of practical technology projects and browser-based tools, with public-safe examples and clear boundaries around measured outcomes.",
+      "required": [
+        "<title>",
+        "<meta name=\"description\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/work/projects/\">",
+        "<meta property=\"og:url\"",
+        "<meta name=\"twitter:card\""
+      ],
+      "forbidden": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/work/experience/",
+      "canonical": "https://jawed.co.in/work/experience/",
+      "expected_title": "IT Support Experience and Highlights | Jawed Imtiaz",
+      "expected_description": "Jawed Imtiaz's professional experience across IT support, Service Desk operations, system administration and workplace technology.",
+      "required": [
+        "<title>",
+        "<meta name=\"description\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/work/experience/\">",
+        "<meta property=\"og:url\"",
+        "<meta name=\"twitter:card\""
+      ],
+      "forbidden": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/work/skills/",
+      "canonical": "https://jawed.co.in/work/skills/",
+      "expected_title": "IT Support Skills and Tools | Jawed Imtiaz",
+      "expected_description": "Jawed Imtiaz's technical and operational skills across IT support, workplace technology, Apple devices, device management, networking and automation.",
+      "required": [
+        "<title>",
+        "<meta name=\"description\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/work/skills/\">",
+        "<meta property=\"og:url\"",
+        "<meta name=\"twitter:card\""
+      ],
+      "forbidden": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/privacy/",
+      "canonical": "https://jawed.co.in/privacy/",
+      "expected_title": "Website Privacy and Data Handling | Jawed Imtiaz",
+      "expected_description": "How jawed.co.in handles contact messages, browser-based tools, local storage, analytics, third-party services and privacy choices.",
+      "required": [
+        "<title>",
+        "<meta name=\"description\"",
+        "<link rel=\"canonical\" href=\"https://jawed.co.in/privacy/\">",
         "<meta property=\"og:url\"",
         "<meta name=\"twitter:card\""
       ],

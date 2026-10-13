@@ -628,6 +628,15 @@ for(const contract of seoMetadataContracts){
   }
 }
 
+const financeWorkspace=fs.readFileSync("tools/finance-planning-workspace/index.html","utf8");
+for(const phrase of [
+  "Financial Content Disclosure",
+  "does not provide personalized investment, financial, tax or trading advice",
+  "does not recommend or endorse any stock, ETF, mutual fund",
+  "not a SEBI-registered Investment Adviser or Research Analyst",
+  "possible loss of capital"
+])assert.equal(financeWorkspace.includes(phrase),true,"Finance Planning Workspace disclosure contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");

@@ -750,3 +750,13 @@ The refreshed full sitemap audit reports sixteen low-severity `no-structured-dat
 These routes already have a clear role as profile subsections, policy content or interactive utilities, and the tool pages provide instructions, limitations and privacy boundaries. No blanket JSON-LD was added: structured data is not required for AdSense, generic `WebPage` markup would not resolve a content-quality concern, and `SoftwareApplication` rich-result markup would require accurate properties that are not applicable to every utility (for example, ratings or pricing must not be invented). This low heuristic is intentionally left as-is unless a specific page has a relevant, truthful schema use case.
 
 This is a prioritization decision, not a claim that the pages are exempt from overall AdSense review. The complete manual content and tool audit remains a separate readiness dependency; AdSense stays inactive.
+
+
+## Phase 122FE — Finance Planning Workspace disclosure (2026-10-13)
+
+Source review found that `/tools/finance-planning-workspace/` already described its calculations as educational/illustrative, stated that it does not recommend products or provide individualized advice, and advised users to verify current rules. Unlike the other financial calculators, however, it lacked the site's explicit Financial Content Disclosure section and the clear SEBI registration boundary. Added a visible disclosure after the interactive workspace covering general-education scope, no personalized advice or product recommendations, the non-registered-adviser boundary, model assumptions, investment risk and the need to verify current rules/seek qualified help for consequential decisions.
+
+Added regression assertions, registered the workspace in final-readiness dependencies, and added explicit PR/push path triggers. The calculator logic, user-entered data handling and inventory boundary are unchanged. AdSense remains inactive.
+
+
+Phase 122FE CI follow-up: the production HTML SEO gate correctly detected that `config/production-html-seo-contract.json` still expected the pre-Phase 122FC `/topics/` title. Updated the contract to match the shipped title and added representative checks for Projects, Experience, Skills and Privacy so future title/description changes cannot silently drift from production. This is a regression-contract correction; it does not alter the live pages.
