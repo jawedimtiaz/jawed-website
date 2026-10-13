@@ -791,3 +791,10 @@ A targeted source-level check of the existing retirement-planning, tax-regime co
 
 The full candidate inventory and relevant interactive states still require individual review. Confirm source currency, distinct visitor purpose, limitations, accuracy and practical usefulness before marking a page fully reviewed. Keep live AdSense inactive until Google reports Ready.
 
+## Phase 122FQ–122FR — AI content and architecture improvements (2026-10-13)
+
+- **122FQ — AI support evidence-stage matrix (PR #739):** added a practical distinction between an AI hypothesis, proposed check, observed result, verified action and validated outcome. The article explicitly warns against recording suggested actions as completed work.
+- **122FR — Interactive-tool architecture example (PR #740):** added a worked comparison of a deterministic local formatter, optional AI-assisted drafting and consequential external actions. The example favors the smallest suitable design, visible data boundaries, human review and separate authorization for external actions. A site-integrity failure exposed a pre-existing date-label/Article metadata alignment requirement on this page; the visible Published/Updated label was corrected and the full gate rerun passed before merge.
+
+These changes improve practical visitor value and reinforce truthful status reporting. They do not add URLs or activate advertising. The remaining manual content and interactive-state audit remains open; successful CI is not a guarantee of AdSense acceptance. Keep live AdSense inactive until Google reports Ready.
+
