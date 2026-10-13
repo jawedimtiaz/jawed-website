@@ -724,3 +724,10 @@ Added source-level regression contracts for all eight title values and three des
 The post-Phase 122EZ crawl still flagged `/notes/building-safe-browser-based-it-tools/` because its title remained 74 characters even after its meta description was shortened. Changed only the search title tag to `Safe Browser-Based IT Tools: Design Guide | Jawed Imtiaz` (56 characters), preserving the primary topic and brand. The visible H1, social title, structured-data headline, description and article content are unchanged. Updated the source-level title/description contract; the page is already a final-readiness dependency and has explicit workflow triggers.
 
 This is a targeted metadata display improvement based on the remaining live heuristic, not a content-policy finding. Other titles that are only slightly above the heuristic threshold will remain unchanged unless a clearer reader/search benefit is demonstrated. AdSense remains inactive.
+
+
+## Phase 122FB — Secondary long-title refinement (2026-10-13)
+
+After Phase 122EZ and 122FA, the full on-page audit still flagged six titles in the 69–74 character range where the search title could be shortened without changing the article itself. Updated the title tags for IT issue scoping, APIs for IT support, Apple device-management enrollment models, portfolio allocation/rebalancing, money basics and the old/new tax-regime comparison. Each new title retains the main search topic and the site brand; visible H1s, Open Graph titles, structured-data headlines, meta descriptions and body content remain unchanged.
+
+Added exact source-level title contracts for all six pages. No other titles were changed merely to clear the generic 60-character heuristic; several remaining titles are only marginally above it and remain clear. AdSense stays inactive.
