@@ -331,6 +331,14 @@ for(const phrase of [
 ])assert.equal(topicHubPage.includes(phrase),true,"Topic discovery specificity contract missing: "+phrase);
 assert.equal(topicHubPage.includes("<h3>Money Basics</h3>"),false,"Topic hub must not leave the vague Money Basics label");
 assert.equal(topicHubPage.includes("<h3>Productivity Tools</h3>"),false,"Topic hub must not imply a broader productivity-tools catalogue than exists");
+assert.equal(topicHubPage.includes("<h3>AI Tools &amp; Prompts</h3>"),false,"Topic hub must not keep the duplicate AI tools/prompts card that repeats the prompt guide and builder destinations");
+for(const phrase of [
+  "<h3>AI for Work</h3>",
+  '<h3>AI for IT Support</h3>',
+  "<h3>Choosing AI Tools</h3>",
+  "<h3>Prompt Building for Everyday Work</h3>",
+  '<a href="/tools/ai-prompt-builder/">Open the AI Prompt Builder →</a>'
+])assert.equal(topicHubPage.includes(phrase),true,"Distinct AI discovery pathway missing: "+phrase);
 
 const projectsEvidencePage=fs.readFileSync("work/projects/index.html","utf8");
 for(const phrase of [
