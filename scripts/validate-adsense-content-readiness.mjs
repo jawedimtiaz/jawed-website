@@ -527,14 +527,28 @@ const articleImagePages=[
   "notes/retirement-planning-start-with-the-number/index.html",
   "notes/inflation-and-future-goal-planning/index.html",
   "notes/indian-income-tax-practical-starting-point/index.html",
-  "notes/new-vs-old-tax-regime-comparison/index.html"
+  "notes/new-vs-old-tax-regime-comparison/index.html",
+  "notes/device-provisioning-handoff-checklist/index.html",
+  "notes/scoping-it-issues-user-device-service/index.html",
+  "notes/small-it-automation-starting-point/index.html",
+  "notes/windows-first-response-troubleshooting-checklist/index.html",
+  "notes/network-connectivity-first-response-checklist/index.html",
+  "notes/ai-for-it-support-practical-workflow/index.html",
+  "notes/us-stocks-etfs-starting-point/index.html",
+  "notes/indian-mutual-funds-index-etfs-starting-point/index.html",
+  "notes/portfolio-allocation-rebalancing-framework/index.html",
+  "notes/money-basics-budget-emergency-net-worth/index.html",
+  "notes/retirement-corpus-calculation-framework/index.html",
+  "notes/retirement-withdrawals-sequence-risk-income-review/index.html",
+  "blog/rebuilding-jawed-co-in/index.html"
 ];
+const articleImageExpectedTypes={"blog/rebuilding-jawed-co-in/index.html":"BlogPosting"};
 for(const pagePath of articleImagePages){
   const articleHtml=fs.readFileSync(pagePath,"utf8");
   const articleJsonLd=articleHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
   assert.notEqual(articleJsonLd,null,"Reviewed article JSON-LD missing: "+pagePath);
   const articleSchema=JSON.parse(articleJsonLd[1]);
-  assert.equal(articleSchema["@type"],"Article","Reviewed article schema must remain an Article: "+pagePath);
+  assert.equal(articleSchema["@type"],articleImageExpectedTypes[pagePath]||"Article","Reviewed article schema type mismatch: "+pagePath);
   assert.equal(articleSchema.image,"https://jawed.co.in/assets/images/social-preview.png","Article schema image must match the existing social preview: "+pagePath);
   assert.equal(articleHtml.includes('<meta property="og:image" content="https://jawed.co.in/assets/images/social-preview.png">'),true,"Article image must match existing social metadata: "+pagePath);
 }
