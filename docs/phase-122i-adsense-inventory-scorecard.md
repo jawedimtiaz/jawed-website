@@ -854,3 +854,15 @@ A source-level editorial sample reviewed the visible body and section structure 
 - **Building Small IT Automations: Start With the Repetitive Step:** defines input/transformation/output, favors reversible low-risk steps, asks readers to compare output with manual work, and includes a sanitized fictional documentation example. It distinguishes generating a draft from submitting or modifying another system.
 
 No public-page edit was justified by this sample: the four pages have distinct purposes, practical examples and appropriate limitations; adding generic paragraphs or padding word count would not improve them. This is a focused source-level review, not verification of every link's current destination, rendered mobile/keyboard behavior, or every published note. Continue the page-by-page editorial audit and keep the final AdSense review gate open.
+
+
+## Phase 122GC — Focused IT-support note visitor-value review (2026-10-13)
+
+A source-level review sampled four practical IT-support notes beyond the preceding sample:
+
+- **APIs Explained for IT Support:** defines request/response parts and status-code clues, includes an illustrative inventory-lookup failure and a troubleshooting sequence, and links to MDN for further reading. It cautions readers to keep authentication and permissions within approved scope.
+- **Apple Device Management: Understanding Enrollment Models:** distinguishes User Enrollment, Device Enrollment and Automated Device Enrollment, warns that labels alone do not prove supervision or privacy boundaries, includes an ownership/deployment-stage example, and points readers to Apple deployment/business guidance and Jamf documentation for environment-specific details.
+- **IT Support Escalation: A Practical Handoff Checklist:** gives escalation triggers, an evidence-focused handoff structure, a worked app-failure example and a final checklist. It emphasizes preserving prior tests and not presenting assumptions as confirmed causes.
+- **A Practical Service Desk Troubleshooting Workflow:** moves from user impact and scope to low-risk discriminating tests, validation against the original task, ticket updates and escalation boundaries. Its example and decision table reinforce one-variable-at-a-time testing and evidence-based conclusions.
+
+No public-page edit was justified by this source sample: each note has a distinct support task, actionable structure and an illustrative example or decision aid. Apple enrollment details are explicitly directed to current vendor documentation because support varies by OS, enrollment method and management service. The external links were inspected as source strings, not independently revalidated for current destination content in a live browser. This does not complete the full note inventory, live-link review, rendered accessibility/device testing or the overall AdSense readiness gate.
