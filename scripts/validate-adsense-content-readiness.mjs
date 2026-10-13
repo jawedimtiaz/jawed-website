@@ -233,7 +233,7 @@ for(const phrase of [
   '"dateModified":"2026-10-13"'
 ])assert.equal(apiSupportGuide.includes(phrase),true,"API troubleshooting example/freshness contract missing: "+phrase);
 
-const skillsPage=fs.readFileSync("work/skills/index.html","utf8");
+const skillsEvidenceMappingPage=fs.readFileSync("work/skills/index.html","utf8");
 for(const phrase of [
   "From skill label to observable support work",
   "Skill area",
@@ -251,7 +251,7 @@ for(const phrase of [
   "/notes/small-it-automation-starting-point/",
   "not records of a particular employer incident",
   "do not imply administrator access to every platform"
-])assert.equal(skillsPage.includes(phrase),true,"Skills evidence-mapping contract missing: "+phrase);
+])assert.equal(skillsEvidenceMappingPage.includes(phrase),true,"Skills evidence-mapping contract missing: "+phrase);
 
 const appleEnrollmentGuide=fs.readFileSync("notes/apple-device-management-enrollment-models/index.html","utf8");
 for(const phrase of [
