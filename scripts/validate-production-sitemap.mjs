@@ -52,6 +52,50 @@ try{
 }catch(error){failures.push(`sitemap: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
 finally{clearTimeout(timer)}
 }
+function getAttribute(tag,name){
+ const match=tag.match(new RegExp("\\b"+name+"\\s*=\\s*([\"'])(.*?)\\1","i"));
+ return match?.[2]||"";
+}
+async function checkSitemapPage(loc){
+ let parsed;
+ try{parsed=new URL(loc)}catch{failures.push("page reachability: invalid URL "+loc);return;}
+ if(parsed.origin!==contract.canonical_origin||parsed.protocol!=="https:"||parsed.username||parsed.password||parsed.search||parsed.hash||hasUnsafeDotSegments(parsed.pathname)||parsed.pathname.includes("\\")){
+  failures.push("page reachability: unsafe or non-canonical URL "+loc);return;
+ }
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{
+  const response=await fetch(parsed,{redirect:"manual",signal:controller.signal,headers:{"accept":"text/html","user-agent":"jawed-production-sitemap-pages/122GU"}});
+  const type=(response.headers.get("content-type")||"").toLowerCase();
+  const body=await readBoundedText(response,contract.max_body_bytes);
+  if(response.status!==200)failures.push(parsed.pathname+": expected HTTP 200, got "+response.status);
+  if(!type.startsWith("text/html"))failures.push(parsed.pathname+": expected text/html, got "+(type||"missing"));
+  if(response.status>=300&&response.status<400)failures.push(parsed.pathname+": unexpected redirect from sitemap URL");
+  const title=body.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/<[^>]+>/g,"").trim()||"";
+  if(!title)failures.push(parsed.pathname+": missing or empty title");
+  const metaTags=[...body.matchAll(/<meta\b[^>]*>/gi)].map(match=>match[0]);
+  const descriptionTag=metaTags.find(tag=>getAttribute(tag,"name").toLowerCase()==="description");
+  if(!descriptionTag||!getAttribute(descriptionTag,"content").trim())failures.push(parsed.pathname+": missing or empty meta description");
+  const canonicalTag=[...body.matchAll(/<link\b[^>]*>/gi)].map(match=>match[0]).find(tag=>getAttribute(tag,"rel").toLowerCase().split(/\s+/).includes("canonical"));
+  const canonical=canonicalTag?getAttribute(canonicalTag,"href"):"";
+  if(canonical!==loc)failures.push(parsed.pathname+": canonical mismatch (expected "+loc+", got "+(canonical||"missing")+")");
+  const h1=body.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]?.replace(/<[^>]+>/g,"").trim()||"";
+  if(!h1)failures.push(parsed.pathname+": missing or empty h1");
+  const robotsTags=metaTags.filter(tag=>["robots","googlebot"].includes(getAttribute(tag,"name").toLowerCase()));
+  if(robotsTags.some(tag=>/\bnoindex\b/i.test(getAttribute(tag,"content"))))failures.push(parsed.pathname+": page-level robots metadata contains noindex");
+ }catch(error){failures.push(parsed.pathname+": "+(error?.name==="AbortError"?"request timed out":error?.message||"request failed"))}
+ finally{clearTimeout(timer)}
+}
+const pageUrls=locs.filter(loc=>{try{const parsed=new URL(loc);return parsed.protocol==="https:"&&parsed.origin===contract.canonical_origin&&!parsed.username&&!parsed.password&&!parsed.search&&!parsed.hash&&!hasUnsafeDotSegments(parsed.pathname)&&!parsed.pathname.includes("\\")}catch{return false}});
+let nextPage=0;
+const workers=Array.from({length:Math.min(6,pageUrls.length)},async()=>{
+ while(nextPage<pageUrls.length){
+  const index=nextPage++;
+  await checkSitemapPage(pageUrls[index]);
+ }
+});
+await Promise.all(workers);
+console.log("Sitemap page reachability checked: "+pageUrls.length);
+
 if(failures.length){console.error("Production Sitemap Integrity Gate FAILED");for(const failure of failures)console.error("- "+failure);process.exit(1)}
 console.log("Production Sitemap Integrity Gate PASSED");
 console.log(`Canonical origin: ${contract.canonical_origin}`);
