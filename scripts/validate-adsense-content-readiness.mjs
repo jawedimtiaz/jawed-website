@@ -553,6 +553,15 @@ for(const phrase of [
 ])assert.equal(troubleshootingAssistant.includes(phrase),true,"IT troubleshooting assistant worked-example/evidence-boundary contract missing: "+phrase);
 assert.equal(troubleshootingAssistant.includes('</p></section></section><section class="content-section"><h2>How this assistant works</h2>'),false,"IT troubleshooting assistant must not retain the duplicate section close");
 
+const safeBrowserToolsGuide=fs.readFileSync("notes/building-safe-browser-based-it-tools/index.html","utf8");
+for(const phrase of [
+  "Worked example: a local ticket-note formatter",
+  "Use a text-safe output path such as <code>textContent</code>",
+  "pasted markup",
+  "Inspect network requests",
+  "local processing of the note does not mean the whole page makes no network requests"
+])assert.equal(safeBrowserToolsGuide.includes(phrase),true,"Safe browser tools worked-example/privacy contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
