@@ -154,6 +154,19 @@ assert.equal(Math.abs(retirementCorpusPv-294.1)<0.2,true,"Retirement corpus annu
 const retirementRealReturn=(1.10/1.06)-1;
 assert.equal(Math.abs(retirementRealReturn-0.0377358)<0.00001,true,"Retirement corpus real-return example must remain numerically correct");
 
+
+const aboutCareerStory=fs.readFileSync("about/index.html","utf8");
+for(const phrase of [
+  "My career has moved through technical support, system administration",
+  "understand what the person needs to complete",
+  "determine whether the symptom follows a user, device or service",
+  "does not publish employer-confidential procedures, internal systems, user records",
+  'href="/work/projects/"',
+  'href="/work/skills/"',
+  'href="/notes/it-service-desk-troubleshooting-workflow/"',
+  "not claims that a particular illustrative scenario occurred at work"
+])assert.equal(aboutCareerStory.includes(phrase),true,"About career-journey context contract missing: "+phrase);
+
 const blogIndex=fs.readFileSync("blog/index.html","utf8");
 for(const phrase of [
   "How to use these posts",
