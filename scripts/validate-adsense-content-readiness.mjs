@@ -222,6 +222,21 @@ for(const phrase of [
 const subjectSectionIds=[...notesIndex.matchAll(/id="(subject-[^"]+)"/g)].map(match=>match[1]);
 const subjectMenuTargets=new Set([...notesIndex.matchAll(/href="#(subject-[^"]+)"/g)].map(match=>match[1]));
 for(const id of subjectSectionIds)assert.equal(subjectMenuTargets.has(id),true,"Every Notes subject section must have a Browse by Subject shortcut: "+id);
+for(const phrase of [
+  '<h3>Tool Selection</h3>',
+  '<a href="#task-tool-selection">View note →</a>',
+  '<h3>Prompting</h3>',
+  '<a href="#task-prompting">View note →</a>',
+  '<h3>Tool Architecture</h3>',
+  '<a href="#task-tool-architecture">View note →</a>',
+  '<h3>Fundamentals</h3>',
+  '<a href="#task-fundamentals">View note →</a>',
+  '<h3>Frameworks &amp; Planning</h3>',
+  '<a href="#task-finance-frameworks">View notes →</a>'
+])assert.equal(notesIndex.includes(phrase),true,"Notes task discovery pathway missing: "+phrase);
+const taskSectionIds=[...notesIndex.matchAll(/id="(task-[^"]+)"/g)].map(match=>match[1]);
+const taskMenuTargets=new Set([...notesIndex.matchAll(/href="#(task-[^"]+)"/g)].map(match=>match[1]));
+for(const id of taskSectionIds)assert.equal(taskMenuTargets.has(id),true,"Every Notes task section must have a Browse by Task shortcut: "+id);
 
 
 const safeBrowserTools=fs.readFileSync("notes/building-safe-browser-based-it-tools/index.html","utf8");
