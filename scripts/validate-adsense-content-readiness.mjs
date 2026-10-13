@@ -517,6 +517,14 @@ for(const phrase of [
   "Review the article when the application version, sign-in process or support policy changes"
 ])assert.equal(kbDraft.includes(phrase),true,"Knowledge-base draft worked-example/safety contract missing: "+phrase);
 
+const ticketDocumentation=fs.readFileSync("notes/service-desk-ticket-documentation/index.html","utf8");
+const ticketDocumentationJsonLd=ticketDocumentation.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+assert.notEqual(ticketDocumentationJsonLd,null,"Service Desk ticket documentation Article JSON-LD missing");
+const ticketDocumentationSchema=JSON.parse(ticketDocumentationJsonLd[1]);
+assert.equal(ticketDocumentationSchema["@type"],"Article","Service Desk ticket documentation schema must remain an Article");
+assert.equal(ticketDocumentationSchema.image,"https://jawed.co.in/assets/images/social-preview.png","Article schema image must match the published social preview image");
+assert.equal(ticketDocumentation.includes('<meta property="og:image" content="https://jawed.co.in/assets/images/social-preview.png">'),true,"Article schema image must have a matching existing social image asset");
+
 const noteFormatter=fs.readFileSync("tools/service-desk-note-formatter/index.html","utf8");
 for(const phrase of [
   "Worked example (fictional)",
