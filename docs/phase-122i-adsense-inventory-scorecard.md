@@ -516,3 +516,9 @@ Extended the content-readiness validator to assert the two missing pathways and,
 The Notes directory's “Browse by Task” grid linked seven of the twelve task sections. It omitted Tool Selection, Prompting, Tool Architecture, Fundamentals and Frameworks & Planning, even though each section and its notes already existed below. Added concise shortcuts for all five missing task types with counts matching their existing sections; no content pages or destinations were added or removed.
 
 Extended the content-readiness validator to assert the missing paths and require every `task-*` section to have a matching Browse by Task anchor, complementing Phase 122EC's equivalent subject-navigation contract. The existing final-readiness dependency and workflow trigger already cover `notes/index.html`. This is a bounded directory usability fix; full manual editorial review remains incomplete.
+
+## Phase 122EE — Align the website-rebuild article's visible dates (2026-10-13)
+
+The `/blog/rebuilding-jawed-co-in/` article's Article metadata already recorded `datePublished` as 2026-09-27 and `dateModified` as 2026-10-12, while the visible byline displayed only “September 2026.” Updated the visible byline to show both exact dates, so readers can distinguish the original publication from the later revision. The article's substantive content and canonical route are unchanged.
+
+Added regression assertions for the visible publication/update dates and their matching structured metadata, plus an explicit workflow trigger and final-readiness dependency for the reviewed article. This is a bounded transparency correction; the full manual audit of all published pages and interactive tools remains incomplete.
