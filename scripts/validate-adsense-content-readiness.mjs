@@ -237,6 +237,30 @@ for(const phrase of [
 const taskSectionIds=[...notesIndex.matchAll(/id="(task-[^"]+)"/g)].map(match=>match[1]);
 const taskMenuTargets=new Set([...notesIndex.matchAll(/href="#(task-[^"]+)"/g)].map(match=>match[1]));
 for(const id of taskSectionIds)assert.equal(taskMenuTargets.has(id),true,"Every Notes task section must have a Browse by Task shortcut: "+id);
+function assertDirectoryCountContract(prefix,label){
+  const ids=[...notesIndex.matchAll(new RegExp('id="('+prefix+'-[^"]+)"','g'))].map(match=>match[1]);
+  for(const id of ids){
+    const sectionStart=notesIndex.indexOf('id="'+id+'"');
+    const sectionEnd=notesIndex.indexOf("</section>",sectionStart);
+    assert.ok(sectionStart>=0&&sectionEnd>sectionStart,label+" section markup missing: "+id);
+    const section=notesIndex.slice(sectionStart,sectionEnd);
+    const sectionCount=section.match(/<span class="badge">([0-9]+) notes?<\/span>/);
+    assert.ok(sectionCount,label+" section count missing: "+id);
+    const actualCount=(section.match(/<li>/g)||[]).length;
+    assert.equal(Number(sectionCount[1]),actualCount,label+" section count must match its listed notes: "+id);
+    const menuLink=notesIndex.indexOf('href="#'+id+'"');
+    assert.ok(menuLink>=0,label+" menu shortcut missing: "+id);
+    const cardStart=notesIndex.lastIndexOf('<article class="card">',menuLink);
+    const cardEnd=notesIndex.indexOf("</article>",menuLink);
+    assert.ok(cardStart>=0&&cardEnd>menuLink,label+" menu card missing: "+id);
+    const menuCard=notesIndex.slice(cardStart,cardEnd);
+    const menuCount=menuCard.match(/<p class="eyebrow">([0-9]+) notes?<\/p>/);
+    assert.ok(menuCount,label+" menu card count missing: "+id);
+    assert.equal(Number(menuCount[1]),actualCount,label+" menu count must match the linked section: "+id);
+  }
+}
+assertDirectoryCountContract("subject","Subject");
+assertDirectoryCountContract("task","Task");
 
 
 const safeBrowserTools=fs.readFileSync("notes/building-safe-browser-based-it-tools/index.html","utf8");

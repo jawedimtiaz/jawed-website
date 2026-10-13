@@ -522,3 +522,9 @@ Extended the content-readiness validator to assert the missing paths and require
 The `/blog/rebuilding-jawed-co-in/` article's Article metadata already recorded `datePublished` as 2026-09-27 and `dateModified` as 2026-10-12, while the visible byline displayed only “September 2026.” Updated the visible byline to show both exact dates, so readers can distinguish the original publication from the later revision. The article's substantive content and canonical route are unchanged.
 
 Added regression assertions for the visible publication/update dates and their matching structured metadata, plus an explicit workflow trigger and final-readiness dependency for the reviewed article. This is a bounded transparency correction; the full manual audit of all published pages and interactive tools remains incomplete.
+
+## Phase 122EF — Keep Notes directory counts accurate (2026-10-13)
+
+After completing subject and task discovery, manually compared all 11 subject-section counts and all 12 task-section counts with the number of listed notes; the counts matched. Added a generic regression contract requiring each subject/task section's badge count and its corresponding menu-card count to match the actual list items. This complements the navigation-presence contracts from Phases 122EC and 122ED and prevents future additions/removals from silently leaving stale counts.
+
+No published content or navigation changed in this phase. This is maintenance protection for the audited directory; the wider manual review remains incomplete.
