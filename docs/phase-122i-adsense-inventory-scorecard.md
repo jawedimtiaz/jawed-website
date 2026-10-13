@@ -780,3 +780,14 @@ The changes are narrowly scoped to existing pages and do not add URLs, alter the
 
 The manual content-readiness review remains open. Do not describe the full site as comprehensively reviewed until each candidate content page and the relevant interactive states have been assessed for distinct visitor purpose, completeness, accuracy, practical usefulness, source quality, safe limitations and maintenance. Technical gate success and individual content improvements are necessary evidence, not a guarantee of AdSense acceptance. Keep live AdSense inactive until Google reports the site as Ready.
 
+## Phase 122FN–122FO — Audit continuity and worked-example improvement (2026-10-13)
+
+- **122FN — Progress log (PR #736):** added the 122FF–122FM remediation history and explicitly kept the full manual review open.
+- **122FO — Indian mutual-fund comparison example (PR #737):** added an illustrative comparison across index mutual funds, index ETFs and actively managed equity funds. The example asks readers to verify role, benchmark, transaction method, costs/tracking, holdings overlap and current tax context. It does not rank products, forecast returns or recommend a specific investment.
+
+### Additional sampled review — finance and health-information notes
+
+A targeted source-level check of the existing retirement-planning, tax-regime comparison, US stocks/ETFs, Indian mutual-funds/ETFs, health-insurance basics, retirement-withdrawal, portfolio-allocation and money-basics notes found existing practical checklists/examples or worksheets, official-source links and visible financial-content disclosures where applicable. No blanket content was added to these pages merely to increase length. This is a sample, not a complete page-by-page audit of the site's finance or health-information content.
+
+The full candidate inventory and relevant interactive states still require individual review. Confirm source currency, distinct visitor purpose, limitations, accuracy and practical usefulness before marking a page fully reviewed. Keep live AdSense inactive until Google reports Ready.
+
