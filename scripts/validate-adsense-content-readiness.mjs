@@ -543,6 +543,16 @@ for(const phrase of [
 ])assert.equal(noteFormatter.includes(phrase),true,"Service Desk note formatter example/evidence-boundary contract missing: "+phrase);
 
 assert.equal(noteFormatter.includes("Broader impact has not been established.\\n\\nActions Taken:"),false,"Worked example must use real HTML line breaks, not visible backslash-n sequences");
+const troubleshootingAssistant=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");
+for(const phrase of [
+  "Worked example (fictional)",
+  "Choose <strong>Network / connectivity</strong>",
+  "Can the device reach any known website or network resource?",
+  "basic connectivity is not working",
+  "does not prove a network root cause"
+])assert.equal(troubleshootingAssistant.includes(phrase),true,"IT troubleshooting assistant worked-example/evidence-boundary contract missing: "+phrase);
+assert.equal(troubleshootingAssistant.includes('</p></section></section><section class="content-section"><h2>How this assistant works</h2>'),false,"IT troubleshooting assistant must not retain the duplicate section close");
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
