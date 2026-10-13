@@ -822,3 +822,11 @@ Source-level review of three existing interactive utilities:
 
 These tools have different, useful jobs: prompt structuring, factual ticket-note formatting and drafting a reusable knowledge-base article. They were not rewritten because the sampled source already communicates meaningful purpose, examples and privacy boundaries. This source-level review does not establish that every interactive state, browser/device combination or all other tools have been tested. Continue the remaining tool inventory and relevant interaction-state audit; live AdSense remains inactive until Google reports Ready.
 
+## Phase 122FV — Finance-tool directory duplication removed (2026-10-13)
+
+- **PR #744:** the Tools index showed the same four finance calculators as full descriptive cards and then repeated the same destinations in a second “Finance Tools Path” card grid.
+- Kept the primary cards, where the full descriptions are most useful, and replaced the repeated cards with a compact ordered list of four links and one-line use cases.
+- The path is explicitly described as a navigation aid, not a prescribed financial plan. All tools, routes, limitations and the finance-tool guardrails remain in place.
+
+This was a demonstrated content-discovery redundancy, so the directory was shortened without deleting a tool or substantive explanation. The source-level review of other tool sections is still ongoing, and duplicate-looking career cards are retained where the second appearance serves a distinct step-by-step preparation workflow. Live AdSense remains inactive until Google reports Ready.
+
