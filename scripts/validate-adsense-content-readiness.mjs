@@ -408,6 +408,14 @@ for(const phrase of [
   "do not imply administrator access to every platform"
 ])assert.equal(skillsEvidenceMappingPage.includes(phrase),true,"Skills evidence-mapping contract missing: "+phrase);
 
+const rebuildCaseStudy=fs.readFileSync("blog/rebuilding-jawed-co-in/index.html","utf8");
+for(const phrase of [
+  "Rebuilding Jawed.co.in",
+  "Published: 2026-09-27 · Updated: 2026-10-12",
+  '"datePublished":"2026-09-27","dateModified":"2026-10-12"'
+])assert.equal(rebuildCaseStudy.includes(phrase),true,"Website-rebuild article date/metadata contract missing: "+phrase);
+assert.equal(rebuildCaseStudy.includes("<p class=\"meta\">September 2026</p>"),false,"Website-rebuild article must display its publication and update dates, not only the publication month");
+
 const credentialsPage=fs.readFileSync("work/certifications/index.html","utf8");
 for(const phrase of [
   "<h2>Completed Certifications &amp; Qualifications</h2>",
