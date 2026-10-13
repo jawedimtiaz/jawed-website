@@ -268,7 +268,7 @@ async function testKnowledgeBaseNote(label){
     "Do not state that the password reset caused the failure."
   ])if(!mainText.includes(phrase))throw new Error(label+" knowledge-base note is missing expected visible content: "+phrase);
   const dates=await js("return [...document.querySelectorAll('main .meta')].map(e=>e.textContent.trim())");
-  if(!dates.some(value=>value.includes("Published: 2026-09-29")&&value.includes("Updated: 2026-10-12")))throw new Error(label+" knowledge-base note visible publication/update dates are missing or stale: "+JSON.stringify(dates));
+  if(!dates.some(value=>value.includes("Published: 2026-09-29")&&value.includes("Updated: 2026-10-13")))throw new Error(label+" knowledge-base note visible publication/update dates are missing or stale: "+JSON.stringify(dates));
   const headingState=await js("const e=[...document.querySelectorAll('main h2')].find(x=>x.textContent.trim()==='Worked example: turn one ticket into a reusable guide');if(!e)return null;const s=getComputedStyle(e);const r=e.getBoundingClientRect();return {display:s.display,visibility:s.visibility,width:r.width,height:r.height}");
   if(!headingState||headingState.display==="none"||headingState.visibility==="hidden"||headingState.width<1||headingState.height<1)throw new Error(label+" knowledge-base worked-example heading is not visibly rendered");
 }
