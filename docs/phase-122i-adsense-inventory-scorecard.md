@@ -731,3 +731,10 @@ This is a targeted metadata display improvement based on the remaining live heur
 After Phase 122EZ and 122FA, the full on-page audit still flagged six titles in the 69–74 character range where the search title could be shortened without changing the article itself. Updated the title tags for IT issue scoping, APIs for IT support, Apple device-management enrollment models, portfolio allocation/rebalancing, money basics and the old/new tax-regime comparison. Each new title retains the main search topic and the site brand; visible H1s, Open Graph titles, structured-data headlines, meta descriptions and body content remain unchanged.
 
 Added exact source-level title contracts for all six pages. No other titles were changed merely to clear the generic 60-character heuristic; several remaining titles are only marginally above it and remain clear. AdSense stays inactive.
+
+
+## Phase 122FC — Short title and description improvements for discovery/policy pages (2026-10-13)
+
+The full on-page audit flagged five generic short titles and two very short meta descriptions. Updated only the search title tags for `/work/projects/`, `/work/experience/`, `/work/skills/`, `/privacy/` and `/topics/` so each communicates its actual purpose while retaining the site brand. Expanded the descriptions for Projects and Privacy to summarize the public-safe project portfolio and the site's actual data-handling scope. The visible H1s, body content, Open Graph titles and structured-data headlines remain unchanged.
+
+Added source-level title/description contracts, registered all five pages in final-readiness dependencies, and added an exact PR/push trigger for Experience where it was missing. These changes improve search-snippet clarity rather than padding the pages. AdSense remains inactive and the wider manual audit remains open.
