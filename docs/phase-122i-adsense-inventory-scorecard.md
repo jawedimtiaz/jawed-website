@@ -1026,3 +1026,16 @@ Completed a source-level visitor-purpose and editorial-value review of the 12 no
 **Outcome:** this pass did not identify a clearly justified public-page edit. The shorter hub/index pages serve navigation purposes; the two blog posts contain distinct original reasoning; and the privacy, contact and financial disclosure pages provide relevant trust and boundary information. No filler content or arbitrary word-count targets were introduced.
 
 **Limits:** this was a repository-source review, not a rendered browser/device audit, a full check of every internal/external link, or proof of Google's crawler access or AdSense approval. The web inspection surface could not retrieve the live production pages during this pass. The 30-note and 12-tool source-level depth screens are recorded separately in Phases 122GP and 122GQ; interactive controls, keyboard/screen-reader behavior, mobile states and generated outputs remain separate outstanding checks. AdSense remains inactive and another review must not be requested on the basis of this audit alone.
+
+
+## Phase 122GY — Interactive-tool browser coverage and accessibility gap audit (2026-10-13)
+
+Reviewed the existing browser test source and workflow definitions for finance/interactive tools and Career Match, plus the independent finance-calculator regression script.
+
+- The finance-tools browser suite is designed to run Chrome/ChromeDriver against production at 1440×1100 and 390×844 viewports and exercises selected calculators, validation/reset behavior, finance workspace tabs, prompt generation, interview planning, IT troubleshooting, resume bullet checking, note formatting, knowledge-base drafting, and selected content/link destinations.
+- The Career Match suite covers key control hit-testing, sample-driven analysis, results and tracker behavior across desktop/mobile-sized viewports.
+- The finance regression script contains independent numeric vectors and source assertions for selected calculator formulas and financial-note consistency.
+- These are meaningful safeguards and should be extended rather than duplicated. But workflow/script presence is not evidence that the latest run passed, and selected control hit-tests do not establish complete keyboard or assistive-technology accessibility.
+- Gaps requiring evidence: reconcile every sitemap tool with a browser test or explicit exclusion; obtain CI run results tied to the deployed commit; check keyboard/focus paths; review accessible names, roles, state and dynamic error/result announcements; assess zoom/reflow and reduced motion; complete the remaining critical-link inventory.
+
+A dedicated gap-audit document was added at `docs/phase-122gy-browser-coverage-accessibility-gap-audit.md`. This pass inspected source definitions; it did not execute a new production browser run or claim WCAG conformance. AdSense remains inactive until the remaining gates and account-level readiness are established.
