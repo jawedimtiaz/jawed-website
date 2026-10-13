@@ -897,3 +897,13 @@ A source-level review sampled four financial-education notes:
 - **Health Insurance: Understanding the Basics:** explains policy terms, waiting periods, exclusions, claim routes, renewal and the distinction between employer and personal cover; it includes a policy-review checklist, scope limits and IRDAI complaint/reference links.
 
 No public-page edit was justified by this sample: the notes have distinct visitor tasks, practical worksheets/checklists and clear limitations. The inflation example was independently recalculated from its stated formula. The official links were inspected as source strings but not all destination content was independently revalidated in a rendered browser; current pension, insurance and regulatory rules remain subject to official updates. This is not the complete finance-note audit or an AdSense approval assessment.
+
+
+## Phase 122GG — First-response checklist visitor-value review (2026-10-13)
+
+A focused source-level review covered two foundational troubleshooting checklists:
+
+- **Network Connectivity First-Response Troubleshooting Checklist:** moves from exact symptom and basic connection state to scope, recent changes, progressive tests, least-disruptive fixes, original-task validation and escalation. It includes a decision path and worked example, with Microsoft and Apple further-reading links.
+- **Windows First-Response Troubleshooting Checklist:** covers symptom capture, device state, user/device/service scope, recent changes, reversible fixes, validation and handoff. A symptom-to-next-check section and fictional app-failure example make the guidance actionable; stop conditions warn against disabling security controls or removing management components as shortcuts.
+
+No public-page edit was justified: the checklists have different platform/scope emphases, concrete next-step structures and clear safety boundaries. The links were confirmed in source, not all destinations were revalidated through a rendered browser. This source-level pass does not close the broader device/keyboard/accessibility test or full manual editorial review.
