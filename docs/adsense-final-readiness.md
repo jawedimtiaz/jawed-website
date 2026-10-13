@@ -17,7 +17,7 @@ Google's page says the review may take a few days and sometimes 2–4 weeks. Thi
 ## Completed repository readiness controls
 - Privacy and advertising disclosure foundation is present.
 - Initial monetization inventory is explicit and validated.
-- Publisher verification, ad-serving account configuration and CMP dependencies are explicit.
+- Publisher verification, production ad-serving configuration and final CMP/consent configuration dependencies are explicit; production ad-serving configuration and the final CMP/consent configuration are not active in the project.
 - Content-readiness assessment is documented and now maps to Google's published readiness categories.
 - Placement policy is explicit and validated.
 - Technical activation checks cover ads.txt, CSP, consent, network behavior and failure handling.
