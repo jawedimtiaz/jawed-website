@@ -605,12 +605,21 @@
     {
       "url": "/notes/retirement-corpus-calculation-framework/",
       "title": "Retirement Corpus Calculation Framework",
-      "summary": "Framework for estimating a retirement corpus by connecting future expenses, inflation, investment assumptions, and retirement horizon.",
+      "summary": "Educational framework for estimating a retirement corpus with visible assumptions: future spending, inflation, real returns, finite withdrawal horizon, annuity present-value math, and stress scenarios. Includes illustrative calculations and links to official Indian CPI data and current PFRDA NPS withdrawal rules; does not provide a personal target, official projection, or product recommendation.",
       "keywords": [
         "retirement",
         "corpus",
         "finance",
-        "planning"
+        "planning",
+        "future spending",
+        "inflation",
+        "real return",
+        "annuity present value",
+        "scenario analysis",
+        "MoSPI CPI",
+        "PFRDA",
+        "withdrawal horizon",
+        "illustrative calculation"
       ]
     },
     {
@@ -989,7 +998,7 @@
       ]
     }
   ],
-  "reviewed_against_sitemap_on": "2026-10-12",
+  "reviewed_against_sitemap_on": "2026-10-13",
   "coverage_policy": {
     "included": "Public site pages intended to provide factual Jawed.co.in content for AI grounding.",
     "excluded_paths": [

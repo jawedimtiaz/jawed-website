@@ -371,3 +371,11 @@ A page-level editorial read of `notes/building-safe-browser-based-it-tools/index
 The AdSense content-readiness validator now rejects leaked `turn0search` / citation-wrapper tokens and checks for the contextual references and aligned dates. The existing readiness workflow already watches `notes/**`, so no new trigger path was needed.
 
 This fixes a concrete published-content defect; it does not close the full editorial audit or imply Google approval. AdSense remains pre-activation, and no resubmission is authorized by this change.
+
+## Phase 122DH — Add source transparency to the retirement corpus framework (2026-10-13)
+
+A manual review of `notes/retirement-corpus-calculation-framework/index.html` found that its worked inflation, real-return and finite-horizon corpus calculations had no source/scope section, unlike adjacent finance guides. Added contextual links to current MoSPI CPI data, PFRDA NPS exit/withdrawal regulations (last amended 20 July 2026), and the U.S. SEC’s Investor.gov retirement-income overview. The page explicitly says the formulas/examples are illustrative author calculations, not official projections or product guidance, and distinguishes the U.S. background source from Indian rules. Updated visible freshness metadata and Article `dateModified` to 2026-10-13.
+
+The AdSense content-readiness validator now protects the source links, disclosure, date alignment, and three arithmetic examples (future spending, annuity present value, and real return). The AI grounding summary/keywords were reviewed for the updated scope, `reviewed_against_sitemap_on` advanced to 2026-10-13, and the generated runtime knowledge copy was synchronized. The readiness workflow explicitly watches this page on pull requests and pushes.
+
+This is a content transparency and calculation-regression improvement; it does not establish AdSense approval or authorize resubmission.
