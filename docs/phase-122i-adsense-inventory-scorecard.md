@@ -738,3 +738,15 @@ Added exact source-level title contracts for all six pages. No other titles were
 The full on-page audit flagged five generic short titles and two very short meta descriptions. Updated only the search title tags for `/work/projects/`, `/work/experience/`, `/work/skills/`, `/privacy/` and `/topics/` so each communicates its actual purpose while retaining the site brand. Expanded the descriptions for Projects and Privacy to summarize the public-safe project portfolio and the site's actual data-handling scope. The visible H1s, body content, Open Graph titles and structured-data headlines remain unchanged.
 
 Added source-level title/description contracts, registered all five pages in final-readiness dependencies, and added an exact PR/push trigger for Experience where it was missing. These changes improve search-snippet clarity rather than padding the pages. AdSense remains inactive and the wider manual audit remains open.
+
+
+## Phase 122FD — Remaining no-structured-data heuristic review (2026-10-13)
+
+The refreshed full sitemap audit reports sixteen low-severity `no-structured-data` hints. These are not Article pages missing their Article image property; the Article/BlogPosting remediation is verified clear. The remaining routes are:
+- Portfolio/profile sections: `/work/projects/`, `/work/experience/`, `/work/skills/`, `/work/certifications/`
+- Privacy policy: `/privacy/`
+- Browser utilities: `/tools/service-desk-note-formatter/`, `/tools/ai-prompt-builder/`, `/tools/compound-growth-sip-calculator/`, `/tools/retirement-planning-calculator/`, `/tools/inflation-goal-planning-calculator/`, `/tools/personal-finance-snapshot/`, `/tools/it-troubleshooting-assistant/`, `/tools/ticket-to-knowledge-base-draft/`, `/tools/finance-planning-workspace/`, `/tools/interview-preparation-planner/`, `/tools/resume-bullet-strength-checker/`
+
+These routes already have a clear role as profile subsections, policy content or interactive utilities, and the tool pages provide instructions, limitations and privacy boundaries. No blanket JSON-LD was added: structured data is not required for AdSense, generic `WebPage` markup would not resolve a content-quality concern, and `SoftwareApplication` rich-result markup would require accurate properties that are not applicable to every utility (for example, ratings or pricing must not be invented). This low heuristic is intentionally left as-is unless a specific page has a relevant, truthful schema use case.
+
+This is a prioritization decision, not a claim that the pages are exempt from overall AdSense review. The complete manual content and tool audit remains a separate readiness dependency; AdSense stays inactive.
