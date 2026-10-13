@@ -557,3 +557,10 @@ This is a bounded content clarification, not a change to the tool's matching alg
 The live crawl flagged `/tools/ticket-to-knowledge-base-draft/` for a low-severity thin-content heuristic (275 words). Source review found seven evidence fields and safety/privacy boundaries, but no worked example showing how to separate verified observations from assumptions and how to state an unconfirmed cause. Added a fictional, non-employer-specific example covering symptom, scope, checks, verified action, validation, escalation and maintenance. It explicitly prohibits presenting an untested action or unconfirmed cause as fact. Added content-readiness assertions and registered the reviewed page as a dependency of final-readiness CI.
 
 This is a bounded editorial improvement only. It does not change tool processing, security controls, inventory eligibility or ad runtime. The tool remains excluded from the initial AdSense inventory; the broader manual audit and account-specific readiness checks remain open.
+
+
+## Phase 122EK — Service Desk Note Formatter worked example (2026-10-13)
+
+Manual review found that `/tools/service-desk-note-formatter/` explained the four input fields, gave an unfilled template and documented privacy boundaries, but did not show a completed example. Added a clearly fictional input/output example with observed symptom, checks, unresolved status and a follow-up path. The example explicitly avoids claiming a fix or cause that was not established. Added content-readiness assertions, final-readiness dependency registration and explicit PR/push workflow triggers.
+
+This is a bounded explanatory change; formatting logic and data handling are unchanged. The tool remains excluded from the initial AdSense inventory. The site-wide manual audit and account-specific readiness checks remain open.
