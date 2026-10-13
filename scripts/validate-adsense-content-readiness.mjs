@@ -526,7 +526,7 @@ for(const phrase of [
   "without inventing a root cause or claiming the issue was fixed"
 ])assert.equal(noteFormatter.includes(phrase),true,"Service Desk note formatter example/evidence-boundary contract missing: "+phrase);
 
-assert.equal(noteFormatter.includes("Broader impact has not been established.\\n\\nActions Taken:") || noteFormatter.includes("Broader impact has not been established.\n\nActions Taken:"),false,"Worked example must use real HTML line breaks, not visible backslash-n sequences");
+assert.equal(noteFormatter.includes("Broader impact has not been established.\\n\\nActions Taken:"),false,"Worked example must use real HTML line breaks, not visible backslash-n sequences");
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
