@@ -287,7 +287,7 @@ for(const phrase of [
   "https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/objective-and-scope-new-act-faq",
   "https://www.incometaxindia.gov.in/w/tax-rates-and-computation",
   "https://www.incometaxindia.gov.in/Documents/Budget2026/FAQs-Budget-2026.pdf",
-  "do not carry this page's old-Act section references forward",
+  "rather than carrying this page's old-Act section references forward",
   '"dateModified":"2026-10-13"',
   "Financial Content Disclosure"
 ])assert.equal(refreshedTaxRegimeComparison.includes(phrase),true,"Tax regime period/source contract missing: "+phrase);
