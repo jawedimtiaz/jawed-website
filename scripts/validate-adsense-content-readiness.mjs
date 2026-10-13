@@ -208,6 +208,18 @@ for(const phrase of [
   '"dateModified":"2026-10-13"'
 ])assert.equal(escalationHandoffGuide.includes(phrase),true,"Escalation handoff example/freshness contract missing: "+phrase);
 
+const aiToolSelectionGuide=fs.readFileSync("notes/choosing-ai-tools-privacy-cost-fit/index.html","utf8");
+for(const phrase of [
+  "Worked example: choose a tool for a low-risk summary",
+  "The tools and test results below are fictional",
+  "Candidate B is the better fit because its output is easier to verify",
+  "not because it is universally more capable or safer",
+  "neither candidate should be used until the organization's policy",
+  "Record the task, sample, observed errors, review effort",
+  "Published: 2026-09-29 · Updated: 2026-10-13 · 7 min read",
+  '"dateModified":"2026-10-13"'
+])assert.equal(aiToolSelectionGuide.includes(phrase),true,"AI tool-selection example/freshness contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
