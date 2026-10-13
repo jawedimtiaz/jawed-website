@@ -22,7 +22,14 @@ const checks=[
   ["AI widget close returns focus to toggle",/else toggle\.focus\(\)/],
   ["AI widget toggle reflects expanded state",/toggle\.setAttribute\("aria-expanded",String\(open\)\)/],
   ["AI widget label reflects open/close state",/toggle\.setAttribute\("aria-label",open\?"Close Jawed AI":"Open Jawed AI"\)/],
-  ["AI widget request completion does not steal focus after close",/if\(!panel\.hidden\)input\.focus\(\)/]
+  ["AI widget request completion does not steal focus after close",/if\(!panel\.hidden\)input\.focus\(\)/],
+  ["AI widget panel has a dialog role",/panel\.setAttribute\("role","dialog"\)/],
+  ["AI widget is explicitly non-modal",/panel\.setAttribute\("aria-modal","false"\)/],
+  ["AI widget dialog is named by its visible title",/panel\.setAttribute\("aria-labelledby","jawed-ai-title"\)/],
+  ["AI widget conversation is a polite live log",/messages\.setAttribute\("role","log"\);messages\.setAttribute\("aria-live","polite"\)/],
+  ["AI widget input has an accessible name",/input\.setAttribute\("aria-label","Ask Jawed AI"\)/],
+  ["AI widget status is politely announced atomically",/status\.setAttribute\("role","status"\);status\.setAttribute\("aria-live","polite"\);status\.setAttribute\("aria-atomic","true"\)/],
+  ["AI widget busy state is exposed to assistive technology",/messages\.setAttribute\("aria-busy","true"\);panel\.setAttribute\("aria-busy","true"\);form\.setAttribute\("aria-busy","true"\)/],
 ];
 
 for(const [name,pattern] of checks){
