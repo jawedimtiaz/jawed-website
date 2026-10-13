@@ -685,3 +685,10 @@ Checked the official sources linked by the investment, inflation and health-insu
 - IRDAI's Bima Bharosa FAQ describes the official complaint escalation route after first contacting the insurer's grievance officer; the article directs readers to the portal and current instructions without making a claim-specific promise.
 
 No published content change was warranted in this source check. The material is general education, distinguishes assumptions from predictions, and avoids specific product recommendations. This check does not replace individualized advice or full revalidation of every policy wording. AdSense remains inactive.
+
+
+## Phase 122EW — Post-deployment Article image schema verification (2026-10-13)
+
+After the Phase 122ES production deployment, the live on-page audit was rerun against all twenty-two Article pages updated across Phases 122EL, 122EM, 122ER and 122ES, plus the `BlogPosting` page `/blog/rebuilding-jawed-co-in/`. Across the sampled batches, all returned HTTP 200 and indexable status, and every result returned an empty `schemaIssues` list. The audit also refreshed its content-length/word-count data, unlike the earlier stale results that still showed the previous missing-image finding.
+
+Some pages still have low-severity `title-long` heuristics. These are possible display-truncation signals, not policy violations; no titles were shortened solely to satisfy a generic character-count threshold where the full wording accurately described the page. This verification confirms the current on-page audit no longer reports the remediated Article image issue. It does not establish that Google has indexed every URL, that rich results will appear, or that AdSense will approve the site; URL Inspection and account-level readiness remain separate checks. AdSense remains inactive.
