@@ -66,7 +66,7 @@ for(const path of criticalTriggerPaths){
   assert.equal(pushTriggerPaths.includes(path),true,"Critical readiness path must trigger main-push CI: "+path);
 }
 
-const reviewedContentDependencies=["notes/health-insurance-understanding-the-basics/index.html","notes/apple-device-management-enrollment-models/index.html","notes/microsoft-sign-in-troubleshooting-guide/index.html","work/certifications/index.html","topics/index.html","notes/index.html","blog/rebuilding-jawed-co-in/index.html","notes/retirement-planning-start-with-the-number/index.html","tools/interview-preparation-planner/index.html","tools/ticket-to-knowledge-base-draft/index.html"];
+const reviewedContentDependencies=["notes/health-insurance-understanding-the-basics/index.html","notes/apple-device-management-enrollment-models/index.html","notes/microsoft-sign-in-troubleshooting-guide/index.html","work/certifications/index.html","topics/index.html","notes/index.html","blog/rebuilding-jawed-co-in/index.html","notes/retirement-planning-start-with-the-number/index.html","tools/interview-preparation-planner/index.html","tools/ticket-to-knowledge-base-draft/index.html","tools/service-desk-note-formatter/index.html"];
 for(const path of reviewedContentDependencies){
   assert.equal(prTriggerPaths.includes(path),true,"Reviewed content dependency must trigger PR CI: "+path);
   assert.equal(pushTriggerPaths.includes(path),true,"Reviewed content dependency must trigger main-push CI: "+path);
