@@ -510,3 +510,9 @@ Added regression assertions to preserve the distinct AI pathways and prevent the
 A manual navigation audit found that the Notes directory contained sections for `General Tech` and `Investing & Personal Finance`, but neither section had a shortcut in the “Browse by Subject” card grid. Added both cards with accurate counts and descriptions tied to the content already present. No note was added or duplicated.
 
 Extended the content-readiness validator to assert the two missing pathways and, more generally, require every `subject-*` section in the Notes directory to have a matching subject-menu anchor. Added the directory to the final-readiness reviewed-content dependency list; the existing readiness workflow already explicitly watches `notes/index.html` for pull requests and main pushes. This is a bounded discoverability fix; the full manual audit of all published pages and interactive tools remains open.
+
+## Phase 122ED — Link every Notes task section from the directory (2026-10-13)
+
+The Notes directory's “Browse by Task” grid linked seven of the twelve task sections. It omitted Tool Selection, Prompting, Tool Architecture, Fundamentals and Frameworks & Planning, even though each section and its notes already existed below. Added concise shortcuts for all five missing task types with counts matching their existing sections; no content pages or destinations were added or removed.
+
+Extended the content-readiness validator to assert the missing paths and require every `task-*` section to have a matching Browse by Task anchor, complementing Phase 122EC's equivalent subject-navigation contract. The existing final-readiness dependency and workflow trigger already cover `notes/index.html`. This is a bounded directory usability fix; full manual editorial review remains incomplete.
