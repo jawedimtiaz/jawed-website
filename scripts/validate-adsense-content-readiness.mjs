@@ -269,6 +269,21 @@ for(const phrase of [
 
 
 
+const healthInsuranceBasics=fs.readFileSync("notes/health-insurance-understanding-the-basics/index.html","utf8");
+for(const phrase of [
+  "https://irdai.gov.in/health-dept",
+  "https://irdai.gov.in/circulars?filterDepartment=HLT&amp;filtersApplied=true",
+  "https://bimabharosa.irdai.gov.in/Home/FAQ",
+  "Sources checked: 2026-10-13",
+  "maximum 36-month waiting period",
+  "Grievance Redressal Officer",
+  "retain its token number",
+  '"dateModified":"2026-10-13"',
+  "Financial Content Disclosure"
+])assert.equal(healthInsuranceBasics.includes(phrase),true,"Health insurance primary-source/escalation contract missing: "+phrase);
+assert.equal(healthInsuranceBasics.includes("Sources checked: 2026-10-12"),false,"Health insurance source date must reflect the current review");
+assert.equal(healthInsuranceBasics.includes("turn0search"),false,"Health insurance note must not expose internal citation placeholders");
+
 const incomeTaxStartingPoint=fs.readFileSync("notes/indian-income-tax-practical-starting-point/index.html","utf8");
 for(const phrase of [
   "Sources checked: 2026-10-13",
