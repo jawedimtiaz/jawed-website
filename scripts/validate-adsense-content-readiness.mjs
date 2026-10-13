@@ -591,6 +591,33 @@ for(const phrase of [
   "no response time or service-level agreement is promised"
 ])assert.equal(contactPage.includes(phrase),true,"Contact page privacy/scope contract missing: "+phrase);
 
+const seoMetadataContracts=[
+  {path:"notes/small-it-automation-starting-point/index.html",title:"IT Automation: Start With Repetitive Work | Jawed Imtiaz"},
+  {path:"notes/network-connectivity-first-response-checklist/index.html",title:"Network Connectivity First-Response Checklist | Jawed Imtiaz"},
+  {path:"notes/microsoft-sign-in-troubleshooting-guide/index.html",title:"Microsoft Sign-In Troubleshooting Guide | Jawed Imtiaz"},
+  {path:"notes/it-troubleshooting-guide-knowledge-base/index.html",title:"IT Troubleshooting Guides from Incidents | Jawed Imtiaz"},
+  {path:"notes/indian-mutual-funds-index-etfs-starting-point/index.html",title:"Indian Mutual Funds, Index Funds and ETFs | Jawed Imtiaz"},
+  {path:"notes/retirement-withdrawals-sequence-risk-income-review/index.html",title:"Retirement Withdrawals: Sequence Risk and Income | Jawed Imtiaz"},
+  {path:"notes/interactive-tools-ai-assisted-experiences-architecture/index.html",title:"Interactive Tools and AI Architecture | Jawed Imtiaz"},
+  {path:"notes/networking-layer-by-layer-diagnostic-framework/index.html",title:"Layer-by-Layer Network Troubleshooting | Jawed Imtiaz"},
+  {path:"notes/building-safe-browser-based-it-tools/index.html",description:"A practical guide to safe browser-based IT tools: validate inputs, protect privacy, handle permissions and make failures visible."},
+  {path:"notes/interactive-tools-ai-assisted-experiences-architecture/index.html",description:"A practical architecture for browser tools and AI experiences, with clear boundaries for local logic, external services, storage and user review."},
+  {path:"blog/triage-workplace-app-access-issue/index.html",description:"An illustrative IT support walkthrough for scoping app access issues, testing assumptions safely, validating fixes and preparing useful escalations."}
+];
+for(const contract of seoMetadataContracts){
+  const html=fs.readFileSync(contract.path,"utf8");
+  if(contract.title){
+    const title=(html.match(/<title>([^<]*)<\/title>/i)||[])[1]?.trim()||"";
+    assert.equal(title,contract.title,"SEO title contract mismatch: "+contract.path);
+    assert.ok(title.length<=65,"SEO title should avoid unnecessary truncation: "+contract.path);
+  }
+  if(contract.description){
+    const description=(html.match(/<meta name="description" content="([^"]*)"/i)||[])[1]?.trim()||"";
+    assert.equal(description,contract.description,"Meta description contract mismatch: "+contract.path);
+    assert.ok(description.length<=160,"Meta description should fit a practical snippet length: "+contract.path);
+  }
+}
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
