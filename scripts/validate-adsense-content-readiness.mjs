@@ -281,6 +281,18 @@ for(const phrase of [
   "Financial Content Disclosure"
 ])assert.equal(incomeTaxStartingPoint.includes(phrase),true,"Income-tax transition/source contract missing: "+phrase);
 assert.equal(incomeTaxStartingPoint.includes("Sources checked: 2026-10-12"),false,"Income-tax source review date must match the checked sources");
+const refreshedTaxRegimeComparison=fs.readFileSync("notes/new-vs-old-tax-regime-comparison/index.html","utf8");
+for(const phrase of [
+  "Sources checked: 2026-10-13",
+  "https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/objective-and-scope-new-act-faq",
+  "https://www.incometaxindia.gov.in/w/tax-rates-and-computation",
+  "https://www.incometaxindia.gov.in/Documents/Budget2026/FAQs-Budget-2026.pdf",
+  "do not carry this page's old-Act section references forward",
+  '"dateModified":"2026-10-13"',
+  "Financial Content Disclosure"
+])assert.equal(refreshedTaxRegimeComparison.includes(phrase),true,"Tax regime period/source contract missing: "+phrase);
+assert.equal(refreshedTaxRegimeComparison.includes("Sources checked: 2026-10-12"),false,"Tax comparison source date must reflect the current source review");
+
 const workHubPage=fs.readFileSync("work/index.html","utf8");
 for(const phrase of [
   "<h3>Networking</h3><p>A layer-by-layer method for narrowing connectivity symptoms",
