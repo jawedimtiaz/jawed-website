@@ -1039,3 +1039,16 @@ Reviewed the existing browser test source and workflow definitions for finance/i
 - Gaps requiring evidence: reconcile every sitemap tool with a browser test or explicit exclusion; obtain CI run results tied to the deployed commit; check keyboard/focus paths; review accessible names, roles, state and dynamic error/result announcements; assess zoom/reflow and reduced motion; complete the remaining critical-link inventory.
 
 A dedicated gap-audit document was added at `docs/phase-122gy-browser-coverage-accessibility-gap-audit.md`. This pass inspected source definitions; it did not execute a new production browser run or claim WCAG conformance. AdSense remains inactive until the remaining gates and account-level readiness are established.
+
+
+## Phase 122GZ — Published-tool inventory reconciliation (2026-10-13)
+
+Compared the current committed `sitemap.xml` with repository tool page sources and the routes named in the existing browser-runtime scripts.
+
+- Sitemap contains 59 URLs.
+- 13 sitemap URLs are under `/tools`, including the `/tools` navigation hub.
+- All 12 individual tool pages in the sitemap have matching `tools/*/index.html` sources.
+- No individual tool page source is missing from the sitemap, and no sitemap-only individual tool route was found.
+- All 12 individual tool routes are explicitly included in the inspected browser test scripts; the `/tools` hub is a content/navigation page and is tracked separately.
+
+The detailed route list and limitations are recorded in `docs/phase-122gz-published-tool-inventory-reconciliation.md`. This is source/test-scope reconciliation, not evidence that the latest production browser tests passed. Keyboard-only paths, screen-reader announcements, comprehensive accessibility, site-wide AI widget behavior and systematic critical-link verification remain separate checks. AdSense remains inactive.
