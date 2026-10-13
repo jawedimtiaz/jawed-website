@@ -658,6 +658,7 @@ const usStocksNote=fs.readFileSync("notes/us-stocks-etfs-starting-point/index.ht
 for(const phrase of [
   "If you invest from India",
   "Reserve Bank of India’s current Liberalised Remittance Scheme (LRS) directions",
+  "https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=10192",
   "foreign-asset or foreign-income reporting may also matter",
   "https://www.incometax.gov.in/iec/foportal/nudge/nudge-schedule-fa"
 ])assert.equal(usStocksNote.includes(phrase),true,"India-resident overseas investing context missing: "+phrase);
