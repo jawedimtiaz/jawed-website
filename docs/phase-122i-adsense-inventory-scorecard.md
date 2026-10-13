@@ -401,3 +401,11 @@ A manual page-level review of `notes/it-support-escalation-handoff-checklist/ind
 The AdSense content-readiness validator now protects the example's key evidence boundaries and date alignment. Jawed AI's matching knowledge summary/keywords were updated, the reviewed-against-sitemap date advanced to 2026-10-13, and the generated runtime copy was synchronized.
 
 This adds a practical, reusable reader example to one checklist; it is not completion of the site-wide manual audit, Google approval, or authorization to activate ads or resubmit.
+
+## Phase 122DM — Add an AI tool evaluation example (2026-10-13)
+
+A manual page review of `notes/choosing-ai-tools-privacy-cost-fit/index.html` found that it already listed useful evaluation dimensions but did not demonstrate how to apply them to one concrete decision. Added a clearly labelled fictional comparison for summarizing public software release notes. The example evaluates unsupported claims, verification effort, privacy/access checks, cost and continuity without making real product claims or implying that one tool is universally safer. It explicitly requires organizational approval before any confidential workplace data is used. Preserved the original publication date and aligned visible update metadata and Article `dateModified` to 2026-10-13.
+
+The AdSense content-readiness validator now protects the example's fictional scope, verification lesson, privacy boundary and date alignment. Jawed AI's matching grounding summary/keywords were updated, the reviewed-against-sitemap date advanced to 2026-10-13, and the generated runtime knowledge copy was synchronized.
+
+This is a bounded improvement to one educational page, not completion of the site-wide manual audit, Google approval, or authorization to activate ads or resubmit.
