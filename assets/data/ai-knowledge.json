@@ -654,12 +654,19 @@
     {
       "url": "/notes/inflation-and-future-goal-planning/",
       "title": "Inflation and Future Goal Planning",
-      "summary": "Planning framework for adjusting future financial goals for inflation and translating today's targets into future-value requirements.",
+      "summary": "Educational framework for projecting future goal costs with an explicit inflation assumption. Includes a worked ₹10 lakh/10-year example and 4%, 6%, and 8% sensitivity scenarios, distinguishes CPI context from goal-specific inflation, and links to the official MoSPI CPI catalogue. Rates are illustrative scenarios, not forecasts or advice.",
       "keywords": [
         "inflation",
         "finance",
         "goals",
-        "planning"
+        "planning",
+        "future value",
+        "scenario analysis",
+        "sensitivity analysis",
+        "CPI",
+        "MoSPI",
+        "goal cost",
+        "inflation assumption"
       ]
     },
     {
