@@ -907,3 +907,10 @@ A focused source-level review covered two foundational troubleshooting checklist
 - **Windows First-Response Troubleshooting Checklist:** covers symptom capture, device state, user/device/service scope, recent changes, reversible fixes, validation and handoff. A symptom-to-next-check section and fictional app-failure example make the guidance actionable; stop conditions warn against disabling security controls or removing management components as shortcuts.
 
 No public-page edit was justified: the checklists have different platform/scope emphases, concrete next-step structures and clear safety boundaries. The links were confirmed in source, not all destinations were revalidated through a rendered browser. This source-level pass does not close the broader device/keyboard/accessibility test or full manual editorial review.
+
+
+## Phase 122GH — Standard-deduction comparison gap (2026-10-13)
+
+A targeted accuracy pass on `/notes/new-vs-old-tax-regime-comparison/` found that its “Why deductions matter” section discussed deductions generally but omitted the standard deduction, a major salary/pension input to many regime comparisons. The official Income Tax Department salary guidance confirms a ceiling of ₹50,000 under the normal/old regime and ₹75,000 under the new regime, each limited to qualifying salary or pension, for AY 2026-27. Source: https://www.incometaxindia.gov.in/w/income-from-salary and Budget 2026 FAQ: https://www.incometaxindia.gov.in/Documents/Budget2026/FAQs-Budget-2026.pdf.
+
+Added a concise paragraph with both amounts, the eligibility/ceiling caveat and the AY scope. Added a regression assertion to protect this comparison detail. No tax calculator logic or other tax rates changed. This remains general education and directs readers to the official calculator for an individual calculation.
