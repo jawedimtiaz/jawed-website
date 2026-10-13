@@ -244,7 +244,7 @@ function assertDirectoryCountContract(prefix,label){
     const sectionEnd=notesIndex.indexOf("</section>",sectionStart);
     assert.ok(sectionStart>=0&&sectionEnd>sectionStart,label+" section markup missing: "+id);
     const section=notesIndex.slice(sectionStart,sectionEnd);
-    const sectionCount=section.match(/<span class="badge">(\\d+) notes?<\\/span>/);
+    const sectionCount=section.match(/<span class="badge">([0-9]+) notes?<\/span>/);
     assert.ok(sectionCount,label+" section count missing: "+id);
     const actualCount=(section.match(/<li>/g)||[]).length;
     assert.equal(Number(sectionCount[1]),actualCount,label+" section count must match its listed notes: "+id);
@@ -254,7 +254,7 @@ function assertDirectoryCountContract(prefix,label){
     const cardEnd=notesIndex.indexOf("</article>",menuLink);
     assert.ok(cardStart>=0&&cardEnd>menuLink,label+" menu card missing: "+id);
     const menuCard=notesIndex.slice(cardStart,cardEnd);
-    const menuCount=menuCard.match(/<p class="eyebrow">(\\d+) notes?<\\/p>/);
+    const menuCount=menuCard.match(/<p class="eyebrow">([0-9]+) notes?<\/p>/);
     assert.ok(menuCount,label+" menu card count missing: "+id);
     assert.equal(Number(menuCount[1]),actualCount,label+" menu count must match the linked section: "+id);
   }
