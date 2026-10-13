@@ -507,6 +507,16 @@ for(const phrase of [
   "does not predict an employer's interview process"
 ])assert.equal(interviewPlanner.includes(phrase),true,"Interview planner reader-value/privacy/limitations contract missing: "+phrase);
 
+const kbDraft=fs.readFileSync("tools/ticket-to-knowledge-base-draft/index.html","utf8");
+for(const phrase of [
+  "Worked example (fictional)",
+  "not a record of a real user, employer or incident",
+  "Separate observed facts from possible causes",
+  "Record only an approved action that was actually tested",
+  "If no action is confirmed, write that the cause or resolution remains unconfirmed",
+  "Review the article when the application version, sign-in process or support policy changes"
+])assert.equal(kbDraft.includes(phrase),true,"Knowledge-base draft worked-example/safety contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
