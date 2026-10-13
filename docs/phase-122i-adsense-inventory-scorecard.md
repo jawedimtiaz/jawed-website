@@ -946,3 +946,17 @@ A further numeric review of `/notes/retirement-withdrawals-sequence-risk-income-
 ## Phase 122GN — Budget, emergency-reserve and net-worth math checks (2026-10-13)
 
 Reviewed the fictional examples in `/notes/money-basics-budget-emergency-net-worth/` and independently checked: ₹35,000 essential costs + ₹10,000 flexible spending + ₹15,000 savings/debt reduction reconcile to ₹60,000 take-home income; three and six months of ₹35,000 essential costs equal ₹1,05,000 and ₹2,10,000; ₹8 lakh assets minus ₹3 lakh liabilities equals ₹5 lakh net worth. Added regression assertions to recompute these values and verify the displayed figures. The note already frames them as examples, not recommended household targets. No public-page copy or advice changed.
+
+
+## Phase 122GO — Troubleshooting checklist and technical-note review (2026-10-13)
+
+A source-level visitor-value and reference review covered four technical notes:
+
+- **macOS First-Response Checklist:** six-step triage sequence, symptom-based next checks, a worked “application will not open” example, stop/escalation boundaries and two relevant Apple Support references. The Apple links were opened and confirmed to cover app failures and Wi-Fi connectivity.
+- **Device Provisioning and Handoff Checklist:** separates preparation, provisioning, user-perspective validation, decision points, worked example and minimum handoff record. It explicitly warns that reaching the desktop is not sufficient evidence of readiness.
+- **IT Support Escalation and Handoff Checklist:** sets escalation criteria and a structured evidence-to-next-step handoff, with an illustrative managed-device application failure. It complements rather than duplicates the provisioning checklist.
+- **Networking Layer-by-Layer Diagnostic Framework:** distinguishes local addressing, DNS, reachability and application-layer evidence, then uses scope and a DHCP example to choose the next test. The linked Microsoft DNS and DHCP references were opened and still provide relevant guidance; the DHCP page shows a February 2026 update.
+
+A companion source-level review covered the two published blog posts. The workplace-app triage post explicitly marks its scenario fictional and separates observations from hypotheses, safe tests and validated outcomes. The rebuild post explains actual site-structure and quality-control decisions without treating SEO or technical checks as proof of visitor value or AdSense approval. The blog index accurately distinguishes longer reasoning posts from short task-oriented notes.
+
+No public-page edit was justified in this batch: the reviewed pages have distinct purposes, actionable examples or checklists, clear safety boundaries and relevant references. External links were checked at the destination level for the named sources above; this is not a full link crawl, browser/device audit or complete editorial review of every sitemap URL.
