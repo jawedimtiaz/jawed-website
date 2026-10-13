@@ -760,3 +760,23 @@ Added regression assertions, registered the workspace in final-readiness depende
 
 
 Phase 122FE CI follow-up: the production HTML SEO gate correctly detected that `config/production-html-seo-contract.json` still expected the pre-Phase 122FC `/topics/` title. Updated the contract to match the shipped title and added representative checks for Projects, Experience, Skills and Privacy so future title/description changes cannot silently drift from production. This is a regression-contract correction; it does not alter the live pages.
+
+## Phase 122FF–122FM — Visitor-value remediation log (2026-10-13)
+
+This log records the bounded content-quality work completed after Phase 122FE. These changes improve individual pages and maintainability; they do **not** establish AdSense approval or close the full manual audit.
+
+- **122FF — Visitor-value audit documentation (PR #728):** documented the partial review and remaining scope. The complete sitemap and every interactive state were not claimed as manually reviewed.
+- **122FG — Troubleshooting decision path (PR #729):** improved a targeted troubleshooting note with a clearer decision path and next-step guidance.
+- **122FH — Resources hub consolidation (PR #730):** removed a duplicate quick-checklist treatment and clarified how to use official references without padding the resources page.
+- **122FI — Notes taxonomy clarity (PR #731):** corrected the duplicated taxonomy label so the notes index communicates a more useful task classification.
+- **122FJ — Knowledge-base publication quality (PR #732):** added a review table for scope, prerequisites, interpretable results, evidence-supported resolution, stop/escalation boundaries and maintainability.
+- **122FK — App-triage decision matrix (PR #733):** added an observation → next question → limitation matrix so user/device/service comparisons are not misrepresented as proof of root cause.
+- **122FL — Network troubleshooting references (PR #734):** added annotated official Microsoft and Apple references to the network connectivity checklist, with role/authorization cautions.
+- **122FM — Platform first-response references (PR #735):** added annotated official Microsoft references to the Windows checklist and Apple references to the macOS checklist, preserving the distinction between first-response triage and privileged/deeper remediation.
+
+The changes are narrowly scoped to existing pages and do not add URLs, alter the sitemap, or activate advertising. The associated required CI gates and deployment previews passed for the merged changes.
+
+### Remaining audit boundary
+
+The manual content-readiness review remains open. Do not describe the full site as comprehensively reviewed until each candidate content page and the relevant interactive states have been assessed for distinct visitor purpose, completeness, accuracy, practical usefulness, source quality, safe limitations and maintenance. Technical gate success and individual content improvements are necessary evidence, not a guarantee of AdSense acceptance. Keep live AdSense inactive until Google reports the site as Ready.
+
