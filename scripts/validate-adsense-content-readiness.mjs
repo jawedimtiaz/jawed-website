@@ -195,6 +195,19 @@ for(const phrase of [
   '"dateModified":"2026-10-12"'
 ])assert.equal(safeBrowserTools.includes(phrase),true,"Browser-tools source and freshness contract missing: "+phrase);
 
+const escalationHandoffGuide=fs.readFileSync("notes/it-support-escalation-handoff-checklist/index.html","utf8");
+for(const phrase of [
+  "Worked example: an app fails on one managed device",
+  "Illustrative example only; this is not a real user or employer incident.",
+  "One user cannot complete an approved work task",
+  "The same user can complete the task on another approved managed device",
+  "the comparison narrows the scope but does not prove a root cause",
+  "Ask the receiving team to confirm the supported app/device state",
+  "Do not ask for a security bypass",
+  "Published: 2026-09-27 · Updated: 2026-10-13",
+  '"dateModified":"2026-10-13"'
+])assert.equal(escalationHandoffGuide.includes(phrase),true,"Escalation handoff example/freshness contract missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");

@@ -332,12 +332,16 @@
     {
       "url": "/notes/it-support-escalation-handoff-checklist/",
       "title": "IT Support Escalation Handoff Checklist",
-      "summary": "Checklist for escalating IT support issues with clear context, ownership, troubleshooting history, and handoff information.",
+      "summary": "Checklist for escalating IT support issues with clear context, troubleshooting history, and an illustrative managed-app handoff example that distinguishes evidence from a confirmed cause.",
       "keywords": [
-        "it support",
         "escalation",
         "handoff",
-        "service desk"
+        "handoff evidence",
+        "it support",
+        "managed device",
+        "root cause",
+        "service desk",
+        "worked example"
       ]
     },
     {
