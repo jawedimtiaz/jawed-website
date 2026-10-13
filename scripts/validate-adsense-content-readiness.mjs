@@ -691,6 +691,14 @@ for(const phrase of [
   "not a guarantee of outcomes"
 ])assert.equal(indianMutualFundsNote.includes(phrase),true,"Indian mutual-fund due-diligence guidance missing: "+phrase);
 
+const retirementSequenceNote=fs.readFileSync("notes/retirement-withdrawals-sequence-risk-income-review/index.html","utf8");
+const gainThenLossYear1=100*1.20-10;
+const gainThenLossYear2=gainThenLossYear1*0.80-10;
+const lossThenGainYear1=100*0.80-10;
+const lossThenGainYear2=lossThenGainYear1*1.20-10;
+assert.deepEqual([gainThenLossYear1,gainThenLossYear2,lossThenGainYear1,lossThenGainYear2],[110,78,70,74],"Retirement sequence-risk example arithmetic changed; review inputs and displayed results together");
+for(const phrase of ["₹110L","₹78L","₹70L","₹74L","₹6 lakh a year (₹9 lakh − ₹3 lakh)"])assert.equal(retirementSequenceNote.includes(phrase),true,"Retirement sequence-risk or funding-gap example is missing a calculated result: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
