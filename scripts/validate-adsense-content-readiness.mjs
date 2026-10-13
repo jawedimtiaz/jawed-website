@@ -259,6 +259,18 @@ for(const phrase of [
 
 
 
+
+const workHubPage=fs.readFileSync("work/index.html","utf8");
+for(const phrase of [
+  "<h3>Networking</h3><p>A layer-by-layer method for narrowing connectivity symptoms",
+  'href="/notes/networking-layer-by-layer-diagnostic-framework/"',
+  "<h3>Automation</h3><p>Start with one repetitive task, define its inputs and outputs",
+  'href="/notes/small-it-automation-starting-point/"',
+  "Read the diagnostic framework",
+  "Read the automation guide"
+])assert.equal(workHubPage.includes(phrase),true,"Work hub destination-specific pathway contract missing: "+phrase);
+assert.equal(workHubPage.includes("<h3>Networking &amp; Automation</h3>"),false,"Networking and automation must link to distinct task guides");
+
 const topicHubPage=fs.readFileSync("topics/index.html","utf8");
 for(const phrase of [
   "Budgeting, Emergency Funds &amp; Net Worth",
