@@ -710,3 +710,10 @@ After the latest full sitemap crawl, four routes retained the low-severity `thin
 - `/ai/` — a functioning site Q&A experience with suggested questions, links to notes/tools/resources/work, AI-processing disclosure, privacy warnings and an accuracy limitation.
 
 These pages were reviewed against their intended role, not only word count. No further content padding is warranted. The contact page's on-page audit refreshed to 221 words after deployment, though the generic threshold still flags it. The other three are purposeful navigation/interactive pages rather than standalone editorial articles. This is a heuristic review, not a guarantee of AdSense approval; content quality and usefulness remain subject to Google's overall assessment. AdSense stays inactive.
+
+
+## Phase 122EZ — Targeted SEO title and meta-description cleanup (2026-10-13)
+
+The full sitemap audit still flags 24 title-length heuristics and three long meta descriptions. Rather than rewriting every title to satisfy a generic character threshold, this phase addresses the clearest cases: eight titles longer than 75 characters and the three descriptions over 160 characters. The search title tags were shortened while preserving the primary topic and brand; visible H1s, article body text, Open Graph titles and structured-data headlines remain unchanged. The three descriptions were tightened without removing the page's main purpose.
+
+Added source-level regression contracts for all eight title values and three description values, with practical length ceilings. Registered the four newly reviewed pages in final-readiness dependencies and added exact PR/push triggers where absent. These are bounded metadata-display improvements, not content-policy findings; the remaining title-length heuristics will be assessed individually rather than bulk-edited. AdSense remains inactive.
