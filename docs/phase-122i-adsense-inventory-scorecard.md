@@ -699,3 +699,14 @@ Some pages still have low-severity `title-long` heuristics. These are possible d
 The live on-page audit flagged `/contact/` as a low-severity thin-content heuristic (134 words). Source review confirmed the page's purpose, approved webmaster address, contact form and mail-client-only handling, but it did not tell visitors what context is useful or what they should avoid sending. Added a short `Before you send` section asking for non-sensitive context, warning against passwords/one-time codes/recovery tokens and confidential employer/customer records, clarifying that the page is not an urgent IT support channel, and stating that no response time or service-level agreement is promised. The existing contact mechanism and public-safe webmaster address are unchanged.
 
 Added regression assertions, registered the contact page as a final-readiness dependency, and added exact PR/push path triggers. This is a bounded reader-value and privacy clarification, not word-count padding. AdSense remains inactive and the broader manual audit remains open.
+
+
+## Phase 122EY — Manual review of remaining thin-content heuristics (2026-10-13)
+
+After the latest full sitemap crawl, four routes retained the low-severity `thin-content` heuristic:
+- `/contact/` — the source now has 221 words after Phase 122EX. It explains contact purpose, the mail-client-only form, what not to send, the absence of an urgent support channel and the lack of a promised response time.
+- `/blog/` — a compact discovery page linking to the site's original practical articles. The page's job is to help readers find posts; the article pages carry the substantive content.
+- `/work/` — a professional portfolio index with links into experience, skills, certifications and projects. Project details stay generalized where employer confidentiality matters.
+- `/ai/` — a functioning site Q&A experience with suggested questions, links to notes/tools/resources/work, AI-processing disclosure, privacy warnings and an accuracy limitation.
+
+These pages were reviewed against their intended role, not only word count. No further content padding is warranted. The contact page's on-page audit refreshed to 221 words after deployment, though the generic threshold still flags it. The other three are purposeful navigation/interactive pages rather than standalone editorial articles. This is a heuristic review, not a guarantee of AdSense approval; content quality and usefulness remain subject to Google's overall assessment. AdSense stays inactive.
