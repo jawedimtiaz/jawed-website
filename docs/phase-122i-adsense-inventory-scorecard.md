@@ -576,3 +576,10 @@ This is a bounded metadata consistency fix, not proof of Google indexing or AdSe
 ### Phase 122EL validation follow-up
 
 The first CI run correctly caught that the final-readiness dependency validator requires an explicit workflow path trigger even though the general `notes/**` glob already covers this page. Added the exact article path to both PR and push trigger lists. The PR remains unmerged until the rerun passes all required gates.
+
+
+## Phase 122EM — Batch Article image metadata consistency (2026-10-13)
+
+A follow-up live crawl identified the same medium structured-data finding on three existing, substantive notes: `/notes/health-insurance-understanding-the-basics/`, `/notes/apple-device-management-enrollment-models/` and `/notes/it-support-escalation-handoff-checklist/`. Each page already publishes `https://jawed.co.in/assets/images/social-preview.png` in Open Graph metadata but omits `image` from its Article JSON-LD. Added the same existing image URL to each Article schema. Expanded the content-readiness validator to parse and check all four reviewed articles (including the Phase 122EL page) and registered the escalation checklist as a final-readiness dependency.
+
+This is a bounded metadata consistency correction based on repeated live crawl findings. It does not add assets, change article content or AdSense inventory, or enable advertising. Recheck production after merge; treat crawl results as stale if they still describe the previous source. AdSense remains inactive and the full manual audit remains open.
