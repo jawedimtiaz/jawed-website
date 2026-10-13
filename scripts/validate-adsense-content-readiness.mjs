@@ -600,6 +600,12 @@ const seoMetadataContracts=[
   {path:"notes/retirement-withdrawals-sequence-risk-income-review/index.html",title:"Retirement Withdrawals: Sequence Risk and Income | Jawed Imtiaz"},
   {path:"notes/interactive-tools-ai-assisted-experiences-architecture/index.html",title:"Interactive Tools and AI Architecture | Jawed Imtiaz"},
   {path:"notes/networking-layer-by-layer-diagnostic-framework/index.html",title:"Layer-by-Layer Network Troubleshooting | Jawed Imtiaz"},
+  {path:"notes/scoping-it-issues-user-device-service/index.html",title:"Scoping IT Issues: User, Device or Service? | Jawed Imtiaz"},
+  {path:"notes/apis-explained-for-it-support/index.html",title:"APIs for IT Support: A Practical Guide | Jawed Imtiaz"},
+  {path:"notes/apple-device-management-enrollment-models/index.html",title:"Apple Device Management: Enrollment Models | Jawed Imtiaz"},
+  {path:"notes/portfolio-allocation-rebalancing-framework/index.html",title:"Portfolio Allocation and Rebalancing | Jawed Imtiaz"},
+  {path:"notes/money-basics-budget-emergency-net-worth/index.html",title:"Money Basics: Budget, Emergency Fund, Net Worth | Jawed Imtiaz"},
+  {path:"notes/new-vs-old-tax-regime-comparison/index.html",title:"New vs Old Tax Regime: Key Differences | Jawed Imtiaz"},
   {path:"notes/building-safe-browser-based-it-tools/index.html",title:"Safe Browser-Based IT Tools: Design Guide | Jawed Imtiaz",description:"A practical guide to safe browser-based IT tools: validate inputs, protect privacy, handle permissions and make failures visible."},
   {path:"notes/interactive-tools-ai-assisted-experiences-architecture/index.html",description:"A practical architecture for browser tools and AI experiences, with clear boundaries for local logic, external services, storage and user review."},
   {path:"blog/triage-workplace-app-access-issue/index.html",description:"An illustrative IT support walkthrough for scoping app access issues, testing assumptions safely, validating fixes and preparing useful escalations."}
