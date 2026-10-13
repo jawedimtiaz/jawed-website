@@ -960,3 +960,10 @@ A source-level visitor-value and reference review covered four technical notes:
 A companion source-level review covered the two published blog posts. The workplace-app triage post explicitly marks its scenario fictional and separates observations from hypotheses, safe tests and validated outcomes. The rebuild post explains actual site-structure and quality-control decisions without treating SEO or technical checks as proof of visitor value or AdSense approval. The blog index accurately distinguishes longer reasoning posts from short task-oriented notes.
 
 No public-page edit was justified in this batch: the reviewed pages have distinct purposes, actionable examples or checklists, clear safety boundaries and relevant references. External links were checked at the destination level for the named sources above; this is not a full link crawl, browser/device audit or complete editorial review of every sitemap URL.
+
+
+## Phase 122GP — All 30 Notes: content-depth screen (2026-10-13)
+
+Ran a consistent source-level text extraction over all 30 published note pages, excluding script/style markup and page chrome where possible, and sampled their main headings and content structure. Extracted main-content counts ranged from approximately 577 words (Service Desk Ticket Documentation) to 1,231 words (Retirement Withdrawals: Sequence Risk, Income and Annual Reviews). The shortest pages still contain a task-specific sequence/checklist and/or concrete example rather than only headings, generic introductions or link lists; longer finance notes contain explicit assumptions, worked examples and limitations. This screen did not identify a page that should be expanded solely because it is shorter than another.
+
+Important limitation: word count is only a screening signal, not a measure of originality, correctness, usability, or AdSense eligibility. The screen is source-level, not a rendered-browser audit; all 30 pages still need full editorial and interactive/accessibility review. No public-page edits were made solely to increase length.
