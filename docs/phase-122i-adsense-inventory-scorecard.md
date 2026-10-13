@@ -637,3 +637,23 @@ Source inspection found thirteen additional structured-data objects missing `ima
 Expanded the shared content-readiness validator to cover all twenty-two Article pages reviewed in Phases 122EL, 122EM, 122ER and 122ES, plus the BlogPosting page. Registered the twelve new note dependencies and added explicit PR/push readiness triggers where they were missing. All image values reuse each page's already-published social image; no new assets or editorial claims were introduced.
 
 This is a bounded metadata consistency pass based on source inspection, not a claim of rich-result eligibility, indexing or AdSense approval. No content padding, inventory changes or ad runtime. The broader manual audit and account-specific readiness remain open; AdSense stays inactive.
+
+
+## Phase 122ET — Financial content disclosure and source-presence audit (2026-10-13)
+
+Source-reviewed eleven finance-related notes:
+- `/notes/us-stocks-etfs-starting-point/`
+- `/notes/indian-mutual-funds-index-etfs-starting-point/`
+- `/notes/portfolio-allocation-rebalancing-framework/`
+- `/notes/money-basics-budget-emergency-net-worth/`
+- `/notes/retirement-planning-start-with-the-number/`
+- `/notes/retirement-corpus-calculation-framework/`
+- `/notes/retirement-withdrawals-sequence-risk-income-review/`
+- `/notes/inflation-and-future-goal-planning/`
+- `/notes/indian-income-tax-practical-starting-point/`
+- `/notes/new-vs-old-tax-regime-comparison/`
+- `/notes/health-insurance-understanding-the-basics/`
+
+All reviewed pages include a visible Financial Content Disclosure section, state meaningful limitations or risk context, and include relevant official or regulator sources. The investment and retirement guides use examples and scenario-based assumptions rather than presenting a formula as a guarantee. Tax pages distinguish assessment year from financial/tax year, include date-specific context and point to official Income Tax Department resources. Health-insurance guidance points to IRDAI grievance/reference resources.
+
+No wording change was warranted from this source-presence pass. Important limitation: this review checked page structure, disclosures, date specificity and the presence of primary-source links; it did not independently recalculate every tax slab, policy term, market assumption or regulatory detail against live official sources. A final current-fact verification of changeable finance/tax claims remains required before AdSense readiness can be declared. AdSense stays inactive.
