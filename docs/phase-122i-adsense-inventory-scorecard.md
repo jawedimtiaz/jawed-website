@@ -673,3 +673,15 @@ Primary references checked:
 - PFRDA NPS exit and withdrawal regulations (last amended 20 July 2026): https://www.pfrda.org.in/w/pension-fund-regulatory-and-development-authority-exits-and-withdrawals-under-the-national-pension-system-regulations-2015-last-amended-on-20th-july-2026-
 
 No page correction was identified in this targeted pass. This does not complete fact-checking of every finance article, tax edge case, insurance policy detail or current market claim; remaining pages still require review where their statements depend on changeable official rules. AdSense remains inactive.
+
+
+## Phase 122EV — Investment, inflation and health-insurance source check (2026-10-13)
+
+Checked the official sources linked by the investment, inflation and health-insurance notes against their general claims:
+- Investor.gov's asset-allocation and diversification guidance supports the pages' emphasis on time horizon, risk tolerance, diversification and infrequent rule-based rebalancing rather than product-specific recommendations.
+- AMFI's scheme-categorisation guidance supports the distinction among equity, debt, hybrid, solution-oriented and other schemes including index funds and ETFs. The mutual-fund note explains broad structures and risks rather than recommending a fund.
+- MoSPI's CPI catalogue provides current monthly CPI tables, including August 2026 provisional data released on 14 September 2026. The inflation note links to the catalogue and presents inflation as an explicit planning assumption rather than hard-coding the latest monthly rate as a long-term forecast.
+- IRDAI's current Health Department guidance, which references the 2024 Health Insurance Products Regulations/Master Circular, states a maximum waiting period of 36 months. The health-insurance note accurately points readers to that current guidance, policy wording and official grievance channels, and does not promise coverage or claim outcomes. Older IRDAI FAQ pages can still display a 48-month figure, so the page's instruction to check the currently applicable circular and actual policy wording is important.
+- IRDAI's Bima Bharosa FAQ describes the official complaint escalation route after first contacting the insurer's grievance officer; the article directs readers to the portal and current instructions without making a claim-specific promise.
+
+No published content change was warranted in this source check. The material is general education, distinguishes assumptions from predictions, and avoids specific product recommendations. This check does not replace individualized advice or full revalidation of every policy wording. AdSense remains inactive.
