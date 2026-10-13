@@ -417,3 +417,11 @@ A manual review of `notes/apis-explained-for-it-support/index.html` found that t
 The AdSense content-readiness validator now protects the example's key status-code distinctions, safety boundaries and date alignment. Jawed AI's matching grounding summary/keywords were updated, the reviewed-against-sitemap date advanced to 2026-10-13, and the generated runtime knowledge copy was synchronized.
 
 This is a bounded reader-value improvement to one educational page, not completion of the site-wide manual audit, Google approval, or authorization to activate ads or resubmit.
+
+## Phase 122DO — Add an Apple enrollment decision example (2026-10-13)
+
+A manual review of `notes/apple-device-management-enrollment-models/index.html` found that the page defined three enrollment models but did not demonstrate how an IT support practitioner can use ownership and deployment stage to choose the next question. Added a clearly labelled triage example comparing BYOD, an organization-owned device already in use, and a newly deployed organization-owned device. It treats each model as a starting point, points readers back to current Apple/Jamf documentation and organizational configuration, and warns against erasing devices, removing management or bypassing restrictions when the expected workflow is unclear. Preserved the original publication date and aligned visible update metadata and Article `dateModified` to 2026-10-13.
+
+The AdSense content-readiness validator now protects the model distinctions, safety boundary and date alignment. Jawed AI's matching grounding summary/keywords were updated, the reviewed-against-sitemap date advanced to 2026-10-13, and the generated runtime knowledge copy was synchronized.
+
+This is a bounded reader-value improvement to one educational page, not completion of the site-wide manual audit, Google approval, or authorization to activate ads or resubmit.
