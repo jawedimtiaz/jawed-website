@@ -1052,3 +1052,10 @@ Compared the current committed `sitemap.xml` with repository tool page sources a
 - All 12 individual tool routes are explicitly included in the inspected browser test scripts; the `/tools` hub is a content/navigation page and is tracked separately.
 
 The detailed route list and limitations are recorded in `docs/phase-122gz-published-tool-inventory-reconciliation.md`. This is source/test-scope reconciliation, not evidence that the latest production browser tests passed. Keyboard-only paths, screen-reader announcements, comprehensive accessibility, site-wide AI widget behavior and systematic critical-link verification remain separate checks. AdSense remains inactive.
+
+
+## Phase 122HB — Internal-link validation and critical external-reference audit (2026-10-13)
+
+Reviewed `scripts/validate-site-integrity.mjs` and its GitHub Actions workflow. The existing repository-wide gate cross-checks sitemap/source parity, canonical metadata and navigation, scans static local `href`/`action` values, checks local route destinations, and validates fragment targets against IDs/names in target HTML.
+
+Important limits are recorded in `docs/phase-122hb-link-validation-audit.md`: this does not prove external destinations are live or authoritative, test JavaScript-generated navigation, validate rendered visibility, or replace accessibility testing. The source review did not identify a specific broken link to fix, so no public link or copy was changed. The latest passing CI run must still be confirmed against the exact target commit before treating this gate as execution evidence. AdSense remains inactive.
