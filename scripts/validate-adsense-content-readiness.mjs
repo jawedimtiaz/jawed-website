@@ -682,6 +682,14 @@ assert.equal(overlapExposure,4.5,"ETF overlap example exposure changed");
 assert.equal((overlapExposure/10*100).toFixed(0),"45","ETF overlap example percentage changed");
 for(const phrase of ["₹4.5 lakh","45%"])assert.equal(usEtfNote.includes(phrase),true,"ETF overlap example does not match its stated inputs: "+phrase);
 
+const indianMutualFundsNote=fs.readFileSync("notes/indian-mutual-funds-index-etfs-starting-point/index.html","utf8");
+for(const phrase of [
+  "Check the scheme documents and Riskometer",
+  "Scheme Information Document (SID), Key Information Memorandum (KIM) and factsheet",
+  "https://investor.sebi.gov.in/riskometer.html",
+  "not a guarantee of outcomes"
+])assert.equal(indianMutualFundsNote.includes(phrase),true,"Indian mutual-fund due-diligence guidance missing: "+phrase);
+
 console.log("AdSense content readiness validation: PASS");
 console.log("Content inventory routes checked:",inventory.eligible_initial.length+inventory.excluded_initial.length);
 console.log("Google approval claimed: no");
