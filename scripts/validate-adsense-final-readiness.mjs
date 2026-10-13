@@ -66,6 +66,12 @@ for(const path of criticalTriggerPaths){
   assert.equal(pushTriggerPaths.includes(path),true,"Critical readiness path must trigger main-push CI: "+path);
 }
 
+const reviewedContentDependencies=["notes/health-insurance-understanding-the-basics/index.html"];
+for(const path of reviewedContentDependencies){
+  assert.equal(prTriggerPaths.includes(path),true,"Reviewed content dependency must trigger PR CI: "+path);
+  assert.equal(pushTriggerPaths.includes(path),true,"Reviewed content dependency must trigger main-push CI: "+path);
+}
+
 const validatorFiles=[
   "scripts/validate-adsense-privacy.mjs","scripts/validate-adsense-inventory.mjs",
   "scripts/validate-adsense-activation.mjs","scripts/validate-adsense-content-readiness.mjs",
