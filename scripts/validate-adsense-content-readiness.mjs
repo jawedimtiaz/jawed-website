@@ -260,6 +260,31 @@ for(const phrase of [
 
 
 
+
+const incomeTaxStartingPoint=fs.readFileSync("notes/indian-income-tax-practical-starting-point/index.html","utf8");
+for(const phrase of [
+  "Sources checked: 2026-10-13",
+  "https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/objective-and-scope-new-act-faq",
+  "https://www.incometaxindia.gov.in/w/tax-rates-and-computation",
+  "https://www.incometax.gov.in/iec/foportal/node/11724",
+  "Tax Year 2026-27",
+  "income earned from 1 April 2026 onward",
+  '"dateModified":"2026-10-13"',
+  "Financial Content Disclosure"
+])assert.equal(incomeTaxStartingPoint.includes(phrase),true,"Income-tax transition/source contract missing: "+phrase);
+assert.equal(incomeTaxStartingPoint.includes("Sources checked: 2026-10-12"),false,"Income-tax source review date must match the checked sources");
+const taxRegimeComparison=fs.readFileSync("notes/new-vs-old-tax-regime-comparison/index.html","utf8");
+for(const phrase of [
+  "Sources checked: 2026-10-13",
+  "https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/objective-and-scope-new-act-faq",
+  "https://www.incometaxindia.gov.in/w/tax-rates-and-computation",
+  "https://www.incometaxindia.gov.in/Documents/Budget2026/FAQs-Budget-2026.pdf",
+  "do not carry this page's old-Act section references forward",
+  '"dateModified":"2026-10-13"',
+  "Financial Content Disclosure"
+])assert.equal(taxRegimeComparison.includes(phrase),true,"Tax regime period/source contract missing: "+phrase);
+assert.equal(taxRegimeComparison.includes("Sources checked: 2026-10-12"),false,"Tax-regime source review date must match the checked sources");
+
 const workHubPage=fs.readFileSync("work/index.html","utf8");
 for(const phrase of [
   "<h3>Networking</h3><p>A layer-by-layer method for narrowing connectivity symptoms",
