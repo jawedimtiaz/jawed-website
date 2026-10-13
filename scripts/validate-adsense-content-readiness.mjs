@@ -432,6 +432,15 @@ for(const phrase of [
   "do not imply administrator access to every platform"
 ])assert.equal(skillsEvidenceMappingPage.includes(phrase),true,"Skills evidence-mapping contract missing: "+phrase);
 
+const retirementStartGuide=fs.readFileSync("notes/retirement-planning-start-with-the-number/index.html","utf8");
+for(const phrase of [
+  "PFRDA: NPS All Citizen Model",
+  "last-amended-on-20th-july-2026",
+  "Sources checked: 2026-10-13 · Country context: India.",
+  "Published: 2026-09-28 · Updated: 2026-10-13 · 7 min read",
+  '"datePublished":"2026-09-28","dateModified":"2026-10-13"'
+])assert.equal(retirementStartGuide.includes(phrase),true,"Retirement source/freshness contract missing: "+phrase);
+
 const rebuildCaseStudy=fs.readFileSync("blog/rebuilding-jawed-co-in/index.html","utf8");
 for(const phrase of [
   "Rebuilding Jawed.co.in",
