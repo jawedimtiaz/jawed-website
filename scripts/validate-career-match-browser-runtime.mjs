@@ -83,6 +83,8 @@ async function runViewport(width,height){
     await click("#go"); await waitFor('()=>document.querySelectorAll("#results .card").length>0');
     const result=await js("return {count:document.querySelectorAll('#results .card').length,hidden:document.querySelector('#v-results').hidden}");
     if(!result.count||result.hidden)failures.push(width+"x"+height+" #go: results did not become visible");
+    const announcement=await js("const e=document.querySelector('#results-status');return {role:e?.getAttribute('role'),live:e?.getAttribute('aria-live'),text:e?.textContent||'',resultsLive:document.querySelector('#results')?.hasAttribute('aria-live')}");
+    if(announcement.role!=="status"||announcement.live!=="polite"||!announcement.text.includes("Analysis complete")||!announcement.text.includes("Match score:")||announcement.resultsLive)failures.push(width+"x"+height+" result announcement contract failed: "+JSON.stringify(announcement));
     await assertNoHorizontalOverflow(width+"x"+height,"analysis results");
     stage="tracker workflow";
     await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
