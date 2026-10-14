@@ -4,7 +4,7 @@ const init=()=>{
  if(!j||!r||!o||!plan||!sample||!clear)return false;if(plan.dataset.plannerReady==="true")return true;plan.dataset.plannerReady="true";
  const skills=["service desk","it support","troubleshooting","servicenow","jira","apple","jamf","macos","windows","microsoft 365","active directory","azure","networking","dns","github","javascript","html","css","python","sql","automation","powershell","linux","customer support","documentation","knowledge base","leadership","communication","problem solving","project management","excel","google sheets","apps script"];
  const esc=v=>String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
- const found=v=>skills.filter(x=>new RegExp("\\b"+x.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\\\const found=v=>skills.filter(x=>v.toLowerCase().includes(x)).slice(0,16);")+"\\b","i").test(v)).slice(0,16);
+ const found=v=>skills.filter(x=>new RegExp("\\b"+x+"\\b","i").test(v)).slice(0,16);
  const empty=()=>{o.innerHTML='<div class="prep-card"><h2>Your preparation plan</h2><p class="form-note">Paste a job description and build the plan.</p></div>'};
  const build=()=>{
   const jd=j.value.trim(),rv=r.value.trim();
