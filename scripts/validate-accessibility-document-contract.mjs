@@ -22,6 +22,8 @@ await walk(root);
 files.sort();
 for (const file of files) {
   const path = relative(root, file).replaceAll("\\", "/");
+  // Google Search Console ownership tokens are machine-verification files, not user-facing documents.
+  if (/^google[0-9a-f]+\.html$/i.test(path)) continue;
   const html = strip(await readFile(file, "utf8"));
   const fail = message => failures.push(path + ": " + message);
   if (!/<html\b[^>]*\blang\s*=\s*["'][a-z]{2,3}(?:-[a-z0-9]+)*["']/i.test(html)) fail("document must declare a valid primary language on <html lang>");
