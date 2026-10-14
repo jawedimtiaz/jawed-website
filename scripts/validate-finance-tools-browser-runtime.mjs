@@ -300,7 +300,7 @@ async function testContentDiscovery(label){
     if(item.path==="/tools/"){
       await type(item.input,"Step 1");
       const uniqueStatus=await textOf(item.status);
-      if(uniqueStatus!=="1 matching tool results.")throw new Error(label+" tools search should count the matching destination once: "+uniqueStatus);
+      if(uniqueStatus!=="1 matching tool results."){const diagnostics=await js("return {cards:[...document.querySelectorAll('main .card:not(.ai-discovery-card)')].map(e=>({text:e.textContent.trim().slice(0,140),href:e.querySelector('a[href]')?.pathname||'',hidden:e.classList.contains('discovery-hidden')})),scripts:[...document.scripts].map(s=>s.src).filter(Boolean),search:document.querySelector('#tools-filter')?.value};");throw new Error(label+" tools search should count the matching destination once: "+uniqueStatus+"; diagnostics="+JSON.stringify(diagnostics));}
       const visible=await js("return [...document.querySelectorAll('main .card:not(.ai-discovery-card)')].filter(e=>!e.classList.contains('discovery-hidden')).map(e=>({text:e.textContent.trim(),href:e.querySelector('a[href]')?.pathname||''}))");
       if(visible.length!==1||!visible[0].text.includes("Step 1"))throw new Error(label+" tools search should show one matching card, not duplicates or a nonmatching card: "+JSON.stringify(visible));
       await type(item.input,item.query);
