@@ -361,10 +361,10 @@ async function testMobileNavigationKeyboard(label){
   await click(".menu-toggle");
   const opened=await js("const b=document.querySelector('.menu-toggle'),n=document.querySelector('#site-nav');return {expanded:b?.getAttribute('aria-expanded'),open:n?.classList.contains('is-open')}");
   if(opened.expanded!=="true"||!opened.open)throw new Error(label+" mobile navigation did not open: "+JSON.stringify(opened));
-  await pressKey(".menu-toggle","\\uE00C");
+  await pressKey(".menu-toggle","\uE00C");
   const escaped=await js("const b=document.querySelector('.menu-toggle'),n=document.querySelector('#site-nav');return {expanded:b?.getAttribute('aria-expanded'),open:n?.classList.contains('is-open'),focused:document.activeElement===b}");
   if(escaped.expanded!=="false"||escaped.open||!escaped.focused)throw new Error(label+" Escape did not close mobile navigation and restore focus: "+JSON.stringify(escaped));
-  await pressKey(".menu-toggle","\\uE007");
+  await pressKey(".menu-toggle","\uE007");
   const reopened=await js("const b=document.querySelector('.menu-toggle'),n=document.querySelector('#site-nav');return {expanded:b?.getAttribute('aria-expanded'),open:n?.classList.contains('is-open')}");
   if(reopened.expanded!=="true"||!reopened.open)throw new Error(label+" Enter did not reopen mobile navigation: "+JSON.stringify(reopened));
   await click("#site-nav a[href='/notes/']");
