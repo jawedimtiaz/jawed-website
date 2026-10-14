@@ -48,7 +48,7 @@ async function runViewport(width,height){
     for(const s of ["#theme","#sample","#go","#file","#tab-analyze","#tab-results","#tab-tracker","#tab-saved"]){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
     }
-    const assertActiveTab=async(id)=>{const state=await js("const e=document.querySelector(arguments[0]);const panel=document.getElementById(e?.getAttribute('aria-controls'));return {focused:document.activeElement?.id===e?.id,selected:e?.getAttribute('aria-selected'),panelVisible:!!panel&&!panel.hidden&&panel.getAttribute('aria-hidden')==='false'}",["#"+id]);if(!state.focused||state.selected!=="true"||!state.panelVisible)throw new Error(width+"x"+height+" tab keyboard navigation failed for "+id+": "+JSON.stringify(state));};
+    const assertActiveTab=async(id)=>{const state=await js("const e=document.querySelector(arguments[0]);const panel=document.getElementById(e?.getAttribute('aria-controls'));return {focused:document.activeElement?.id===e?.id,focusVisible:!!e&&e.matches(':focus-visible'),selected:e?.getAttribute('aria-selected'),panelVisible:!!panel&&!panel.hidden&&panel.getAttribute('aria-hidden')==='false'}",["#"+id]);if(!state.focused||!state.focusVisible||state.selected!=="true"||!state.panelVisible)throw new Error(width+"x"+height+" tab keyboard navigation/focus visibility failed for "+id+": "+JSON.stringify(state));};
     stage="keyboard tab navigation";
     await pressKey("#tab-analyze","\uE014"); await assertActiveTab("tab-results");
     await pressKey("#tab-results","\uE014"); await assertActiveTab("tab-tracker");
@@ -62,8 +62,9 @@ async function runViewport(width,height){
     const after=await js("return document.documentElement.dataset.theme||''");
     if(before===after)failures.push(width+"x"+height+" #theme: click did not toggle theme");
     await pressKey("#theme","\uE007");
-    const keyboardAfter=await js("return document.documentElement.dataset.theme||''");
-    if(keyboardAfter!==before)failures.push(width+"x"+height+" #theme: Enter key did not activate the focused theme button");
+    const keyboardAfter=await js("return {theme:document.documentElement.dataset.theme||'',focused:document.activeElement?.id==='theme',focusVisible:document.querySelector('#theme')?.matches(':focus-visible')}");
+    if(keyboardAfter.theme!==before)failures.push(width+"x"+height+" #theme: Enter key did not activate the focused theme button");
+    if(!keyboardAfter.focused||!keyboardAfter.focusVisible)failures.push(width+"x"+height+" #theme: keyboard focus was not retained or not visibly indicated: "+JSON.stringify(keyboardAfter));
     stage="sample button";
     await click("#sample");
     const sample=await js("return {r:document.querySelector('#resume').value,j:document.querySelector('#jd').value}");
