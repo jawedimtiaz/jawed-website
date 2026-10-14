@@ -249,7 +249,7 @@ if(!discoveryFilterStatusAtomicContract)errors.push("Discovery filter status reg
 else console.log("Discovery filter status atomicity contract: PASS");
 const discoveryFilterContract=[
   ["notes filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card),main section[id^=\"subject-\"],main section[id^=\"task-\"]'")&&mainJs.includes("label:'note results'")],
-  ["tools filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card)',label:'tool results'")],
+  ["tools filter is scoped to the primary directory cards",mainJs.includes("selector:'#primary-tools-grid > .card',label:'tool results'")&&fs.readFileSync("tools/index.html","utf8").includes('<div class="card-grid" id="primary-tools-grid">')],
   ["topics filter excludes Jawed AI handoff",mainJs.includes("selector:'main section:not(.discovery-panel) .card:not(.ai-discovery-card)',label:'topic results'")],
   ["blog filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card)',label:'post results'")],
   ["resources filter excludes Jawed AI handoff",mainJs.includes("selector:'main .card:not(.ai-discovery-card)',label:'resource results'")]
