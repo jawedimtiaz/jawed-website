@@ -35,12 +35,12 @@ jobs:
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/career-match-http.log 2>&1 &
           echo $! > /tmp/career-match-http.pid
+          ready=0
           for attempt in $(seq 1 50); do
-            if curl --fail --silent http://127.0.0.1:4173/tools/career-match-resume-review/ > /dev/null; then break; fi
+            if curl --fail --silent http://127.0.0.1:4173/tools/career-match-resume-review/ > /dev/null; then ready=1; break; fi
             sleep 0.2
           done
-          cat /tmp/career-match-http.log
-          exit 1
+          if [ "$ready" != "1" ]; then cat /tmp/career-match-http.log; exit 1; fi
       - name: Run local browser runtime smoke
         env:
           BASE_URL: http://127.0.0.1:4173
