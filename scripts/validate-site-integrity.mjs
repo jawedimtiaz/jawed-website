@@ -812,9 +812,9 @@ const noteBreadcrumbFiles=fs.readdirSync("notes",{withFileTypes:true})
   .filter(file=>fs.existsSync(file));
 for(const notePath of noteBreadcrumbFiles){
   const noteHtml=fs.readFileSync(notePath,"utf8");
-  const noteH1=(noteHtml.match(/<h1>([\\s\\S]*?)<\\/h1>/i)||[])[1]||"";
-  const breadcrumb=(noteHtml.match(/<p class="breadcrumbs">([\\s\\S]*?)<\\/p>/i)||[])[1]||"";
-  const currentLabel=(breadcrumb.match(/<span aria-current="page">([\\s\\S]*?)<\\/span>/i)||[])[1]||"";
+    const noteH1=(noteHtml.match(/<h1>(.*?)<\/h1>/i)||[])[1]||"";
+  const breadcrumb=(noteHtml.match(/<p class="breadcrumbs">(.*?)<\/p>/i)||[])[1]||"";
+  const currentLabel=(breadcrumb.match(/<span aria-current="page">(.*?)<\/span>/i)||[])[1]||"";
   if(noteH1 && breadcrumb){
     assert.equal(currentLabel.includes("Current note"),false,"Published note breadcrumb must not use the generic Current note label: "+notePath);
     assert.equal(currentLabel,noteH1,"Published note breadcrumb must match its H1 title: "+notePath);
