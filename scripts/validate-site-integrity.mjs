@@ -688,7 +688,7 @@ const financePlanningErrorRegions=fs.readFileSync("tools/finance-planning-worksp
 const financePlanningErrorRegionContract=
   financePlanningErrorRegions.includes('id="snapshotError" role="alert" aria-atomic="true"')&&
   financePlanningErrorRegions.includes('id="goalError" role="alert" aria-atomic="true"')&&
-  financePlanningErrorRegions.includes('id="retError" role="alert" aria-live="polite" aria-atomic="true"');
+  financePlanningErrorRegions.includes('id="retError" role="alert" aria-live="assertive" aria-atomic="true"');
 if(!financePlanningErrorRegionContract)errors.push("Finance Planning Workspace validation errors must expose atomic alert regions");
 else console.log("Finance Planning error live-region contract: PASS");
 const financePlanningInvalidStateContract=financePlanningErrorRegions.includes('markInvalid=(fields,bad,errorId)=>fields.forEach(id=>{const el=$(id);el.setAttribute("aria-invalid",String(bad));if(bad)el.setAttribute("aria-describedby",errorId);else el.removeAttribute("aria-describedby")})')&&financePlanningErrorRegions.includes('markInvalid(fields,true,"snapshotError")')&&financePlanningErrorRegions.includes('markInvalid(fields,true,"goalError")')&&financePlanningErrorRegions.includes('markInvalid(fields,true,"retError")')&&financePlanningErrorRegions.includes('markInvalid(fields,false,"snapshotError")')&&financePlanningErrorRegions.includes('markInvalid(fields,false,"goalError")')&&financePlanningErrorRegions.includes('markInvalid(fields,false,"retError")');
