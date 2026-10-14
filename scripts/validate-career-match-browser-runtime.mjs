@@ -25,6 +25,7 @@ async function waitFor(expression,timeout=10000){const start=Date.now();while(Da
 async function find(selector){return command("POST","/element",{using:"css selector",value:selector})}
 const elementId=e=>e["element-6066-11e4-a52e-4f735466cecf"]||e.ELEMENT;
 async function click(selector){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/click",{});await sleep(150)}
+async function pressKey(selector,key){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/value",{text:key,value:[key]});await sleep(150)}
 async function type(selector,value){const e=await find(selector);const id=elementId(e);await command("POST","/element/"+id+"/clear",{});await command("POST","/element/"+id+"/value",{text:value,value:[...value]})}
 async function hitTest(selector){
   return js('return (()=>{const e=document.querySelector(arguments[0]);if(!e)return {missing:true};document.documentElement.style.setProperty("scroll-behavior","auto","important");e.scrollIntoView({block:"center",inline:"center",behavior:"instant"});const r=e.getBoundingClientRect();const x=r.left+r.width/2;const y=r.top+r.height/2;const h=document.elementFromPoint(x,y);return {missing:false,display:getComputedStyle(e).display,visibility:getComputedStyle(e).visibility,pointerEvents:getComputedStyle(e).pointerEvents,top:r.top,left:r.left,width:r.width,height:r.height,hitTag:h?.tagName||null,hitId:h?.id||null,hitClass:typeof h?.className==="string"?h.className:"",hitInside:!!h&&(h===e||e.contains(h))}})()',[selector]);
@@ -49,6 +50,9 @@ async function runViewport(width,height){
     const before=await js("return document.documentElement.dataset.theme||''"); await click("#theme");
     const after=await js("return document.documentElement.dataset.theme||''");
     if(before===after)failures.push(width+"x"+height+" #theme: click did not toggle theme");
+    await pressKey("#theme","\uE007");
+    const keyboardAfter=await js("return document.documentElement.dataset.theme||''");
+    if(keyboardAfter!==before)failures.push(width+"x"+height+" #theme: Enter key did not activate the focused theme button");
     await click("#sample");
     const sample=await js("return {r:document.querySelector('#resume').value,j:document.querySelector('#jd').value}");
     if(sample.r.trim().split(/\s+/).length<20||sample.j.trim().split(/\s+/).length<20)failures.push(width+"x"+height+" #sample: did not populate both fields");
