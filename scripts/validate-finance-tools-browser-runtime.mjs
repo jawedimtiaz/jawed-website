@@ -25,6 +25,7 @@ async function waitFor(expression,timeout=10000){const start=Date.now();while(Da
 async function find(selector){return command("POST","/element",{using:"css selector",value:selector})}
 const elementId=e=>e["element-6066-11e4-a52e-4f735466cecf"]||e.ELEMENT;
 async function click(selector){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/click",{});await sleep(180)}
+async function pressKey(selector,key){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/value",{text:key,value:[key]});await sleep(180)}
 async function type(selector,value){const e=await find(selector);const id=elementId(e);await command("POST","/element/"+id+"/clear",{});if(value!=="")await command("POST","/element/"+id+"/value",{text:value,value:[...value]});await sleep(180)}
 async function clearAndDispatchInput(selector){await type(selector,"");await js("const e=document.querySelector(arguments[0]);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true",[selector]);await sleep(180)}
 async function textOf(selector){return js("return document.querySelector(arguments[0])?.textContent.trim()||''",[selector])}
@@ -96,7 +97,7 @@ async function testGrowth(label){
   await checkControl("#growth-reset",label+" growth reset");
   const baseline=await textOf("#future-value");
   if(!baseline||baseline==="—")throw new Error(label+" growth default result is missing");
-  await type("#initial","150000");await submit("#growth-tool");
+  await type("#initial","150000");await pressKey("#initial","\uE007");
   const changed=await textOf("#future-value");
   if(!changed||changed==="—"||changed===baseline)throw new Error(label+" growth did not recalculate after changing initial amount");
   await click("#growth-reset");
