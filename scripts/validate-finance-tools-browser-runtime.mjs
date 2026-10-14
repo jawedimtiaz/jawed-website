@@ -352,6 +352,27 @@ async function testJawedAiWidget(label){
   if(!closed.hidden||closed.expanded!=="false"||!closed.toggleFocused)throw new Error(label+" AI widget close button must close and return focus: "+JSON.stringify(closed));
 }
 
+async function testMobileNavigationKeyboard(label){
+  if(!label.startsWith("390x"))return;
+  await openPage("/", "body");
+  await waitForElement(".menu-toggle");
+  const initial=await js("const b=document.querySelector('.menu-toggle'),n=document.querySelector('#site-nav');return {expanded:b?.getAttribute('aria-expanded'),open:n?.classList.contains('is-open'),controls:b?.getAttribute('aria-controls'),navId:n?.id}");
+  if(initial.expanded!=="false"||initial.open||initial.controls!=="site-nav"||initial.navId!=="site-nav")throw new Error(label+" mobile navigation initial state/relationship mismatch: "+JSON.stringify(initial));
+  await click(".menu-toggle");
+  const opened=await js("const b=document.querySelector('.menu-toggle'),n=document.querySelector('#site-nav');return {expanded:b?.getAttribute('aria-expanded'),open:n?.classList.contains('is-open')}");
+  if(opened.expanded!=="true"||!opened.open)throw new Error(label+" mobile navigation did not open: "+JSON.stringify(opened));
+  await pressKey(".menu-toggle","\uE00C");
+  const escaped=await js("const b=document.querySelector('.menu-toggle'),n=document.querySelector('#site-nav');return {expanded:b?.getAttribute('aria-expanded'),open:n?.classList.contains('is-open'),focused:document.activeElement===b}");
+  if(escaped.expanded!=="false"||escaped.open||!escaped.focused)throw new Error(label+" Escape did not close mobile navigation and restore focus: "+JSON.stringify(escaped));
+  await pressKey(".menu-toggle","\uE007");
+  const reopened=await js("const b=document.querySelector('.menu-toggle'),n=document.querySelector('#site-nav');return {expanded:b?.getAttribute('aria-expanded'),open:n?.classList.contains('is-open')}");
+  if(reopened.expanded!=="true"||!reopened.open)throw new Error(label+" Enter did not reopen mobile navigation: "+JSON.stringify(reopened));
+  await click("#site-nav .nav-group summary");
+  await click("#site-nav a[href='/notes/']");
+  const closed=await js("const b=document.querySelector('.menu-toggle'),n=document.querySelector('#site-nav');return {expanded:b?.getAttribute('aria-expanded'),open:n?.classList.contains('is-open'),path:location.pathname}");
+  if(closed.expanded!=="false"||closed.open||closed.path!=="/notes/")throw new Error(label+" choosing a navigation link did not close the menu/navigate correctly: "+JSON.stringify(closed));
+}
+
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
@@ -370,6 +391,7 @@ async function runViewport(width,height){
     await testKnowledgeBaseDraft(label);
     await testContentDiscovery(label);
     await testJawedAiWidget(label);
+    await testMobileNavigationKeyboard(label);
     await testRetirementWithdrawalsGuide(label);
     await testPortfolioAllocationGuide(label);
     await testUsStocksEtfsGuide(label);
