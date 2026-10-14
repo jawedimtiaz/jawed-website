@@ -421,7 +421,7 @@ async function testMobileNavigationKeyboard(label){
 }
 
 async function runViewport(width,height){
-  const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
+  const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--disable-cache","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
   try{
     const label=width+"x"+height;
