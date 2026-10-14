@@ -200,14 +200,47 @@ async function testTroubleshooting(label){
   await openPage("/tools/it-troubleshooting-assistant/","#symptom");
   await checkControl("#trouble-tool button[type=submit]",label+" troubleshooting submit");
   await checkControl("#clear",label+" troubleshooting clear");
-  await type("#symptom","Device cannot reach any website after reconnecting to Wi-Fi.");
-  await js("const e=document.querySelector('#type');e.value='network';e.dispatchEvent(new Event('change',{bubbles:true}));return true");
-  await submit("#trouble-tool");
-  if(!(await textOf("#result")).includes("Can the device reach any known website"))throw new Error(label+" troubleshooting path did not start for selected category");
+  const startPath=async(type,symptom)=>{
+    await type("#symptom",symptom);
+    await js("const e=document.querySelector('#type');e.value=arguments[0];e.dispatchEvent(new Event('change',{bubbles:true}));return true",[type]);
+    await submit("#trouble-tool");
+  };
+  await startPath("network","Device cannot reach any website after reconnecting to Wi-Fi.");
+  if(!(await textOf("#result")).includes("Can the device reach any known website"))throw new Error(label+" troubleshooting network path did not start");
   await click("#result [data-answer=yes]");
-  if(!(await textOf("#result")).includes("Can the device resolve a known domain name"))throw new Error(label+" troubleshooting answer did not advance the decision path");
+  if(!(await textOf("#result")).includes("Can the device resolve a known domain name"))throw new Error(label+" troubleshooting network answer did not advance to DNS");
   await click("#clear");
   if(await valueOf("#symptom")!==""||await js("return document.querySelectorAll('#result [data-answer]').length")!==0)throw new Error(label+" troubleshooting clear did not reset the decision path");
+
+  await startPath("microsoft","User cannot sign in to a Microsoft 365 application.");
+  if(!(await textOf("#result")).includes("Does the sign-in problem occur"))throw new Error(label+" Microsoft troubleshooting start question missing");
+  await click("#result [data-answer=yes]");
+  if(!(await textOf("#result")).includes("Do other users have the same sign-in or service symptom?"))throw new Error(label+" Microsoft yes branch did not reach shared-service scope");
+  await click("#result [data-answer=yes]");
+  if(!(await textOf("#result")).includes("Multiple users are affected."))throw new Error(label+" Microsoft shared-service outcome missing");
+  const microsoftFocus=await js("return document.activeElement===document.querySelector('#result')");
+  if(!microsoftFocus)throw new Error(label+" Microsoft final outcome did not receive focus");
+  await click("#clear");
+
+  await startPath("apple","Mac application stopped behaving as expected.");
+  await click("#result [data-answer=yes]");
+  if(!(await textOf("#result")).includes("Was there a recent update, configuration or application change?"))throw new Error(label+" Apple yes branch did not reach change comparison");
+  await click("#result [data-answer=no]");
+  if(!(await textOf("#result")).includes("No known change."))throw new Error(label+" Apple no-change outcome missing");
+  await click("#clear");
+
+  await startPath("windows","Windows application stopped behaving as expected.");
+  await click("#result [data-answer=yes]");
+  if(!(await textOf("#result")).includes("Did the problem begin after a recent update, configuration or application change?"))throw new Error(label+" Windows yes branch did not reach change comparison");
+  await click("#result [data-answer=no]");
+  if(!(await textOf("#result")).includes("No known change."))throw new Error(label+" Windows no-change outcome missing");
+  await click("#clear");
+
+  await startPath("general","An IT issue affects one user.");
+  await click("#result [data-answer=yes]");
+  if(!(await textOf("#result")).includes("The issue follows the user across contexts."))throw new Error(label+" general IT user-scope outcome missing");
+  await click("#clear");
+  if(await valueOf("#symptom")!==""||await js("return document.querySelectorAll('#result [data-answer]').length")!==0)throw new Error(label+" troubleshooting final reset did not restore the empty state");
 }
 async function testBulletChecker(label){
   await openPage("/tools/resume-bullet-strength-checker/","#bullets");
