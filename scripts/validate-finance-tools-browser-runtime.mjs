@@ -75,7 +75,7 @@ async function waitForProductionRevision(){
     ["/notes/retirement-withdrawals-sequence-risk-income-review/",'Why the sequence of returns matters'],
     ["/notes/portfolio-allocation-rebalancing-framework/",'Worked example: calculate allocation drift'],
     ["/notes/us-stocks-etfs-starting-point/",'Worked example: two ETFs can still overlap'],
-    ["/assets/js/main.js","const filters=[{input:'notes-filter'"],
+    ["/assets/js/main.js","const matchingCard=key&&q?candidates.find(other=>itemKey(other)===key&&other.textContent.toLowerCase().includes(q)):el"],
     ["/topics/",'id="topics-filter"'],
     ["/tools/",'id="tools-filter"'],
     ["/resources/",'id="resources-filter"'],
