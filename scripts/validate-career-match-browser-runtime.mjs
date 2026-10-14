@@ -47,6 +47,10 @@ async function runViewport(width,height){
   try{
     await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
     try{await waitForElement("#file")}catch(error){let current="unknown",source="",logs=[];try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}try{logs=await command("POST","/log",{type:"browser"})}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" sourceLength="+String(source?.length||0)+" hasFileMarkup="+String(String(source).includes('id="file"'))+" logs="+JSON.stringify(logs?.slice?.(-12)||[]));} await sleep(700);
+    stage="motion and forced-colors stylesheet contract";
+    const accessibilityCss=await js("const css=document.querySelector('style')?.textContent||'';return {reduced:css.includes('@media(prefers-reduced-motion:reduce)')&&css.includes('animation:none!important')&&css.includes('transition:none!important')&&css.includes('scroll-behavior:auto!important'),forced:css.includes('@media(forced-colors:active)')&&css.includes('CanvasText')&&css.includes('ButtonFace')&&css.includes('HighlightText')}");
+    if(!accessibilityCss.reduced)failures.push(width+"x"+height+" reduced-motion CSS contract is missing or incomplete");
+    if(!accessibilityCss.forced)failures.push(width+"x"+height+" forced-colors CSS contract is missing or incomplete");
     const label=width+"x"+height;
     await assertNoHorizontalOverflow(label,"initial page");
     console.log("Viewport "+label+": loaded");
