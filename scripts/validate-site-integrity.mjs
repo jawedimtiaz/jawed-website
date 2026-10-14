@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import {runInNewContext} from "node:vm";
 import fs from "node:fs";
 import {execFileSync} from "node:child_process";
 
@@ -731,6 +732,35 @@ const contactCopyContracts=[
 const contactCopyErrors=contactCopyContracts.filter(([,ok])=>!ok).map(([name])=>name);
 if(contactCopyErrors.length)errors.push("Contact copy-email regression contract missing: "+contactCopyErrors.join(", "));
 else console.log("Contact copy-email accessibility/privacy regression contract: PASS");
+
+async function runContactCopyCase({clipboardAvailable=true,clipboardRejects=false,legacyCopyResult=true}={}){
+ let clickHandler=null,execCommandCalls=0,copiedValue=null;
+ const status={textContent:""};
+ const button={dataset:{copyContactEmail:"webmaster@jawed.co.in"},addEventListener(type,handler){if(type==="click")clickHandler=handler}};
+ const document={
+  getElementById(id){return id==="copy-contact-email"?button:id==="copy-contact-status"?status:null},
+  createElement(){return {value:"",style:{},setAttribute(){},select(){},remove(){}}},
+  body:{appendChild(){}},
+  execCommand(command){execCommandCalls++;return command==="copy"&&legacyCopyResult}
+ };
+ const navigator={};
+ if(clipboardAvailable)navigator.clipboard={async writeText(value){copiedValue=value;if(clipboardRejects)throw new Error("clipboard permission denied")}};
+ runInNewContext(contactCopyRuntime,{document,navigator,window:{isSecureContext:true}});
+ assert.equal(typeof clickHandler,"function","copy button click handler must be registered");
+ await clickHandler();
+ return {status:status.textContent,execCommandCalls,copiedValue};
+}
+const contactCopyBehaviorFailures=[];
+const clipboardSuccess=await runContactCopyCase();
+if(!clipboardSuccess.status.includes("Email address copied")||clipboardSuccess.copiedValue!=="webmaster@jawed.co.in"||clipboardSuccess.execCommandCalls!==0)contactCopyBehaviorFailures.push("Clipboard API success");
+const legacySuccess=await runContactCopyCase({clipboardAvailable:false});
+if(!legacySuccess.status.includes("Email address copied")||legacySuccess.execCommandCalls!==1)contactCopyBehaviorFailures.push("unsupported-browser legacy copy success");
+const clipboardRejected=await runContactCopyCase({clipboardRejects:true});
+if(!clipboardRejected.status.includes("Automatic copying was unavailable")||clipboardRejected.execCommandCalls!==0)contactCopyBehaviorFailures.push("Clipboard API rejection manual fallback");
+const legacyRejected=await runContactCopyCase({clipboardAvailable:false,legacyCopyResult:false});
+if(!legacyRejected.status.includes("Automatic copying was unavailable")||legacyRejected.execCommandCalls!==1)contactCopyBehaviorFailures.push("legacy copy failure manual fallback");
+if(contactCopyBehaviorFailures.length)errors.push("Contact copy-email behavior failed: "+contactCopyBehaviorFailures.join(", "));
+else console.log("Contact copy-email functional cases: PASS (Clipboard API success, legacy fallback, and both failure paths)");
 
 
 const noteDateMetadataErrors=[];
