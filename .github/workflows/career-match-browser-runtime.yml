@@ -31,7 +31,17 @@ jobs:
         run: |
           google-chrome --version
           chromedriver --version
-      - name: Run production browser runtime smoke
+      - name: Start local site for browser runtime smoke
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/career-match-http.log 2>&1 &
+          echo $! > /tmp/career-match-http.pid
+          for attempt in $(seq 1 50); do
+            if curl --fail --silent http://127.0.0.1:4173/tools/career-match-resume-review/ > /dev/null; then exit 0; fi
+            sleep 0.2
+          done
+          cat /tmp/career-match-http.log
+          exit 1
+      - name: Run local browser runtime smoke
         env:
-          BASE_URL: https://jawed.co.in
+          BASE_URL: http://127.0.0.1:4173
         run: node scripts/validate-career-match-browser-runtime.mjs
