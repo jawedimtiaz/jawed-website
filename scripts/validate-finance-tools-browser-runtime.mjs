@@ -332,6 +332,26 @@ async function testUsStocksEtfsGuide(label){
   if(!(await textOf("main .financial-disclosure")).includes("not a SEBI-registered Investment Adviser"))throw new Error(label+" US stocks/ETF financial disclosure is missing");
 }
 
+async function testJawedAiWidget(label){
+  await openPage("/", "body");
+  await waitForElement("[data-jawed-ai-widget] .jawed-ai-toggle");
+  await sleep(500);
+  const initial=await js("const p=document.querySelector('#jawed-ai-panel'),t=document.querySelector('.jawed-ai-toggle');return {panelExists:!!p,hidden:p?.hidden,expanded:t?.getAttribute('aria-expanded'),focused:document.activeElement===t}");
+  if(!initial.panelExists||!initial.hidden||initial.expanded!=="false")throw new Error(label+" AI widget should start closed without auto-opening: "+JSON.stringify(initial));
+  await click(".jawed-ai-toggle");
+  const opened=await js("const p=document.querySelector('#jawed-ai-panel'),t=document.querySelector('.jawed-ai-toggle'),i=p?.querySelector('input[name=question]');return {hidden:p?.hidden,expanded:t?.getAttribute('aria-expanded'),inputFocused:document.activeElement===i,dialog:p?.getAttribute('role'),modal:p?.getAttribute('aria-modal')}");
+  if(opened.hidden||opened.expanded!=="true"||!opened.inputFocused||opened.dialog!=="dialog"||opened.modal!=="false")throw new Error(label+" AI widget open/focus/dialog contract failed: "+JSON.stringify(opened));
+  await pressKey('input[name="question"]',"\\uE00C");
+  const escaped=await js("const p=document.querySelector('#jawed-ai-panel'),t=document.querySelector('.jawed-ai-toggle');return {hidden:p?.hidden,expanded:t?.getAttribute('aria-expanded'),toggleFocused:document.activeElement===t}");
+  if(!escaped.hidden||escaped.expanded!=="false"||!escaped.toggleFocused)throw new Error(label+" AI widget Escape must close and return focus to toggle: "+JSON.stringify(escaped));
+  await pressKey(".jawed-ai-toggle","\\uE007");
+  const reopened=await js("const p=document.querySelector('#jawed-ai-panel'),i=p?.querySelector('input[name=question]');return {hidden:p?.hidden,inputFocused:document.activeElement===i}");
+  if(reopened.hidden||!reopened.inputFocused)throw new Error(label+" AI widget keyboard activation did not open/focus input: "+JSON.stringify(reopened));
+  await click(".jawed-ai-close");
+  const closed=await js("const p=document.querySelector('#jawed-ai-panel'),t=document.querySelector('.jawed-ai-toggle');return {hidden:p?.hidden,expanded:t?.getAttribute('aria-expanded'),toggleFocused:document.activeElement===t}");
+  if(!closed.hidden||closed.expanded!=="false"||!closed.toggleFocused)throw new Error(label+" AI widget close button must close and return focus: "+JSON.stringify(closed));
+}
+
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
@@ -349,6 +369,7 @@ async function runViewport(width,height){
     await testNoteFormatter(label);
     await testKnowledgeBaseDraft(label);
     await testContentDiscovery(label);
+    await testJawedAiWidget(label);
     await testRetirementWithdrawalsGuide(label);
     await testPortfolioAllocationGuide(label);
     await testUsStocksEtfsGuide(label);
