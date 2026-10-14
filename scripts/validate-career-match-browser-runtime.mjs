@@ -47,7 +47,7 @@ async function runViewport(width,height){
     for(const s of ["#theme","#sample","#go","#file","#tab-analyze","#tab-results","#tab-tracker","#tab-saved"]){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
     }
-    const assertActiveTab=async(id)=>{const state=await js("const e=document.querySelector(arguments[0]);const panel=document.querySelector(e?.getAttribute('aria-controls'));return {focused:document.activeElement?.id===e?.id,selected:e?.getAttribute('aria-selected'),panelVisible:!!panel&&!panel.hidden&&panel.getAttribute('aria-hidden')==='false'}",["#"+id]);if(!state.focused||state.selected!=="true"||!state.panelVisible)throw new Error(width+"x"+height+" tab keyboard navigation failed for "+id+": "+JSON.stringify(state));};
+    const assertActiveTab=async(id)=>{const state=await js("const e=document.querySelector(arguments[0]);const panel=document.getElementById(e?.getAttribute('aria-controls'));return {focused:document.activeElement?.id===e?.id,selected:e?.getAttribute('aria-selected'),panelVisible:!!panel&&!panel.hidden&&panel.getAttribute('aria-hidden')==='false'}",["#"+id]);if(!state.focused||state.selected!=="true"||!state.panelVisible)throw new Error(width+"x"+height+" tab keyboard navigation failed for "+id+": "+JSON.stringify(state));};
     await pressKey("#tab-analyze","\uE014"); await assertActiveTab("tab-results");
     await pressKey("#tab-results","\uE014"); await assertActiveTab("tab-tracker");
     await pressKey("#tab-tracker","\uE012"); await assertActiveTab("tab-results");
