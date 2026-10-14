@@ -200,9 +200,9 @@ async function testTroubleshooting(label){
   await openPage("/tools/it-troubleshooting-assistant/","#symptom");
   await checkControl("#trouble-tool button[type=submit]",label+" troubleshooting submit");
   await checkControl("#clear",label+" troubleshooting clear");
-  const startPath=async(type,symptom)=>{
+  const startPath=async(category,symptom)=>{
     await type("#symptom",symptom);
-    await js("const e=document.querySelector('#type');e.value=arguments[0];e.dispatchEvent(new Event('change',{bubbles:true}));return true",[type]);
+    await js("const e=document.querySelector('#type');e.value=arguments[0];e.dispatchEvent(new Event('change',{bubbles:true}));return true",[category]);
     await submit("#trouble-tool");
   };
   await startPath("network","Device cannot reach any website after reconnecting to Wi-Fi.");
