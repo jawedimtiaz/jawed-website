@@ -75,6 +75,7 @@ async function waitForProductionRevision(){
     ["/notes/us-stocks-etfs-starting-point/",'Worked example: two ETFs can still overlap'],
     ["/assets/js/main.js","const filters=[{input:'notes-filter'"],
     ["/topics/",'id="topics-filter"'],
+    ["/tools/",'id="tools-filter"'],
     ["/resources/",'id="resources-filter"'],
     ["/notes/",'id="notes-filter"'],
     ["/blog/",'id="blog-filter"'],
@@ -246,6 +247,7 @@ async function testKnowledgeBaseDraft(label){
 
 async function testContentDiscovery(label){
   const cases=[
+    {path:"/tools/",input:"#tools-filter",reset:'[data-reset-filter="tools-filter"]',status:"#tools-filter-status",query:"finance",kind:"tool results"},
     {path:"/topics/",input:"#topics-filter",reset:'[data-reset-filter="topics-filter"]',status:"#topics-filter-status",query:"Apple",kind:"topic results"},
     {path:"/resources/",input:"#resources-filter",reset:'[data-reset-filter="resources-filter"]',status:"#resources-filter-status",query:"Apple",kind:"resource results"},
     {path:"/notes/",input:"#notes-filter",reset:'[data-reset-filter="notes-filter"]',status:"#notes-filter-status",query:"Jamf",kind:"note results"},
