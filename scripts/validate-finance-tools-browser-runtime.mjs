@@ -1,6 +1,7 @@
 import {spawn} from "node:child_process";
 
-const BASE_URL=(process.env.BASE_URL||"https://jawed.co.in").replace(/\/$/,"");
+const BASE_BRANCH=(process.env.BASE_BRANCH||"").trim();
+const BASE_URL=(BASE_BRANCH?`https://${BASE_BRANCH.slice(0,28)}.jawed-website.pages.dev`:(process.env.BASE_URL||"https://jawed.co.in")).replace(/\/$/,"");
 const CHROMEDRIVER=process.env.CHROMEDRIVER||"chromedriver";
 const failures=[];
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
