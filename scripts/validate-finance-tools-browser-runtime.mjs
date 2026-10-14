@@ -261,7 +261,7 @@ async function testContentDiscovery(label){
     if(!filtered.includes("matching")||!filtered.includes(item.kind))throw new Error(label+" "+item.kind+" search did not update status: "+filtered);
     const query=await js("return new URL(window.location.href).searchParams.get('q')");
     if(query!==item.query)throw new Error(label+" "+item.kind+" search did not synchronize the URL query");
-    await pressKey(item.reset,"\\uE007");
+    await pressKey(item.reset,"\uE007");
     const resetState=await js("return {active:document.activeElement===document.querySelector(arguments[0]),input:document.querySelector(arguments[1])?.value||'',status:document.querySelector(arguments[2])?.textContent.trim()||''}",[item.reset,item.input,item.status]);
     if(!resetState.active||resetState.input!==""||!resetState.status.startsWith("Showing all"))throw new Error(label+" "+item.kind+" keyboard clear did not reset results and retain focus: "+JSON.stringify(resetState));
     const clearedQuery=await js("return new URL(window.location.href).searchParams.get('q')");
