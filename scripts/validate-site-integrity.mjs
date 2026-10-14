@@ -821,3 +821,18 @@ for(const notePath of noteBreadcrumbFiles){
   }
 }
 console.log("Note breadcrumb context contract: PASS");
+
+
+const noteTitleMetadataContracts=[
+  {path:"notes/ai-prompting-everyday-work/index.html",title:"AI Prompting for Everyday Work: A Simple Starting Pattern"},
+  {path:"notes/building-safe-browser-based-it-tools/index.html",title:"Building Safe Browser-Based IT Tools: A Practical Framework"},
+  {path:"notes/new-vs-old-tax-regime-comparison/index.html",title:"New vs Old Tax Regime: How to Think About the Comparison"}
+];
+for(const item of noteTitleMetadataContracts){
+  const html=fs.readFileSync(item.path,"utf8");
+  const title=(html.match(/<title>(.*?)<\/title>/i)||[])[1]||"";
+  const ogTitle=(html.match(/<meta property="og:title" content="(.*?)">/i)||[])[1]||"";
+  assert.equal(title,item.title+" | Jawed Imtiaz","Document title must align with the approved page heading: "+item.path);
+  assert.equal(ogTitle,item.title+" | Jawed Imtiaz","Open Graph title must align with the approved page heading: "+item.path);
+}
+console.log("Targeted note title metadata alignment contract: PASS");
