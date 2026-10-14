@@ -367,6 +367,7 @@ async function testMobileNavigationKeyboard(label){
   await pressKey(".menu-toggle","\uE007");
   const reopened=await js("const b=document.querySelector('.menu-toggle'),n=document.querySelector('#site-nav');return {expanded:b?.getAttribute('aria-expanded'),open:n?.classList.contains('is-open')}");
   if(reopened.expanded!=="true"||!reopened.open)throw new Error(label+" Enter did not reopen mobile navigation: "+JSON.stringify(reopened));
+  await click("#site-nav .nav-group summary");
   await click("#site-nav a[href='/notes/']");
   const closed=await js("const b=document.querySelector('.menu-toggle'),n=document.querySelector('#site-nav');return {expanded:b?.getAttribute('aria-expanded'),open:n?.classList.contains('is-open'),path:location.pathname}");
   if(closed.expanded!=="false"||closed.open||closed.path!=="/notes/")throw new Error(label+" choosing a navigation link did not close the menu/navigate correctly: "+JSON.stringify(closed));
