@@ -4,7 +4,7 @@ const BASE_URL=(process.env.BASE_URL||"https://jawed.co.in").replace(/\/$/,"");
 const CHROMEDRIVER=process.env.CHROMEDRIVER||"chromedriver";
 const failures=[];
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-let driver=null,sessionId=null;
+let driver=null,sessionId=null,stage="initializing";
 
 async function http(method,path,body){
   const response=await fetch("http://127.0.0.1:9515"+path,{method,headers:{"content-type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});
@@ -44,35 +44,51 @@ async function runViewport(width,height){
     await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
     try{await waitForElement("#file")}catch(error){let current="unknown",source="",logs=[];try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}try{logs=await command("POST","/log",{type:"browser"})}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" sourceLength="+String(source?.length||0)+" hasFileMarkup="+String(String(source).includes('id="file"'))+" logs="+JSON.stringify(logs?.slice?.(-12)||[]));} await sleep(700);
     console.log("Viewport "+width+"x"+height+": loaded");
+    stage="control hit tests";
     for(const s of ["#theme","#sample","#go","#file","#tab-analyze","#tab-results","#tab-tracker","#tab-saved"]){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
     }
+    const assertActiveTab=async(id)=>{const state=await js("const e=document.querySelector(arguments[0]);const panel=document.getElementById(e?.getAttribute('aria-controls'));return {focused:document.activeElement?.id===e?.id,selected:e?.getAttribute('aria-selected'),panelVisible:!!panel&&!panel.hidden&&panel.getAttribute('aria-hidden')==='false'}",["#"+id]);if(!state.focused||state.selected!=="true"||!state.panelVisible)throw new Error(width+"x"+height+" tab keyboard navigation failed for "+id+": "+JSON.stringify(state));};
+    stage="keyboard tab navigation";
+    await pressKey("#tab-analyze","\uE014"); await assertActiveTab("tab-results");
+    await pressKey("#tab-results","\uE014"); await assertActiveTab("tab-tracker");
+    await pressKey("#tab-tracker","\uE012"); await assertActiveTab("tab-results");
+    await pressKey("#tab-results","\uE011"); await assertActiveTab("tab-analyze");
+    await pressKey("#tab-analyze","\uE010"); await assertActiveTab("tab-saved");
+    stage="restore analyze panel after keyboard navigation";
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
+    stage="theme click and keyboard activation";
     const before=await js("return document.documentElement.dataset.theme||''"); await click("#theme");
     const after=await js("return document.documentElement.dataset.theme||''");
     if(before===after)failures.push(width+"x"+height+" #theme: click did not toggle theme");
     await pressKey("#theme","\uE007");
     const keyboardAfter=await js("return document.documentElement.dataset.theme||''");
     if(keyboardAfter!==before)failures.push(width+"x"+height+" #theme: Enter key did not activate the focused theme button");
+    stage="sample button";
     await click("#sample");
     const sample=await js("return {r:document.querySelector('#resume').value,j:document.querySelector('#jd').value}");
     if(sample.r.trim().split(/\s+/).length<20||sample.j.trim().split(/\s+/).length<20)failures.push(width+"x"+height+" #sample: did not populate both fields");
+    stage="analyze button";
     await click("#go"); await waitFor('()=>document.querySelectorAll("#results .card").length>0');
     const result=await js("return {count:document.querySelectorAll('#results .card').length,hidden:document.querySelector('#v-results').hidden}");
     if(!result.count||result.hidden)failures.push(width+"x"+height+" #go: results did not become visible");
+    stage="tracker workflow";
     await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
     await type("#tCo","Browser Smoke Co"); await type("#tRole","Runtime QA"); await click("#addJob");
     if(await js("return document.querySelectorAll('#board .job').length")<1)failures.push(width+"x"+height+" tracker: Add did not create a job");
+    stage="save analysis workflow";
     await click("#tab-results"); await waitFor('()=>!document.querySelector("#v-results").hidden');
     await click("#results button[data-a='save']"); await sleep(150);
     await click("#tab-saved"); await waitFor('()=>!document.querySelector("#v-saved").hidden');
     if(await js("return document.querySelectorAll('#savedList .job').length")<1)failures.push(width+"x"+height+" saved: Save Analysis did not create a saved item");
+    stage="return to analyze";
     await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
   } finally {
     if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}
   }
 }
 try{await startDriver();await runViewport(1440,1100);await runViewport(390,844)}
-catch(error){failures.push("harness: "+error.message)}
+catch(error){failures.push("harness at "+stage+": "+error.message)}
 finally{if(driver)driver.kill("SIGTERM")}
 if(failures.length){console.error("Career Match production browser smoke FAILED");for(const f of failures)console.error("- "+f);process.exit(1)}
 console.log("Career Match production browser smoke PASSED");
