@@ -716,6 +716,21 @@ const sharedRuntimeErrors=sharedRuntimeContracts.filter(([,ok])=>!ok).map(([name
 if(sharedRuntimeErrors.length)errors.push("Shared runtime regression contract missing: "+sharedRuntimeErrors.join(", "));
 else console.log("Shared runtime interaction contract: PASS");
 
+const contactPage=fs.readFileSync("contact/index.html","utf8");
+const contactCopyRuntime=fs.readFileSync("assets/js/contact-copy-email.js","utf8");
+const contactCopyContracts=[
+ ["copy-email button beside existing mailto link",/<a class="button" href="mailto:webmaster@jawed\\.co\\.in">[\\s\\S]*?<\\/a>\\s*<button class="button button-secondary" id="copy-contact-email"/.test(contactPage)],
+ ["accessible polite copy status",/id="copy-contact-status" role="status" aria-live="polite" aria-atomic="true"/.test(contactPage)],
+ ["deferred same-origin copy helper",/<script src="\\/assets\\/js\\/contact-copy-email\\.js" defer><\\/script>/.test(contactPage)],
+ ["Clipboard API and unsupported-browser fallback",contactCopyRuntime.includes("navigator.clipboard.writeText(email)")&&contactCopyRuntime.includes('document.execCommand("copy")')],
+ ["manual copy fallback message",contactCopyRuntime.includes("Automatic copying was unavailable")&&contactCopyRuntime.includes("Select and copy webmaster@jawed.co.in")],
+ ["copy helper has no network or persistence calls",!/(?:\\bfetch\\s*\\(|XMLHttpRequest|sendBeacon|localStorage|sessionStorage|indexedDB)/i.test(contactCopyRuntime)],
+ ["existing mailto form and submit handler preserved",/<form class="contact-form" id="contact-form" action="mailto:webmaster@jawed\\.co\\.in"/.test(contactPage)&&sharedRuntime.includes("f.addEventListener('submit',e=>{e.preventDefault()")]
+];
+const contactCopyErrors=contactCopyContracts.filter(([,ok])=>!ok).map(([name])=>name);
+if(contactCopyErrors.length)errors.push("Contact copy-email regression contract missing: "+contactCopyErrors.join(", "));
+else console.log("Contact copy-email accessibility/privacy regression contract: PASS");
+
 
 const noteDateMetadataErrors=[];
 const noteFiles=sourcePaths.filter(file=>file.startsWith("notes/")&&file.endsWith("/index.html")&&file!=="notes/index.html");
