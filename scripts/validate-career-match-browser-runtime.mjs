@@ -55,6 +55,8 @@ async function runViewport(width,height){
     await pressKey("#tab-tracker","\uE012"); await assertActiveTab("tab-results");
     await pressKey("#tab-results","\uE011"); await assertActiveTab("tab-analyze");
     await pressKey("#tab-analyze","\uE010"); await assertActiveTab("tab-saved");
+    stage="restore analyze panel after keyboard navigation";
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
     stage="theme click and keyboard activation";
     const before=await js("return document.documentElement.dataset.theme||''"); await click("#theme");
     const after=await js("return document.documentElement.dataset.theme||''");
