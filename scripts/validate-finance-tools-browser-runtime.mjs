@@ -261,8 +261,9 @@ async function testContentDiscovery(label){
     if(!filtered.includes("matching")||!filtered.includes(item.kind))throw new Error(label+" "+item.kind+" search did not update status: "+filtered);
     const query=await js("return new URL(window.location.href).searchParams.get('q')");
     if(query!==item.query)throw new Error(label+" "+item.kind+" search did not synchronize the URL query");
-    await click(item.reset);
-    if(await valueOf(item.input)!==""||!(await textOf(item.status)).startsWith("Showing all"))throw new Error(label+" "+item.kind+" clear did not restore all results");
+    await pressKey(item.reset,"\uE007");
+    const resetState=await js("return {inputFocused:document.activeElement===document.querySelector(arguments[1]),input:document.querySelector(arguments[1])?.value||'',status:document.querySelector(arguments[2])?.textContent.trim()||''}",[item.reset,item.input,item.status]);
+    if(!resetState.inputFocused||resetState.input!==""||!resetState.status.startsWith("Showing all"))throw new Error(label+" "+item.kind+" keyboard clear did not reset results and return focus to search: "+JSON.stringify(resetState));
     const clearedQuery=await js("return new URL(window.location.href).searchParams.get('q')");
     if(clearedQuery!==null)throw new Error(label+" "+item.kind+" clear left a stale URL query");
   }
