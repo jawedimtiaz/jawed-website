@@ -67,5 +67,5 @@ jobs:
           chromedriver --version
       - name: Run production interactive tools and content discovery browser smoke
         env:
-          BASE_URL: ${{ github.event_name == 'pull_request' && 'https://phase-122gvf-troubleshooting.jawed-website.pages.dev' || 'https://jawed.co.in' }}
+          BASE_URL: ${{ github.event_name == 'pull_request' && format('https://{0}.jawed-website.pages.dev', github.head_ref) || 'https://jawed.co.in' }}
         run: node scripts/validate-finance-tools-browser-runtime.mjs
