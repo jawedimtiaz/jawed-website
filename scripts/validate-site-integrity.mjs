@@ -160,7 +160,7 @@ const interviewPlannerRuntimeErrors=interviewPlannerRuntimeContracts.filter(([,o
 if(interviewPlannerRuntimeErrors.length)errors.push("Interview Preparation Planner runtime contract missing: "+interviewPlannerRuntimeErrors.join(", "));
 else console.log("Interview Preparation Planner runtime interaction contract: PASS");
 
-const interviewPlannerKeywordBoundaryContract=(()=>{const runtime=fs.readFileSync("assets/js/interview-preparation-planner.js","utf8");const matches=(keyword,text)=>new RegExp("\\b"+keyword+"\\b","i").test(text);return runtime.includes('new RegExp("\\\\b"+x+"\\\\b","i").test(v)')&&!matches("apple","pineapple support")&&matches("apple","Apple device support")&&!matches("css","success")&&matches("css","CSS styling")&&matches("service desk","Service desk analyst")})();
+const interviewPlannerKeywordBoundaryContract=(()=>{const runtime=fs.readFileSync("assets/js/interview-preparation-planner.js","utf8");const matches=(keyword,text)=>new RegExp("\\b"+keyword+"\\b","i").test(text);return runtime.includes('new RegExp("\\\\b"+x+"\\\\b","i").test(v)')&&!matches("apple","pineapple support")&&matches("apple","Apple device support")&&!matches("excel","excellent communication")&&matches("excel","Excel spreadsheet")&&matches("service desk","Service desk analyst")})();
 if(!interviewPlannerKeywordBoundaryContract)errors.push("Interview Preparation Planner must detect whole skill terms rather than accidental substrings");
 else console.log("Interview Preparation Planner whole-term keyword contract: PASS");
 
