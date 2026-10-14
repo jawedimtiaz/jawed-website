@@ -444,6 +444,10 @@ const resumeBulletMetricBehaviorContract=!!resumeBulletMetricPattern&&
 if(!resumeBulletMetricBehaviorContract)errors.push("Resume Bullet metric detection must distinguish quantified results from unquantified nouns and product/version numbers");
 else console.log("Resume Bullet metric behavior contract: PASS");
 
+const resumeBulletOutcomeScoringContract=(()=>{const html=fs.readFileSync("tools/resume-bullet-strength-checker/index.html","utf8");return html.includes("evidence=metric||outcome")&&html.includes("(evidence?1:0)")&&html.includes("Add a specific, truthful outcome or measurable evidence when available.")&&html.includes("outcome=/\\b(?:validated|confirmed|restored|resolved|reduced|increased|improved|completed|enabled|prevented|delivered|achieved|eliminated|shortened|recovered|maintained|met|exceeded)\\b/i.test(line)")})();
+if(!resumeBulletOutcomeScoringContract)errors.push("Resume Bullet Strength Checker must accept clear outcome evidence as an alternative to numeric metrics");
+else console.log("Resume Bullet outcome-or-metric scoring contract: PASS");
+
 
 const troubleshootingTreeBranchContract=(()=>{const html=fs.readFileSync("tools/it-troubleshooting-assistant/index.html","utf8");return html.includes("yesNext:'appleChange'")&&html.includes("appleChange:{q:'Was there a recent update, configuration or application change?'")&&html.includes("yesNext:'windowsChange'")&&html.includes("windowsChange:{q:'Did the problem begin after a recent update, configuration or application change?'")&&!html.includes("}},change:{q:")})();
 if(!troubleshootingTreeBranchContract)errors.push("IT Troubleshooting Assistant must keep Apple and Windows change branches distinct");
