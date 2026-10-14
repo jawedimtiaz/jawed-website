@@ -48,11 +48,11 @@ async function runViewport(width,height){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
     }
     const assertActiveTab=async(id)=>{const state=await js("const e=document.querySelector(arguments[0]);const panel=document.querySelector(e?.getAttribute('aria-controls'));return {focused:document.activeElement?.id===e?.id,selected:e?.getAttribute('aria-selected'),panelVisible:!!panel&&!panel.hidden&&panel.getAttribute('aria-hidden')==='false'}",["#"+id]);if(!state.focused||state.selected!=="true"||!state.panelVisible)throw new Error(width+"x"+height+" tab keyboard navigation failed for "+id+": "+JSON.stringify(state));};
-    await pressKey("#tab-analyze","\\uE014"); await assertActiveTab("tab-results");
-    await pressKey("#tab-results","\\uE014"); await assertActiveTab("tab-tracker");
-    await pressKey("#tab-tracker","\\uE012"); await assertActiveTab("tab-results");
-    await pressKey("#tab-results","\\uE011"); await assertActiveTab("tab-analyze");
-    await pressKey("#tab-analyze","\\uE010"); await assertActiveTab("tab-saved");
+    await pressKey("#tab-analyze","\uE014"); await assertActiveTab("tab-results");
+    await pressKey("#tab-results","\uE014"); await assertActiveTab("tab-tracker");
+    await pressKey("#tab-tracker","\uE012"); await assertActiveTab("tab-results");
+    await pressKey("#tab-results","\uE011"); await assertActiveTab("tab-analyze");
+    await pressKey("#tab-analyze","\uE010"); await assertActiveTab("tab-saved");
     const before=await js("return document.documentElement.dataset.theme||''"); await click("#theme");
     const after=await js("return document.documentElement.dataset.theme||''");
     if(before===after)failures.push(width+"x"+height+" #theme: click did not toggle theme");
