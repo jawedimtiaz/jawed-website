@@ -804,3 +804,20 @@ console.log("Sitemap pages:",sitemapPaths.length);
 console.log("Published HTML pages audited:",sourcePaths.length);
 console.log("Unsitemap published pages:",unsitemapPages.length);
 console.log("Missing sitemap source files:",missingSources.length);
+
+
+const noteBreadcrumbFiles=fs.readdirSync("notes",{withFileTypes:true})
+  .filter(entry=>entry.isDirectory())
+  .map(entry=>`notes/${entry.name}/index.html`)
+  .filter(file=>fs.existsSync(file));
+for(const notePath of noteBreadcrumbFiles){
+  const noteHtml=fs.readFileSync(notePath,"utf8");
+    const noteH1=(noteHtml.match(/<h1>(.*?)<\/h1>/i)||[])[1]||"";
+  const breadcrumb=(noteHtml.match(/<p class="breadcrumbs">(.*?)<\/p>/i)||[])[1]||"";
+  const currentLabel=(breadcrumb.match(/<span aria-current="page">(.*?)<\/span>/i)||[])[1]||"";
+  if(noteH1 && breadcrumb){
+    assert.equal(currentLabel.includes("Current note"),false,"Published note breadcrumb must not use the generic Current note label: "+notePath);
+    assert.equal(currentLabel,noteH1,"Published note breadcrumb must match its H1 title: "+notePath);
+  }
+}
+console.log("Note breadcrumb context contract: PASS");
