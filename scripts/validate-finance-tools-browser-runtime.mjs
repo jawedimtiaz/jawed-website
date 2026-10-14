@@ -75,7 +75,7 @@ async function waitForProductionRevision(){
     ["/notes/retirement-withdrawals-sequence-risk-income-review/",'Why the sequence of returns matters'],
     ["/notes/portfolio-allocation-rebalancing-framework/",'Worked example: calculate allocation drift'],
     ["/notes/us-stocks-etfs-starting-point/",'Worked example: two ETFs can still overlap'],
-    ["/assets/js/main.js","const filters=[{input:'notes-filter'"],
+    ["/assets/js/main.js","const matchingCard=key&&q?candidates.find(other=>itemKey(other)===key&&other.textContent.toLowerCase().includes(q)):el"],
     ["/topics/",'id="topics-filter"'],
     ["/tools/",'id="tools-filter"'],
     ["/resources/",'id="resources-filter"'],
@@ -297,6 +297,14 @@ async function testContentDiscovery(label){
     await type(item.input,item.query);
     const filtered=await textOf(item.status);
     if(!filtered.includes("matching")||!filtered.includes(item.kind))throw new Error(label+" "+item.kind+" search did not update status: "+filtered);
+    if(item.path==="/tools/"){
+      await type(item.input,"Strengthen");
+      const uniqueStatus=await textOf(item.status);
+      if(uniqueStatus!=="1 matching tool results.")throw new Error(label+" tools search should count the matching destination once: "+uniqueStatus);
+      const visible=await js("return [...document.querySelectorAll('main .card:not(.ai-discovery-card)')].filter(e=>!e.classList.contains('discovery-hidden')).map(e=>({text:e.textContent.trim(),href:e.querySelector('a[href]')?.pathname||''}))");
+      if(visible.length!==1||!visible[0].text.includes("Strengthen"))throw new Error(label+" tools search should show one matching card, not duplicates or a nonmatching card: "+JSON.stringify(visible));
+      await type(item.input,item.query);
+    }
     const query=await js("return new URL(window.location.href).searchParams.get('q')");
     if(query!==item.query)throw new Error(label+" "+item.kind+" search did not synchronize the URL query");
     await pressKey(item.reset,"\uE007");
@@ -413,7 +421,7 @@ async function testMobileNavigationKeyboard(label){
 }
 
 async function runViewport(width,height){
-  const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
+  const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--disable-cache","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
   try{
     const label=width+"x"+height;
