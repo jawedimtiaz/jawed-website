@@ -75,6 +75,10 @@ async function runViewport(width,height){
     const keyboardAfter=await js("return {theme:document.documentElement.dataset.theme||'',focused:document.activeElement?.id==='theme',focusVisible:document.querySelector('#theme')?.matches(':focus-visible')}");
     if(keyboardAfter.theme!==before)failures.push(width+"x"+height+" #theme: Enter key did not activate the focused theme button");
     if(!keyboardAfter.focused||!keyboardAfter.focusVisible)failures.push(width+"x"+height+" #theme: keyboard focus was not retained or not visibly indicated: "+JSON.stringify(keyboardAfter));
+    stage="invalid-input validation announcement";
+    await click("#go");
+    const invalid=await js("const e=document.querySelector('#err');return {role:e?.getAttribute('role'),live:e?.getAttribute('aria-live'),atomic:e?.getAttribute('aria-atomic'),text:e?.textContent||'',resultsHidden:!!document.querySelector('#v-results')?.hidden,resultsCount:document.querySelectorAll('#results .card').length}");
+    if(invalid.role!=="alert"||invalid.live!=="assertive"||invalid.atomic!=="true"||!invalid.text.includes("Please provide both a resume and a job description")||!invalid.resultsHidden||invalid.resultsCount)failures.push(width+"x"+height+" invalid-input error announcement/state contract failed: "+JSON.stringify(invalid));
     stage="sample button";
     await click("#sample");
     const sample=await js("return {r:document.querySelector('#resume').value,j:document.querySelector('#jd').value}");
