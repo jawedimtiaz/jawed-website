@@ -37,13 +37,19 @@ async function checkControl(selector,label){
   if(h.pointerEvents==="none")throw new Error(label+": pointer-events:none");
   if(!h.hitInside)throw new Error(label+": center hit is "+h.hitTag+"#"+(h.hitId||"")+"."+(h.hitClass||"")+" at "+JSON.stringify({top:h.top,left:h.left,width:h.width,height:h.height}));
 }
+async function assertNoHorizontalOverflow(label,stage){
+  const state=await js("return {viewport:document.documentElement.clientWidth,document:document.documentElement.scrollWidth,body:document.body.scrollWidth}");
+  if(state.document>state.viewport+1||state.body>state.viewport+1)throw new Error(label+" "+stage+" has horizontal overflow: "+JSON.stringify(state));
+}
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps); sessionId=created.sessionId;
   try{
     await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
     try{await waitForElement("#file")}catch(error){let current="unknown",source="",logs=[];try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}try{logs=await command("POST","/log",{type:"browser"})}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" sourceLength="+String(source?.length||0)+" hasFileMarkup="+String(String(source).includes('id="file"'))+" logs="+JSON.stringify(logs?.slice?.(-12)||[]));} await sleep(700);
-    console.log("Viewport "+width+"x"+height+": loaded");
+    const label=width+"x"+height;
+    await assertNoHorizontalOverflow(label,"initial page");
+    console.log("Viewport "+label+": loaded");
     stage="control hit tests";
     for(const s of ["#theme","#sample","#go","#file","#tab-analyze","#tab-results","#tab-tracker","#tab-saved"]){
       try{await checkControl(s,s)}catch(e){failures.push(width+"x"+height+" "+e.message)}
@@ -73,6 +79,7 @@ async function runViewport(width,height){
     await click("#go"); await waitFor('()=>document.querySelectorAll("#results .card").length>0');
     const result=await js("return {count:document.querySelectorAll('#results .card').length,hidden:document.querySelector('#v-results').hidden}");
     if(!result.count||result.hidden)failures.push(width+"x"+height+" #go: results did not become visible");
+    await assertNoHorizontalOverflow(width+"x"+height,"analysis results");
     stage="tracker workflow";
     await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
     await type("#tCo","Browser Smoke Co"); await type("#tRole","Runtime QA"); await click("#addJob");
@@ -88,7 +95,7 @@ async function runViewport(width,height){
     if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}
   }
 }
-try{await startDriver();await runViewport(1440,1100);await runViewport(390,844)}
+try{await startDriver();await runViewport(1440,1100);await runViewport(390,844);await runViewport(320,800)}
 catch(error){failures.push("harness at "+stage+": "+error.message)}
 finally{if(driver)driver.kill("SIGTERM")}
 if(failures.length){console.error("Career Match production browser smoke FAILED");for(const f of failures)console.error("- "+f);process.exit(1)}
