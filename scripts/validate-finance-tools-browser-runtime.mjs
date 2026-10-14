@@ -161,7 +161,8 @@ async function testWorkspace(label){
   const baseline=await textOf("#requiredCorpus");
   if(!baseline||baseline==="—")throw new Error(label+" workspace retirement default result missing");
   await clearAndDispatchInput("#retSpending");
-  if(!(await textOf("#retError")).includes("Retirement values must be zero or positive."))throw new Error(label+" workspace retirement blank input was not rejected");
+  const retirementError=await js("const e=document.querySelector('#retError');return {role:e?.getAttribute('role'),live:e?.getAttribute('aria-live'),atomic:e?.getAttribute('aria-atomic'),text:e?.textContent||''}");
+  if(retirementError.role!=="alert"||retirementError.live!=="assertive"||retirementError.atomic!=="true"||!retirementError.text.includes("Retirement values must be zero or positive."))throw new Error(label+" workspace retirement validation announcement contract failed: "+JSON.stringify(retirementError));
   if(await textOf("#requiredCorpus")!=="—")throw new Error(label+" workspace retirement blank input left a stale result");
   await type("#retSpending","720000");
   await js("const e=document.querySelector(arguments[0]);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true",["#retSpending"]);
