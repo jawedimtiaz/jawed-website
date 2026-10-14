@@ -341,10 +341,10 @@ async function testJawedAiWidget(label){
   await click(".jawed-ai-toggle");
   const opened=await js("const p=document.querySelector('#jawed-ai-panel'),t=document.querySelector('.jawed-ai-toggle'),i=p?.querySelector('input[name=question]');return {hidden:p?.hidden,expanded:t?.getAttribute('aria-expanded'),inputFocused:document.activeElement===i,dialog:p?.getAttribute('role'),modal:p?.getAttribute('aria-modal')}");
   if(opened.hidden||opened.expanded!=="true"||!opened.inputFocused||opened.dialog!=="dialog"||opened.modal!=="false")throw new Error(label+" AI widget open/focus/dialog contract failed: "+JSON.stringify(opened));
-  await pressKey('input[name="question"]',"\\uE00C");
+  await pressKey('input[name="question"]',"\uE00C");
   const escaped=await js("const p=document.querySelector('#jawed-ai-panel'),t=document.querySelector('.jawed-ai-toggle');return {hidden:p?.hidden,expanded:t?.getAttribute('aria-expanded'),toggleFocused:document.activeElement===t}");
   if(!escaped.hidden||escaped.expanded!=="false"||!escaped.toggleFocused)throw new Error(label+" AI widget Escape must close and return focus to toggle: "+JSON.stringify(escaped));
-  await pressKey(".jawed-ai-toggle","\\uE007");
+  await pressKey(".jawed-ai-toggle","\uE007");
   const reopened=await js("const p=document.querySelector('#jawed-ai-panel'),i=p?.querySelector('input[name=question]');return {hidden:p?.hidden,inputFocused:document.activeElement===i}");
   if(reopened.hidden||!reopened.inputFocused)throw new Error(label+" AI widget keyboard activation did not open/focus input: "+JSON.stringify(reopened));
   await click(".jawed-ai-close");
