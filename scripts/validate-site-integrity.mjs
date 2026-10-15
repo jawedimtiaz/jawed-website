@@ -609,7 +609,7 @@ if(!careerMatchFileRaceContract)errors.push("Career Match file reads must ignore
 else console.log("Career Match file-selection race contract: PASS");
 
 const careerMatchSavedHandler=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchSavedHandlerContract=careerMatchSavedHandler.includes('$("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s=validSavedList(store.get("cm_saved",[]));');
+const careerMatchSavedHandlerContract=careerMatchSavedHandler.includes('$("#savedList").onclick=e=>{const b=e.target.closest("button[data-s]");if(!b)return;let s;try{const raw=localStorage.getItem("cm_saved");s=validSavedList(raw==null?[]:JSON.parse(raw))}catch{toast("Browser storage unavailable");return}');
 if(!careerMatchSavedHandlerContract)errors.push("Career Match saved-analysis actions must use validated persisted records");
 else console.log("Career Match saved-action integrity contract: PASS");
 
