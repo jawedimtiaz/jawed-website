@@ -158,7 +158,7 @@ async function testSnapshot(label){
 async function testWorkspace(label){
   await openPage("/tools/finance-planning-workspace/","#tab-snapshot");
   for(const tab of ["#tab-snapshot","#tab-goals","#tab-retirement","#tab-review"])await checkControl(tab,label+" workspace "+tab);
-  const assertActiveTab=async(id)=>{const state=await js("const e=document.querySelector(arguments[0]);return {focused:document.activeElement?.id===e?.id,selected:e?.getAttribute('aria-selected'),visible:!document.querySelector(e?.getAttribute('aria-controls'))?.hidden}",["#"+id]);if(!state.focused||state.selected!=="true"||!state.visible)throw new Error(label+" workspace keyboard navigation failed for "+id+": "+JSON.stringify(state));};
+  const assertActiveTab=async(id)=>{const state=await js("const e=document.querySelector(arguments[0]),s=e?getComputedStyle(e):null;return {focused:document.activeElement===e,selected:e?.getAttribute('aria-selected'),visible:!document.querySelector(e?.getAttribute('aria-controls'))?.hidden,focusVisible:!!e&&e.matches(':focus-visible'),outlineStyle:s?.outlineStyle||'',outlineWidth:s?.outlineWidth||''}",["#"+id]);if(!state.focused||state.selected!=="true"||!state.visible||!state.focusVisible||state.outlineStyle==="none"||parseFloat(state.outlineWidth)<=0)throw new Error(label+" workspace keyboard navigation/focus indicator failed for "+id+": "+JSON.stringify(state));};
   await pressKey("#tab-snapshot","\uE014");
   await assertActiveTab("tab-goals");
   await pressKey("#tab-goals","\uE014");
