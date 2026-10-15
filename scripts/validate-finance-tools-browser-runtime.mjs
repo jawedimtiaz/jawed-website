@@ -445,6 +445,10 @@ async function testCareerMatchKeyboard(label){
   await assertTab("tab-tracker","tracker");
   await pressKey("#tab-tracker","\\uE012");
   await assertTab("tab-results","results");
+  await pressKey("#tab-results","\\uE013");
+  await assertTab("tab-analyze","analyze");
+  await pressKey("#tab-analyze","\\uE015");
+  await assertTab("tab-results","results");
   await pressKey("#tab-results","\\uE011");
   await assertTab("tab-analyze","analyze");
   await pressKey("#tab-analyze","\\uE012");
