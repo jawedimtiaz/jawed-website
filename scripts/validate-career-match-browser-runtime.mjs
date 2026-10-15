@@ -88,10 +88,15 @@ async function runViewport(width,height){
     await type("#jd","Job description text with enough ordinary words to satisfy the minimum validation threshold for this browser regression test and confirm the summary clears after correction.");
     const recovered=await js("const e=document.querySelector('#err'),r=document.querySelector('#resume'),j=document.querySelector('#jd');return {text:e?.textContent||'',resumeInvalid:r?.getAttribute('aria-invalid')||'',resumeDescribedBy:r?.getAttribute('aria-describedby')||'',jobInvalid:j?.getAttribute('aria-invalid')||'',jobDescribedBy:j?.getAttribute('aria-describedby')||''}");
     if(recovered.text||recovered.resumeInvalid||recovered.resumeDescribedBy.split(/\s+/).includes("err")||recovered.jobInvalid||recovered.jobDescribedBy.split(/\s+/).includes("err"))failures.push(width+"x"+height+" valid input correction did not clear validation state: "+JSON.stringify(recovered));
-    stage="sample button keyboard activation";
+    stage="sample button programmatic validation recovery";
+    await type("#resume","");
+    await type("#jd","");
+    await pressKey("#go","\uE007");
+    const beforeSample=await js("return {error:document.querySelector('#err')?.textContent||'',resumeInvalid:document.querySelector('#resume')?.getAttribute('aria-invalid')||'',jobInvalid:document.querySelector('#jd')?.getAttribute('aria-invalid')||''}");
+    if(!beforeSample.error.includes("Please provide both a resume and a job description")||beforeSample.resumeInvalid!=="true"||beforeSample.jobInvalid!=="true")failures.push(width+"x"+height+" could not re-enter invalid state before sample recovery: "+JSON.stringify(beforeSample));
     await pressKey("#sample","\uE007");
-    const sample=await js("return {r:document.querySelector('#resume').value,j:document.querySelector('#jd').value}");
-    if(sample.r.trim().split(/\s+/).length<20||sample.j.trim().split(/\s+/).length<20)failures.push(width+"x"+height+" #sample: did not populate both fields");
+    const sample=await js("const e=document.querySelector('#err'),r=document.querySelector('#resume'),j=document.querySelector('#jd');return {r:r.value,j:j.value,error:e?.textContent||'',resumeInvalid:r.getAttribute('aria-invalid')||'',resumeDescribedBy:r.getAttribute('aria-describedby')||'',jobInvalid:j.getAttribute('aria-invalid')||'',jobDescribedBy:j.getAttribute('aria-describedby')||''}");
+    if(sample.r.trim().split(/\s+/).length<20||sample.j.trim().split(/\s+/).length<20||sample.error||sample.resumeInvalid||sample.resumeDescribedBy.split(/\s+/).includes("err")||sample.jobInvalid||sample.jobDescribedBy.split(/\s+/).includes("err"))failures.push(width+"x"+height+" #sample: did not populate both fields and clear validation state: "+JSON.stringify(sample));
     stage="analyze button keyboard activation";
     await pressKey("#go","\uE007"); await waitFor('()=>document.querySelectorAll("#results .card").length>0');
     const result=await js("return {count:document.querySelectorAll('#results .card').length,hidden:document.querySelector('#v-results').hidden}");
