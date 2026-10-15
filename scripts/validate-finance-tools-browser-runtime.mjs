@@ -293,6 +293,8 @@ async function testContentDiscovery(label){
     await openPage(item.path,item.input);
     await checkControl(item.input,label+" "+item.kind+" search");
     await checkControl(item.reset,label+" "+item.kind+" clear");
+    const statusSemantics=await js("const e=document.querySelector(arguments[0]);return {role:e?.getAttribute('role'),live:e?.getAttribute('aria-live'),atomic:e?.getAttribute('aria-atomic')}",[item.status]);
+    if(statusSemantics.role!=="status"||statusSemantics.live!=="polite"||statusSemantics.atomic!=="true")throw new Error(label+" "+item.kind+" status region semantics failed: "+JSON.stringify(statusSemantics));
     if(!(await textOf(item.status)).startsWith("Showing all"))throw new Error(label+" "+item.kind+" initial status is incorrect");
     await type(item.input,item.query);
     const filtered=await textOf(item.status);
