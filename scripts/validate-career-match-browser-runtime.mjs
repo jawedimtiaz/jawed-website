@@ -76,9 +76,8 @@ async function runViewport(width,height){
     await js("window.__deniedThemeBefore=document.documentElement.dataset.theme||'';window.__deniedGetItem=Storage.prototype.getItem;window.__deniedSetItem=Storage.prototype.setItem;Storage.prototype.getItem=function(){throw new DOMException('Access denied','SecurityError')};Storage.prototype.setItem=function(){throw new DOMException('Access denied','SecurityError')}");
     let deniedStartup;
     try {
-      await command("POST","/refresh",{});
-      await sleep(500);
-      await waitForElement("#file");
+      // Keep this document loaded after overriding Storage: a navigation creates a
+      // fresh JavaScript realm and would silently discard the simulated denial.
       await waitFor('()=>!!document.querySelector("#theme")&&!!document.querySelector("#tab-saved")&&!!document.querySelector("#tab-tracker")');
       deniedStartup=await js("return {theme:document.documentElement.dataset.theme||'',pressed:document.querySelector('#theme')?.getAttribute('aria-pressed')||'',file:!!document.querySelector('#file'),savedTab:!!document.querySelector('#tab-saved'),trackerTab:!!document.querySelector('#tab-tracker')}");
       if(!deniedStartup.file||!deniedStartup.savedTab||!deniedStartup.trackerTab||!["light","dark"].includes(deniedStartup.theme)||deniedStartup.pressed!==String(deniedStartup.theme==="dark"))failures.push(width+"x"+height+" denied storage access prevented startup or left theme state inconsistent: "+JSON.stringify(deniedStartup));
