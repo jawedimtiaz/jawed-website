@@ -265,11 +265,16 @@ async function testBulletChecker(label){
   await checkControl("#check",label+" bullet checker run");
   await checkControl("#sample",label+" bullet checker sample");
   await checkControl("#clear",label+" bullet checker clear");
-  await click("#sample");
-  const output=await textOf("#results");
-  if(!output.includes("average strength")||!output.includes("Bullet 1:")||!output.includes("4 bullets checked locally."))throw new Error(label+" bullet checker did not produce expected sample results");
-  await click("#clear");
-  if(await valueOf("#bullets")!==""||!(await textOf("#results")).includes("Paste your bullets"))throw new Error(label+" bullet checker clear did not reset state");
+  await type("#bullets","Resolved recurring desktop issues, documented checks and confirmed the user could complete the original task.");
+  await pressKey("#check","\uE007");
+  const checked=await js("const r=document.querySelector('#results'),b=document.querySelector('#check');return {text:r?.textContent||'',focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible'),live:r?.getAttribute('aria-live')}");
+  if(!checked.text.includes("average strength")||!checked.text.includes("Bullet 1:")||!checked.text.includes("1 bullet checked locally.")||!checked.focused||!checked.focusVisible||checked.live!=="polite")throw new Error(label+" bullet checker Enter activation/result announcement/focus contract failed: "+JSON.stringify(checked));
+  await pressKey("#sample","\uE00D");
+  const sample=await js("const r=document.querySelector('#results'),b=document.querySelector('#sample');return {text:r?.textContent||'',value:document.querySelector('#bullets')?.value||'',focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(!sample.text.includes("average strength")||!sample.text.includes("Bullet 1:")||!sample.text.includes("4 bullets checked locally.")||!sample.value.includes("Responsible for handling IT support tickets.")||!sample.focused||!sample.focusVisible)throw new Error(label+" bullet checker Space activation did not load and analyze the sample with visible focus: "+JSON.stringify(sample));
+  await pressKey("#clear","\uE007");
+  const cleared=await js("const r=document.querySelector('#results'),b=document.querySelector('#clear');return {value:document.querySelector('#bullets')?.value||'',text:r?.textContent||'',focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(cleared.value!==""||!cleared.text.includes("Paste your bullets")||!cleared.focused||!cleared.focusVisible)throw new Error(label+" bullet checker Enter clear did not restore the empty state and visible focus: "+JSON.stringify(cleared));
 }
 async function testNoteFormatter(label){
   await openPage("/tools/service-desk-note-formatter/","#note-issue");
