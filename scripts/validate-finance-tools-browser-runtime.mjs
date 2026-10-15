@@ -295,11 +295,12 @@ async function testKnowledgeBaseDraft(label){
   await checkControl("#kb-clear",label+" KB draft clear");
   await type("#kb-problem","VPN connection fails after password reset");
   await type("#kb-scope","Managed macOS devices with approved VPN client");
-  await submit("#kb-tool");
-  const output=await textOf("#kb-output");
-  if(!output.includes("Problem:\nVPN connection fails after password reset")||!output.includes("Validation:\n[Add verified information before publishing]"))throw new Error(label+" KB draft output or safe placeholder mismatch");
-  await click("#kb-clear");
-  if(await valueOf("#kb-problem")!==""||!(await textOf("#kb-output")).includes("Your draft will appear here."))throw new Error(label+" KB draft clear did not reset state");
+  await pressKey("#kb-tool button[type=submit]","\uE007");
+  const built=await js("const o=document.querySelector('#kb-output'),s=document.querySelector('#kb-status'),c=document.querySelector('#kb-copy'),b=document.querySelector('#kb-tool button[type=submit]');return {output:o?.textContent||'',status:s?.textContent.trim()||'',copyHidden:!!c?.hidden,focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(!built.output.includes("Problem:\nVPN connection fails after password reset")||!built.output.includes("Validation:\n[Add verified information before publishing]")||built.status!=="Draft built locally. Review and sanitize it before reuse."||built.copyHidden||!built.focused||!built.focusVisible)throw new Error(label+" KB draft Enter activation/safe placeholder/status/focus contract failed: "+JSON.stringify(built));
+  await pressKey("#kb-clear","\uE00D");
+  const cleared=await js("const ids=['kb-problem','kb-scope','kb-checks','kb-resolution','kb-validation','kb-escalation','kb-maintenance'];const o=document.querySelector('#kb-output'),s=document.querySelector('#kb-status'),c=document.querySelector('#kb-copy'),b=document.querySelector('#kb-clear');return {values:ids.map(id=>document.querySelector('#'+id)?.value||''),output:o?.textContent||'',status:s?.textContent.trim()||'',copyHidden:!!c?.hidden,focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(cleared.values.some(Boolean)||!cleared.output.includes("Your draft will appear here.")||cleared.status!==""||!cleared.copyHidden||!cleared.focused||!cleared.focusVisible)throw new Error(label+" KB draft Space activation did not restore all fields and visible focus: "+JSON.stringify(cleared));
 }
 
 async function testContentDiscovery(label){
