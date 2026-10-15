@@ -296,10 +296,10 @@ async function testContentDiscovery(label){
     const statusSemantics=await js("const e=document.querySelector(arguments[0]);return {role:e?.getAttribute('role'),live:e?.getAttribute('aria-live'),atomic:e?.getAttribute('aria-atomic')}",[item.status]);
     if(statusSemantics.role!=="status"||statusSemantics.live!=="polite"||statusSemantics.atomic!=="true")throw new Error(label+" "+item.kind+" status region semantics failed: "+JSON.stringify(statusSemantics));
     if(!(await textOf(item.status)).startsWith("Showing all"))throw new Error(label+" "+item.kind+" initial status is incorrect");
-    await pressKey(item.input,"\\uE004");
-    const tabFocus=await js("const e=document.activeElement;const s=e?getComputedStyle(e):null;return {id:e?.id||'',focusVisible:!!e&&e.matches(':focus-visible'),outlineStyle:s?.outlineStyle||'',outlineWidth:s?.outlineWidth||''}");
-    if(tabFocus.id!==item.reset.slice(1,item.reset.indexOf(']')>0?item.reset.indexOf(']'):undefined) || !tabFocus.focusVisible || tabFocus.outlineStyle==="none" || parseFloat(tabFocus.outlineWidth)<=0)throw new Error(label+" "+item.kind+" Tab focus must move to Clear with a visible focus indicator: "+JSON.stringify(tabFocus));
-    await pressKey(item.reset,"\\uE007");
+    await pressKey(item.input,"\uE004");
+    const tabFocus=await js("const target=document.querySelector(arguments[0]);const e=document.activeElement;const s=e?getComputedStyle(e):null;return {onClear:!!target&&e===target,focusVisible:!!e&&e.matches(':focus-visible'),outlineStyle:s?.outlineStyle||'',outlineWidth:s?.outlineWidth||''}",[item.reset]);
+    if(!tabFocus.onClear || !tabFocus.focusVisible || tabFocus.outlineStyle==="none" || parseFloat(tabFocus.outlineWidth)<=0)throw new Error(label+" "+item.kind+" Tab focus must move to Clear with a visible focus indicator: "+JSON.stringify(tabFocus));
+    await pressKey(item.reset,"\uE007");
     const keyboardReset=await js("return {focused:document.activeElement===document.querySelector(arguments[0]),value:document.querySelector(arguments[0])?.value||'',status:document.querySelector(arguments[1])?.textContent.trim()||''}",[item.input,item.status]);
     if(!keyboardReset.focused||keyboardReset.value!==""||!keyboardReset.status.startsWith("Showing all"))throw new Error(label+" "+item.kind+" Enter activation of Clear did not restore the search state: "+JSON.stringify(keyboardReset));
     await type(item.input,item.query);
