@@ -1,8 +1,11 @@
 import {spawn} from "node:child_process";
+import {writeFile,unlink} from "node:fs/promises";
 
 const BASE_BRANCH=(process.env.BASE_BRANCH||"").trim();
 const BASE_URL=(BASE_BRANCH?`https://${BASE_BRANCH.slice(0,28).replace(/-+$/, "")}.jawed-website.pages.dev`:(process.env.BASE_URL||"https://jawed.co.in")).replace(/\/$/,"");
 const CHROMEDRIVER=process.env.CHROMEDRIVER||"chromedriver";
+const uploadFixture="/tmp/career-match-upload-fixture.txt";
+const uploadText="Browser upload fixture with enough plain text words to satisfy the resume validation threshold in this deterministic browser test. This is fictional sample content only.";
 const failures=[];
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 let driver=null,sessionId=null,stage="initializing";
@@ -28,6 +31,7 @@ const elementId=e=>e["element-6066-11e4-a52e-4f735466cecf"]||e.ELEMENT;
 async function click(selector){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/click",{});await sleep(150)}
 async function pressKey(selector,key){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/value",{text:key,value:[key]});await sleep(150)}
 async function type(selector,value){const e=await find(selector);const id=elementId(e);await command("POST","/element/"+id+"/clear",{});await command("POST","/element/"+id+"/value",{text:value,value:[...value]})}
+async function upload(selector,path){const e=await find(selector);await command("POST","/element/"+elementId(e)+"/value",{text:path,value:[...path]});await sleep(500)}
 async function hitTest(selector){
   return js('return (()=>{const e=document.querySelector(arguments[0]);if(!e)return {missing:true};document.documentElement.style.setProperty("scroll-behavior","auto","important");e.scrollIntoView({block:"center",inline:"center",behavior:"instant"});const r=e.getBoundingClientRect();const x=r.left+r.width/2;const y=r.top+r.height/2;const h=document.elementFromPoint(x,y);return {missing:false,display:getComputedStyle(e).display,visibility:getComputedStyle(e).visibility,pointerEvents:getComputedStyle(e).pointerEvents,top:r.top,left:r.left,width:r.width,height:r.height,hitTag:h?.tagName||null,hitId:h?.id||null,hitClass:typeof h?.className==="string"?h.className:"",hitInside:!!h&&(h===e||e.contains(h))}})()',[selector]);
 }
@@ -88,6 +92,17 @@ async function runViewport(width,height){
     await type("#jd","Job description text with enough ordinary words to satisfy the minimum validation threshold for this browser regression test and confirm the summary clears after correction.");
     const recovered=await js("const e=document.querySelector('#err'),r=document.querySelector('#resume'),j=document.querySelector('#jd');return {text:e?.textContent||'',resumeInvalid:r?.getAttribute('aria-invalid')||'',resumeDescribedBy:r?.getAttribute('aria-describedby')||'',jobInvalid:j?.getAttribute('aria-invalid')||'',jobDescribedBy:j?.getAttribute('aria-describedby')||''}");
     if(recovered.text||recovered.resumeInvalid||recovered.resumeDescribedBy.split(/\s+/).includes("err")||recovered.jobInvalid||recovered.jobDescribedBy.split(/\s+/).includes("err"))failures.push(width+"x"+height+" valid input correction did not clear validation state: "+JSON.stringify(recovered));
+    stage="resume file upload validation recovery";
+    await type("#resume","");
+    await type("#jd","");
+    await pressKey("#go","\uE007");
+    await upload("#file",uploadFixture);
+    await waitFor("()=>document.querySelector('#fileMsg')?.textContent.startsWith('Loaded career-match-upload-fixture.txt')");
+    const uploaded=await js("const e=document.querySelector('#err'),r=document.querySelector('#resume'),j=document.querySelector('#jd'),f=document.querySelector('#fileMsg');return {resume:r.value,job:j.value,message:e?.textContent||'',resumeInvalid:r.getAttribute('aria-invalid')||'',resumeDescribedBy:r.getAttribute('aria-describedby')||'',jobInvalid:j.getAttribute('aria-invalid')||'',jobDescribedBy:j.getAttribute('aria-describedby')||'',fileStatus:f?.textContent||'',fileRole:f?.getAttribute('role'),fileLive:f?.getAttribute('aria-live')}");
+    if(uploaded.resume.trim().split(/\s+/).length<20||uploaded.message!=="Please provide at least ~20 words in the job description."||uploaded.resumeInvalid||uploaded.resumeDescribedBy.split(/\s+/).includes("err")||uploaded.jobInvalid!=="true"||!uploaded.jobDescribedBy.split(/\s+/).includes("err")||!uploaded.fileStatus.startsWith("Loaded career-match-upload-fixture.txt")||uploaded.fileRole!=="status"||uploaded.fileLive!=="polite")failures.push(width+"x"+height+" file upload did not recover resume validation or announce file status: "+JSON.stringify(uploaded));
+    await type("#jd","Job description text with enough ordinary words to satisfy the minimum validation threshold for this browser regression test and confirm upload recovery.");
+    const uploadRecovered=await js("const e=document.querySelector('#err'),r=document.querySelector('#resume'),j=document.querySelector('#jd');return {message:e?.textContent||'',resumeInvalid:r?.getAttribute('aria-invalid')||'',resumeDescribedBy:r?.getAttribute('aria-describedby')||'',jobInvalid:j?.getAttribute('aria-invalid')||'',jobDescribedBy:j?.getAttribute('aria-describedby')||''}");
+    if(uploadRecovered.message||uploadRecovered.resumeInvalid||uploadRecovered.resumeDescribedBy.split(/\s+/).includes("err")||uploadRecovered.jobInvalid||uploadRecovered.jobDescribedBy.split(/\s+/).includes("err"))failures.push(width+"x"+height+" upload followed by valid job description did not clear validation state: "+JSON.stringify(uploadRecovered));
     stage="sample button programmatic validation recovery";
     await type("#resume","");
     await type("#jd","");
@@ -119,8 +134,8 @@ async function runViewport(width,height){
     if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}
   }
 }
-try{await startDriver();await runViewport(1440,1100);await runViewport(390,844);await runViewport(320,800)}
+try{await writeFile(uploadFixture,uploadText,"utf8");await startDriver();await runViewport(1440,1100);await runViewport(390,844);await runViewport(320,800)}
 catch(error){failures.push("harness at "+stage+": "+error.message)}
-finally{if(driver)driver.kill("SIGTERM")}
+finally{if(driver)driver.kill("SIGTERM");try{await unlink(uploadFixture)}catch{}}
 if(failures.length){console.error("Career Match production browser smoke FAILED");for(const f of failures)console.error("- "+f);process.exit(1)}
 console.log("Career Match production browser smoke PASSED");
