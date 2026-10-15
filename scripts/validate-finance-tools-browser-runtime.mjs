@@ -100,14 +100,18 @@ async function testGrowth(label){
   await checkControl("#growth-reset",label+" growth reset");
   const baseline=await textOf("#future-value");
   if(!baseline||baseline==="—")throw new Error(label+" growth default result is missing");
-  await type("#initial","150000");await pressKey("#initial","\uE007");
+  await type("#initial","150000");
+  await pressKey("#growth-tool button[type='submit']","\uE007");
   const changed=await textOf("#future-value");
-  if(!changed||changed==="—"||changed===baseline)throw new Error(label+" growth did not recalculate after changing initial amount");
-  await click("#growth-reset");
-  if(await valueOf("#initial")!=="100000")throw new Error(label+" growth reset did not restore its default input");
-  if(await textOf("#future-value")!==baseline)throw new Error(label+" growth reset did not restore the default result");
-  await type("#initial","");await submit("#growth-tool");await assertRequiredInvalid("#growth-tool","#initial",label+" growth");
-  await click("#growth-reset");
+  const submitFocus=await js("const b=document.querySelector('#growth-tool button[type=submit]');return {focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(!changed||changed==="—"||changed===baseline||!submitFocus.focused||!submitFocus.focusVisible)throw new Error(label+" growth Enter activation did not recalculate with visible focus");
+  await pressKey("#growth-reset","\uE00D");
+  const resetState=await js("const b=document.querySelector('#growth-reset');return {initial:document.querySelector('#initial')?.value||'',future:document.querySelector('#future-value')?.textContent.trim()||'',focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(resetState.initial!=="100000"||resetState.future!==baseline||!resetState.focused||!resetState.focusVisible)throw new Error(label+" growth Space reset did not restore defaults with visible focus: "+JSON.stringify(resetState));
+  await type("#initial","");
+  await pressKey("#growth-tool button[type='submit']","\uE007");
+  await assertRequiredInvalid("#growth-tool","#initial",label+" growth");
+  await pressKey("#growth-reset","\uE00D");
 }
 async function testGoal(label){
   await openPage("/tools/inflation-goal-planning-calculator/","#cost");
@@ -115,9 +119,12 @@ async function testGoal(label){
   await checkControl("#goal-reset",label+" goal reset");
   const baseline=await textOf("#future");
   if(!baseline||baseline==="—")throw new Error(label+" goal default result is missing");
-  await type("#cost","");await submit("#goal-tool");await assertRequiredInvalid("#goal-tool","#cost",label+" goal");
-  await click("#goal-reset");
-  if(await valueOf("#cost")!=="1000000"||await textOf("#future")!==baseline)throw new Error(label+" goal reset did not restore defaults and results");
+  await type("#cost","");
+  await pressKey("#goal-tool button[type='submit']","\uE007");
+  await assertRequiredInvalid("#goal-tool","#cost",label+" goal");
+  await pressKey("#goal-reset","\uE00D");
+  const resetState=await js("const b=document.querySelector('#goal-reset');return {cost:document.querySelector('#cost')?.value||'',future:document.querySelector('#future')?.textContent.trim()||'',focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(resetState.cost!=="1000000"||resetState.future!==baseline||!resetState.focused||!resetState.focusVisible)throw new Error(label+" goal Space reset did not restore defaults with visible focus: "+JSON.stringify(resetState));
 }
 async function testRetirement(label){
   await openPage("/tools/retirement-planning-calculator/","#age");
@@ -125,9 +132,12 @@ async function testRetirement(label){
   await checkControl("#retirement-reset",label+" retirement reset");
   const baseline=await textOf("#required-corpus");
   if(!baseline||baseline==="—")throw new Error(label+" retirement default result is missing");
-  await type("#age","");await submit("#retirement-tool");await assertRequiredInvalid("#retirement-tool","#age",label+" retirement");
-  await click("#retirement-reset");
-  if(await valueOf("#age")!=="45"||await textOf("#required-corpus")!==baseline)throw new Error(label+" retirement reset did not restore defaults and results");
+  await type("#age","");
+  await pressKey("#retirement-tool button[type='submit']","\uE007");
+  await assertRequiredInvalid("#retirement-tool","#age",label+" retirement");
+  await pressKey("#retirement-reset","\uE00D");
+  const resetState=await js("const b=document.querySelector('#retirement-reset');return {age:document.querySelector('#age')?.value||'',corpus:document.querySelector('#required-corpus')?.textContent.trim()||'',focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(resetState.age!=="45"||resetState.corpus!==baseline||!resetState.focused||!resetState.focusVisible)throw new Error(label+" retirement Space reset did not restore defaults with visible focus: "+JSON.stringify(resetState));
 }
 async function testSnapshot(label){
   await openPage("/tools/personal-finance-snapshot/","#income");
@@ -138,8 +148,12 @@ async function testSnapshot(label){
   await clearAndDispatchInput("#income");
   if(!(await textOf("#error")).includes("Enter zero or a positive number"))throw new Error(label+" snapshot blank input did not show validation feedback");
   if(await textOf("#spending")!=="—"||await textOf("#netWorth")!=="—")throw new Error(label+" snapshot blank input left stale outputs visible");
-  await click("#finance-reset");
-  const resetState={income:await valueOf("#income"),spending:await textOf("#spending"),netWorth:await textOf("#netWorth"),expectedSpending:spending,expectedNetWorth:netWorth};if(resetState.income!=="100000"||resetState.spending!==spending||resetState.netWorth!==netWorth)throw new Error(label+" snapshot reset mismatch: "+JSON.stringify(resetState));
+  await pressKey("#finance-tool button[type='submit']","\uE007");
+  const invalidState=await js("const b=document.querySelector('#finance-tool button[type=submit]');return {error:document.querySelector('#error')?.textContent||'',spending:document.querySelector('#spending')?.textContent.trim()||'',netWorth:document.querySelector('#netWorth')?.textContent.trim()||'',focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(!invalidState.error.includes("Enter zero or a positive number")||invalidState.spending!=="—"||invalidState.netWorth!=="—"||!invalidState.focused||!invalidState.focusVisible)throw new Error(label+" snapshot Enter activation did not preserve validation feedback and visible focus: "+JSON.stringify(invalidState));
+  await pressKey("#finance-reset","\uE00D");
+  const resetState=await js("const b=document.querySelector('#finance-reset');return {income:document.querySelector('#income')?.value||'',spending:document.querySelector('#spending')?.textContent.trim()||'',netWorth:document.querySelector('#netWorth')?.textContent.trim()||'',focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(resetState.income!=="100000"||resetState.spending!==spending||resetState.netWorth!==netWorth||!resetState.focused||!resetState.focusVisible)throw new Error(label+" snapshot Space reset did not restore defaults with visible focus: "+JSON.stringify(resetState));
 }
 async function testWorkspace(label){
   await openPage("/tools/finance-planning-workspace/","#tab-snapshot");
