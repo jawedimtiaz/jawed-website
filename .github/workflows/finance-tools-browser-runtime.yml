@@ -5,6 +5,8 @@ concurrency:
 on:
   pull_request:
     paths:
+      - "scripts/validate-career-match-browser-runtime.mjs"
+      - "tools/career-match-resume-review/index.html"
       - "scripts/validate-finance-tools-browser-runtime.mjs"
       - ".github/workflows/finance-tools-browser-runtime.yml"
       - "tools/compound-growth-sip-calculator/index.html"
@@ -28,6 +30,8 @@ on:
   push:
     branches: [main]
     paths:
+      - "scripts/validate-career-match-browser-runtime.mjs"
+      - "tools/career-match-resume-review/index.html"
       - "scripts/validate-finance-tools-browser-runtime.mjs"
       - ".github/workflows/finance-tools-browser-runtime.yml"
       - "tools/compound-growth-sip-calculator/index.html"
@@ -70,3 +74,8 @@ jobs:
           BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || '' }}
           BASE_URL: https://jawed.co.in
         run: node scripts/validate-finance-tools-browser-runtime.mjs
+      - name: Run Career Match resume review browser smoke
+        env:
+          BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || '' }}
+          BASE_URL: https://jawed.co.in
+        run: node scripts/validate-career-match-browser-runtime.mjs
