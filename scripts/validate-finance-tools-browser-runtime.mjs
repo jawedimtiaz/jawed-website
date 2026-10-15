@@ -428,6 +428,35 @@ async function testMobileNavigationKeyboard(label){
   if(closed.expanded!=="false"||closed.open||closed.path!=="/notes/")throw new Error(label+" choosing a navigation link did not close the menu/navigate correctly: "+JSON.stringify(closed));
 }
 
+
+async function testCareerMatchKeyboard(label){
+  await openPage("/tools/career-match-resume-review/","#tab-analyze");
+  await waitForElement("#tab-saved");
+  const assertTab=async(id,view)=>{
+    const state=await js("const t=document.querySelector(arguments[0]),p=document.querySelector(arguments[1]),s=t?getComputedStyle(t):null;return {focused:document.activeElement===t,selected:t?.getAttribute('aria-selected'),tabIndex:t?.getAttribute('tabindex'),visible:!!p&&!p.hidden,ariaHidden:p?.getAttribute('aria-hidden'),focusVisible:!!t&&t.matches(':focus-visible'),outlineStyle:s?.outlineStyle||'',outlineWidth:s?.outlineWidth||''}",["#"+id,"#v-"+view]);
+    if(!state.focused||state.selected!=="true"||state.tabIndex!=="0"||!state.visible||state.ariaHidden!=="false")throw new Error(label+" Career Match keyboard tab state failed for "+id+": "+JSON.stringify(state));
+    if(!state.focusVisible||state.outlineStyle==="none"||parseFloat(state.outlineWidth)<=0)throw new Error(label+" Career Match keyboard focus indicator missing for "+id+": "+JSON.stringify(state));
+    const otherTabs=await js("return [...document.querySelectorAll('nav[role=tablist] [role=tab]')].filter(t=>t!==document.querySelector(arguments[0])).every(t=>t.getAttribute('aria-selected')==='false'&&t.getAttribute('tabindex')==='-1')",["#"+id]);
+    if(!otherTabs)throw new Error(label+" Career Match must keep inactive tabs out of the tab sequence after selecting "+id);
+  };
+  await pressKey("#tab-analyze","\\uE014");
+  await assertTab("tab-results","results");
+  await pressKey("#tab-results","\\uE014");
+  await assertTab("tab-tracker","tracker");
+  await pressKey("#tab-tracker","\\uE012");
+  await assertTab("tab-results","results");
+  await pressKey("#tab-results","\\uE011");
+  await assertTab("tab-analyze","analyze");
+  await pressKey("#tab-analyze","\\uE012");
+  await assertTab("tab-saved","saved");
+  await pressKey("#tab-saved","\\uE014");
+  await assertTab("tab-analyze","analyze");
+  await pressKey("#tab-analyze","\\uE010");
+  await assertTab("tab-analyze","analyze");
+  await pressKey("#tab-analyze","\\uE011");
+  await assertTab("tab-saved","saved");
+}
+
 async function runViewport(width,height){
   const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"none","goog:loggingPrefs":{browser:"ALL"},"goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--disable-cache","--window-size="+width+","+height]}}}};
   const created=await http("POST","/session",caps);sessionId=created.sessionId;
@@ -447,6 +476,7 @@ async function runViewport(width,height){
     await testContentDiscovery(label);
     await testJawedAiWidget(label);
     await testMobileNavigationKeyboard(label);
+    await testCareerMatchKeyboard(label);
     await testRetirementWithdrawalsGuide(label);
     await testPortfolioAllocationGuide(label);
     await testUsStocksEtfsGuide(label);
