@@ -224,6 +224,7 @@ async function runViewport(width,height){
     const trackerStatus=await js("return {live:document.querySelector('#board')?.getAttribute('aria-live'),atomic:document.querySelector('#board')?.getAttribute('aria-atomic'),toastRole:document.querySelector('#toast')?.getAttribute('role'),toastText:document.querySelector('#toast')?.textContent||''}");
     if(trackerStatus.live!=="polite"||trackerStatus.atomic!=="true"||trackerStatus.toastRole!=="status"||!trackerStatus.toastText.includes("Application removed"))failures.push(width+"x"+height+" tracker deletion announcement semantics failed: "+JSON.stringify(trackerStatus));
     stage="save analysis read failure preserves existing data and announces failure";
+    await click("#tab-results"); await waitFor('()=>!document.querySelector("#v-results").hidden');
     await js("window.__savedReadWriteOriginalGetItem=Storage.prototype.getItem;window.__savedReadWriteOriginalSetItem=Storage.prototype.setItem;window.__savedReadWriteSeed=[{id:'storage-read-fixture',title:'Existing saved analysis',company:'Fixture',date:'2026-10-16',score:50,html:'<section><h2>Existing</h2></section>'}];window.__savedReadWriteOriginalSetItem.call(localStorage,'cm_saved',JSON.stringify(window.__savedReadWriteSeed));Storage.prototype.getItem=function(k){if(k==='cm_saved')throw new DOMException('Storage access denied','SecurityError');return window.__savedReadWriteOriginalGetItem.call(this,k)}");
     let savedReadWriteFailure;
     try {
