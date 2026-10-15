@@ -140,6 +140,12 @@ async function runViewport(width,height){
     await pressKey("#results button[data-a='save']","\uE007"); await sleep(150);
     await click("#tab-saved"); await waitFor('()=>!document.querySelector("#v-saved").hidden');
     if(await js("return document.querySelectorAll('#savedList .job').length")<1)failures.push(width+"x"+height+" saved: Save Analysis did not create a saved item");
+    stage="saved analysis persistence across view changes";
+    const savedPersistBefore=await js("return {count:document.querySelectorAll('#savedList button[data-s=del]').length,stored:JSON.parse(localStorage.getItem('cm_saved')||'[]').length}");
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
+    await click("#tab-saved"); await waitFor('()=>!document.querySelector("#v-saved").hidden');
+    const savedPersistAfter=await js("return {count:document.querySelectorAll('#savedList button[data-s=del]').length,stored:JSON.parse(localStorage.getItem('cm_saved')||'[]').length,empty:!!document.querySelector('#savedList .empty')}");
+    if(savedPersistBefore.count!==1||savedPersistBefore.stored!==1||savedPersistAfter.count!==1||savedPersistAfter.stored!==1||savedPersistAfter.empty)failures.push(width+"x"+height+" saved analysis did not persist across tab changes: "+JSON.stringify({savedPersistBefore,savedPersistAfter}));
     stage="saved analysis delete keyboard activation and focus recovery";
     const savedBefore=await js("return document.querySelectorAll('#savedList button[data-s=del]').length");
     await pressKey("#savedList button[data-s=del]","\uE007");
