@@ -246,8 +246,8 @@ async function readFile(f){
   if(out.length>MAX_EXTRACTED_CHARS)throw new Error("Extracted text is too large (maximum 500,000 characters). Please use a shorter document.");
   if(out.trim().length<50)throw new Error("No selectable text found (scanned file?)");return out}
 let fileReadToken=0;
-$("#file").onchange=async e=>{const token=++fileReadToken,f=e.target.files[0];if(!f)return;$("#resume").value="";$("#fileMsg").textContent="Reading…";
-  try{const t=await readFile(f);if(token!==fileReadToken)return;$("#resume").value=t;$("#fileMsg").textContent=`Loaded ${f.name} (${t.split(/\s+/).length} words)`}
+$("#file").onchange=async e=>{const token=++fileReadToken,f=e.target.files[0];if(!f)return;$("#resume").value="";$("#resume").dispatchEvent(new Event("input",{bubbles:true}));$("#fileMsg").textContent="Reading…";
+  try{const t=await readFile(f);if(token!==fileReadToken)return;$("#resume").value=t;$("#resume").dispatchEvent(new Event("input",{bubbles:true}));$("#fileMsg").textContent=\`Loaded \${f.name} (\${t.split(/\\s+/).length} words)\`}
   catch(err){if(token!==fileReadToken)return;$("#fileMsg").textContent="Could not read file: "+err.message+". Please paste the text instead.";$("#file").value=""}};
 $("#sample").onclick=()=>{$("#resume").value=`Alex Sample
 alex.sample@example.com | +1 555 010 2030
@@ -271,7 +271,8 @@ Requirements:
 - Experience with Docker, Kubernetes and AWS
 - PostgreSQL or similar databases
 - CI/CD and testing (Jest)
-- Agile teamwork and communication`};
+- Agile teamwork and communication``;
+ $("#resume").dispatchEvent(new Event("input",{bubbles:true}));$("#jd").dispatchEvent(new Event("input",{bubbles:true}));};
 const resumeInput=$("#resume"),jobDescriptionInput=$("#jd"),validationError=$("#err");
 const careerInputFields=[resumeInput,jobDescriptionInput];
 function shortCareerInputs(){return careerInputFields.filter(input=>input.value.trim().split(/\s+/).filter(Boolean).length<20)}
