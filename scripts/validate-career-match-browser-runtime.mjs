@@ -133,7 +133,7 @@ async function runViewport(width,height){
     await js("window.__themeBefore=document.documentElement.dataset.theme;window.__themeOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='cm_theme')throw new DOMException('Storage quota exceeded','QuotaExceededError');return window.__themeOriginalSetItem.call(this,k,v)}");
     let themeStorageFailure;
     try {
-      await pressKey("#theme","\\uE007");
+      await pressKey("#theme","\uE007");
       themeStorageFailure=await js("const b=document.querySelector('#theme'),t=document.querySelector('#toast');return {before:window.__themeBefore,after:document.documentElement.dataset.theme,pressed:b?.getAttribute('aria-pressed')||'',focused:document.activeElement===b,focusVisible:b?.matches(':focus-visible')||false,toast:t?.textContent||'',toastRole:t?.getAttribute('role')||'',toastLive:t?.getAttribute('aria-live')||'',toastAtomic:t?.getAttribute('aria-atomic')||''}");
     } finally {
       await js("Storage.prototype.setItem=window.__themeOriginalSetItem;delete window.__themeOriginalSetItem;delete window.__themeBefore");
