@@ -233,11 +233,10 @@ const discoveryStatusContracts=[
   ["blog/index.html","blog-filter-status","Showing all posts."]
 ].map(([file,id,initialText])=>{
   const html=fs.readFileSync(file,"utf8");
-  const statusPattern=new RegExp('<p\\\\b[^>]*\\\\bid="'+id+'"[^>]*>');
-  const opening=(html.match(statusPattern)||[])[0]||"";
-  const textPattern=new RegExp('<p\\\\b[^>]*\\\\bid="'+id+'"[^>]*>([\\\\s\\\\S]*?)</p>');
-  const body=(html.match(textPattern)||[])[1]||"";
-  return [file+" discovery status uses explicit status semantics",opening.includes('role="status"')&&opening.includes('aria-live="polite"')&&opening.includes('aria-atomic="true"')&&body===initialText];
+  const opening='<p class="form-note" id="'+id+'" role="status" aria-live="polite" aria-atomic="true">';
+  const start=html.indexOf(opening);
+  const body=start<0?"":(html.slice(start+opening.length).match(/^([\\s\\S]*?)<\\/p>/)||[])[1]||"";
+  return [file+" discovery status uses explicit status semantics",start>=0&&body===initialText];
 });
 const missingDiscoveryStatusContracts=discoveryStatusContracts.filter(([,ok])=>!ok).map(([name])=>name);
 if(missingDiscoveryStatusContracts.length)errors.push("Discovery result status semantics missing: "+missingDiscoveryStatusContracts.join(", "));
