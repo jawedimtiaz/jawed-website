@@ -456,6 +456,12 @@ async function testJawedAiWidget(label){
   await pressKey(".jawed-ai-minimize","\uE007");
   const minimized=await js("const p=document.querySelector('#jawed-ai-panel'),t=document.querySelector('.jawed-ai-toggle'),m=document.querySelector('.jawed-ai-minimize');return {hidden:p?.hidden,expanded:t?.getAttribute('aria-expanded'),toggleFocused:document.activeElement===t,focusVisible:!!t&&t.matches(':focus-visible'),minimizeLabel:m?.getAttribute('aria-label')}");
   if(!minimized.hidden||minimized.expanded!=="false"||!minimized.toggleFocused||!minimized.focusVisible||minimized.minimizeLabel!=="Minimize Jawed AI")throw new Error(label+" AI widget keyboard minimize must close and restore visible focus to the toggle: "+JSON.stringify(minimized));
+  await pressKey(".jawed-ai-toggle","\uE007");
+  const reopenedForClose=await js("const p=document.querySelector('#jawed-ai-panel'),i=p?.querySelector('input[name=question]');return {hidden:p?.hidden,inputFocused:document.activeElement===i}");
+  if(reopenedForClose.hidden||!reopenedForClose.inputFocused)throw new Error(label+" AI widget could not reopen before keyboard close: "+JSON.stringify(reopenedForClose));
+  await pressKey(".jawed-ai-close","\uE007");
+  const keyboardClosed=await js("const p=document.querySelector('#jawed-ai-panel'),t=document.querySelector('.jawed-ai-toggle'),c=document.querySelector('.jawed-ai-close');return {hidden:p?.hidden,expanded:t?.getAttribute('aria-expanded'),toggleFocused:document.activeElement===t,focusVisible:!!t&&t.matches(':focus-visible'),closeLabel:c?.getAttribute('aria-label')}");
+  if(!keyboardClosed.hidden||keyboardClosed.expanded!=="false"||!keyboardClosed.toggleFocused||!keyboardClosed.focusVisible||keyboardClosed.closeLabel!=="Close Jawed AI")throw new Error(label+" AI widget keyboard close must close and restore visible focus to the toggle: "+JSON.stringify(keyboardClosed));
 }
 
 async function testMobileNavigationKeyboard(label){
