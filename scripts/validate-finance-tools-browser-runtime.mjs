@@ -206,18 +206,18 @@ async function testTroubleshooting(label){
   const startPath=async(category,symptom,keyboard=false)=>{
     await type("#symptom",symptom);
     await js("const e=document.querySelector('#type');e.value=arguments[0];e.dispatchEvent(new Event('change',{bubbles:true}));return true",[category]);
-    if(keyboard)await pressKey("#trouble-tool button[type=submit]","\\uE007");
+    if(keyboard)await pressKey("#trouble-tool button[type=submit]","\uE007");
     else await submit("#trouble-tool");
   };
   await startPath("network","Device cannot reach any website after reconnecting to Wi-Fi.",true);
   if(!(await textOf("#result")).includes("Can the device reach any known website"))throw new Error(label+" troubleshooting network path did not start");
   const firstDecision=await js("const b=document.querySelector('#result [data-answer=yes]');return {focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible'),label:b?.textContent.trim()||''}");
   if(!firstDecision.focused||!firstDecision.focusVisible||!firstDecision.label)throw new Error(label+" troubleshooting keyboard start must focus the first decision with a visible indicator: "+JSON.stringify(firstDecision));
-  await pressKey("#result [data-answer=yes]","\\uE007");
+  await pressKey("#result [data-answer=yes]","\uE007");
   if(!(await textOf("#result")).includes("Can the device resolve a known domain name"))throw new Error(label+" troubleshooting Enter activation did not advance to DNS");
   const nextDecision=await js("const b=document.querySelector('#result [data-answer=yes]');return {focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible'),text:b?.textContent.trim()||''}");
   if(!nextDecision.focused||!nextDecision.focusVisible||!nextDecision.text)throw new Error(label+" troubleshooting next decision must receive visible keyboard focus: "+JSON.stringify(nextDecision));
-  await pressKey("#result [data-answer=no]","\\uE00D");
+  await pressKey("#result [data-answer=no]","\uE00D");
   const keyboardOutcome=await js("const r=document.querySelector('#result');return {focused:document.activeElement===r,tabindex:r?.getAttribute('tabindex'),text:r?.textContent||''}");
   if(!keyboardOutcome.focused||keyboardOutcome.tabindex!=="-1"||!keyboardOutcome.text.includes("Name resolution is the current boundary"))throw new Error(label+" troubleshooting Space activation must announce the terminal result and move focus to it: "+JSON.stringify(keyboardOutcome));
   await click("#clear");
