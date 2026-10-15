@@ -119,10 +119,15 @@ async function runViewport(width,height){
     const announcement=await js("const e=document.querySelector('#results-status');return {role:e?.getAttribute('role'),live:e?.getAttribute('aria-live'),text:e?.textContent||'',resultsLive:document.querySelector('#results')?.hasAttribute('aria-live')}");
     if(announcement.role!=="status"||announcement.live!=="polite"||!announcement.text.includes("Analysis complete")||!announcement.text.includes("Match score:")||announcement.resultsLive)failures.push(width+"x"+height+" result announcement contract failed: "+JSON.stringify(announcement));
     await assertNoHorizontalOverflow(width+"x"+height,"analysis results");
+    stage="track application keyboard activation";
+    await pressKey("#trackBtn","\uE007");
+    const tracked=await js("const b=document.querySelector('#trackBtn'),t=document.querySelector('#toast');return {focused:document.activeElement===b,focusVisible:b?.matches(':focus-visible'),toast:t?.textContent||''}");
+    if(!tracked.focused||!tracked.focusVisible||!tracked.toast.includes("Added to tracker"))failures.push(width+"x"+height+" #trackBtn: Enter did not add the analysis or retain visible focus: "+JSON.stringify(tracked));
     stage="tracker workflow";
     await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
+    if(await js("return document.querySelectorAll('#board .job').length")<1)failures.push(width+"x"+height+" #trackBtn: Enter did not create a tracker entry");
     await type("#tCo","Browser Smoke Co"); await type("#tRole","Runtime QA"); await pressKey("#addJob","\uE007");
-    if(await js("return document.querySelectorAll('#board .job').length")<1)failures.push(width+"x"+height+" tracker: Add did not create a job");
+    if(await js("return document.querySelectorAll('#board .job').length")<2)failures.push(width+"x"+height+" tracker: keyboard Add did not create a second job");
     stage="save analysis workflow";
     await click("#tab-results"); await waitFor('()=>!document.querySelector("#v-results").hidden');
     await pressKey("#results button[data-a='save']","\uE007"); await sleep(150);
