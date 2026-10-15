@@ -53,6 +53,25 @@ async function runViewport(width,height){
   try{
     await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
     try{await waitForElement("#file")}catch(error){let current="unknown",source="",logs=[];try{current=await command("GET","/url")}catch{}try{source=await command("GET","/source")}catch{}try{logs=await command("POST","/log",{type:"browser"})}catch{}throw new Error("page did not expose #file; url="+JSON.stringify(current)+" sourceLength="+String(source?.length||0)+" hasFileMarkup="+String(String(source).includes('id="file"'))+" logs="+JSON.stringify(logs?.slice?.(-12)||[]));} await sleep(700);
+    stage="malformed persisted storage recovery";
+    await js("localStorage.setItem('cm_saved','{malformed');localStorage.setItem('cm_track','{malformed');localStorage.setItem('cm_theme','{malformed')");
+    await command("POST","/refresh",{});
+    await sleep(500);
+    await waitForElement("#file");
+    await waitFor("()=>document.readyState==='complete'&&!!document.querySelector('#file')");
+    const corruptStorageStartup=await js("return {file:!!document.querySelector('#file'),theme:document.documentElement.dataset.theme||'',themePressed:document.querySelector('#theme')?.getAttribute('aria-pressed')||'',savedTab:!!document.querySelector('#tab-saved'),trackerTab:!!document.querySelector('#tab-tracker'),board:!!document.querySelector('#board')}");
+    if(!corruptStorageStartup.file||!corruptStorageStartup.savedTab||!corruptStorageStartup.trackerTab||!corruptStorageStartup.board||!["light","dark"].includes(corruptStorageStartup.theme)||corruptStorageStartup.themePressed!==String(corruptStorageStartup.theme==="dark"))failures.push(width+"x"+height+" malformed persisted storage prevented startup or left theme state inconsistent: "+JSON.stringify(corruptStorageStartup));
+    await click("#tab-saved"); await waitFor('()=>!document.querySelector("#v-saved").hidden');
+    const corruptSaved=await js("return {empty:!!document.querySelector('#savedList .empty'),count:document.querySelectorAll('#savedList .job').length}");
+    if(!corruptSaved.empty||corruptSaved.count)failures.push(width+"x"+height+" malformed saved-analysis storage did not recover to the empty state: "+JSON.stringify(corruptSaved));
+    await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
+    const corruptTracker=await js("return {columns:document.querySelectorAll('#board .col').length,jobs:document.querySelectorAll('#board .job').length}");
+    if(corruptTracker.columns!==4||corruptTracker.jobs)failures.push(width+"x"+height+" malformed tracker storage did not recover to four empty status columns: "+JSON.stringify(corruptTracker));
+    await js("localStorage.setItem('cm_saved','[]');localStorage.setItem('cm_track','[]');localStorage.setItem('cm_theme',JSON.stringify(document.documentElement.dataset.theme||'light'))");
+    await command("POST","/refresh",{});
+    await sleep(500);
+    await waitForElement("#file");
+    await waitFor('()=>!document.querySelector("#v-analyze")?.hidden');
     stage="motion and forced-colors stylesheet contract";
     const accessibilityCss=await js("const css=document.querySelector('style')?.textContent||'';return {reduced:css.includes('@media(prefers-reduced-motion:reduce)')&&css.includes('animation:none!important')&&css.includes('transition:none!important')&&css.includes('scroll-behavior:auto!important'),forced:css.includes('@media(forced-colors:active)')&&css.includes('CanvasText')&&css.includes('ButtonFace')&&css.includes('HighlightText')}");
     if(!accessibilityCss.reduced)failures.push(width+"x"+height+" reduced-motion CSS contract is missing or incomplete");
