@@ -180,11 +180,12 @@ async function testPromptBuilder(label){
   await checkControl("#prompt-clear",label+" prompt builder clear");
   await type("#prompt-goal","Draft a concise troubleshooting checklist");
   await type("#prompt-context","For first-line IT support");
-  await submit("#prompt-tool");
-  const output=await textOf("#prompt-generated-output");
-  if(!output.includes("Goal: Draft a concise troubleshooting checklist")||!output.includes("Context: For first-line IT support"))throw new Error(label+" prompt builder output mismatch");
-  await click("#prompt-clear");
-  if(await valueOf("#prompt-goal")!==""||!(await textOf("#prompt-generated-output")).includes("Your prompt will appear here."))throw new Error(label+" prompt builder clear did not reset state");
+  await pressKey("#prompt-tool button[type=submit]","\uE007");
+  const built=await js("const o=document.querySelector('#prompt-generated-output'),s=document.querySelector('#prompt-status'),b=document.querySelector('#prompt-copy'),t=document.querySelector('#prompt-tool button[type=submit]');return {output:o?.textContent||'',status:s?.textContent.trim()||'',copyHidden:!!b?.hidden,focused:document.activeElement===t,focusVisible:!!t&&t.matches(':focus-visible')}");
+  if(!built.output.includes("Goal: Draft a concise troubleshooting checklist")||!built.output.includes("Context: For first-line IT support")||built.status!=="Prompt built locally in your browser."||built.copyHidden||!built.focused||!built.focusVisible)throw new Error(label+" prompt builder Enter activation/result status/focus contract failed: "+JSON.stringify(built));
+  await pressKey("#prompt-clear","\uE00D");
+  const cleared=await js("const g=document.querySelector('#prompt-goal'),c=document.querySelector('#prompt-context'),o=document.querySelector('#prompt-generated-output'),s=document.querySelector('#prompt-status'),b=document.querySelector('#prompt-copy'),t=document.querySelector('#prompt-clear');return {goal:g?.value||'',context:c?.value||'',output:o?.textContent||'',status:s?.textContent.trim()||'',copyHidden:!!b?.hidden,focused:document.activeElement===t,focusVisible:!!t&&t.matches(':focus-visible')}");
+  if(cleared.goal!==""||cleared.context!==""||!cleared.output.includes("Your prompt will appear here.")||cleared.status!==""||!cleared.copyHidden||!cleared.focused||!cleared.focusVisible)throw new Error(label+" prompt builder Space activation did not restore empty state and visible focus: "+JSON.stringify(cleared));
 }
 async function testInterviewPlanner(label){
   await openPage("/tools/interview-preparation-planner/","#jd");
