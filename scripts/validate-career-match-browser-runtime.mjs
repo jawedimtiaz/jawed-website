@@ -255,7 +255,7 @@ async function runViewport(width,height){
     await js("window.__savedReadBefore=JSON.parse(localStorage.getItem('cm_saved')||'[]');window.__savedReadOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_saved')throw new DOMException('Storage access denied','SecurityError');return window.__savedReadOriginalGetItem.call(this,k)}");
     let savedReadStorageFailure;
     try {
-      await pressKey("#savedList button[data-s=del]","\\uE007");
+      await pressKey("#savedList button[data-s=del]","\uE007");
       savedReadStorageFailure=await js("const stored=JSON.parse(window.__savedReadOriginalGetItem.call(localStorage,'cm_saved')||'[]');const b=document.querySelector('#savedList button[data-s=del]');const t=document.querySelector('#toast');return {beforeCount:window.__savedReadBefore.length,afterCount:document.querySelectorAll('#savedList button[data-s=del]').length,storedBefore:window.__savedReadBefore.length,storedAfter:stored.length,sameIds:window.__savedReadBefore.map(x=>x.id).join(',')===stored.map(x=>x.id).join(','),focused:document.activeElement===b,focusVisible:b?.matches(':focus-visible')||false,toast:t?.textContent||'',toastRole:t?.getAttribute('role')||'',toastLive:t?.getAttribute('aria-live')||'',toastAtomic:t?.getAttribute('aria-atomic')||''}");
     } finally {
       await js("Storage.prototype.getItem=window.__savedReadOriginalGetItem;delete window.__savedReadOriginalGetItem;delete window.__savedReadBefore");
