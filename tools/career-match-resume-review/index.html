@@ -272,8 +272,36 @@ Requirements:
 - PostgreSQL or similar databases
 - CI/CD and testing (Jest)
 - Agile teamwork and communication`};
-$("#go").onclick=()=>{const r=$("#resume").value.trim(),j=$("#jd").value.trim(),err=$("#err");err.textContent="";
-  if(r.split(/\s+/).length<20||j.split(/\s+/).length<20){err.textContent="Please provide both a resume and a job description (at least ~20 words each).";return}
+const resumeInput=$("#resume"),jobDescriptionInput=$("#jd"),validationError=$("#err");
+const careerInputFields=[resumeInput,jobDescriptionInput];
+function shortCareerInputs(){return careerInputFields.filter(input=>input.value.trim().split(/\s+/).filter(Boolean).length<20)}
+function syncCareerInputValidation(updateMessage=false){
+  const invalid=shortCareerInputs();
+  careerInputFields.forEach(input=>{
+    if(invalid.includes(input)){
+      input.setAttribute("aria-invalid","true");
+      const ids=(input.getAttribute("aria-describedby")||"").split(/\s+/).filter(Boolean);
+      if(!ids.includes("err"))ids.push("err");
+      input.setAttribute("aria-describedby",ids.join(" "));
+    }else{
+      input.removeAttribute("aria-invalid");
+      const ids=(input.getAttribute("aria-describedby")||"").split(/\s+/).filter(id=>id&&id!=="err");
+      if(ids.length)input.setAttribute("aria-describedby",ids.join(" "));else input.removeAttribute("aria-describedby");
+    }
+  });
+  if(updateMessage||validationError.textContent.startsWith("Please provide")){
+    validationError.textContent=invalid.length===2
+      ?"Please provide both a resume and a job description (at least ~20 words each)."
+      :invalid.length===1
+        ?"Please provide at least ~20 words in "+(invalid[0]===resumeInput?"your resume.":"the job description.")
+        :"";
+  }
+  return invalid;
+}
+careerInputFields.forEach(input=>input.addEventListener("input",()=>{if(validationError.textContent.startsWith("Please provide"))syncCareerInputValidation()}));
+$("#go").onclick=()=>{const r=resumeInput.value.trim(),j=jobDescriptionInput.value.trim(),err=validationError;err.textContent="";
+  const invalid=syncCareerInputValidation(true);
+  if(invalid.length){invalid[0].focus();return}
   try{render(analyze(r,j));$("#results-status").textContent="Analysis complete. Match score: "+window.CUR.overall+" out of 100. Results are available in the dashboard.";show("results");window.scrollTo(0,0)}catch(e){err.textContent="Analysis failed: "+e.message}};
 const pills=(a,c)=>a.length?a.map(x=>`<span class="pill ${c}">${esc(x)}</span>`).join(""):'<em class="muted">None detected</em>';
 const ul=a=>a.length?"<ul>"+a.map(x=>`<li>${x}</li>`).join("")+"</ul>":'<em class="muted">None detected</em>';
