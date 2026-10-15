@@ -72,6 +72,32 @@ async function runViewport(width,height){
     await sleep(500);
     await waitForElement("#file");
     await waitFor('()=>!document.querySelector("#v-analyze")?.hidden');
+    stage="browser storage access denied recovery";
+    await js("window.__deniedThemeBefore=document.documentElement.dataset.theme||'';window.__deniedGetItem=Storage.prototype.getItem;window.__deniedSetItem=Storage.prototype.setItem;Storage.prototype.getItem=function(){throw new DOMException('Access denied','SecurityError')};Storage.prototype.setItem=function(){throw new DOMException('Access denied','SecurityError')}");
+    let deniedStartup;
+    try {
+      await command("POST","/refresh",{});
+      await sleep(500);
+      await waitForElement("#file");
+      await waitFor('()=>!!document.querySelector("#theme")&&!!document.querySelector("#tab-saved")&&!!document.querySelector("#tab-tracker")');
+      deniedStartup=await js("return {theme:document.documentElement.dataset.theme||'',pressed:document.querySelector('#theme')?.getAttribute('aria-pressed')||'',file:!!document.querySelector('#file'),savedTab:!!document.querySelector('#tab-saved'),trackerTab:!!document.querySelector('#tab-tracker')}");
+      if(!deniedStartup.file||!deniedStartup.savedTab||!deniedStartup.trackerTab||!["light","dark"].includes(deniedStartup.theme)||deniedStartup.pressed!==String(deniedStartup.theme==="dark"))failures.push(width+"x"+height+" denied storage access prevented startup or left theme state inconsistent: "+JSON.stringify(deniedStartup));
+      await pressKey("#theme","\\uE007");
+      const deniedThemeToggle=await js("const b=document.querySelector('#theme'),t=document.querySelector('#toast');return {before:window.__deniedThemeBefore,after:document.documentElement.dataset.theme||'',pressed:b?.getAttribute('aria-pressed')||'',focused:document.activeElement===b,focusVisible:b?.matches(':focus-visible')||false,toast:t?.textContent||'',role:t?.getAttribute('role')||'',live:t?.getAttribute('aria-live')||'',atomic:t?.getAttribute('aria-atomic')||''}");
+      if(deniedThemeToggle.after===deniedThemeToggle.before||deniedThemeToggle.pressed!==String(deniedThemeToggle.after==="dark")||!deniedThemeToggle.focused||!deniedThemeToggle.focusVisible||!deniedThemeToggle.toast.includes("Browser storage unavailable")||deniedThemeToggle.role!=="status"||deniedThemeToggle.live!=="polite"||deniedThemeToggle.atomic!=="true")failures.push(width+"x"+height+" theme toggle did not remain usable and announce denied storage access: "+JSON.stringify(deniedThemeToggle));
+      await click("#tab-saved"); await waitFor('()=>!document.querySelector("#v-saved").hidden');
+      const deniedSaved=await js("return {empty:!!document.querySelector('#savedList .empty'),count:document.querySelectorAll('#savedList .job').length}");
+      if(!deniedSaved.empty||deniedSaved.count)failures.push(width+"x"+height+" denied storage access did not leave saved analyses in a safe empty state: "+JSON.stringify(deniedSaved));
+      await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
+      const deniedTracker=await js("return {columns:document.querySelectorAll('#board .col').length,jobs:document.querySelectorAll('#board .job').length}");
+      if(deniedTracker.columns!==4||deniedTracker.jobs)failures.push(width+"x"+height+" denied storage access did not leave tracker in a safe empty state: "+JSON.stringify(deniedTracker));
+    } finally {
+      await js("Storage.prototype.getItem=window.__deniedGetItem;Storage.prototype.setItem=window.__deniedSetItem;delete window.__deniedGetItem;delete window.__deniedSetItem;delete window.__deniedThemeBefore");
+    }
+    await command("POST","/refresh",{});
+    await sleep(500);
+    await waitForElement("#file");
+    await waitFor('()=>!document.querySelector("#v-analyze")?.hidden');
     stage="motion and forced-colors stylesheet contract";
     const accessibilityCss=await js("const css=document.querySelector('style')?.textContent||'';return {reduced:css.includes('@media(prefers-reduced-motion:reduce)')&&css.includes('animation:none!important')&&css.includes('transition:none!important')&&css.includes('scroll-behavior:auto!important'),forced:css.includes('@media(forced-colors:active)')&&css.includes('CanvasText')&&css.includes('ButtonFace')&&css.includes('HighlightText')}");
     if(!accessibilityCss.reduced)failures.push(width+"x"+height+" reduced-motion CSS contract is missing or incomplete");
