@@ -453,6 +453,12 @@ async function testJawedAiWidget(label){
   await pressKey(".jawed-ai-toggle","\uE007");
   const reopenedForMinimize=await js("const p=document.querySelector('#jawed-ai-panel'),i=p?.querySelector('input[name=question]');return {hidden:p?.hidden,inputFocused:document.activeElement===i}");
   if(reopenedForMinimize.hidden||!reopenedForMinimize.inputFocused)throw new Error(label+" AI widget could not reopen before keyboard minimize: "+JSON.stringify(reopenedForMinimize));
+  await pressKey('input[name="question'],"\uE008\uE004");
+  const privacyFocus=await js("const a=document.querySelector('.jawed-ai-widget-privacy a');return {focused:document.activeElement===a,focusVisible:!!a&&a.matches(':focus-visible')}");
+  if(!privacyFocus.focused||!privacyFocus.focusVisible)throw new Error(label+" AI widget Shift+Tab from the question field must reach the privacy link with visible focus: "+JSON.stringify(privacyFocus));
+  await pressKey(".jawed-ai-close","\uE008\uE004");
+  const minimizeFocus=await js("const m=document.querySelector('.jawed-ai-minimize'),s=m?getComputedStyle(m):null;return {focused:document.activeElement===m,focusVisible:!!m&&m.matches(':focus-visible'),outlineStyle:s?.outlineStyle||'',outlineWidth:s?.outlineWidth||'',label:m?.getAttribute('aria-label')}");
+  if(!minimizeFocus.focused||!minimizeFocus.focusVisible||minimizeFocus.outlineStyle==="none"||parseFloat(minimizeFocus.outlineWidth)<=0||minimizeFocus.label!=="Minimize Jawed AI")throw new Error(label+" AI widget Shift+Tab must reach Minimize with a visible focus indicator: "+JSON.stringify(minimizeFocus));
   await pressKey(".jawed-ai-minimize","\uE007");
   const minimized=await js("const p=document.querySelector('#jawed-ai-panel'),t=document.querySelector('.jawed-ai-toggle'),m=document.querySelector('.jawed-ai-minimize');return {hidden:p?.hidden,expanded:t?.getAttribute('aria-expanded'),toggleFocused:document.activeElement===t,focusVisible:!!t&&t.matches(':focus-visible'),minimizeLabel:m?.getAttribute('aria-label')}");
   if(!minimized.hidden||minimized.expanded!=="false"||!minimized.toggleFocused||!minimized.focusVisible||minimized.minimizeLabel!=="Minimize Jawed AI")throw new Error(label+" AI widget keyboard minimize must close and restore visible focus to the toggle: "+JSON.stringify(minimized));
