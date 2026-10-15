@@ -453,7 +453,7 @@ async function testJawedAiWidget(label){
   await pressKey(".jawed-ai-toggle","\uE007");
   const reopenedForMinimize=await js("const p=document.querySelector('#jawed-ai-panel'),i=p?.querySelector('input[name=question]');return {hidden:p?.hidden,inputFocused:document.activeElement===i}");
   if(reopenedForMinimize.hidden||!reopenedForMinimize.inputFocused)throw new Error(label+" AI widget could not reopen before keyboard minimize: "+JSON.stringify(reopenedForMinimize));
-  await pressKey('input[name="question'],"\uE008\uE004");
+  await pressKey('input[name="question"]',"\uE008\uE004");
   const privacyFocus=await js("const a=document.querySelector('.jawed-ai-widget-privacy a');return {focused:document.activeElement===a,focusVisible:!!a&&a.matches(':focus-visible')}");
   if(!privacyFocus.focused||!privacyFocus.focusVisible)throw new Error(label+" AI widget Shift+Tab from the question field must reach the privacy link with visible focus: "+JSON.stringify(privacyFocus));
   await pressKey(".jawed-ai-close","\uE008\uE004");
