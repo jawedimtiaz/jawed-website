@@ -62,7 +62,12 @@ async function checkLink(selector,label){
   if(!state.hitInside)throw new Error(label+": link hit-test did not reach anchor (hit "+state.hitTag+")");
   if(!/^https?:/.test(state.href||""))throw new Error(label+": missing valid link destination");
 }
-async function assertRequiredInvalid(formSelector,inputSelector,label){const state=await js("const f=document.querySelector(arguments[0]),i=document.querySelector(arguments[1]),s=f?.querySelector('.form-error-summary'),e=i?document.getElementById(i.id+'-error'):null,style=i?getComputedStyle(i):null;return {formValid:f.checkValidity(),valueMissing:i.validity.valueMissing,focused:document.activeElement===i,focusVisible:!!i&&i.matches(':focus-visible'),outlineStyle:style?.outlineStyle||'',outlineWidth:style?.outlineWidth||'',ariaInvalid:i?.getAttribute('aria-invalid'),describedBy:(i?.getAttribute('aria-describedby')||'').split(/\\s+/).includes((i?.id||'')+'-error'),fieldError:e?.textContent||'',summaryRole:s?.getAttribute('role'),summaryText:s?.textContent.trim()||''}",[formSelector,inputSelector]);if(state.formValid||!state.valueMissing||!state.focused||!state.focusVisible||state.outlineStyle==="none"||parseFloat(state.outlineWidth)<=0||state.ariaInvalid!=="true"||!state.describedBy||!state.fieldError||state.summaryRole!=="alert"||!state.summaryText.includes("Please correct the highlighted field"))throw new Error(label+": keyboard validation must focus and identify the invalid field with an announced error: "+JSON.stringify(state))}
+async function assertRequiredInvalid(formSelector,inputSelector,label){const state=await js("const f=document.querySelector(arguments[0]),i=document.querySelector(arguments[1]),s=f?.querySelector('.form-error-summary'),e=i?document.getElementById(i.id+'-error'):null,style=i?getComputedStyle(i):null;return {formValid:f.checkValidity(),valueMissing:i.validity.valueMissing,focused:document.activeElement===i,focusVisible:!!i&&i.matches(':focus-visible'),outlineStyle:style?.outlineStyle||'',outlineWidth:style?.outlineWidth||'',ariaInvalid:i?.getAttribute('aria-invalid'),describedBy:(i?.getAttribute('aria-describedby')||'').split(/\s+/).includes((i?.id||'')+'-error'),fieldError:e?.textContent||'',summaryRole:s?.getAttribute('role'),summaryText:s?.textContent.trim()||''}",[formSelector,inputSelector]);if(state.formValid||!state.valueMissing||!state.focused||!state.focusVisible||state.outlineStyle==="none"||parseFloat(state.outlineWidth)<=0||state.ariaInvalid!=="true"||!state.describedBy||!state.fieldError||state.summaryRole!=="alert"||!state.summaryText.includes("Please correct the highlighted field"))throw new Error(label+": keyboard validation must focus and identify the invalid field with an announced error: "+JSON.stringify(state))}
+async function assertValidationRecovery(formSelector,inputSelector,validValue,label){
+  await type(inputSelector,validValue);
+  const state=await js("const f=document.querySelector(arguments[0]),i=document.querySelector(arguments[1]),s=f?.querySelector('.form-error-summary'),e=i?document.getElementById(i.id+'-error'):null;return {valid:i.checkValidity(),value:i.value,ariaInvalid:i.getAttribute('aria-invalid'),describedBy:(i.getAttribute('aria-describedby')||'').split(/\s+/).includes(i.id+'-error'),fieldErrorExists:!!e,summaryExists:!!s}",[formSelector,inputSelector]);
+  if(!state.valid||state.value!==validValue||state.ariaInvalid==="true"||state.describedBy||state.fieldErrorExists||state.summaryExists)throw new Error(label+": correcting the field must clear linked field errors and the form summary: "+JSON.stringify(state));
+}
 async function openPage(path,selector){
   await command("POST","/url",{url:BASE_URL+path});
   await waitForElement(selector);
@@ -123,6 +128,7 @@ async function testGrowth(label){
   await type("#initial","");
   await pressKey("#growth-tool button[type='submit']","\uE007");
   await assertRequiredInvalid("#growth-tool","#initial",label+" growth");
+  await assertValidationRecovery("#growth-tool","#initial","100000",label+" growth");
   await pressKey("#growth-reset","\uE00D");
 }
 async function testGoal(label){
@@ -134,6 +140,7 @@ async function testGoal(label){
   await type("#cost","");
   await pressKey("#goal-tool button[type='submit']","\uE007");
   await assertRequiredInvalid("#goal-tool","#cost",label+" goal");
+  await assertValidationRecovery("#goal-tool","#cost","1000000",label+" goal");
   await pressKey("#goal-reset","\uE00D");
   const resetState=await js("const b=document.querySelector('#goal-reset');return {cost:document.querySelector('#cost')?.value||'',future:document.querySelector('#future')?.textContent.trim()||'',focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
   if(resetState.cost!=="1000000"||resetState.future!==baseline||!resetState.focused||!resetState.focusVisible)throw new Error(label+" goal Space reset did not restore defaults with visible focus: "+JSON.stringify(resetState));
@@ -147,6 +154,7 @@ async function testRetirement(label){
   await type("#age","");
   await pressKey("#retirement-tool button[type='submit']","\uE007");
   await assertRequiredInvalid("#retirement-tool","#age",label+" retirement");
+  await assertValidationRecovery("#retirement-tool","#age","45",label+" retirement");
   await pressKey("#retirement-reset","\uE00D");
   const resetState=await js("const b=document.querySelector('#retirement-reset');return {age:document.querySelector('#age')?.value||'',corpus:document.querySelector('#required-corpus')?.textContent.trim()||'',focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
   if(resetState.age!=="45"||resetState.corpus!==baseline||!resetState.focused||!resetState.focusVisible)throw new Error(label+" retirement Space reset did not restore defaults with visible focus: "+JSON.stringify(resetState));
