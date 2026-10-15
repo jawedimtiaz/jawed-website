@@ -235,7 +235,8 @@ const discoveryStatusContracts=[
   const html=fs.readFileSync(file,"utf8");
   const opening='<p class="form-note" id="'+id+'" role="status" aria-live="polite" aria-atomic="true">';
   const start=html.indexOf(opening);
-  const body=start<0?"":(html.slice(start+opening.length).match(/^([\\s\\S]*?)<\\/p>/)||[])[1]||"";
+  const close=start<0?-1:html.indexOf("</p>",start+opening.length);
+  const body=start<0||close<0?"":html.slice(start+opening.length,close);
   return [file+" discovery status uses explicit status semantics",start>=0&&body===initialText];
 });
 const missingDiscoveryStatusContracts=discoveryStatusContracts.filter(([,ok])=>!ok).map(([name])=>name);
