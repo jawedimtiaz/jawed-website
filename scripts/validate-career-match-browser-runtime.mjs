@@ -133,6 +133,8 @@ async function runViewport(width,height){
     await pressKey("#board [data-t=rm]","\uE007");
     const trackerAfter=await js("return {count:document.querySelectorAll('#board [data-t=rm]').length,focus:document.activeElement?.id||'',focusVisible:document.activeElement?.matches(':focus-visible')||false,removeFocused:document.activeElement?.matches('#board [data-t=rm]')||false,toast:document.querySelector('#toast')?.textContent||''}");
     if(trackerAfter.count!==trackerBefore-1||(!trackerAfter.removeFocused&&trackerAfter.focus!=="addJob")||!trackerAfter.focusVisible||!trackerAfter.toast.includes("Application removed"))failures.push(width+"x"+height+" tracker: keyboard removal or focus recovery failed: "+JSON.stringify(trackerAfter));
+    const trackerStatus=await js("return {live:document.querySelector('#board')?.getAttribute('aria-live'),atomic:document.querySelector('#board')?.getAttribute('aria-atomic'),toastRole:document.querySelector('#toast')?.getAttribute('role'),toastText:document.querySelector('#toast')?.textContent||''}");
+    if(trackerStatus.live!=="polite"||trackerStatus.atomic!=="true"||trackerStatus.toastRole!=="status"||!trackerStatus.toastText.includes("Application removed"))failures.push(width+"x"+height+" tracker deletion announcement semantics failed: "+JSON.stringify(trackerStatus));
     stage="save analysis workflow";
     await click("#tab-results"); await waitFor('()=>!document.querySelector("#v-results").hidden');
     await pressKey("#results button[data-a='save']","\uE007"); await sleep(150);
@@ -143,6 +145,8 @@ async function runViewport(width,height){
     await pressKey("#savedList button[data-s=del]","\uE007");
     const savedAfter=await js("return {count:document.querySelectorAll('#savedList button[data-s=del]').length,focus:document.activeElement?.id||'',focusVisible:document.activeElement?.matches(':focus-visible')||false,deleteFocused:document.activeElement?.matches('#savedList button[data-s=del]')||false,tabFocused:document.activeElement?.id==='tab-saved',toast:document.querySelector('#toast')?.textContent||''}");
     if(savedAfter.count!==savedBefore-1||(!savedAfter.deleteFocused&&!savedAfter.tabFocused)||!savedAfter.focusVisible||!savedAfter.toast.includes("Saved analysis deleted"))failures.push(width+"x"+height+" saved: keyboard deletion or focus recovery failed: "+JSON.stringify(savedAfter));
+    const savedStatus=await js("return {live:document.querySelector('#savedList')?.getAttribute('aria-live'),atomic:document.querySelector('#savedList')?.getAttribute('aria-atomic'),toastRole:document.querySelector('#toast')?.getAttribute('role'),toastText:document.querySelector('#toast')?.textContent||''}");
+    if(savedStatus.live!=="polite"||savedStatus.atomic!=="true"||savedStatus.toastRole!=="status"||!savedStatus.toastText.includes("Saved analysis deleted"))failures.push(width+"x"+height+" saved-analysis deletion announcement semantics failed: "+JSON.stringify(savedStatus));
     stage="return to analyze";
     await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
   } finally {
