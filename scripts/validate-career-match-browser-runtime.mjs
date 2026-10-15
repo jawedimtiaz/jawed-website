@@ -130,7 +130,7 @@ async function runViewport(width,height){
     if(await js("return document.querySelectorAll('#board .job').length")<2)failures.push(width+"x"+height+" tracker: keyboard Add did not create a second job");
     stage="tracker removal keyboard activation and focus recovery";
     const trackerBefore=await js("return document.querySelectorAll('#board [data-t=rm]').length");
-    await pressKey("#board [data-t=rm]","\\uE007");
+    await pressKey("#board [data-t=rm]","\uE007");
     const trackerAfter=await js("return {count:document.querySelectorAll('#board [data-t=rm]').length,focus:document.activeElement?.id||'',focusVisible:document.activeElement?.matches(':focus-visible')||false,removeFocused:document.activeElement?.matches('#board [data-t=rm]')||false,toast:document.querySelector('#toast')?.textContent||''}");
     if(trackerAfter.count!==trackerBefore-1||(!trackerAfter.removeFocused&&trackerAfter.focus!=="addJob")||!trackerAfter.focusVisible||!trackerAfter.toast.includes("Application removed"))failures.push(width+"x"+height+" tracker: keyboard removal or focus recovery failed: "+JSON.stringify(trackerAfter));
     stage="save analysis workflow";
@@ -140,7 +140,7 @@ async function runViewport(width,height){
     if(await js("return document.querySelectorAll('#savedList .job').length")<1)failures.push(width+"x"+height+" saved: Save Analysis did not create a saved item");
     stage="saved analysis delete keyboard activation and focus recovery";
     const savedBefore=await js("return document.querySelectorAll('#savedList button[data-s=del]').length");
-    await pressKey("#savedList button[data-s=del]","\\uE007");
+    await pressKey("#savedList button[data-s=del]","\uE007");
     const savedAfter=await js("return {count:document.querySelectorAll('#savedList button[data-s=del]').length,focus:document.activeElement?.id||'',focusVisible:document.activeElement?.matches(':focus-visible')||false,deleteFocused:document.activeElement?.matches('#savedList button[data-s=del]')||false,tabFocused:document.activeElement?.id==='tab-saved',toast:document.querySelector('#toast')?.textContent||''}");
     if(savedAfter.count!==savedBefore-1||(!savedAfter.deleteFocused&&!savedAfter.tabFocused)||!savedAfter.focusVisible||!savedAfter.toast.includes("Saved analysis deleted"))failures.push(width+"x"+height+" saved: keyboard deletion or focus recovery failed: "+JSON.stringify(savedAfter));
     stage="return to analyze";
