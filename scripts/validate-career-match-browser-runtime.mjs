@@ -174,7 +174,7 @@ async function runViewport(width,height){
     const savedPersistAfter=await js("return {count:document.querySelectorAll('#savedList button[data-s=del]').length,stored:JSON.parse(localStorage.getItem('cm_saved')||'[]').length,empty:!!document.querySelector('#savedList .empty')}");
     if(savedPersistBefore.count!==1||savedPersistBefore.stored!==1||savedPersistAfter.count!==1||savedPersistAfter.stored!==1||savedPersistAfter.empty)failures.push(width+"x"+height+" saved analysis did not persist across tab changes: "+JSON.stringify({savedPersistBefore,savedPersistAfter}));
     stage="saved analysis open status announcement";
-    await pressKey("#savedList button[data-s=open]","\\uE007");
+    await pressKey("#savedList button[data-s=open]","\uE007");
     await waitFor('()=>!document.querySelector("#v-results").hidden');
     const savedOpenAnnouncement=await js("const e=document.querySelector('#results-status');return {role:e?.getAttribute('role'),live:e?.getAttribute('aria-live'),atomic:e?.getAttribute('aria-atomic'),text:e?.textContent||'',visible:!!document.querySelector('#v-results')&&!document.querySelector('#v-results').hidden,heading:document.querySelector('#results h2')?.textContent||''}");
     if(savedOpenAnnouncement.role!=="status"||savedOpenAnnouncement.live!=="polite"||savedOpenAnnouncement.atomic!=="true"||!savedOpenAnnouncement.text.startsWith("Saved analysis opened:")||!savedOpenAnnouncement.text.includes("Match score:")||!savedOpenAnnouncement.visible||!savedOpenAnnouncement.heading)failures.push(width+"x"+height+" opening a saved analysis did not expose the expected polite atomic status announcement and results panel: "+JSON.stringify(savedOpenAnnouncement));
