@@ -129,6 +129,16 @@ async function runViewport(width,height){
     await pressKey("#trackBtn","\uE007");
     const tracked=await js("const b=document.querySelector('#trackBtn'),t=document.querySelector('#toast');return {focused:document.activeElement===b,focusVisible:b?.matches(':focus-visible'),toast:t?.textContent||''}");
     if(!tracked.focused||!tracked.focusVisible||!tracked.toast.includes("Added to tracker"))failures.push(width+"x"+height+" #trackBtn: Enter did not add the analysis or retain visible focus: "+JSON.stringify(tracked));
+    stage="theme storage failure announces unavailable persistence";
+    await js("window.__themeBefore=document.documentElement.dataset.theme;window.__themeOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='cm_theme')throw new DOMException('Storage quota exceeded','QuotaExceededError');return window.__themeOriginalSetItem.call(this,k,v)}");
+    let themeStorageFailure;
+    try {
+      await pressKey("#theme","\\uE007");
+      themeStorageFailure=await js("const b=document.querySelector('#theme'),t=document.querySelector('#toast');return {before:window.__themeBefore,after:document.documentElement.dataset.theme,pressed:b?.getAttribute('aria-pressed')||'',focused:document.activeElement===b,focusVisible:b?.matches(':focus-visible')||false,toast:t?.textContent||'',toastRole:t?.getAttribute('role')||'',toastLive:t?.getAttribute('aria-live')||'',toastAtomic:t?.getAttribute('aria-atomic')||''}");
+    } finally {
+      await js("Storage.prototype.setItem=window.__themeOriginalSetItem;delete window.__themeOriginalSetItem;delete window.__themeBefore");
+    }
+    if(themeStorageFailure.after===themeStorageFailure.before||themeStorageFailure.pressed!==String(themeStorageFailure.after==="dark")||!themeStorageFailure.focused||!themeStorageFailure.focusVisible||!themeStorageFailure.toast.includes("Browser storage unavailable")||themeStorageFailure.toastRole!=="status"||themeStorageFailure.toastLive!=="polite"||themeStorageFailure.toastAtomic!=="true")failures.push(width+"x"+height+" theme storage failure did not preserve an operable theme toggle and announce unavailable persistence: "+JSON.stringify(themeStorageFailure));
     stage="tracker workflow";
     await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
     if(await js("return document.querySelectorAll('#board .job').length")<1)failures.push(width+"x"+height+" #trackBtn: Enter did not create a tracker entry");
