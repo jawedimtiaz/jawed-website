@@ -191,13 +191,19 @@ async function testInterviewPlanner(label){
   await checkControl("#plan",label+" interview planner build");
   await checkControl("#sample",label+" interview planner sample");
   await checkControl("#clear",label+" interview planner clear");
-  await click("#sample");
-  if(!(await textOf("#results")).includes("Interview preparation plan"))throw new Error(label+" interview planner sample did not build a plan");
-  await click("#clear");
-  if(await valueOf("#jd")!==""||!(await textOf("#results")).includes("Paste a job description"))throw new Error(label+" interview planner clear did not restore the empty state");
+  await pressKey("#sample","\uE007");
+  const sampleState=await js("const o=document.querySelector('#results');return {hasPlan:o?.textContent.includes('Interview preparation plan'),focused:document.activeElement===o,tabindex:o?.getAttribute('tabindex'),focusVisible:!!o&&o.matches(':focus-visible')}");
+  if(!sampleState.hasPlan||!sampleState.focused||sampleState.tabindex!=="-1"||!sampleState.focusVisible)throw new Error(label+" interview planner Enter activation must build the sample and focus the result visibly: "+JSON.stringify(sampleState));
+  await pressKey("#clear","\uE00D");
+  const clearState=await js("const j=document.querySelector('#jd'),o=document.querySelector('#results');return {jobDescription:j?.value||'',focused:document.activeElement===j,focusVisible:!!j&&j.matches(':focus-visible'),emptyState:o?.textContent.includes('Paste a job description')}");
+  if(clearState.jobDescription!==""||!clearState.focused||!clearState.focusVisible||!clearState.emptyState)throw new Error(label+" interview planner Space activation must clear state and return visible focus to the job description: "+JSON.stringify(clearState));
   await type("#jd","Short description");
-  await click("#plan");
-  if(!(await textOf("#results")).includes("at least 80 characters"))throw new Error(label+" interview planner did not request sufficient job-description detail");
+  await pressKey("#plan","\uE007");
+  if(!(await textOf("#results")).includes("at least 80 characters"))throw new Error(label+" interview planner Enter activation did not request sufficient job-description detail");
+  await type("#jd","IT Support Engineer. Troubleshoot Windows and macOS, Microsoft 365 sign-in, network connectivity, ServiceNow incidents, documentation, and customer support. Communicate clearly and resolve technical issues.");
+  await pressKey("#plan","\uE007");
+  const planState=await js("const o=document.querySelector('#results');return {hasPlan:o?.textContent.includes('Interview preparation plan'),focused:document.activeElement===o,tabindex:o?.getAttribute('tabindex'),focusVisible:!!o&&o.matches(':focus-visible')}");
+  if(!planState.hasPlan||!planState.focused||planState.tabindex!=="-1"||!planState.focusVisible)throw new Error(label+" interview planner Enter activation must build a valid plan and focus the result visibly: "+JSON.stringify(planState));
 }
 async function testTroubleshooting(label){
   await openPage("/tools/it-troubleshooting-assistant/","#symptom");
