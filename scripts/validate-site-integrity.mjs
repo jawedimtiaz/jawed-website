@@ -225,6 +225,24 @@ if(!jawedAiWidgetStatusContract)errors.push("Jawed AI widget status must expose 
 else console.log("Jawed AI widget status live-region contract: PASS");
 
 
+const discoveryStatusContracts=[
+  ["tools/index.html","tools-filter-status","Showing all tools."],
+  ["topics/index.html","topics-filter-status","Showing all topics."],
+  ["resources/index.html","resources-filter-status","Showing all resources."],
+  ["notes/index.html","notes-filter-status","Showing all notes."],
+  ["blog/index.html","blog-filter-status","Showing all posts."]
+].map(([file,id,initialText])=>{
+  const html=fs.readFileSync(file,"utf8");
+  const opening='<p class="form-note" id="'+id+'" role="status" aria-live="polite" aria-atomic="true">';
+  const start=html.indexOf(opening);
+  const close=start<0?-1:html.indexOf("</p>",start+opening.length);
+  const body=start<0||close<0?"":html.slice(start+opening.length,close);
+  return [file+" discovery status uses explicit status semantics",start>=0&&body===initialText];
+});
+const missingDiscoveryStatusContracts=discoveryStatusContracts.filter(([,ok])=>!ok).map(([name])=>name);
+if(missingDiscoveryStatusContracts.length)errors.push("Discovery result status semantics missing: "+missingDiscoveryStatusContracts.join(", "));
+else console.log("Discovery result status semantics contract: PASS (5 pages)");
+
 const discoveryQueryBoundaryContract=[
   ["discovery URL query is bounded to 200 characters",mainJs.includes("initial.trim().slice(0,200)")],
   ["typed discovery query is bounded to 200 characters",mainJs.includes("i.value.trim().slice(0,200)")]
