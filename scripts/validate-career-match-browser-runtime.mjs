@@ -5,6 +5,7 @@ const BASE_BRANCH=(process.env.BASE_BRANCH||"").trim();
 const BASE_URL=(BASE_BRANCH?`https://${BASE_BRANCH.slice(0,28).replace(/-+$/, "")}.jawed-website.pages.dev`:(process.env.BASE_URL||"https://jawed.co.in")).replace(/\/$/,"");
 const CHROMEDRIVER=process.env.CHROMEDRIVER||"chromedriver";
 const uploadFixture="/tmp/career-match-upload-fixture.txt";
+const invalidPdfFixture="/tmp/career-match-invalid-fixture.pdf";
 const uploadText="Browser upload fixture with enough plain text words to satisfy the resume validation threshold in this deterministic browser test. This is fictional sample content only.";
 const failures=[];
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -103,6 +104,11 @@ async function runViewport(width,height){
     await type("#jd","Job description text with enough ordinary words to satisfy the minimum validation threshold for this browser regression test and confirm upload recovery.");
     const uploadRecovered=await js("const e=document.querySelector('#err'),r=document.querySelector('#resume'),j=document.querySelector('#jd');return {message:e?.textContent||'',resumeInvalid:r?.getAttribute('aria-invalid')||'',resumeDescribedBy:r?.getAttribute('aria-describedby')||'',jobInvalid:j?.getAttribute('aria-invalid')||'',jobDescribedBy:j?.getAttribute('aria-describedby')||''}");
     if(uploadRecovered.message||uploadRecovered.resumeInvalid||uploadRecovered.resumeDescribedBy.split(/\s+/).includes("err")||uploadRecovered.jobInvalid||uploadRecovered.jobDescribedBy.split(/\s+/).includes("err"))failures.push(width+"x"+height+" upload followed by valid job description did not clear validation state: "+JSON.stringify(uploadRecovered));
+    stage="invalid PDF upload status announcement and recovery";
+    await upload("#file",invalidPdfFixture);
+    await waitFor("()=>document.querySelector('#fileMsg')?.textContent.startsWith('Could not read file:')");
+    const invalidPdf=await js("const f=document.querySelector('#file'),m=document.querySelector('#fileMsg'),r=document.querySelector('#resume');return {fileValue:f?.value||'',resume:r?.value||'',status:m?.textContent||'',role:m?.getAttribute('role'),live:m?.getAttribute('aria-live'),atomic:m?.getAttribute('aria-atomic')}");
+    if(invalidPdf.fileValue||invalidPdf.resume||!invalidPdf.status.includes("The selected file does not appear to be a valid PDF.")||invalidPdf.role!=="status"||invalidPdf.live!=="polite"||invalidPdf.atomic!=="true")failures.push(width+"x"+height+" invalid PDF upload did not clear the file/resume input or expose an accessible atomic polite failure announcement: "+JSON.stringify(invalidPdf));
     stage="sample button programmatic validation recovery";
     await type("#resume","");
     await type("#jd","");
@@ -181,8 +187,8 @@ async function runViewport(width,height){
     if(sessionId){try{await command("DELETE","")}catch{}sessionId=null}
   }
 }
-try{await writeFile(uploadFixture,uploadText,"utf8");await startDriver();await runViewport(1440,1100);await runViewport(390,844);await runViewport(320,800)}
+try{await writeFile(uploadFixture,uploadText,"utf8");await writeFile(invalidPdfFixture,"This is deliberately not a PDF document.","utf8");await startDriver();await runViewport(1440,1100);await runViewport(390,844);await runViewport(320,800)}
 catch(error){failures.push("harness at "+stage+": "+error.message)}
-finally{if(driver)driver.kill("SIGTERM");try{await unlink(uploadFixture)}catch{}}
+finally{if(driver)driver.kill("SIGTERM");try{await unlink(uploadFixture)}catch{}try{await unlink(invalidPdfFixture)}catch{}}
 if(failures.length){console.error("Career Match production browser smoke FAILED");for(const f of failures)console.error("- "+f);process.exit(1)}
 console.log("Career Match production browser smoke PASSED");
