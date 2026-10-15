@@ -162,6 +162,17 @@ async function runViewport(width,height){
     if(trackerAfter.count!==trackerBefore-1||(!trackerAfter.removeFocused&&trackerAfter.focus!=="addJob")||!trackerAfter.focusVisible||!trackerAfter.toast.includes("Application removed"))failures.push(width+"x"+height+" tracker: keyboard removal or focus recovery failed: "+JSON.stringify(trackerAfter));
     const trackerStatus=await js("return {live:document.querySelector('#board')?.getAttribute('aria-live'),atomic:document.querySelector('#board')?.getAttribute('aria-atomic'),toastRole:document.querySelector('#toast')?.getAttribute('role'),toastText:document.querySelector('#toast')?.textContent||''}");
     if(trackerStatus.live!=="polite"||trackerStatus.atomic!=="true"||trackerStatus.toastRole!=="status"||!trackerStatus.toastText.includes("Application removed"))failures.push(width+"x"+height+" tracker deletion announcement semantics failed: "+JSON.stringify(trackerStatus));
+    stage="save analysis storage failure preserves saved data and announces failure";
+    await click("#tab-results"); await waitFor('()=>!document.querySelector("#v-results").hidden');
+    await js("window.__savedSaveBefore=JSON.parse(localStorage.getItem('cm_saved')||'[]');window.__savedSaveOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='cm_saved')throw new DOMException('Storage quota exceeded','QuotaExceededError');return window.__savedSaveOriginalSetItem.call(this,k,v)}");
+    let savedSaveStorageFailure;
+    try {
+      await pressKey("#results button[data-a='save']","\uE007");
+      savedSaveStorageFailure=await js("const stored=JSON.parse(localStorage.getItem('cm_saved')||'[]');const b=document.querySelector('#results button[data-a=save]');const t=document.querySelector('#toast');return {beforeCount:window.__savedSaveBefore.length,afterCount:stored.length,sameIds:window.__savedSaveBefore.map(x=>x.id).join(',')===stored.map(x=>x.id).join(','),focused:document.activeElement===b,focusVisible:b?.matches(':focus-visible')||false,toast:t?.textContent||'',toastRole:t?.getAttribute('role')||'',toastLive:t?.getAttribute('aria-live')||'',toastAtomic:t?.getAttribute('aria-atomic')||''}");
+    } finally {
+      await js("Storage.prototype.setItem=window.__savedSaveOriginalSetItem;delete window.__savedSaveOriginalSetItem;delete window.__savedSaveBefore");
+    }
+    if(savedSaveStorageFailure.beforeCount!==0||savedSaveStorageFailure.afterCount!==savedSaveStorageFailure.beforeCount||!savedSaveStorageFailure.sameIds||!savedSaveStorageFailure.focused||!savedSaveStorageFailure.focusVisible||!savedSaveStorageFailure.toast.includes("Browser storage unavailable")||savedSaveStorageFailure.toastRole!=="status"||savedSaveStorageFailure.toastLive!=="polite"||savedSaveStorageFailure.toastAtomic!=="true")failures.push(width+"x"+height+" failed save-analysis write changed persisted data, lost visible keyboard focus, or omitted the accessible storage-failure announcement: "+JSON.stringify(savedSaveStorageFailure));
     stage="save analysis workflow";
     await click("#tab-results"); await waitFor('()=>!document.querySelector("#v-results").hidden');
     await pressKey("#results button[data-a='save']","\uE007"); await sleep(150);
