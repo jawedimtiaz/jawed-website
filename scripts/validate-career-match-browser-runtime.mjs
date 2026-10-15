@@ -183,7 +183,7 @@ async function runViewport(width,height){
     await js("window.__savedRemoveBefore=JSON.parse(localStorage.getItem('cm_saved')||'[]');window.__savedRemoveButton=document.querySelector('#savedList button[data-s=del]');window.__savedRemoveOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='cm_saved')throw new DOMException('Storage quota exceeded','QuotaExceededError');return window.__savedRemoveOriginalSetItem.call(this,k,v)}");
     let savedRemoveStorageFailure;
     try {
-      await pressKey("#savedList button[data-s=del]","\\uE007");
+      await pressKey("#savedList button[data-s=del]","\uE007");
       savedRemoveStorageFailure=await js("const stored=JSON.parse(localStorage.getItem('cm_saved')||'[]');return {beforeCount:window.__savedRemoveBefore.length,afterCount:document.querySelectorAll('#savedList button[data-s=del]').length,storedBefore:window.__savedRemoveBefore.length,storedAfter:stored.length,sameIds:window.__savedRemoveBefore.map(x=>x.id).join(',')===stored.map(x=>x.id).join(','),focused:document.activeElement?.matches('#savedList button[data-s=del]')||false,focusVisible:document.activeElement?.matches(':focus-visible')||false,toast:document.querySelector('#toast')?.textContent||'',toastRole:document.querySelector('#toast')?.getAttribute('role')||'',toastLive:document.querySelector('#toast')?.getAttribute('aria-live')||'',toastAtomic:document.querySelector('#toast')?.getAttribute('aria-atomic')||''}");
     } finally {
       await js("Storage.prototype.setItem=window.__savedRemoveOriginalSetItem;delete window.__savedRemoveOriginalSetItem;delete window.__savedRemoveBefore;delete window.__savedRemoveButton");
