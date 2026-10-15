@@ -282,11 +282,12 @@ async function testNoteFormatter(label){
   await checkControl("#note-clear",label+" note formatter clear");
   await type("#note-issue","User cannot connect to the corporate VPN.");
   await type("#note-actions","Verified network connectivity and collected the exact error.");
-  await submit("#note-tool");
-  const output=await textOf("#note-output");
-  if(!output.includes("Issue / Request: User cannot connect to the corporate VPN.")||!output.includes("Actions Taken: Verified network connectivity"))throw new Error(label+" note formatter output mismatch");
-  await click("#note-clear");
-  if(await valueOf("#note-issue")!==""||!(await textOf("#note-output")).includes("Your formatted note will appear here."))throw new Error(label+" note formatter clear did not reset state");
+  await pressKey("#note-tool button[type=submit]","\uE007");
+  const built=await js("const o=document.querySelector('#note-output'),s=document.querySelector('#note-status'),c=document.querySelector('#note-copy'),b=document.querySelector('#note-tool button[type=submit]');return {output:o?.textContent||'',status:s?.textContent.trim()||'',copyHidden:!!c?.hidden,focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(!built.output.includes("Issue / Request: User cannot connect to the corporate VPN.")||!built.output.includes("Actions Taken: Verified network connectivity")||built.status!=="Note formatted locally in your browser."||built.copyHidden||!built.focused||!built.focusVisible)throw new Error(label+" note formatter Enter activation/result status/focus contract failed: "+JSON.stringify(built));
+  await pressKey("#note-clear","\uE00D");
+  const cleared=await js("const ids=['note-issue','note-actions','note-resolution','note-followup'];const c=document.querySelector('#note-copy'),s=document.querySelector('#note-status'),o=document.querySelector('#note-output'),b=document.querySelector('#note-clear');return {values:ids.map(id=>document.querySelector('#'+id)?.value||''),output:o?.textContent||'',status:s?.textContent.trim()||'',copyHidden:!!c?.hidden,focused:document.activeElement===b,focusVisible:!!b&&b.matches(':focus-visible')}");
+  if(cleared.values.some(Boolean)||!cleared.output.includes("Your formatted note will appear here.")||cleared.status!==""||!cleared.copyHidden||!cleared.focused||!cleared.focusVisible)throw new Error(label+" note formatter Space activation did not restore all fields and visible focus: "+JSON.stringify(cleared));
 }
 async function testKnowledgeBaseDraft(label){
   await openPage("/tools/ticket-to-knowledge-base-draft/","#kb-problem");
