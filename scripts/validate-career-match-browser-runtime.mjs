@@ -90,6 +90,13 @@ async function runViewport(width,height){
       await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
       const deniedTracker=await js("return {columns:document.querySelectorAll('#board .col').length,jobs:document.querySelectorAll('#board .job').length}");
       if(deniedTracker.columns!==4||deniedTracker.jobs)failures.push(width+"x"+height+" denied storage access did not leave tracker in a safe empty state: "+JSON.stringify(deniedTracker));
+      // Attempt a real tracker write while Storage.setItem is denied. The UI
+      // must explain the failure and must not show an unsaved phantom card.
+      await type("#tCo","Storage-denied test company");
+      await type("#tRole","Storage-denied test role");
+      await click("#addJob");
+      const deniedTrackerWrite=await js("return {columns:document.querySelectorAll('#board .col').length,jobs:document.querySelectorAll('#board .job').length,company:document.querySelector('#tCo')?.value||'',role:document.querySelector('#tRole')?.value||'',toast:document.querySelector('#toast')?.textContent||'',toastRole:document.querySelector('#toast')?.getAttribute('role')||'',toastLive:document.querySelector('#toast')?.getAttribute('aria-live')||'',toastAtomic:document.querySelector('#toast')?.getAttribute('aria-atomic')||''}");
+      if(deniedTrackerWrite.columns!==4||deniedTrackerWrite.jobs!==0||!deniedTrackerWrite.toast.includes("Browser storage unavailable")||deniedTrackerWrite.toastRole!=="status"||deniedTrackerWrite.toastLive!=="polite"||deniedTrackerWrite.toastAtomic!=="true")failures.push(width+"x"+height+" tracker write with denied storage created a phantom job or omitted the accessible failure notice: "+JSON.stringify(deniedTrackerWrite));
     } finally {
       await js("Storage.prototype.getItem=window.__deniedGetItem;Storage.prototype.setItem=window.__deniedSetItem;delete window.__deniedGetItem;delete window.__deniedSetItem;delete window.__deniedThemeBefore");
     }
