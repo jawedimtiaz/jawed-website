@@ -559,9 +559,20 @@ const careerMatchTrackerRemoval=fs.readFileSync("tools/career-match-resume-revie
 const careerMatchTrackerRemovalReadContract=careerMatchTrackerRemoval.includes('const raw=localStorage.getItem("cm_track");t=validTrackList(raw==null?[]:JSON.parse(raw))}catch{toast("Browser storage unavailable");return}const index=');
 if(!careerMatchTrackerRemovalReadContract)errors.push("Career Match tracker removal must not treat failed persisted-state reads as an empty tracker");
 else console.log("Career Match tracker removal read-failure contract: PASS");
-const careerMatchTrackerStatusReadContract=careerMatchTrackerRemoval.includes('select.dataset.previous=s;')&&careerMatchTrackerRemoval.includes('const raw=localStorage.getItem("cm_track");t=validTrackList(raw==null?[]:JSON.parse(raw))}catch{toast("Browser storage unavailable");select.value=select.dataset.previous||select.value;return}');
+
+const careerMatchTrackerStatusReadContract=careerMatchTrackerRemoval.includes('select.dataset.previous=s;')&&careerMatchTrackerRemoval.includes('const previous=select.dataset.previous||select.value;')&&careerMatchTrackerRemoval.includes('catch{toast("Browser storage unavailable");select.value=previous;return}');
 if(!careerMatchTrackerStatusReadContract)errors.push("Career Match tracker status changes must preserve the previous selection when persisted-state reads fail");
 else console.log("Career Match tracker status read-failure contract: PASS");
+
+const careerMatchStatusReadFailure=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchStatusReadContract=careerMatchStatusReadFailure.includes('select.dataset.previous=s;')&&careerMatchStatusReadFailure.includes('select.value=previous;return}const x=t.find');
+if(!careerMatchStatusReadContract)errors.push("Career Match tracker status control must cache its previous value and restore it if tracker storage reads fail");
+else console.log("Career Match tracker status read-failure preservation contract: PASS");
+
+const careerMatchTrackerStatusWrite=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchTrackerStatusWriteContract=careerMatchTrackerStatusWrite.includes('select.dataset.previous=s;')&&careerMatchTrackerStatusWrite.includes('select.value=previous;toast("Browser storage unavailable")');
+if(!careerMatchTrackerStatusWriteContract)errors.push("Career Match tracker status changes must preserve the visible status selection and card when storage writes fail");
+else console.log("Career Match tracker status write-failure preservation contract: PASS");
 
 const careerMatchSavedActions=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedActionNameContract=careerMatchSavedActions.includes('btn.setAttribute("aria-label",`${action[0]} saved analysis: ${x.title}`);row.append(btn)');

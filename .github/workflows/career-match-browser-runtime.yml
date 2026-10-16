@@ -8,6 +8,7 @@ on:
       - "tools/career-match-resume-review/index.html"
       - "scripts/validate-career-match-browser-runtime.mjs"
       - ".github/workflows/career-match-browser-runtime.yml"
+      - "scripts/validate-site-integrity.mjs"
   workflow_dispatch:
 permissions:
   contents: read
