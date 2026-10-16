@@ -272,6 +272,27 @@ async function runViewport(width,height){
       await js("Storage.prototype.getItem=window.__savedOpenOriginalGetItem;delete window.__savedOpenOriginalGetItem;delete window.__savedOpenBefore");
     }
     if(savedOpenReadFailure.beforeCount!==1||savedOpenReadFailure.afterCount!==savedOpenReadFailure.beforeCount||savedOpenReadFailure.storedCount!==savedOpenReadFailure.beforeCount||!savedOpenReadFailure.sameIds||!savedOpenReadFailure.focused||!savedOpenReadFailure.focusVisible||!savedOpenReadFailure.panelVisible||!savedOpenReadFailure.toast.includes("Browser storage unavailable")||savedOpenReadFailure.toastRole!=="status"||savedOpenReadFailure.toastLive!=="polite"||savedOpenReadFailure.toastAtomic!=="true")failures.push(width+"x"+height+" denied saved-analysis open changed saved records or panel, lost keyboard focus, or omitted the accessible storage-failure announcement: "+JSON.stringify(savedOpenReadFailure));
+    stage="tracker removal read failure preserves entry and focus";
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
+    await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
+    await js("localStorage.setItem('cm_track',JSON.stringify([{id:'remove-read-test',company:'Remove read test',role:'Keep this application',status:'Applied',date:'2026-10-16'}]))");
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
+    await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
+    await waitFor('()=>document.querySelectorAll("#board button[data-t=rm]").length===1');
+    await js("window.__trackerRemoveOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_track')throw new DOMException('Storage access denied','SecurityError');return window.__trackerRemoveOriginalGetItem.call(this,k)}");
+    let trackerRemoveReadFailure;
+    try {
+      await pressKey("#board button[data-t=rm]","\\uE007");
+      trackerRemoveReadFailure=await js("const b=document.querySelector('#board button[data-t=rm]'),t=document.querySelector('#toast');return {jobs:document.querySelectorAll('#board .job').length,role:[...document.querySelectorAll('#board .job b')].some(x=>x.textContent==='Keep this application'),button:!!b,focused:document.activeElement===b,focusVisible:b?.matches(':focus-visible')||false,toast:t?.textContent||'',roleAttr:t?.getAttribute('role')||'',live:t?.getAttribute('aria-live')||'',atomic:t?.getAttribute('aria-atomic')||''}");
+    } finally {
+      await js("Storage.prototype.getItem=window.__trackerRemoveOriginalGetItem;delete window.__trackerRemoveOriginalGetItem");
+    }
+    if(trackerRemoveReadFailure.jobs!==1||!trackerRemoveReadFailure.role||!trackerRemoveReadFailure.button||!trackerRemoveReadFailure.focused||!trackerRemoveReadFailure.focusVisible||!trackerRemoveReadFailure.toast.includes("Browser storage unavailable")||trackerRemoveReadFailure.roleAttr!=="status"||trackerRemoveReadFailure.live!=="polite"||trackerRemoveReadFailure.atomic!=="true")failures.push(width+"x"+height+" denied tracker-removal read removed the entry, lost focus, or omitted the accessible storage-failure notice: "+JSON.stringify(trackerRemoveReadFailure));
+    await js("localStorage.setItem('cm_track','[]')");
+    await command("POST","/refresh",{});
+    await sleep(500);
+    await waitForElement("#file");
+    await waitFor('()=>!document.querySelector("#v-analyze")?.hidden');
     stage="tracker read failure preserves rendered entries";
     await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
     await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
