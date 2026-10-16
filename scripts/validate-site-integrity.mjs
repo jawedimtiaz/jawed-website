@@ -569,7 +569,7 @@ const careerMatchThemeContract=careerMatchTheme.includes('const theme=t==="dark"
 if(!careerMatchThemeContract)errors.push("Career Match persisted theme state must be restricted to the supported light/dark values");
 else console.log("Career Match theme-state integrity contract: PASS");
 const careerMatchStorage=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchStorageContract=careerMatchStorage.includes("function validSavedList(v)")&&careerMatchStorage.includes("function validTrackList(v)")&&careerMatchStorage.includes("validSavedList(store.get(\"cm_saved\",[]))")&&careerMatchStorage.includes("validTrackList(store.get(\"cm_track\",[]))");
+const careerMatchStorageContract=careerMatchStorage.includes("function validSavedList(v)")&&careerMatchStorage.includes("function validTrackList(v)")&&careerMatchStorage.includes('const raw=localStorage.getItem("cm_saved");s=validSavedList(raw==null?[]:JSON.parse(raw))')&&careerMatchStorage.includes("validTrackList(store.get(\"cm_track\",[]))");
 if(!careerMatchStorageContract)errors.push("Career Match persisted saved and tracker data must be shape-validated before use");
 else console.log("Career Match persisted-state integrity contract: PASS");
 
