@@ -272,6 +272,17 @@ async function runViewport(width,height){
       await js("Storage.prototype.getItem=window.__savedOpenOriginalGetItem;delete window.__savedOpenOriginalGetItem;delete window.__savedOpenBefore");
     }
     if(savedOpenReadFailure.beforeCount!==1||savedOpenReadFailure.afterCount!==savedOpenReadFailure.beforeCount||savedOpenReadFailure.storedCount!==savedOpenReadFailure.beforeCount||!savedOpenReadFailure.sameIds||!savedOpenReadFailure.focused||!savedOpenReadFailure.focusVisible||!savedOpenReadFailure.panelVisible||!savedOpenReadFailure.toast.includes("Browser storage unavailable")||savedOpenReadFailure.toastRole!=="status"||savedOpenReadFailure.toastLive!=="polite"||savedOpenReadFailure.toastAtomic!=="true")failures.push(width+"x"+height+" denied saved-analysis open changed saved records or panel, lost keyboard focus, or omitted the accessible storage-failure announcement: "+JSON.stringify(savedOpenReadFailure));
+    stage="saved panel read failure does not imply an empty list";
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
+    await js("window.__savedPanelOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_saved')throw new DOMException('Storage access denied','SecurityError');return window.__savedPanelOriginalGetItem.call(this,k)}");
+    let savedPanelReadFailure;
+    try {
+      await click("#tab-saved"); await waitFor('()=>!document.querySelector("#v-saved").hidden');
+      savedPanelReadFailure=await js("const root=document.querySelector('#savedList');const t=document.querySelector('#toast');return {panelVisible:!document.querySelector('#v-saved').hidden,items:root.querySelectorAll('button[data-s=open]').length,emptyMessage:root.querySelector('.empty')?.textContent||'',toast:t?.textContent||'',toastRole:t?.getAttribute('role')||'',toastLive:t?.getAttribute('aria-live')||'',toastAtomic:t?.getAttribute('aria-atomic')||''}");
+    } finally {
+      await js("Storage.prototype.getItem=window.__savedPanelOriginalGetItem;delete window.__savedPanelOriginalGetItem");
+    }
+    if(!savedPanelReadFailure.panelVisible||savedPanelReadFailure.items!==1||savedPanelReadFailure.emptyMessage||!savedPanelReadFailure.toast.includes("Browser storage unavailable")||savedPanelReadFailure.toastRole!=="status"||savedPanelReadFailure.toastLive!=="polite"||savedPanelReadFailure.toastAtomic!=="true")failures.push(width+"x"+height+" denied saved-panel read was misrepresented as an empty saved-analysis list or omitted the accessible storage-failure announcement: "+JSON.stringify(savedPanelReadFailure));
     stage="saved analysis read failure preserves item and focus";
     await js("window.__savedReadBefore=JSON.parse(localStorage.getItem('cm_saved')||'[]');window.__savedReadOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_saved')throw new DOMException('Storage access denied','SecurityError');return window.__savedReadOriginalGetItem.call(this,k)}");
     let savedReadStorageFailure;
