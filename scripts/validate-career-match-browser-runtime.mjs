@@ -298,6 +298,24 @@ async function runViewport(width,height){
     await sleep(500);
     await waitForElement("#file");
     await waitFor('()=>!document.querySelector("#v-analyze")?.hidden');
+    stage="tracker status change read failure preserves status and board";
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
+    await js("localStorage.setItem('cm_track',JSON.stringify([{id:'status-read-test',company:'Status read test',role:'Keep this application status',status:'Applied',date:'2026-10-16'}]))");
+    await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
+    await waitFor('()=>document.querySelector("#board select[data-t=mv]")?.value==="Applied"');
+    await js("window.__trackerStatusOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_track')throw new DOMException('Storage access denied','SecurityError');return window.__trackerStatusOriginalGetItem.call(this,k)}");
+    let trackerStatusReadFailure;
+    try {
+      trackerStatusReadFailure=await js("const s=document.querySelector('#board select[data-t=mv]');s.value='Interview';s.dispatchEvent(new Event('change',{bubbles:true}));const t=document.querySelector('#toast');return {status:s.value,previous:s.dataset.previous,jobs:document.querySelectorAll('#board .job').length,role:[...document.querySelectorAll('#board .job b')].some(x=>x.textContent==='Keep this application status'),toast:t?.textContent||'',roleAttr:t?.getAttribute('role')||'',live:t?.getAttribute('aria-live')||'',atomic:t?.getAttribute('aria-atomic')||''}");
+    } finally {
+      await js("Storage.prototype.getItem=window.__trackerStatusOriginalGetItem;delete window.__trackerStatusOriginalGetItem");
+    }
+    if(trackerStatusReadFailure.status!=="Applied"||trackerStatusReadFailure.jobs!==1||!trackerStatusReadFailure.role||!trackerStatusReadFailure.toast.includes("Browser storage unavailable")||trackerStatusReadFailure.roleAttr!=="status"||trackerStatusReadFailure.live!=="polite"||trackerStatusReadFailure.atomic!=="true")failures.push(width+"x"+height+" denied tracker-status read changed the selected status, discarded the entry, or omitted the accessible storage-failure notice: "+JSON.stringify(trackerStatusReadFailure));
+    await js("localStorage.setItem('cm_track','[]')");
+    await command("POST","/refresh",{});
+    await sleep(500);
+    await waitForElement("#file");
+    await waitFor('()=>!document.querySelector("#v-analyze")?.hidden');
     stage="tracker read failure preserves rendered entries";
     await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
     await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
