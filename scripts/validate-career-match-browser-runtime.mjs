@@ -286,12 +286,13 @@ async function runViewport(width,height){
     } finally {
       await js("Storage.prototype.getItem=window.__trackerReadOriginalGetItem;delete window.__trackerReadOriginalGetItem");
     }
-    if(trackerBeforeReadFailure.jobs!==1||!trackerBeforeReadFailure.role||trackerReadFailure.jobs!==1||!trackerReadFailure.role||trackerReadFailure.columns!==4||!trackerReadFailure.toast.includes("Browser storage unavailable")||trackerReadFailure.roleAttr!=="status"||trackerReadFailure.live!=="polite"||trackerReadFailure.atomic!=="true")failures.push(width+"x"+height+" denied tracker read discarded rendered entries or omitted the accessible storage-failure notice: "+JSON.stringify({trackerBeforeReadFailure,trackerReadFailure}));
+    if(trackerBeforeReadFailure.jobs<1||!trackerBeforeReadFailure.role||trackerReadFailure.jobs!==trackerBeforeReadFailure.jobs||!trackerReadFailure.role||trackerReadFailure.columns!==4||!trackerReadFailure.toast.includes("Browser storage unavailable")||trackerReadFailure.roleAttr!=="status"||trackerReadFailure.live!=="polite"||trackerReadFailure.atomic!=="true")failures.push(width+"x"+height+" denied tracker read discarded rendered entries or omitted the accessible storage-failure notice: "+JSON.stringify({trackerBeforeReadFailure,trackerReadFailure}));
     await js("localStorage.setItem('cm_track','[]')");
     await command("POST","/refresh",{});
     await sleep(500);
     await waitForElement("#file");
     await waitFor('()=>!document.querySelector("#v-analyze")?.hidden');
+    await js("localStorage.setItem('cm_saved',JSON.stringify([{id:'storage-read-test',html:'<section class=card><h3>Storage test</h3></section>',title:'Storage read test',date:'2026-10-16',score:75}]))");
     stage="saved panel read failure does not imply an empty list";
     await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
     await js("window.__savedPanelOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_saved')throw new DOMException('Storage access denied','SecurityError');return window.__savedPanelOriginalGetItem.call(this,k)}");
