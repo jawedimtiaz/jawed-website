@@ -555,6 +555,11 @@ const careerMatchTrackerMetadata=fs.readFileSync("tools/career-match-resume-revi
 const careerMatchTrackerMetadataContract=careerMatchTrackerMetadata.includes('typeof x.date==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(x.date)');
 if(!careerMatchTrackerMetadataContract)errors.push("Career Match tracker records must validate their persisted date before rendering");
 else console.log("Career Match tracker metadata integrity contract: PASS");
+const careerMatchTrackerRemoval=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchTrackerRemovalReadContract=careerMatchTrackerRemoval.includes('const raw=localStorage.getItem("cm_track");t=validTrackList(raw==null?[]:JSON.parse(raw))}catch{toast("Browser storage unavailable");return}const index=');
+if(!careerMatchTrackerRemovalReadContract)errors.push("Career Match tracker removal must not treat failed persisted-state reads as an empty tracker");
+else console.log("Career Match tracker removal read-failure contract: PASS");
+
 const careerMatchSavedActions=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedActionNameContract=careerMatchSavedActions.includes('btn.setAttribute("aria-label",`${action[0]} saved analysis: ${x.title}`);row.append(btn)');
 if(!careerMatchSavedActionNameContract)errors.push("Career Match saved-analysis actions must expose contextual accessible names");
