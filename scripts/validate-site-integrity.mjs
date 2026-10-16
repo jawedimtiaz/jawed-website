@@ -583,6 +583,11 @@ const careerMatchSavedMetadata=fs.readFileSync("tools/career-match-resume-review
 const careerMatchSavedMetadataContract=careerMatchSavedMetadata.includes('typeof x.title==="string"')&&careerMatchSavedMetadata.includes('typeof x.date==="string"')&&careerMatchSavedMetadata.includes('Number.isFinite(x.score)&&x.score>=0&&x.score<=100');
 if(!careerMatchSavedMetadataContract)errors.push("Career Match saved analysis metadata must validate title, date and a finite 0-100 score before rendering");
 else console.log("Career Match saved-analysis metadata integrity contract: PASS");
+
+const careerMatchSavedPanelParse=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
+const careerMatchSavedPanelParseContract=careerMatchSavedPanelParse.includes('let s;try{s=validSavedList(raw==null?[]:JSON.parse(raw))}catch{toast("Browser storage unavailable");return}const root=$("#savedList");');
+if(!careerMatchSavedPanelParseContract)errors.push("Career Match saved panel must preserve rendered entries and announce malformed persisted JSON instead of treating it as an empty list");
+else console.log("Career Match malformed saved-storage preservation contract: PASS");
 const careerMatchTheme=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchThemeContract=careerMatchTheme.includes('const theme=t==="dark"||t==="light"?t:"light"');
 if(!careerMatchThemeContract)errors.push("Career Match persisted theme state must be restricted to the supported light/dark values");
