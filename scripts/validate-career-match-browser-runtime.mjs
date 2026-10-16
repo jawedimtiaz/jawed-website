@@ -294,6 +294,8 @@ async function runViewport(width,height){
     await waitFor('()=>!document.querySelector("#v-analyze")?.hidden');
     await js("localStorage.setItem('cm_saved',JSON.stringify([{id:'storage-read-test',html:'<section class=card><h3>Storage test</h3></section>',title:'Storage read test',date:'2026-10-16',score:75}]))");
     stage="saved panel read failure does not imply an empty list";
+    await click("#tab-saved"); await waitFor('()=>!document.querySelector("#v-saved").hidden');
+    await waitFor('()=>document.querySelectorAll("#savedList button[data-s=open]").length===1');
     await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
     await js("window.__savedPanelOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_saved')throw new DOMException('Storage access denied','SecurityError');return window.__savedPanelOriginalGetItem.call(this,k)}");
     let savedPanelReadFailure;
