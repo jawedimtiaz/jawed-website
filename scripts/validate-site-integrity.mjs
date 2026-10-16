@@ -559,6 +559,9 @@ const careerMatchTrackerRemoval=fs.readFileSync("tools/career-match-resume-revie
 const careerMatchTrackerRemovalReadContract=careerMatchTrackerRemoval.includes('const raw=localStorage.getItem("cm_track");t=validTrackList(raw==null?[]:JSON.parse(raw))}catch{toast("Browser storage unavailable");return}const index=');
 if(!careerMatchTrackerRemovalReadContract)errors.push("Career Match tracker removal must not treat failed persisted-state reads as an empty tracker");
 else console.log("Career Match tracker removal read-failure contract: PASS");
+const careerMatchTrackerStatusReadContract=careerMatchTrackerRemoval.includes('select.dataset.previous=s;')&&careerMatchTrackerRemoval.includes('const raw=localStorage.getItem("cm_track");t=validTrackList(raw==null?[]:JSON.parse(raw))}catch{toast("Browser storage unavailable");select.value=select.dataset.previous||select.value;return}');
+if(!careerMatchTrackerStatusReadContract)errors.push("Career Match tracker status changes must preserve the previous selection when persisted-state reads fail");
+else console.log("Career Match tracker status read-failure contract: PASS");
 
 const careerMatchSavedActions=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
 const careerMatchSavedActionNameContract=careerMatchSavedActions.includes('btn.setAttribute("aria-label",`${action[0]} saved analysis: ${x.title}`);row.append(btn)');
