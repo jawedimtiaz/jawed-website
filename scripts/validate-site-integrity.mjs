@@ -679,7 +679,7 @@ if(!careerMatchPdfSecurityContract)errors.push("Career Match PDF reader must use
 else console.log("Career Match PDF dependency security contract: PASS");
 
 const careerMatchTrackerRender=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchTrackerRenderContract=careerMatchTrackerRender.includes("function renderTracker(){const t=validTrackList(store.get(\"cm_track\",[]));");
+const careerMatchTrackerRenderContract=careerMatchTrackerRender.includes("function renderTracker(){let raw;try{raw=localStorage.getItem(\"cm_track\")}catch{toast(\"Browser storage unavailable\");if($(\"#board\").children.length)return;raw=\"[]\"}let t;try{t=validTrackList(raw==null?[]:JSON.parse(raw))}catch{t=[]}");
 if(!careerMatchTrackerRenderContract)errors.push("Career Match tracker rendering must use validated persisted records");
 else console.log("Career Match tracker render integrity contract: PASS");
 

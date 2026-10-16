@@ -272,7 +272,30 @@ async function runViewport(width,height){
       await js("Storage.prototype.getItem=window.__savedOpenOriginalGetItem;delete window.__savedOpenOriginalGetItem;delete window.__savedOpenBefore");
     }
     if(savedOpenReadFailure.beforeCount!==1||savedOpenReadFailure.afterCount!==savedOpenReadFailure.beforeCount||savedOpenReadFailure.storedCount!==savedOpenReadFailure.beforeCount||!savedOpenReadFailure.sameIds||!savedOpenReadFailure.focused||!savedOpenReadFailure.focusVisible||!savedOpenReadFailure.panelVisible||!savedOpenReadFailure.toast.includes("Browser storage unavailable")||savedOpenReadFailure.toastRole!=="status"||savedOpenReadFailure.toastLive!=="polite"||savedOpenReadFailure.toastAtomic!=="true")failures.push(width+"x"+height+" denied saved-analysis open changed saved records or panel, lost keyboard focus, or omitted the accessible storage-failure announcement: "+JSON.stringify(savedOpenReadFailure));
+    stage="tracker read failure preserves rendered entries";
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
+    await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
+    await type("#tCo","Tracker read preservation test"); await type("#tRole","Persisted tracker role"); await click("#addJob");
+    const trackerBeforeReadFailure=await js("return {jobs:document.querySelectorAll('#board .job').length,role:[...document.querySelectorAll('#board .job b')].some(b=>b.textContent==='Persisted tracker role')}");
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
+    await js("window.__trackerReadOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_track')throw new DOMException('Storage access denied','SecurityError');return window.__trackerReadOriginalGetItem.call(this,k)}");
+    let trackerReadFailure;
+    try {
+      await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
+      trackerReadFailure=await js("const t=document.querySelector('#toast');return {jobs:document.querySelectorAll('#board .job').length,role:[...document.querySelectorAll('#board .job b')].some(b=>b.textContent==='Persisted tracker role'),columns:document.querySelectorAll('#board .col').length,toast:t?.textContent||'',roleAttr:t?.getAttribute('role')||'',live:t?.getAttribute('aria-live')||'',atomic:t?.getAttribute('aria-atomic')||''}");
+    } finally {
+      await js("Storage.prototype.getItem=window.__trackerReadOriginalGetItem;delete window.__trackerReadOriginalGetItem");
+    }
+    if(trackerBeforeReadFailure.jobs<1||!trackerBeforeReadFailure.role||trackerReadFailure.jobs!==trackerBeforeReadFailure.jobs||!trackerReadFailure.role||trackerReadFailure.columns!==4||!trackerReadFailure.toast.includes("Browser storage unavailable")||trackerReadFailure.roleAttr!=="status"||trackerReadFailure.live!=="polite"||trackerReadFailure.atomic!=="true")failures.push(width+"x"+height+" denied tracker read discarded rendered entries or omitted the accessible storage-failure notice: "+JSON.stringify({trackerBeforeReadFailure,trackerReadFailure}));
+    await js("localStorage.setItem('cm_track','[]')");
+    await command("POST","/refresh",{});
+    await sleep(500);
+    await waitForElement("#file");
+    await waitFor('()=>!document.querySelector("#v-analyze")?.hidden');
+    await js("localStorage.setItem('cm_saved',JSON.stringify([{id:'storage-read-test',html:'<section class=card><h3>Storage test</h3></section>',title:'Storage read test',date:'2026-10-16',score:75}]))");
     stage="saved panel read failure does not imply an empty list";
+    await click("#tab-saved"); await waitFor('()=>!document.querySelector("#v-saved").hidden');
+    await waitFor('()=>document.querySelectorAll("#savedList button[data-s=open]").length===1');
     await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
     await js("window.__savedPanelOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_saved')throw new DOMException('Storage access denied','SecurityError');return window.__savedPanelOriginalGetItem.call(this,k)}");
     let savedPanelReadFailure;
