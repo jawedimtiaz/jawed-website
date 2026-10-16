@@ -585,7 +585,7 @@ if(!careerMatchSavedMetadataContract)errors.push("Career Match saved analysis me
 else console.log("Career Match saved-analysis metadata integrity contract: PASS");
 
 const careerMatchSavedPanelParse=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchSavedPanelParseContract=careerMatchSavedPanelParse.includes('let s;try{s=validSavedList(raw==null?[]:JSON.parse(raw))}catch{toast("Browser storage unavailable");return}const root=$("#savedList");');
+const careerMatchSavedPanelParseContract=careerMatchSavedPanelParse.includes('const root=$("#savedList");let s;try{s=validSavedList(raw==null?[]:JSON.parse(raw))}catch{toast("Browser storage unavailable");if(root.children.length)return;s=[]}');
 if(!careerMatchSavedPanelParseContract)errors.push("Career Match saved panel must preserve rendered entries and announce malformed persisted JSON instead of treating it as an empty list");
 else console.log("Career Match malformed saved-storage preservation contract: PASS");
 const careerMatchTheme=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
