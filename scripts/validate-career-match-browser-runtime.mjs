@@ -296,7 +296,7 @@ async function runViewport(width,height){
     stage="tracker read failure preserves rendered entries";
     await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
     await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
-    await type("#tCo","Tracker read preservation test"); await type("#tRole","Persisted tracker role"); await click("#addJob");
+    await type("#tCo","Tracker read preservation test"); await type("#tRole","Persisted tracker role"); await js("document.querySelector('#addJob').scrollIntoView({block:'center'})"); await click("#addJob");
     const trackerBeforeReadFailure=await js("return {jobs:document.querySelectorAll('#board .job').length,role:[...document.querySelectorAll('#board .job b')].some(b=>b.textContent==='Persisted tracker role')}");
     await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
     await js("window.__trackerReadOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_track')throw new DOMException('Storage access denied','SecurityError');return window.__trackerReadOriginalGetItem.call(this,k)}");
