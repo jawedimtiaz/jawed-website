@@ -297,7 +297,7 @@ async function runViewport(width,height){
     await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
     await js("localStorage.setItem('cm_track',JSON.stringify([{id:'status-read-test',company:'Status read test',role:'Keep this application status',status:'Applied',date:'2026-10-16'}]))");
     await click("#tab-tracker"); await waitFor('()=>!document.querySelector("#v-tracker").hidden');
-    await waitFor('()=>document.querySelector("#board select[data-t=mv]")?.value==="Applied");
+    await waitFor('()=>document.querySelector("#board select[data-t=mv]")?.value==="Applied"');
     await js("window.__trackerStatusOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_track')throw new DOMException('Storage access denied','SecurityError');return window.__trackerStatusOriginalGetItem.call(this,k)}");
     let trackerStatusReadFailure;
     try {
