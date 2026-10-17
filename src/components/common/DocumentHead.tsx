@@ -58,13 +58,13 @@ export const DocumentHead: React.FC = () => {
     } else if (cleanPath === '/tools') {
       title = 'Interactive Browser Utilities & Tools | Jawed Imtiaz';
       description =
-        'A suite of 12 privacy-preserving, client-side browser utilities for IT technicians, career builders, and financial planners.';
+        'A suite of 14 privacy-preserving, client-side browser utilities across IT Support, Apple/Jamf, Microsoft 365, Career, and Planning.';
     } else if (cleanPath.startsWith('/tools/')) {
       const slug = cleanPath.replace('/tools/', '');
       const tool = toolsList.find((t) => t.slug === slug);
       if (tool) {
-        title = `${tool.title} | Jawed Imtiaz`;
-        description = tool.description;
+        title = `${tool.title} | Interactive Tool | Jawed Imtiaz`;
+        description = `${tool.benefit} ${tool.description}`;
       }
     } else if (cleanPath === '/blog') {
       title = 'Blog & Technical Case Studies | Jawed Imtiaz';
@@ -280,7 +280,22 @@ export const DocumentHead: React.FC = () => {
                   'item': canonicalUrl
                 }
               ]
-            }
+            },
+            ...(tool.faq && tool.faq.length > 0
+              ? [
+                  {
+                    '@type': 'FAQPage',
+                    'mainEntity': tool.faq.map((f) => ({
+                      '@type': 'Question',
+                      'name': f.question,
+                      'acceptedAnswer': {
+                        '@type': 'Answer',
+                        'text': f.answer
+                      }
+                    }))
+                  }
+                ]
+              : [])
           ]
         };
       }

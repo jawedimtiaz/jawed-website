@@ -42,7 +42,7 @@ export const HomePage: React.FC = () => {
             <span>Hands-on macOS, Windows, Jamf &amp; SaaS support</span>
           </div>
           <div className="stat">
-            <strong>12 Interactive Tools</strong>
+            <strong>14 Interactive Tools</strong>
             <span>Client-side, privacy-first IT &amp; career utilities</span>
           </div>
           <div className="stat">
@@ -56,31 +56,66 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Featured Tools Showcase */}
+      {/* Most Useful Tools Section */}
       <section className="content-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
           <div>
-            <p className="eyebrow">Interactive Tools</p>
-            <h2 style={{ margin: 0 }}>Practical Browser Utilities</h2>
+            <p className="eyebrow">Interactive Utilities</p>
+            <h2 style={{ margin: 0 }}>Most Useful Tools</h2>
           </div>
           <Link to="/tools/" className="button button-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
-            View All 12 Tools →
+            View All 14 Tools →
           </Link>
         </div>
         <p className="text-muted" style={{ marginBottom: '1.5rem' }}>
-          Built with zero server tracking and full client-side execution. Designed to save time during ticket handoffs, troubleshooting, interview prep, and personal planning.
+          Browser-based, zero-tracking tools engineered to accelerate daily IT Service Desk triage, Apple/Jamf endpoint support, Microsoft 365 sign-in diagnostics, and career preparation.
         </p>
         <div className="card-grid">
-          {featuredTools.map((tool) => (
-            <article key={tool.slug} className="card" style={{ display: 'flex', flexDirection: 'column' }}>
-              <span className="badge" style={{ alignSelf: 'flex-start', marginBottom: '0.75rem' }}>
-                {tool.category}
-              </span>
-              <h3>{tool.title}</h3>
-              <p style={{ flex: 1, fontSize: '0.95rem' }}>{tool.description}</p>
-              <div style={{ marginTop: '1rem' }}>
-                <Link to={tool.path} className="button button-secondary" style={{ width: '100%', textAlign: 'center' }}>
-                  Launch Tool →
+          {[
+            toolsList.find((t) => t.slug === 'service-desk-note-formatter')!,
+            toolsList.find((t) => t.slug === 'apple-macos-jamf-support-helper')!,
+            toolsList.find((t) => t.slug === 'm365-workplace-sign-in-diagnostic')!,
+            toolsList.find((t) => t.slug === 'career-match-resume-review')!
+          ].filter(Boolean).map((tool) => (
+            <article key={tool.slug} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span className="badge" style={{ fontSize: '0.72rem' }}>
+                    {tool.category}
+                  </span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--muted)', fontWeight: 500 }}>
+                    ⏱ {tool.estimatedTime}
+                  </span>
+                </div>
+                <h3 style={{ fontSize: '1.15rem', margin: '0.2rem 0 0.4rem' }}>
+                  <Link to={tool.path} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    {tool.title}
+                  </Link>
+                </h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text)', margin: '0 0 0.75rem', lineHeight: 1.5, fontWeight: 500 }}>
+                  {tool.benefit}
+                </p>
+                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                  {tool.tags.slice(0, 3).map((tag) => (
+                    <span
+                      key={tag}
+                      style={{
+                        fontSize: '0.7rem',
+                        padding: '0.1rem 0.4rem',
+                        backgroundColor: 'var(--surface-accent)',
+                        borderRadius: '3px',
+                        color: 'var(--accent)',
+                        border: '1px solid var(--line)'
+                      }}
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: '0.75rem', marginTop: 'auto' }}>
+                <Link to={tool.path} className="button" style={{ width: '100%', textAlign: 'center', fontSize: '0.88rem' }}>
+                  Use Tool →
                 </Link>
               </div>
             </article>

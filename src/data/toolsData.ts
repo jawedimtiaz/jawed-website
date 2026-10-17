@@ -1,107 +1,502 @@
+export type ToolCategory =
+  | 'IT & Service Desk'
+  | 'Apple, macOS & Jamf'
+  | 'Microsoft 365 & Workplace'
+  | 'Career & Resume'
+  | 'Finance & Planning'
+  | 'AI & Productivity';
+
+export interface ToolFaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface ToolExampleOutput {
+  title: string;
+  description: string;
+  content: string;
+}
+
 export interface ToolItem {
   slug: string;
   title: string;
-  category: 'IT Support' | 'Career' | 'AI & Productivity' | 'Finance';
+  category: ToolCategory;
   eyebrow: string;
+  benefit: string;
   description: string;
+  tags: string[];
+  estimatedTime: string;
   path: string;
+  purpose: string;
+  steps: string[];
+  exampleOutput: ToolExampleOutput;
+  faq: ToolFaqItem[];
+  relatedSlugs: string[];
 }
 
 export const toolsList: ToolItem[] = [
+  // 1. IT & Service Desk
   {
     slug: 'service-desk-note-formatter',
     title: 'Service Desk Note Formatter',
-    category: 'IT Support',
-    eyebrow: 'Tool · IT Support',
-    description: 'Turn rough ticket notes into a clean, consistent summary of Issue, Actions Taken, Resolution/Status, and Follow-up for your ticketing system.',
-    path: '/tools/service-desk-note-formatter/'
+    category: 'IT & Service Desk',
+    eyebrow: 'Tool · IT & Service Desk',
+    benefit: 'Format clean, structured ticket notes with issue, actions taken, resolution, and follow-up in seconds.',
+    description: 'Turn rough ticket notes into a clean, consistent summary of Issue, Actions Taken, Resolution/Status, and Follow-up for your ticketing system without exposing confidential credentials.',
+    tags: ['Service Desk', 'Ticketing', 'ServiceNow', 'Jira', 'Handoff'],
+    estimatedTime: '2 min',
+    path: '/tools/service-desk-note-formatter/',
+    purpose: 'Standardize ticket documentation across Service Desk teams to ensure incidents are logged with clear symptoms, verifiable checks, and actionable escalation notes.',
+    steps: [
+      'Enter the reported user problem or service request in the Issue field.',
+      'Record specific diagnostic checks, commands run, and tests performed under Actions Taken.',
+      'Document whether the issue is resolved or remains open under Resolution / Current Status.',
+      'Add pending actions, owner assignments, or next steps under Follow-up.',
+      'Click "Format Note", review for confidential data, and copy directly to your ticketing system.'
+    ],
+    exampleOutput: {
+      title: 'Formatted Ticket Output',
+      description: 'A structured note ready for ServiceNow or Jira Service Management:',
+      content: `Issue / Request: User unable to access approved intranet portal from managed laptop.\n\nActions Taken: Verified local IP assignment (10.24.8.115); tested DNS resolution for intranet.corp (resolved successfully); reproduced 403 Forbidden in Chrome; tested in Edge with same outcome; cleared cached session cookies.\n\nResolution / Current Status: Unresolved. Access appears restricted by group membership rather than browser cache.\n\nFollow-up: Escalated to Identity & Access Management team to verify user group entitlement.`
+    },
+    faq: [
+      {
+        question: 'Does this tool transmit my ticket notes to an external server?',
+        answer: 'No. All text formatting runs locally in your browser memory. Nothing is sent across the network or saved to external databases.'
+      },
+      {
+        question: 'Which ticketing systems can I use this with?',
+        answer: 'The formatted output uses universal plain text compatible with ServiceNow, Jira Service Management, Zendesk, Freshservice, and Slack handoff channels.'
+      },
+      {
+        question: 'How does structured ticket formatting help escalation teams?',
+        answer: 'Tier 2 and engineering teams can immediately see what checks were already performed, preventing duplicate troubleshooting and reducing mean time to resolution (MTTR).'
+      }
+    ],
+    relatedSlugs: ['it-troubleshooting-assistant', 'ticket-to-knowledge-base-draft', 'apple-macos-jamf-support-helper']
   },
   {
     slug: 'it-troubleshooting-assistant',
     title: 'IT Troubleshooting Assistant',
-    category: 'IT Support',
-    eyebrow: 'Tool · IT Support · Decision Tree',
+    category: 'IT & Service Desk',
+    eyebrow: 'Tool · IT & Service Desk · Decision Tree',
+    benefit: 'Interactive decision tree for scoping incidents and building reviewable first-response checklists.',
     description: 'A guided first-response workflow that helps you scope an IT issue across macOS, Windows, Microsoft 365, or Network, and builds a reviewable next-step checklist.',
-    path: '/tools/it-troubleshooting-assistant/'
+    tags: ['Troubleshooting', 'First Response', 'Incident Scoping', 'Decision Tree'],
+    estimatedTime: '3 min',
+    path: '/tools/it-troubleshooting-assistant/',
+    purpose: 'Guide technicians through systematic problem scoping (User, Device, Application, or Service) to eliminate guesswork during initial support triage.',
+    steps: [
+      'Select the primary symptom category (macOS, Windows, Microsoft 365 sign-in, or Network).',
+      'Answer targeted questions about scope: does the issue affect one user or many? One device or multiple?',
+      'Follow the generated first-response checklist to test the least-disruptive variables first.',
+      'Copy the synthesized investigation record into your ticket notes.'
+    ],
+    exampleOutput: {
+      title: 'Scoping Checklist & Next Steps',
+      description: 'A generated investigation record for an isolated macOS application failure:',
+      content: `[First Response Scoping Check]\nScope: Isolated to single user on single device.\nPrimary Symptom: Application crashes immediately upon launch.\nValidated Checks: Reboot performed (no change); user permissions verified; test in guest account succeeded.\nConclusion: User profile or application cache corruption rather than fleet-wide outage.\nNext Step: Reset application preference plist in ~/Library/Preferences.`
+    },
+    faq: [
+      {
+        question: 'Why is scoping important before attempting fixes?',
+        answer: 'Scoping prevents technicians from making disruptive global changes (such as restarting servers or resetting network switches) when an issue is isolated to a single endpoint.'
+      },
+      {
+        question: 'Can I use this during a live support call or walk-up desk?',
+        answer: 'Yes. The decision questions are concise and designed to be completed in under 2 minutes while interviewing the user.'
+      }
+    ],
+    relatedSlugs: ['service-desk-note-formatter', 'apple-macos-jamf-support-helper', 'm365-workplace-sign-in-diagnostic']
   },
   {
     slug: 'ticket-to-knowledge-base-draft',
     title: 'Ticket → Knowledge Base Draft',
-    category: 'IT Support',
-    eyebrow: 'Tool · IT Support · Interactive',
+    category: 'IT & Service Desk',
+    eyebrow: 'Tool · IT & Service Desk · Interactive',
+    benefit: 'Convert resolved support evidence into sanitized, reusable runbooks and KB articles.',
     description: 'Turn verified Service Desk evidence into a reusable, sanitized knowledge-base draft with problem scope, checks, validation, and escalation boundaries.',
-    path: '/tools/ticket-to-knowledge-base-draft/'
+    tags: ['Knowledge Base', 'Documentation', 'Runbooks', 'ITSM'],
+    estimatedTime: '3 min',
+    path: '/tools/ticket-to-knowledge-base-draft/',
+    purpose: 'Empower frontline analysts to transform solved tickets into permanent, sanitized organizational knowledge without exposing user identities or credentials.',
+    steps: [
+      'Enter the technical problem title and concise symptom statement.',
+      'Provide the root cause or validated resolution steps.',
+      'List prerequisite permissions, tools, and validation checks.',
+      'Click "Generate KB Draft" to produce a structured Markdown article formatted for Confluence, ServiceNow KB, or Notion.'
+    ],
+    exampleOutput: {
+      title: 'Structured Knowledge Base Article',
+      description: 'Markdown draft ready for your internal team documentation:',
+      content: `# KB: Resolving Outlook for Mac Modern Authentication Prompt Loop\n\n## Symptom\nOutlook repeatedly prompts for credentials despite valid user sign-in.\n\n## Scope\nmacOS endpoints running Microsoft 365 with Enterprise SSO.\n\n## Resolution Steps\n1. Quit all Microsoft Office applications.\n2. Open Keychain Access and remove 'Microsoft Office Identities Cache'.\n3. Relaunch Outlook and authenticate via browser broker.`
+    },
+    faq: [
+      {
+        question: 'Why should technicians write KB articles from resolved tickets?',
+        answer: 'Capturing solutions at the moment of resolution builds team self-sufficiency and drastically lowers escalation rates for repeat incidents.'
+      },
+      {
+        question: 'Does the tool remove private employee data automatically?',
+        answer: 'The tool structures your inputs into standard sanitized headings; users should review inputs to ensure private hostnames, IPs, or credentials are replaced with placeholders.'
+      }
+    ],
+    relatedSlugs: ['service-desk-note-formatter', 'it-troubleshooting-assistant', 'ai-prompt-builder']
   },
+
+  // 2. Apple, macOS & Jamf
+  {
+    slug: 'apple-macos-jamf-support-helper',
+    title: 'macOS & Jamf Triage Helper',
+    category: 'Apple, macOS & Jamf',
+    eyebrow: 'Tool · Apple, macOS & Jamf',
+    benefit: 'Guided diagnostic checklist for diagnosing Mac application crashes, FileVault, MDM enrollment, and Jamf agent communication.',
+    description: 'Select common macOS enterprise issues (Gatekeeper quarantine, Jamf MDM profile sync, FileVault key escrow, 802.1X certificates) and generate instant terminal diagnostic commands and sanitized ticket notes.',
+    tags: ['macOS', 'Jamf Pro', 'Apple Silicon', 'MDM', 'ADE'],
+    estimatedTime: '3 min',
+    path: '/tools/apple-macos-jamf-support-helper/',
+    purpose: 'Streamline Mac enterprise support by providing verified terminal commands and structured investigation sequences for Jamf Pro managed fleets.',
+    steps: [
+      'Select the macOS issue category (App Crash, Jamf Enrollment, FileVault, or Wi-Fi).',
+      'Select the target macOS version and hardware architecture (Apple Silicon vs Intel).',
+      'Optionally input an asset tag or device identifier.',
+      'Review the recommended terminal verification commands.',
+      'Copy the structured triage summary directly into your ticketing system.'
+    ],
+    exampleOutput: {
+      title: 'Jamf MDM Enrollment Triage Summary',
+      description: 'A complete diagnostic command checklist for Mac support tickets:',
+      content: `[Triage Note: Apple macOS & Jamf Support]\nDevice Context: Apple Silicon (M-Series) | macOS 15 Sequoia | Asset: MAC-LAB-042\nSelected Issue Category: Jamf MDM Profile Missing or Expired\nDiagnostic Checks Completed:\n- [x] Verified reachability to Jamf Pro server and APNs port 5223.\n- [x] Ran sudo jamf checkJSSConnection and verified valid connection.\n- [x] Executed sudo jamf policy to refresh device configuration.`
+    },
+    faq: [
+      {
+        question: 'Are the terminal commands safe to run on enterprise managed Macs?',
+        answer: 'Yes. All recommended commands are non-destructive diagnostic queries (status checks, profile listings, connectivity tests) designed for Service Desk triage.'
+      },
+      {
+        question: 'Does this tool support both Apple Silicon and Intel Macs?',
+        answer: 'Yes. You can toggle between architectures to review specific commands like arch -x86_64 for Rosetta 2 binary translation.'
+      }
+    ],
+    relatedSlugs: ['it-troubleshooting-assistant', 'service-desk-note-formatter', 'm365-workplace-sign-in-diagnostic']
+  },
+
+  // 3. Microsoft 365 & Workplace
+  {
+    slug: 'm365-workplace-sign-in-diagnostic',
+    title: 'Microsoft 365 & Workplace Sign-In Triage',
+    category: 'Microsoft 365 & Workplace',
+    eyebrow: 'Tool · Microsoft 365 & Workplace',
+    benefit: 'Systematic triage workflow for Microsoft Entra ID (Azure AD), MFA loops, Conditional Access, and SSO tokens.',
+    description: 'Diagnose authentication failures across Outlook, Teams, and corporate web apps. Identify root causes for MFA push timeouts, Conditional Access blocks, and stale Windows Primary Refresh Tokens (PRT).',
+    tags: ['Microsoft 365', 'Entra ID', 'MFA', 'Conditional Access', 'SSO'],
+    estimatedTime: '3 min',
+    path: '/tools/m365-workplace-sign-in-diagnostic/',
+    purpose: 'Standardize authentication troubleshooting for enterprise Microsoft 365 and hybrid Entra ID environments, cutting resolution time for common identity lockouts.',
+    steps: [
+      'Select the sign-in failure symptom (MFA Loop, Conditional Access Compliance, Stale PRT, or Mac Keychain Lock).',
+      'Select the client operating system (Windows 11, Windows 10, macOS, iOS, Android).',
+      'Review the likely root causes and structured verification steps.',
+      'Copy the escalation note with Correlation ID guidelines for Entra ID administrators.'
+    ],
+    exampleOutput: {
+      title: 'Microsoft 365 Sign-In Diagnostic Note',
+      description: 'Clear documentation of authentication checks performed:',
+      content: `[Triage Note: Microsoft 365 & Workplace Authentication]\nPlatform: Windows 11 Enterprise | Ref: INC-M365-108\nScenario: MFA Notification Loop / Number Matching Failure\nDiagnostic Verification Performed:\n- [x] User opened Authenticator actively before sign-in attempt.\n- [x] Verified mobile device time sync against network NTP.\n- [x] Used 6-digit rolling TOTP code successfully as temporary workaround.`
+    },
+    faq: [
+      {
+        question: 'What is a Primary Refresh Token (PRT)?',
+        answer: 'A PRT is an Entra ID (Azure AD) credential artifact issued to Windows 10/11 devices that enables single sign-on (SSO) across workplace apps. If stale or broken, desktop apps prompt for password repeatedly.'
+      },
+      {
+        question: 'What information do Identity Admins need if an issue must be escalated?',
+        answer: 'They require the Correlation ID, Timestamp (in UTC), User Principal Name (UPN), and the exact Entra ID Error Code (e.g. 53003 for Conditional Access).'
+      }
+    ],
+    relatedSlugs: ['apple-macos-jamf-support-helper', 'it-troubleshooting-assistant', 'service-desk-note-formatter']
+  },
+
+  // 4. Career & Resume
+  {
+    slug: 'career-match-resume-review',
+    title: 'Career Match & Resume Review',
+    category: 'Career & Resume',
+    eyebrow: 'Tool · Career & Resume · Interactive Suite',
+    benefit: 'Compare resume text against job postings privately in-browser to identify keyword overlap and track applications.',
+    description: 'Compare your resume against a job description in your browser to detect skills overlap, uncover gaps, review action metrics, and track applications with local storage.',
+    tags: ['Resume Review', 'Job Match', 'Keywords', 'Application Tracker'],
+    estimatedTime: '4 min',
+    path: '/tools/career-match-resume-review/',
+    purpose: 'Give job seekers an honest, private diagnostic of how closely their resume matches target role requirements before submitting applications.',
+    steps: [
+      'Paste your current resume text into the Resume box.',
+      'Paste the target job description into the Job Description box.',
+      'Click "Analyze Match" to inspect skills overlap, missing keywords, and readability scores.',
+      'Save the role to your local in-browser Application Tracker to track interview progress.'
+    ],
+    exampleOutput: {
+      title: 'Skills Overlap & Gap Diagnostic',
+      description: 'Keyword analysis comparing resume to job description:',
+      content: `Match Score: 78% Overlap\nDetected Strengths: macOS Support, Jamf Pro, ServiceNow, Active Directory, TCP/IP.\nIdentified Gaps: PowerShell Scripting, ITIL 4 Foundation, Okta SSO.\nRecommendation: Add 1-2 quantified bullet points demonstrating automation or identity experience.`
+    },
+    faq: [
+      {
+        question: 'Is my resume text stored on your servers?',
+        answer: 'No. All parsing and keyword scoring occur client-side in JavaScript. Your resume never leaves your computer.'
+      },
+      {
+        question: 'Does this tool guarantee an interview?',
+        answer: 'No tool can guarantee hiring outcomes. This utility helps you ensure your resume speaks the vocabulary of the hiring team and applicant tracking systems (ATS).'
+      }
+    ],
+    relatedSlugs: ['resume-bullet-strength-checker', 'interview-preparation-planner', 'ai-prompt-builder']
+  },
+  {
+    slug: 'resume-bullet-strength-checker',
+    title: 'Resume Bullet Strength Checker',
+    category: 'Career & Resume',
+    eyebrow: 'Tool · Career & Resume',
+    benefit: 'Score experience bullet points on action verbs, quantifiable metrics, and concise impact.',
+    description: 'Check whether your resume experience bullets clearly demonstrate action verbs, verifiable scope, measurable evidence, and concise wording.',
+    tags: ['Resume Bullets', 'Action Verbs', 'Quantifiable Metrics', 'ATS Optimization'],
+    estimatedTime: '2 min',
+    path: '/tools/resume-bullet-strength-checker/',
+    purpose: 'Help professionals craft compelling, high-impact resume experience bullets using the proven Action Verb + Scope + Measurable Metric formula.',
+    steps: [
+      'Enter 1 to 5 experience bullet points from your resume.',
+      'Click "Check Bullets" to receive real-time feedback on verb strength, word count, and metric presence.',
+      'Review suggestions to replace passive phrasing with active, quantified accomplishments.'
+    ],
+    exampleOutput: {
+      title: 'Bullet Strength Evaluation',
+      description: 'Feedback on a support technician resume bullet:',
+      content: `Original: "Responsible for fixing laptops and helping users with passwords."\nScore: Weak (Passive, no metrics)\nSuggested Rewrite: "Provisioned and deployed 150+ macOS and Windows laptops via Jamf and Intune, reducing new-hire onboarding delays by 35%."`
+    },
+    faq: [
+      {
+        question: 'Why are numbers and metrics important on technical resumes?',
+        answer: 'Metrics prove the scale, velocity, and business impact of your work, distinguishing top performers from candidates who merely list job duties.'
+      }
+    ],
+    relatedSlugs: ['career-match-resume-review', 'interview-preparation-planner', 'service-desk-note-formatter']
+  },
+  {
+    slug: 'interview-preparation-planner',
+    title: 'Interview Preparation Planner',
+    category: 'Career & Resume',
+    eyebrow: 'Tool · Career & Resume',
+    benefit: 'Extract technical competencies from job descriptions and generate customized STAR practice questions.',
+    description: 'Detect common skill and responsibility signals in a job description and generate tailored practice interview questions using the STAR framework.',
+    tags: ['Interview Prep', 'STAR Method', 'Technical Questions', 'Career Growth'],
+    estimatedTime: '5 min',
+    path: '/tools/interview-preparation-planner/',
+    purpose: 'Prepare candidates to confidently answer behavioral and technical interview questions tailored specifically to the requirements in a target job posting.',
+    steps: [
+      'Paste the target job description.',
+      'Click "Extract Interview Signals" to identify key competencies (e.g. troubleshooting, communication, incident escalation).',
+      'Review generated practice questions structured around Situation, Task, Action, and Result (STAR).',
+      'Jot down bullet points for your real-world talking points.'
+    ],
+    exampleOutput: {
+      title: 'Extracted Competency Questions',
+      description: 'Practice questions generated from a Service Desk job description:',
+      content: `Competency: High-Pressure Incident Management\nPractice Question: "Describe a time when a critical executive meeting experienced an AV or laptop failure. How did you isolate the problem under tight time constraints, and what was the outcome?"`
+    },
+    faq: [
+      {
+        question: 'What is the STAR method?',
+        answer: 'STAR stands for Situation, Task, Action, and Result. It is the gold standard framework for structuring concise, impactful answers to behavioral interview questions.'
+      }
+    ],
+    relatedSlugs: ['career-match-resume-review', 'resume-bullet-strength-checker', 'ai-prompt-builder']
+  },
+
+  // 5. Finance & Planning
+  {
+    slug: 'compound-growth-sip-calculator',
+    title: 'Compound Growth & SIP Calculator',
+    category: 'Finance & Planning',
+    eyebrow: 'Tool · Finance & Planning',
+    benefit: 'Visualize future wealth accumulation from recurring monthly investments with transparent mathematical formulas.',
+    description: 'Explore how a starting amount and recurring monthly contributions could grow over time under an assumed annual return with visible formulas.',
+    tags: ['SIP Calculator', 'Compound Interest', 'Monthly Investing', 'Wealth Growth'],
+    estimatedTime: '2 min',
+    path: '/tools/compound-growth-sip-calculator/',
+    purpose: 'Provide a transparent, educational calculation tool for exploring the long-term compounding effects of regular monthly savings.',
+    steps: [
+      'Enter initial starting investment amount.',
+      'Enter monthly contribution (SIP) amount.',
+      'Specify expected annual return percentage.',
+      'Set investment horizon in years to see projected wealth and total interest earned.'
+    ],
+    exampleOutput: {
+      title: 'Compounding Projection Output',
+      description: 'Sample calculation for ₹10,000 monthly contribution over 15 years at 12% return:',
+      content: `Total Invested: ₹18,00,000\nEstimated Wealth: ₹50,45,760\nEstimated Growth: ₹32,45,760`
+    },
+    faq: [
+      {
+        question: 'Does this calculator guarantee investment returns?',
+        answer: 'No. Markets fluctuate and returns are never guaranteed. The tool is an educational mathematical calculator for scenario modeling.'
+      }
+    ],
+    relatedSlugs: ['inflation-goal-planning-calculator', 'retirement-planning-calculator', 'finance-planning-workspace']
+  },
+  {
+    slug: 'inflation-goal-planning-calculator',
+    title: 'Inflation & Goal Planning Calculator',
+    category: 'Finance & Planning',
+    eyebrow: 'Tool · Finance & Planning',
+    benefit: 'Estimate the real future cost of financial milestones adjusted for annual inflation and track the funding gap.',
+    description: 'Explore how inflation changes the future cost of a goal and compare it against current savings to see the funding gap.',
+    tags: ['Inflation', 'Goal Planning', 'Future Value', 'Savings Gap'],
+    estimatedTime: '2 min',
+    path: '/tools/inflation-goal-planning-calculator/',
+    purpose: 'Help planners understand how purchasing power erosion impacts future milestones (education, home down payment, vehicle) and calculate the required savings gap.',
+    steps: [
+      'Enter the cost of your goal in today’s currency.',
+      'Enter years until the goal must be funded.',
+      'Set estimated annual inflation rate (e.g. 6%).',
+      'Enter current savings allocated toward the goal to calculate the remaining monthly contribution required.'
+    ],
+    exampleOutput: {
+      title: 'Inflation-Adjusted Goal Output',
+      description: 'Sample goal calculation for a ₹25,00,000 milestone needed in 10 years at 6% inflation:',
+      content: `Today's Cost: ₹25,00,000\nFuture Cost (in 10 years): ₹44,77,119\nInflation Impact: +₹19,77,119 (+79% increase)`
+    },
+    faq: [
+      {
+        question: 'Why should I plan for inflation in long-term goals?',
+        answer: 'Even moderate 6% inflation doubles living costs approximately every 12 years. Failing to account for inflation creates significant shortfalls.'
+      }
+    ],
+    relatedSlugs: ['compound-growth-sip-calculator', 'retirement-planning-calculator', 'personal-finance-snapshot']
+  },
+  {
+    slug: 'personal-finance-snapshot',
+    title: 'Personal Finance Snapshot',
+    category: 'Finance & Planning',
+    eyebrow: 'Tool · Finance & Planning',
+    benefit: 'Calculate monthly cash flow surplus, emergency reserve runway in months, and total net worth in one view.',
+    description: 'Bring three everyday money concepts together: monthly cash flow, an emergency reserve runway, and a net worth balance sheet.',
+    tags: ['Budgeting', 'Emergency Fund', 'Net Worth', 'Cash Flow'],
+    estimatedTime: '3 min',
+    path: '/tools/personal-finance-snapshot/',
+    purpose: 'Provide a consolidated, private dashboard of your complete financial baseline: cash flow, liquidity safety buffer, and asset-to-debt ratio.',
+    steps: [
+      'Enter monthly take-home income and fixed/discretionary living expenses.',
+      'Enter liquid cash and emergency savings to calculate safety runway in months.',
+      'Enter total investments, property assets, and outstanding liabilities to calculate net worth.'
+    ],
+    exampleOutput: {
+      title: 'Financial Health Snapshot',
+      description: 'Consolidated summary of financial stability:',
+      content: `Monthly Savings Rate: 34%\nEmergency Reserve Runway: 6.2 months of living expenses (Safe)\nNet Worth: Assets ₹38,50,000 - Liabilities ₹8,20,000 = ₹30,30,000 Net Worth.`
+    },
+    faq: [
+      {
+        question: 'How many months of emergency fund is recommended?',
+        answer: 'Financial planners generally recommend 3 to 6 months of fixed living expenses held in liquid, accessible instruments.'
+      }
+    ],
+    relatedSlugs: ['finance-planning-workspace', 'compound-growth-sip-calculator', 'inflation-goal-planning-calculator']
+  },
+  {
+    slug: 'retirement-planning-calculator',
+    title: 'Retirement Planning Calculator',
+    category: 'Finance & Planning',
+    eyebrow: 'Tool · Finance & Planning',
+    benefit: 'Determine required retirement corpus and withdrawal horizon based on living expenses, inflation, and real returns.',
+    description: 'Explore a hypothetical retirement corpus requirement and projected assets using living expenses, inflation, pre-retirement return, and real return.',
+    tags: ['Retirement Planning', 'Corpus Estimator', 'Real Return', 'Decumulation'],
+    estimatedTime: '4 min',
+    path: '/tools/retirement-planning-calculator/',
+    purpose: 'Empower individuals to calculate their target retirement corpus number using rigorous present-value annuity math and realistic real return assumptions.',
+    steps: [
+      'Enter current age, target retirement age, and expected lifespan horizon.',
+      'Input current monthly living expenses needed in retirement.',
+      'Specify expected inflation and post-retirement real rate of return.',
+      'Review the calculated required corpus and required monthly savings rate.'
+    ],
+    exampleOutput: {
+      title: 'Retirement Corpus Calculation',
+      description: 'Retirement horizon projection for 30-year retirement period:',
+      content: `Target Retirement Corpus: ₹2,45,00,000\nProjected Annual Expense at Retirement: ₹14,40,000\nEstimated Withdrawal Horizon: 30 Years (to age 90)`
+    },
+    faq: [
+      {
+        question: 'What is a "real rate of return"?',
+        answer: 'The real return is your investment return minus the rate of inflation. For instance, an 8% return in a 6% inflation environment yields a 2% real return.'
+      }
+    ],
+    relatedSlugs: ['finance-planning-workspace', 'compound-growth-sip-calculator', 'personal-finance-snapshot']
+  },
+  {
+    slug: 'finance-planning-workspace',
+    title: 'Finance Planning Workspace',
+    category: 'Finance & Planning',
+    eyebrow: 'Tool · Finance & Planning · Interactive Workspace',
+    benefit: 'Unified financial console bringing together cash flow, goal timelines, compound projections, and retirement readiness.',
+    description: 'A unified browser workspace integrating Cash Flow Snapshot, Goals & Compound Growth, Retirement Corpus Planning, and Planning Review.',
+    tags: ['Integrated Workspace', 'Financial Planning', 'Retirement', 'All-in-One'],
+    estimatedTime: '5 min',
+    path: '/tools/finance-planning-workspace/',
+    purpose: 'Integrate all financial calculations into a single, comprehensive workspace so users can see how budgeting, savings rates, and compounding directly impact their long-term security.',
+    steps: [
+      'Review and update your monthly cash flow inputs in the Cash Flow tab.',
+      'Define medium-term goals with inflation adjustments in the Goals tab.',
+      'Model retirement corpus needs and monthly contributions in the Retirement tab.',
+      'Inspect the holistic Review tab for scenario trade-offs and recommendations.'
+    ],
+    exampleOutput: {
+      title: 'Unified Planning Review',
+      description: 'Holistic overview connecting daily cash flow to retirement horizon:',
+      content: `Total Monthly Cash Flow: +₹35,000 surplus\nAllocations: ₹15,000 toward Home Goal (2029) | ₹20,000 toward Retirement (2046)\nTrajectory: On track to meet both milestones with current savings rate.`
+    },
+    faq: [
+      {
+        question: 'Does this workspace link to bank accounts or financial APIs?',
+        answer: 'No. The workspace runs entirely in browser memory for complete user privacy. No credentials or financial accounts are ever requested or connected.'
+      }
+    ],
+    relatedSlugs: ['personal-finance-snapshot', 'retirement-planning-calculator', 'compound-growth-sip-calculator']
+  },
+
+  // 6. AI & Productivity
   {
     slug: 'ai-prompt-builder',
     title: 'AI Prompt Builder',
     category: 'AI & Productivity',
     eyebrow: 'Tool · AI & Productivity',
+    benefit: 'Construct structured, highly effective AI prompts using Goal, Context, Desired Output, and Constraints.',
     description: 'Turn a rough request into a clearer AI prompt using four simple building blocks: Goal, Context, Desired Output, and Constraints.',
-    path: '/tools/ai-prompt-builder/'
-  },
-  {
-    slug: 'career-match-resume-review',
-    title: 'Career Match & Resume Review',
-    category: 'Career',
-    eyebrow: 'Tool · Career · Interactive Suite',
-    description: 'Compare your resume against a job description in your browser to detect skills overlap, uncover gaps, review action metrics, and track applications.',
-    path: '/tools/career-match-resume-review/'
-  },
-  {
-    slug: 'resume-bullet-strength-checker',
-    title: 'Resume Bullet Strength Checker',
-    category: 'Career',
-    eyebrow: 'Tool · Career',
-    description: 'Check whether your resume experience bullets clearly demonstrate action verbs, verifiable scope, measurable evidence, and concise wording.',
-    path: '/tools/resume-bullet-strength-checker/'
-  },
-  {
-    slug: 'interview-preparation-planner',
-    title: 'Interview Preparation Planner',
-    category: 'Career',
-    eyebrow: 'Tool · Career',
-    description: 'Detect common skill and responsibility signals in a job description and generate tailored practice interview questions using the STAR framework.',
-    path: '/tools/interview-preparation-planner/'
-  },
-  {
-    slug: 'compound-growth-sip-calculator',
-    title: 'Compound Growth & SIP Calculator',
-    category: 'Finance',
-    eyebrow: 'Tool · Finance',
-    description: 'Explore how a starting amount and recurring monthly contributions could grow over time under an assumed annual return with visible formulas.',
-    path: '/tools/compound-growth-sip-calculator/'
-  },
-  {
-    slug: 'inflation-goal-planning-calculator',
-    title: 'Inflation & Goal Planning Calculator',
-    category: 'Finance',
-    eyebrow: 'Tool · Finance',
-    description: 'Explore how inflation changes the future cost of a goal and compare it against current savings to see the funding gap.',
-    path: '/tools/inflation-goal-planning-calculator/'
-  },
-  {
-    slug: 'personal-finance-snapshot',
-    title: 'Personal Finance Snapshot',
-    category: 'Finance',
-    eyebrow: 'Tool · Finance',
-    description: 'Bring three everyday money concepts together: monthly cash flow, an emergency reserve runway, and a net worth balance sheet.',
-    path: '/tools/personal-finance-snapshot/'
-  },
-  {
-    slug: 'retirement-planning-calculator',
-    title: 'Retirement Planning Calculator',
-    category: 'Finance',
-    eyebrow: 'Tool · Finance',
-    description: 'Explore a hypothetical retirement corpus requirement and projected assets using living expenses, inflation, pre-retirement return, and real return.',
-    path: '/tools/retirement-planning-calculator/'
-  },
-  {
-    slug: 'finance-planning-workspace',
-    title: 'Finance Planning Workspace',
-    category: 'Finance',
-    eyebrow: 'Tool · Finance · Interactive Workspace',
-    description: 'A unified browser workspace integrating Cash Flow Snapshot, Goals & Compound Growth, Retirement Corpus Planning, and Planning Review.',
-    path: '/tools/finance-planning-workspace/'
+    tags: ['Prompt Engineering', 'Structured Prompts', 'Productivity', 'Safe AI'],
+    estimatedTime: '2 min',
+    path: '/tools/ai-prompt-builder/',
+    purpose: 'Prevent vague, ungrounded AI answers by structuring prompts with clear boundaries, role context, exact output formatting, and privacy constraints.',
+    steps: [
+      'State your primary Goal clearly (e.g. "Draft an IT incident summary").',
+      'Provide relevant Context (role, background details, sanitized technical facts).',
+      'Specify the Desired Output format (bullet list, table, email, JSON).',
+      'Define strict Constraints (no jargon, under 200 words, do not invent facts).',
+      'Copy the synthesized prompt into ChatGPT, Claude, or Gemini.'
+    ],
+    exampleOutput: {
+      title: 'Constructed Prompt Output',
+      description: 'A structured prompt generated for IT technical communication:',
+      content: `[GOAL]: Draft an incident post-mortem email for business stakeholders.\n[CONTEXT]: A 45-minute outage affected the regional VPN gateway due to an expired certificate.\n[DESIRED OUTPUT]: 3 concise paragraphs (Impact, Root Cause, Remediation steps taken).\n[CONSTRAINTS]: Professional, blame-free tone; no technical jargon; omit server hostnames.`
+    },
+    faq: [
+      {
+        question: 'Why does structured prompting improve AI answers?',
+        answer: 'Large language models perform significantly better when given explicit task boundaries, persona context, and output constraints rather than open-ended questions.'
+      },
+      {
+        question: 'Can I use this for non-technical tasks?',
+        answer: 'Absolutely. The Goal-Context-Output-Constraint pattern works for writing, business analysis, coding, and research.'
+      }
+    ],
+    relatedSlugs: ['ticket-to-knowledge-base-draft', 'service-desk-note-formatter', 'career-match-resume-review']
   }
 ];

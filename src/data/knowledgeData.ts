@@ -97,6 +97,18 @@ export const knowledgeEntries: KnowledgeEntry[] = [
     keywords: ["interview preparation planner", "interview planner", "job description", "practice questions", "star method", "career", "career tools", "interview prep"]
   },
   {
+    url: "/tools/apple-macos-jamf-support-helper/",
+    title: "macOS & Jamf Triage Helper",
+    summary: "Guided diagnostic checklist for diagnosing Mac application crashes, FileVault encryption, MDM enrollment, and Jamf agent communication with safe terminal commands.",
+    keywords: ["apple macos jamf support helper", "macos", "jamf pro", "apple silicon", "mdm", "ade", "gatekeeper", "filevault", "terminal commands", "mac triage"]
+  },
+  {
+    url: "/tools/m365-workplace-sign-in-diagnostic/",
+    title: "Microsoft 365 & Workplace Sign-In Triage",
+    summary: "Systematic triage workflow for Microsoft Entra ID (Azure AD), MFA notification loops, Conditional Access compliance blocks, and Windows PRT token refresh issues.",
+    keywords: ["m365 workplace sign in diagnostic", "microsoft 365", "entra id", "azure ad", "mfa loop", "conditional access", "sso", "prt token", "authentication triage"]
+  },
+  {
     url: "/tools/compound-growth-sip-calculator/",
     title: "Compound Growth & SIP Calculator",
     summary: "Interactive calculator for exploring hypothetical future values from starting capital and recurring monthly contributions with visible mathematical methodology.",
