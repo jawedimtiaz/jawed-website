@@ -24,8 +24,31 @@ export const JawedAiWidget: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+
   // Don't render floating widget on the dedicated /ai/ page
   const isAiPage = location.pathname.startsWith('/ai');
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setStatus('');
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setStatus('Jawed AI needs internet');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -148,6 +171,25 @@ export const JawedAiWidget: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {!isOnline && (
+            <div
+              style={{
+                backgroundColor: '#fef3c7',
+                color: '#92400e',
+                padding: '8px 12px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderBottom: '1px solid #fde68a'
+              }}
+            >
+              <span>📡</span>
+              <span>Jawed AI needs internet to search site knowledge.</span>
+            </div>
+          )}
 
           <p className="jawed-ai-widget-privacy">
             Questions and recent context are processed by the site’s AI service. Do not enter passwords, authentication codes, sensitive personal information or confidential work data.{' '}

@@ -41,5 +41,35 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Interactive Tools",
+      "short_name": "Tools",
+      "description": "12 browser-based IT & finance utilities",
+      "url": "/tools/",
+      "icons": [{ "src": "/assets/icons/pwa-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Technical Notes",
+      "short_name": "Notes",
+      "description": "Practical IT troubleshooting runbooks",
+      "url": "/notes/",
+      "icons": [{ "src": "/assets/icons/pwa-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Jawed AI",
+      "short_name": "Ask AI",
+      "description": "Search verified IT notes and site tools",
+      "url": "/ai/",
+      "icons": [{ "src": "/assets/icons/pwa-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Contact Jawed",
+      "short_name": "Contact",
+      "description": "Send a direct message or inquiry",
+      "url": "/contact/",
+      "icons": [{ "src": "/assets/icons/pwa-192.png", "sizes": "192x192" }]
+    }
   ]
 }

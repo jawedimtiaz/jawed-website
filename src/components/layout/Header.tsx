@@ -113,6 +113,30 @@ export const Header: React.FC = () => {
             <Link to="/contact/" aria-current={isActive('/contact') ? 'page' : undefined}>
               Contact
             </Link>
+
+            <button
+              type="button"
+              onClick={() => {
+                const btn = document.getElementById('pwa-install-btn');
+                if (btn) btn.click();
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                backgroundColor: 'var(--surface-accent)',
+                color: 'var(--accent-dark)',
+                border: '1px solid #cbdcf6',
+                borderRadius: '7px',
+                padding: '6px 12px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              aria-label="Install app on device"
+            >
+              <span>📥</span> Install App
+            </button>
           </nav>
         </div>
       </header>

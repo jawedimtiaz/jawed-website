@@ -89,9 +89,19 @@
       <p>
         The page you requested requires an active network connection. Once your device reconnects to Wi-Fi or cellular data, normal browsing and Jawed AI will resume automatically.
       </p>
-      <div class="actions">
+      <div class="actions" style="margin-bottom: 1.5rem;">
         <button class="button" onclick="window.location.reload()">Check Connection &amp; Retry</button>
         <a class="button button-secondary" href="/">Return to Cached Home</a>
+      </div>
+      <div style="border-top: 1px solid var(--line); padding-top: 1rem; font-size: 0.9rem; color: var(--muted);">
+        <p style="margin: 0 0 0.5rem; font-weight: 600;">Available offline while disconnected:</p>
+        <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+          <a href="/tools/" style="color: var(--accent); text-decoration: underline;">Interactive Tools</a>
+          <span>•</span>
+          <a href="/notes/" style="color: var(--accent); text-decoration: underline;">IT Notes &amp; Checklists</a>
+          <span>•</span>
+          <a href="/about/" style="color: var(--accent); text-decoration: underline;">About Jawed</a>
+        </div>
       </div>
     </main>
   </body>

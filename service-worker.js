@@ -1,6 +1,12 @@
-const CACHE_NAME = 'jawed-pwa-v3';
+const CACHE_NAME = 'jawed-pwa-v4';
 const STATIC_ASSETS = [
   '/',
+  '/about/',
+  '/work/',
+  '/notes/',
+  '/tools/',
+  '/contact/',
+  '/privacy/',
   '/offline.html',
   '/manifest.json',
   '/favicon.svg',
@@ -10,7 +16,10 @@ const STATIC_ASSETS = [
   '/assets/icons/apple-touch-icon.png',
   '/assets/icons/pwa-maskable-512.png',
   '/assets/icons/pwa-192.svg',
-  '/assets/icons/pwa-512.svg'
+  '/assets/icons/pwa-512.svg',
+  '/pwa-192.png',
+  '/pwa-512.png',
+  '/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -31,6 +40,12 @@ self.addEventListener('activate', (event) => {
       )
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 const isDynamicRequest = (request) => {

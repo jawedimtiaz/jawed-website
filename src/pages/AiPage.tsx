@@ -22,7 +22,29 @@ export const AiPage: React.FC = () => {
   const [inputVal, setInputVal] = useState(initialQ);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setStatus('');
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setStatus('Jawed AI needs internet');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -136,6 +158,27 @@ export const AiPage: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {!isOnline && (
+        <div
+          style={{
+            backgroundColor: '#fef3c7',
+            color: '#92400e',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            fontWeight: 600,
+            fontSize: '0.92rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            border: '1px solid #fde68a'
+          }}
+        >
+          <span>📡</span>
+          <span>Jawed AI needs internet. Please reconnect to Wi-Fi or mobile data to submit questions.</span>
+        </div>
+      )}
 
       {/* Main Chat Shell */}
       <section className="ai-shell" aria-labelledby="ai-title" style={{ border: '1px solid var(--line)', borderRadius: '8px', padding: '1.5rem', backgroundColor: 'var(--surface)' }}>
