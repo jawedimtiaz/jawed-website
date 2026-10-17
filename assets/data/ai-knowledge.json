@@ -901,7 +901,7 @@
     {
       "url": "/tools/career-match-resume-review/",
       "title": "Career Match Resume Review",
-      "summary": "A browser-based career match and resume review tool that compares resume and job-description text locally to identify skills, terms and evidence areas to review. Resume and job-description analysis stays in the browser; saved analyses and application-tracker data use browser local storage, and the tool does not make hiring decisions or predict hiring outcomes.",
+      "summary": "A browser-based career match and resume review tool that compares resume and job-description text locally to identify skills, terms and evidence areas to review. Resume and job-description analysis stays in the browser; saved analyses and application-tracker data use browser local storage. If persisted tracker JSON is malformed, an already-rendered application board is preserved and a browser-storage error is announced instead of implying there are no applications. The tool does not make hiring decisions or predict hiring outcomes.",
       "keywords": [
         "career match",
         "resume review",
@@ -1027,7 +1027,7 @@
       ]
     }
   ],
-  "reviewed_against_sitemap_on": "2026-10-16",
+  "reviewed_against_sitemap_on": "2026-10-17",
   "coverage_policy": {
     "included": "Public site pages intended to provide factual Jawed.co.in content for AI grounding.",
     "excluded_paths": [
