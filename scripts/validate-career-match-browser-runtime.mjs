@@ -350,6 +350,16 @@ async function runViewport(width,height){
       await js("Storage.prototype.getItem=window.__savedPanelOriginalGetItem;delete window.__savedPanelOriginalGetItem");
     }
     if(!savedPanelReadFailure.panelVisible||savedPanelReadFailure.items!==1||savedPanelReadFailure.emptyMessage||!savedPanelReadFailure.toast.includes("Browser storage unavailable")||savedPanelReadFailure.toastRole!=="status"||savedPanelReadFailure.toastLive!=="polite"||savedPanelReadFailure.toastAtomic!=="true")failures.push(width+"x"+height+" denied saved-panel read was misrepresented as an empty saved-analysis list or omitted the accessible storage-failure announcement: "+JSON.stringify(savedPanelReadFailure));
+    stage="malformed saved storage preserves rendered panel";
+    await js("localStorage.setItem('cm_saved','{malformed-json')");
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
+    await click("#tab-saved"); await waitFor('()=>!document.querySelector("#v-saved").hidden');
+    const malformedSavedPanel=await js("const root=document.querySelector('#savedList'),t=document.querySelector('#toast');return {panelVisible:!document.querySelector('#v-saved').hidden,items:root.querySelectorAll('button[data-s=open]').length,emptyMessage:root.querySelector('.empty')?.textContent||'',title:[...root.querySelectorAll('.job b')].some(x=>x.textContent==='Storage read test'),toast:t?.textContent||'',toastRole:t?.getAttribute('role')||'',toastLive:t?.getAttribute('aria-live')||'',toastAtomic:t?.getAttribute('aria-atomic')||''}");
+    if(!malformedSavedPanel.panelVisible||malformedSavedPanel.items!==1||malformedSavedPanel.emptyMessage||!malformedSavedPanel.title||!malformedSavedPanel.toast.includes("Browser storage unavailable")||malformedSavedPanel.toastRole!=="status"||malformedSavedPanel.toastLive!=="polite"||malformedSavedPanel.toastAtomic!=="true")failures.push(width+"x"+height+" malformed saved storage cleared the existing panel or omitted the accessible storage-failure announcement: "+JSON.stringify(malformedSavedPanel));
+    await js("localStorage.setItem('cm_saved',JSON.stringify([{id:'storage-read-test',html:'<section class=card><h3>Storage test</h3></section>',title:'Storage read test',date:'2026-10-16',score:75}]))");
+    await click("#tab-analyze"); await waitFor('()=>!document.querySelector("#v-analyze").hidden');
+    await click("#tab-saved"); await waitFor('()=>!document.querySelector("#v-saved").hidden');
+    await waitFor('()=>document.querySelectorAll("#savedList button[data-s=open]").length===1');
     stage="saved analysis read failure preserves item and focus";
     await js("window.__savedReadBefore=JSON.parse(localStorage.getItem('cm_saved')||'[]');window.__savedReadOriginalGetItem=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='cm_saved')throw new DOMException('Storage access denied','SecurityError');return window.__savedReadOriginalGetItem.call(this,k)}");
     let savedReadStorageFailure;
