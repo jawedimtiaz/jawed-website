@@ -123,11 +123,11 @@ export const AiPage: React.FC = () => {
   };
 
   const suggestedPrompts = [
-    'Who is Jawed Imtiaz?',
-    'How do I troubleshoot a Windows sign-in issue?',
-    'How do I calculate SIP compound growth?',
-    'What tools are available on this site?',
-    'What is the layer-by-layer networking framework?'
+    'What IT support skills does Jawed have?',
+    'Which tools can help my career?',
+    'How does Jawed approach troubleshooting?',
+    'What is Jawed learning?',
+    'How can I contact Jawed?'
   ];
 
   return (

@@ -69,12 +69,11 @@ export const JawedAiWidget: React.FC = () => {
     setIsOpen(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = inputVal.trim();
+  const sendQuery = async (queryText: string) => {
+    const q = queryText.trim();
     if (!q || busy) return;
 
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       setStatus('Jawed AI needs internet');
       setMessages((prev) => [
         ...prev,
@@ -112,7 +111,7 @@ export const JawedAiWidget: React.FC = () => {
       ]);
       setStatus('');
     } catch {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         setStatus('Jawed AI needs internet');
         setMessages((prev) => [
           ...prev,
@@ -127,6 +126,11 @@ export const JawedAiWidget: React.FC = () => {
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendQuery(inputVal);
   };
 
   return (
@@ -224,6 +228,43 @@ export const JawedAiWidget: React.FC = () => {
                 )}
               </div>
             ))}
+
+            {messages.length === 1 && (
+              <div style={{ margin: '8px 0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--muted)' }}>
+                  Suggested questions:
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {[
+                    'What IT support skills does Jawed have?',
+                    'Which tools can help my career?',
+                    'How does Jawed approach troubleshooting?',
+                    'What is Jawed learning?',
+                    'How can I contact Jawed?'
+                  ].map((promptText) => (
+                    <button
+                      key={promptText}
+                      type="button"
+                      onClick={() => sendQuery(promptText)}
+                      disabled={busy}
+                      style={{
+                        textAlign: 'left',
+                        fontSize: '0.78rem',
+                        padding: '6px 10px',
+                        background: 'var(--surface-accent)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        color: 'var(--accent)',
+                        cursor: 'pointer',
+                        lineHeight: 1.3
+                      }}
+                    >
+                      💡 {promptText}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 

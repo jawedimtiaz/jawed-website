@@ -34,13 +34,13 @@ export const knowledgeEntries: KnowledgeEntry[] = [
     url: "/work/skills/",
     title: "Skills",
     summary: "Jawed's skills span IT support and Service Desk work, workplace technology, Apple and macOS support, device management (Jamf, Apple Business Manager), IT operations, networking (TCP/IP, DNS, VPN, Meraki), cloud identity (Okta, OneLogin, Google Workspace, Azure AD / Microsoft Entra), and automation scripting (PowerShell, JavaScript).",
-    keywords: ["skills", "it support", "service desk", "troubleshooting", "user support", "remote support", "apple", "macos", "apple business manager", "jamf", "device provisioning", "device management", "servicenow", "jira", "google workspace", "okta", "microsoft 365", "azure", "vpn", "powershell", "javascript", "automation", "networking"]
+    keywords: ["skills", "it support", "it support skills", "skills jawed has", "service desk", "troubleshooting", "user support", "remote support", "apple", "macos", "apple business manager", "jamf", "device provisioning", "device management", "servicenow", "jira", "google workspace", "okta", "microsoft 365", "azure", "vpn", "powershell", "javascript", "automation", "networking"]
   },
   {
     url: "/work/certifications/",
     title: "Certifications",
     summary: "Jawed's education and credentials: B.Sc. from University of Calcutta, current Jamf 100 Course and ITIL 4 learning, Azure Fundamentals (AZ-900), Apple Certified Support Professional, and historical MCSE.",
-    keywords: ["certifications", "education", "azure fundamentals", "az-900", "apple certified support professional", "mcse", "jamf 100", "jamf", "itil", "university of calcutta"]
+    keywords: ["certifications", "education", "azure fundamentals", "az-900", "apple certified support professional", "mcse", "jamf 100", "jamf", "itil", "university of calcutta", "what is jawed learning", "current learning", "learning"]
   },
   {
     url: "/work/projects/",
@@ -82,19 +82,19 @@ export const knowledgeEntries: KnowledgeEntry[] = [
     url: "/tools/career-match-resume-review/",
     title: "Career Match & Resume Review",
     summary: "A browser-based career match and resume review tool that compares resume and job-description text locally to identify skills overlap, missing keywords, and track applications with local storage.",
-    keywords: ["career match", "resume review", "job description", "resume", "skills gap", "application tracker"]
+    keywords: ["career match", "resume review", "job description", "resume", "skills gap", "application tracker", "career", "career tools", "which tools can help my career"]
   },
   {
     url: "/tools/resume-bullet-strength-checker/",
     title: "Resume Bullet Strength Checker",
     summary: "A browser-based resume-writing tool that checks experience bullets for action verbs, measurable evidence, length, and filler phrasing.",
-    keywords: ["resume bullet strength checker", "resume bullets", "action verbs", "evidence", "metrics", "ats"]
+    keywords: ["resume bullet strength checker", "resume bullets", "action verbs", "evidence", "metrics", "ats", "career", "career tools"]
   },
   {
     url: "/tools/interview-preparation-planner/",
     title: "Interview Preparation Planner",
     summary: "A browser-only interview preparation planner that extracts skill signals from a job description, compares against your resume, and creates customized practice interview questions.",
-    keywords: ["interview preparation planner", "interview planner", "job description", "practice questions", "star method"]
+    keywords: ["interview preparation planner", "interview planner", "job description", "practice questions", "star method", "career", "career tools", "interview prep"]
   },
   {
     url: "/tools/compound-growth-sip-calculator/",
@@ -136,7 +136,7 @@ export const knowledgeEntries: KnowledgeEntry[] = [
     url: "/notes/it-service-desk-troubleshooting-workflow/",
     title: "IT Service Desk Troubleshooting Workflow",
     summary: "A repeatable Service Desk first-response workflow covering problem definition, evidence collection, user/device/application/service scoping, one-change-at-a-time testing, validation, and escalation.",
-    keywords: ["it service desk troubleshooting workflow", "first response", "troubleshooting workflow", "evidence", "scoping", "root cause"]
+    keywords: ["it service desk troubleshooting workflow", "first response", "troubleshooting workflow", "evidence", "scoping", "root cause", "troubleshooting approach", "how does jawed approach troubleshooting", "methodology"]
   },
   {
     url: "/notes/apple-macos-first-response-checklist/",
@@ -346,7 +346,7 @@ export const knowledgeEntries: KnowledgeEntry[] = [
     url: "/contact/",
     title: "Contact Jawed Imtiaz",
     summary: "Contact Jawed Imtiaz for IT support opportunities, website feedback, technology questions, or LinkedIn connections.",
-    keywords: ["contact", "email", "get in touch", "linkedin"]
+    keywords: ["contact", "email", "get in touch", "linkedin", "how can i contact jawed", "reach jawed"]
   },
   {
     url: "/privacy/",
