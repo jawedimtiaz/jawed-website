@@ -1,0 +1,44 @@
+{
+  "phase": "39H",
+  "scope": "production-ai-post-runtime-reliability",
+  "production_origin": "https://jawed.co.in",
+  "max_redirects": 0,
+  "checks": [
+    {
+      "path": "/api/ai",
+      "method": "POST",
+      "origin": "https://invalid-phase-39h.example",
+      "content_type": "application/json",
+      "body": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "phase-39h-runtime-probe"
+          }
+        ]
+      },
+      "expected_status": 403,
+      "expected_code": "AI_ORIGIN_NOT_ALLOWED",
+      "required_headers": [
+        {
+          "name": "content-type",
+          "includes": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "includes": "no-store"
+        },
+        {
+          "name": "x-content-type-options",
+          "includes": "nosniff"
+        },
+        {
+          "name": "x-request-id",
+          "nonempty": true
+        }
+      ],
+      "max_body_bytes": 20000
+    }
+  ],
+  "max_body_bytes": 20000
+}

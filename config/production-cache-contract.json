@@ -1,0 +1,33 @@
+{
+  "phase": "38R",
+  "scope": "production-cache-reliability",
+  "production_origin": "https://jawed.co.in",
+  "max_redirects": 0,
+  "checks": [
+    {
+      "path": "/assets/css/style.css",
+      "require_cache_control": true,
+      "cache_policy": "public"
+    },
+    {
+      "path": "/assets/js/main.js",
+      "require_cache_control": true,
+      "cache_policy": "public"
+    },
+    {
+      "path": "/assets/images/social-preview.png",
+      "require_cache_control": true,
+      "cache_policy": "public"
+    },
+    {
+      "path": "/favicon.svg",
+      "require_cache_control": true,
+      "cache_policy": "public"
+    },
+    {
+      "path": "/api/ai",
+      "require_cache_control": true,
+      "cache_policy": "no-store"
+    }
+  ]
+}

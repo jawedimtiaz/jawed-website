@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "status": "pre-activation",
+  "allowed_slot_contexts": [
+    "after-primary-content-introduction",
+    "between-substantive-content-sections",
+    "before-related-content"
+  ],
+  "forbidden_slot_contexts": [
+    "inside-primary-navigation",
+    "adjacent-to-menu-controls",
+    "adjacent-to-download-controls",
+    "adjacent-to-form-submit-controls",
+    "inside-ai-conversation",
+    "inside-interactive-tool-workspace",
+    "on-privacy-or-contact-pages",
+    "on-error-or-dead-end-pages"
+  ],
+  "rules": [
+    "Publisher content must remain the focal point of every monetized page.",
+    "Ads must not be styled or positioned so users could mistake them for navigation, controls, downloads, or site content.",
+    "Do not place an ad slot solely to create an ad impression without substantive publisher content around it.",
+    "Do not add a slot to an excluded route from config/adsense-inventory.json.",
+    "Re-check placement after any major template or navigation change."
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "phase": "38C",
+  "name": "Secrets, Supply Chain & Repository Security",
+  "status": "active",
+  "controls": {
+    "tracked_secret_files": "blocked",
+    "credential_like_literals": "blocked",
+    "workflow_untrusted_shell_interpolation": "blocked",
+    "workflow_target_elevation": "blocked",
+    "workflow_action_sha_pinning": "required",
+    "workflow_permissions": "contents-read",
+    "workflow_secret_access": "blocked",
+    "runtime_dependency_manifest": "not-applicable-no-package-manifest",
+    "dependency_lockfile": "not-applicable-no-package-manifest"
+  },
+  "scope": "repository-source-and-github-actions",
+  "principle": "Do not introduce dependency, platform, or deployment changes without a concrete finding."
+}

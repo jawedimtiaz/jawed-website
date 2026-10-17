@@ -1,0 +1,20 @@
+import fs from "node:fs";
+const contract=JSON.parse(fs.readFileSync("config/production-smoke-contract.json","utf8"));
+const failures=[];
+const isSafePath=value=>typeof value==="string"&&value.startsWith("/")&&!value.startsWith("//")&&!value.includes("\\")&&!value.includes("/../")&&!value.includes("/./")&&!/%(?:2e|2f|5c)/i.test(value);
+const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
+if(!/^39I$/.test(contract.phase)) failures.push("smoke contract phase must be 39I");
+if(!isHttpsOrigin(contract.canonical_origin)) failures.push("canonical origin must be an origin-only HTTPS URL");
+if(!isHttpsOrigin(contract.alternate_origin)) failures.push("alternate origin must be an origin-only HTTPS URL");
+if(contract.canonical_origin!=="https://jawed.co.in") failures.push("canonical origin drifted");
+if(contract.alternate_origin!=="https://www.jawed.co.in") failures.push("alternate origin drifted");
+if(!Array.isArray(contract.redirect_checks)||contract.redirect_checks.length<1) failures.push("at least one canonical redirect check is required");
+for(const item of contract.redirect_checks||[]){
+  if(!isSafePath(item.path)) failures.push(`${item.path}: redirect check path must be a safe absolute site path`);
+  if(typeof item.max_redirects!=="number"||item.max_redirects!==0) failures.push(`${item.path}: redirect check max_redirects must be exactly 0`);
+  if(!Array.isArray(item.expected_status)||item.expected_status.length<1||!item.expected_status.every(status=>Number.isInteger(status)&&status>=300&&status<=399)) failures.push(`${item.path}: expected redirect status contract must be a non-empty 3xx integer array`);
+  if(typeof item.location!=="string"||item.location!==contract.canonical_origin+item.path) failures.push(`${item.path}: redirect Location must preserve the requested path on the canonical origin`);
+}
+if(failures.length){console.error("Canonical Origin Reliability Gate FAILED");for(const f of failures) console.error("- "+f);process.exit(1);}
+console.log("Canonical Origin Reliability Gate PASSED");
+console.log("Redirect checks: "+contract.redirect_checks.length);

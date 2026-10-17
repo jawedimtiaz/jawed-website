@@ -1,0 +1,39 @@
+name: TWA Engineering Validation
+
+on:
+  pull_request:
+    paths:
+      - "android/**"
+      - "manifest.json"
+      - "assets/icons/pwa-192.svg"
+      - "assets/icons/pwa-512.svg"
+      - "scripts/validate-twa-config.mjs"
+      - "docs/phase-120-twa-engineering.md"
+      - ".github/workflows/twa-engineering.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-twa-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20
+
+      - name: Validate TWA configuration contract
+        run: node scripts/validate-twa-config.mjs
+
+      - name: Check signing secrets are not committed
+        run: |
+          if find android -type f \( -name "*.keystore" -o -name "*.jks" -o -name "*.p12" \) -print -quit | grep -q .; then
+            echo "Signing key material must not be committed."
+            exit 1
+          fi
+          echo "Signing-key repository boundary: PASS"

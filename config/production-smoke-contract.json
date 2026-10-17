@@ -1,0 +1,102 @@
+{
+  "phase": "39I",
+  "scope": "production-smoke-and-critical-surface-reliability",
+  "production_origin": "https://jawed.co.in",
+  "checks": [
+    {
+      "path": "/",
+      "status": 200,
+      "content_type": "text/html",
+      "required_markers": [
+        "<nav id=\"site-nav\"",
+        "<summary>Explore</summary>",
+        "<a href=\"/ai/\">AI</a>"
+      ]
+    },
+    {
+      "path": "/ai/",
+      "status": 200,
+      "content_type": "text/html",
+      "required_markers": [
+        "<h1>",
+        "Jawed AI",
+        "id=\"ai-status\""
+      ]
+    },
+    {
+      "path": "/notes/?q=automation",
+      "status": 200,
+      "content_type": "text/html",
+      "required_markers": [
+        "<h1>",
+        "type=\"search\"",
+        "id=\"notes-filter\""
+      ]
+    },
+    {
+      "path": "/api/ai",
+      "status": 200,
+      "content_type": "application/json"
+    },
+    {
+      "path": "/sitemap.xml",
+      "status": 200,
+      "content_type": "application/xml"
+    },
+    {
+      "path": "/missing-phase-39i-smoke-test",
+      "status": 404,
+      "content_type": "text/html",
+      "required_markers": [
+        "Page not found",
+        "Back home",
+        "/tools/"
+      ]
+    }
+  ],
+  "max_redirects": 0,
+  "max_body_bytes": 500000,
+  "canonical_origin": "https://jawed.co.in",
+  "alternate_origin": "https://www.jawed.co.in",
+  "redirect_checks": [
+    {
+      "path": "/",
+      "expected_status": [
+        301,
+        308
+      ],
+      "location": "https://jawed.co.in/",
+      "max_redirects": 0
+    },
+    {
+      "path": "/sitemap.xml",
+      "expected_status": [
+        301,
+        308
+      ],
+      "location": "https://jawed.co.in/sitemap.xml",
+      "max_redirects": 0
+    }
+  ],
+  "googlebot_checks": [
+    {
+      "path": "/sitemap.xml",
+      "status": 200,
+      "content_type": "application/xml",
+      "required_markers": [
+        "<urlset",
+        "https://jawed.co.in/"
+      ]
+    },
+    {
+      "path": "/robots.txt",
+      "status": 200,
+      "content_type": "text/plain",
+      "required_markers": [
+        "User-agent: *",
+        "Allow: /",
+        "Sitemap: https://jawed.co.in/sitemap.xml"
+      ]
+    }
+  ]
+}

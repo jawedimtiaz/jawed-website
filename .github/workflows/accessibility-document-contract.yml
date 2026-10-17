@@ -1,0 +1,37 @@
+name: Accessibility Document Contract
+
+on:
+  pull_request:
+    paths:
+      - "**/*.html"
+      - "scripts/validate-accessibility-document-contract.mjs"
+      - ".github/workflows/accessibility-document-contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - "**/*.html"
+      - "scripts/validate-accessibility-document-contract.mjs"
+      - ".github/workflows/accessibility-document-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accessibility-document-contract:
+    name: Static accessibility document contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Validate static accessibility document contract
+        run: node scripts/validate-accessibility-document-contract.mjs

@@ -1,0 +1,81 @@
+name: Interactive Tools and Content Discovery Browser Runtime Gate
+concurrency:
+  group: finance-tools-browser-runtime-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  pull_request:
+    paths:
+      - "scripts/validate-career-match-browser-runtime.mjs"
+      - "tools/career-match-resume-review/index.html"
+      - "scripts/validate-finance-tools-browser-runtime.mjs"
+      - ".github/workflows/finance-tools-browser-runtime.yml"
+      - "tools/compound-growth-sip-calculator/index.html"
+      - "tools/inflation-goal-planning-calculator/index.html"
+      - "tools/retirement-planning-calculator/index.html"
+      - "tools/personal-finance-snapshot/index.html"
+      - "tools/finance-planning-workspace/index.html"
+      - "tools/ai-prompt-builder/index.html"
+      - "assets/js/interview-preparation-planner.js"
+      - "tools/interview-preparation-planner/index.html"
+      - "tools/it-troubleshooting-assistant/index.html"
+      - "tools/resume-bullet-strength-checker/index.html"
+      - "tools/service-desk-note-formatter/index.html"
+      - "tools/ticket-to-knowledge-base-draft/index.html"
+      - "assets/js/main.js"
+      - "topics/index.html"
+      - "resources/index.html"
+      - "notes/index.html"
+      - "blog/index.html"
+      - "notes/it-troubleshooting-guide-knowledge-base/index.html"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/validate-career-match-browser-runtime.mjs"
+      - "tools/career-match-resume-review/index.html"
+      - "scripts/validate-finance-tools-browser-runtime.mjs"
+      - ".github/workflows/finance-tools-browser-runtime.yml"
+      - "tools/compound-growth-sip-calculator/index.html"
+      - "tools/inflation-goal-planning-calculator/index.html"
+      - "tools/retirement-planning-calculator/index.html"
+      - "tools/personal-finance-snapshot/index.html"
+      - "tools/finance-planning-workspace/index.html"
+      - "tools/ai-prompt-builder/index.html"
+      - "assets/js/interview-preparation-planner.js"
+      - "tools/interview-preparation-planner/index.html"
+      - "tools/it-troubleshooting-assistant/index.html"
+      - "tools/resume-bullet-strength-checker/index.html"
+      - "tools/service-desk-note-formatter/index.html"
+      - "tools/ticket-to-knowledge-base-draft/index.html"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-runtime:
+    name: Interactive tools and content discovery browser runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Verify browser tooling
+        run: |
+          google-chrome --version
+          chromedriver --version
+      - name: Run production interactive tools and content discovery browser smoke
+        env:
+          BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || '' }}
+          BASE_URL: https://jawed.co.in
+        run: node scripts/validate-finance-tools-browser-runtime.mjs
+      - name: Run Career Match resume review browser smoke
+        env:
+          BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || '' }}
+          BASE_URL: https://jawed.co.in
+        run: node scripts/validate-career-match-browser-runtime.mjs

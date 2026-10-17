@@ -1,0 +1,43 @@
+{
+  "packageId": "in.co.jawed.website",
+  "host": "jawed.co.in",
+  "name": "Jawed Imtiaz",
+  "launcherName": "Jawed Imtiaz",
+  "display": "standalone",
+  "displayOverride": [
+    "standalone"
+  ],
+  "themeColor": "#163b7a",
+  "themeColorDark": "#163b7a",
+  "navigationColor": "#163b7a",
+  "navigationColorDark": "#163b7a",
+  "navigationDividerColor": "#163b7a",
+  "navigationDividerColorDark": "#163b7a",
+  "backgroundColor": "#ffffff",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://jawed.co.in/assets/icons/pwa-512.svg",
+  "maskableIconUrl": "https://jawed.co.in/assets/icons/pwa-512.svg",
+  "monochromeIconUrl": "https://jawed.co.in/assets/icons/pwa-512.svg",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android-keystore/jawed-website.keystore",
+    "alias": "jawedwebsite"
+  },
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "fallbackType": "customtabs",
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 23,
+  "orientation": "any",
+  "fingerprints": [],
+  "serviceAccountJsonFile": "",
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "1.0.0",
+  "webManifestUrl": "https://jawed.co.in/manifest.json",
+  "fullScopeUrl": "https://jawed.co.in/"
+}

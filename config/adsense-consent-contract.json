@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "status": "pre-activation",
+  "cmp_runtime_active": false,
+  "personalized_ads_allowed": false,
+  "rendering": {
+    "cmp_must_not_block_initial_publisher_content": true,
+    "ad_requests_must_wait_for_required_consent": true,
+    "no_global_cmp_runtime_injection_before_activation": true
+  },
+  "activation_dependencies": [
+    "AdSense reports Ready",
+    "real publisher account configuration is supplied",
+    "Google-certified CMP configuration is supplied where required",
+    "privacy policy matches the enabled advertising mode",
+    "eligible inventory and placement checks pass"
+  ],
+  "regional_scope": ["EEA", "UK", "Switzerland"],
+  "rules": [
+    "Do not add a speculative CMP script or vendor runtime before activation.",
+    "Do not block the initial page render on a future CMP or advertising request.",
+    "Do not send advertising requests before the required consent state is available.",
+    "Do not enable personalized advertising merely because the CMP exists.",
+    "Keep /privacy/, /contact/, /ai/, and /tools/ outside the initial advertising inventory boundary.",
+    "Use the actual Google-supported CMP/account configuration at activation time; do not guess endpoints, IDs, or CSP sources."
+  ]
+}

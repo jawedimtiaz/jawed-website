@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "status": "pre-ads-review",
+  "eligible_initial": [
+    "/",
+    "/about/",
+    "/work/",
+    "/work/experience/",
+    "/work/skills/",
+    "/work/certifications/",
+    "/work/projects/",
+    "/notes/",
+    "/blog/",
+    "/topics/",
+    "/resources/"
+  ],
+  "excluded_initial": [
+    "/contact/",
+    "/privacy/",
+    "/ai/",
+    "/tools/"
+  ],
+  "rules": [
+    "Do not place ads on excluded surfaces.",
+    "Treat this list as an implementation boundary, not a Google approval decision.",
+    "Before enabling ads, re-check each eligible page for current publisher-policy and placement compliance.",
+    "Do not place ads where they could be mistaken for navigation, controls, downloads, or interactive tool actions."
+  ]
+}

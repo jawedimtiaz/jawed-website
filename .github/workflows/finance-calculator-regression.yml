@@ -1,0 +1,42 @@
+name: Finance Calculator Regression Gate
+
+on:
+  pull_request:
+    paths:
+      - "tools/retirement-planning-calculator/index.html"
+      - "tools/compound-growth-sip-calculator/index.html"
+      - "tools/inflation-goal-planning-calculator/index.html"
+      - "scripts/validate-finance-calculator-regression.mjs"
+      - "scripts/validate-finance-tools-browser-runtime.mjs"
+      - ".github/workflows/finance-tools-browser-runtime.yml"
+      - ".github/workflows/finance-calculator-regression.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/retirement-planning-calculator/index.html"
+      - "tools/compound-growth-sip-calculator/index.html"
+      - "tools/inflation-goal-planning-calculator/index.html"
+      - "scripts/validate-finance-calculator-regression.mjs"
+      - ".github/workflows/finance-calculator-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  finance-calculator-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Run independent calculator vectors and source guards
+        run: node scripts/validate-finance-calculator-regression.mjs
+      - name: Check browser runtime test syntax
+        run: node --check scripts/validate-finance-tools-browser-runtime.mjs
