@@ -197,10 +197,37 @@ export const ToolDetailPage: React.FC = () => {
           </section>
         )}
 
+        {/* Conversion & Consultation CTA Card */}
+        <section
+          style={{
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--line)',
+            borderRadius: '8px',
+            padding: '1.75rem',
+            marginTop: '2.5rem',
+            textAlign: 'center'
+          }}
+        >
+          <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.15rem' }}>
+            Need Custom IT Tooling, macOS/Jamf Workflows, or Support Consulting?
+          </h3>
+          <p style={{ color: 'var(--text)', fontSize: '0.92rem', maxWidth: '40rem', margin: '0 auto 1.25rem', lineHeight: 1.5 }}>
+            I design structured Service Desk triage sequences, automated device management runbooks, and private browser utilities tailored to enterprise workplace environments.
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link to={`/contact/?reason=${encodeURIComponent(tool.title)}`} className="button" style={{ fontSize: '0.9rem' }}>
+              Work With Me on Similar Solutions →
+            </Link>
+            <Link to="/ai/" className="button button-secondary" style={{ fontSize: '0.9rem' }}>
+              Ask Jawed AI 🤖
+            </Link>
+          </div>
+        </section>
+
         {/* Contextual Hub Links */}
-        <section style={{ borderTop: '1px solid var(--line)', paddingTop: '1.5rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <section style={{ borderTop: '1px solid var(--line)', paddingTop: '1.5rem', marginTop: '2rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <Link to="/tools/" className="button button-secondary" style={{ fontSize: '0.85rem' }}>
-            ← All Interactive Tools
+            ← All 14 Interactive Tools
           </Link>
           <Link to="/notes/" className="button button-secondary" style={{ fontSize: '0.85rem' }}>
             📖 Troubleshooting Notes

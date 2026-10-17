@@ -20,12 +20,15 @@ export const HomePage: React.FC = () => {
         <p className="lead" style={{ maxWidth: '48rem', marginBottom: '1.75rem' }}>
           Welcome! I’m <strong>Jawed Imtiaz</strong>, an IT Field Tech supporting users, devices, and enterprise technology at Milestone Technologies (supporting the Uber environment). I build structured troubleshooting workflows, technical documentation, and privacy-first browser tools for IT professionals and individuals.
         </p>
-        <div className="actions" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <Link className="button" to="/work/">
-            Explore My Work &amp; Experience →
+        <div className="actions" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <Link className="button" to="/contact/">
+            Work With Me / Contact →
+          </Link>
+          <Link className="button button-secondary" to="/work/">
+            My Work &amp; Experience →
           </Link>
           <Link className="button button-secondary" to="/tools/">
-            Browse Interactive Tools →
+            Browse 14 Tools →
           </Link>
           <Link className="button button-secondary" to="/ai/">
             Ask Jawed AI 🤖
@@ -187,18 +190,34 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* What are you looking for banner */}
-      <section className="content-section" style={{ backgroundColor: 'var(--surface-accent)', borderRadius: '8px', padding: '2rem', border: '1px solid var(--line)' }}>
-        <h2>Need help with a specific IT scenario or career step?</h2>
-        <p style={{ maxWidth: '44rem', marginBottom: '1.5rem' }}>
-          Use the instant Jawed AI assistant to search across all 30 notes, tool documentation, and career materials, or reach out directly for workplace tech collaboration.
+      {/* Ready to Collaborate / Conversion CTA Banner */}
+      <section
+        className="content-section"
+        style={{
+          backgroundColor: 'var(--surface)',
+          borderRadius: '8px',
+          padding: '2.5rem 2rem',
+          border: '1px solid var(--line)',
+          textAlign: 'center',
+          marginTop: '3.5rem'
+        }}
+      >
+        <p className="eyebrow">Work With Me &amp; Let's Collaborate</p>
+        <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', margin: '0.25rem 0 0.75rem' }}>
+          Need Workplace Technology, Mac Support, or IT Guidance?
+        </h2>
+        <p style={{ maxWidth: '44rem', margin: '0 auto 1.75rem', color: 'var(--text)', fontSize: '1rem', lineHeight: 1.6 }}>
+          Whether you’re seeking a dedicated IT support specialist, need structured onboarding/offboarding workflows, require Apple &amp; Jamf device management assistance, or want custom browser utilities, I’m ready to collaborate.
         </p>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <Link to="/ai/" className="button">
-            Open Jawed AI Assistant →
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link to="/contact/" className="button" style={{ padding: '0.65rem 1.5rem', fontSize: '1rem' }}>
+            Work With Me / Send a Message →
           </Link>
-          <Link to="/contact/" className="button button-secondary">
-            Contact Jawed →
+          <Link to="/tools/" className="button button-secondary" style={{ padding: '0.65rem 1.25rem', fontSize: '1rem' }}>
+            Browse All 14 Interactive Tools →
+          </Link>
+          <Link to="/ai/" className="button button-secondary" style={{ padding: '0.65rem 1.25rem', fontSize: '1rem' }}>
+            Ask Jawed AI 🤖
           </Link>
         </div>
       </section>
