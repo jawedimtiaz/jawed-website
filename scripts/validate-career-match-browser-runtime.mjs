@@ -411,6 +411,7 @@ async function runViewport(width,height){
     await js("localStorage.setItem('cm_track','{malformed')");
     await type("#tCo","Must not overwrite corrupt tracker");
     await type("#tRole","Must not be saved");
+    await js("document.querySelector(\'#addJob\').scrollIntoView({block:\'center\'})");
     await click("#addJob");
     const corruptTrackerWrite=await js("const t=document.querySelector('#toast'),raw=localStorage.getItem('cm_track'),root=document.querySelector('#board');return {raw,jobs:root.querySelectorAll('.job').length,existing:[...root.querySelectorAll('.job b')].some(b=>b.textContent==='Keep this application'),toast:t?.textContent||'',role:t?.getAttribute('role')||'',live:t?.getAttribute('aria-live')||'',atomic:t?.getAttribute('aria-atomic')||''}");
     if(corruptTrackerWrite.raw!=="{malformed"||corruptTrackerWrite.jobs!==1||!corruptTrackerWrite.existing||!corruptTrackerWrite.toast.includes("Browser storage unavailable")||corruptTrackerWrite.role!=="status"||corruptTrackerWrite.live!=="polite"||corruptTrackerWrite.atomic!=="true")failures.push(width+"x"+height+" tracker add overwrote malformed persisted data, cleared the rendered board, or omitted the accessible failure announcement: "+JSON.stringify(corruptTrackerWrite));
