@@ -585,7 +585,7 @@ if(!careerMatchSavedMetadataContract)errors.push("Career Match saved analysis me
 else console.log("Career Match saved-analysis metadata integrity contract: PASS");
 
 const careerMatchSavedPanelParse=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchSavedPanelParseContract=careerMatchSavedPanelParse.includes('const root=$("#savedList");let s;try{s=validSavedList(raw==null?[]:JSON.parse(raw))}catch{toast("Browser storage unavailable");if(root.children.length)return;s=[]}');
+const careerMatchSavedPanelParseContract=careerMatchSavedPanelParse.includes('const root=$("#savedList");let s;try{const parsed=raw==null?[]:JSON.parse(raw);if(!Array.isArray(parsed))throw new TypeError("Invalid storage data");s=validSavedList(parsed)}catch{toast("Browser storage unavailable");if(root.children.length)return;s=[]}');
 if(!careerMatchSavedPanelParseContract)errors.push("Career Match saved panel must preserve rendered entries and announce malformed persisted JSON instead of treating it as an empty list");
 else console.log("Career Match malformed saved-storage preservation contract: PASS");
 const careerMatchTheme=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
@@ -703,7 +703,7 @@ if(!careerMatchPdfSecurityContract)errors.push("Career Match PDF reader must use
 else console.log("Career Match PDF dependency security contract: PASS");
 
 const careerMatchTrackerRender=fs.readFileSync("tools/career-match-resume-review/index.html","utf8");
-const careerMatchTrackerRenderContract=careerMatchTrackerRender.includes("function renderTracker(){let raw;try{raw=localStorage.getItem(\"cm_track\")}catch{toast(\"Browser storage unavailable\");if($(\"#board\").children.length)return;raw=\"[]\"}let t;try{t=validTrackList(raw==null?[]:JSON.parse(raw))}catch{toast(\"Browser storage unavailable\");if($(\"#board\").children.length)return;t=[]}");
+const careerMatchTrackerRenderContract=careerMatchTrackerRender.includes("function renderTracker(){let raw;try{raw=localStorage.getItem(\"cm_track\")}catch{toast(\"Browser storage unavailable\");if($(\"#board\").children.length)return;raw=\"[]\"}let t;try{const parsed=raw==null?[]:JSON.parse(raw);if(!Array.isArray(parsed))throw new TypeError(\"Invalid storage data\");t=validTrackList(parsed)}catch{toast(\"Browser storage unavailable\");if($(\"#board\").children.length)return;t=[]}");
 if(!careerMatchTrackerRenderContract)errors.push("Career Match tracker rendering must use validated persisted records");
 else console.log("Career Match tracker render integrity contract: PASS");
 
