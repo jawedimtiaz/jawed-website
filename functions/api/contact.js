@@ -201,12 +201,29 @@ export async function onRequestPost({ request, env }) {
   }, 200);
 }
 
-export async function onRequestGet() {
+export async function onRequestGet({ request } = {}) {
+  const origin = request?.headers?.get('origin');
+  const allowed = !origin || origin.includes('jawed.co.in') || origin.includes('localhost') || origin.includes('run.app');
+  const extraHeaders = origin && allowed ? { 'access-control-allow-origin': origin } : {};
   return json({
     ok: true,
     service: 'jawed-contact-api',
     status: 'ready',
     version: '1.0.0',
     timestamp: new Date().toISOString()
-  });
+  }, 200, extraHeaders);
+}
+
+export async function onRequestOptions({ request } = {}) {
+  const origin = request?.headers?.get('origin');
+  const allowed = !origin || origin.includes('jawed.co.in') || origin.includes('localhost') || origin.includes('run.app');
+  const headers = {
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-headers': 'content-type, authorization, x-requested-with',
+    'access-control-max-age': '86400'
+  };
+  if (origin && allowed) {
+    headers['access-control-allow-origin'] = origin;
+  }
+  return new Response(null, { status: 204, headers });
 }

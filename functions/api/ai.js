@@ -16,9 +16,31 @@ const failure=(error,code,status,id,extra={})=>{
   return json({error,code,request_id:id},status,{"x-request-id":id});
 };
 
+function isAllowedOrigin(origin){
+  if(!origin)return true;
+  try{
+    const url=new URL(origin);
+    const host=url.hostname.toLowerCase();
+    if(host==="jawed.co.in"||host.endsWith(".jawed.co.in"))return true;
+    if(host==="localhost"||host==="127.0.0.1")return true;
+    if(host.endsWith(".run.app")||host.endsWith(".pages.dev")||host.endsWith(".workers.dev"))return true;
+  }catch{
+    return false;
+  }
+  return false;
+}
+
 function allowedOrigin(request){
   const origin=request.headers.get("origin");
-  return !origin||origin==="https://www.jawed.co.in"||origin==="https://jawed.co.in";
+  return isAllowedOrigin(origin);
+}
+
+function corsHeaders(request){
+  const origin=request?.headers?.get("origin");
+  if(origin&&isAllowedOrigin(origin)){
+    return {"access-control-allow-origin":origin};
+  }
+  return {};
 }
 
 function validConversation(messages){
@@ -199,5 +221,18 @@ export async function onRequestGet({request,env}={}){
     knowledge_entries:knowledgeCount(),
     rate_limit:{requests:MAX_REQUESTS,window_seconds:WINDOW_MS/1000,best_effort:true},
     request_id:id
-  },200,{"x-request-id":id});
+  },200,{"x-request-id":id,...corsHeaders(request)});
+}
+
+export async function onRequestOptions({request}={}){
+  const origin=request?.headers?.get("origin");
+  const headers={
+    "access-control-allow-methods":"GET, POST, OPTIONS",
+    "access-control-allow-headers":"content-type, authorization, x-requested-with",
+    "access-control-max-age":"86400"
+  };
+  if(origin&&isAllowedOrigin(origin)){
+    headers["access-control-allow-origin"]=origin;
+  }
+  return new Response(null,{status:204,headers});
 }
