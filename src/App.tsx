@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 
 // Layout components
@@ -6,25 +6,58 @@ import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { JawedAiWidget } from './components/layout/JawedAiWidget';
 
-// Pages
+// Eagerly loaded landing page for optimal First Contentful Paint
 import { HomePage } from './pages/HomePage';
-import { AboutPage } from './pages/AboutPage';
-import { WorkPage } from './pages/WorkPage';
-import { NotesPage } from './pages/NotesPage';
-import { NoteDetailPage } from './pages/NoteDetailPage';
-import { BlogPage } from './pages/BlogPage';
-import { BlogDetailPage } from './pages/BlogDetailPage';
-import { TopicsPage } from './pages/TopicsPage';
-import { ResourcesPage } from './pages/ResourcesPage';
-import { ToolsPage } from './pages/ToolsPage';
-import { ToolDetailPage } from './pages/ToolDetailPage';
-import { AiPage } from './pages/AiPage';
-import { ContactPage } from './pages/ContactPage';
-import { PrivacyPage } from './pages/PrivacyPage';
-import { NotFoundPage } from './pages/NotFoundPage';
+
+// Code-split route components for optimal initial payload and fast navigation
+const AboutPage = lazy(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })));
+const WorkPage = lazy(() => import('./pages/WorkPage').then((m) => ({ default: m.WorkPage })));
+const NotesPage = lazy(() => import('./pages/NotesPage').then((m) => ({ default: m.NotesPage })));
+const NoteDetailPage = lazy(() => import('./pages/NoteDetailPage').then((m) => ({ default: m.NoteDetailPage })));
+const BlogPage = lazy(() => import('./pages/BlogPage').then((m) => ({ default: m.BlogPage })));
+const BlogDetailPage = lazy(() => import('./pages/BlogDetailPage').then((m) => ({ default: m.BlogDetailPage })));
+const TopicsPage = lazy(() => import('./pages/TopicsPage').then((m) => ({ default: m.TopicsPage })));
+const ResourcesPage = lazy(() => import('./pages/ResourcesPage').then((m) => ({ default: m.ResourcesPage })));
+const ToolsPage = lazy(() => import('./pages/ToolsPage').then((m) => ({ default: m.ToolsPage })));
+const ToolDetailPage = lazy(() => import('./pages/ToolDetailPage').then((m) => ({ default: m.ToolDetailPage })));
+const AiPage = lazy(() => import('./pages/AiPage').then((m) => ({ default: m.AiPage })));
+const ContactPage = lazy(() => import('./pages/ContactPage').then((m) => ({ default: m.ContactPage })));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
 
 import { DocumentHead } from './components/common/DocumentHead';
 import { PwaInstallPrompt } from './components/common/PwaInstallPrompt';
+
+// Accessible page loading fallback preventing layout shifts
+const PageLoadingFallback: React.FC = () => (
+  <div
+    role="status"
+    aria-live="polite"
+    style={{
+      minHeight: '50vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--muted)',
+      fontSize: '0.95rem'
+    }}
+  >
+    <div style={{ textAlign: 'center' }}>
+      <div
+        style={{
+          width: '28px',
+          height: '28px',
+          margin: '0 auto 12px',
+          border: '3px solid var(--line)',
+          borderTopColor: 'var(--accent)',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite'
+        }}
+      />
+      <span>Loading content…</span>
+    </div>
+  </div>
+);
 
 // Scroll to top helper on route navigation
 const ScrollToTop: React.FC = () => {
@@ -46,67 +79,69 @@ export const App: React.FC = () => {
         <Header />
         
         <div style={{ flex: 1 }}>
-          <Routes>
-            {/* Home */}
-            <Route path="/" element={<HomePage />} />
+          <Suspense fallback={<PageLoadingFallback />}>
+            <Routes>
+              {/* Home */}
+              <Route path="/" element={<HomePage />} />
 
-            {/* About */}
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/about/" element={<AboutPage />} />
+              {/* About */}
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/about/" element={<AboutPage />} />
 
-            {/* Work & Subroutes */}
-            <Route path="/work" element={<WorkPage initialTab="overview" />} />
-            <Route path="/work/" element={<WorkPage initialTab="overview" />} />
-            <Route path="/work/experience" element={<WorkPage initialTab="experience" />} />
-            <Route path="/work/experience/" element={<WorkPage initialTab="experience" />} />
-            <Route path="/work/skills" element={<WorkPage initialTab="skills" />} />
-            <Route path="/work/skills/" element={<WorkPage initialTab="skills" />} />
-            <Route path="/work/certifications" element={<WorkPage initialTab="certifications" />} />
-            <Route path="/work/certifications/" element={<WorkPage initialTab="certifications" />} />
-            <Route path="/work/projects" element={<WorkPage initialTab="projects" />} />
-            <Route path="/work/projects/" element={<WorkPage initialTab="projects" />} />
+              {/* Work & Subroutes */}
+              <Route path="/work" element={<WorkPage initialTab="overview" />} />
+              <Route path="/work/" element={<WorkPage initialTab="overview" />} />
+              <Route path="/work/experience" element={<WorkPage initialTab="experience" />} />
+              <Route path="/work/experience/" element={<WorkPage initialTab="experience" />} />
+              <Route path="/work/skills" element={<WorkPage initialTab="skills" />} />
+              <Route path="/work/skills/" element={<WorkPage initialTab="skills" />} />
+              <Route path="/work/certifications" element={<WorkPage initialTab="certifications" />} />
+              <Route path="/work/certifications/" element={<WorkPage initialTab="certifications" />} />
+              <Route path="/work/projects" element={<WorkPage initialTab="projects" />} />
+              <Route path="/work/projects/" element={<WorkPage initialTab="projects" />} />
 
-            {/* Notes */}
-            <Route path="/notes" element={<NotesPage />} />
-            <Route path="/notes/" element={<NotesPage />} />
-            <Route path="/notes/:slug" element={<NoteDetailPage />} />
-            <Route path="/notes/:slug/" element={<NoteDetailPage />} />
+              {/* Notes */}
+              <Route path="/notes" element={<NotesPage />} />
+              <Route path="/notes/" element={<NotesPage />} />
+              <Route path="/notes/:slug" element={<NoteDetailPage />} />
+              <Route path="/notes/:slug/" element={<NoteDetailPage />} />
 
-            {/* Blog */}
-            <Route path="/blog" element={<BlogPage />} />
-            <Route path="/blog/" element={<BlogPage />} />
-            <Route path="/blog/:slug" element={<BlogDetailPage />} />
-            <Route path="/blog/:slug/" element={<BlogDetailPage />} />
+              {/* Blog */}
+              <Route path="/blog" element={<BlogPage />} />
+              <Route path="/blog/" element={<BlogPage />} />
+              <Route path="/blog/:slug" element={<BlogDetailPage />} />
+              <Route path="/blog/:slug/" element={<BlogDetailPage />} />
 
-            {/* Topics */}
-            <Route path="/topics" element={<TopicsPage />} />
-            <Route path="/topics/" element={<TopicsPage />} />
+              {/* Topics */}
+              <Route path="/topics" element={<TopicsPage />} />
+              <Route path="/topics/" element={<TopicsPage />} />
 
-            {/* Resources */}
-            <Route path="/resources" element={<ResourcesPage />} />
-            <Route path="/resources/" element={<ResourcesPage />} />
+              {/* Resources */}
+              <Route path="/resources" element={<ResourcesPage />} />
+              <Route path="/resources/" element={<ResourcesPage />} />
 
-            {/* Tools */}
-            <Route path="/tools" element={<ToolsPage />} />
-            <Route path="/tools/" element={<ToolsPage />} />
-            <Route path="/tools/:slug" element={<ToolDetailPage />} />
-            <Route path="/tools/:slug/" element={<ToolDetailPage />} />
+              {/* Tools */}
+              <Route path="/tools" element={<ToolsPage />} />
+              <Route path="/tools/" element={<ToolsPage />} />
+              <Route path="/tools/:slug" element={<ToolDetailPage />} />
+              <Route path="/tools/:slug/" element={<ToolDetailPage />} />
 
-            {/* AI */}
-            <Route path="/ai" element={<AiPage />} />
-            <Route path="/ai/" element={<AiPage />} />
+              {/* AI */}
+              <Route path="/ai" element={<AiPage />} />
+              <Route path="/ai/" element={<AiPage />} />
 
-            {/* Contact */}
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="/contact/" element={<ContactPage />} />
+              {/* Contact */}
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/contact/" element={<ContactPage />} />
 
-            {/* Privacy */}
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/privacy/" element={<PrivacyPage />} />
+              {/* Privacy */}
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/privacy/" element={<PrivacyPage />} />
 
-            {/* 404 Not Found */}
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
+              {/* 404 */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
         </div>
 
         <Footer />
@@ -116,5 +151,3 @@ export const App: React.FC = () => {
     </BrowserRouter>
   );
 };
-
-export default App;

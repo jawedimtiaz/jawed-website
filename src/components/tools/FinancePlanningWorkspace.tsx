@@ -139,52 +139,52 @@ export const FinancePlanningWorkspace: React.FC = () => {
           <h2>Monthly Cash Flow &amp; Reserve</h2>
           <div className="card-grid two">
             <div className="form-field">
-              <label>Monthly income (₹)</label>
-              <input type="number" min="0" value={income} onChange={(e) => setIncome(Number(e.target.value))} />
+              <label htmlFor="fp-income">Monthly income (₹)</label>
+              <input id="fp-income" type="number" min="0" value={income} onChange={(e) => setIncome(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Essential expenses (₹)</label>
-              <input type="number" min="0" value={essential} onChange={(e) => setEssential(Number(e.target.value))} />
+              <label htmlFor="fp-essential">Essential expenses (₹)</label>
+              <input id="fp-essential" type="number" min="0" value={essential} onChange={(e) => setEssential(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Discretionary expenses (₹)</label>
-              <input type="number" min="0" value={discretionary} onChange={(e) => setDiscretionary(Number(e.target.value))} />
+              <label htmlFor="fp-discretionary">Discretionary expenses (₹)</label>
+              <input id="fp-discretionary" type="number" min="0" value={discretionary} onChange={(e) => setDiscretionary(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Debt payments (₹)</label>
-              <input type="number" min="0" value={debt} onChange={(e) => setDebt(Number(e.target.value))} />
+              <label htmlFor="fp-debt">Debt payments (₹)</label>
+              <input id="fp-debt" type="number" min="0" value={debt} onChange={(e) => setDebt(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Target reserve (months)</label>
-              <input type="number" min="0" step="0.5" value={targetMonths} onChange={(e) => setTargetMonths(Number(e.target.value))} />
+              <label htmlFor="fp-target-months">Target reserve (months)</label>
+              <input id="fp-target-months" type="number" min="0" step="0.5" value={targetMonths} onChange={(e) => setTargetMonths(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Emergency savings (₹)</label>
-              <input type="number" min="0" value={emergency} onChange={(e) => setEmergency(Number(e.target.value))} />
+              <label htmlFor="fp-emergency">Emergency savings (₹)</label>
+              <input id="fp-emergency" type="number" min="0" value={emergency} onChange={(e) => setEmergency(Number(e.target.value))} />
             </div>
           </div>
 
           <h3 style={{ marginTop: '24px' }}>Net Worth Inputs</h3>
           <div className="card-grid two">
             <div className="form-field">
-              <label>Cash &amp; Bank (₹)</label>
-              <input type="number" min="0" value={cash} onChange={(e) => setCash(Number(e.target.value))} />
+              <label htmlFor="fp-cash">Cash &amp; Bank (₹)</label>
+              <input id="fp-cash" type="number" min="0" value={cash} onChange={(e) => setCash(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Investments (₹)</label>
-              <input type="number" min="0" value={investments} onChange={(e) => setInvestments(Number(e.target.value))} />
+              <label htmlFor="fp-investments">Investments (₹)</label>
+              <input id="fp-investments" type="number" min="0" value={investments} onChange={(e) => setInvestments(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Retirement assets (₹)</label>
-              <input type="number" min="0" value={retirementAssets} onChange={(e) => setRetirementAssets(Number(e.target.value))} />
+              <label htmlFor="fp-retirement-assets">Retirement assets (₹)</label>
+              <input id="fp-retirement-assets" type="number" min="0" value={retirementAssets} onChange={(e) => setRetirementAssets(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Real Estate &amp; Other (₹)</label>
-              <input type="number" min="0" value={property + otherAssets} onChange={(e) => setProperty(Number(e.target.value))} />
+              <label htmlFor="fp-property">Real Estate &amp; Other (₹)</label>
+              <input id="fp-property" type="number" min="0" value={property + otherAssets} onChange={(e) => setProperty(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Total Debt / Loans (₹)</label>
-              <input type="number" min="0" value={totalLiab} onChange={(e) => setHomeLoan(Number(e.target.value))} />
+              <label htmlFor="fp-debt-total">Total Debt / Loans (₹)</label>
+              <input id="fp-debt-total" type="number" min="0" value={totalLiab} onChange={(e) => setHomeLoan(Number(e.target.value))} />
             </div>
           </div>
 
@@ -224,40 +224,40 @@ export const FinancePlanningWorkspace: React.FC = () => {
             <div>
               <h3>Goal Inflation</h3>
               <div className="form-field">
-                <label>Goal cost today (₹)</label>
-                <input type="number" min="0" value={goalCost} onChange={(e) => setGoalCost(Number(e.target.value))} />
+                <label htmlFor="fp-goal-cost">Goal cost today (₹)</label>
+                <input id="fp-goal-cost" type="number" min="0" value={goalCost} onChange={(e) => setGoalCost(Number(e.target.value))} />
               </div>
               <div className="form-field" style={{ marginTop: '8px' }}>
-                <label>Years to goal</label>
-                <input type="number" min="0" value={goalYears} onChange={(e) => setGoalYears(Number(e.target.value))} />
+                <label htmlFor="fp-goal-years">Years to goal</label>
+                <input id="fp-goal-years" type="number" min="0" value={goalYears} onChange={(e) => setGoalYears(Number(e.target.value))} />
               </div>
               <div className="form-field" style={{ marginTop: '8px' }}>
-                <label>Assumed annual inflation (%)</label>
-                <input type="number" min="0" step="0.1" value={goalInflation} onChange={(e) => setGoalInflation(Number(e.target.value))} />
+                <label htmlFor="fp-goal-inflation">Assumed annual inflation (%)</label>
+                <input id="fp-goal-inflation" type="number" min="0" step="0.1" value={goalInflation} onChange={(e) => setGoalInflation(Number(e.target.value))} />
               </div>
               <div className="form-field" style={{ marginTop: '8px' }}>
-                <label>Already set aside (₹)</label>
-                <input type="number" min="0" value={goalSaved} onChange={(e) => setGoalSaved(Number(e.target.value))} />
+                <label htmlFor="fp-goal-saved">Already set aside (₹)</label>
+                <input id="fp-goal-saved" type="number" min="0" value={goalSaved} onChange={(e) => setGoalSaved(Number(e.target.value))} />
               </div>
             </div>
 
             <div>
               <h3>SIP / Compound Growth</h3>
               <div className="form-field">
-                <label>Starting principal (₹)</label>
-                <input type="number" min="0" value={initial} onChange={(e) => setInitial(Number(e.target.value))} />
+                <label htmlFor="fp-sip-initial">Starting principal (₹)</label>
+                <input id="fp-sip-initial" type="number" min="0" value={initial} onChange={(e) => setInitial(Number(e.target.value))} />
               </div>
               <div className="form-field" style={{ marginTop: '8px' }}>
-                <label>Monthly contribution (₹)</label>
-                <input type="number" min="0" value={monthly} onChange={(e) => setMonthly(Number(e.target.value))} />
+                <label htmlFor="fp-sip-monthly">Monthly contribution (₹)</label>
+                <input id="fp-sip-monthly" type="number" min="0" value={monthly} onChange={(e) => setMonthly(Number(e.target.value))} />
               </div>
               <div className="form-field" style={{ marginTop: '8px' }}>
-                <label>Duration (years)</label>
-                <input type="number" min="0" value={growthYears} onChange={(e) => setGrowthYears(Number(e.target.value))} />
+                <label htmlFor="fp-sip-years">Duration (years)</label>
+                <input id="fp-sip-years" type="number" min="0" value={growthYears} onChange={(e) => setGrowthYears(Number(e.target.value))} />
               </div>
               <div className="form-field" style={{ marginTop: '8px' }}>
-                <label>Assumed annual return (%)</label>
-                <input type="number" min="0" step="0.1" value={growthReturn} onChange={(e) => setGrowthReturn(Number(e.target.value))} />
+                <label htmlFor="fp-sip-return">Assumed annual return (%)</label>
+                <input id="fp-sip-return" type="number" min="0" step="0.1" value={growthReturn} onChange={(e) => setGrowthReturn(Number(e.target.value))} />
               </div>
             </div>
           </div>
@@ -288,40 +288,40 @@ export const FinancePlanningWorkspace: React.FC = () => {
           <h2>Retirement Planning</h2>
           <div className="card-grid two">
             <div className="form-field">
-              <label>Current age</label>
-              <input type="number" min="18" value={age} onChange={(e) => setAge(Number(e.target.value))} />
+              <label htmlFor="fp-ret-age">Current age</label>
+              <input id="fp-ret-age" type="number" min="18" value={age} onChange={(e) => setAge(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Planned retirement age</label>
-              <input type="number" min="20" value={retAge} onChange={(e) => setRetAge(Number(e.target.value))} />
+              <label htmlFor="fp-ret-planned-age">Planned retirement age</label>
+              <input id="fp-ret-planned-age" type="number" min="20" value={retAge} onChange={(e) => setRetAge(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Planning lifespan</label>
-              <input type="number" min="40" value={lifespan} onChange={(e) => setLifespan(Number(e.target.value))} />
+              <label htmlFor="fp-ret-lifespan">Planning lifespan</label>
+              <input id="fp-ret-lifespan" type="number" min="40" value={lifespan} onChange={(e) => setLifespan(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Current annual retirement spending (₹)</label>
-              <input type="number" min="0" value={retSpending} onChange={(e) => setRetSpending(Number(e.target.value))} />
+              <label htmlFor="fp-ret-spending">Current annual retirement spending (₹)</label>
+              <input id="fp-ret-spending" type="number" min="0" value={retSpending} onChange={(e) => setRetSpending(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Current retirement corpus (₹)</label>
-              <input type="number" min="0" value={corpus} onChange={(e) => setCorpus(Number(e.target.value))} />
+              <label htmlFor="fp-ret-corpus">Current retirement corpus (₹)</label>
+              <input id="fp-ret-corpus" type="number" min="0" value={corpus} onChange={(e) => setCorpus(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Monthly contribution (₹)</label>
-              <input type="number" min="0" value={retContribution} onChange={(e) => setRetContribution(Number(e.target.value))} />
+              <label htmlFor="fp-ret-contribution">Monthly contribution (₹)</label>
+              <input id="fp-ret-contribution" type="number" min="0" value={retContribution} onChange={(e) => setRetContribution(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Assumed inflation (%)</label>
-              <input type="number" min="0" step="0.1" value={retInflation} onChange={(e) => setRetInflation(Number(e.target.value))} />
+              <label htmlFor="fp-ret-inflation">Assumed inflation (%)</label>
+              <input id="fp-ret-inflation" type="number" min="0" step="0.1" value={retInflation} onChange={(e) => setRetInflation(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>Pre-retirement return (%)</label>
-              <input type="number" min="0" step="0.1" value={preReturn} onChange={(e) => setPreReturn(Number(e.target.value))} />
+              <label htmlFor="fp-ret-pre-return">Pre-retirement return (%)</label>
+              <input id="fp-ret-pre-return" type="number" min="0" step="0.1" value={preReturn} onChange={(e) => setPreReturn(Number(e.target.value))} />
             </div>
             <div className="form-field">
-              <label>In-retirement real return (%)</label>
-              <input type="number" min="0" step="0.1" value={realReturn} onChange={(e) => setRealReturn(Number(e.target.value))} />
+              <label htmlFor="fp-ret-real-return">In-retirement real return (%)</label>
+              <input id="fp-ret-real-return" type="number" min="0" step="0.1" value={realReturn} onChange={(e) => setRealReturn(Number(e.target.value))} />
             </div>
           </div>
 

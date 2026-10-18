@@ -32,7 +32,9 @@ export const ResourcesPage: React.FC = () => {
       <div style={{ backgroundColor: 'var(--surface)', padding: '1.25rem', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '2rem' }}>
         <div style={{ marginBottom: '1rem' }}>
           <input
+            id="resources-search-input"
             type="search"
+            aria-label="Search documentation, sources, or topics"
             placeholder="Search documentation, sources, or topics..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}

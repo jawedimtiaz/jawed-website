@@ -310,8 +310,10 @@ export function searchKnowledge(query: string, limit = 4): KnowledgeEntry[] {
 }
 
 export async function askJawedAi(
-  messages: ChatMessage[]
+  input: string | ChatMessage[]
 ): Promise<AiResponse> {
+  const messages: ChatMessage[] =
+    typeof input === 'string' ? [{ role: 'user', content: input }] : input;
   const latestMessage = messages[messages.length - 1];
   const question = latestMessage?.content || '';
 

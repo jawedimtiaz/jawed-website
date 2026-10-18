@@ -273,16 +273,20 @@ export const CareerMatchResumeReview: React.FC = () => {
           <section className="card" style={{ background: theme === 'dark' ? '#131a2c' : '#fff' }}>
             <div className="card-grid two">
               <div>
-                <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                <label htmlFor="resume-file-input" style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
                   1. Your Resume File or Text
                 </label>
                 <input
+                  id="resume-file-input"
                   type="file"
+                  aria-label="Upload resume file (.txt, .pdf, .docx)"
                   accept=".txt,.pdf,.docx"
                   onChange={handleFileUpload}
                   style={{ marginBottom: '8px' }}
                 />
                 <textarea
+                  id="resume-text-input"
+                  aria-label="Paste resume text"
                   rows={10}
                   placeholder="Or paste your resume text here…"
                   value={resumeText}
@@ -291,10 +295,12 @@ export const CareerMatchResumeReview: React.FC = () => {
               </div>
 
               <div>
-                <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                <label htmlFor="jd-text-input" style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
                   2. Target Job Description
                 </label>
                 <textarea
+                  id="jd-text-input"
+                  aria-label="Paste target job description"
                   rows={12}
                   placeholder="Paste the full job description here…"
                   value={jdText}
@@ -410,6 +416,8 @@ export const CareerMatchResumeReview: React.FC = () => {
             <h2>Application Tracker</h2>
             <form onSubmit={addTrackerJob} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
               <input
+                id="tracker-company-input"
+                aria-label="Target company name"
                 type="text"
                 placeholder="Company"
                 value={tCompany}
@@ -418,6 +426,8 @@ export const CareerMatchResumeReview: React.FC = () => {
                 required
               />
               <input
+                id="tracker-role-input"
+                aria-label="Target role title"
                 type="text"
                 placeholder="Role"
                 value={tRole}
@@ -426,6 +436,8 @@ export const CareerMatchResumeReview: React.FC = () => {
                 required
               />
               <select
+                id="tracker-status-select"
+                aria-label="Application stage status"
                 value={tStatus}
                 onChange={(e) => setTStatus(e.target.value as TrackerItem['status'])}
                 style={{ width: 'auto' }}
@@ -474,6 +486,7 @@ export const CareerMatchResumeReview: React.FC = () => {
                           <p style={{ margin: '2px 0 6px', fontSize: '0.9rem' }}>{job.role}</p>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <select
+                              aria-label={`Update application status for ${job.role} at ${job.company}`}
                               value={job.status}
                               onChange={(e) =>
                                 updateJobStatus(job.id, e.target.value as TrackerItem['status'])

@@ -3,7 +3,7 @@
 :root {
   --bg: #fff;
   --text: #172033;
-  --muted: #5f6f86;
+  --muted: #475569;
   --line: #dfe6ef;
   --accent: #1d4ed8;
   --accent-dark: #163b7a;
@@ -11,6 +11,17 @@
   --surface: #f4f8fc;
   --surface-accent: #eef5ff;
   --max: 1120px;
+}
+
+::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 * {

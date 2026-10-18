@@ -270,6 +270,7 @@ export const JawedAiWidget: React.FC = () => {
 
           <form className="jawed-ai-widget-form" onSubmit={handleSubmit}>
             <input
+              id="jawed-ai-widget-input"
               ref={inputRef}
               type="text"
               placeholder="Ask about this site…"
