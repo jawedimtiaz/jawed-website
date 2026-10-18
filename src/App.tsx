@@ -27,6 +27,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ de
 
 import { DocumentHead } from './components/common/DocumentHead';
 import { PwaInstallPrompt } from './components/common/PwaInstallPrompt';
+import { ErrorBoundary, RouteErrorBoundary } from './components/common/ErrorBoundary';
 
 // Accessible page loading fallback preventing layout shifts
 const PageLoadingFallback: React.FC = () => (
@@ -75,79 +76,83 @@ export const App: React.FC = () => {
     <BrowserRouter>
       <ScrollToTop />
       <DocumentHead />
-      <div className="app-shell" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <ErrorBoundary>
+        <div className="app-shell" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Header />
         
         <div style={{ flex: 1 }}>
-          <Suspense fallback={<PageLoadingFallback />}>
-            <Routes>
-              {/* Home */}
-              <Route path="/" element={<HomePage />} />
+          <RouteErrorBoundary>
+            <Suspense fallback={<PageLoadingFallback />}>
+              <Routes>
+                {/* Home */}
+                <Route path="/" element={<HomePage />} />
 
-              {/* About */}
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/about/" element={<AboutPage />} />
+                {/* About */}
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/about/" element={<AboutPage />} />
 
-              {/* Work & Subroutes */}
-              <Route path="/work" element={<WorkPage initialTab="overview" />} />
-              <Route path="/work/" element={<WorkPage initialTab="overview" />} />
-              <Route path="/work/experience" element={<WorkPage initialTab="experience" />} />
-              <Route path="/work/experience/" element={<WorkPage initialTab="experience" />} />
-              <Route path="/work/skills" element={<WorkPage initialTab="skills" />} />
-              <Route path="/work/skills/" element={<WorkPage initialTab="skills" />} />
-              <Route path="/work/certifications" element={<WorkPage initialTab="certifications" />} />
-              <Route path="/work/certifications/" element={<WorkPage initialTab="certifications" />} />
-              <Route path="/work/projects" element={<WorkPage initialTab="projects" />} />
-              <Route path="/work/projects/" element={<WorkPage initialTab="projects" />} />
+                {/* Work & Subroutes */}
+                <Route path="/work" element={<WorkPage initialTab="overview" />} />
+                <Route path="/work/" element={<WorkPage initialTab="overview" />} />
+                <Route path="/work/experience" element={<WorkPage initialTab="experience" />} />
+                <Route path="/work/experience/" element={<WorkPage initialTab="experience" />} />
+                <Route path="/work/skills" element={<WorkPage initialTab="skills" />} />
+                <Route path="/work/skills/" element={<WorkPage initialTab="skills" />} />
+                <Route path="/work/certifications" element={<WorkPage initialTab="certifications" />} />
+                <Route path="/work/certifications/" element={<WorkPage initialTab="certifications" />} />
+                <Route path="/work/projects" element={<WorkPage initialTab="projects" />} />
+                <Route path="/work/projects/" element={<WorkPage initialTab="projects" />} />
 
-              {/* Notes */}
-              <Route path="/notes" element={<NotesPage />} />
-              <Route path="/notes/" element={<NotesPage />} />
-              <Route path="/notes/:slug" element={<NoteDetailPage />} />
-              <Route path="/notes/:slug/" element={<NoteDetailPage />} />
+                {/* Notes */}
+                <Route path="/notes" element={<NotesPage />} />
+                <Route path="/notes/" element={<NotesPage />} />
+                <Route path="/notes/:slug" element={<NoteDetailPage />} />
+                <Route path="/notes/:slug/" element={<NoteDetailPage />} />
 
-              {/* Blog */}
-              <Route path="/blog" element={<BlogPage />} />
-              <Route path="/blog/" element={<BlogPage />} />
-              <Route path="/blog/:slug" element={<BlogDetailPage />} />
-              <Route path="/blog/:slug/" element={<BlogDetailPage />} />
+                {/* Blog */}
+                <Route path="/blog" element={<BlogPage />} />
+                <Route path="/blog/" element={<BlogPage />} />
+                <Route path="/blog/:slug" element={<BlogDetailPage />} />
+                <Route path="/blog/:slug/" element={<BlogDetailPage />} />
 
-              {/* Topics */}
-              <Route path="/topics" element={<TopicsPage />} />
-              <Route path="/topics/" element={<TopicsPage />} />
+                {/* Topics */}
+                <Route path="/topics" element={<TopicsPage />} />
+                <Route path="/topics/" element={<TopicsPage />} />
 
-              {/* Resources */}
-              <Route path="/resources" element={<ResourcesPage />} />
-              <Route path="/resources/" element={<ResourcesPage />} />
+                {/* Resources */}
+                <Route path="/resources" element={<ResourcesPage />} />
+                <Route path="/resources/" element={<ResourcesPage />} />
 
-              {/* Tools */}
-              <Route path="/tools" element={<ToolsPage />} />
-              <Route path="/tools/" element={<ToolsPage />} />
-              <Route path="/tools/:slug" element={<ToolDetailPage />} />
-              <Route path="/tools/:slug/" element={<ToolDetailPage />} />
+                {/* Tools */}
+                <Route path="/tools" element={<ToolsPage />} />
+                <Route path="/tools/" element={<ToolsPage />} />
+                <Route path="/tools/:slug" element={<ToolDetailPage />} />
+                <Route path="/tools/:slug/" element={<ToolDetailPage />} />
 
-              {/* AI */}
-              <Route path="/ai" element={<AiPage />} />
-              <Route path="/ai/" element={<AiPage />} />
+                {/* AI */}
+                <Route path="/ai" element={<AiPage />} />
+                <Route path="/ai/" element={<AiPage />} />
 
-              {/* Contact */}
-              <Route path="/contact" element={<ContactPage />} />
-              <Route path="/contact/" element={<ContactPage />} />
+                {/* Contact */}
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/contact/" element={<ContactPage />} />
 
-              {/* Privacy */}
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="/privacy/" element={<PrivacyPage />} />
+                {/* Privacy */}
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/privacy/" element={<PrivacyPage />} />
 
-              {/* 404 */}
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </Suspense>
+                {/* 404 */}
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </Suspense>
+          </RouteErrorBoundary>
         </div>
 
         <Footer />
         <JawedAiWidget />
         <PwaInstallPrompt />
       </div>
-    </BrowserRouter>
-  );
+    </ErrorBoundary>
+  </BrowserRouter>
+);
 };
