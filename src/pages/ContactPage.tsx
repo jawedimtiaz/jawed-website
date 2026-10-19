@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { User, Mail, Phone, HelpCircle, MessageSquare } from 'lucide-react';
+import { User, Mail, Phone, HelpCircle, MessageSquare, ShieldCheck } from 'lucide-react';
 import { logContactAttempt } from '../services/contactLogger';
 
 interface FormState {
@@ -519,9 +519,40 @@ export const ContactPage: React.FC = () => {
       {/* Main Contact Form Section */}
       <section className="content-section">
         <h2>Send an Inquiry</h2>
-        <p style={{ color: 'var(--muted)', fontSize: '0.92rem', marginBottom: '1.5rem' }}>
-          Please fill out the form below. Submissions are securely validated, stored, and trigger an instant notification.
-        </p>
+
+        {/* Instructional Header: Submissions processed via email without storing data on server */}
+        <div
+          className="contact-instructional-header"
+          style={{
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--line)',
+            borderLeft: '4px solid var(--accent)',
+            borderRadius: '6px',
+            padding: '1.1rem 1.25rem',
+            marginBottom: '1.75rem',
+            display: 'flex',
+            gap: '0.85rem',
+            alignItems: 'flex-start'
+          }}
+        >
+          <ShieldCheck
+            size={22}
+            style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '2px' }}
+            aria-hidden="true"
+          />
+          <div style={{ fontSize: '0.9rem', lineHeight: 1.55 }}>
+            <strong style={{ display: 'block', color: 'var(--text)', marginBottom: '0.25rem', fontSize: '0.95rem' }}>
+              Submissions Are Processed via Email
+            </strong>
+            <p style={{ margin: 0, color: 'var(--text)' }}>
+              Inquiries sent through this form are forwarded directly via email to{' '}
+              <a href="mailto:webmaster@jawed.co.in" style={{ fontWeight: 600, color: 'var(--accent)' }}>
+                webmaster@jawed.co.in
+              </a>
+              . <strong>This website does not directly store your messages or form data on the site server or database.</strong> You can submit directly using this form or click <em>Open Email</em> to compose and send from your local email client.
+            </p>
+          </div>
+        </div>
 
         {/* Success Alert Banner */}
         {submitStatus === 'success' && (
@@ -973,7 +1004,7 @@ export const ContactPage: React.FC = () => {
       <section className="content-section">
         <h2>Privacy Notice</h2>
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          Your submitted name, email, and message are used solely to reply to your inquiry. They are stored securely and never sold, shared with marketing networks, or used for spam. Never submit passwords, credit card numbers, or internal credentials.
+          Your submitted name, email, and message are used solely to reply to your inquiry. Form submissions are processed via email and do not directly store your data on the website server or in a database. Your details are never sold, shared with marketing networks, or used for unsolicited communication. Never submit passwords, credit card numbers, or internal credentials.
         </p>
       </section>
     </main>
