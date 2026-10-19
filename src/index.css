@@ -404,6 +404,30 @@ select:focus-visible {
   border-color: #9dbbe5;
 }
 
+/* Subtle shake animation for form fields upon validation failure */
+@keyframes field-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-4px);
+  }
+  40%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+.form-field-shake {
+  animation: field-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form-field-shake {
+    animation: none !important;
+  }
+}
+
 .form-note {
   color: var(--muted);
   font-size: 0.9rem;

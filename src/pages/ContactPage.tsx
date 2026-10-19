@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { logContactAttempt } from '../services/contactLogger';
 
@@ -45,6 +45,7 @@ export const ContactPage: React.FC = () => {
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [shakingFields, setShakingFields] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isOpenEmailLoading, setIsOpenEmailLoading] = useState<boolean>(false);
   const [submissionMethod, setSubmissionMethod] = useState<'api' | 'email-client'>('api');
@@ -53,6 +54,34 @@ export const ContactPage: React.FC = () => {
   const [submissionId, setSubmissionId] = useState<string>('');
   const [formLoadedAt] = useState<number>(Date.now());
   const [copiedEmail, setCopiedEmail] = useState<boolean>(false);
+
+  const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up shake timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (shakeTimeoutRef.current) {
+        clearTimeout(shakeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const triggerShake = (fieldNames: string[]) => {
+    if (!fieldNames.length) return;
+    if (shakeTimeoutRef.current) {
+      clearTimeout(shakeTimeoutRef.current);
+    }
+    const newShakes: Record<string, boolean> = {};
+    fieldNames.forEach((field) => {
+      newShakes[field] = true;
+    });
+    setShakingFields(newShakes);
+
+    shakeTimeoutRef.current = setTimeout(() => {
+      setShakingFields({});
+      shakeTimeoutRef.current = null;
+    }, 450);
+  };
 
   // Preselect reason if coming from specific pathways
   useEffect(() => {
@@ -162,6 +191,9 @@ export const ContactPage: React.FC = () => {
     const val = formData[field as keyof FormState] || '';
     const err = validateField(field, val);
     setErrors((prev) => ({ ...prev, [field]: err }));
+    if (err) {
+      triggerShake([field]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,6 +209,7 @@ export const ContactPage: React.FC = () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      triggerShake(Object.keys(validationErrors));
 
       // Track failed validation attempt
       logContactAttempt({
@@ -318,6 +351,7 @@ export const ContactPage: React.FC = () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      triggerShake(Object.keys(validationErrors));
 
       // Track failed validation attempt for email client opening
       logContactAttempt({
@@ -594,7 +628,7 @@ export const ContactPage: React.FC = () => {
             </div>
 
             {/* Name */}
-            <div className="form-field">
+            <div className={`form-field ${shakingFields.name ? 'form-field-shake' : ''}`}>
               <label
                 htmlFor="contact-name"
                 style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
@@ -656,7 +690,7 @@ export const ContactPage: React.FC = () => {
             </div>
 
             {/* Email */}
-            <div className="form-field">
+            <div className={`form-field ${shakingFields.email ? 'form-field-shake' : ''}`}>
               <label
                 htmlFor="contact-email"
                 style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
@@ -692,7 +726,7 @@ export const ContactPage: React.FC = () => {
             </div>
 
             {/* Optional Phone */}
-            <div className="form-field">
+            <div className={`form-field ${shakingFields.phone ? 'form-field-shake' : ''}`}>
               <label
                 htmlFor="contact-phone"
                 style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
@@ -726,7 +760,7 @@ export const ContactPage: React.FC = () => {
             </div>
 
             {/* Reason */}
-            <div className="form-field">
+            <div className={`form-field ${shakingFields.reason ? 'form-field-shake' : ''}`}>
               <label
                 htmlFor="contact-reason"
                 style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
@@ -769,7 +803,7 @@ export const ContactPage: React.FC = () => {
             </div>
 
             {/* Message */}
-            <div className="form-field">
+            <div className={`form-field ${shakingFields.message ? 'form-field-shake' : ''}`}>
               <label
                 htmlFor="contact-message"
                 style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
