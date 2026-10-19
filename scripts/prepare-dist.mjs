@@ -33,11 +33,14 @@ for (const file of filesToCopy) {
   }
 }
 
-// Copy assets directory if needed
-const assetsSrc = path.resolve('assets');
-const assetsDest = path.join(distDir, 'assets');
-if (fs.existsSync(assetsSrc)) {
-  fs.cpSync(assetsSrc, assetsDest, { recursive: true });
+// Copy assets and static page directories if needed
+const dirsToCopy = ['assets', 'contact'];
+for (const dir of dirsToCopy) {
+  const src = path.resolve(dir);
+  const dest = path.join(distDir, dir);
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, dest, { recursive: true });
+  }
 }
 
 console.log('✓ Successfully prepared self-contained dist/ for production deployment.');

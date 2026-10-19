@@ -45,6 +45,8 @@ export const ContactPage: React.FC = () => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isOpenEmailLoading, setIsOpenEmailLoading] = useState<boolean>(false);
+  const [submissionMethod, setSubmissionMethod] = useState<'api' | 'email-client'>('api');
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [serverMessage, setServerMessage] = useState<string>('');
   const [submissionId, setSubmissionId] = useState<string>('');
@@ -62,32 +64,83 @@ export const ContactPage: React.FC = () => {
     }
   }, [preselectedReason]);
 
+  const validateField = (field: string, value: string): string | undefined => {
+    const trimmed = value.trim();
+    switch (field) {
+      case 'name':
+        if (!trimmed) {
+          return 'Please enter your name.';
+        }
+        if (trimmed.length < 2) {
+          return `Name must be at least 2 characters (currently ${trimmed.length} character).`;
+        }
+        if (trimmed.length > 100) {
+          return 'Name cannot exceed 100 characters.';
+        }
+        return undefined;
+
+      case 'email':
+        if (!trimmed) {
+          return 'Please enter your email address.';
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+          return 'Please enter a valid email address.';
+        }
+        if (trimmed.length > 150) {
+          return 'Email address cannot exceed 150 characters.';
+        }
+        return undefined;
+
+      case 'phone':
+        if (!trimmed) return undefined;
+        if (!/^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,20}$/.test(trimmed)) {
+          return 'Please enter a valid phone number (or leave blank).';
+        }
+        if (trimmed.length > 30) {
+          return 'Phone number cannot exceed 30 characters.';
+        }
+        return undefined;
+
+      case 'reason':
+        if (!value) {
+          return 'Please select a reason for your inquiry.';
+        }
+        return undefined;
+
+      case 'message':
+        if (!trimmed) {
+          return 'Please enter your message.';
+        }
+        if (trimmed.length < 10) {
+          const needed = 10 - trimmed.length;
+          return `Message must be at least 10 characters (currently ${trimmed.length}/10 — please add ${needed} more character${needed === 1 ? '' : 's'}).`;
+        }
+        if (trimmed.length > 3000) {
+          return 'Message cannot exceed 3,000 characters.';
+        }
+        return undefined;
+
+      default:
+        return undefined;
+    }
+  };
+
   const validate = (): FormErrors => {
     const errs: FormErrors = {};
+    const nameErr = validateField('name', formData.name);
+    if (nameErr) errs.name = nameErr;
 
-    if (!formData.name.trim() || formData.name.trim().length < 2) {
-      errs.name = 'Please enter your name (at least 2 characters).';
-    }
+    const emailErr = validateField('email', formData.email);
+    if (emailErr) errs.email = emailErr;
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim() || !emailRegex.test(formData.email.trim())) {
-      errs.email = 'Please enter a valid email address.';
-    }
+    const phoneErr = validateField('phone', formData.phone);
+    if (phoneErr) errs.phone = phoneErr;
 
-    if (formData.phone.trim()) {
-      const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,20}$/;
-      if (!phoneRegex.test(formData.phone.trim())) {
-        errs.phone = 'Please enter a valid phone number (or leave blank).';
-      }
-    }
+    const reasonErr = validateField('reason', formData.reason);
+    if (reasonErr) errs.reason = reasonErr;
 
-    if (!formData.reason) {
-      errs.reason = 'Please select a reason for your inquiry.';
-    }
-
-    if (!formData.message.trim() || formData.message.trim().length < 10) {
-      errs.message = 'Please provide a message with at least 10 characters.';
-    }
+    const messageErr = validateField('message', formData.message);
+    if (messageErr) errs.message = messageErr;
 
     return errs;
   };
@@ -95,17 +148,19 @@ export const ContactPage: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name as keyof FormErrors]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
+
+    // Real-time live validation if the user has already touched this field or if it currently displays an error
+    if (touched[name] || errors[name as keyof FormErrors]) {
+      const err = validateField(name, value);
+      setErrors((prev) => ({ ...prev, [name]: err }));
     }
   };
 
   const handleBlur = (field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
-    const currentErrors = validate();
-    if (currentErrors[field as keyof FormErrors]) {
-      setErrors((prev) => ({ ...prev, [field]: currentErrors[field as keyof FormErrors] }));
-    }
+    const val = formData[field as keyof FormState] || '';
+    const err = validateField(field, val);
+    setErrors((prev) => ({ ...prev, [field]: err }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,16 +176,26 @@ export const ContactPage: React.FC = () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      // Auto-focus first field that failed validation for accessibility
+      const firstInvalidField = ['name', 'email', 'phone', 'reason', 'message'].find(
+        (field) => validationErrors[field as keyof FormErrors]
+      );
+      if (firstInvalidField) {
+        const el = document.getElementById(`contact-${firstInvalidField}`);
+        el?.focus();
+      }
       return;
     }
 
     // Check honeypot
     if (formData.website) {
+      setSubmissionMethod('api');
       setSubmitStatus('success');
       setServerMessage('Thank you for reaching out!');
       return;
     }
 
+    setSubmissionMethod('api');
     setIsSubmitting(true);
     setSubmitStatus('idle');
     setServerMessage('');
@@ -177,6 +242,68 @@ export const ContactPage: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleOpenEmail = () => {
+    // Validate form fields first
+    setTouched({
+      name: true,
+      email: true,
+      phone: true,
+      reason: true,
+      message: true
+    });
+
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      const firstInvalidField = ['name', 'email', 'phone', 'reason', 'message'].find(
+        (field) => validationErrors[field as keyof FormErrors]
+      );
+      if (firstInvalidField) {
+        const el = document.getElementById(`contact-${firstInvalidField}`);
+        el?.focus();
+      }
+      return;
+    }
+
+    // Enter loading state for button feedback
+    setIsOpenEmailLoading(true);
+    setSubmitStatus('idle');
+    setServerMessage('');
+
+    const topic = formData.reason || 'General Inquiry';
+    const name = formData.name.trim() || 'Website Visitor';
+    const subject = `${topic} — ${name}`;
+    const bodyParts = [
+      `Name: ${formData.name.trim()}`,
+      `Email: ${formData.email.trim()}`
+    ];
+    if (formData.phone.trim()) {
+      bodyParts.push(`Phone: ${formData.phone.trim()}`);
+    }
+    bodyParts.push(`Reason: ${topic}`);
+    bodyParts.push('');
+    bodyParts.push(formData.message.trim());
+
+    const body = bodyParts.join('\n');
+    const mailtoUrl = `mailto:webmaster@jawed.co.in?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    // Brief timeout to ensure loading indicator is clearly perceived and accessible
+    setTimeout(() => {
+      try {
+        window.location.href = mailtoUrl;
+      } catch (err) {
+        console.warn('Failed to launch mailto client automatically:', err);
+      }
+
+      setSubmissionMethod('email-client');
+      setSubmitStatus('success');
+      setServerMessage(
+        'Opening your default email application with your pre-filled message addressed to webmaster@jawed.co.in. If no email client opens, copy the message details or email address below.'
+      );
+      setIsOpenEmailLoading(false);
+    }, 450);
   };
 
   const handleCopyEmail = async () => {
@@ -277,7 +404,8 @@ export const ContactPage: React.FC = () => {
         {/* Success Alert Banner */}
         {submitStatus === 'success' && (
           <div
-            role="alert"
+            role="status"
+            aria-live="polite"
             style={{
               backgroundColor: '#ecfdf5',
               border: '1px solid #a7f3d0',
@@ -289,24 +417,47 @@ export const ContactPage: React.FC = () => {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '1.25rem' }}>✓</span>
-              <strong style={{ fontSize: '1.05rem' }}>Message Received Successfully!</strong>
+              <strong style={{ fontSize: '1.05rem' }}>
+                {submissionMethod === 'email-client' ? 'Email Client Opened!' : 'Message Received Successfully!'}
+              </strong>
             </div>
             <p style={{ margin: '0 0 0.75rem', fontSize: '0.95rem', lineHeight: 1.5 }}>
               {serverMessage}
             </p>
-            {submissionId && (
+            {submissionMethod === 'api' && submissionId && (
               <p style={{ margin: '0 0 1rem', fontSize: '0.82rem', color: '#047857' }}>
                 Confirmation Reference: <code>{submissionId}</code>
               </p>
             )}
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={() => setSubmitStatus('idle')}
-              style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
-            >
-              Send Another Message
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '1rem' }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setSubmitStatus('idle')}
+                style={{ fontSize: '0.85rem', padding: '0.45rem 0.9rem' }}
+              >
+                Send Another Message
+              </button>
+              {submissionMethod === 'email-client' && (
+                <>
+                  <a
+                    href="mailto:webmaster@jawed.co.in"
+                    className="button"
+                    style={{ fontSize: '0.85rem', padding: '0.45rem 0.9rem' }}
+                  >
+                    Launch Email App Again
+                  </a>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={handleCopyEmail}
+                    style={{ fontSize: '0.85rem', padding: '0.45rem 0.9rem' }}
+                  >
+                    {copiedEmail ? '✓ Copied Email Address!' : 'Copy webmaster@jawed.co.in'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -369,9 +520,15 @@ export const ContactPage: React.FC = () => {
                 type="text"
                 autoComplete="name"
                 required
+                minLength={2}
+                maxLength={100}
                 aria-required="true"
                 aria-invalid={Boolean(touched.name && errors.name)}
-                aria-describedby={errors.name ? 'contact-name-error' : undefined}
+                aria-describedby={
+                  touched.name && errors.name
+                    ? 'contact-name-error'
+                    : 'contact-name-hint'
+                }
                 value={formData.name}
                 onChange={handleChange}
                 onBlur={() => handleBlur('name')}
@@ -379,16 +536,36 @@ export const ContactPage: React.FC = () => {
                 style={{
                   width: '100%',
                   padding: '0.65rem 0.85rem',
-                  border: touched.name && errors.name ? '2px solid #dc2626' : '1px solid var(--line)',
+                  border:
+                    touched.name && errors.name
+                      ? '2px solid #dc2626'
+                      : touched.name && formData.name.trim().length >= 2
+                      ? '1px solid #10b981'
+                      : '1px solid var(--line)',
                   borderRadius: '6px',
                   fontSize: '0.95rem'
                 }}
               />
-              {touched.name && errors.name && (
-                <p id="contact-name-error" style={{ color: '#dc2626', fontSize: '0.82rem', margin: '0.3rem 0 0' }}>
-                  {errors.name}
-                </p>
-              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.3rem' }}>
+                {touched.name && errors.name ? (
+                  <p id="contact-name-error" role="alert" style={{ color: '#dc2626', fontSize: '0.82rem', margin: 0 }}>
+                    {errors.name}
+                  </p>
+                ) : touched.name && formData.name.trim().length >= 2 ? (
+                  <span id="contact-name-hint" style={{ color: '#059669', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>✓</span> Name meets length requirement
+                  </span>
+                ) : (
+                  <span id="contact-name-hint" style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>
+                    Minimum 2 characters required.
+                  </span>
+                )}
+                {formData.name.length > 0 && (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                    {formData.name.trim().length}/100
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Email */}
@@ -517,9 +694,15 @@ export const ContactPage: React.FC = () => {
                 name="message"
                 rows={6}
                 required
+                minLength={10}
+                maxLength={3000}
                 aria-required="true"
                 aria-invalid={Boolean(touched.message && errors.message)}
-                aria-describedby={errors.message ? 'contact-message-error' : undefined}
+                aria-describedby={
+                  touched.message && errors.message
+                    ? 'contact-message-error'
+                    : 'contact-message-hint'
+                }
                 value={formData.message}
                 onChange={handleChange}
                 onBlur={() => handleBlur('message')}
@@ -527,7 +710,12 @@ export const ContactPage: React.FC = () => {
                 style={{
                   width: '100%',
                   padding: '0.65rem 0.85rem',
-                  border: touched.message && errors.message ? '2px solid #dc2626' : '1px solid var(--line)',
+                  border:
+                    touched.message && errors.message
+                      ? '2px solid #dc2626'
+                      : touched.message && formData.message.trim().length >= 10
+                      ? '1px solid #10b981'
+                      : '1px solid var(--line)',
                   borderRadius: '6px',
                   fontFamily: 'inherit',
                   fontSize: '0.95rem'
@@ -535,42 +723,73 @@ export const ContactPage: React.FC = () => {
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.3rem' }}>
                 {touched.message && errors.message ? (
-                  <p id="contact-message-error" style={{ color: '#dc2626', fontSize: '0.82rem', margin: 0 }}>
+                  <p id="contact-message-error" role="alert" style={{ color: '#dc2626', fontSize: '0.82rem', margin: 0 }}>
                     {errors.message}
                   </p>
+                ) : touched.message && formData.message.trim().length >= 10 ? (
+                  <span id="contact-message-hint" style={{ fontSize: '0.82rem', color: '#059669', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>✓</span> Minimum length met ({formData.message.trim().length} characters)
+                  </span>
                 ) : (
-                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                    Minimum 10 characters.
+                  <span id="contact-message-hint" style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                    Minimum 10 characters required{formData.message.trim().length > 0 ? ` (${10 - formData.message.trim().length} more needed)` : ''}.
                   </span>
                 )}
-                <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                <span style={{ fontSize: '0.8rem', color: formData.message.length > 2900 ? '#dc2626' : 'var(--muted)' }}>
                   {formData.message.length}/3000
                 </span>
               </div>
             </div>
 
-            <button
-              className="button"
-              type="submit"
-              disabled={isSubmitting}
-              style={{
-                alignSelf: 'flex-start',
-                minWidth: '180px',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              {isSubmitting ? (
-                <>
-                  <span>⏳</span>
-                  <span>Sending Message...</span>
-                </>
-              ) : (
-                'Send Message →'
-              )}
-            </button>
+            <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.5rem' }}>
+              <button
+                className="button"
+                type="submit"
+                disabled={isSubmitting || isOpenEmailLoading}
+                aria-busy={isSubmitting}
+                style={{
+                  minWidth: '180px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span aria-hidden="true">⏳</span>
+                    <span>Sending Message...</span>
+                  </>
+                ) : (
+                  'Send Message →'
+                )}
+              </button>
+
+              <button
+                className="button button-secondary"
+                type="button"
+                id="open-email-btn"
+                onClick={handleOpenEmail}
+                disabled={isSubmitting || isOpenEmailLoading}
+                aria-busy={isOpenEmailLoading}
+                style={{
+                  minWidth: '160px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {isOpenEmailLoading ? (
+                  <>
+                    <span aria-hidden="true">⏳</span>
+                    <span>Opening Email...</span>
+                  </>
+                ) : (
+                  '✉️ Open Email'
+                )}
+              </button>
+            </div>
           </form>
         )}
       </section>
