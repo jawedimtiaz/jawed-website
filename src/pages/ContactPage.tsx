@@ -58,12 +58,16 @@ export const ContactPage: React.FC = () => {
   const [copiedEmail, setCopiedEmail] = useState<boolean>(false);
 
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clean up shake timeout on unmount
+  // Clean up timeouts on unmount
   useEffect(() => {
     return () => {
       if (shakeTimeoutRef.current) {
         clearTimeout(shakeTimeoutRef.current);
+      }
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
       }
     };
   }, []);
@@ -252,8 +256,8 @@ export const ContactPage: React.FC = () => {
       return;
     }
 
-    // Check honeypot
-    if (formData.website) {
+    // Check hidden honeypot field: reject any request where this field is filled
+    if (formData.website && formData.website.trim().length > 0) {
       logContactAttempt({
         status: 'fail',
         reason: 'BOT_HONEYPOT_DETECTED',
@@ -262,11 +266,11 @@ export const ContactPage: React.FC = () => {
         topic: formData.reason,
         messageLength: formData.message.trim().length,
         submissionMethod: 'api',
-        error: 'Honeypot bot field triggered'
+        error: 'Submission rejected: honeypot field was filled.'
       });
       setSubmissionMethod('api');
-      setSubmitStatus('success');
-      setServerMessage('Thank you for reaching out!');
+      setSubmitStatus('error');
+      setServerMessage('Submission rejected: automated spam activity detected.');
       return;
     }
 
@@ -319,6 +323,17 @@ export const ContactPage: React.FC = () => {
           website: ''
         });
         setTouched({});
+        setValidationSummary([]);
+
+        // Temporary banner auto-reset after 7 seconds
+        if (successTimeoutRef.current) {
+          clearTimeout(successTimeoutRef.current);
+        }
+        successTimeoutRef.current = setTimeout(() => {
+          setSubmitStatus('idle');
+          setServerMessage('');
+          successTimeoutRef.current = null;
+        }, 7000);
       } else {
         // Track server rejection attempt
         logContactAttempt({
@@ -439,9 +454,29 @@ export const ContactPage: React.FC = () => {
       setSubmissionMethod('email-client');
       setSubmitStatus('success');
       setServerMessage(
-        'Opening your default email application with your pre-filled message addressed to webmaster@jawed.co.in. If no email client opens, copy the message details or email address below.'
+        'Your email application has been launched with your pre-filled inquiry addressed to webmaster@jawed.co.in. If no email client opens, copy the message details or email address below.'
       );
       setIsOpenEmailLoading(false);
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        reason: '',
+        message: '',
+        website: ''
+      });
+      setTouched({});
+      setValidationSummary([]);
+
+      // Temporary banner auto-reset after 7 seconds
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+      successTimeoutRef.current = setTimeout(() => {
+        setSubmitStatus('idle');
+        setServerMessage('');
+        successTimeoutRef.current = null;
+      }, 7000);
     }, 450);
   };
 
@@ -571,39 +606,68 @@ export const ContactPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Success Alert Banner */}
+        {/* Temporary Success Alert Banner (Displayed in place of the form after successful email trigger) */}
         {submitStatus === 'success' && (
           <div
             role="status"
             aria-live="polite"
             style={{
+              position: 'relative',
+              overflow: 'hidden',
               backgroundColor: '#ecfdf5',
               border: '1px solid #a7f3d0',
+              borderLeft: '4px solid #10b981',
               borderRadius: '8px',
-              padding: '1.25rem',
+              padding: '1.5rem',
               marginBottom: '2rem',
-              color: '#065f46'
+              color: '#065f46',
+              boxShadow: '0 2px 10px rgba(16, 185, 129, 0.08)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '1.25rem' }}>✓</span>
-              <strong style={{ fontSize: '1.05rem' }}>
-                {submissionMethod === 'email-client' ? 'Email Client Opened!' : 'Message Received Successfully!'}
-              </strong>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.65rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span aria-hidden="true" style={{ fontSize: '1.35rem', color: '#10b981' }}>✓</span>
+                <strong style={{ fontSize: '1.15rem', color: '#065f46' }}>
+                  Message sent successfully
+                </strong>
+              </div>
+              <span
+                style={{
+                  fontSize: '0.78rem',
+                  color: '#047857',
+                  backgroundColor: '#d1fae5',
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '4px',
+                  fontWeight: 500
+                }}
+              >
+                Temporary confirmation
+              </span>
             </div>
-            <p style={{ margin: '0 0 0.75rem', fontSize: '0.95rem', lineHeight: 1.5 }}>
-              {serverMessage}
+
+            <p style={{ margin: '0 0 0.85rem', fontSize: '0.95rem', lineHeight: 1.55 }}>
+              {serverMessage || 'Your message has been processed successfully.'}
             </p>
+
             {submissionMethod === 'api' && submissionId && (
               <p style={{ margin: '0 0 1rem', fontSize: '0.82rem', color: '#047857' }}>
                 Confirmation Reference: <code>{submissionId}</code>
               </p>
             )}
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '1rem' }}>
+
+            <p style={{ margin: '0 0 1.25rem', fontSize: '0.82rem', color: '#047857', fontStyle: 'italic' }}>
+              This banner is displayed temporarily instead of the form. The form will automatically reset shortly, or you can click below anytime.
+            </p>
+
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
               <button
                 type="button"
                 className="button button-secondary"
-                onClick={() => setSubmitStatus('idle')}
+                onClick={() => {
+                  if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+                  setSubmitStatus('idle');
+                  setServerMessage('');
+                }}
                 style={{ fontSize: '0.85rem', padding: '0.45rem 0.9rem' }}
               >
                 Send Another Message
@@ -628,6 +692,19 @@ export const ContactPage: React.FC = () => {
                 </>
               )}
             </div>
+
+            {/* Subtle auto-reset progress bar */}
+            <div
+              className="banner-progress"
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                height: '3px',
+                backgroundColor: '#10b981'
+              }}
+              aria-hidden="true"
+            />
           </div>
         )}
 

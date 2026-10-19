@@ -464,9 +464,25 @@ select:focus-visible {
   will-change: transform;
 }
 
+@keyframes banner-timer {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.banner-progress {
+  animation: banner-timer 7s linear forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .form-field-shake {
     animation: none !important;
+  }
+  .banner-progress {
+    display: none !important;
   }
 }
 
