@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { logContactAttempt } from '../services/contactLogger';
 
 interface FormState {
   name: string;
@@ -176,6 +177,21 @@ export const ContactPage: React.FC = () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+
+      // Track failed validation attempt
+      logContactAttempt({
+        status: 'fail',
+        reason: 'VALIDATION_ERROR',
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        topic: formData.reason,
+        messageLength: formData.message.trim().length,
+        submissionMethod: 'api',
+        error: Object.entries(validationErrors)
+          .map(([f, msg]) => `${f}: ${msg}`)
+          .join('; ')
+      });
+
       // Auto-focus first field that failed validation for accessibility
       const firstInvalidField = ['name', 'email', 'phone', 'reason', 'message'].find(
         (field) => validationErrors[field as keyof FormErrors]
@@ -189,6 +205,16 @@ export const ContactPage: React.FC = () => {
 
     // Check honeypot
     if (formData.website) {
+      logContactAttempt({
+        status: 'fail',
+        reason: 'BOT_HONEYPOT_DETECTED',
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        topic: formData.reason,
+        messageLength: formData.message.trim().length,
+        submissionMethod: 'api',
+        error: 'Honeypot bot field triggered'
+      });
       setSubmissionMethod('api');
       setSubmitStatus('success');
       setServerMessage('Thank you for reaching out!');
@@ -220,6 +246,17 @@ export const ContactPage: React.FC = () => {
       const result = await response.json();
 
       if (response.ok && result.success) {
+        // Track successful submission attempt
+        logContactAttempt({
+          status: 'success',
+          reason: 'SUBMISSION_SUCCESS',
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          topic: formData.reason,
+          messageLength: formData.message.trim().length,
+          submissionMethod: 'api'
+        });
+
         setSubmitStatus('success');
         setServerMessage(result.message || 'Thank you! Your message has been sent successfully.');
         setSubmissionId(result.id || '');
@@ -233,10 +270,34 @@ export const ContactPage: React.FC = () => {
         });
         setTouched({});
       } else {
+        // Track server rejection attempt
+        logContactAttempt({
+          status: 'fail',
+          reason: 'SERVER_ERROR',
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          topic: formData.reason,
+          messageLength: formData.message.trim().length,
+          submissionMethod: 'api',
+          error: result.error || 'Server rejected submission'
+        });
+
         setSubmitStatus('error');
         setServerMessage(result.error || 'Unable to submit your message right now. Please try again or email directly.');
       }
     } catch {
+      // Track network failure attempt
+      logContactAttempt({
+        status: 'fail',
+        reason: 'NETWORK_ERROR',
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        topic: formData.reason,
+        messageLength: formData.message.trim().length,
+        submissionMethod: 'api',
+        error: 'Network connection failed'
+      });
+
       setSubmitStatus('error');
       setServerMessage('Network error: Unable to reach the server. Please check your internet connection or email directly at webmaster@jawed.co.in.');
     } finally {
@@ -257,6 +318,21 @@ export const ContactPage: React.FC = () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+
+      // Track failed validation attempt for email client opening
+      logContactAttempt({
+        status: 'fail',
+        reason: 'VALIDATION_ERROR',
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        topic: formData.reason,
+        messageLength: formData.message.trim().length,
+        submissionMethod: 'email-client',
+        error: Object.entries(validationErrors)
+          .map(([f, msg]) => `${f}: ${msg}`)
+          .join('; ')
+      });
+
       const firstInvalidField = ['name', 'email', 'phone', 'reason', 'message'].find(
         (field) => validationErrors[field as keyof FormErrors]
       );
@@ -296,6 +372,17 @@ export const ContactPage: React.FC = () => {
       } catch (err) {
         console.warn('Failed to launch mailto client automatically:', err);
       }
+
+      // Track successful open email attempt
+      logContactAttempt({
+        status: 'success',
+        reason: 'EMAIL_CLIENT_OPENED',
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        topic: formData.reason,
+        messageLength: formData.message.trim().length,
+        submissionMethod: 'email-client'
+      });
 
       setSubmissionMethod('email-client');
       setSubmitStatus('success');

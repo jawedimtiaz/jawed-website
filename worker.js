@@ -100,7 +100,47 @@ export default {
       });
     }
 
-    // 4. Reject other /api/* with standard 404 JSON
+    // 4. Handle /api/contact/log endpoint
+    if (pathname === '/api/contact/log' || pathname === '/api/contact/log/') {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'access-control-allow-origin': '*',
+            'access-control-allow-methods': 'POST, GET, OPTIONS',
+            'access-control-allow-headers': 'content-type'
+          }
+        });
+      }
+      if (request.method === 'POST') {
+        let entry = {};
+        try {
+          entry = await request.json();
+        } catch {}
+        return new Response(JSON.stringify({ success: true, logged: true, status: entry.status || 'unknown' }), {
+          status: 200,
+          headers: {
+            'content-type': 'application/json; charset=utf-8',
+            'access-control-allow-origin': '*'
+          }
+        });
+      }
+      if (request.method === 'GET') {
+        return new Response(JSON.stringify({ ok: true, service: 'contact-log' }), {
+          status: 200,
+          headers: {
+            'content-type': 'application/json; charset=utf-8',
+            'access-control-allow-origin': '*'
+          }
+        });
+      }
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405,
+        headers: { 'content-type': 'application/json; charset=utf-8' }
+      });
+    }
+
+    // 5. Reject other /api/* with standard 404 JSON
     if (pathname.startsWith('/api/')) {
       return new Response(JSON.stringify({ error: 'API endpoint not found', code: 'NOT_FOUND' }), {
         status: 404,
