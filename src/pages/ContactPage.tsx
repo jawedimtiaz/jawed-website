@@ -47,6 +47,7 @@ export const ContactPage: React.FC = () => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [shakingFields, setShakingFields] = useState<Record<string, boolean>>({});
+  const [validationSummary, setValidationSummary] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isOpenEmailLoading, setIsOpenEmailLoading] = useState<boolean>(false);
   const [submissionMethod, setSubmissionMethod] = useState<'api' | 'email-client'>('api');
@@ -100,7 +101,7 @@ export const ContactPage: React.FC = () => {
     switch (field) {
       case 'name':
         if (!trimmed) {
-          return 'Please enter your name.';
+          return 'Please enter your name (minimum 2 characters required).';
         }
         if (trimmed.length < 2) {
           return `Name must be at least 2 characters (currently ${trimmed.length} character).`;
@@ -140,7 +141,7 @@ export const ContactPage: React.FC = () => {
 
       case 'message':
         if (!trimmed) {
-          return 'Please enter your message.';
+          return 'Please enter your message (minimum 10 characters required).';
         }
         if (trimmed.length < 10) {
           const needed = 10 - trimmed.length;
@@ -185,6 +186,19 @@ export const ContactPage: React.FC = () => {
       const err = validateField(name, value);
       setErrors((prev) => ({ ...prev, [name]: err }));
     }
+
+    // Live update of validation error summary banner if currently displayed
+    if (validationSummary.length > 0) {
+      setTimeout(() => {
+        const nextForm = { ...formData, [name]: value };
+        const nextErrs: FormErrors = {};
+        ['name', 'email', 'phone', 'reason', 'message'].forEach((f) => {
+          const eMsg = validateField(f, nextForm[f as keyof FormState] || '');
+          if (eMsg) nextErrs[f as keyof FormErrors] = eMsg;
+        });
+        setValidationSummary(Object.values(nextErrs).filter(Boolean) as string[]);
+      }, 0);
+    }
   };
 
   const handleBlur = (field: string) => {
@@ -211,6 +225,7 @@ export const ContactPage: React.FC = () => {
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       triggerShake(Object.keys(validationErrors));
+      setValidationSummary(Object.values(validationErrors).filter(Boolean) as string[]);
 
       // Track failed validation attempt
       logContactAttempt({
@@ -259,6 +274,7 @@ export const ContactPage: React.FC = () => {
     setIsSubmitting(true);
     setSubmitStatus('idle');
     setServerMessage('');
+    setValidationSummary([]);
 
     try {
       const response = await fetch('/api/contact', {
@@ -353,6 +369,7 @@ export const ContactPage: React.FC = () => {
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       triggerShake(Object.keys(validationErrors));
+      setValidationSummary(Object.values(validationErrors).filter(Boolean) as string[]);
 
       // Track failed validation attempt for email client opening
       logContactAttempt({
@@ -378,10 +395,10 @@ export const ContactPage: React.FC = () => {
       return;
     }
 
-    // Enter loading state for button feedback
     setIsOpenEmailLoading(true);
     setSubmitStatus('idle');
     setServerMessage('');
+    setValidationSummary([]);
 
     const topic = formData.reason || 'General Inquiry';
     const name = formData.name.trim() || 'Website Visitor';
@@ -634,6 +651,36 @@ export const ContactPage: React.FC = () => {
             <p style={{ margin: 0, fontSize: '0.92rem', lineHeight: 1.5 }}>
               {serverMessage}
             </p>
+          </div>
+        )}
+
+        {/* Client-side Validation Error Summary Banner */}
+        {validationSummary.length > 0 && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            style={{
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderLeft: '4px solid #dc2626',
+              borderRadius: '8px',
+              padding: '1.1rem 1.25rem',
+              marginBottom: '1.75rem',
+              color: '#991b1b'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+              <span aria-hidden="true" style={{ fontSize: '1.2rem' }}>⚠️</span>
+              <strong style={{ fontSize: '1rem' }}>Form Requirements Incomplete</strong>
+            </div>
+            <p style={{ margin: '0 0 0.5rem', fontSize: '0.88rem', lineHeight: 1.5 }}>
+              Please correct the following fields before submitting your message:
+            </p>
+            <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.86rem', lineHeight: 1.6 }}>
+              {validationSummary.map((errMsg, idx) => (
+                <li key={idx}>{errMsg}</li>
+              ))}
+            </ul>
           </div>
         )}
 
