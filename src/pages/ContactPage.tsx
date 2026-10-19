@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { User, Mail, Phone, HelpCircle, MessageSquare, ShieldCheck } from 'lucide-react';
+import { User, Mail, Phone, Tag, MessageSquare, ShieldCheck } from 'lucide-react';
 import { logContactAttempt } from '../services/contactLogger';
 
 interface FormState {
@@ -710,9 +710,10 @@ export const ContactPage: React.FC = () => {
             <div className={`form-field ${shakingFields.name ? 'form-field-shake' : ''}`}>
               <label
                 htmlFor="contact-name"
-                style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
               >
-                Full Name <span style={{ color: 'var(--accent)' }}>*</span>
+                <User size={16} style={{ color: 'var(--accent)' }} aria-hidden="true" />
+                <span>Full Name <span style={{ color: 'var(--accent)' }}>*</span></span>
               </label>
               <div className={`input-icon-wrapper ${touched.name && errors.name ? 'has-error' : touched.name && formData.name.trim().length >= 2 ? 'is-valid' : ''}`}>
                 <User className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
@@ -775,9 +776,10 @@ export const ContactPage: React.FC = () => {
             <div className={`form-field ${shakingFields.email ? 'form-field-shake' : ''}`}>
               <label
                 htmlFor="contact-email"
-                style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
               >
-                Email Address <span style={{ color: 'var(--accent)' }}>*</span>
+                <Mail size={16} style={{ color: 'var(--accent)' }} aria-hidden="true" />
+                <span>Email Address <span style={{ color: 'var(--accent)' }}>*</span></span>
               </label>
               <div className={`input-icon-wrapper ${touched.email && errors.email ? 'has-error' : touched.email && formData.email.trim() && !errors.email ? 'is-valid' : ''}`}>
                 <Mail className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
@@ -814,9 +816,10 @@ export const ContactPage: React.FC = () => {
             <div className={`form-field ${shakingFields.phone ? 'form-field-shake' : ''}`}>
               <label
                 htmlFor="contact-phone"
-                style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
               >
-                Phone Number <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(Optional)</span>
+                <Phone size={16} style={{ color: 'var(--muted)' }} aria-hidden="true" />
+                <span>Phone Number <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(Optional)</span></span>
               </label>
               <div className={`input-icon-wrapper ${touched.phone && errors.phone ? 'has-error' : ''}`}>
                 <Phone className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
@@ -847,16 +850,17 @@ export const ContactPage: React.FC = () => {
               )}
             </div>
 
-            {/* Reason */}
+            {/* Topic / Reason */}
             <div className={`form-field ${shakingFields.reason ? 'form-field-shake' : ''}`}>
               <label
                 htmlFor="contact-reason"
-                style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
               >
-                Reason for Inquiry <span style={{ color: 'var(--accent)' }}>*</span>
+                <Tag size={16} style={{ color: 'var(--accent)' }} aria-hidden="true" />
+                <span>Topic / Reason for Inquiry <span style={{ color: 'var(--accent)' }}>*</span></span>
               </label>
               <div className={`input-icon-wrapper ${touched.reason && errors.reason ? 'has-error' : touched.reason && formData.reason ? 'is-valid' : ''}`}>
-                <HelpCircle className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
+                <Tag className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
                 <select
                   id="contact-reason"
                   name="reason"
@@ -877,7 +881,7 @@ export const ContactPage: React.FC = () => {
                   }}
                 >
                   <option value="" disabled>
-                    -- Select the nature of your message --
+                    -- Select the topic or nature of your message --
                   </option>
                   {REASONS.map((r) => (
                     <option key={r} value={r}>
@@ -897,9 +901,10 @@ export const ContactPage: React.FC = () => {
             <div className={`form-field ${shakingFields.message ? 'form-field-shake' : ''}`}>
               <label
                 htmlFor="contact-message"
-                style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}
               >
-                Message <span style={{ color: 'var(--accent)' }}>*</span>
+                <MessageSquare size={16} style={{ color: 'var(--accent)' }} aria-hidden="true" />
+                <span>Message <span style={{ color: 'var(--accent)' }}>*</span></span>
               </label>
               <div className={`input-icon-wrapper textarea-icon-wrapper ${touched.message && errors.message ? 'has-error' : touched.message && formData.message.trim().length >= 10 ? 'is-valid' : ''}`}>
                 <MessageSquare className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
