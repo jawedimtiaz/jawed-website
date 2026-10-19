@@ -404,6 +404,48 @@ select:focus-visible {
   border-color: #9dbbe5;
 }
 
+/* Input Icon Wrapper for form inputs */
+.input-icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-icon-wrapper .input-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+  transition: color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-icon-wrapper.textarea-icon-wrapper {
+  align-items: flex-start;
+}
+
+.input-icon-wrapper.textarea-icon-wrapper .input-icon {
+  top: 0.85rem;
+  transform: none;
+}
+
+.input-icon-wrapper:focus-within .input-icon {
+  color: var(--accent);
+}
+
+.input-icon-wrapper.has-error .input-icon {
+  color: #dc2626 !important;
+}
+
+.input-icon-wrapper.is-valid .input-icon {
+  color: #059669;
+}
+
 /* Subtle shake animation for form fields upon validation failure */
 @keyframes field-shake {
   0%, 100% {

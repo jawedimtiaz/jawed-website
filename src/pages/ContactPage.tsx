@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { User, Mail, Phone, HelpCircle, MessageSquare } from 'lucide-react';
 import { logContactAttempt } from '../services/contactLogger';
 
 interface FormState {
@@ -635,38 +636,41 @@ export const ContactPage: React.FC = () => {
               >
                 Full Name <span style={{ color: 'var(--accent)' }}>*</span>
               </label>
-              <input
-                id="contact-name"
-                name="name"
-                type="text"
-                autoComplete="name"
-                required
-                minLength={2}
-                maxLength={100}
-                aria-required="true"
-                aria-invalid={Boolean(touched.name && errors.name)}
-                aria-describedby={
-                  touched.name && errors.name
-                    ? 'contact-name-error'
-                    : 'contact-name-hint'
-                }
-                value={formData.name}
-                onChange={handleChange}
-                onBlur={() => handleBlur('name')}
-                placeholder="e.g. Alex Morgan"
-                style={{
-                  width: '100%',
-                  padding: '0.65rem 0.85rem',
-                  border:
+              <div className={`input-icon-wrapper ${touched.name && errors.name ? 'has-error' : touched.name && formData.name.trim().length >= 2 ? 'is-valid' : ''}`}>
+                <User className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
+                <input
+                  id="contact-name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  aria-required="true"
+                  aria-invalid={Boolean(touched.name && errors.name)}
+                  aria-describedby={
                     touched.name && errors.name
-                      ? '2px solid #dc2626'
-                      : touched.name && formData.name.trim().length >= 2
-                      ? '1px solid #10b981'
-                      : '1px solid var(--line)',
-                  borderRadius: '6px',
-                  fontSize: '0.95rem'
-                }}
-              />
+                      ? 'contact-name-error'
+                      : 'contact-name-hint'
+                  }
+                  value={formData.name}
+                  onChange={handleChange}
+                  onBlur={() => handleBlur('name')}
+                  placeholder="e.g. Alex Morgan"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem 0.65rem 2.5rem',
+                    border:
+                      touched.name && errors.name
+                        ? '2px solid #dc2626'
+                        : touched.name && formData.name.trim().length >= 2
+                        ? '1px solid #10b981'
+                        : '1px solid var(--line)',
+                    borderRadius: '6px',
+                    fontSize: '0.95rem'
+                  }}
+                />
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.3rem' }}>
                 {touched.name && errors.name ? (
                   <p id="contact-name-error" role="alert" style={{ color: '#dc2626', fontSize: '0.82rem', margin: 0 }}>
@@ -697,27 +701,30 @@ export const ContactPage: React.FC = () => {
               >
                 Email Address <span style={{ color: 'var(--accent)' }}>*</span>
               </label>
-              <input
-                id="contact-email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                aria-required="true"
-                aria-invalid={Boolean(touched.email && errors.email)}
-                aria-describedby={errors.email ? 'contact-email-error' : undefined}
-                value={formData.email}
-                onChange={handleChange}
-                onBlur={() => handleBlur('email')}
-                placeholder="alex.morgan@company.com"
-                style={{
-                  width: '100%',
-                  padding: '0.65rem 0.85rem',
-                  border: touched.email && errors.email ? '2px solid #dc2626' : '1px solid var(--line)',
-                  borderRadius: '6px',
-                  fontSize: '0.95rem'
-                }}
-              />
+              <div className={`input-icon-wrapper ${touched.email && errors.email ? 'has-error' : touched.email && formData.email.trim() && !errors.email ? 'is-valid' : ''}`}>
+                <Mail className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
+                <input
+                  id="contact-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  aria-required="true"
+                  aria-invalid={Boolean(touched.email && errors.email)}
+                  aria-describedby={errors.email ? 'contact-email-error' : undefined}
+                  value={formData.email}
+                  onChange={handleChange}
+                  onBlur={() => handleBlur('email')}
+                  placeholder="alex.morgan@company.com"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem 0.65rem 2.5rem',
+                    border: touched.email && errors.email ? '2px solid #dc2626' : '1px solid var(--line)',
+                    borderRadius: '6px',
+                    fontSize: '0.95rem'
+                  }}
+                />
+              </div>
               {touched.email && errors.email && (
                 <p id="contact-email-error" style={{ color: '#dc2626', fontSize: '0.82rem', margin: '0.3rem 0 0' }}>
                   {errors.email}
@@ -733,25 +740,28 @@ export const ContactPage: React.FC = () => {
               >
                 Phone Number <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(Optional)</span>
               </label>
-              <input
-                id="contact-phone"
-                name="phone"
-                type="tel"
-                autoComplete="tel"
-                aria-invalid={Boolean(touched.phone && errors.phone)}
-                aria-describedby={errors.phone ? 'contact-phone-error' : undefined}
-                value={formData.phone}
-                onChange={handleChange}
-                onBlur={() => handleBlur('phone')}
-                placeholder="+1 (555) 000-0000"
-                style={{
-                  width: '100%',
-                  padding: '0.65rem 0.85rem',
-                  border: touched.phone && errors.phone ? '2px solid #dc2626' : '1px solid var(--line)',
-                  borderRadius: '6px',
-                  fontSize: '0.95rem'
-                }}
-              />
+              <div className={`input-icon-wrapper ${touched.phone && errors.phone ? 'has-error' : ''}`}>
+                <Phone className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
+                <input
+                  id="contact-phone"
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  aria-invalid={Boolean(touched.phone && errors.phone)}
+                  aria-describedby={errors.phone ? 'contact-phone-error' : undefined}
+                  value={formData.phone}
+                  onChange={handleChange}
+                  onBlur={() => handleBlur('phone')}
+                  placeholder="+1 (555) 000-0000"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem 0.65rem 2.5rem',
+                    border: touched.phone && errors.phone ? '2px solid #dc2626' : '1px solid var(--line)',
+                    borderRadius: '6px',
+                    fontSize: '0.95rem'
+                  }}
+                />
+              </div>
               {touched.phone && errors.phone && (
                 <p id="contact-phone-error" style={{ color: '#dc2626', fontSize: '0.82rem', margin: '0.3rem 0 0' }}>
                   {errors.phone}
@@ -767,34 +777,37 @@ export const ContactPage: React.FC = () => {
               >
                 Reason for Inquiry <span style={{ color: 'var(--accent)' }}>*</span>
               </label>
-              <select
-                id="contact-reason"
-                name="reason"
-                required
-                aria-required="true"
-                aria-invalid={Boolean(touched.reason && errors.reason)}
-                aria-describedby={errors.reason ? 'contact-reason-error' : undefined}
-                value={formData.reason}
-                onChange={handleChange}
-                onBlur={() => handleBlur('reason')}
-                style={{
-                  width: '100%',
-                  padding: '0.65rem 0.85rem',
-                  border: touched.reason && errors.reason ? '2px solid #dc2626' : '1px solid var(--line)',
-                  borderRadius: '6px',
-                  backgroundColor: '#fff',
-                  fontSize: '0.95rem'
-                }}
-              >
-                <option value="" disabled>
-                  -- Select the nature of your message --
-                </option>
-                {REASONS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
+              <div className={`input-icon-wrapper ${touched.reason && errors.reason ? 'has-error' : touched.reason && formData.reason ? 'is-valid' : ''}`}>
+                <HelpCircle className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
+                <select
+                  id="contact-reason"
+                  name="reason"
+                  required
+                  aria-required="true"
+                  aria-invalid={Boolean(touched.reason && errors.reason)}
+                  aria-describedby={errors.reason ? 'contact-reason-error' : undefined}
+                  value={formData.reason}
+                  onChange={handleChange}
+                  onBlur={() => handleBlur('reason')}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem 0.65rem 2.5rem',
+                    border: touched.reason && errors.reason ? '2px solid #dc2626' : '1px solid var(--line)',
+                    borderRadius: '6px',
+                    backgroundColor: '#fff',
+                    fontSize: '0.95rem'
+                  }}
+                >
+                  <option value="" disabled>
+                    -- Select the nature of your message --
                   </option>
-                ))}
-              </select>
+                  {REASONS.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {touched.reason && errors.reason && (
                 <p id="contact-reason-error" style={{ color: '#dc2626', fontSize: '0.82rem', margin: '0.3rem 0 0' }}>
                   {errors.reason}
@@ -810,38 +823,41 @@ export const ContactPage: React.FC = () => {
               >
                 Message <span style={{ color: 'var(--accent)' }}>*</span>
               </label>
-              <textarea
-                id="contact-message"
-                name="message"
-                rows={6}
-                required
-                minLength={10}
-                maxLength={3000}
-                aria-required="true"
-                aria-invalid={Boolean(touched.message && errors.message)}
-                aria-describedby={
-                  touched.message && errors.message
-                    ? 'contact-message-error'
-                    : 'contact-message-hint'
-                }
-                value={formData.message}
-                onChange={handleChange}
-                onBlur={() => handleBlur('message')}
-                placeholder="Please describe your project, opportunity, or feedback in detail..."
-                style={{
-                  width: '100%',
-                  padding: '0.65rem 0.85rem',
-                  border:
+              <div className={`input-icon-wrapper textarea-icon-wrapper ${touched.message && errors.message ? 'has-error' : touched.message && formData.message.trim().length >= 10 ? 'is-valid' : ''}`}>
+                <MessageSquare className="input-icon" size={18} strokeWidth={2} aria-hidden="true" />
+                <textarea
+                  id="contact-message"
+                  name="message"
+                  rows={6}
+                  required
+                  minLength={10}
+                  maxLength={3000}
+                  aria-required="true"
+                  aria-invalid={Boolean(touched.message && errors.message)}
+                  aria-describedby={
                     touched.message && errors.message
-                      ? '2px solid #dc2626'
-                      : touched.message && formData.message.trim().length >= 10
-                      ? '1px solid #10b981'
-                      : '1px solid var(--line)',
-                  borderRadius: '6px',
-                  fontFamily: 'inherit',
-                  fontSize: '0.95rem'
-                }}
-              />
+                      ? 'contact-message-error'
+                      : 'contact-message-hint'
+                  }
+                  value={formData.message}
+                  onChange={handleChange}
+                  onBlur={() => handleBlur('message')}
+                  placeholder="Please describe your project, opportunity, or feedback in detail..."
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem 0.65rem 2.5rem',
+                    border:
+                      touched.message && errors.message
+                        ? '2px solid #dc2626'
+                        : touched.message && formData.message.trim().length >= 10
+                        ? '1px solid #10b981'
+                        : '1px solid var(--line)',
+                    borderRadius: '6px',
+                    fontFamily: 'inherit',
+                    fontSize: '0.95rem'
+                  }}
+                />
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.3rem' }}>
                 {touched.message && errors.message ? (
                   <p id="contact-message-error" role="alert" style={{ color: '#dc2626', fontSize: '0.82rem', margin: 0 }}>
