@@ -28,14 +28,28 @@ The current frontend's `askJawedAi` implementation uses bundled knowledge data i
 
 Branch: `fix/cloudflare-pages-spa-routing`
 
-## Limits and next steps
+## Preview verification (2026-10-20)
 
-This is a diagnosis from Cloudflare deployment metadata, build logs, GitHub repository contents, and scheduled monitor output. The browser-rendering check was rate-limited, so no independent rendered screenshot or browser-console evidence was obtained. Do not claim that a blank homepage was conclusively explained by these findings.
+The latest preview deployment for commit `049006cc325dc10732da8a680b995c0b50cf6356` completed successfully at https://b2fcf51d.jawed-website.pages.dev.
 
-- [ ] Validate preview deployment contents and direct-route behavior.
-- [ ] Update stale monitoring contracts for the Vite hashed assets and client-side AI.
-- [ ] Run current build and accessibility/SEO checks.
-- [ ] Review the browser rendering/blank-page report and collect console/network evidence if the homepage still renders blank.
-- [ ] Do not merge/deploy until relevant checks and route behavior have been reviewed.
+- Cloudflare build logs report **no infinite redirect-loop warnings** after rewrite targets were changed from `/index.html` to `/`. Sixteen informational messages suggest placing exact route rules before wildcard rules; they are performance hints, not loop failures.
+- Cloudflare Browser Rendering fetched `/notes/?q=automation` from the preview and returned HTTP 200 with the React-rendered Field Guides page. The response included the expected CSP, HSTS, X-Frame-Options, X-Content-Type-Options, COOP, Referrer-Policy, Permissions-Policy, and X-Permitted-Cross-Domain-Policies headers.
+- Site Integrity Gate passed: https://github.com/jawedimtiaz/jawed-website/actions/runs/39474067987
+- Deployment Runtime Reliability Gate passed: https://github.com/jawedimtiaz/jawed-website/actions/runs/39474068042
+- AdSense Readiness Gate still fails because its legacy validator opens missing `privacy/index.html`.
+- AI Regression Gate still fails and needs separate root-cause analysis.
+- Security Supply Chain Gate still fails on this branch because the separate manifest-policy correction has not been merged; see PR #883.
+
+The preview route test does not prove that the public homepage blank-page symptom is resolved. It also did not verify post-render canonical metadata or JavaScript console errors.
+
+## Next steps
+
+- [x] Preview build completed.
+- [x] Direct-route HTTP 200 and React-rendered content verified on preview.
+- [x] No redirect-loop warnings in the latest preview build log.
+- [x] Site Integrity and Deployment Runtime validators pass on the candidate branch.
+- [ ] Reconcile the remaining stale AdSense, AI/API, and unhashed-asset monitors without weakening meaningful checks.
+- [ ] Verify canonical metadata after client rendering and capture browser console/network evidence for the homepage.
+- [ ] Do not merge/deploy until remaining relevant checks and the release candidate have been reviewed.
 
 No production mutation was made.
