@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const finalDoc=fs.readFileSync("docs/adsense-final-readiness.md","utf8");
-const privacy=fs.readFileSync("privacy/index.html","utf8");
+const privacy=fs.readFileSync("src/pages/PrivacyPage.tsx","utf8");
 const inventory=JSON.parse(fs.readFileSync("config/adsense-inventory.json","utf8"));
 const placement=JSON.parse(fs.readFileSync("config/adsense-placement-policy.json","utf8"));
 const headers=fs.readFileSync("_headers","utf8");
@@ -144,7 +144,7 @@ for(const validator of aggregateValidators){
 assert.equal(workflow.includes("run: node scripts/validate-adsense-readiness.mjs"),true,"CI must execute the aggregate AdSense readiness gate");
 assert.equal((workflow.match(/docs\/adsense-activation-handoff\.md/g)||[]).length,2,"Activation handoff must appear once in each trigger");
 assert.equal(finalDoc.includes("Do not activate ad scripts, visible ad slots, `ads.txt`"),true,"Activation safeguard is missing");
-assert.equal(privacy.includes("<h2>Advertising and AdSense</h2>"),true,"AdSense privacy foundation is missing");
+assert.equal(privacy.includes("Google AdSense &amp; Third-Party Advertising"),true,"AdSense privacy foundation is missing");
 assert.equal(inventory.status,"pre-ads-review","Inventory must remain pre-activation");
 assert.equal(placement.status,"pre-activation","Placement policy must remain pre-activation");
 assert.equal(fs.existsSync("ads.txt"),false,"ads.txt must remain absent before publisher activation");
