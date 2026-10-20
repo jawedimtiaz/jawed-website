@@ -20,10 +20,13 @@ try{
  const session=await http("POST","/session",caps);sessionId=session.sessionId;
  await command("POST","/url",{url:BASE_URL+"/tools/career-match-resume-review/"});
  await waitFor("()=>document.querySelector('#resume-input')&&document.querySelector('#jd-input')");
- const startup=await js("return {h1:document.querySelector('h1')?.textContent,root:!!document.querySelector('.site-wrapper'),horizontalOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1}");
+ const startup=await js("return {h1:document.querySelector('h1')?.textContent,root:!!document.querySelector('.site-wrapper'),horizontalOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1,canonical:document.querySelector('link[rel=canonical]')?.href||'',title:document.title}");
  assert.equal(startup.root,true,"React app wrapper did not render");
  assert.match(startup.h1,/resume match this job/i,"Career Match heading did not render");
  assert.equal(startup.horizontalOverflow,false,"Career Match page has horizontal overflow at desktop viewport");
+ await waitFor("()=>document.querySelector('link[rel=canonical]')?.href.endsWith('/tools/career-match-resume-review')");
+ assert.equal(new URL(startup.canonical).pathname,"/tools/career-match-resume-review","Career Match canonical metadata is incorrect");
+ assert.ok(startup.title.includes("Career Match"),"Career Match page title was not updated");
  const resume="IT support engineer with experience in troubleshooting Windows and macOS, Jamf, MDM, Okta, Google Workspace, networking, incident management, ticket documentation, customer support, and endpoint provisioning. Improved device onboarding workflows and documented repeatable troubleshooting procedures.";
  const jd="IT Support Engineer. Required experience with troubleshooting Windows and macOS, Jamf, MDM, Okta, Google Workspace, networking, incident management, ticket documentation, customer support, endpoint provisioning, and device onboarding.";
  await type("#resume-input",resume);await type("#jd-input",jd);await click("button.button");
