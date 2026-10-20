@@ -5,7 +5,8 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "_headers"
+      - "_headers"      - "public/**"
+
       - "functions/api/ai.js"
       - "assets/css/style.css"
       - "assets/js/main.js"
@@ -22,7 +23,8 @@ on:
     branches:
       - main
     paths:
-      - "_headers"
+      - "_headers"      - "public/**"
+
       - "functions/api/ai.js"
       - "config/production-cache-contract.json"
       - "scripts/validate-production-cache.mjs"
