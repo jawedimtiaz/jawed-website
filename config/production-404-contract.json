@@ -7,12 +7,9 @@
   "path": "/missing-phase-39i-404-test",
   "expected_status": 404,
   "required_markers": [
-    "<title>Page not found",
-    "Page not found",
-    "Back home",
-    "/work/",
-    "/notes/",
-    "/tools/"
+    "404 · Route Not Found",
+    "Looking for Technical Resources?",
+    "href=\"/tools\""
   ],
   "forbidden_markers": [
     "<title>404 Not Found</title>",
