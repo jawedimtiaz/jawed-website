@@ -5,16 +5,6 @@
   "max_redirects": 0,
   "checks": [
     {
-      "path": "/assets/css/style.css",
-      "require_cache_control": true,
-      "cache_policy": "public"
-    },
-    {
-      "path": "/assets/js/main.js",
-      "require_cache_control": true,
-      "cache_policy": "public"
-    },
-    {
       "path": "/assets/images/social-preview.png",
       "require_cache_control": true,
       "cache_policy": "public"
@@ -25,9 +15,14 @@
       "cache_policy": "public"
     },
     {
-      "path": "/api/ai",
+      "path": "/favicon.ico",
       "require_cache_control": true,
-      "cache_policy": "no-store"
+      "cache_policy": "public"
+    },
+    {
+      "path": "/manifest.webmanifest",
+      "require_cache_control": true,
+      "cache_policy": "public"
     }
   ]
 }
