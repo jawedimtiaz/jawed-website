@@ -6,7 +6,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "config/production-smoke-contract.json"      - "public/_redirects"
+      - "config/production-smoke-contract.json"
+      - "public/_redirects"
       - "public/_headers"
       - "public/sitemap.xml"
       - "public/robots.txt"
