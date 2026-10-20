@@ -15,6 +15,22 @@ async function click(selector){await js("document.querySelector(arguments[0])?.s
 async function type(selector,value){const e=await find(selector),id=eid(e);await command("POST","/element/"+id+"/clear",{});await command("POST","/element/"+id+"/value",{text:value,value:[...value]});await sleep(180)}
 async function waitFor(expression,timeout=10000){const start=Date.now();while(Date.now()-start<timeout){if(await js("return ("+expression+")()"))return;await sleep(100)}throw Error("Timed out waiting for "+expression)}
 async function openPage(path,selector="h1"){await command("POST","/url",{url:BASE_URL+path});await waitFor("()=>!!document.querySelector("+JSON.stringify(selector)+")");await sleep(120)}
+function expectedCanonicalPath(path){
+ const p=(path.split("?")[0]||"/").replace(/\/+$/,"")||"/";
+ if(p==="/")return "/";
+ if(p==="/guides"||p==="/field-guides")return "/field-guides/";
+ if(p==="/notes")return "/notes/";
+ if(p==="/tools"||p==="/diagnostic-tools")return "/tools/";
+ if(p==="/services"||p==="/services-dispatch")return "/services/";
+ if(p.startsWith("/notes/")||p.startsWith("/guides/")||p.startsWith("/field-guides/"))return "/field-guides/"+p.split("/").filter(Boolean).at(-1);
+ if(p==="/tools/calculator")return "/tools/retirement-planning-calculator";
+ if(p.startsWith("/tools/"))return p;
+ if(p==="/blog")return "/blog/";
+ if(p.startsWith("/blog/"))return p;
+ if(["/about","/work","/topics","/resources","/contact","/privacy","/terms","/cookies","/ai"].includes(p))return p+"/";
+ return "/404";
+}
+
 async function pageState(){return js("return {title:document.title,h1:document.querySelector('h1')?.innerText||'',root:!!document.querySelector('.site-wrapper'),overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1,body:document.body.innerText||''}")}
 async function testReset(path,inputSelector){await openPage(path,inputSelector);const before=await js("return document.querySelector(arguments[0]).value",[inputSelector]);await type(inputSelector,"123456");const changed=await js("return document.querySelector(arguments[0]).value",[inputSelector]);assert.equal(changed,"123456",path+" input did not accept changes");await click("button.button-secondary");const after=await js("return document.querySelector(arguments[0]).value",[inputSelector]);assert.equal(after,before,path+" reset did not restore the original input");console.log("PASS — reset interaction "+path)}
 try{
@@ -51,7 +67,12 @@ try{
   assert.equal(state.root,true,path+" did not mount the React application");
   assert.equal(state.overflow,false,path+" has horizontal overflow at desktop viewport");
   assert.ok(state.h1.toLowerCase().includes(heading.toLowerCase()),path+" rendered unexpected heading: "+state.h1);
-  console.log("PASS — direct route "+path);
+  const expectedCanonical="https://jawed.co.in"+expectedCanonicalPath(path);
+  await waitFor("()=>document.querySelector('link[rel=canonical]')?.href === "+JSON.stringify(expectedCanonical));
+  const canonical=await js("return document.querySelector('link[rel=canonical]')?.href||''");
+  assert.equal(canonical,expectedCanonical,path+" canonical metadata mismatch");
+  assert.ok(state.title.length>5,path+" has an empty document title");
+  console.log("PASS — direct route and canonical metadata "+path);
  }
 
  await testReset("/tools/compound-growth-sip-calculator/","#initial");
