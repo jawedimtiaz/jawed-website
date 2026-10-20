@@ -25,6 +25,7 @@ function expectedCanonicalPath(path){
  if(p.startsWith("/notes/")||p.startsWith("/guides/")||p.startsWith("/field-guides/"))return "/field-guides/"+p.split("/").filter(Boolean).at(-1);
  if(p==="/tools/calculator")return "/tools/retirement-planning-calculator";
  if(p.startsWith("/tools/"))return p;
+ if(["/work/projects","/work/experience","/work/skills"].includes(p))return p+"/";
  if(p==="/blog")return "/blog/";
  if(p.startsWith("/blog/"))return p;
  if(["/about","/work","/topics","/resources","/contact","/privacy","/terms","/cookies","/ai"].includes(p))return p+"/";
@@ -51,7 +52,25 @@ try{
   ["/tools/resume-bullet-strength-checker/","Resume Bullet Strength Checker"],
   ["/tools/service-desk-note-formatter/","Service Desk Note Formatter"],
   ["/tools/ticket-to-knowledge-base-draft/","Ticket to Knowledge Base"],
+  ["/tools/ipv4-subnet-calculator/","IPv4 Subnet"],
+  ["/tools/server-rack-power-btu-calculator/","Server Rack Power"],
+  ["/tools/career-match-resume-review/","Career Match"],
   ["/tools/","Tools & Calculators"],
+  ["/diagnostic-tools/","Tools & Calculators"],
+  ["/field-guides/","Field Guides & Knowledge Base"],
+  ["/guides/","Field Guides & Knowledge Base"],
+  ["/services/","Services & IT Field Dispatch"],
+  ["/services-dispatch/","Services & IT Field Dispatch"],
+  ["/about/","About Jawed Imtiaz"],
+  ["/work/","Work & Experience"],
+  ["/work/projects/","Projects & Work Evidence"],
+  ["/work/experience/","Experience"],
+  ["/work/skills/","Skills"],
+  ["/contact/","Contact Us"],
+  ["/privacy/","Privacy Policy"],
+  ["/terms/","Terms of Service"],
+  ["/cookies/","Cookie Policy & Preferences"],
+  ["/ai/","Jawed AI Assistant"],
   ["/topics/","Topics"],
   ["/resources/","IT Support & Web Resources"],
   ["/notes/","Field Guides & Knowledge Base"],
