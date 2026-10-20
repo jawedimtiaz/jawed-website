@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { SeoHead } from '../components/SeoHead';
 
 export const NotFoundPage: React.FC = () => {
   const [query, setQuery] = useState('');
@@ -17,11 +16,6 @@ export const NotFoundPage: React.FC = () => {
 
   return (
     <main className="container page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '65vh' }}>
-      <SeoHead
-        title="404 — Page Not Found"
-        description="The requested page could not be found on jawed.co.in. Navigate back to technical guides, subnet calculators, or contact Jawed Imtiaz."
-        canonicalUrl="https://jawed.co.in/404"
-      />
 
       <div
         className="card"
