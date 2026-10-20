@@ -1,28 +1,41 @@
 # Cloudflare Pages Deployment Contract
 
-This repository is deployed as a Cloudflare Pages site with Pages Functions under `functions/`.
+This repository currently builds a React single-page application with React Router and Vite, deployed to Cloudflare Pages.
 
-## Expected deployment configuration
+## Verified production configuration
 
-- **Build command:** none
-- **Build output directory:** repository root (`.`)
-- **Functions:** discovered from `functions/`
-- **Production domain:** `https://jawed.co.in`
-- **AI provider configuration:** Cloudflare Pages **Workers AI binding** named `AI`
-- **AI model:** fixed `@cf/meta/llama-3.2-1b-instruct`
+- **Cloudflare Pages project:** `jawed-website`
+- **Production branch:** `main`
+- **Build command:** `npm run build`
+- **Build output directory:** `dist`
+- **Root directory:** repository root
+- **Production origins:** `https://jawed.co.in` and `https://www.jawed.co.in`
+- **Current frontend AI:** client-side knowledge search in `src/services/aiKnowledgeEngine.ts`
+- **Pages Functions:** no `functions/` directory was present in the reviewed production commit; do not assume `/api/ai` exists.
 
-The site is intentionally dependency-free at build time. Do not add a package manifest or framework build step solely to satisfy deployment tooling.
+## Cloudflare Pages files and SPA routing
 
-The production application does not expose a deployment model override. The fixed model boundary is intentional so configuration cannot accidentally select a paid-only model.
+Vite copies files from `public/` into `dist/`. Therefore Cloudflare Pages configuration files that must be deployed with the build output belong in `public/`, including:
 
-## Verification
+- `public/_headers` — security headers and CSP
+- `public/_redirects` — legacy redirects and React Router direct-navigation rewrites
+- `public/404.html` — custom not-found page for paths that are not mapped to the application
 
-After a production deployment:
+The root-level `_headers` and `_redirects` are retained for repository-side contracts and review, but are not automatically copied into Vite's `dist/` output.
 
-1. `GET /api/ai` must return JSON readiness metadata.
-2. `/ai/` must load as HTML.
-3. A discovery URL such as `/notes/?q=automation` must load and preserve the query parameter.
-4. Cloudflare deployment status/logs must be checked if a Pages deployment reports failure. The canonical production origin is `https://jawed.co.in`; `https://www.jawed.co.in` is an alternate origin.
-5. When the Workers AI binding is configured, a real `POST /api/ai` request must return a non-empty assistant response and safe Jawed.co.in source metadata.
+Every React Router path linked from the app or listed in the sitemap must load `/index.html` on direct navigation. Keep the explicit route rewrites in sync with the route definitions in `src/App.tsx`. Preserve the custom 404 response for unknown paths.
 
-The repository's deterministic validators mock the Workers AI binding and do not consume remote AI allocation.
+## AI runtime boundary
+
+The current React app imports `askJawedAi` from `src/services/aiKnowledgeEngine.ts`, which searches the bundled knowledge data in the browser. It does not call `/api/ai`. Existing checks that expect `/api/ai` or a Pages Functions directory are stale relative to this implementation and should be updated to validate the current client-side AI journey instead. Do not add a server endpoint, provider API key, or paid AI runtime just to satisfy an outdated monitor.
+
+## Verification after a reviewed deployment
+
+1. Confirm the Cloudflare Pages deployment succeeds and includes `_headers`, `_redirects`, the hashed Vite JS/CSS assets, and expected public assets.
+2. Test the homepage and representative routes by direct URL, including `/notes/?q=automation`, `/field-guides/`, `/tools/`, and `/ai/`.
+3. Confirm legacy redirects and the custom 404 behavior.
+4. Verify security headers and CSP from the deployed response.
+5. Exercise the client-side AI flow and its privacy guardrails in a browser.
+6. Reconcile outdated scheduled monitors before treating their pass/fail state as a reliable deployment signal.
+
+No production deployment or account setting change is authorized by this document.
