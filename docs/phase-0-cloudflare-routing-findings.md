@@ -72,7 +72,7 @@ The latest CI runs for these changes are pending/in progress. Do not report thes
 
 The review branch now also addresses a confirmed SPA SEO gap: the shared `SeoHead` component was only used on the homepage, so client-side route navigation could retain homepage title/canonical metadata. A new `RouteSeo` component maps the current React routes and note/blog data to unique titles, descriptions, canonical URLs, Open Graph metadata, and robots directives. It removes the duplicate homepage title suffix and marks the interactive AI assistant page `noindex, follow`.
 
-The sitemap is now synchronized at the repository root and in `public/` and includes **63 canonical URLs**: core pages, all 30 note guides, both blog posts, and 14 tool pages. Non-canonical aliases such as `/notes/`, `/guides/`, `/diagnostic-tools/`, and `/services/` are not listed; their route metadata points to the canonical page. The AdSense inventory now refers to the canonical `/field-guides/` page instead of the alias `/notes/`.
+The sitemap is now synchronized at the repository root and in `public/` and includes **67 canonical URLs**: core pages, all 30 knowledge notes under `/notes/`, all 4 separate field-guide articles under `/field-guides/`, both blog posts, and 14 tool pages. The notes and field-guide collections have distinct canonical routes. Non-canonical aliases such as `/notes/`, `/guides/`, `/diagnostic-tools/`, and `/services/` are not listed; their route metadata points to the canonical page. The AdSense inventory now refers to the canonical `/field-guides/` page instead of the alias `/notes/`.
 
 The production monitors have been reconciled with the current React/Vite architecture:
 - Discover and validate hashed Vite JS/CSS assets from the homepage for static-asset and cache checks.
@@ -82,9 +82,8 @@ The production monitors have been reconciled with the current React/Vite archite
 - Compare robots directives as complete lines, avoiding a false positive where `Disallow: /` matched narrower paths such as `/api/`.
 - Align the security baseline with the published `public/_headers`, `public/_redirects`, and `public/404.html` files rather than obsolete root-only static/Pages Functions assumptions.
 
-Latest completed CI on commit `ad687921b9a5e17b62cd61dc8ad955da1ec64cf6`:
-- Site Integrity, Deployment Runtime Reliability, Security Baseline, Security Supply Chain, AI Regression, AdSense Readiness, Finance Calculator Regression, production static assets/cache/robots/404/media, canonical origin, and availability checks: **PASS**.
-- Career Match browser runtime: **PASS**.
-- Interactive tools browser runtime: **in progress** when this note was written; its final result must be checked before marking Phase 0 complete.
+Latest completed CI on the current candidate commit `35336d6a885940ceb69d91ffff5122a9184047e6`:
+- Site Integrity, Deployment Runtime Reliability, Security Baseline, Security Supply Chain, production static assets, robots, 404, and production cache checks: **PASS** on the current or immediately preceding candidate.
+- AI Regression, AdSense Readiness, Finance Calculator Regression, Career Match browser runtime, and Interactive Tools browser runtime are being rerun against the latest sitemap/route-metadata candidate; their final results must be checked before marking Phase 0 complete.
 
 The production homepage was independently rendered successfully earlier in this review, but production direct-route and header checks remain tied to a deployment of this branch. The current production deployment has not been changed. AdSense remains pre-activation; CI readiness is not a Google approval or legal compliance certification.
