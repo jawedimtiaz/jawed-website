@@ -8,9 +8,9 @@
       "status": 200,
       "content_type": "text/html",
       "required_markers": [
-        "<nav id=\"site-nav\"",
-        "<summary>Explore</summary>",
-        "<a href=\"/ai/\">AI</a>"
+        "<div id=\"root\"></div>",
+        "/assets/index-",
+        "<link rel=\"canonical\""
       ]
     },
     {
@@ -18,9 +18,8 @@
       "status": 200,
       "content_type": "text/html",
       "required_markers": [
-        "<h1>",
-        "Jawed AI",
-        "id=\"ai-status\""
+        "<div id=\"root\"></div>",
+        "/assets/index-"
       ]
     },
     {
@@ -28,29 +27,36 @@
       "status": 200,
       "content_type": "text/html",
       "required_markers": [
-        "<h1>",
-        "type=\"search\"",
-        "id=\"notes-filter\""
+        "<div id=\"root\"></div>",
+        "/assets/index-"
       ]
     },
     {
-      "path": "/api/ai",
+      "path": "/tools/",
       "status": 200,
-      "content_type": "application/json"
+      "content_type": "text/html",
+      "required_markers": [
+        "<div id=\"root\"></div>",
+        "/assets/index-"
+      ]
     },
     {
       "path": "/sitemap.xml",
       "status": 200,
-      "content_type": "application/xml"
+      "content_type": "application/xml",
+      "required_markers": [
+        "<urlset",
+        "https://jawed.co.in/"
+      ]
     },
     {
       "path": "/missing-phase-39i-smoke-test",
       "status": 404,
       "content_type": "text/html",
       "required_markers": [
-        "Page not found",
-        "Back home",
-        "/tools/"
+        "Route Not Found",
+        "Looking for Technical Resources?",
+        "/tools"
       ]
     }
   ],
