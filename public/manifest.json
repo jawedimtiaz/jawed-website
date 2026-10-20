@@ -1,0 +1,14 @@
+{
+  "name":"Jawed Imtiaz | IT Support & Workplace Technology",
+  "short_name":"Jawed Imtiaz",
+  "description":"Jawed Imtiaz — IT support, workplace technology, practical tools and professional resources.",
+  "start_url":"/",
+  "scope":"/",
+  "display":"standalone",
+  "theme_color":"#163b7a",
+  "background_color":"#ffffff",
+  "icons":[
+    {"src":"/assets/icons/pwa-192.svg","sizes":"192x192","type":"image/svg+xml","purpose":"any maskable"},
+    {"src":"/assets/icons/pwa-512.svg","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}

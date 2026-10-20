@@ -1,224 +1,151 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { toolsList } from '../data/toolsData';
-import { notesList, getNoteCategory } from '../data/notesData';
 
 export const HomePage: React.FC = () => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  
-  const featuredTools = toolsList.slice(0, 4);
-  const featuredNotes = notesList.slice(0, 4);
-
   return (
-    <main id="main-content" className="container page">
-      {/* Hero Section */}
-      <section className="hero-section" style={{ padding: '3rem 0 2rem' }}>
-        <p className="eyebrow">Portfolio &amp; Practical Workplace Technology Hub</p>
-        <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', lineHeight: 1.15, marginBottom: '1.25rem' }}>
-          IT Field Tech, Practical Guides &amp; Interactive Browser Tools
-        </h1>
-        <p className="lead" style={{ maxWidth: '48rem', marginBottom: '1.75rem' }}>
-          Welcome! I’m <strong>Jawed Imtiaz</strong>, an IT Field Tech supporting users, devices, and enterprise technology at Milestone Technologies (supporting the Uber environment). I build structured troubleshooting workflows, technical documentation, and privacy-first browser tools for IT professionals and individuals.
+    <main>
+      <section className="hero container">
+        <p className="eyebrow">IT Support · Workplace Technology · Practical Tools</p>
+        <h1>IT Field Tech focused on support, workplace technology and practical problem-solving.</h1>
+        <p className="lead">
+          I’m Jawed Imtiaz, an IT professional focused on user support, Service Desk operations, workplace technology, Apple and macOS, device management and practical IT problem-solving. I also build useful browser-based tools and share what I learn about AI, productivity and digital work.
         </p>
-        <div className="actions" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <Link className="button" to="/contact/">
-            Work With Me / Contact →
-          </Link>
-          <Link className="button button-secondary" to="/work/">
-            My Work &amp; Experience →
-          </Link>
-          <Link className="button button-secondary" to="/tools/">
-            Browse 14 Tools →
-          </Link>
-          <Link className="button button-secondary" to="/ai/">
-            Ask Jawed AI 🤖
-          </Link>
+        <div className="actions">
+          <Link className="button" to="/work">View My Professional Profile →</Link>
+          <Link className="button button-secondary" to="/tools">Explore My Tools →</Link>
+          <Link className="button button-secondary" to="/contact">Contact Me →</Link>
         </div>
       </section>
 
-      {/* Highlights / Quick Stats */}
-      <section className="content-section" style={{ borderTop: '1px solid var(--line)', paddingTop: '2.5rem' }}>
-        <h2>Core Focus &amp; Recognition</h2>
+      <section className="container page-section">
+        <p className="eyebrow">Work evidence</p>
+        <h2>How I apply these skills</h2>
+        <p>Selected examples show how I approach troubleshooting, device support and technical documentation in practical work.</p>
+        <div className="card-grid">
+          <article className="card">
+            <p className="eyebrow">Troubleshooting</p>
+            <h3>First-response problem solving</h3>
+            <p>Scope the impact, gather evidence, isolate likely causes, test the smallest appropriate change and validate the result.</p>
+            <Link to="/work/projects">View the work evidence →</Link>
+          </article>
+          <article className="card">
+            <p className="eyebrow">Device lifecycle</p>
+            <h3>Provisioning &amp; handoff</h3>
+            <p>A repeatable approach to preparing, validating and handing over workplace devices with clear support documentation.</p>
+            <Link to="/notes/device-provisioning-handoff-checklist">Read the checklist →</Link>
+          </article>
+          <article className="card">
+            <p className="eyebrow">Documentation</p>
+            <h3>Clear technical handoffs</h3>
+            <p>Capture symptoms, evidence, actions, results and next steps so another technician can continue the work efficiently.</p>
+            <Link to="/notes/service-desk-ticket-documentation">Read the documentation note →</Link>
+          </article>
+        </div>
+      </section>
+
+      <section className="container page-section">
+        <p className="eyebrow">Career</p>
+        <h2>My Career</h2>
+        <p>My professional journey has taken me through technical support, system administration, technical support management and IT workplace support.</p>
+        <div className="timeline">
+          <article className="timeline-item">
+            <h3>IT Field Tech</h3>
+            <p className="meta">Milestone Technologies, Inc. — Uber</p>
+          </article>
+          <article className="timeline-item">
+            <h3>Technical Support Manager</h3>
+            <p className="meta">Currents Technology</p>
+          </article>
+          <article className="timeline-item">
+            <h3>System Executive</h3>
+            <p className="meta">ICore</p>
+          </article>
+          <article className="timeline-item">
+            <h3>System Administrator</h3>
+            <p className="meta">Khadims</p>
+          </article>
+          <article className="timeline-item">
+            <h3>Technical Support Executive</h3>
+            <p className="meta">Altos</p>
+          </article>
+        </div>
+        <p style={{ marginTop: '16px' }}>
+          <Link className="button button-secondary" to="/work/experience">View My Experience →</Link>
+        </p>
+      </section>
+
+      <section className="container page-section">
+        <p className="eyebrow">Current learning</p>
+        <h2>What I’m Learning</h2>
+        <div className="card-grid two">
+          <article className="card">
+            <h3>Jamf</h3>
+            <p>Building my knowledge of Apple device management and Jamf.</p>
+            <span className="badge">In progress</span>
+          </article>
+          <article className="card">
+            <h3>ITIL</h3>
+            <p>Developing my understanding of IT service management practices and ITIL.</p>
+            <span className="badge">In progress</span>
+          </article>
+        </div>
+      </section>
+
+      <section className="container page-section">
+        <p className="eyebrow">Highlights</p>
+        <h2>A Few Highlights</h2>
         <div className="stats-grid">
           <div className="stat">
-            <strong>Field &amp; Service Desk</strong>
-            <span>Hands-on macOS, Windows, Jamf &amp; SaaS support</span>
+            <strong>User Satisfaction</strong>
+            <span>Consistently positive user feedback</span>
           </div>
           <div className="stat">
-            <strong>14 Interactive Tools</strong>
-            <span>Client-side, privacy-first IT &amp; career utilities</span>
+            <strong>People’s Choice Award</strong>
+            <span>Uber Vizag COE recognition</span>
           </div>
           <div className="stat">
-            <strong>30 Practical Notes</strong>
-            <span>Step-by-step diagnostic workflows &amp; checklists</span>
+            <strong>Employee of the Quarter</strong>
+            <span>Recognition for performance and contribution</span>
           </div>
           <div className="stat">
-            <strong>Multiple Awards</strong>
-            <span>Tech Support Guru, Employee of Quarter, Jugaad Genius</span>
+            <strong>Tech Support Guru Award</strong>
+            <span>People’s Choice recognition for technical support</span>
+          </div>
+          <div className="stat">
+            <strong>Jugaad Genius Award</strong>
+            <span>People’s Choice recognition for practical problem-solving</span>
+          </div>
+          <div className="stat">
+            <strong>The Solar Power Award</strong>
+            <span>“Always charged up, even on Mondays”</span>
           </div>
         </div>
       </section>
 
-      {/* Most Useful Tools Section */}
-      <section className="content-section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <p className="eyebrow">Interactive Utilities</p>
-            <h2 style={{ margin: 0 }}>Most Useful Tools</h2>
-          </div>
-          <Link to="/tools/" className="button button-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
-            View All 14 Tools →
-          </Link>
-        </div>
-        <p className="text-muted" style={{ marginBottom: '1.5rem' }}>
-          Browser-based, zero-tracking tools engineered to accelerate daily IT Service Desk triage, Apple/Jamf endpoint support, Microsoft 365 sign-in diagnostics, and career preparation.
-        </p>
-        <div className="card-grid">
-          {[
-            toolsList.find((t) => t.slug === 'service-desk-note-formatter')!,
-            toolsList.find((t) => t.slug === 'apple-macos-jamf-support-helper')!,
-            toolsList.find((t) => t.slug === 'm365-workplace-sign-in-diagnostic')!,
-            toolsList.find((t) => t.slug === 'career-match-resume-review')!
-          ].filter(Boolean).map((tool) => (
-            <article key={tool.slug} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <span className="badge" style={{ fontSize: '0.72rem' }}>
-                    {tool.category}
-                  </span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--muted)', fontWeight: 500 }}>
-                    ⏱ {tool.estimatedTime}
-                  </span>
-                </div>
-                <h3 style={{ fontSize: '1.15rem', margin: '0.2rem 0 0.4rem' }}>
-                  <Link to={tool.path} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    {tool.title}
-                  </Link>
-                </h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--text)', margin: '0 0 0.75rem', lineHeight: 1.5, fontWeight: 500 }}>
-                  {tool.benefit}
-                </p>
-                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                  {tool.tags.slice(0, 3).map((tag) => (
-                    <span
-                      key={tag}
-                      style={{
-                        fontSize: '0.7rem',
-                        padding: '0.1rem 0.4rem',
-                        backgroundColor: 'var(--surface-accent)',
-                        borderRadius: '3px',
-                        color: 'var(--accent)',
-                        border: '1px solid var(--line)'
-                      }}
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div style={{ borderTop: '1px solid var(--line)', paddingTop: '0.75rem', marginTop: 'auto' }}>
-                <Link to={tool.path} className="button" style={{ width: '100%', textAlign: 'center', fontSize: '0.88rem' }}>
-                  Use Tool →
-                </Link>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* Selected Work Evidence */}
-      <section className="content-section">
-        <p className="eyebrow">Operational Methodology</p>
-        <h2>From Symptoms to Resolution</h2>
-        <p>
-          Technical support requires structured problem isolation rather than guessing. Here is the operational philosophy applied across my projects and documentation:
-        </p>
+      <section className="container page-section">
+        <p className="eyebrow">Find your path</p>
+        <h2>What are you looking for?</h2>
         <div className="card-grid">
           <article className="card">
-            <h3>1. Isolate Scope &amp; User Impact</h3>
-            <p>
-              Clarify what task is blocked, distinguish whether the issue is isolated to a single user, device, or enterprise service, and record exact timestamps.
-            </p>
-            <Link to="/notes/scoping-it-issues-user-device-service/">Read Scoping Guide →</Link>
+            <h3>“Who is Jawed?”</h3>
+            <p>See my background, career journey and professional profile.</p>
+            <Link to="/about">About me →</Link>
           </article>
           <article className="card">
-            <h3>2. Layered Diagnostics</h3>
-            <p>
-              Test lowest-risk assumptions first: physical connectivity, IP leasing, DNS resolution, TLS certificates, identity tokens, and app permissions.
-            </p>
-            <Link to="/notes/networking-layer-by-layer-diagnostic-framework/">Read Layered Framework →</Link>
+            <h3>“I want to learn.”</h3>
+            <p>Browse practical notes, topics and resources across technology, AI and digital work.</p>
+            <Link to="/notes">Browse Notes →</Link>
           </article>
           <article className="card">
-            <h3>3. Repeatable Handoffs</h3>
-            <p>
-              Document exact reproduction steps, changes tested, validated outcomes, and actionable next steps so colleagues never have to re-test blind.
-            </p>
-            <Link to="/notes/it-support-escalation-handoff-checklist/">Read Escalation Checklist →</Link>
+            <h3>“I need a tool.”</h3>
+            <p>Use practical browser-based utilities for career, IT and planning tasks.</p>
+            <Link to="/tools">Browse Tools →</Link>
           </article>
-        </div>
-      </section>
-
-      {/* Latest Technical Notes */}
-      <section className="content-section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <p className="eyebrow">Knowledge Base</p>
-            <h2 style={{ margin: 0 }}>Recent Technical Guides &amp; Notes</h2>
-          </div>
-          <Link to="/notes/" className="button button-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
-            Browse All 30 Notes →
-          </Link>
-        </div>
-        <div className="card-grid">
-          {featuredNotes.map((note) => (
-            <article key={note.slug} className="card">
-              <span className="badge" style={{ marginBottom: '0.5rem', display: 'inline-block' }}>
-                {getNoteCategory(note)}
-              </span>
-              <h3 style={{ fontSize: '1.15rem' }}>
-                <Link to={`/notes/${note.slug}/`}>{note.title}</Link>
-              </h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
-                {note.readTime} read · Updated {note.updatedDate}
-              </p>
-              <p style={{ fontSize: '0.95rem' }}>{note.summary}</p>
-              <Link to={`/notes/${note.slug}/`} style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                Read Note →
-              </Link>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* Ready to Collaborate / Conversion CTA Banner */}
-      <section
-        className="content-section"
-        style={{
-          backgroundColor: 'var(--surface)',
-          borderRadius: '8px',
-          padding: '2.5rem 2rem',
-          border: '1px solid var(--line)',
-          textAlign: 'center',
-          marginTop: '3.5rem'
-        }}
-      >
-        <p className="eyebrow">Work With Me &amp; Let's Collaborate</p>
-        <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', margin: '0.25rem 0 0.75rem' }}>
-          Need Workplace Technology, Mac Support, or IT Guidance?
-        </h2>
-        <p style={{ maxWidth: '44rem', margin: '0 auto 1.75rem', color: 'var(--text)', fontSize: '1rem', lineHeight: 1.6 }}>
-          Whether you’re seeking a dedicated IT support specialist, need structured onboarding/offboarding workflows, require Apple &amp; Jamf device management assistance, or want custom browser utilities, I’m ready to collaborate.
-        </p>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/contact/" className="button" style={{ padding: '0.65rem 1.5rem', fontSize: '1rem' }}>
-            Work With Me / Send a Message →
-          </Link>
-          <Link to="/tools/" className="button button-secondary" style={{ padding: '0.65rem 1.25rem', fontSize: '1rem' }}>
-            Browse All 14 Interactive Tools →
-          </Link>
-          <Link to="/ai/" className="button button-secondary" style={{ padding: '0.65rem 1.25rem', fontSize: '1rem' }}>
-            Ask Jawed AI 🤖
-          </Link>
+          <article className="card">
+            <h3>“I want to ask.”</h3>
+            <p>Use Jawed AI to find relevant content across the site through a conversation.</p>
+            <Link to="/ai">Open Jawed AI →</Link>
+          </article>
         </div>
       </section>
     </main>

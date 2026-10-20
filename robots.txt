@@ -1,6 +1,3 @@
 User-agent: *
 Allow: /
-Disallow: /functions/
-Disallow: /api/
-
 Sitemap: https://jawed.co.in/sitemap.xml

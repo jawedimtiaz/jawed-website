@@ -3,36 +3,22 @@ import { Link } from 'react-router-dom';
 
 export const NotFoundPage: React.FC = () => {
   return (
-    <main id="main-content" className="container narrow page" style={{ textAlign: 'center', padding: '5rem 1rem 4rem' }}>
-      <p className="eyebrow" style={{ color: 'var(--accent)' }}>404 Error</p>
-      <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', marginBottom: '1rem' }}>Page Not Found</h1>
-      <p className="lead" style={{ maxWidth: '36rem', margin: '0 auto 2rem' }}>
-        The page, guide, or tool you were looking for doesn’t exist or has moved.
+    <main className="container page" style={{ textAlign: 'center', padding: '80px 20px' }}>
+      <p className="eyebrow">404 Error</p>
+      <h1>Page Not Found</h1>
+      <p className="lead" style={{ maxWidth: '540px', margin: '0 auto 24px' }}>
+        The page you are looking for does not exist or may have been moved.
       </p>
-
-      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '3rem' }}>
-        <Link to="/" className="button">
-          ← Return to Home
+      <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+        <Link className="button button-primary" to="/">
+          Return Home
         </Link>
-        <Link to="/tools/" className="button button-secondary">
-          Explore Tools
-        </Link>
-        <Link to="/notes/" className="button button-secondary">
+        <Link className="button button-secondary" to="/notes">
           Browse Notes
         </Link>
-        <Link to="/ai/" className="button button-secondary">
-          Ask Jawed AI
+        <Link className="button button-secondary" to="/tools">
+          Explore Tools
         </Link>
-      </div>
-
-      <div style={{ backgroundColor: 'var(--surface)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--line)', maxWidth: '32rem', margin: '0 auto', textAlign: 'left' }}>
-        <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>Looking for something specific?</h3>
-        <ul style={{ paddingLeft: '1.25rem', margin: 0, lineHeight: 1.7, fontSize: '0.95rem' }}>
-          <li><Link to="/notes/it-service-desk-troubleshooting-workflow/">IT Troubleshooting Workflow</Link></li>
-          <li><Link to="/tools/service-desk-note-formatter/">Service Desk Note Formatter</Link></li>
-          <li><Link to="/tools/career-match-resume-review/">Career Match &amp; Resume Review</Link></li>
-          <li><Link to="/work/">Jawed’s Experience &amp; Skills</Link></li>
-        </ul>
       </div>
     </main>
   );

@@ -1,91 +1,100 @@
-import React, { useState, useMemo } from 'react';
-import { resourcesList } from '../data/resourcesData';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 export const ResourcesPage: React.FC = () => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [search, setSearch] = useState<string>('');
-
-  const categories = ['All', 'Apple & macOS', 'Microsoft & Azure', 'ITSM & Frameworks', 'Personal Finance'];
-
-  const filteredResources = useMemo(() => {
-    return resourcesList.filter((res) => {
-      const matchCat = selectedCategory === 'All' || res.category === selectedCategory;
-      const q = search.toLowerCase().trim();
-      const matchSearch =
-        !q ||
-        res.title.toLowerCase().includes(q) ||
-        res.description.toLowerCase().includes(q) ||
-        res.source.toLowerCase().includes(q);
-      return matchCat && matchSearch;
-    });
-  }, [selectedCategory, search]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const q = searchTerm.toLowerCase();
 
   return (
-    <main id="main-content" className="container page">
-      <p className="eyebrow">Curated Links &amp; Authoritative Sources</p>
-      <h1>IT &amp; Planning Resources</h1>
-      <p className="lead" style={{ maxWidth: '48rem', marginBottom: '2rem' }}>
-        A curated inventory of official vendor documentation, standards, and authoritative references across Apple platform deployment, Microsoft 365, ITIL service management, and regulated finance.
+    <main className="container page">
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <Link to="/">Home</Link> &gt; <span>Resources</span>
+      </nav>
+
+      <p className="eyebrow">Curated technical references</p>
+      <h1>IT Support &amp; Web Resources</h1>
+      <p className="lead">
+        Official documentation and practical references for IT support, Apple and Jamf, Microsoft, web development and deployment. I prefer primary documentation when it is available.
       </p>
 
-      {/* Filter and Search */}
-      <div style={{ backgroundColor: 'var(--surface)', padding: '1.25rem', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '2rem' }}>
-        <div style={{ marginBottom: '1rem' }}>
+      <div className="discovery-panel" style={{ padding: '16px', borderRadius: '12px', marginBottom: '24px', border: '1px solid var(--line)' }}>
+        <h2>Find a Resource</h2>
+        <div className="discovery-controls" style={{ marginTop: '8px' }}>
           <input
-            id="resources-search-input"
+            className="discovery-input"
             type="search"
-            aria-label="Search documentation, sources, or topics"
-            placeholder="Search documentation, sources, or topics..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '100%', padding: '0.6rem 0.8rem', border: '1px solid var(--line)', borderRadius: '6px', fontSize: '0.95rem' }}
+            placeholder="Search resources by name, subject or purpose..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
           />
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 600 }}>Category:</span>
-          {categories.map((cat) => (
+          {searchTerm && (
             <button
-              key={cat}
+              className="button button-secondary discovery-reset"
               type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={`button ${selectedCategory === cat ? '' : 'button-secondary'}`}
-              style={{ padding: '0.3rem 0.75rem', fontSize: '0.85rem' }}
+              onClick={() => setSearchTerm('')}
             >
-              {cat}
+              Clear
             </button>
-          ))}
+          )}
         </div>
       </div>
-
-      <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
-        Showing <strong>{filteredResources.length}</strong> official resources
-      </p>
 
       <div className="card-grid">
-        {filteredResources.map((res, index) => (
-          <article key={index} className="card" style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-              <span className="badge" style={{ fontSize: '0.75rem' }}>{res.category}</span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 500 }}>{res.source}</span>
-            </div>
-            <h3 style={{ fontSize: '1.15rem', margin: '0.25rem 0 0.5rem' }}>{res.title}</h3>
-            <p style={{ fontSize: '0.92rem', color: 'var(--text)', flex: 1, margin: '0 0 1rem', lineHeight: 1.5 }}>
-              {res.description}
-            </p>
-            <div style={{ borderTop: '1px solid var(--line)', paddingTop: '0.75rem', marginTop: 'auto' }}>
-              <a
-                href={res.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="button button-secondary"
-                style={{ width: '100%', textAlign: 'center', fontSize: '0.88rem' }}
-              >
-                Visit Documentation ↗
-              </a>
-            </div>
+        {(!q || 'apple support macos'.includes(q)) && (
+          <article className="card">
+            <h2>Apple</h2>
+            <p>Official Apple support and product help.</p>
+            <a href="https://support.apple.com/en-in" target="_blank" rel="noopener noreferrer">Apple Support →</a>
           </article>
-        ))}
+        )}
+        {(!q || 'jamf mdm apple management'.includes(q)) && (
+          <article className="card">
+            <h2>Jamf</h2>
+            <p>Jamf Pro documentation and Apple device management learning resources.</p>
+            <a href="https://learn.jamf.com/r/en-US/jamf-pro-documentation-current" target="_blank" rel="noopener noreferrer">Jamf Pro Documentation →</a>
+          </article>
+        )}
+        {(!q || 'microsoft learn windows entra 365'.includes(q)) && (
+          <article className="card">
+            <h2>Microsoft</h2>
+            <p>Microsoft documentation and learning resources.</p>
+            <a href="https://learn.microsoft.com/en-us/" target="_blank" rel="noopener noreferrer">Microsoft Learn →</a>
+          </article>
+        )}
+        {(!q || 'cloudflare pages deploy cdn'.includes(q)) && (
+          <article className="card">
+            <h2>Cloudflare</h2>
+            <p>Documentation for Cloudflare Pages and web deployment.</p>
+            <a href="https://developers.cloudflare.com/pages/" target="_blank" rel="noopener noreferrer">Cloudflare Pages Docs →</a>
+          </article>
+        )}
+        {(!q || 'github git actions repository'.includes(q)) && (
+          <article className="card">
+            <h2>GitHub</h2>
+            <p>Repository, Git and collaboration documentation.</p>
+            <a href="https://docs.github.com/en" target="_blank" rel="noopener noreferrer">GitHub Docs →</a>
+          </article>
+        )}
+        {(!q || 'web development mdn html css javascript'.includes(q)) && (
+          <article className="card">
+            <h2>Web Development</h2>
+            <p>Open web documentation for HTML, CSS, JavaScript and Web APIs.</p>
+            <a href="https://developer.mozilla.org/en-US/docs/Web" target="_blank" rel="noopener noreferrer">MDN Web Docs →</a>
+          </article>
+        )}
       </div>
+
+      <section className="content-section" style={{ marginTop: '32px' }}>
+        <h2>A Practical Reference-First Workflow</h2>
+        <ol style={{ paddingLeft: '20px', lineHeight: 1.8 }}>
+          <li><strong>Define the task:</strong> write down what should work, what happens instead, and which user, device, application or service is in scope.</li>
+          <li><strong>Identify the environment:</strong> note the operating system, product or service, relevant version, device ownership/management context and any known constraints.</li>
+          <li><strong>Start with the primary source:</strong> prefer the vendor's current documentation or release notes. Check whether the page applies to your version and configuration.</li>
+          <li><strong>Separate guidance from diagnosis:</strong> documentation explains supported behavior; it does not prove that a particular issue has the same cause. Use observed evidence to choose the next check.</li>
+          <li><strong>Apply changes within scope:</strong> follow organizational procedures and permissions. Stop before a step that affects security, data, identity, management or shared infrastructure without the required approval.</li>
+          <li><strong>Verify and record:</strong> repeat the original user task, capture the result, and document the reference and relevant step so the next technician can continue from the same point.</li>
+        </ol>
+      </section>
     </main>
   );
 };
