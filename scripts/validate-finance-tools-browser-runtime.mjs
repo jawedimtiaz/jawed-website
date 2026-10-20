@@ -92,8 +92,9 @@ try{
   const canonical=await js("return document.querySelector('link[rel=canonical]')?.href||''");
   assert.equal(canonical,expectedCanonical,path+" canonical metadata mismatch");
   assert.ok(state.title.length>5,path+" has an empty document title");
-  if(path.startsWith("/ai/"))assert.ok(state.robots.includes("noindex"),"AI assistant page should not be indexed as a thin interactive surface");
-  else assert.ok(state.robots.includes("index"),path+" should have indexable robots metadata");
+  const currentRobots=await js("return document.querySelector('meta[name=robots]')?.content||''");
+  if(path.startsWith("/ai/"))assert.ok(currentRobots.includes("noindex"),"AI assistant page should not be indexed as a thin interactive surface");
+  else assert.ok(currentRobots.includes("index"),path+" should have indexable robots metadata");
   console.log("PASS — direct route and canonical metadata "+path);
  }
 
