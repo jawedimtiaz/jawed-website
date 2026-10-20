@@ -25,7 +25,7 @@ function expectedCanonicalPath(path){
  if(p.startsWith("/notes/")||p.startsWith("/guides/")||p.startsWith("/field-guides/"))return "/field-guides/"+p.split("/").filter(Boolean).at(-1);
  if(p==="/tools/calculator")return "/tools/retirement-planning-calculator";
  if(p.startsWith("/tools/"))return p;
- if(["/work/projects","/work/experience","/work/skills"].includes(p))return p+"/";
+ if(["/work/projects","/work/experience","/work/skills","/work/certifications"].includes(p))return p+"/";
  if(p==="/blog")return "/blog/";
  if(p.startsWith("/blog/"))return p;
  if(["/about","/work","/topics","/resources","/contact","/privacy","/terms","/cookies","/ai"].includes(p))return p+"/";
@@ -66,6 +66,7 @@ try{
   ["/work/projects/","Projects & Work Evidence"],
   ["/work/experience/","Experience"],
   ["/work/skills/","Skills"],
+  ["/work/certifications/","Certifications"],
   ["/contact/","Contact Us"],
   ["/privacy/","Privacy Policy"],
   ["/terms/","Terms of Service"],
