@@ -45,6 +45,12 @@ const STATIC_METADATA: Record<string, RouteMetadata> = {
     canonicalPath: '/work/experience/',
     ogType: 'website',
   },
+  '/work/certifications': {
+    title: 'Certifications & Education',
+    description: 'Professional IT support training, certifications, and ongoing learning in workplace technology and device management.',
+    canonicalPath: '/work/certifications/',
+    ogType: 'website',
+  },
   '/work/skills': {
     title: 'IT Support Skills and Tools',
     description: "Technical and operational skills across IT support, workplace technology, Apple devices, device management, networking, and automation.",
