@@ -6,7 +6,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "config/production-html-seo-contract.json"      - "src/App.tsx"
+      - "config/production-html-seo-contract.json"
+      - "src/App.tsx"
       - "src/components/SeoHead.tsx"
       - "src/pages/**"
       - "src/tools/**"
