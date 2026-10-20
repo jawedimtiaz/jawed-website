@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
-import { SeoHead } from '../components/SeoHead';
 
 interface DeviceItem {
   id: string;
@@ -124,10 +123,6 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
 
   return (
     <main className="container page">
-      <SeoHead
-        title="Server Rack Power & BTU Calculator"
-        description="Calculate server equipment electrical draw (Watts/Amps), NEC 80% circuit derating, thermal heat dissipation in BTU/hr, and HVAC cooling capacity in Tons."
-      />
 
       <nav className="breadcrumbs" aria-label="Breadcrumb">
         <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>Server Rack Power &amp; BTU Calculator</span>
