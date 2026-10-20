@@ -7,7 +7,8 @@ on:
     branches:
       - main
     paths:
-      - "config/production-ai-post-contract.json"      - "src/App.tsx"
+      - "config/production-ai-post-contract.json"
+      - "src/App.tsx"
       - "public/_redirects"
 
       - "scripts/validate-production-ai-post.mjs"
