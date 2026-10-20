@@ -14,26 +14,30 @@ export interface AiResponse {
   userQuery?: string;
 }
 
-// 1. Stop-Words List (Common filler words to filter out before scoring)
+// 1. Personal & Privacy Query Categories Guardrail
+const PERSONAL_CATEGORIES = [
+  // Family & Relationships
+  "wife", "husband", "spouse", "partner", "married", "marriage", "children",
+  "child", "son", "daughter", "kids", "family", "father", "mother", "parents",
+  "brother", "sister", "sibling", "relatives",
+  // Living & Personal Details
+  "age", "birthday", "birthdate", "born", "home address", "exact address",
+  "where does he live", "where do you live", "personal phone", "mobile number",
+  "whatsapp number", "salary", "income", "net worth", "religion", "caste"
+];
+
+// 2. Stop-Words List (Common filler words to filter out before scoring technical queries)
 const STOP_WORDS = new Set([
   "who", "is", "the", "of", "a", "an", "and", "in", "on", "at", "to", "for",
   "he", "she", "it", "his", "him", "where", "what", "how", "can", "tell",
-  "me", "about", "stay", "lives", "wife", "husband", "family", "my", "your",
-  "are", "do", "does", "did", "was", "were", "been", "being", "have", "has",
-  "had", "would", "should", "could", "from", "with", "which"
-]);
-
-// Personal / Out-of-Scope Query Tokens requiring immediate fallback
-const PERSONAL_OUT_OF_SCOPE = new Set([
-  "wife", "husband", "married", "marriage", "spouse", "family", "children",
-  "kids", "daughter", "son", "father", "mother", "parents", "brother", "sister",
-  "salary", "income", "age", "birthday", "birthdate", "phone number", "personal phone",
-  "personal address", "home address", "house"
+  "me", "about", "stay", "lives", "my", "your", "are", "do", "does", "did",
+  "was", "were", "been", "being", "have", "has", "had", "would", "should",
+  "could", "from", "with", "which"
 ]);
 
 const rawEntries: KnowledgeEntry[] = (rawKnowledge as any).entries || [];
 
-// Ensure entries are clean and fully hydrated
+// Hydrate entries with explicit location and workplace details
 const entries: KnowledgeEntry[] = rawEntries.map((entry) => {
   if (entry.url === '/about/' || entry.title.toLowerCase().includes('about jawed')) {
     return {
@@ -64,27 +68,39 @@ function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// 2. Exact & Whole-Word Token Matching
+// Whole-word regex matching helper
 function containsWholeWord(text: string, term: string): boolean {
   if (!text || !term) return false;
   const regex = new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i');
   return regex.test(text);
 }
 
-// 3. Intent & Relevance Scoring Engine
+// Dedicated Personal / Private Query Detector
+export function isPersonalQuery(query: string): boolean {
+  if (!query) return false;
+  const lower = query.toLowerCase();
+
+  for (const item of PERSONAL_CATEGORIES) {
+    if (item.includes(' ')) {
+      // Multi-word phrase check
+      if (lower.includes(item)) return true;
+    } else {
+      // Single word boundary check
+      const regex = new RegExp(`\\b${escapeRegExp(item)}\\b`, 'i');
+      if (regex.test(lower)) return true;
+    }
+  }
+
+  return false;
+}
+
+// Technical Knowledge Search Engine
 export function searchKnowledge(query: string): KnowledgeEntry[] {
   if (!query || !query.trim()) return [];
   const trimmed = query.trim().toLowerCase();
 
   // Tokenize alphanumeric words
   const rawTokens = trimmed.split(/[^a-z0-9]+/i).filter(Boolean);
-
-  // Check for personal / out-of-scope query intent
-  for (const token of rawTokens) {
-    if (PERSONAL_OUT_OF_SCOPE.has(token.toLowerCase())) {
-      return []; // Immediate Fallback
-    }
-  }
 
   // Filter out stop words
   const meaningfulTerms = rawTokens.filter(
@@ -136,10 +152,10 @@ export function searchKnowledge(query: string): KnowledgeEntry[] {
       }
     }
 
-    // Require strict qualification:
+    // Qualification rules:
     // 1. Exact phrase match in title or summary, OR
     // 2. At least 2 distinct meaningful keywords matched, OR
-    // 3. 1 term matched if meaningfulTerms has only 1 non-generic term (e.g., "jamf", "subnet")
+    // 3. 1 term matched if meaningfulTerms has only 1 non-generic term (e.g. "jamf", "subnet")
     const isGenericSingleWord =
       meaningfulTerms.length === 1 &&
       ["jawed", "imtiaz", "note", "notes", "tool", "tools", "it", "guide", "guides"].includes(
@@ -163,7 +179,7 @@ export function searchKnowledge(query: string): KnowledgeEntry[] {
   return scored.filter((s) => s.score >= 25).slice(0, 4).map((s) => s.entry);
 }
 
-// 4. Main Query Handling & Fallback Logic
+// Main Query Handling with Privacy Guardrails
 export async function askJawedAi(query: string): Promise<AiResponse> {
   const trimmed = query.trim();
   if (!trimmed) {
@@ -174,9 +190,21 @@ export async function askJawedAi(query: string): Promise<AiResponse> {
     };
   }
 
+  // Guardrail 1: Intercept Personal & Private Queries
+  if (isPersonalQuery(trimmed)) {
+    return {
+      reply:
+        "I only share professional background and technical documentation here. For personal questions or direct inquiries, please reach out to Jawed directly.",
+      sources: [],
+      isFallback: true,
+      userQuery: trimmed,
+    };
+  }
+
+  // Guardrail 2: Execute Knowledge Search
   const matches = searchKnowledge(trimmed);
 
-  // Graceful Fallback Trigger if relevance threshold is not met
+  // Guardrail 3: Graceful Fallback for missing/unindexed technical topics
   if (matches.length === 0) {
     return {
       reply:
