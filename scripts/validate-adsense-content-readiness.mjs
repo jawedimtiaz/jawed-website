@@ -56,7 +56,7 @@ for(const [kind,entries] of [["note",notes],["blog",blogs]]){
 const ai=JSON.parse(read("src/data/aiKnowledge.json"));
 assert.equal(Array.isArray(ai.entries)&&ai.entries.length>0,true,"AI knowledge source inventory is missing");
 const finalDoc=read("docs/adsense-final-readiness.md");
-assert.equal(finalDoc.includes("This is a site-specific readiness assessment, not a Google approval or policy determination."),true,"Readiness assessment must not imply Google approval");
+assert.equal(finalDoc.includes("Repository CI cannot prove Google approval."),true,"Readiness assessment must not imply Google approval");
 assert.equal(finalDoc.includes("Do not activate ad scripts, visible ad slots, `ads.txt`"),true,"Ad activation must remain gated");
 console.log("AdSense content readiness validation: PASS");
 console.log("React routes:",routePatterns.length,"; sitemap URLs:",urls.length,"; note entries:",notes.length,"; blog entries:",blogs.length);
