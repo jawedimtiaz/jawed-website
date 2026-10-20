@@ -5,7 +5,7 @@ const privacy=fs.readFileSync("src/pages/PrivacyPage.tsx","utf8");
 const app=fs.readFileSync("src/App.tsx","utf8");
 const inventory=JSON.parse(fs.readFileSync("config/adsense-inventory.json","utf8"));
 const checks=[
- ["privacy page is a registered React route",/path="\/privacy"/.test(app)&&app.includes("<PrivacyPage")],
+ ["privacy page is a registered React route",app.includes('path="/privacy/*"')&&app.includes("<PrivacyPage")],
  ["privacy page identifies the publisher and purpose",privacy.includes("Privacy Policy")&&privacy.includes("Jawed.co.in")],
  ["privacy page explains local processing of diagnostic tools",privacy.includes("entirely locally within your web browser")&&privacy.includes("No resume text")],
  ["privacy page provides Google Ads Settings",privacy.includes("https://adssettings.google.com/")],
