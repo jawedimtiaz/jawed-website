@@ -9,6 +9,7 @@ const seo=read("src/components/SeoHead.tsx");
 const routeSeo=read("src/components/RouteSeo.tsx");
 const styles=read("src/index.css");
 const sitemap=read("public/sitemap.xml");
+const rootSitemap=read("sitemap.xml");
 const robots=read("public/robots.txt");
 const redirects=read("public/_redirects");
 const headers=read("public/_headers");
@@ -49,6 +50,7 @@ if(!routePatterns.length)fail.push("React Router route declarations were not fou
 
 const locations=[...sitemap.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/g)].map(match=>match[1].trim());
 if(!sitemap.includes('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'))fail.push("sitemap must use the standard sitemaps.org XML namespace");
+if(rootSitemap!==sitemap)fail.push("root sitemap.xml and public/sitemap.xml must remain identical");
 if(!sitemap.includes("<urlset")||!sitemap.includes("</urlset>"))fail.push("sitemap must contain a urlset envelope");
 if(!locations.length)fail.push("sitemap must contain at least one URL");
 if(new Set(locations).size!==locations.length)fail.push("sitemap must not contain duplicate URLs");
