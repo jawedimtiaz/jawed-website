@@ -3,6 +3,7 @@ import { Routes, Route, useLocation, Link } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { JawedAiWidget } from './components/JawedAiWidget';
+import { IosInstallPrompt } from './components/IosInstallPrompt';
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -128,6 +129,7 @@ export const App: React.FC = () => {
 
       <Footer onOpenCookieModal={() => setCookieModalOpen(true)} />
       <JawedAiWidget />
+      <IosInstallPrompt />
 
       {/* Cookie Preference Modal */}
       {cookieModalOpen && (

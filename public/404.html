@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 — Page Not Found | Jawed Imtiaz</title>
+  <meta name="description" content="The requested page could not be found on jawed.co.in. Navigate back to IT field guides, diagnostic tools, or contact Jawed Imtiaz." />
+  <meta name="robots" content="noindex, follow" />
+  <link rel="canonical" href="https://jawed.co.in/404" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#0f172a" />
+  
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-darker: #020617;
+      --surface: #1e293b;
+      --text: #f8fafc;
+      --text-heading: #ffffff;
+      --muted: #94a3b8;
+      --muted-light: #cbd5e1;
+      --line: #334155;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --accent-dark: #0284c7;
+      --teal: #2dd4bf;
+    }
+    
+    * { box-sizing: border-box; }
+    
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    a:hover {
+      color: var(--accent-hover);
+      text-decoration: underline;
+    }
+
+    .container {
+      width: min(calc(100% - 36px), 1160px);
+      margin-inline: auto;
+    }
+
+    /* Site Header */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 80;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .header-inner {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .site-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none !important;
+    }
+
+    .site-brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent-dark), var(--teal));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1rem;
+    }
+
+    .site-title {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .site-name {
+      font-weight: 700;
+      font-size: 1.125rem;
+      color: var(--text-heading);
+      line-height: 1.2;
+    }
+
+    .site-tagline {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .site-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-item {
+      padding: 8px 14px;
+      border-radius: 8px;
+      color: var(--muted-light);
+      font-size: 0.938rem;
+      font-weight: 500;
+      text-decoration: none !important;
+    }
+
+    .nav-item:hover {
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .nav-cta {
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent-dark), #0369a1);
+      color: #fff !important;
+      font-weight: 600;
+      font-size: 0.875rem;
+      text-decoration: none !important;
+    }
+
+    /* Hero 404 Main Section */
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 64px 0;
+    }
+
+    .error-card {
+      text-align: center;
+      max-width: 680px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 48px 32px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    .error-code-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4vw, 2.75rem);
+      margin: 0 0 12px;
+      color: var(--text-heading);
+      letter-spacing: -0.02em;
+    }
+
+    p.lead {
+      color: var(--muted-light);
+      font-size: 1.05rem;
+      line-height: 1.6;
+      margin: 0 0 28px;
+    }
+
+    /* Search & Redirect Box */
+    .search-box-wrapper {
+      display: flex;
+      gap: 8px;
+      max-width: 480px;
+      margin: 0 auto 36px;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--bg-darker);
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+
+    .search-button {
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent-dark);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .search-button:hover {
+      background: var(--accent);
+      color: var(--bg-darker);
+    }
+
+    /* Destination Grid */
+    .destination-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .dest-card {
+      padding: 14px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--bg-darker);
+      color: var(--text);
+      text-decoration: none !important;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dest-card:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .dest-card span.icon {
+      font-size: 1.4rem;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 32px 0;
+      background: var(--bg-darker);
+      color: var(--muted);
+      font-size: 0.875rem;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      .site-nav { display: none; }
+      .search-box-wrapper { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Site Header -->
+  <header className="site-header">
+    <div className="container header-inner">
+      <a className="site-brand" href="/">
+        <div className="site-brand-icon">JI</div>
+        <div className="site-title">
+          <span className="site-name">Jawed Imtiaz</span>
+          <span className="site-tagline">IT Field Tech &amp; Engineering</span>
+        </div>
+      </a>
+
+      <nav className="site-nav">
+        <a className="nav-item" href="/field-guides">Field Guides</a>
+        <a className="nav-item" href="/tools">Diagnostic Tools</a>
+        <a className="nav-item" href="/services">Services</a>
+        <a className="nav-item" href="/about">About</a>
+        <a className="nav-cta" href="/contact">Get in Touch →</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main 404 Hero Section -->
+  <main className="container">
+    <div className="error-card">
+      <span className="error-code-badge">404 · Route Not Found</span>
+      <h1>Looking for Technical Resources?</h1>
+      <p className="lead">
+        The link you clicked may have moved, been renamed, or is temporarily offline. Don’t worry—our field guides and IT utilities are easy to find.
+      </p>
+
+      <!-- Quick Search / Jump Input -->
+      <form
+        className="search-box-wrapper"
+        action="/field-guides"
+        method="GET"
+        onSubmit="(e) => { e.preventDefault(); const q = document.getElementById('q').value; window.location.href = '/field-guides?search=' + encodeURIComponent(q); }"
+      >
+        <input
+          id="q"
+          type="text"
+          name="search"
+          className="search-input"
+          placeholder="Search field guides, subnet tools, KB notes..."
+          aria-label="Search site documentation"
+        />
+        <button type="submit" className="search-button">
+          Search Documentation
+        </button>
+      </form>
+
+      <!-- Recommended Popular Destinations -->
+      <div className="destination-grid">
+        <a href="/" className="dest-card">
+          <span className="icon">🏠</span>
+          <span>Homepage</span>
+        </a>
+        <a href="/field-guides" className="dest-card">
+          <span className="icon">📖</span>
+          <span>Field Guides</span>
+        </a>
+        <a href="/tools" className="dest-card">
+          <span className="icon">🛠️</span>
+          <span>Diagnostic Tools</span>
+        </a>
+        <a href="/contact" className="dest-card">
+          <span className="icon">✉️</span>
+          <span>Contact Page</span>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div className="container">
+      <p>© 2026 Jawed Imtiaz. Senior IT Field Tech · Uber Enterprise Technology (via Milestone Tech).</p>
+    </div>
+  </footer>
+
+</body>
+</html>
