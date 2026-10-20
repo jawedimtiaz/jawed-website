@@ -6,7 +6,8 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "assets/**"
+      - "assets/**"      - "public/**"
+
       - "config/production-asset-contract.json"
       - "scripts/validate-production-assets.mjs"
       - ".github/workflows/production-static-assets.yml"
@@ -14,7 +15,8 @@ on:
     branches:
       - main
     paths:
-      - "assets/**"
+      - "assets/**"      - "public/**"
+
       - "config/production-asset-contract.json"
       - "scripts/validate-production-assets.mjs"
       - ".github/workflows/production-static-assets.yml"
