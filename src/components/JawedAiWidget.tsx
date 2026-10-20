@@ -6,6 +6,8 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   sources?: { url: string; title: string; summary: string }[];
+  isFallback?: boolean;
+  userQuery?: string;
 }
 
 export const JawedAiWidget: React.FC = () => {
@@ -15,7 +17,7 @@ export const JawedAiWidget: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "Hi! Ask me anything about Jawed's IT support experience, troubleshooting frameworks, or personal finance calculators.",
+      content: "Hi! Ask me anything about Jawed's IT support experience, troubleshooting frameworks, or diagnostic tools.",
     },
   ]);
 
@@ -50,6 +52,8 @@ export const JawedAiWidget: React.FC = () => {
           role: 'assistant',
           content: result.reply,
           sources: result.sources,
+          isFallback: result.isFallback,
+          userQuery: result.userQuery,
         },
       ]);
     } catch (err) {
@@ -103,6 +107,18 @@ export const JawedAiWidget: React.FC = () => {
             {messages.map((m, idx) => (
               <div key={idx} className={`jawed-ai-widget-message ${m.role}`}>
                 <div>{m.content}</div>
+                {m.isFallback && (
+                  <div style={{ marginTop: '12px' }}>
+                    <Link
+                      to={`/contact?question=${encodeURIComponent(m.userQuery || '')}`}
+                      onClick={() => setIsOpen(false)}
+                      className="button button-primary"
+                      style={{ fontSize: '0.8rem', padding: '7px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      ✉️ Ask Jawed Directly →
+                    </Link>
+                  </div>
+                )}
                 {m.sources && m.sources.length > 0 && (
                   <div className="jawed-ai-widget-sources" style={{ marginTop: '8px' }}>
                     <small style={{ fontWeight: 600 }}>Sources:</small>

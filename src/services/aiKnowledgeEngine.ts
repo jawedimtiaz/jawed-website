@@ -10,7 +10,15 @@ export interface KnowledgeEntry {
 export interface AiResponse {
   reply: string;
   sources: { url: string; title: string; summary: string }[];
+  isFallback?: boolean;
+  userQuery?: string;
 }
+
+const FALLBACK_VARIATIONS = [
+  "I don't have a specific field guide or note on that topic indexed in my current knowledge base yet, but Jawed would be happy to answer your question directly!",
+  "I wasn't able to find an exact match in Jawed's technical documentation for that query. For tailored guidance or dispatch support, feel free to connect with Jawed directly.",
+  "That specific scenario isn't covered in my instant index yet! You can send your inquiry straight to Jawed's inbox, and he'll review it personally."
+];
 
 const entries: KnowledgeEntry[] = (rawKnowledge as any).entries || [];
 
@@ -56,9 +64,13 @@ export async function askJawedAi(query: string): Promise<AiResponse> {
   const matches = searchKnowledge(trimmed);
 
   if (matches.length === 0) {
+    // Pick random variation from the 3 fallback drafts
+    const randomVariation = FALLBACK_VARIATIONS[Math.floor(Math.random() * FALLBACK_VARIATIONS.length)];
     return {
-      reply: `I couldn't find a direct match in Jawed's knowledge base for "${trimmed}". Jawed's site covers IT service desk triage, Apple & Windows device management, networking checklists, personal finance frameworks (SIP, inflation, retirement), and career preparation tools. Try searching for these topics!`,
-      sources: []
+      reply: randomVariation,
+      sources: [],
+      isFallback: true,
+      userQuery: trimmed
     };
   }
 

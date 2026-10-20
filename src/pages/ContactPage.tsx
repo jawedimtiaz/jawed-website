@@ -1,13 +1,28 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 export const ContactPage: React.FC = () => {
+  const location = useLocation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
   const [topic, setTopic] = useState('IT Field Dispatch Request');
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const qParam = searchParams.get('question') || searchParams.get('query') || searchParams.get('message');
+    const topicParam = searchParams.get('topic');
+
+    if (qParam) {
+      setMessage(`Regarding your question: "${qParam}"\n\nHi Jawed,\nI was asking the assistant about this and would love your direct technical advice or service assistance.\n`);
+      setTopic('Technical Advisory / Consulting');
+    }
+    if (topicParam) {
+      setTopic(topicParam);
+    }
+  }, [location.search]);
 
   const emailAddress = 'webmaster@jawed.co.in';
 
