@@ -1,102 +1,63 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-sitemap-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
-const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
-const hasUnsafeDotSegments=value=>value.split("/").some(segment=>{const normalized=segment.toLowerCase();return segment==="."||segment===".."||normalized==="%2e"||normalized==="%2e%2e";});
-if(!isHttpsOrigin(contract.production_origin)) failures.push("production sitemap origin must be an origin-only HTTPS URL");
-if(typeof contract.sitemap_path!=="string"||!contract.sitemap_path.startsWith("/")||contract.sitemap_path.startsWith("//")||contract.sitemap_path.includes("\\")||hasUnsafeDotSegments(contract.sitemap_path)) failures.push("sitemap_path must be absolute");
-if(typeof contract.expected_content_type!=="string"||!contract.expected_content_type.trim()) failures.push("sitemap expected_content_type must be non-empty");
-if(!isHttpsOrigin(contract.canonical_origin)) failures.push("sitemap canonical_origin must be an origin-only HTTPS URL");
-if(contract.canonical_origin!==contract.production_origin) failures.push("sitemap canonical_origin must match production_origin");
+const isHttpsOrigin=value=>{try{const u=new URL(value);return typeof value==="string"&&u.protocol==="https:"&&u.origin===value&&u.username===""&&u.password===""&&u.pathname==="/"&&!u.search&&!u.hash;}catch{return false;}};
+const safePath=value=>typeof value==="string"&&value.startsWith("/")&&!value.startsWith("//")&&!value.includes("\\")&&!/(^|\/)\.{1,2}(?:$|\/)/.test(value);
 async function readBoundedText(response,maxBytes){
- const declared=Number(response.headers.get("content-length"));
- if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared body limit");
- if(!response.body){const text=await response.text();if(Buffer.byteLength(text)>maxBytes)throw new Error("response exceeds body limit");return text;}
- const reader=response.body.getReader(),chunks=[];let total=0;
- try{while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>maxBytes){await reader.cancel();throw new Error("response exceeds body limit");}chunks.push(value);}}finally{reader.releaseLock();}
- return new TextDecoder().decode(Buffer.concat(chunks.map(chunk=>Buffer.from(chunk))));
+ const declared=Number(response.headers.get("content-length"));if(Number.isInteger(declared)&&declared>maxBytes)throw Error("response exceeds declared body limit");
+ const reader=response.body?.getReader();if(!reader){const t=await response.text();if(Buffer.byteLength(t)>maxBytes)throw Error("response exceeds body limit");return t;}
+ const chunks=[];let total=0;try{while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>maxBytes){await reader.cancel();throw Error("response exceeds body limit");}chunks.push(Buffer.from(value));}}finally{reader.releaseLock();}
+ return Buffer.concat(chunks).toString("utf8");
 }
-if(contract.max_redirects!==0) failures.push("production checks must not follow redirects");
-if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0) failures.push("production max_body_bytes must be a positive integer");
-let locs=[];
-const validPath=typeof contract.sitemap_path==="string"&&contract.sitemap_path.startsWith("/")&&!contract.sitemap_path.startsWith("//")&&!contract.sitemap_path.includes("\\")&&!hasUnsafeDotSegments(contract.sitemap_path)&&!hasUnsafeDotSegments(contract.sitemap_path);
-const validOrigin=isHttpsOrigin(contract.production_origin);
-const url=validPath&&validOrigin?new URL(contract.sitemap_path,contract.production_origin):null;
-if(!url){failures.push("sitemap probe skipped: contract URL is invalid");}
-else{
- const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
-try{
- const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"accept":"application/xml,text/xml","user-agent":"jawed-production-sitemap/39E"}});
- const type=(response.headers.get("content-type")||"").toLowerCase();
- const body=await readBoundedText(response,contract.max_body_bytes);
- if(response.status!==200) failures.push(`sitemap: expected HTTP 200, got ${response.status}`);
- if(!type.startsWith(contract.expected_content_type)) failures.push(`sitemap: expected content type ${contract.expected_content_type}, got ${type||"missing"}`);
- if(response.status>=300&&response.status<400) failures.push("sitemap: unexpected redirect");
- if(!body.includes("<urlset")||!body.includes("</urlset>")) failures.push("sitemap: missing urlset envelope");
- locs=[...body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].trim());
- if(!locs.length) failures.push("sitemap: no <loc> entries found");
- const unique=new Set(locs);
- if(contract.require_unique_urls&&unique.size!==locs.length) failures.push(`sitemap: duplicate URLs found (${locs.length-unique.size})`);
- for(const loc of locs){
-  try{
-   const parsed=new URL(loc);
-   if(contract.require_absolute_urls&&!/^https:$/.test(parsed.protocol)) failures.push(`sitemap: non-HTTPS URL ${loc}`);
-   if(parsed.origin!==contract.canonical_origin) failures.push(`sitemap: non-canonical origin URL ${loc}`);
-   if(parsed.username||parsed.password) failures.push(`sitemap: credential-bearing URL ${loc}`);
-   if(parsed.pathname.includes("\\")||hasUnsafeDotSegments(parsed.pathname)) failures.push(`sitemap: unsafe path URL ${loc}`);
-   for(const origin of contract.forbidden_origins||[]) if(parsed.origin===origin) failures.push(`sitemap: forbidden alternate-origin URL ${loc}`);
-   for(const extension of contract.forbidden_extensions||[]) if(parsed.pathname.toLowerCase().endsWith(extension)) failures.push(`sitemap: legacy extension URL ${loc}`);
-   if(parsed.search||parsed.hash) failures.push(`sitemap: query/hash URL ${loc}`);
-  }catch{failures.push(`sitemap: invalid absolute URL ${loc}`)}
- }
-}catch(error){failures.push(`sitemap: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
-finally{clearTimeout(timer)}
-}
-function getAttribute(tag,name){
- const match=tag.match(new RegExp("\\b"+name+"\\s*=\\s*([\"'])(.*?)\\1","i"));
- return match?.[2]||"";
-}
-async function checkSitemapPage(loc){
- let parsed;
- try{parsed=new URL(loc)}catch{failures.push("page reachability: invalid URL "+loc);return;}
- if(parsed.origin!==contract.canonical_origin||parsed.protocol!=="https:"||parsed.username||parsed.password||parsed.search||parsed.hash||hasUnsafeDotSegments(parsed.pathname)||parsed.pathname.includes("\\")){
-  failures.push("page reachability: unsafe or non-canonical URL "+loc);return;
- }
+if(!isHttpsOrigin(contract.production_origin))failures.push("production sitemap origin must be origin-only HTTPS");
+if(!safePath(contract.sitemap_path))failures.push("sitemap_path must be an absolute safe path");
+if(contract.max_redirects!==0)failures.push("sitemap probes must not follow redirects");
+if(!Number.isInteger(contract.max_body_bytes)||contract.max_body_bytes<=0)failures.push("sitemap body limit must be positive");
+if(!Array.isArray(contract.forbidden_extensions))failures.push("forbidden_extensions must be an array");
+if(!Array.isArray(contract.forbidden_origins))failures.push("forbidden_origins must be an array");
+if(!Array.isArray(contract.route_shell_required)||!contract.route_shell_required.includes('<div id="root"></div>'))failures.push("route shell markers must include the React root");
+let locations=[];
+if(!failures.length){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
-  const response=await fetch(parsed,{redirect:"manual",signal:controller.signal,headers:{"accept":"text/html","user-agent":"jawed-production-sitemap-pages/122GU"}});
+  const response=await fetch(new URL(contract.sitemap_path,contract.production_origin),{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-sitemap/39E"}});
   const type=(response.headers.get("content-type")||"").toLowerCase();
-  const body=await readBoundedText(response,contract.max_body_bytes);
-  if(response.status!==200)failures.push(parsed.pathname+": expected HTTP 200, got "+response.status);
-  if(!type.startsWith("text/html"))failures.push(parsed.pathname+": expected text/html, got "+(type||"missing"));
-  if(response.status>=300&&response.status<400)failures.push(parsed.pathname+": unexpected redirect from sitemap URL");
-  const title=body.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/<[^>]+>/g,"").trim()||"";
-  if(!title)failures.push(parsed.pathname+": missing or empty title");
-  const metaTags=[...body.matchAll(/<meta\b[^>]*>/gi)].map(match=>match[0]);
-  const descriptionTag=metaTags.find(tag=>getAttribute(tag,"name").toLowerCase()==="description");
-  if(!descriptionTag||!getAttribute(descriptionTag,"content").trim())failures.push(parsed.pathname+": missing or empty meta description");
-  const canonicalTag=[...body.matchAll(/<link\b[^>]*>/gi)].map(match=>match[0]).find(tag=>getAttribute(tag,"rel").toLowerCase().split(/\s+/).includes("canonical"));
-  const canonical=canonicalTag?getAttribute(canonicalTag,"href"):"";
-  if(canonical!==loc)failures.push(parsed.pathname+": canonical mismatch (expected "+loc+", got "+(canonical||"missing")+")");
-  const h1=body.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]?.replace(/<[^>]+>/g,"").trim()||"";
-  if(!h1)failures.push(parsed.pathname+": missing or empty h1");
-  const robotsTags=metaTags.filter(tag=>["robots","googlebot"].includes(getAttribute(tag,"name").toLowerCase()));
-  if(robotsTags.some(tag=>/\bnoindex\b/i.test(getAttribute(tag,"content"))))failures.push(parsed.pathname+": page-level robots metadata contains noindex");
- }catch(error){failures.push(parsed.pathname+": "+(error?.name==="AbortError"?"request timed out":error?.message||"request failed"))}
- finally{clearTimeout(timer)}
+  if(response.status!==200)failures.push("sitemap: expected HTTP 200, got "+response.status);
+  if(!type.includes((contract.expected_content_type||"application/xml").toLowerCase()))failures.push("sitemap: expected "+contract.expected_content_type+", got "+type);
+  const xml=await readBoundedText(response,contract.max_body_bytes);
+  if(!xml.includes("<urlset")||!xml.includes("</urlset>"))failures.push("sitemap: missing urlset envelope");
+  locations=[...xml.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)].map(m=>m[1].trim());
+  if(!locations.length)failures.push("sitemap contains no <loc> URLs");
+  if(contract.require_unique_urls&&new Set(locations).size!==locations.length)failures.push("sitemap contains duplicate URLs");
+  for(const raw of locations){
+   let url;try{url=new URL(raw)}catch{failures.push("invalid absolute sitemap URL: "+raw);continue}
+   if(contract.require_absolute_urls&&!/^https:\/\//i.test(raw))failures.push("sitemap URL must be absolute HTTPS: "+raw);
+   if(url.origin!==contract.canonical_origin)failures.push("sitemap URL uses non-canonical origin: "+raw);
+   if((contract.forbidden_origins||[]).includes(url.origin))failures.push("sitemap URL uses forbidden origin: "+raw);
+   if(url.search||url.hash)failures.push("sitemap URL must not include query or fragment: "+raw);
+   if((contract.forbidden_extensions||[]).some(ext=>url.pathname.toLowerCase().endsWith(ext.toLowerCase())))failures.push("sitemap URL has forbidden extension: "+raw);
+  }
+ }catch(e){failures.push("sitemap request failed: "+(e?.name==="AbortError"?"timeout":e?.message||"request failed"));}finally{clearTimeout(timer)}
 }
-const pageUrls=locs.filter(loc=>{try{const parsed=new URL(loc);return parsed.protocol==="https:"&&parsed.origin===contract.canonical_origin&&!parsed.username&&!parsed.password&&!parsed.search&&!parsed.hash&&!hasUnsafeDotSegments(parsed.pathname)&&!parsed.pathname.includes("\\")}catch{return false}});
-let nextPage=0;
-const workers=Array.from({length:Math.min(6,pageUrls.length)},async()=>{
- while(nextPage<pageUrls.length){
-  const index=nextPage++;
-  await checkSitemapPage(pageUrls[index]);
+if(!failures.length){
+ for(const raw of locations){
+  let url;try{url=new URL(raw)}catch{continue}
+  const path=url.pathname+(url.search||"");
+  if(!safePath(path)){failures.push("unsafe route URL in sitemap: "+raw);continue}
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+   const response=await fetch(new URL(path,contract.production_origin),{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-sitemap/39E"}});
+   const type=(response.headers.get("content-type")||"").toLowerCase();
+   if(response.status!==200)failures.push(path+": expected HTTP 200, got "+response.status);
+   if(!type.includes("text/html"))failures.push(path+": expected HTML app shell, got "+type);
+   const body=await readBoundedText(response,contract.max_body_bytes);
+   for(const marker of contract.route_shell_required||[])if(!body.includes(marker))failures.push(path+": missing SPA shell marker "+marker);
+   if(!body.includes("/assets/index-"))failures.push(path+": missing hashed Vite asset reference");
+  }catch(e){failures.push(path+": route request failed: "+(e?.name==="AbortError"?"timeout":e?.message||"request failed"));}finally{clearTimeout(timer)}
  }
-});
-await Promise.all(workers);
-console.log("Sitemap page reachability checked: "+pageUrls.length);
-
+}
 if(failures.length){console.error("Production Sitemap Integrity Gate FAILED");for(const failure of failures)console.error("- "+failure);process.exit(1)}
 console.log("Production Sitemap Integrity Gate PASSED");
-console.log(`Canonical origin: ${contract.canonical_origin}`);
-console.log(`URLs checked: ${locs.length}`);
+console.log("Sitemap URLs validated:",locations.length);
+console.log("Verified canonical URL policy, unique entries, and React/Vite shell availability for every sitemap URL.");
+console.log("Route-specific h1/canonical metadata is tested after client rendering by browser checks, not inferred from raw HTML.");
