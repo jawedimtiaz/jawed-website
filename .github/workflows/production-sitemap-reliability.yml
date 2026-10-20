@@ -5,7 +5,8 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "sitemap.xml"      - "public/sitemap.xml"
+      - "sitemap.xml"
+      - "public/sitemap.xml"
       - "public/_redirects"
 
       - "config/production-sitemap-contract.json"
@@ -14,7 +15,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "sitemap.xml"      - "public/sitemap.xml"
+      - "sitemap.xml"
+      - "public/sitemap.xml"
       - "public/_redirects"
 
       - "config/production-sitemap-contract.json"
