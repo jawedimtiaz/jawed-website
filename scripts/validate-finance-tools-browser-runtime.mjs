@@ -70,18 +70,18 @@ try{
  await openPage("/tools/resume-bullet-strength-checker/","textarea");
  await type("textarea","Resolved 35 endpoint provisioning incidents per week and reduced average onboarding time by 22%.");
  await waitFor("()=>document.body.innerText.includes('Line-by-Line Breakdown')");
- assert.ok((await pageState()).body.includes("Resolved 35 endpoint provisioning incidents"),"Resume bullet input not reflected in page");
+ assert.equal(await js("return document.querySelector('textarea').value"),"Resolved 35 endpoint provisioning incidents per week and reduced average onboarding time by 22%.","Resume bullet input not retained");
  console.log("PASS — Resume Bullet Strength Checker accepts text");
 
  await openPage("/tools/service-desk-note-formatter/","#issueSummary");
  await type("#issueSummary","VPN sign-in failed after device enrollment");
- assert.ok((await pageState()).body.includes("VPN sign-in failed after device enrollment"),"Service Desk Note Formatter did not retain entered issue");
+ assert.ok(await js("return document.querySelector('pre.tool-output')?.innerText.includes('VPN sign-in failed after device enrollment')"),"Service Desk Note Formatter output did not include entered issue");
  console.log("PASS — Service Desk Note Formatter accepts issue details");
 
  await openPage("/tools/ticket-to-knowledge-base-draft/","#kbTitle");
  await type("#kbTitle","VPN sign-in recovery checklist");
  await type("#symptoms","VPN sign-in fails after device enrollment.");
- assert.ok((await pageState()).body.includes("VPN sign-in recovery checklist"),"Knowledge-base draft did not retain title");
+ assert.ok(await js("return document.querySelector('pre.tool-output')?.innerText.includes('VPN sign-in recovery checklist')"),"Knowledge-base draft output did not include title");
  console.log("PASS — Ticket-to-KB Draft accepts structured input");
 
  await openPage("/tools/interview-preparation-planner/","#roleTitle");
