@@ -69,19 +69,19 @@ export const Header: React.FC = () => {
 
           <Link
             className="nav-item"
-            to="/contact"
+            to="/ai"
             onClick={closeMenu}
-            aria-current={path.startsWith('/contact') ? 'page' : undefined}
+            aria-current={path === '/ai' ? 'page' : undefined}
           >
-            Contact
+            Ask AI
           </Link>
 
           <Link
-            className="nav-item nav-cta"
-            to="/ai"
+            className="nav-cta"
+            to="/contact"
             onClick={closeMenu}
           >
-            Ask AI
+            Get in Touch →
           </Link>
         </nav>
       </div>

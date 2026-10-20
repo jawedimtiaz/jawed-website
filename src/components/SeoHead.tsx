@@ -43,22 +43,28 @@ export const SeoHead: React.FC<SeoHeadProps> = ({
     };
 
     updateMeta('meta[name="description"]', fullDesc);
+    updateMeta('meta[property="og:site_name"]', 'Jawed Imtiaz');
     updateMeta('meta[property="og:title"]', fullTitle);
     updateMeta('meta[property="og:description"]', fullDesc);
     updateMeta('meta[property="og:type"]', ogType);
     updateMeta('meta[property="og:image"]', ogImage);
+    updateMeta('meta[property="og:image:width"]', '1200');
+    updateMeta('meta[property="og:image:height"]', '630');
+    updateMeta('meta[name="twitter:card"]', 'summary_large_image');
     updateMeta('meta[name="twitter:title"]', fullTitle);
     updateMeta('meta[name="twitter:description"]', fullDesc);
+    updateMeta('meta[name="twitter:image"]', ogImage);
 
-    if (canonicalUrl) {
-      let linkEl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-      if (!linkEl) {
-        linkEl = document.createElement('link');
-        linkEl.setAttribute('rel', 'canonical');
-        document.head.appendChild(linkEl);
-      }
-      linkEl.setAttribute('href', canonicalUrl);
+    const resolvedCanonical = canonicalUrl || (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://jawed.co.in/');
+    updateMeta('meta[property="og:url"]', resolvedCanonical);
+
+    let linkEl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!linkEl) {
+      linkEl = document.createElement('link');
+      linkEl.setAttribute('rel', 'canonical');
+      document.head.appendChild(linkEl);
     }
+    linkEl.setAttribute('href', resolvedCanonical);
   }, [title, description, ogType, ogImage, canonicalUrl]);
 
   return null;

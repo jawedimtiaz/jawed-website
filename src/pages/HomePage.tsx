@@ -12,17 +12,49 @@ export const HomePage: React.FC = () => {
         ogType="website"
       />
 
-      {/* Hero Section */}
+      {/* Hero Section - High-Intent CRO & Resource Navigation */}
       <section className="hero container">
-        <p className="eyebrow">IT Support · Workplace Technology · Practical Field Tools</p>
-        <h1>IT Field Engineering, Technical Troubleshooting Guides &amp; Interactive Utilities</h1>
-        <p className="lead">
-          I’m Jawed Imtiaz, a Senior IT Field Tech supporting enterprise workplace infrastructure at Uber (via Milestone Technologies). I build open-access network calculators, publish detailed field engineering checklists, and share practical IT troubleshooting procedures.
-        </p>
-        <div className="actions">
-          <Link className="button button-primary" to="/field-guides">Read Field Guides →</Link>
-          <Link className="button button-secondary" to="/tools">Open Diagnostic Tools →</Link>
-          <Link className="button button-secondary" to="/services">Services &amp; Dispatch →</Link>
+        <div className="hero-content">
+          <p className="eyebrow">Enterprise Workplace Infrastructure · IT Field Engineering</p>
+          <h1>Enterprise IT Support, Technical Field Guides &amp; Practical Utilities</h1>
+          <p className="lead">
+            I’m <strong>Jawed Imtiaz</strong>, a Senior IT Field Tech supporting enterprise workplace infrastructure at <strong>Uber</strong> (via Milestone Technologies). I specialize in high-SLA workplace technology, macOS/Jamf fleets, network cabling diagnostics, and practical IT utilities.
+          </p>
+
+          {/* Proof & Credentials Strip */}
+          <div className="hero-proof-strip">
+            <span className="proof-item">10+ Years IT Experience</span>
+            <span className="proof-sep">·</span>
+            <span className="proof-item">Uber (Milestone Technologies)</span>
+            <span className="proof-sep">·</span>
+            <span className="proof-item">Microsoft AZ-900 Certified</span>
+          </div>
+
+          {/* Primary High-Intent Actions (Recruiters / Hiring Managers / Clients) */}
+          <div className="actions primary-actions">
+            <Link className="button button-primary" to="/contact">
+              Get in Touch / Hire Jawed →
+            </Link>
+            <Link className="button button-secondary" to="/about">
+              View Career Profile
+            </Link>
+          </div>
+
+          {/* Secondary Exploration Ribbon (Tools / Guides / AI) */}
+          <div className="hero-secondary-ribbon">
+            <span className="ribbon-label">Interactive Resources:</span>
+            <div className="ribbon-links">
+              <Link className="ribbon-link" to="/field-guides">
+                📖 Field Guides (4)
+              </Link>
+              <Link className="ribbon-link" to="/tools">
+                🛠️ Diagnostic Tools (4)
+              </Link>
+              <Link className="ribbon-link" to="/ai">
+                🤖 Ask Jawed AI
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
