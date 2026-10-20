@@ -5,6 +5,7 @@ import path from "node:path";
 
 const inventory=JSON.parse(fs.readFileSync("config/adsense-inventory.json","utf8"));
 const headers=fs.readFileSync("public/_headers","utf8");
+const placeholder=fs.readFileSync("src/components/AdUnitPlaceholder.tsx","utf8");
 const files=[];
 const roots=["index.html","public","src","assets"];
 function walk(p){
@@ -17,6 +18,8 @@ for(const root of roots)walk(root);
 assert.equal(inventory.status,"pre-ads-review","Inventory must remain pre-activation");
 assert.equal(inventory.excluded_initial.includes("/privacy/")&&inventory.excluded_initial.includes("/contact/")&&inventory.excluded_initial.includes("/ai/")&&inventory.excluded_initial.includes("/tools/"),true,"Initial exclusions must remain intact");
 assert.equal(fs.existsSync("ads.txt"),false,"ads.txt must remain absent until publisher activation is approved");
+assert.equal(placeholder.includes("const ADSENSE_PLACEHOLDERS_ENABLED = false;"),true,"Visible ad placeholders must remain disabled before activation");
+assert.equal(placeholder.includes("if (!ADSENSE_PLACEHOLDERS_ENABLED) return null;"),true,"Ad placeholders must render nothing before activation");
 assert.equal(/adsbygoogle|googlesyndication\.com|googleadservices\.com/i.test(headers),false,"Public CSP must not include guessed advertising runtime hosts");
 const violations=[];
 for(const file of files){
