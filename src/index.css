@@ -1,79 +1,79 @@
-/* Dark Slate IT Dashboard Theme for Jawed.co.in */
-:root {
-  /* Dark Slate Background Canvas */
+/* Dark Slate & Light High-Contrast System Themes for Jawed.co.in */
+:root,
+[data-theme="dark"],
+.dark {
+  /* Default Dark Theme Tokens */
   --bg: #0f172a;               /* Slate 900 */
-  --bg-darker: #020617;        /* Slate 950 */
   --surface: #1e293b;          /* Slate 800 */
-  --surface-hover: #334155;    /* Slate 700 */
-  --card: #1e293b;
-
-  /* Text & Contrast Tokens (Audited for WCAG AA Compliance >= 4.5:1) */
-  /* --text: #f8fafc on #0f172a -> Contrast 15.8:1 (Passes AAA) */
+  --surface-header: rgba(15, 23, 42, 0.92);
+  --border: #334155;           /* Slate 700 */
   --text: #f8fafc;             /* Slate 50 */
-  --text-heading: #ffffff;     /* White -> Contrast 17.2:1 (Passes AAA) */
+  --text-muted: #94a3b8;      /* Slate 400 */
+  --nav-link: #cbd5e1;         /* Slate 300 */
+  --nav-link-hover: #38bdf8;   /* Sky 400 */
 
-  /* --muted-light: #cbd5e1 on #0f172a -> Contrast 10.2:1 (Passes AAA) */
-  --muted-light: #cbd5e1;      /* Slate 300 */
+  /* Mapped & Alias System Tokens */
+  --card: var(--surface);
+  --bg-darker: #020617;        /* Slate 950 */
+  --surface-hover: #334155;    /* Slate 700 */
+  --text-heading: #ffffff;
+  --muted: var(--text-muted);
+  --muted-light: var(--nav-link);
+  --muted-light-bg: #475569;
+  --line: var(--border);
+  --line-subtle: #1e293b;
 
-  /* --muted: #94a3b8 on #1e293b -> Contrast 4.6:1 (Passes AA) */
-  /* For light mode contexts: #475569 on #ffffff -> Contrast 7.0:1 (Passes AAA) */
-  --muted: #94a3b8;            /* Slate 400 */
-  --muted-light-bg: #475569;   /* Slate 600 for light backgrounds */
+  --accent: #38bdf8;
+  --accent-hover: #7dd3fc;
+  --accent-dark: #0284c7;
+  --teal: #2dd4bf;
+  --indigo: #818cf8;
+  --emerald: #34d399;
+  --amber: #fbbf24;
+  --rose: #f43f5e;
 
-  /* Structural Dividers */
-  --line: #334155;             /* Slate 700 */
-  --line-subtle: #1e293b;      /* Slate 800 */
-
-  /* High-Contrast Accents (Dark Background Contexts) */
-  --accent: #38bdf8;           /* Sky 400 -> Contrast 8.4:1 on #0f172a */
-  --accent-hover: #7dd3fc;     /* Sky 300 */
-  --accent-dark: #0284c7;      /* Sky 600 */
-  --teal: #2dd4bf;             /* Teal 400 -> Contrast 11.2:1 on #020617 */
-  --indigo: #818cf8;           /* Indigo 400 -> Contrast 6.8:1 on #020617 */
-  --emerald: #34d399;          /* Emerald 400 -> Contrast 10.4:1 on #020617 */
-  --amber: #fbbf24;            /* Amber 400 -> Contrast 12.1:1 on #020617 */
-  --rose: #f43f5e;             /* Rose 500 */
-
-  /* High-Contrast Accents (Light Background Contexts) */
-  /* BEFORE (#38bdf8 on #fff -> 1.9:1 FAIL) | AFTER (#0284c7 on #fff -> 4.7:1 PASS) */
   --accent-light-bg: #0284c7;
-  /* BEFORE (#2dd4bf on #fff -> 1.8:1 FAIL) | AFTER (#0d9488 on #fff -> 4.8:1 PASS) */
   --teal-light-bg: #0d9488;
-  /* BEFORE (#818cf8 on #fff -> 2.5:1 FAIL) | AFTER (#4f46e5 on #fff -> 5.1:1 PASS) */
   --indigo-light-bg: #4f46e5;
-  /* BEFORE (#fbbf24 on #fff -> 1.6:1 FAIL) | AFTER (#b45309 on #fff -> 4.6:1 PASS) */
   --amber-light-bg: #b45309;
 
-  --surface-accent: #0284c720;
+  --surface-accent: rgba(56, 189, 248, 0.12);
   --max: 1160px;
 }
 
-/* High-Contrast Light Mode Accessibility Overrides */
-[data-theme="light"] {
+[data-theme="light"],
+.light {
+  /* High-Contrast Light Theme Tokens */
   --bg: #f8fafc;               /* Slate 50 */
-  --bg-darker: #f1f5f9;        /* Slate 100 */
   --surface: #ffffff;          /* Pure White */
+  --surface-header: rgba(255, 255, 255, 0.92);
+  --border: #e2e8f0;           /* Slate 200 */
+  --text: #0f172a;             /* Slate 900 */
+  --text-muted: #64748b;      /* Slate 500 */
+  --nav-link: #334155;         /* Slate 700 */
+  --nav-link-hover: #0284c7;   /* Sky 600 */
+
+  /* Mapped & Alias System Tokens */
+  --card: #ffffff;
+  --bg-darker: #f1f5f9;        /* Slate 100 */
   --surface-hover: #f1f5f9;    /* Slate 100 */
-  --card: #ffffff;             /* Pure White */
+  --text-heading: #0f172a;     /* Slate 900 */
+  --muted: var(--text-muted);
+  --muted-light: var(--nav-link);
+  --muted-light-bg: #475569;
+  --line: var(--border);
+  --line-subtle: #e2e8f0;
 
-  --text: #0f172a;             /* Slate 900 -> 15.8:1 contrast on #ffffff */
-  --text-heading: #020617;     /* Slate 950 -> 17.2:1 contrast on #ffffff */
-  --muted-light: #334155;      /* Slate 700 -> 8.4:1 contrast on #ffffff */
-  --muted: #475569;            /* Slate 600 -> 7.0:1 contrast on #ffffff */
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-dark: #075985;
+  --teal: #0d9488;
+  --indigo: #4f46e5;
+  --emerald: #059669;
+  --amber: #b45309;
+  --rose: #e11d48;
 
-  --line: #cbd5e1;             /* Slate 300 */
-  --line-subtle: #e2e8f0;      /* Slate 200 */
-
-  --accent: #0284c7;           /* Sky 600 -> 4.7:1 contrast on #ffffff */
-  --accent-hover: #0369a1;     /* Sky 700 */
-  --accent-dark: #075985;      /* Sky 800 */
-  --teal: #0d9488;             /* Teal 600 -> 4.8:1 contrast on #ffffff */
-  --indigo: #4f46e5;           /* Indigo 600 -> 5.1:1 contrast on #ffffff */
-  --emerald: #059669;          /* Emerald 600 -> 4.6:1 contrast on #ffffff */
-  --amber: #b45309;            /* Amber 700 -> 4.6:1 contrast on #ffffff */
-  --rose: #e11d48;             /* Rose 600 */
-
-  --surface-accent: rgba(2, 132, 199, 0.08);
+  --surface-accent: rgba(2, 132, 199, 0.1);
 }
 
 * {
@@ -161,10 +161,11 @@ select:focus-visible {
   position: sticky;
   top: 0;
   z-index: 80;
-  background: rgba(15, 23, 42, 0.92);
+  background: var(--surface-header);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .header-inner {
@@ -204,16 +205,18 @@ select:focus-visible {
 .site-name {
   font-weight: 700;
   font-size: 1.125rem;
-  color: var(--text-heading);
+  color: var(--text);
   letter-spacing: -0.01em;
   line-height: 1.2;
+  transition: color 0.15s ease;
 }
 
 .site-tagline {
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--text-muted);
   font-weight: 500;
   letter-spacing: 0.02em;
+  transition: color 0.15s ease;
 }
 
 .site-nav {
@@ -225,7 +228,7 @@ select:focus-visible {
 .nav-item {
   padding: 8px 14px;
   border-radius: 8px;
-  color: var(--muted-light);
+  color: var(--nav-link);
   font-size: 0.938rem;
   font-weight: 500;
   text-decoration: none;
@@ -237,14 +240,14 @@ select:focus-visible {
 
 .nav-item:hover,
 .nav-item[aria-current="page"] {
-  color: var(--accent);
-  background: rgba(56, 189, 248, 0.08);
+  color: var(--nav-link-hover);
+  background: var(--surface-accent);
   text-decoration: none;
 }
 
 .nav-item[aria-current="page"] {
   font-weight: 650;
-  border: 1px solid rgba(56, 189, 248, 0.2);
+  border: 1px solid var(--border);
 }
 
 .nav-cta {
@@ -255,10 +258,11 @@ select:focus-visible {
   font-weight: 600;
   font-size: 0.875rem;
   box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+  transition: all 0.15s ease;
 }
 
 .nav-cta:hover {
-  background: linear-gradient(135deg, #0284c7, #075985);
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   box-shadow: 0 6px 16px rgba(2, 132, 199, 0.4);
 }
 
@@ -269,8 +273,8 @@ select:focus-visible {
   padding: 7px 12px;
   border-radius: 8px;
   background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--muted-light);
+  border: 1px solid var(--border);
+  color: var(--text);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -279,15 +283,21 @@ select:focus-visible {
 }
 
 .theme-toggle-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--nav-link-hover);
+  color: var(--nav-link-hover);
   background: var(--surface-hover);
 }
 
 .menu-toggle {
   display: none;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
   color: var(--text);
   border-radius: 8px;
   padding: 8px 14px;
@@ -413,8 +423,8 @@ select:focus-visible {
   flex-wrap: wrap;
   margin-top: 32px;
   padding: 12px 18px;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid var(--line-subtle);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   max-width: fit-content;
 }
@@ -424,7 +434,7 @@ select:focus-visible {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .ribbon-links {
@@ -440,8 +450,8 @@ select:focus-visible {
   gap: 6px;
   padding: 6px 12px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--line);
+  background: var(--bg-darker);
+  border: 1px solid var(--border);
   color: var(--text);
   font-size: 0.85rem;
   font-weight: 500;
