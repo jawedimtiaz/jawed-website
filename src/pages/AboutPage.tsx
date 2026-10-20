@@ -4,118 +4,124 @@ import { Link } from 'react-router-dom';
 export const AboutPage: React.FC = () => {
   return (
     <main className="container page">
-      <p className="eyebrow">About</p>
-      <h1>About Me</h1>
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <Link to="/">Home</Link> &gt; <span>About</span>
+      </nav>
+
+      <p className="eyebrow">Professional Credentials &amp; Background</p>
+      <h1>About Jawed Imtiaz</h1>
+      <p className="lead">
+        Senior IT Field Tech and Workplace Engineering Specialist focused on Service Desk operations, enterprise device lifecycle management, Apple/Jamf infrastructure, and practical diagnostic tools.
+      </p>
 
       <section className="content-section">
+        <h2>Professional Background &amp; Current Role</h2>
         <p>
-          I’m Jawed Imtiaz, an IT professional with experience across technical support, system administration, Service Desk operations and workplace technology.
+          I currently serve as an <strong>IT Field Tech</strong> with Milestone Technologies supporting the enterprise IT environment at <strong>Uber</strong>. In this role, I am responsible for managing on-site workplace technology, troubleshooting hardware and network drops, administering Apple macOS devices via Jamf Pro, managing Microsoft Entra ID / 365 identities, and maintaining high SLA user satisfaction.
         </p>
         <p>
-          Today, I work as an IT Field Tech focused on supporting users and devices, troubleshooting technical issues, documenting solutions and helping maintain a reliable workplace technology experience.
-        </p>
-        <p>
-          My professional interests include Apple and macOS, device management, IT service management, automation and practical ways of making technical work simpler and more effective.
+          My career progression spans over a decade across technical support, system administration, technical support management, and field engineering. This experience gives me a well-rounded operational perspective—balancing deep technical root-cause isolation with white-glove user communication.
         </p>
       </section>
 
       <section className="content-section">
-        <h2>My Background</h2>
-        <p>
-          My early career gave me a broad foundation in technical support, systems, networking and infrastructure. Over time, my focus expanded from traditional infrastructure support into user-facing IT, Service Desk operations and workplace technology.
-        </p>
-        <p>
-          This experience has given me an appreciation for both sides of IT — understanding how technology works while also understanding the people who depend on it.
-        </p>
-      </section>
-
-      <section className="content-section">
-        <h2>Education</h2>
-        <div className="card">
-          <h3>Bachelor of Science</h3>
-          <p>University of Calcutta</p>
-        </div>
-      </section>
-
-      <section className="content-section">
-        <h2>Career Journey</h2>
-        <p>
-          My career has moved through technical support, system administration and wider support responsibilities into user-facing Service Desk and workplace technology work. That progression shapes how I approach a support request: understand what the person needs to complete, determine whether the symptom follows a user, device or service, gather evidence before changing settings, and leave a record another technician can continue from.
-        </p>
-        <p>
-          Today I work as an IT Field Tech with Milestone Technologies in support of the Uber environment. This page describes my professional background at a high level; it does not publish employer-confidential procedures, internal systems, user records or identifiable incident details.
-        </p>
-        <p>
-          For public examples of how I document and explain this approach, see the <Link to="/work/projects">selected work examples</Link>, the <Link to="/work/skills">skills-to-practice mapping</Link>, and the <Link to="/notes/it-service-desk-troubleshooting-workflow">IT service desk troubleshooting workflow</Link>.
-        </p>
-      </section>
-
-      <section className="content-section">
-        <h2>Professional Interests</h2>
+        <h2>Technical Credentials &amp; Certifications</h2>
         <div className="card-grid">
           <article className="card">
-            <h3>IT Support &amp; Service Desk</h3>
-            <p>User support, troubleshooting, incident and request workflows, documentation and operational support.</p>
+            <h3>Microsoft Azure Fundamentals (AZ-900)</h3>
+            <p>Cloud infrastructure fundamentals, Microsoft 365 identity, Entra ID, and Azure cloud security compliance.</p>
+            <span className="badge">Active Certification</span>
           </article>
+
           <article className="card">
-            <h3>Apple &amp; macOS</h3>
-            <p>Apple devices, macOS and the evolving Apple workplace technology ecosystem.</p>
+            <h3>Advanced Diploma in Hardware &amp; Networking</h3>
+            <p>Layer 1-3 networking, TCP/IP, DNS, DHCP, switch configuration, routing, and physical hardware diagnostics.</p>
+            <span className="badge">Completed Qualification</span>
           </article>
+
           <article className="card">
-            <h3>Device Management</h3>
-            <p>Device provisioning, management and workplace device operations.</p>
+            <h3>Jamf 100 &amp; Apple Workplace Management</h3>
+            <p>macOS device provisioning, MDM configuration profiles, FileVault encryption escrow, and TCC security permission resets.</p>
+            <span className="badge">In Progress / Ongoing</span>
           </article>
+
           <article className="card">
-            <h3>Automation</h3>
-            <p>Finding practical ways to reduce repetitive work and improve IT processes.</p>
-          </article>
-          <article className="card">
-            <h3>Documentation</h3>
-            <p>Creating useful technical information that makes troubleshooting and learning easier.</p>
+            <h3>Historical Apple ACSP &amp; Microsoft MCSE</h3>
+            <p>Apple Certified Support Professional (macOS 10.9/10.11) and MCSE Server 2003 credentials reflecting long-standing domain experience.</p>
+            <span className="badge">Historical Credentials</span>
           </article>
         </div>
       </section>
 
       <section className="content-section">
-        <h2>Current Learning</h2>
-        <div className="card-grid two">
-          <article className="card">
-            <h3>Jamf</h3>
-            <p>Building knowledge of Apple device management and Jamf.</p>
-            <span className="badge">In progress</span>
+        <h2>Career Timeline</h2>
+        <div className="timeline">
+          <article className="timeline-item">
+            <h3>IT Field Tech — Milestone Technologies / Uber</h3>
+            <p className="meta">Present | Service Desk &amp; Field Dispatch</p>
+            <p style={{ fontSize: '0.925rem', color: 'var(--muted-light)' }}>
+              Supporting workplace technology, device provisioning, Apple/Jamf management, and Tier 2/3 incident resolution with top user satisfaction recognitions (People's Choice, Tech Support Guru, Employee of the Quarter).
+            </p>
           </article>
-          <article className="card">
-            <h3>ITIL</h3>
-            <p>Developing knowledge of IT service management practices and ITIL.</p>
-            <span className="badge">In progress</span>
+
+          <article className="timeline-item">
+            <h3>Technical Support Manager — Currents Technology</h3>
+            <p className="meta">Technical Leadership &amp; Operations</p>
+            <p style={{ fontSize: '0.925rem', color: 'var(--muted-light)' }}>
+              Managed technical support teams, defined escalation SLAs, and oversaw hardware and network infrastructure reliability.
+            </p>
+          </article>
+
+          <article className="timeline-item">
+            <h3>System Executive — ICore</h3>
+            <p className="meta">System Administration</p>
+            <p style={{ fontSize: '0.925rem', color: 'var(--muted-light)' }}>
+              Administered Windows Server environments, domain controllers, Active Directory user groups, and local backup policies.
+            </p>
+          </article>
+
+          <article className="timeline-item">
+            <h3>System Administrator — Khadims</h3>
+            <p className="meta">Enterprise IT Operations</p>
+            <p style={{ fontSize: '0.925rem', color: 'var(--muted-light)' }}>
+              Managed multi-branch retail network connectivity, POS system hardware maintenance, and server backups.
+            </p>
+          </article>
+
+          <article className="timeline-item">
+            <h3>Technical Support Executive — Altos</h3>
+            <p className="meta">Hardware &amp; Network Support</p>
+            <p style={{ fontSize: '0.925rem', color: 'var(--muted-light)' }}>
+              First-line technical support, hardware component replacement, and desktop software troubleshooting.
+            </p>
           </article>
         </div>
       </section>
 
       <section className="content-section">
-        <h2>Personal Interests</h2>
-        <p>Outside of work, I enjoy reading, exploring gadgets and technology, and spending time with family.</p>
+        <h2>Mission &amp; Publisher Quality Commitment</h2>
+        <p>
+          I created <strong>Jawed.co.in</strong> to bridge the gap between abstract vendor documentation and real-world IT field execution. Every field guide, diagnostic checklist, and interactive utility published here adheres to rigorous technical standards:
+        </p>
+        <ul style={{ paddingLeft: '20px', lineHeight: 1.8 }}>
+          <li><strong>Sanitized &amp; Public-Safe:</strong> All examples are generalized to protect employer confidentiality while teaching reusable diagnostic principles.</li>
+          <li><strong>Client-Side &amp; Privacy-First:</strong> All diagnostic tools process user input locally in the browser without server uploads.</li>
+          <li><strong>Google AdSense Compliant:</strong> Adhering to publisher guidelines for original, high-value editorial content.</li>
+        </ul>
       </section>
 
       <section className="content-section">
-        <h2>Why I Started Jawed.co.in</h2>
-        <p>
-          Jawed.co.in started as a personal project during the early part of my IT career. While preparing for technical certifications and searching for useful study material, I began collecting information, resources and references that could help with learning.
-        </p>
-        <p>
-          Over time, that collection grew into a website where I could organize and share useful information with others.
-        </p>
-        <p>
-          The website has changed considerably since then. The current version combines my professional portfolio with technical notes, projects, browser-based tools and practical learning material.
-        </p>
-      </section>
-
-      <section className="content-section">
-        <h2>Explore My Work</h2>
-        <p>For my experience, skills, certifications and selected projects, visit the professional section.</p>
+        <h2>Explore My Work &amp; Services</h2>
         <div className="actions">
-          <Link className="button" to="/work">View My Professional Profile →</Link>
-          <Link className="button button-secondary" to="/contact">Get in Touch →</Link>
+          <Link className="button button-primary" to="/services">
+            View IT Field Services &amp; Dispatch →
+          </Link>
+          <Link className="button button-secondary" to="/notes">
+            Browse Technical Field Guides →
+          </Link>
+          <Link className="button button-secondary" to="/contact">
+            Get In Touch →
+          </Link>
         </div>
       </section>
     </main>

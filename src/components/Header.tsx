@@ -11,27 +11,55 @@ export const Header: React.FC = () => {
   return (
     <header className="site-header">
       <div className="container header-inner">
-        <Link className="site-name" to="/" onClick={closeMenu}>
-          Jawed Imtiaz
+        <Link className="site-brand" to="/" onClick={closeMenu}>
+          <div className="site-brand-icon">JI</div>
+          <div className="site-title">
+            <span className="site-name">Jawed Imtiaz</span>
+            <span className="site-tagline">IT Field Tech &amp; Engineering</span>
+          </div>
         </Link>
+
         <button
           className="menu-toggle"
           type="button"
           aria-expanded={isOpen}
           aria-controls="primary-nav"
+          aria-label="Toggle Navigation Menu"
           onClick={() => setIsOpen(!isOpen)}
         >
-          {isOpen ? 'Close' : 'Menu'}
+          {isOpen ? '✕ Close' : '☰ Menu'}
         </button>
+
         <nav id="primary-nav" className={`site-nav ${isOpen ? 'is-open' : ''}`}>
           <Link
-            to="/"
+            className="nav-item"
+            to="/notes"
             onClick={closeMenu}
-            aria-current={path === '/' ? 'page' : undefined}
+            aria-current={path.startsWith('/notes') || path.startsWith('/field-guides') ? 'page' : undefined}
           >
-            Home
+            Field Guides
           </Link>
+
           <Link
+            className="nav-item"
+            to="/tools"
+            onClick={closeMenu}
+            aria-current={path.startsWith('/tools') || path.startsWith('/diagnostic-tools') ? 'page' : undefined}
+          >
+            Diagnostic Tools
+          </Link>
+
+          <Link
+            className="nav-item"
+            to="/services"
+            onClick={closeMenu}
+            aria-current={path.startsWith('/services') ? 'page' : undefined}
+          >
+            Services &amp; Dispatch
+          </Link>
+
+          <Link
+            className="nav-item"
             to="/about"
             onClick={closeMenu}
             aria-current={path.startsWith('/about') ? 'page' : undefined}
@@ -39,65 +67,21 @@ export const Header: React.FC = () => {
             About
           </Link>
 
-          <details className="nav-group">
-            <summary>Work</summary>
-            <div className="nav-group-menu">
-              <Link to="/work" onClick={closeMenu} aria-current={path === '/work' ? 'page' : undefined}>
-                Overview
-              </Link>
-              <Link to="/work/experience" onClick={closeMenu} aria-current={path === '/work/experience' ? 'page' : undefined}>
-                Experience
-              </Link>
-              <Link to="/work/skills" onClick={closeMenu} aria-current={path === '/work/skills' ? 'page' : undefined}>
-                Skills
-              </Link>
-              <Link to="/work/certifications" onClick={closeMenu} aria-current={path === '/work/certifications' ? 'page' : undefined}>
-                Certifications
-              </Link>
-              <Link to="/work/projects" onClick={closeMenu} aria-current={path === '/work/projects' ? 'page' : undefined}>
-                Projects
-              </Link>
-            </div>
-          </details>
-
-          <details className="nav-group">
-            <summary>Explore</summary>
-            <div className="nav-group-menu">
-              <Link to="/topics" onClick={closeMenu} aria-current={path.startsWith('/topics') ? 'page' : undefined}>
-                Topics
-              </Link>
-              <Link to="/notes" onClick={closeMenu} aria-current={path.startsWith('/notes') ? 'page' : undefined}>
-                Practical Notes
-              </Link>
-              <Link to="/blog" onClick={closeMenu} aria-current={path.startsWith('/blog') ? 'page' : undefined}>
-                Blog
-              </Link>
-              <Link to="/resources" onClick={closeMenu} aria-current={path.startsWith('/resources') ? 'page' : undefined}>
-                Resources
-              </Link>
-            </div>
-          </details>
-
           <Link
-            to="/tools"
-            onClick={closeMenu}
-            aria-current={path.startsWith('/tools') ? 'page' : undefined}
-          >
-            Tools
-          </Link>
-          <Link
-            to="/ai"
-            onClick={closeMenu}
-            aria-current={path.startsWith('/ai') ? 'page' : undefined}
-          >
-            Ask AI
-          </Link>
-          <Link
+            className="nav-item"
             to="/contact"
             onClick={closeMenu}
             aria-current={path.startsWith('/contact') ? 'page' : undefined}
           >
             Contact
+          </Link>
+
+          <Link
+            className="nav-item nav-cta"
+            to="/ai"
+            onClick={closeMenu}
+          >
+            Ask AI
           </Link>
         </nav>
       </div>

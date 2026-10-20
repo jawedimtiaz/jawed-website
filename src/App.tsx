@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, useLocation, Link } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { JawedAiWidget } from './components/JawedAiWidget';
@@ -18,6 +18,9 @@ import { ResourcesPage } from './pages/ResourcesPage';
 import { AiPage } from './pages/AiPage';
 import { ContactPage } from './pages/ContactPage';
 import { PrivacyPage } from './pages/PrivacyPage';
+import { TermsPage } from './pages/TermsPage';
+import { CookiePolicyPage } from './pages/CookiePolicyPage';
+import { ServicesDispatchPage } from './pages/ServicesDispatchPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 // Tools
@@ -45,29 +48,38 @@ function ScrollToTop() {
 }
 
 export const App: React.FC = () => {
+  const [cookieModalOpen, setCookieModalOpen] = useState(false);
+  const [analyticsAllowed, setAnalyticsAllowed] = useState(true);
+  const [adsAllowed, setAdsAllowed] = useState(true);
+
+  useEffect(() => {
+    const a = localStorage.getItem('cookie_analytics_consent');
+    const d = localStorage.getItem('cookie_ad_consent');
+    if (a !== null) setAnalyticsAllowed(a === 'true');
+    if (d !== null) setAdsAllowed(d === 'true');
+  }, []);
+
+  const saveCookieModalSettings = () => {
+    localStorage.setItem('cookie_analytics_consent', String(analyticsAllowed));
+    localStorage.setItem('cookie_ad_consent', String(adsAllowed));
+    setCookieModalOpen(false);
+  };
+
   return (
     <div className="site-wrapper" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <ScrollToTop />
       <Header />
+
       <div style={{ flex: 1 }}>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/about/*" element={<AboutPage />} />
-          <Route path="/work/*" element={<WorkPage />} />
-          <Route path="/topics/*" element={<TopicsPage />} />
 
-          {/* Notes */}
+          {/* Navigation Items */}
+          <Route path="/field-guides" element={<NotesListPage />} />
           <Route path="/notes" element={<NotesListPage />} />
           <Route path="/notes/:slug" element={<NoteDetailPage />} />
 
-          {/* Blog */}
-          <Route path="/blog" element={<BlogListPage />} />
-          <Route path="/blog/:slug" element={<BlogPostPage />} />
-
-          {/* Resources */}
-          <Route path="/resources/*" element={<ResourcesPage />} />
-
-          {/* Tools Index */}
+          <Route path="/diagnostic-tools" element={<ToolsPage />} />
           <Route path="/tools" element={<ToolsPage />} />
 
           {/* Specific Tools */}
@@ -85,15 +97,100 @@ export const App: React.FC = () => {
           <Route path="/tools/retirement-planning-calculator" element={<RetirementPlanningCalculator />} />
           <Route path="/tools/calculator" element={<RetirementPlanningCalculator />} />
 
-          {/* AI, Contact, Privacy, 404 */}
-          <Route path="/ai/*" element={<AiPage />} />
+          {/* Services & Dispatch */}
+          <Route path="/services" element={<ServicesDispatchPage />} />
+          <Route path="/services-dispatch" element={<ServicesDispatchPage />} />
+
+          {/* Main Pages */}
+          <Route path="/about/*" element={<AboutPage />} />
+          <Route path="/work/*" element={<WorkPage />} />
+          <Route path="/topics/*" element={<TopicsPage />} />
+          <Route path="/resources/*" element={<ResourcesPage />} />
+          <Route path="/blog" element={<BlogListPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
+
+          {/* Legal & Contact Pages */}
           <Route path="/contact/*" element={<ContactPage />} />
           <Route path="/privacy/*" element={<PrivacyPage />} />
+          <Route path="/terms/*" element={<TermsPage />} />
+          <Route path="/cookies/*" element={<CookiePolicyPage />} />
+
+          {/* AI */}
+          <Route path="/ai/*" element={<AiPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>
-      <Footer />
+
+      <Footer onOpenCookieModal={() => setCookieModalOpen(true)} />
       <JawedAiWidget />
+
+      {/* Cookie Preference Modal */}
+      {cookieModalOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Cookie Preferences">
+          <div className="modal-content">
+            <h3 style={{ marginTop: 0, color: 'var(--text-heading)', fontSize: '1.25rem' }}>
+              ⚙ Cookie &amp; Privacy Preferences
+            </h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
+              Manage your consent preferences for analytics and Google AdSense advertising cookies.
+            </p>
+
+            <div style={{ display: 'grid', gap: '14px', margin: '20px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <strong style={{ display: 'block', color: 'var(--text-heading)' }}>Essential Cookies</strong>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Theme, security &amp; local routing</span>
+                </div>
+                <span className="badge" style={{ color: 'var(--emerald)' }}>Always Active</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <strong style={{ display: 'block', color: 'var(--text-heading)' }}>Analytics (GA4)</strong>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Anonymized usage statistics</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={analyticsAllowed}
+                  onChange={e => setAnalyticsAllowed(e.target.checked)}
+                  style={{ width: '20px', height: '20px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <strong style={{ display: 'block', color: 'var(--text-heading)' }}>Google AdSense Ads</strong>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Personalized advertising</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={adsAllowed}
+                  onChange={e => setAdsAllowed(e.target.checked)}
+                  style={{ width: '20px', height: '20px' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <Link
+                to="/cookies"
+                className="button button-secondary"
+                onClick={() => setCookieModalOpen(false)}
+                style={{ fontSize: '0.85rem' }}
+              >
+                Read Cookie Policy
+              </Link>
+              <button
+                className="button button-primary"
+                type="button"
+                onClick={saveCookieModalSettings}
+              >
+                Save &amp; Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

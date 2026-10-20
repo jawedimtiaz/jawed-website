@@ -5,44 +5,85 @@ export const PrivacyPage: React.FC = () => {
   return (
     <main className="container narrow page">
       <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <Link to="/">Home</Link> &gt; <span>Privacy</span>
+        <Link to="/">Home</Link> &gt; <span>Privacy Policy</span>
       </nav>
 
-      <p className="eyebrow">Site information</p>
-      <h1>Website Privacy &amp; Data Handling</h1>
+      <p className="eyebrow">Legal &amp; Compliance</p>
+      <h1>Privacy Policy &amp; Data Handling</h1>
+      <p className="meta" style={{ color: 'var(--muted)', marginBottom: '24px' }}>
+        Last Updated: October 20, 2026 | Google AdSense &amp; GDPR / CCPA Compliant
+      </p>
 
       <section className="content-section">
-        <h2>Privacy Policy</h2>
+        <h2>1. Overview &amp; Commitment</h2>
         <p>
-          This page explains how information is handled on jawed.co.in. The policy is kept aligned with the site's actual functionality.
+          At <strong>Jawed.co.in</strong> (operated by Jawed Imtiaz), we respect your privacy and are committed to maintaining transparent data handling practices. This Privacy Policy details how personal information, technical telemetry, cookies, and diagnostic data are processed when you visit our website, utilize our IT field guides, or interact with our diagnostic utilities.
         </p>
       </section>
 
       <section className="content-section">
-        <h2>Information Collected</h2>
+        <h2>2. Google AdSense &amp; Third-Party Advertising</h2>
         <p>
-          The website does not require visitors to create an account to browse the site. The contact form opens your email client directly to address a message to webmaster@jawed.co.in; this website does not store submitted messages.
+          This website uses <strong>Google AdSense</strong> to display advertisements. AdSense uses cookies, web beacons, and unique device identifiers to serve personalized and non-personalized advertisements based on a user’s prior visits to this website or other websites on the internet.
+        </p>
+        <ul style={{ paddingLeft: '20px', lineHeight: 1.8 }}>
+          <li>
+            <strong>DoubleClick DART Cookie:</strong> Google’s use of advertising cookies enables it and its partners to serve ads to users based on their visit to this site and/or other sites on the Internet.
+          </li>
+          <li>
+            <strong>Opting Out of Personalized Ads:</strong> Users may opt out of personalized advertising by visiting <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google Ads Settings</a>. Alternatively, you can opt out of third-party vendor cookies for personalized advertising by visiting <a href="https://www.aboutads.info/choices/" target="_blank" rel="noopener noreferrer">www.aboutads.info</a>.
+          </li>
+          <li>
+            <strong>IAB Transparency and Consent Framework (TCF v2.2):</strong> For visitors located in the European Economic Area (EEA), United Kingdom (UK), or Switzerland, personalized advertising is served strictly in compliance with Google’s certified Consent Management Platform (CMP) requirements.
+          </li>
+        </ul>
+      </section>
+
+      <section className="content-section">
+        <h2>3. Web Analytics &amp; Telemetry (Google Analytics 4)</h2>
+        <p>
+          We use <strong>Google Analytics 4 (GA4)</strong> to aggregate anonymized visitor metrics, such as pageviews, average session duration, technical browser parameters, and geographic region. GA4 collects data using first-party cookies (e.g. <code>_ga</code>). IP addresses are automatically anonymized, and no personally identifiable information (PII) is transmitted to Google Analytics.
         </p>
       </section>
 
       <section className="content-section">
-        <h2>Browser Tools &amp; Local Processing</h2>
+        <h2>4. Local Processing in Diagnostic Tools</h2>
         <p>
-          All interactive utilities on this site—including the Service Desk Note Formatter, AI Prompt Builder, IT Troubleshooting Assistant, Ticket to KB Draft, Resume Bullet Checker, and financial calculators—process inputs locally in your browser. No data entered into these tools is transmitted to an external server.
+          All interactive utilities published on this site—including the <em>IT Troubleshooting Assistant</em>, <em>AI Prompt Builder</em>, <em>Career Match Resume Review</em>, <em>Resume Bullet Strength Checker</em>, <em>Service Desk Note Formatter</em>, and <em>Financial Calculators</em>—process input data <strong>entirely locally within your web browser</strong>.
+        </p>
+        <p>
+          No resume text, ticket notes, system configurations, or financial figures entered into these tools are uploaded to external servers or logged in any backend database.
         </p>
       </section>
 
       <section className="content-section">
-        <h2>AI Assistant &amp; Search Knowledge</h2>
+        <h2>5. Server Logs &amp; Security Telemetry</h2>
         <p>
-          The Jawed AI Assistant searches the static indexed content of this website locally in your browser using client-side keyword and relevance scoring. Your search queries remain entirely on your device.
+          When you request pages on Jawed.co.in, our edge hosting providers (Cloudflare Pages) automatically record standard web server request logs, including your IP address, user-agent string, referral URL, and access timestamp. These logs are maintained strictly for security monitoring, DDoS mitigation, rate limiting, and technical infrastructure diagnosis.
         </p>
       </section>
 
       <section className="content-section">
-        <h2>Contact</h2>
+        <h2>6. Your Data Protection Rights</h2>
         <p>
-          For questions regarding website privacy, please email <a href="mailto:webmaster@jawed.co.in">webmaster@jawed.co.in</a>.
+          Depending on your jurisdiction (GDPR, CCPA, CPRA), you possess specific rights regarding your personal data:
+        </p>
+        <ul style={{ paddingLeft: '20px', lineHeight: 1.8 }}>
+          <li><strong>Right of Access &amp; Portability:</strong> Request details on data collected about you.</li>
+          <li><strong>Right to Rectification or Erasure:</strong> Request corrections or deletion of submitted contact messages.</li>
+          <li><strong>Right to Opt-Out:</strong> Toggle cookie preferences at any time using our site cookie controls.</li>
+        </ul>
+      </section>
+
+      <section className="content-section">
+        <h2>7. Data Controller &amp; Contact Information</h2>
+        <p>
+          If you have questions regarding this Privacy Policy or wish to exercise your privacy rights, please contact our Data Protection Officer at:
+        </p>
+        <p style={{ background: 'var(--surface)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+          <strong>Jawed Imtiaz</strong> — IT Field Tech &amp; Publisher<br />
+          Email: <a href="mailto:webmaster@jawed.co.in">webmaster@jawed.co.in</a><br />
+          Location: Visakhapatnam / Remote IT Operations
         </p>
       </section>
     </main>

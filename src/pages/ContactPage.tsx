@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 export const ContactPage: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [topic, setTopic] = useState('Work opportunity');
+  const [company, setCompany] = useState('');
+  const [topic, setTopic] = useState('IT Field Dispatch Request');
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -19,98 +20,135 @@ export const ContactPage: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const mailtoUrl = `mailto:${emailAddress}?subject=${encodeURIComponent(
-      `[${topic}] Contact from ${name}`
-    )}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`)}`;
+      `[${topic}] Inquiry from ${name} (${company || 'Individual'})`
+    )}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\nCompany: ${company}\nTopic: ${topic}\n\nMessage / Request:\n${message}`)}`;
     window.location.href = mailtoUrl;
   };
 
   return (
     <main className="container narrow page">
       <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <Link to="/">Home</Link> &gt; <span>Contact</span>
+        <Link to="/">Home</Link> &gt; <span>Contact Us</span>
       </nav>
 
-      <p className="eyebrow">Get in touch</p>
-      <h1>Contact</h1>
+      <p className="eyebrow">Business &amp; Technical Inquiries</p>
+      <h1>Contact Us</h1>
       <p className="lead">
-        If you’d like to get in touch about work, technology, projects or something related to this website, feel free to reach out.
+        Reach out for IT field support dispatch, business inquiries, technical consulting, or feedback on our published guides and diagnostic utilities.
       </p>
 
+      {/* Response SLAs & Business Hours */}
       <section className="content-section">
-        <h2>Direct Email</h2>
-        <p className="actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <a className="button" href={`mailto:${emailAddress}`}>
-            Email {emailAddress}
-          </a>
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={handleCopyEmail}
-          >
-            {copied ? 'Copied to Clipboard!' : 'Copy email address'}
-          </button>
-        </p>
+        <div className="card-grid two">
+          <div className="card" style={{ borderLeft: '4px solid var(--accent)' }}>
+            <h3>Direct Email Contact</h3>
+            <p style={{ fontSize: '0.9rem', margin: '6px 0' }}>
+              Primary Mail: <strong>webmaster@jawed.co.in</strong>
+            </p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              Expected SLA: General inquiries acknowledged within 24 business hours.
+            </p>
+            <button className="button button-secondary" type="button" onClick={handleCopyEmail} style={{ marginTop: '10px' }}>
+              {copied ? '✓ Email Copied!' : 'Copy Email Address'}
+            </button>
+          </div>
+
+          <div className="card" style={{ borderLeft: '4px solid var(--teal)' }}>
+            <h3>Field Coverage &amp; Hours</h3>
+            <p style={{ fontSize: '0.9rem', margin: '6px 0' }}>
+              Location: Visakhapatnam / Remote Global Operations
+            </p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              Hours: Mon - Fri, 9:00 AM - 6:00 PM IST (Emergency Dispatch Available)
+            </p>
+            <Link className="button button-secondary" to="/services" style={{ marginTop: '10px' }}>
+              View Field Services &amp; SLA Estimator →
+            </Link>
+          </div>
+        </div>
       </section>
 
+      {/* Contact Form */}
       <section className="content-section">
-        <h2>Contact Form</h2>
+        <h2>Submit an Inquiry or Request</h2>
         <form className="contact-form" onSubmit={handleSubmit}>
-          <div className="form-field">
-            <label htmlFor="contact-name">Name</label>
-            <input
-              id="contact-name"
-              type="text"
-              required
-              value={name}
-              onChange={e => setName(e.target.value)}
-            />
+          <div className="field-grid">
+            <div className="form-field">
+              <label htmlFor="contact-name">Your Full Name *</label>
+              <input
+                id="contact-name"
+                type="text"
+                required
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Jane Doe"
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="contact-email">Email Address *</label>
+              <input
+                id="contact-email"
+                type="email"
+                required
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="jane@company.com"
+              />
+            </div>
+          </div>
+
+          <div className="field-grid">
+            <div className="form-field">
+              <label htmlFor="contact-company">Company / Organization</label>
+              <input
+                id="contact-company"
+                type="text"
+                value={company}
+                onChange={e => setCompany(e.target.value)}
+                placeholder="Acme Enterprises"
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="contact-topic">Inquiry Type / Topic *</label>
+              <select
+                id="contact-topic"
+                value={topic}
+                onChange={e => setTopic(e.target.value)}
+              >
+                <option value="IT Field Dispatch Request">IT Field Support &amp; Dispatch Request</option>
+                <option value="Work Opportunity / Career">Work Opportunity / Career Inquiries</option>
+                <option value="Technical Advisory / Consulting">Technical Advisory &amp; Consulting</option>
+                <option value="Website Feedback / Bug Report">Website Feedback / Bug Report</option>
+                <option value="AdSense / Media Partnership">AdSense / Media / Publisher Inquiries</option>
+              </select>
+            </div>
           </div>
 
           <div className="form-field">
-            <label htmlFor="contact-email">Email</label>
-            <input
-              id="contact-email"
-              type="email"
-              required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="contact-topic">What can I help with?</label>
-            <select
-              id="contact-topic"
-              value={topic}
-              onChange={e => setTopic(e.target.value)}
-            >
-              <option value="Work opportunity">Work opportunity</option>
-              <option value="Freelance or project">Freelance or project</option>
-              <option value="Website feedback">Website feedback</option>
-              <option value="IT or technology question">IT or technology question</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="contact-message">Message</label>
+            <label htmlFor="contact-message">Message Details *</label>
             <textarea
               id="contact-message"
               rows={6}
               required
               value={message}
               onChange={e => setMessage(e.target.value)}
+              placeholder="Provide context regarding your technical environment, dispatch needs, or inquiry..."
             />
           </div>
 
           <button className="button button-primary" type="submit">
-            Send Message
+            Open Email Client &amp; Send →
           </button>
         </form>
       </section>
 
       <section className="content-section">
-        <h2>Connect on LinkedIn</h2>
+        <h2>Professional Network</h2>
+        <p>
+          Connect on LinkedIn for professional endorsements and technical network connections:
+        </p>
         <p>
           <a
             href="https://www.linkedin.com/in/jawedimtiaz/"
@@ -118,7 +156,7 @@ export const ContactPage: React.FC = () => {
             rel="noopener noreferrer"
             className="button button-secondary"
           >
-            View LinkedIn Profile →
+            Connect on LinkedIn →
           </a>
         </p>
       </section>
