@@ -184,7 +184,7 @@ function resolveMetadata(pathname: string): RouteMetadata {
   const direct = STATIC_METADATA[path] || TOOL_METADATA[path];
   if (direct) return direct;
 
-  const noteMatch = path.match(/^\\/notes\\/([^/]+)$/);
+  const noteMatch = path.match(/^\/notes\/([^/]+)$/);
   if (noteMatch) {
     const note = notesData.find((entry) => entry.slug === noteMatch[1]);
     if (!note) return { title: 'Page Not Found', description: 'The requested page could not be found on jawed.co.in.', canonicalPath: '/404', robots: 'noindex, follow' };
@@ -196,7 +196,7 @@ function resolveMetadata(pathname: string): RouteMetadata {
     };
   }
 
-  const fieldGuideMatch = path.match(/^\\/(?:guides|field-guides)\\/([^/]+)$/);
+  const fieldGuideMatch = path.match(/^\/(?:guides|field-guides)\/([^/]+)$/);
   if (fieldGuideMatch) {
     const guide = FIELD_GUIDES.find((entry) => entry.slug === fieldGuideMatch[1]);
     if (!guide) return { title: 'Page Not Found', description: 'The requested page could not be found on jawed.co.in.', canonicalPath: '/404', robots: 'noindex, follow' };
