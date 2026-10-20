@@ -83,7 +83,6 @@ export const PrivacyPage: React.FC = () => {
         <p style={{ background: 'var(--surface)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)' }}>
           <strong>Jawed Imtiaz</strong> — IT Field Tech &amp; Publisher<br />
           Email: <a href="mailto:webmaster@jawed.co.in">webmaster@jawed.co.in</a><br />
-          Location: Visakhapatnam / Remote IT Operations
         </p>
       </section>
     </main>
