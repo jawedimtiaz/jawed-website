@@ -66,3 +66,25 @@ Further changes on the same review branch:
 - Corrected the security validator to allow only the named `.env.example` template while scanning its contents, and to validate the expected `package.json` instead of rejecting the app's manifest.
 
 The latest CI runs for these changes are pending/in progress. Do not report these changes as passed until the corresponding workflow runs complete. The broader AdSense content audit still needs a review of legacy static-page assumptions and should continue to fail closed where published-content evidence is missing.
+
+
+## SEO and monitor alignment update (2026-10-20)
+
+The review branch now also addresses a confirmed SPA SEO gap: the shared `SeoHead` component was only used on the homepage, so client-side route navigation could retain homepage title/canonical metadata. A new `RouteSeo` component maps the current React routes and note/blog data to unique titles, descriptions, canonical URLs, Open Graph metadata, and robots directives. It removes the duplicate homepage title suffix and marks the interactive AI assistant page `noindex, follow`.
+
+The sitemap is now synchronized at the repository root and in `public/` and includes **63 canonical URLs**: core pages, all 30 note guides, both blog posts, and 14 tool pages. Non-canonical aliases such as `/notes/`, `/guides/`, `/diagnostic-tools/`, and `/services/` are not listed; their route metadata points to the canonical page. The AdSense inventory now refers to the canonical `/field-guides/` page instead of the alias `/notes/`.
+
+The production monitors have been reconciled with the current React/Vite architecture:
+- Discover and validate hashed Vite JS/CSS assets from the homepage for static-asset and cache checks.
+- Treat `/ai/` as a frontend route and assert that the retired `/api/ai` endpoint remains unavailable, instead of expecting a JSON AI API.
+- Check the raw HTML shell separately from client-rendered route metadata.
+- Validate sitemap URLs as React app-shell routes rather than expecting route-specific `h1` and canonical metadata in raw HTML.
+- Compare robots directives as complete lines, avoiding a false positive where `Disallow: /` matched narrower paths such as `/api/`.
+- Align the security baseline with the published `public/_headers`, `public/_redirects`, and `public/404.html` files rather than obsolete root-only static/Pages Functions assumptions.
+
+Latest completed CI on commit `ad687921b9a5e17b62cd61dc8ad955da1ec64cf6`:
+- Site Integrity, Deployment Runtime Reliability, Security Baseline, Security Supply Chain, AI Regression, AdSense Readiness, Finance Calculator Regression, production static assets/cache/robots/404/media, canonical origin, and availability checks: **PASS**.
+- Career Match browser runtime: **PASS**.
+- Interactive tools browser runtime: **in progress** when this note was written; its final result must be checked before marking Phase 0 complete.
+
+The production homepage was independently rendered successfully earlier in this review, but production direct-route and header checks remain tied to a deployment of this branch. The current production deployment has not been changed. AdSense remains pre-activation; CI readiness is not a Google approval or legal compliance certification.
