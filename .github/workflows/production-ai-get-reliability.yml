@@ -5,7 +5,8 @@ on:
     branches:
       - main
     paths:
-      - "config/production-ai-get-contract.json"      - "src/App.tsx"
+      - "config/production-ai-get-contract.json"
+      - "src/App.tsx"
       - "src/pages/AiPage.tsx"
       - "src/services/aiKnowledgeEngine.ts"
       - "public/_redirects"
