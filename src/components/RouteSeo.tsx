@@ -2,6 +2,7 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { SeoHead } from './SeoHead';
 import notesData from '../data/notesData.json';
+import { FIELD_GUIDES } from '../data/fieldGuidesData';
 import blogData from '../data/blogData.json';
 
 const SITE_ORIGIN = 'https://jawed.co.in';
@@ -183,14 +184,26 @@ function resolveMetadata(pathname: string): RouteMetadata {
   const direct = STATIC_METADATA[path] || TOOL_METADATA[path];
   if (direct) return direct;
 
-  const noteMatch = path.match(/^\/(?:notes|guides|field-guides)\/([^/]+)$/);
+  const noteMatch = path.match(/^\\/notes\\/([^/]+)$/);
   if (noteMatch) {
     const note = notesData.find((entry) => entry.slug === noteMatch[1]);
     if (!note) return { title: 'Page Not Found', description: 'The requested page could not be found on jawed.co.in.', canonicalPath: '/404', robots: 'noindex, follow' };
     return {
       title: note.title,
       description: note.description,
-      canonicalPath: '/field-guides/' + note.slug,
+      canonicalPath: '/notes/' + note.slug,
+      ogType: 'article',
+    };
+  }
+
+  const fieldGuideMatch = path.match(/^\\/(?:guides|field-guides)\\/([^/]+)$/);
+  if (fieldGuideMatch) {
+    const guide = FIELD_GUIDES.find((entry) => entry.slug === fieldGuideMatch[1]);
+    if (!guide) return { title: 'Page Not Found', description: 'The requested page could not be found on jawed.co.in.', canonicalPath: '/404', robots: 'noindex, follow' };
+    return {
+      title: guide.title,
+      description: guide.description,
+      canonicalPath: '/field-guides/' + guide.slug,
       ogType: 'article',
     };
   }
