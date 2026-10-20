@@ -11,8 +11,10 @@ interface Message {
   userQuery?: string;
 }
 
+type WidgetState = 'closed' | 'minimized' | 'open';
+
 export const JawedAiWidget: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [widgetState, setWidgetState] = useState<WidgetState>('closed');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -27,10 +29,10 @@ export const JawedAiWidget: React.FC = () => {
   const location = useLocation();
 
   useEffect(() => {
-    if (isOpen) {
+    if (widgetState === 'open') {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isOpen]);
+  }, [messages, widgetState]);
 
   // Hide widget on dedicated /ai page
   if (location.pathname.startsWith('/ai')) {
@@ -77,39 +79,55 @@ export const JawedAiWidget: React.FC = () => {
 
   return (
     <div className="jawed-ai-widget">
-      {!isOpen && (
+      {/* Closed / Minimized Launcher Button */}
+      {widgetState !== 'open' && (
         <button
           className="jawed-ai-toggle"
           type="button"
           aria-expanded="false"
           aria-label="Open Jawed AI Assistant"
-          onClick={() => setIsOpen(true)}
+          onClick={() => setWidgetState('open')}
         >
-          🤖 Ask AI
+          💬 Ask Jawed AI
         </button>
       )}
 
-      {isOpen && (
+      {/* Main Floating Chat Panel */}
+      {widgetState === 'open' && (
         <div className="jawed-ai-panel" role="region" aria-label="Jawed AI Assistant">
+          {/* Distinct Header Bar */}
           <div className="jawed-ai-widget-header">
-            <strong>Jawed AI Assistant</strong>
-            <div className="jawed-ai-widget-actions">
+            <div className="jawed-ai-header-titles">
+              <strong>Jawed AI Assistant</strong>
+              <span>Grounded in Jawed's notes &amp; tools</span>
+            </div>
+            <div className="jawed-ai-header-actions">
               <button
-                className="jawed-ai-close"
+                className="jawed-ai-action-btn"
+                type="button"
+                aria-label="Minimize Jawed AI Assistant"
+                title="Minimize"
+                onClick={() => setWidgetState('minimized')}
+              >
+                −
+              </button>
+              <button
+                className="jawed-ai-action-btn"
                 type="button"
                 aria-label="Close Jawed AI Assistant"
-                onClick={() => setIsOpen(false)}
+                title="Close"
+                onClick={() => setWidgetState('closed')}
               >
-                ×
+                ✕
               </button>
             </div>
           </div>
 
           <div className="jawed-ai-widget-privacy">
-            Answers are grounded in Jawed's published technical documentation &amp; tools.
+            🔒 Answers are retrieved directly from published website knowledge.
           </div>
 
-          {/* Scrollable Chat Bubble Thread with WCAG Accessible Live Region */}
+          {/* Contained Scrollable Message History Container */}
           <div
             className="jawed-ai-widget-messages"
             role="log"
@@ -121,12 +139,12 @@ export const JawedAiWidget: React.FC = () => {
               <div key={m.id} className={`jawed-ai-widget-message ${m.role}`}>
                 <div>{m.content}</div>
 
-                {/* Interactive Contact Button on Knowledge Base Fallback */}
+                {/* Pre-filled Contact Button on Knowledge Base Fallback */}
                 {m.isFallback && (
                   <div style={{ marginTop: '10px' }}>
                     <Link
                       to={`/contact?question=${encodeURIComponent(m.userQuery || '')}`}
-                      onClick={() => setIsOpen(false)}
+                      onClick={() => setWidgetState('closed')}
                       className="button button-primary"
                       style={{
                         fontSize: '0.8rem',
@@ -142,7 +160,7 @@ export const JawedAiWidget: React.FC = () => {
                   </div>
                 )}
 
-                {/* Referenced Documentation Sources */}
+                {/* Referenced Documentation Source Link Chips */}
                 {m.sources && m.sources.length > 0 && (
                   <div className="jawed-ai-widget-sources" style={{ marginTop: '8px' }}>
                     <small style={{ fontWeight: 600, color: 'var(--muted)' }}>Sources:</small>
@@ -150,8 +168,8 @@ export const JawedAiWidget: React.FC = () => {
                       <Link
                         key={sIdx}
                         to={src.url}
-                        onClick={() => setIsOpen(false)}
-                        style={{ display: 'block', fontSize: '0.8rem', color: 'var(--accent)' }}
+                        onClick={() => setWidgetState('closed')}
+                        style={{ display: 'block', fontSize: '0.8rem', color: 'var(--accent)', marginTop: '2px' }}
                       >
                         {src.title}
                       </Link>
@@ -169,7 +187,7 @@ export const JawedAiWidget: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Controlled Form Submission Handler */}
+          {/* Spacious & Accessible Input Form */}
           <form
             className="jawed-ai-widget-form"
             onSubmit={(e) => {
@@ -177,22 +195,23 @@ export const JawedAiWidget: React.FC = () => {
               handleSend();
             }}
           >
-            <input
-              type="text"
-              placeholder="e.g. How do I crimp RJ45 or calculate subnets?"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              disabled={loading}
-              aria-label="Ask Jawed AI a question"
-            />
-            <button
-              className="button button-primary"
-              type="submit"
-              disabled={loading || !query.trim()}
-              style={{ width: '100%', marginTop: '6px' }}
-            >
-              {loading ? 'Sending...' : 'Send'}
-            </button>
+            <div className="jawed-ai-input-row">
+              <input
+                type="text"
+                placeholder="Ask a question..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                disabled={loading}
+                aria-label="Type your question for Jawed AI"
+              />
+              <button
+                className="jawed-ai-send-btn"
+                type="submit"
+                disabled={loading || !query.trim()}
+              >
+                {loading ? '...' : 'Send'}
+              </button>
+            </div>
           </form>
         </div>
       )}

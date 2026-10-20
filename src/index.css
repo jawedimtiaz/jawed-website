@@ -839,37 +839,39 @@ select:focus-visible {
   }
 }
 
-/* Jawed AI Chat Floating Panel */
+/* Jawed AI Chat Floating Panel Refactor */
 .jawed-ai-widget {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
-  z-index: 90;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
 }
 
 .jawed-ai-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 12px 20px;
-  border: 0;
+  border: none;
   border-radius: 999px;
   background: linear-gradient(135deg, var(--accent-dark), var(--teal));
-  color: #fff;
+  color: #ffffff;
   font-weight: 700;
   font-size: 0.95rem;
   box-shadow: 0 8px 24px rgba(2, 132, 199, 0.4);
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .jawed-ai-toggle:hover {
-  transform: scale(1.05);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 12px 28px rgba(56, 189, 248, 0.45);
 }
 
 .jawed-ai-panel {
-  position: absolute;
-  right: 0;
-  bottom: 60px;
-  width: min(380px, calc(100vw - 32px));
-  max-height: calc(100dvh - 90px);
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  max-height: 580px;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--line);
@@ -877,6 +879,193 @@ select:focus-visible {
   background: var(--surface);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   overflow: hidden;
+  animation: widgetSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes widgetSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Distinct Header Bar */
+.jawed-ai-widget-header {
+  padding: 14px 16px;
+  background: var(--bg-darker);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.jawed-ai-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.jawed-ai-header-titles strong {
+  font-size: 0.95rem;
+  color: var(--text-heading);
+  letter-spacing: -0.01em;
+}
+
+.jawed-ai-header-titles span {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.jawed-ai-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jawed-ai-action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted-light);
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.jawed-ai-action-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.jawed-ai-widget-privacy {
+  padding: 8px 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border-bottom: 1px solid var(--line-subtle);
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+/* Contained Scrollable Message Container */
+.jawed-ai-widget-messages {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 360px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbars for Dark Slate Aesthetic */
+.jawed-ai-widget-messages::-webkit-scrollbar {
+  width: 6px;
+}
+.jawed-ai-widget-messages::-webkit-scrollbar-track {
+  background: var(--bg-darker);
+}
+.jawed-ai-widget-messages::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+.jawed-ai-widget-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+.jawed-ai-widget-message {
+  max-width: 88%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.jawed-ai-widget-message.user {
+  align-self: flex-end;
+  background: var(--accent-dark);
+  color: #ffffff;
+  border-bottom-right-radius: 2px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2);
+}
+
+.jawed-ai-widget-message.assistant {
+  align-self: flex-start;
+  background: var(--bg-darker);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-bottom-left-radius: 2px;
+}
+
+/* Spacious & Accessible Input Area */
+.jawed-ai-widget-form {
+  padding: 12px 14px;
+  background: var(--bg-darker);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jawed-ai-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.jawed-ai-input-row input {
+  flex: 1;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.jawed-ai-input-row input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+.jawed-ai-send-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--accent-dark);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.jawed-ai-send-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #0f172a;
+}
+
+.jawed-ai-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Additional Tool & Calculator Styles */
