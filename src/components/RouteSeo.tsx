@@ -54,7 +54,7 @@ const STATIC_METADATA: Record<string, RouteMetadata> = {
   '/notes': {
     title: 'Field Guides & Knowledge Base',
     description: 'Practical IT troubleshooting guides, knowledge-base articles, and step-by-step technical references from Jawed Imtiaz.',
-    canonicalPath: '/notes/',
+    canonicalPath: '/field-guides/',
     ogType: 'website',
   },
   '/field-guides': {
@@ -104,6 +104,7 @@ const STATIC_METADATA: Record<string, RouteMetadata> = {
     description: 'Ask questions about published technical guides, IT troubleshooting methods, and tools on Jawed.co.in.',
     canonicalPath: '/ai/',
     ogType: 'website',
+    robots: 'noindex, follow',
   },
   '/contact': {
     title: 'Contact Jawed Imtiaz',
@@ -132,13 +133,13 @@ const STATIC_METADATA: Record<string, RouteMetadata> = {
   '/services': {
     title: 'Services & IT Field Dispatch',
     description: 'Information about IT field support, workplace technology, and service dispatch resources.',
-    canonicalPath: '/services/',
+    canonicalPath: '/services-dispatch/',
     ogType: 'website',
   },
   '/services-dispatch': {
     title: 'Services & IT Field Dispatch',
     description: 'Information about IT field support, workplace technology, and service dispatch resources.',
-    canonicalPath: '/services/',
+    canonicalPath: '/services-dispatch/',
     ogType: 'website',
   },
 };
