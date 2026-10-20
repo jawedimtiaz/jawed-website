@@ -11,7 +11,7 @@ export const PrivacyPage: React.FC = () => {
       <p className="eyebrow">Legal &amp; Compliance</p>
       <h1>Privacy Policy &amp; Data Handling</h1>
       <p className="meta" style={{ color: 'var(--muted)', marginBottom: '24px' }}>
-        Last Updated: October 20, 2026 | Google AdSense &amp; GDPR / CCPA Compliant
+        Last Updated: October 20, 2026
       </p>
 
       <section className="content-section">
@@ -28,19 +28,19 @@ export const PrivacyPage: React.FC = () => {
         </p>
         <ul style={{ paddingLeft: '20px', lineHeight: 1.8 }}>
           <li>
-            <strong>DoubleClick DART Cookie:</strong> Google’s use of advertising cookies enables it and its partners to serve ads to users based on their visit to this site and/or other sites on the Internet.
+            <strong>Advertising cookies:</strong> If an advertising service is enabled, Google and its partners may use cookies or similar technologies to support ad delivery and personalization, subject to the applicable settings and consent requirements.
           </li>
           <li>
             <strong>Opting Out of Personalized Ads:</strong> Users may opt out of personalized advertising by visiting <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google Ads Settings</a>. Alternatively, you can opt out of third-party vendor cookies for personalized advertising by visiting <a href="https://www.aboutads.info/choices/" target="_blank" rel="noopener noreferrer">www.aboutads.info</a>.
           </li>
           <li>
-            <strong>IAB Transparency and Consent Framework (TCF v2.2):</strong> For visitors located in the European Economic Area (EEA), United Kingdom (UK), or Switzerland, personalized advertising is served strictly in compliance with Google’s certified Consent Management Platform (CMP) requirements.
+            <strong>Regional consent requirements:</strong> If advertising is enabled for visitors in the European Economic Area (EEA), United Kingdom (UK), or Switzerland, the publisher must meet applicable consent requirements, including Google’s certified Consent Management Platform (CMP) requirements where required.
           </li>
         </ul>
       </section>
 
       <section className="content-section">
-        <h2>3. Web Analytics &amp; Telemetry (Google Analytics 4)</h2>
+        <h2>3. Web Analytics &amp; Telemetry</h2>
         <p>
           Analytics measurement may be introduced only when the corresponding analytics service is configured and the applicable consent and privacy requirements are met. If Google Analytics 4 (GA4) is enabled, it may collect usage and technical metrics using cookies or similar technologies. This policy does not mean that GA4 is currently active. The site should not send directly identifying personal information to analytics services.
         </p>
