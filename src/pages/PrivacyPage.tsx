@@ -78,7 +78,7 @@ export const PrivacyPage: React.FC = () => {
       <section className="content-section">
         <h2>7. Data Controller &amp; Contact Information</h2>
         <p>
-          If you have questions regarding this Privacy Policy or wish to exercise your privacy rights, please contact our Data Protection Officer at:
+          For privacy questions or requests to exercise your privacy rights, contact:
         </p>
         <p style={{ background: 'var(--surface)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)' }}>
           <strong>Jawed Imtiaz</strong> — IT Field Tech &amp; Publisher<br />
