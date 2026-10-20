@@ -11,28 +11,35 @@
   <meta name="theme-color" content="#0f172a" />
   
   <style>
-    :root {
-      --bg: #0f172a;
-      --bg-darker: #020617;
-      --surface: #1e293b;
-      --text: #f8fafc;
-      --text-heading: #ffffff;
-      --muted: #94a3b8;
-      --muted-light: #cbd5e1;
-      --line: #334155;
-      --accent: #38bdf8;
-      --accent-hover: #7dd3fc;
-      --accent-dark: #0284c7;
-      --teal: #2dd4bf;
-    }
-    
-    * { box-sizing: border-box; }
-    
-    body {
+    /* 1. Global CSS Resets & Box Model */
+    * {
+      box-sizing: border-box;
       margin: 0;
-      background: var(--bg);
+      padding: 0;
+    }
+
+    /* 2. Slate Color Variables */
+    :root {
+      --bg: #0f172a;               /* Slate 900 */
+      --bg-darker: #020617;        /* Slate 950 */
+      --surface: #1e293b;          /* Slate 800 */
+      --surface-hover: #334155;    /* Slate 700 */
+      --text: #f8fafc;             /* Slate 50 */
+      --text-heading: #ffffff;
+      --muted: #94a3b8;            /* Slate 400 */
+      --muted-light: #cbd5e1;      /* Slate 300 */
+      --line: #334155;             /* Slate 700 */
+      --line-subtle: #1e293b;      /* Slate 800 */
+      --accent: #38bdf8;           /* Sky 400 */
+      --accent-hover: #7dd3fc;     /* Sky 300 */
+      --accent-dark: #0284c7;      /* Sky 600 */
+      --teal: #2dd4bf;             /* Teal 400 */
+    }
+
+    body {
+      background-color: var(--bg);
       color: var(--text);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
       display: flex;
@@ -43,12 +50,18 @@
     a {
       color: var(--accent);
       text-decoration: none;
-      transition: color 0.15s ease;
+      transition: all 0.15s ease;
     }
 
     a:hover {
       color: var(--accent-hover);
-      text-decoration: underline;
+    }
+
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
 
     .container {
@@ -56,13 +69,14 @@
       margin-inline: auto;
     }
 
-    /* Site Header */
+    /* 3. Header Navigation & Brand Styling */
     .site-header {
       position: sticky;
       top: 0;
       z-index: 80;
-      background: rgba(15, 23, 42, 0.92);
+      background: rgba(15, 23, 42, 0.94);
       backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--line);
     }
 
@@ -82,16 +96,18 @@
     }
 
     .site-brand-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 9px;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
       background: linear-gradient(135deg, var(--accent-dark), var(--teal));
-      color: #fff;
+      color: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
       font-size: 1rem;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+      flex-shrink: 0;
     }
 
     .site-title {
@@ -104,17 +120,20 @@
       font-size: 1.125rem;
       color: var(--text-heading);
       line-height: 1.2;
+      letter-spacing: -0.01em;
     }
 
     .site-tagline {
       font-size: 0.75rem;
       color: var(--muted);
+      font-weight: 500;
+      letter-spacing: 0.02em;
     }
 
     .site-nav {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
     }
 
     .nav-item {
@@ -124,6 +143,7 @@
       font-size: 0.938rem;
       font-weight: 500;
       text-decoration: none !important;
+      transition: all 0.15s ease;
     }
 
     .nav-item:hover {
@@ -132,16 +152,24 @@
     }
 
     .nav-cta {
-      padding: 8px 16px;
+      padding: 9px 18px;
       border-radius: 8px;
       background: linear-gradient(135deg, var(--accent-dark), #0369a1);
-      color: #fff !important;
+      color: #ffffff !important;
       font-weight: 600;
       font-size: 0.875rem;
       text-decoration: none !important;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+      transition: all 0.15s ease;
     }
 
-    /* Hero 404 Main Section */
+    .nav-cta:hover {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: #0f172a !important;
+      box-shadow: 0 6px 16px rgba(56, 189, 248, 0.4);
+    }
+
+    /* 4. Main Error Content & Centered Card */
     main {
       flex: 1;
       display: flex;
@@ -153,11 +181,12 @@
     .error-card {
       text-align: center;
       max-width: 680px;
+      width: 100%;
       background: var(--surface);
       border: 1px solid var(--line);
       border-radius: 20px;
       padding: 48px 32px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     }
 
     .error-code-badge {
@@ -168,31 +197,33 @@
       border: 1px solid var(--accent);
       color: var(--accent);
       font-weight: 700;
-      font-size: 0.85rem;
+      font-size: 0.825rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      margin-bottom: 16px;
+      margin-bottom: 18px;
     }
 
     h1 {
-      font-size: clamp(2rem, 4vw, 2.75rem);
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
       margin: 0 0 12px;
       color: var(--text-heading);
       letter-spacing: -0.02em;
+      font-weight: 800;
     }
 
     p.lead {
       color: var(--muted-light);
       font-size: 1.05rem;
       line-height: 1.6;
-      margin: 0 0 28px;
+      margin: 0 auto 28px;
+      max-width: 520px;
     }
 
-    /* Search & Redirect Box */
+    /* 5. Input Search Bar */
     .search-box-wrapper {
       display: flex;
-      gap: 8px;
-      max-width: 480px;
+      gap: 10px;
+      max-width: 500px;
       margin: 0 auto 36px;
     }
 
@@ -205,6 +236,7 @@
       color: var(--text);
       font-size: 0.95rem;
       outline: none;
+      transition: border-color 0.15s ease;
     }
 
     .search-input:focus {
@@ -217,28 +249,29 @@
       border-radius: 10px;
       border: none;
       background: var(--accent-dark);
-      color: #fff;
+      color: #ffffff;
       font-weight: 600;
       font-size: 0.9rem;
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: all 0.15s ease;
+      white-space: nowrap;
     }
 
     .search-button:hover {
       background: var(--accent);
-      color: var(--bg-darker);
+      color: #0f172a;
     }
 
-    /* Destination Grid */
-    .destination-grid {
+    /* 6. 4-Column Destination Grid (.dest-grid) */
+    .dest-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 12px;
       margin-top: 24px;
     }
 
     .dest-card {
-      padding: 14px 12px;
+      padding: 16px 12px;
       border-radius: 12px;
       border: 1px solid var(--line);
       background: var(--bg-darker);
@@ -250,20 +283,21 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
 
     .dest-card:hover {
       border-color: var(--accent);
       color: var(--accent);
       transform: translateY(-2px);
+      background: rgba(56, 189, 248, 0.06);
     }
 
     .dest-card span.icon {
-      font-size: 1.4rem;
+      font-size: 1.5rem;
     }
 
-    /* Footer */
+    /* 7. Footer */
     footer {
       border-top: 1px solid var(--line);
       padding: 32px 0;
@@ -273,92 +307,107 @@
       text-align: center;
     }
 
-    @media (max-width: 600px) {
-      .site-nav { display: none; }
-      .search-box-wrapper { flex-direction: column; }
+    /* 8. Mobile Responsiveness */
+    @media (max-width: 768px) {
+      .site-nav {
+        display: none;
+      }
+      .dest-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .search-box-wrapper {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 <body>
 
   <!-- Site Header -->
-  <header className="site-header">
-    <div className="container header-inner">
-      <a className="site-brand" href="/">
-        <div className="site-brand-icon">JI</div>
-        <div className="site-title">
-          <span className="site-name">Jawed Imtiaz</span>
-          <span className="site-tagline">IT Field Tech &amp; Engineering</span>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="site-brand" href="/">
+        <div class="site-brand-icon">JI</div>
+        <div class="site-title">
+          <span class="site-name">Jawed Imtiaz</span>
+          <span class="site-tagline">IT Field Tech &amp; Engineering</span>
         </div>
       </a>
 
-      <nav className="site-nav">
-        <a className="nav-item" href="/field-guides">Field Guides</a>
-        <a className="nav-item" href="/tools">Diagnostic Tools</a>
-        <a className="nav-item" href="/services">Services</a>
-        <a className="nav-item" href="/about">About</a>
-        <a className="nav-cta" href="/contact">Get in Touch →</a>
+      <nav class="site-nav">
+        <a class="nav-item" href="/field-guides">Field Guides</a>
+        <a class="nav-item" href="/tools">Diagnostic Tools</a>
+        <a class="nav-item" href="/services">Services</a>
+        <a class="nav-item" href="/about">About</a>
+        <a class="nav-cta" href="/contact">Get in Touch →</a>
       </nav>
     </div>
   </header>
 
   <!-- Main 404 Hero Section -->
-  <main className="container">
-    <div className="error-card">
-      <span className="error-code-badge">404 · Route Not Found</span>
+  <main class="container">
+    <article class="error-card">
+      <span class="error-code-badge">404 · Route Not Found</span>
       <h1>Looking for Technical Resources?</h1>
-      <p className="lead">
+      <p class="lead">
         The link you clicked may have moved, been renamed, or is temporarily offline. Don’t worry—our field guides and IT utilities are easy to find.
       </p>
 
-      <!-- Quick Search / Jump Input -->
-      <form
-        className="search-box-wrapper"
-        action="/field-guides"
-        method="GET"
-        onSubmit="(e) => { e.preventDefault(); const q = document.getElementById('q').value; window.location.href = '/field-guides?search=' + encodeURIComponent(q); }"
-      >
+      <!-- Search Bar Form -->
+      <form id="search-form" class="search-box-wrapper" action="/field-guides" method="GET">
         <input
-          id="q"
+          id="search-query"
           type="text"
           name="search"
-          className="search-input"
+          class="search-input"
           placeholder="Search field guides, subnet tools, KB notes..."
           aria-label="Search site documentation"
         />
-        <button type="submit" className="search-button">
+        <button type="submit" class="search-button">
           Search Documentation
         </button>
       </form>
 
-      <!-- Recommended Popular Destinations -->
-      <div className="destination-grid">
-        <a href="/" className="dest-card">
-          <span className="icon">🏠</span>
+      <!-- 4-Column Destination Grid (.dest-grid) -->
+      <div class="dest-grid">
+        <a href="/" class="dest-card">
+          <span class="icon">🏠</span>
           <span>Homepage</span>
         </a>
-        <a href="/field-guides" className="dest-card">
-          <span className="icon">📖</span>
+        <a href="/field-guides" class="dest-card">
+          <span class="icon">📖</span>
           <span>Field Guides</span>
         </a>
-        <a href="/tools" className="dest-card">
-          <span className="icon">🛠️</span>
+        <a href="/tools" class="dest-card">
+          <span class="icon">🛠️</span>
           <span>Diagnostic Tools</span>
         </a>
-        <a href="/contact" className="dest-card">
-          <span className="icon">✉️</span>
+        <a href="/contact" class="dest-card">
+          <span class="icon">✉️</span>
           <span>Contact Page</span>
         </a>
       </div>
-    </div>
+    </article>
   </main>
 
   <!-- Footer -->
   <footer>
-    <div className="container">
+    <div class="container">
       <p>© 2026 Jawed Imtiaz. Senior IT Field Tech · Uber Enterprise Technology (via Milestone Tech).</p>
     </div>
   </footer>
 
+  <!-- Vanilla JS Redirect Script for Search -->
+  <script>
+    document.getElementById('search-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var q = document.getElementById('search-query').value.trim();
+      if (q) {
+        window.location.href = '/field-guides?search=' + encodeURIComponent(q);
+      } else {
+        window.location.href = '/field-guides';
+      }
+    });
+  </script>
 </body>
 </html>
