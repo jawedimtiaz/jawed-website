@@ -6,22 +6,34 @@
   "max_body_bytes": 500000,
   "checks": [
     {
-      "path": "/assets/css/style.css",
+      "path": "/favicon.svg",
       "status": 200,
-      "content_type": "text/css",
-      "min_body_bytes": 1000
+      "content_type": "image/svg+xml",
+      "min_body_bytes": 100
     },
     {
-      "path": "/assets/js/main.js",
+      "path": "/favicon.ico",
+      "status": 200,
+      "content_type": "image/x-icon",
+      "min_body_bytes": 100
+    },
+    {
+      "path": "/manifest.webmanifest",
+      "status": 200,
+      "content_type": "application/manifest+json",
+      "min_body_bytes": 100
+    },
+    {
+      "path": "/assets/images/social-preview.png",
+      "status": 200,
+      "content_type": "image/png",
+      "min_body_bytes": 10000
+    },
+    {
+      "path": "/sw.js",
       "status": 200,
       "content_type": "application/javascript",
       "min_body_bytes": 1000
-    },
-    {
-      "path": "/assets/js/analytics.js",
-      "status": 200,
-      "content_type": "application/javascript",
-      "min_body_bytes": 500
     }
   ]
 }
