@@ -1,151 +1,293 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { SeoHead } from '../components/SeoHead';
 
 export const HomePage: React.FC = () => {
   return (
     <main>
+      <SeoHead
+        title="Jawed Imtiaz | IT Field Tech, Troubleshooting Guides & Practical Tools"
+        description="Practical IT field guides, IPv4 subnet calculators, server rack power calculators, and interactive IT service desk diagnostic utilities by Jawed Imtiaz."
+        canonicalUrl="https://jawed.co.in/"
+        ogType="website"
+      />
+
+      {/* Hero Section */}
       <section className="hero container">
-        <p className="eyebrow">IT Support · Workplace Technology · Practical Tools</p>
-        <h1>IT Field Tech focused on support, workplace technology and practical problem-solving.</h1>
+        <p className="eyebrow">IT Support · Workplace Technology · Practical Field Tools</p>
+        <h1>IT Field Engineering, Technical Troubleshooting Guides &amp; Interactive Utilities</h1>
         <p className="lead">
-          I’m Jawed Imtiaz, an IT professional focused on user support, Service Desk operations, workplace technology, Apple and macOS, device management and practical IT problem-solving. I also build useful browser-based tools and share what I learn about AI, productivity and digital work.
+          I’m Jawed Imtiaz, a Senior IT Field Tech supporting enterprise workplace infrastructure at Uber (via Milestone Technologies). I build open-access network calculators, publish detailed field engineering checklists, and share practical IT troubleshooting procedures.
         </p>
         <div className="actions">
-          <Link className="button" to="/work">View My Professional Profile →</Link>
-          <Link className="button button-secondary" to="/tools">Explore My Tools →</Link>
-          <Link className="button button-secondary" to="/contact">Contact Me →</Link>
+          <Link className="button button-primary" to="/field-guides">Read Field Guides →</Link>
+          <Link className="button button-secondary" to="/tools">Open Diagnostic Tools →</Link>
+          <Link className="button button-secondary" to="/services">Services &amp; Dispatch →</Link>
         </div>
       </section>
 
+      {/* Featured Technical Field Guides Section */}
       <section className="container page-section">
-        <p className="eyebrow">Work evidence</p>
-        <h2>How I apply these skills</h2>
-        <p>Selected examples show how I approach troubleshooting, device support and technical documentation in practical work.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+          <div>
+            <p className="eyebrow">In-Depth Technical Documentation</p>
+            <h2 style={{ margin: 0 }}>Featured Technical Field Guides</h2>
+          </div>
+          <Link to="/field-guides" className="button button-secondary" style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
+            View All Guides &amp; KB →
+          </Link>
+        </div>
+
+        <div className="card-grid two">
+          <article className="card" style={{ borderLeft: '4px solid var(--accent)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
+                Network Infrastructure
+              </span>
+              <h3 style={{ fontSize: '1.15rem', margin: '6px 0 10px', lineHeight: '1.35' }}>
+                <Link to="/field-guides/rj45-cabling-t568a-vs-t568b-guide" style={{ textDecoration: 'none', color: 'var(--text-heading)' }}>
+                  RJ45 Cabling: T568A vs T568B Standards &amp; Pinouts
+                </Link>
+              </h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 16px' }}>
+                Master RJ45 color coding standards, T568A vs T568B wiremaps, crimping best practices, and wiremapper diagnostic fault readings.
+              </p>
+            </div>
+            <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--muted)' }}>
+              <span>8 min read</span>
+              <Link to="/field-guides/rj45-cabling-t568a-vs-t568b-guide" style={{ fontWeight: 600, color: 'var(--accent)' }}>
+                Read Guide →
+              </Link>
+            </div>
+          </article>
+
+          <article className="card" style={{ borderLeft: '4px solid var(--teal)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', background: 'rgba(20, 184, 166, 0.15)', color: 'var(--teal)' }}>
+                Data Center &amp; Hardware
+              </span>
+              <h3 style={{ fontSize: '1.15rem', margin: '6px 0 10px', lineHeight: '1.35' }}>
+                <Link to="/field-guides/server-rack-cable-management-best-practices" style={{ textDecoration: 'none', color: 'var(--text-heading)' }}>
+                  Server Rack Cable Management: Patch Panel to Switch
+                </Link>
+              </h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 16px' }}>
+                Professional server rack cable routing, Cat6A bend radius rules, Velcro vs zip-tie rules, hot/cold aisle thermal optimization, and ANSI/TIA-606-C labeling.
+              </p>
+            </div>
+            <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--muted)' }}>
+              <span>9 min read</span>
+              <Link to="/field-guides/server-rack-cable-management-best-practices" style={{ fontWeight: 600, color: 'var(--teal)' }}>
+                Read Guide →
+              </Link>
+            </div>
+          </article>
+
+          <article className="card" style={{ borderLeft: '4px solid var(--indigo)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--indigo)' }}>
+                Network Switching &amp; Triage
+              </span>
+              <h3 style={{ fontSize: '1.15rem', margin: '6px 0 10px', lineHeight: '1.35' }}>
+                <Link to="/field-guides/diagnosing-network-port-flapping-cli-guide" style={{ textDecoration: 'none', color: 'var(--text-heading)' }}>
+                  Diagnosing Network Port Flapping: CLI &amp; Layer 1 Checks
+                </Link>
+              </h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 16px' }}>
+                Troubleshoot link flapping, speed/duplex autonegotiation mismatches, CRC FCS errors, and SFP transceiver optical dBm levels in Cisco IOS &amp; Aruba CX.
+              </p>
+            </div>
+            <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--muted)' }}>
+              <span>10 min read</span>
+              <Link to="/field-guides/diagnosing-network-port-flapping-cli-guide" style={{ fontWeight: 600, color: 'var(--indigo)' }}>
+                Read Guide →
+              </Link>
+            </div>
+          </article>
+
+          <article className="card" style={{ borderLeft: '4px solid var(--amber)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber)' }}>
+                Server Hardware &amp; Field Service
+              </span>
+              <h3 style={{ fontSize: '1.15rem', margin: '6px 0 10px', lineHeight: '1.35' }}>
+                <Link to="/field-guides/poweredge-proliant-amber-led-indicator-cheatsheet" style={{ textDecoration: 'none', color: 'var(--text-heading)' }}>
+                  PowerEdge &amp; ProLiant Amber Indicator Code Cheatsheet
+                </Link>
+              </h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 16px' }}>
+                On-site diagnostic reference for Dell PowerEdge iDRAC status codes and HPE ProLiant Systems Insight Display (SID) LEDs, detailing RAM, PSU, and RAID fault recovery.
+              </p>
+            </div>
+            <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--muted)' }}>
+              <span>9 min read</span>
+              <Link to="/field-guides/poweredge-proliant-amber-led-indicator-cheatsheet" style={{ fontWeight: 600, color: 'var(--amber)' }}>
+                Read Guide →
+              </Link>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      {/* Practical Diagnostic Utilities Grid */}
+      <section className="container page-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+          <div>
+            <p className="eyebrow">Interactive Browser Calculators</p>
+            <h2 style={{ margin: 0 }}>Practical Diagnostic Utilities</h2>
+          </div>
+          <Link to="/tools" className="button button-secondary" style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
+            View All Utilities →
+          </Link>
+        </div>
+
         <div className="card-grid">
-          <article className="card">
-            <p className="eyebrow">Troubleshooting</p>
-            <h3>First-response problem solving</h3>
-            <p>Scope the impact, gather evidence, isolate likely causes, test the smallest appropriate change and validate the result.</p>
-            <Link to="/work/projects">View the work evidence →</Link>
+          <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>Network Calculator</span>
+              <h3 style={{ fontSize: '1.1rem', margin: '6px 0 8px' }}>IPv4 Subnet &amp; CIDR Calculator</h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 14px' }}>
+                Calculate network boundaries, host ranges, broadcast IDs, Cisco ACL wildcard masks, and 32-bit binary octets.
+              </p>
+            </div>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+              <Link to="/tools/ipv4-subnet-calculator" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>
+                Open Subnet Calculator →
+              </Link>
+            </div>
           </article>
-          <article className="card">
-            <p className="eyebrow">Device lifecycle</p>
-            <h3>Provisioning &amp; handoff</h3>
-            <p>A repeatable approach to preparing, validating and handing over workplace devices with clear support documentation.</p>
-            <Link to="/notes/device-provisioning-handoff-checklist">Read the checklist →</Link>
+
+          <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>Data Center Tool</span>
+              <h3 style={{ fontSize: '1.1rem', margin: '6px 0 8px' }}>Server Rack Power &amp; BTU Calculator</h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 14px' }}>
+                Estimate equipment power draw (Watts/kW), circuit amperage (120V/208V), NEC 80% continuous load circuit derating, and HVAC BTU/hr cooling load.
+              </p>
+            </div>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+              <Link to="/tools/server-rack-power-btu-calculator" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--emerald)' }}>
+                Open Power &amp; BTU Calculator →
+              </Link>
+            </div>
           </article>
-          <article className="card">
-            <p className="eyebrow">Documentation</p>
-            <h3>Clear technical handoffs</h3>
-            <p>Capture symptoms, evidence, actions, results and next steps so another technician can continue the work efficiently.</p>
-            <Link to="/notes/service-desk-ticket-documentation">Read the documentation note →</Link>
+
+          <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>ITSM Workflow</span>
+              <h3 style={{ fontSize: '1.1rem', margin: '6px 0 8px' }}>IT Troubleshooting Assistant</h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 14px' }}>
+                Step-by-step layer-by-layer diagnostic checklists for network connectivity, Apple macOS Sonoma/Sequoia, and Microsoft 365 issues.
+              </p>
+            </div>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+              <Link to="/tools/it-troubleshooting-assistant" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--indigo)' }}>
+                Launch Troubleshooting Assistant →
+              </Link>
+            </div>
+          </article>
+
+          <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>Ticket Formatting</span>
+              <h3 style={{ fontSize: '1.1rem', margin: '6px 0 8px' }}>Service Desk Note Formatter</h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 14px' }}>
+                Convert raw notes into structured, audit-ready ITSM ticket resolution updates with root-cause formatting.
+              </p>
+            </div>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+              <Link to="/tools/service-desk-note-formatter" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--amber)' }}>
+                Open Note Formatter →
+              </Link>
+            </div>
           </article>
         </div>
       </section>
 
+      {/* Professional Career Timeline Section */}
       <section className="container page-section">
-        <p className="eyebrow">Career</p>
-        <h2>My Career</h2>
-        <p>My professional journey has taken me through technical support, system administration, technical support management and IT workplace support.</p>
+        <p className="eyebrow">Professional Background</p>
+        <h2>Career &amp; Field Experience</h2>
+        <p style={{ color: 'var(--muted-light)', marginBottom: '24px' }}>
+          Over a decade of enterprise technical support, workplace engineering, system administration, and IT service management.
+        </p>
+
         <div className="timeline">
           <article className="timeline-item">
             <h3>IT Field Tech</h3>
-            <p className="meta">Milestone Technologies, Inc. — Uber</p>
+            <p className="meta">Milestone Technologies, Inc. — Supporting Uber Enterprise Workplace Technology</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
+              Delivering white-glove on-site support, Apple/Jamf macOS provisioning, Microsoft Entra ID management, physical cabling diagnostics, and high-SLA ticket resolutions.
+            </p>
           </article>
+
           <article className="timeline-item">
             <h3>Technical Support Manager</h3>
             <p className="meta">Currents Technology</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
+              Led Tier 1-3 technical support teams, established incident escalation protocols, and managed infrastructure uptime.
+            </p>
           </article>
+
           <article className="timeline-item">
             <h3>System Executive</h3>
             <p className="meta">ICore</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
+              Administered Active Directory domain controllers, Group Policy Objects (GPOs), network backups, and user access roles.
+            </p>
           </article>
+
           <article className="timeline-item">
             <h3>System Administrator</h3>
             <p className="meta">Khadims</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
+              Managed retail network infrastructure, point-of-sale hardware reliability, and multi-branch data synchronization.
+            </p>
           </article>
+
           <article className="timeline-item">
             <h3>Technical Support Executive</h3>
             <p className="meta">Altos</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
+              First-line hardware diagnostics, desktop OS repairs, network socket patching, and client support.
+            </p>
           </article>
         </div>
-        <p style={{ marginTop: '16px' }}>
-          <Link className="button button-secondary" to="/work/experience">View My Experience →</Link>
+
+        <p style={{ marginTop: '20px' }}>
+          <Link className="button button-secondary" to="/about">View Full Professional Credentials &amp; Certifications →</Link>
         </p>
       </section>
 
+      {/* Highlights & Recognitions */}
       <section className="container page-section">
-        <p className="eyebrow">Current learning</p>
-        <h2>What I’m Learning</h2>
-        <div className="card-grid two">
-          <article className="card">
-            <h3>Jamf</h3>
-            <p>Building my knowledge of Apple device management and Jamf.</p>
-            <span className="badge">In progress</span>
-          </article>
-          <article className="card">
-            <h3>ITIL</h3>
-            <p>Developing my understanding of IT service management practices and ITIL.</p>
-            <span className="badge">In progress</span>
-          </article>
-        </div>
-      </section>
-
-      <section className="container page-section">
-        <p className="eyebrow">Highlights</p>
-        <h2>A Few Highlights</h2>
+        <p className="eyebrow">Recognitions</p>
+        <h2>Performance Recognition Highlights</h2>
         <div className="stats-grid">
           <div className="stat">
             <strong>User Satisfaction</strong>
-            <span>Consistently positive user feedback</span>
+            <span>Consistently top-rated ticket feedback</span>
           </div>
           <div className="stat">
             <strong>People’s Choice Award</strong>
-            <span>Uber Vizag COE recognition</span>
+            <span>Uber Vizag COE peer recognition</span>
           </div>
           <div className="stat">
             <strong>Employee of the Quarter</strong>
-            <span>Recognition for performance and contribution</span>
+            <span>Awarded for field service performance</span>
           </div>
           <div className="stat">
-            <strong>Tech Support Guru Award</strong>
-            <span>People’s Choice recognition for technical support</span>
+            <strong>Tech Support Guru</strong>
+            <span>People’s Choice technical recognition</span>
           </div>
           <div className="stat">
             <strong>Jugaad Genius Award</strong>
-            <span>People’s Choice recognition for practical problem-solving</span>
+            <span>Recognized for innovative field problem-solving</span>
           </div>
           <div className="stat">
             <strong>The Solar Power Award</strong>
             <span>“Always charged up, even on Mondays”</span>
           </div>
-        </div>
-      </section>
-
-      <section className="container page-section">
-        <p className="eyebrow">Find your path</p>
-        <h2>What are you looking for?</h2>
-        <div className="card-grid">
-          <article className="card">
-            <h3>“Who is Jawed?”</h3>
-            <p>See my background, career journey and professional profile.</p>
-            <Link to="/about">About me →</Link>
-          </article>
-          <article className="card">
-            <h3>“I want to learn.”</h3>
-            <p>Browse practical notes, topics and resources across technology, AI and digital work.</p>
-            <Link to="/notes">Browse Notes →</Link>
-          </article>
-          <article className="card">
-            <h3>“I need a tool.”</h3>
-            <p>Use practical browser-based utilities for career, IT and planning tasks.</p>
-            <Link to="/tools">Browse Tools →</Link>
-          </article>
-          <article className="card">
-            <h3>“I want to ask.”</h3>
-            <p>Use Jawed AI to find relevant content across the site through a conversation.</p>
-            <Link to="/ai">Open Jawed AI →</Link>
-          </article>
         </div>
       </section>
     </main>
