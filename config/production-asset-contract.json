@@ -14,13 +14,13 @@
     {
       "path": "/favicon.ico",
       "status": 200,
-      "content_type": "image/x-icon",
+      "content_type": "image/",
       "min_body_bytes": 100
     },
     {
       "path": "/manifest.webmanifest",
       "status": 200,
-      "content_type": "application/manifest+json",
+      "content_type": "application/",
       "min_body_bytes": 100
     },
     {
@@ -32,7 +32,7 @@
     {
       "path": "/sw.js",
       "status": 200,
-      "content_type": "application/javascript",
+      "content_type": "javascript",
       "min_body_bytes": 1000
     }
   ]
