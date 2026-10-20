@@ -3,7 +3,7 @@
   "scope": "production-static-asset-reliability",
   "production_origin": "https://jawed.co.in",
   "max_redirects": 0,
-  "max_body_bytes": 500000,
+  "max_body_bytes": 2000000,
   "checks": [
     {
       "path": "/favicon.svg",
@@ -35,5 +35,6 @@
       "content_type": "javascript",
       "min_body_bytes": 1000
     }
-  ]
+  ],
+  "discover_vite_assets_from_homepage": true
 }
