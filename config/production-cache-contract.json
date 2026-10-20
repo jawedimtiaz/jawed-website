@@ -24,5 +24,6 @@
       "require_cache_control": true,
       "cache_policy": "public"
     }
-  ]
+  ],
+  "discover_vite_assets_from_homepage": true
 }
