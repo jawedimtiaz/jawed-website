@@ -19,9 +19,9 @@ function expectedCanonicalPath(path){
  const p=(path.split("?")[0]||"/").replace(/\/+$/,"")||"/";
  if(p==="/")return "/";
  if(p==="/guides"||p==="/field-guides")return "/field-guides/";
- if(p==="/notes")return "/notes/";
+ if(p==="/notes")return "/field-guides/";
  if(p==="/tools"||p==="/diagnostic-tools")return "/tools/";
- if(p==="/services"||p==="/services-dispatch")return "/services/";
+ if(p==="/services"||p==="/services-dispatch")return "/services-dispatch/";
  if(p.startsWith("/notes/")||p.startsWith("/guides/")||p.startsWith("/field-guides/"))return "/field-guides/"+p.split("/").filter(Boolean).at(-1);
  if(p==="/tools/calculator")return "/tools/retirement-planning-calculator";
  if(p.startsWith("/tools/"))return p;
