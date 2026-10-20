@@ -32,7 +32,7 @@ function expectedCanonicalPath(path){
  return "/404";
 }
 
-async function pageState(){return js("return {title:document.title,h1:document.querySelector('h1')?.innerText||'',root:!!document.querySelector('.site-wrapper'),overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1,body:document.body.innerText||''}")}
+async function pageState(){return js("return {title:document.title,h1:document.querySelector('h1')?.innerText||'',root:!!document.querySelector('.site-wrapper'),overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1,body:document.body.innerText||'',adSlots:document.querySelectorAll('.adsense-container').length}")}
 async function testReset(path,inputSelector){await openPage(path,inputSelector);const before=await js("return document.querySelector(arguments[0]).value",[inputSelector]);await type(inputSelector,"123456");const changed=await js("return document.querySelector(arguments[0]).value",[inputSelector]);assert.equal(changed,"123456",path+" input did not accept changes");await click("button.button-secondary");const after=await js("return document.querySelector(arguments[0]).value",[inputSelector]);assert.equal(after,before,path+" reset did not restore the original input");console.log("PASS — reset interaction "+path)}
 try{
  driver=spawn(CHROMEDRIVER,["--port=9515"],{stdio:"ignore"});
