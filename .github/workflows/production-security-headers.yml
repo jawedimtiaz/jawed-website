@@ -5,14 +5,20 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "config/production-security-header-contract.json"
+      - "config/production-security-header-contract.json"      - "public/_headers"
+      - "public/_redirects"
+      - "src/App.tsx"
+
       - "scripts/validate-production-security-headers.mjs"
       - ".github/workflows/production-security-headers.yml"
       - "_headers"
   push:
     branches: [main]
     paths:
-      - "config/production-security-header-contract.json"
+      - "config/production-security-header-contract.json"      - "public/_headers"
+      - "public/_redirects"
+      - "src/App.tsx"
+
       - "scripts/validate-production-security-headers.mjs"
       - ".github/workflows/production-security-headers.yml"
       - "_headers"
