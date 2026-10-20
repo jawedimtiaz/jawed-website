@@ -9,6 +9,16 @@ on:
     paths:
       - "**/*.html"
       - "assets/**"
+      - "public/**"
+      - "src/**"
+      - "scripts/validate-production-*.mjs"
+      - "scripts/validate-adsense-*.mjs"
+      - "scripts/validate-ai-regression.mjs"
+      - "scripts/validate-finance-calculator-regression.mjs"
+      - "scripts/validate-finance-tools-browser-runtime.mjs"
+      - "scripts/validate-career-match-browser-runtime.mjs"
+      - "package.json"
+      - "vite.config.ts"
       - "config/**"
       - "scripts/validate-site-integrity.mjs"
       - "sitemap.xml"
@@ -21,6 +31,16 @@ on:
     paths:
       - "**/*.html"
       - "assets/**"
+      - "public/**"
+      - "src/**"
+      - "scripts/validate-production-*.mjs"
+      - "scripts/validate-adsense-*.mjs"
+      - "scripts/validate-ai-regression.mjs"
+      - "scripts/validate-finance-calculator-regression.mjs"
+      - "scripts/validate-finance-tools-browser-runtime.mjs"
+      - "scripts/validate-career-match-browser-runtime.mjs"
+      - "package.json"
+      - "vite.config.ts"
       - "config/**"
       - "scripts/validate-site-integrity.mjs"
       - "sitemap.xml"
@@ -49,5 +69,21 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
+      - name: Syntax-check production and project validation scripts
+        run: |
+          node --check scripts/validate-production-assets.mjs
+          node --check scripts/validate-production-cache.mjs
+          node --check scripts/validate-production-sitemap.mjs
+          node --check scripts/validate-production-robots.mjs
+          node --check scripts/validate-production-ai-get.mjs
+          node --check scripts/validate-production-ai-post.mjs
+          node --check scripts/validate-production-html-seo.mjs
+          node --check scripts/validate-adsense-content-readiness.mjs
+          node --check scripts/validate-adsense-privacy.mjs
+          node --check scripts/validate-adsense-preactivation.mjs
+          node --check scripts/validate-ai-regression.mjs
+          node --check scripts/validate-finance-calculator-regression.mjs
+          node --check scripts/validate-finance-tools-browser-runtime.mjs
+          node --check scripts/validate-career-match-browser-runtime.mjs
       - name: Run site integrity validation
         run: node scripts/validate-site-integrity.mjs
