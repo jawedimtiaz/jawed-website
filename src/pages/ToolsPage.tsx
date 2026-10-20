@@ -60,6 +60,20 @@ const TOOLS: ToolItem[] = [
     route: '/tools/ticket-to-knowledge-base-draft',
   },
   {
+    id: 'ipv4-subnet-calculator',
+    name: 'IPv4 Subnet & CIDR Calculator',
+    description: 'Calculate network bounds, host ranges, broadcast addresses, wildcard masks, and 32-bit binary notation.',
+    category: 'it',
+    route: '/tools/ipv4-subnet-calculator',
+  },
+  {
+    id: 'server-rack-power-btu',
+    name: 'Server Rack Power & BTU Calculator',
+    description: 'Estimate server equipment electrical draw (Watts/Amps), circuit breaker derating, and HVAC BTU/hr cooling load.',
+    category: 'it',
+    route: '/tools/server-rack-power-btu-calculator',
+  },
+  {
     id: 'finance-snapshot',
     name: 'Personal Finance Snapshot',
     description: 'Assess emergency reserves, savings ratios, debt load, and asset distribution in one view.',

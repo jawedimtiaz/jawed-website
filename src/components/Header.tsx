@@ -33,7 +33,7 @@ export const Header: React.FC = () => {
         <nav id="primary-nav" className={`site-nav ${isOpen ? 'is-open' : ''}`}>
           <Link
             className="nav-item"
-            to="/notes"
+            to="/field-guides"
             onClick={closeMenu}
             aria-current={path.startsWith('/notes') || path.startsWith('/field-guides') ? 'page' : undefined}
           >

@@ -31,6 +31,8 @@ import { InterviewPreparationPlanner } from './tools/InterviewPreparationPlanner
 import { ItTroubleshootingAssistant } from './tools/ItTroubleshootingAssistant';
 import { ServiceDeskNoteFormatter } from './tools/ServiceDeskNoteFormatter';
 import { TicketToKbDraft } from './tools/TicketToKbDraft';
+import { Ipv4SubnetCalculator } from './tools/Ipv4SubnetCalculator';
+import { ServerRackPowerBtuCalculator } from './tools/ServerRackPowerBtuCalculator';
 import { PersonalFinanceSnapshot } from './tools/PersonalFinanceSnapshot';
 import { FinancePlanningWorkspace } from './tools/FinancePlanningWorkspace';
 import { CompoundGrowthCalculator } from './tools/CompoundGrowthCalculator';
@@ -76,6 +78,7 @@ export const App: React.FC = () => {
 
           {/* Navigation Items */}
           <Route path="/field-guides" element={<NotesListPage />} />
+          <Route path="/field-guides/:slug" element={<NoteDetailPage />} />
           <Route path="/notes" element={<NotesListPage />} />
           <Route path="/notes/:slug" element={<NoteDetailPage />} />
 
@@ -90,6 +93,8 @@ export const App: React.FC = () => {
           <Route path="/tools/it-troubleshooting-assistant" element={<ItTroubleshootingAssistant />} />
           <Route path="/tools/service-desk-note-formatter" element={<ServiceDeskNoteFormatter />} />
           <Route path="/tools/ticket-to-knowledge-base-draft" element={<TicketToKbDraft />} />
+          <Route path="/tools/ipv4-subnet-calculator" element={<Ipv4SubnetCalculator />} />
+          <Route path="/tools/server-rack-power-btu-calculator" element={<ServerRackPowerBtuCalculator />} />
           <Route path="/tools/personal-finance-snapshot" element={<PersonalFinanceSnapshot />} />
           <Route path="/tools/finance-planning-workspace" element={<FinancePlanningWorkspace />} />
           <Route path="/tools/compound-growth-sip-calculator" element={<CompoundGrowthCalculator />} />

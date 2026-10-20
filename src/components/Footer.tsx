@@ -40,11 +40,11 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal }) => {
           <div className="footer-col">
             <h4>Featured Utilities</h4>
             <ul className="footer-links">
+              <li><Link to="/tools/ipv4-subnet-calculator">IPv4 Subnet &amp; CIDR Calculator</Link></li>
+              <li><Link to="/tools/server-rack-power-btu-calculator">Server Rack Power &amp; BTU Calculator</Link></li>
               <li><Link to="/tools/it-troubleshooting-assistant">IT Troubleshooting Assistant</Link></li>
-              <li><Link to="/tools/ai-prompt-builder">AI Prompt Builder</Link></li>
-              <li><Link to="/tools/career-match-resume-review">Career Match Resume Review</Link></li>
               <li><Link to="/tools/service-desk-note-formatter">Service Desk Note Formatter</Link></li>
-              <li><Link to="/tools/personal-finance-snapshot">Personal Finance Snapshot</Link></li>
+              <li><Link to="/tools/ai-prompt-builder">AI Prompt Builder</Link></li>
               <li><Link to="/ai">Jawed AI Assistant</Link></li>
             </ul>
           </div>
