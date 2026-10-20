@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import notesData from '../data/notesData.json';
 import { FIELD_GUIDES } from '../data/fieldGuidesData';
+import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 
 export const NotesListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,6 +27,9 @@ export const NotesListPage: React.FC = () => {
       <nav className="breadcrumbs" aria-label="Breadcrumb">
         <Link to="/">Home</Link> &gt; <span>Field Guides &amp; Knowledge Base</span>
       </nav>
+
+      {/* Top Leaderboard Ad Slot */}
+      <AdUnitPlaceholder slotType="top-leaderboard" />
 
       <p className="eyebrow">Technical Articles &amp; Operational Knowledge</p>
       <h1>Field Guides &amp; Knowledge Base</h1>

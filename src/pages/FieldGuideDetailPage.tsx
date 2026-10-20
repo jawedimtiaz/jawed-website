@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { FIELD_GUIDES, FieldGuide } from '../data/fieldGuidesData';
+import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
+import { SeoHead } from '../components/SeoHead';
 
 export const FieldGuideDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -41,10 +43,19 @@ export const FieldGuideDetailPage: React.FC = () => {
 
   return (
     <main className="container page">
+      <SeoHead
+        title={guide.title}
+        description={guide.description}
+        canonicalUrl={currentUrl}
+      />
+
       {/* Breadcrumbs */}
       <nav className="breadcrumbs" aria-label="Breadcrumb">
         <Link to="/">Home</Link> &gt; <Link to="/field-guides">Field Guides</Link> &gt; <span>{guide.title}</span>
       </nav>
+
+      {/* Top Leaderboard Ad Unit (Zero CLS Reserved Container) */}
+      <AdUnitPlaceholder slotType="top-leaderboard" />
 
       <article className="field-guide-article">
         {/* Header Metadata */}
@@ -106,8 +117,11 @@ export const FieldGuideDetailPage: React.FC = () => {
               dangerouslySetInnerHTML={{ __html: guide.contentHtml }}
             />
 
+            {/* In-Feed Native Ad Unit */}
+            <AdUnitPlaceholder slotType="in-feed" />
+
             {/* Article Footer & Keywords */}
-            <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid var(--line)' }}>
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--line)' }}>
               <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '12px' }}>
                 <strong>Keywords:</strong> {guide.keywords.join(' • ')}
               </p>
@@ -122,7 +136,7 @@ export const FieldGuideDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Sticky Table of Contents Sidebar */}
+          {/* Sticky Sidebar */}
           <aside className="article-sidebar" style={{ position: 'sticky', top: '90px' }}>
             <div className="card" style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--line)' }}>
               <h3 style={{ fontSize: '1.05rem', margin: '0 0 14px', color: 'var(--text-heading)', borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
@@ -155,6 +169,9 @@ export const FieldGuideDetailPage: React.FC = () => {
                 Book IT Dispatch →
               </Link>
             </div>
+
+            {/* Sidebar Skyscraper / Rectangle Ad Unit */}
+            <AdUnitPlaceholder slotType="sidebar-unit" />
           </aside>
         </div>
 

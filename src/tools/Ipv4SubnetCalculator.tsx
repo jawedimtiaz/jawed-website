@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
+import { SeoHead } from '../components/SeoHead';
 
 interface SubnetOption {
   cidr: number;
@@ -155,9 +157,17 @@ export const Ipv4SubnetCalculator: React.FC = () => {
 
   return (
     <main className="container page">
+      <SeoHead
+        title="IPv4 Subnet & CIDR Calculator"
+        description="Interactive IPv4 subnetting tool to calculate network addresses, usable host ranges, broadcast IDs, wildcard masks, and binary octets."
+      />
+
       <nav className="breadcrumbs" aria-label="Breadcrumb">
         <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>IPv4 Subnet &amp; CIDR Calculator</span>
       </nav>
+
+      {/* Top Leaderboard Ad Unit */}
+      <AdUnitPlaceholder slotType="top-leaderboard" />
 
       <p className="eyebrow">Diagnostic Tool — Network Engineering</p>
       <h1>IPv4 Subnet &amp; CIDR Calculator</h1>
