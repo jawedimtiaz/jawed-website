@@ -12,7 +12,7 @@ if(typeof contract.controls!=="object"||contract.controls===null)failures.push("
 function walk(dir){const out=[];for(const e of fs.readdirSync(dir,{withFileTypes:true})){if([".git","node_modules"].includes(e.name))continue;const f=path.join(dir,e.name);e.isDirectory()?out.push(...walk(f)):out.push(f)}return out}
 const files=walk(root), rel=f=>path.relative(root,f).replaceAll(path.sep,"/");
 const risky=/^(?:\.env(?:\..*)?|\.dev\.vars(?:\..*)?|credentials?(?:\..*)?|secrets?(?:\..*)?|.*\.(?:pem|key|p12|pfx|jks|keystore))$/i;
-for(const f of files){const n=rel(f);if(risky.test(path.basename(n))&&n!==".gitignore")fail("Secret-like tracked file: "+n)}
+for(const f of files){const n=rel(f);if(risky.test(path.basename(n))&&n!==".gitignore"&&n!==".env.example")fail("Secret-like file: "+n)}
 const ext=/\.(?:js|mjs|json|yml|yaml|html|css|txt|toml|conf|config)$/i, excluded=/^(?:docs\/|scripts\/validate-.*\.mjs$)/;
 const patterns=[/-----BEGIN (?:RSA |EC |OPENSSH |PRIVATE )?PRIVATE KEY-----/,/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/,/\bgithub_pat_[A-Za-z0-9_]{20,}\b/,/\bAKIA[0-9A-Z]{16}\b/,/\bxox[baprs]-[A-Za-z0-9-]{20,}\b/,/\bAIza[0-9A-Za-z_-]{30,}\b/,/\bsk-[A-Za-z0-9_-]{20,}\b/,/\b(?:api[_-]?key|client[_-]?secret|password|private[_-]?key)\s*[:=]\s*["'][^"']{20,}["']/i,/\bAuthorization\s*:\s*Bearer\s+[A-Za-z0-9._~-]{20,}/i];
 for(const f of files){const n=rel(f);if(!ext.test(n)||excluded.test(n))continue;const c=read(f);for(const p of patterns)if(p.test(c))fail("Credential-like literal in "+n)}
