@@ -855,6 +855,7 @@ select:focus-visible {
   bottom: 24px;
   right: 24px;
   z-index: 1000;
+  max-width: calc(100vw - 32px);
 }
 
 .jawed-ai-toggle {
@@ -878,24 +879,56 @@ select:focus-visible {
   box-shadow: 0 12px 28px rgba(56, 189, 248, 0.45);
 }
 
+/* Minimized State Compact Bar */
+.jawed-ai-minimized-bar {
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.jawed-ai-minimized-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.online-indicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
 .jawed-ai-panel {
   width: 380px;
   max-width: calc(100vw - 32px);
-  max-height: 580px;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--surface);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   overflow: hidden;
-  animation: widgetSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: widgetSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes widgetSlideUp {
   from {
     opacity: 0;
-    transform: translateY(20px) scale(0.96);
+    transform: translateY(16px) scale(0.97);
   }
   to {
     opacity: 1;
@@ -905,9 +938,9 @@ select:focus-visible {
 
 /* Distinct Header Bar */
 .jawed-ai-widget-header {
-  padding: 14px 16px;
-  background: var(--bg-darker);
-  border-bottom: 1px solid var(--line);
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -922,13 +955,13 @@ select:focus-visible {
 
 .jawed-ai-header-titles strong {
   font-size: 0.95rem;
-  color: var(--text-heading);
+  color: var(--text);
   letter-spacing: -0.01em;
 }
 
 .jawed-ai-header-titles span {
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .jawed-ai-header-actions {
@@ -941,9 +974,9 @@ select:focus-visible {
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--muted-light);
+  border: 1px solid var(--border);
+  background: var(--bg-darker);
+  color: var(--text-muted);
   font-size: 0.9rem;
   font-weight: 700;
   display: flex;
@@ -961,38 +994,38 @@ select:focus-visible {
 
 .jawed-ai-widget-privacy {
   padding: 8px 16px;
-  background: rgba(15, 23, 42, 0.6);
-  border-bottom: 1px solid var(--line-subtle);
+  background: var(--bg-darker);
+  border-bottom: 1px solid var(--border);
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--text-muted);
   line-height: 1.35;
 }
 
 /* Contained Scrollable Message Container */
 .jawed-ai-widget-messages {
-  flex: 1;
+  height: 260px;
+  max-height: 260px;
   overflow-y: auto;
-  max-height: 360px;
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   scroll-behavior: smooth;
 }
 
-/* Custom Scrollbars for Dark Slate Aesthetic */
+/* Custom Scrollbars */
 .jawed-ai-widget-messages::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 .jawed-ai-widget-messages::-webkit-scrollbar-track {
   background: var(--bg-darker);
 }
 .jawed-ai-widget-messages::-webkit-scrollbar-thumb {
-  background: var(--line);
+  background: var(--border);
   border-radius: 999px;
 }
 .jawed-ai-widget-messages::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+  background: var(--text-muted);
 }
 
 .jawed-ai-widget-message {
@@ -1015,7 +1048,7 @@ select:focus-visible {
 .jawed-ai-widget-message.assistant {
   align-self: flex-start;
   background: var(--bg-darker);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   color: var(--text);
   border-bottom-left-radius: 2px;
 }
@@ -1023,8 +1056,8 @@ select:focus-visible {
 /* Spacious & Accessible Input Area */
 .jawed-ai-widget-form {
   padding: 12px 14px;
-  background: var(--bg-darker);
-  border-top: 1px solid var(--line);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1037,35 +1070,46 @@ select:focus-visible {
 }
 
 .jawed-ai-input-row input {
-  flex: 1;
-  min-height: 44px;
+  height: 44px;
   padding: 10px 14px;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   border-radius: 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
+  flex: 1;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.jawed-ai-input-row input:focus {
+.jawed-ai-input-row input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
 }
 
 .jawed-ai-send-btn {
-  min-height: 44px;
-  padding: 0 16px;
-  border-radius: 8px;
-  background: var(--accent-dark);
+  height: 44px;
+  padding: 0 18px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  background: #0284c7;
   color: #ffffff;
-  font-weight: 700;
-  font-size: 0.875rem;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+}
+
+.jawed-ai-send-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.jawed-ai-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .jawed-ai-send-btn:hover:not(:disabled) {

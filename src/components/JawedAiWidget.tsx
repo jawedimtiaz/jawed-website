@@ -11,10 +11,9 @@ interface Message {
   userQuery?: string;
 }
 
-type WidgetState = 'closed' | 'minimized' | 'open';
-
 export const JawedAiWidget: React.FC = () => {
-  const [widgetState, setWidgetState] = useState<WidgetState>('closed');
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -29,10 +28,10 @@ export const JawedAiWidget: React.FC = () => {
   const location = useLocation();
 
   useEffect(() => {
-    if (widgetState === 'open') {
+    if (isOpen && !isMinimized) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, widgetState]);
+  }, [messages, isOpen, isMinimized]);
 
   // Hide widget on dedicated /ai page
   if (location.pathname.startsWith('/ai')) {
@@ -44,14 +43,14 @@ export const JawedAiWidget: React.FC = () => {
     if (!userText || loading) return;
 
     const userMsgId = `user-${Date.now()}`;
-    setMessages(prev => [...prev, { id: userMsgId, role: 'user', content: userText }]);
+    setMessages((prev) => [...prev, { id: userMsgId, role: 'user', content: userText }]);
     setQuery('');
     setLoading(true);
 
     try {
       const result = await askJawedAi(userText);
       const assistantMsgId = `assistant-${Date.now()}`;
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         {
           id: assistantMsgId,
@@ -62,14 +61,14 @@ export const JawedAiWidget: React.FC = () => {
           userQuery: result.userQuery || userText,
         },
       ]);
-    } catch (err) {
+    } catch {
       const errorMsgId = `err-${Date.now()}`;
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         {
           id: errorMsgId,
           role: 'assistant',
-          content: "Sorry, I ran into an error while processing that question. Please try again.",
+          content: 'Sorry, I ran into an error while processing that question. Please try again.',
         },
       ]);
     } finally {
@@ -77,46 +76,105 @@ export const JawedAiWidget: React.FC = () => {
     }
   };
 
+  const openWidget = () => {
+    setIsOpen(true);
+    setIsMinimized(false);
+  };
+
+  const closeWidget = () => {
+    setIsOpen(false);
+    setIsMinimized(false);
+  };
+
+  const toggleMinimize = () => {
+    setIsMinimized((prev) => !prev);
+  };
+
   return (
     <div className="jawed-ai-widget">
-      {/* Closed / Minimized Launcher Button */}
-      {widgetState !== 'open' && (
+      {/* 1. Closed State: Floating Action Launcher Trigger Pill */}
+      {!isOpen && (
         <button
           className="jawed-ai-toggle"
           type="button"
           aria-expanded="false"
           aria-label="Open Jawed AI Assistant"
-          onClick={() => setWidgetState('open')}
+          onClick={openWidget}
         >
           💬 Ask Jawed AI
         </button>
       )}
 
-      {/* Main Floating Chat Panel */}
-      {widgetState === 'open' && (
+      {/* 2. Minimized State: Compact Bottom Bar */}
+      {isOpen && isMinimized && (
+        <div
+          className="jawed-ai-minimized-bar"
+          onClick={openWidget}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && openWidget()}
+        >
+          <div className="jawed-ai-minimized-info">
+            <span className="online-indicator" aria-hidden="true" />
+            <strong>Jawed AI Assistant</strong>
+          </div>
+          <div className="jawed-ai-header-actions">
+            <button
+              className="jawed-ai-action-btn"
+              type="button"
+              aria-label="Expand Assistant"
+              title="Expand"
+              onClick={(e) => {
+                e.stopPropagation();
+                openWidget();
+              }}
+            >
+              ▲
+            </button>
+            <button
+              className="jawed-ai-action-btn"
+              type="button"
+              aria-label="Close Assistant"
+              title="Close"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeWidget();
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Open State: Full Dialog */}
+      {isOpen && !isMinimized && (
         <div className="jawed-ai-panel" role="region" aria-label="Jawed AI Assistant">
-          {/* Distinct Header Bar */}
+          {/* Header Bar */}
           <div className="jawed-ai-widget-header">
             <div className="jawed-ai-header-titles">
-              <strong>Jawed AI Assistant</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="online-indicator" aria-hidden="true" />
+                <strong>Jawed AI Assistant</strong>
+              </div>
               <span>Grounded in Jawed's notes &amp; tools</span>
             </div>
             <div className="jawed-ai-header-actions">
               <button
                 className="jawed-ai-action-btn"
                 type="button"
-                aria-label="Minimize Jawed AI Assistant"
+                aria-label="Minimize Assistant"
                 title="Minimize"
-                onClick={() => setWidgetState('minimized')}
+                onClick={toggleMinimize}
               >
                 −
               </button>
               <button
                 className="jawed-ai-action-btn"
                 type="button"
-                aria-label="Close Jawed AI Assistant"
+                aria-label="Close Assistant"
                 title="Close"
-                onClick={() => setWidgetState('closed')}
+                onClick={closeWidget}
               >
                 ✕
               </button>
@@ -124,10 +182,10 @@ export const JawedAiWidget: React.FC = () => {
           </div>
 
           <div className="jawed-ai-widget-privacy">
-            🔒 Answers are retrieved directly from published website knowledge.
+            🔒 Answers retrieved from published technical guides &amp; documentation.
           </div>
 
-          {/* Contained Scrollable Message History Container */}
+          {/* Contained Scrollable Message History */}
           <div
             className="jawed-ai-widget-messages"
             role="log"
@@ -139,20 +197,23 @@ export const JawedAiWidget: React.FC = () => {
               <div key={m.id} className={`jawed-ai-widget-message ${m.role}`}>
                 <div>{m.content}</div>
 
-                {/* Pre-filled Contact Button on Knowledge Base Fallback */}
+                {/* Interactive Direct Contact Button on Knowledge Fallback */}
                 {m.isFallback && (
                   <div style={{ marginTop: '10px' }}>
                     <Link
                       to={`/contact?question=${encodeURIComponent(m.userQuery || '')}`}
-                      onClick={() => setWidgetState('closed')}
+                      onClick={closeWidget}
                       className="button button-primary"
                       style={{
-                        fontSize: '0.8rem',
-                        padding: '6px 12px',
+                        fontSize: '0.82rem',
+                        padding: '7px 14px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '6px',
                         textDecoration: 'none',
+                        borderRadius: '8px',
+                        background: '#0284c7',
+                        color: '#ffffff',
                       }}
                     >
                       ✉️ Ask Jawed Directly →
@@ -160,15 +221,15 @@ export const JawedAiWidget: React.FC = () => {
                   </div>
                 )}
 
-                {/* Referenced Documentation Source Link Chips */}
+                {/* Documentation Source Chips */}
                 {m.sources && m.sources.length > 0 && (
                   <div className="jawed-ai-widget-sources" style={{ marginTop: '8px' }}>
-                    <small style={{ fontWeight: 600, color: 'var(--muted)' }}>Sources:</small>
+                    <small style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Sources:</small>
                     {m.sources.map((src, sIdx) => (
                       <Link
                         key={sIdx}
                         to={src.url}
-                        onClick={() => setWidgetState('closed')}
+                        onClick={closeWidget}
                         style={{ display: 'block', fontSize: '0.8rem', color: 'var(--accent)', marginTop: '2px' }}
                       >
                         {src.title}
@@ -180,7 +241,10 @@ export const JawedAiWidget: React.FC = () => {
             ))}
 
             {loading && (
-              <div className="jawed-ai-widget-message assistant" style={{ fontStyle: 'italic', color: 'var(--muted)' }}>
+              <div
+                className="jawed-ai-widget-message assistant"
+                style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}
+              >
                 Searching documentation...
               </div>
             )}
