@@ -1,12 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 export const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+      return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    return 'dark';
+  });
+
   const location = useLocation();
   const path = location.pathname;
 
   const closeMenu = () => setIsOpen(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   return (
     <header className="site-header">
@@ -33,11 +51,11 @@ export const Header: React.FC = () => {
         <nav id="primary-nav" className={`site-nav ${isOpen ? 'is-open' : ''}`}>
           <Link
             className="nav-item"
-            to="/field-guides"
+            to="/guides"
             onClick={closeMenu}
-            aria-current={path.startsWith('/notes') || path.startsWith('/field-guides') ? 'page' : undefined}
+            aria-current={path.startsWith('/guides') || path.startsWith('/notes') || path.startsWith('/field-guides') ? 'page' : undefined}
           >
-            Field Guides
+            Guides
           </Link>
 
           <Link
@@ -46,7 +64,7 @@ export const Header: React.FC = () => {
             onClick={closeMenu}
             aria-current={path.startsWith('/tools') || path.startsWith('/diagnostic-tools') ? 'page' : undefined}
           >
-            Diagnostic Tools
+            Tools
           </Link>
 
           <Link
@@ -55,7 +73,7 @@ export const Header: React.FC = () => {
             onClick={closeMenu}
             aria-current={path.startsWith('/services') ? 'page' : undefined}
           >
-            Services &amp; Dispatch
+            Services
           </Link>
 
           <Link
@@ -75,6 +93,16 @@ export const Header: React.FC = () => {
           >
             Ask AI
           </Link>
+
+          <button
+            type="button"
+            className="theme-toggle-btn"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+          >
+            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+          </button>
 
           <Link
             className="nav-cta"

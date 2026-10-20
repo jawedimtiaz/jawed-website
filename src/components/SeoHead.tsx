@@ -8,8 +8,8 @@ interface SeoHeadProps {
   canonicalUrl?: string;
 }
 
-const DEFAULT_TITLE = 'Jawed Imtiaz — IT Support & Workplace Technology';
-const DEFAULT_DESC = 'Practical IT field guides, subnet calculators, server rack power calculators, and interactive IT service desk diagnostic tools.';
+const DEFAULT_TITLE = 'Jawed Imtiaz | Guides, Tools & Services';
+const DEFAULT_DESC = 'Technical guides, subnet calculators, server rack power calculators, and interactive diagnostic tools by Jawed Imtiaz.';
 
 export const SeoHead: React.FC<SeoHeadProps> = ({
   title,

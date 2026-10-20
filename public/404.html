@@ -335,8 +335,8 @@
       </a>
 
       <nav class="site-nav">
-        <a class="nav-item" href="/field-guides">Field Guides</a>
-        <a class="nav-item" href="/tools">Diagnostic Tools</a>
+        <a class="nav-item" href="/guides">Guides</a>
+        <a class="nav-item" href="/tools">Tools</a>
         <a class="nav-item" href="/services">Services</a>
         <a class="nav-item" href="/about">About</a>
         <a class="nav-cta" href="/contact">Get in Touch →</a>
@@ -350,17 +350,17 @@
       <span class="error-code-badge">404 · Route Not Found</span>
       <h1>Looking for Technical Resources?</h1>
       <p class="lead">
-        The link you clicked may have moved, been renamed, or is temporarily offline. Don’t worry—our field guides and IT utilities are easy to find.
+        The link you clicked may have moved, been renamed, or is temporarily offline. Don’t worry—our guides and IT utilities are easy to find.
       </p>
 
       <!-- Search Bar Form -->
-      <form id="search-form" class="search-box-wrapper" action="/field-guides" method="GET">
+      <form id="search-form" class="search-box-wrapper" action="/guides" method="GET">
         <input
           id="search-query"
           type="text"
           name="search"
           class="search-input"
-          placeholder="Search field guides, subnet tools, KB notes..."
+          placeholder="Search guides, subnet tools, KB notes..."
           aria-label="Search site documentation"
         />
         <button type="submit" class="search-button">
@@ -374,13 +374,13 @@
           <span class="icon">🏠</span>
           <span>Homepage</span>
         </a>
-        <a href="/field-guides" class="dest-card">
+        <a href="/guides" class="dest-card">
           <span class="icon">📖</span>
-          <span>Field Guides</span>
+          <span>Guides</span>
         </a>
         <a href="/tools" class="dest-card">
           <span class="icon">🛠️</span>
-          <span>Diagnostic Tools</span>
+          <span>Tools</span>
         </a>
         <a href="/contact" class="dest-card">
           <span class="icon">✉️</span>
@@ -403,9 +403,9 @@
       e.preventDefault();
       var q = document.getElementById('search-query').value.trim();
       if (q) {
-        window.location.href = '/field-guides?search=' + encodeURIComponent(q);
+        window.location.href = '/guides?search=' + encodeURIComponent(q);
       } else {
-        window.location.href = '/field-guides';
+        window.location.href = '/guides';
       }
     });
   </script>

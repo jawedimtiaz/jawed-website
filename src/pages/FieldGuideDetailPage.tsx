@@ -11,7 +11,7 @@ export const FieldGuideDetailPage: React.FC = () => {
   const guide = FIELD_GUIDES.find(g => g.slug === slug);
 
   if (!guide) {
-    return <Navigate to="/field-guides" replace />;
+    return <Navigate to="/guides" replace />;
   }
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -51,7 +51,7 @@ export const FieldGuideDetailPage: React.FC = () => {
 
       {/* Breadcrumbs */}
       <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <Link to="/">Home</Link> &gt; <Link to="/field-guides">Field Guides</Link> &gt; <span>{guide.title}</span>
+        <Link to="/">Home</Link> &gt; <Link to="/guides">Guides</Link> &gt; <span>{guide.title}</span>
       </nav>
 
       {/* Top Leaderboard Ad Unit (Zero CLS Reserved Container) */}
@@ -192,7 +192,7 @@ export const FieldGuideDetailPage: React.FC = () => {
                     {rel.category}
                   </span>
                   <h3 style={{ fontSize: '1.1rem', margin: '6px 0 10px', lineHeight: '1.3' }}>
-                    <Link to={`/field-guides/${rel.slug}`} style={{ textDecoration: 'none', color: 'var(--text-heading)' }}>
+                    <Link to={`/guides/${rel.slug}`} style={{ textDecoration: 'none', color: 'var(--text-heading)' }}>
                       {rel.title}
                     </Link>
                   </h3>
@@ -202,7 +202,7 @@ export const FieldGuideDetailPage: React.FC = () => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: '0.8rem', color: 'var(--muted)' }}>
                   <span>{rel.readTime}</span>
-                  <Link to={`/field-guides/${rel.slug}`} style={{ fontWeight: 600, color: 'var(--accent)' }}>
+                  <Link to={`/guides/${rel.slug}`} style={{ fontWeight: 600, color: 'var(--accent)' }}>
                     Read Guide →
                   </Link>
                 </div>

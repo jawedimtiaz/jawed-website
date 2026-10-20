@@ -9,9 +9,9 @@ export const NotFoundPage: React.FC = () => {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      navigate(`/field-guides?search=${encodeURIComponent(query.trim())}`);
+      navigate(`/guides?search=${encodeURIComponent(query.trim())}`);
     } else {
-      navigate('/field-guides');
+      navigate('/guides');
     }
   };
 
@@ -19,7 +19,7 @@ export const NotFoundPage: React.FC = () => {
     <main className="container page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '65vh' }}>
       <SeoHead
         title="404 — Page Not Found"
-        description="The requested page could not be found on jawed.co.in. Navigate back to IT field guides, subnet calculators, or contact Jawed Imtiaz."
+        description="The requested page could not be found on jawed.co.in. Navigate back to technical guides, subnet calculators, or contact Jawed Imtiaz."
         canonicalUrl="https://jawed.co.in/404"
       />
 
@@ -44,7 +44,7 @@ export const NotFoundPage: React.FC = () => {
         </h1>
 
         <p className="lead" style={{ maxWidth: '520px', margin: '0 auto 28px', fontSize: '1.05rem', color: 'var(--muted-light)' }}>
-          The link you clicked may have moved or been updated. Don’t worry—our field engineering checklists, IPv4 subnet tools, and IT support resources are easily accessible.
+          The link you clicked may have moved or been updated. Don’t worry—our technical guides, IPv4 subnet tools, and IT support resources are easily accessible.
         </p>
 
         {/* Quick Search Form */}
@@ -52,7 +52,7 @@ export const NotFoundPage: React.FC = () => {
           <input
             type="text"
             className="discovery-input"
-            placeholder="Search field guides, subnet tools, notes..."
+            placeholder="Search guides, subnet tools, notes..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search site documentation"
@@ -74,11 +74,11 @@ export const NotFoundPage: React.FC = () => {
           <Link to="/" className="ribbon-link" style={{ justifyContent: 'center', padding: '12px', borderRadius: '12px' }}>
             <span>🏠 Homepage</span>
           </Link>
-          <Link to="/field-guides" className="ribbon-link" style={{ justifyContent: 'center', padding: '12px', borderRadius: '12px' }}>
-            <span>📖 Field Guides</span>
+          <Link to="/guides" className="ribbon-link" style={{ justifyContent: 'center', padding: '12px', borderRadius: '12px' }}>
+            <span>📖 Guides</span>
           </Link>
           <Link to="/tools" className="ribbon-link" style={{ justifyContent: 'center', padding: '12px', borderRadius: '12px' }}>
-            <span>🛠️ Diagnostic Tools</span>
+            <span>🛠️ Tools</span>
           </Link>
           <Link to="/contact" className="ribbon-link" style={{ justifyContent: 'center', padding: '12px', borderRadius: '12px' }}>
             <span>✉️ Contact Jawed</span>

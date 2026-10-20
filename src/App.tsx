@@ -77,7 +77,11 @@ export const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<HomePage />} />
 
-          {/* Navigation Items */}
+          {/* Navigation Items (Clean Taxonomy: /guides, /tools, /services) */}
+          <Route path="/guides" element={<NotesListPage />} />
+          <Route path="/guides/:slug" element={<NoteDetailPage />} />
+
+          {/* Backward-Compatible Route Aliases */}
           <Route path="/field-guides" element={<NotesListPage />} />
           <Route path="/field-guides/:slug" element={<NoteDetailPage />} />
           <Route path="/notes" element={<NotesListPage />} />

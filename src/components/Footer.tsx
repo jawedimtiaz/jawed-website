@@ -24,9 +24,9 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal }) => {
           <div className="footer-col">
             <h4>Main Sections</h4>
             <ul className="footer-links">
-              <li><Link to="/field-guides">Field Guides &amp; KB</Link></li>
-              <li><Link to="/tools">Diagnostic Tools</Link></li>
-              <li><Link to="/services">Services &amp; Dispatch</Link></li>
+              <li><Link to="/guides">Guides &amp; KB</Link></li>
+              <li><Link to="/tools">Tools</Link></li>
+              <li><Link to="/services">Services</Link></li>
               <li><Link to="/work">Work &amp; Portfolio</Link></li>
               <li><Link to="/about">About Jawed</Link></li>
               <li><Link to="/contact">Contact Us</Link></li>

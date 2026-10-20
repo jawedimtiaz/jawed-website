@@ -44,29 +44,29 @@ export const HomePage: React.FC = () => {
           <div className="hero-secondary-ribbon">
             <span className="ribbon-label">Interactive Resources:</span>
             <div className="ribbon-links">
-              <Link className="ribbon-link" to="/field-guides">
-                📖 Field Guides (4)
+              <Link className="ribbon-link" to="/guides">
+                📖 Guides
               </Link>
               <Link className="ribbon-link" to="/tools">
-                🛠️ Diagnostic Tools (4)
+                🛠️ Tools
               </Link>
               <Link className="ribbon-link" to="/ai">
-                🤖 Ask Jawed AI
+                🤖 Ask AI
               </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Featured Technical Field Guides Section */}
+      {/* Featured Technical Guides Section */}
       <section className="container page-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
           <div>
             <p className="eyebrow">In-Depth Technical Documentation</p>
-            <h2 style={{ margin: 0 }}>Featured Technical Field Guides</h2>
+            <h2 style={{ margin: 0 }}>Featured Guides &amp; Knowledge Base</h2>
           </div>
-          <Link to="/field-guides" className="button button-secondary" style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
-            View All Guides &amp; KB →
+          <Link to="/guides" className="button button-secondary" style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
+            View All Guides →
           </Link>
         </div>
 
