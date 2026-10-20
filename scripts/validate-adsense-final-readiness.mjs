@@ -42,7 +42,7 @@ const workflowTimeoutMs=Number(workflowTimeoutMatch[1])*60000;
 assert.equal(workflow.includes("cancel-in-progress: true"),true,"Readiness workflow concurrency cancellation must remain enabled");
 
 const dynamicScanTriggerPaths=[
-  "**/*.html","**/*.css","assets/js/**",
+  "**/*.html","**/*.css","assets/js/**","src/**","public/**",
   "about/**","work/**","notes/**","blog/**","topics/**","resources/**","tools/**","ai/**","assets/**","functions/**","privacy/**"
 ];
 assert.equal(new Set(dynamicScanTriggerPaths).size,dynamicScanTriggerPaths.length,"Dynamic source-scan trigger contract must contain unique paths");
