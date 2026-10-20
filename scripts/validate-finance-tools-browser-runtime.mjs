@@ -59,6 +59,8 @@ try{
   ["/tools/","Tools & Calculators"],
   ["/diagnostic-tools/","Tools & Calculators"],
   ["/field-guides/","Field Guides & Knowledge Base"],
+  ["/field-guides/rj45-cabling-t568a-vs-t568b-guide/","Comprehensive Guide to RJ45 Cabling"],
+  ["/guides/rj45-cabling-t568a-vs-t568b-guide/","Comprehensive Guide to RJ45 Cabling"],
   ["/guides/","Field Guides & Knowledge Base"],
   ["/services/","Services & IT Field Dispatch"],
   ["/services-dispatch/","Services & IT Field Dispatch"],
