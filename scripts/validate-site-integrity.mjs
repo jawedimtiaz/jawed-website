@@ -6,6 +6,7 @@ const rootIndex=read("index.html");
 const app=read("src/App.tsx");
 const entry=read("src/main.tsx");
 const seo=read("src/components/SeoHead.tsx");
+const routeSeo=read("src/components/RouteSeo.tsx");
 const styles=read("src/index.css");
 const sitemap=read("public/sitemap.xml");
 const robots=read("public/robots.txt");
@@ -37,8 +38,10 @@ if(!rootIndex.includes('src="/src/main.tsx"'))fail.push("Vite entry HTML must re
 if(!rootIndex.includes('<link rel="canonical" href="https://jawed.co.in/"'))fail.push("root HTML canonical must use the production origin");
 if(!entry.includes("BrowserRouter")||!entry.includes("ReactDOM.createRoot")||!entry.includes("./App"))fail.push("React entry must mount App inside BrowserRouter");
 if(!app.includes('path="*"')||!app.includes("NotFoundPage"))fail.push("React Router must include an application not-found route");
-if(!seo.includes("document.title")||!seo.includes('link[rel="canonical"]')||!seo.includes('meta[name="description"]'))fail.push("SeoHead must update title, canonical, and description metadata");
+if(!seo.includes("document.title")||!seo.includes('link[rel="canonical"]')||!seo.includes('meta[name="description"]')||!seo.includes('meta[name="robots"]'))fail.push("SeoHead must update title, canonical, description, and robots metadata");
 if(!seo.includes('meta[property="og:url"]')||!seo.includes('meta[name="twitter:card"]'))fail.push("SeoHead must update social metadata");
+if(!app.includes("<RouteSeo />")||!routeSeo.includes("resolveMetadata")||!routeSeo.includes("canonicalPath: '/field-guides/'"))fail.push("RouteSeo must be mounted and resolve route-specific metadata/canonical URLs");
+if(!seo.includes("title.includes('Jawed Imtiaz')"))fail.push("SeoHead must avoid duplicate publisher suffixes when the title already contains the brand");
 if(/\}\s*color:\s*var\(--text\);\s*border-radius:\s*8px;/.test(styles))fail.push("CSS contains the malformed duplicate declaration block previously seen in the production build");
 
 const routePatterns=[...app.matchAll(/<Route\s+path="([^"]+)"/g)].map(match=>match[1]);
