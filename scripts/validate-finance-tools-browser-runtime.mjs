@@ -76,40 +76,40 @@ async function openPage(path,selector){
 async function submit(formSelector){await click(formSelector+" button[type=submit]");await sleep(250)}
 
 async function waitForProductionRevision(){
-  const checks=[
-    ["/tools/compound-growth-sip-calculator/",'reset.addEventListener("click",()=>{f.reset();err.textContent="";calculate()})'],
-    ["/tools/inflation-goal-planning-calculator/",'field.value.trim()===""||!field.checkValidity()'],
-    ["/tools/retirement-planning-calculator/",'el[id].value.trim()===""||!el[id].checkValidity()'],
-    ["/tools/personal-finance-snapshot/",'$(id).value.trim()===""||!Number.isFinite(n(id))||n(id)<0'],
-    ["/tools/personal-finance-snapshot/",'$("finance-reset").addEventListener("click"'],
-    ["/tools/finance-planning-workspace/",'if(!valid(fields))err="Retirement values must be zero or positive."'],
-    ["/tools/ai-prompt-builder/",'Prompt built locally in your browser.'],
-    ["/assets/js/interview-preparation-planner.js",'const sampleText="IT Support Engineer.'],
-    ["/tools/it-troubleshooting-assistant/",'Can the device reach any known website or network resource?'],
-    ["/tools/resume-bullet-strength-checker/",'const weak=[\'responsible for\''],
-    ["/tools/service-desk-note-formatter/",'Note formatted locally in your browser.'],
-    ["/tools/ticket-to-knowledge-base-draft/",'Draft built locally. Review and sanitize it before reuse.'],
-    ["/notes/retirement-withdrawals-sequence-risk-income-review/",'Why the sequence of returns matters'],
-    ["/notes/portfolio-allocation-rebalancing-framework/",'Worked example: calculate allocation drift'],
-    ["/notes/us-stocks-etfs-starting-point/",'Worked example: two ETFs can still overlap'],
-    ["/assets/js/main.js","const matchingCard=key&&q?candidates.find(other=>itemKey(other)===key&&other.textContent.toLowerCase().includes(q)):el"],
-    ["/topics/",'id="topics-filter"'],
-    ["/tools/",'id="tools-filter"'],
-    ["/resources/",'id="resources-filter"'],
-    ["/notes/",'id="notes-filter"'],
-    ["/blog/",'id="blog-filter"'],
-    ["/notes/it-troubleshooting-guide-knowledge-base/",'Worked example: turn one ticket into a reusable guide']
+  const routes=[
+    ["/tools/compound-growth-sip-calculator/","#initial"],
+    ["/tools/inflation-goal-planning-calculator/","#cost"],
+    ["/tools/retirement-planning-calculator/","#age"],
+    ["/tools/personal-finance-snapshot/","#income"],
+    ["/tools/finance-planning-workspace/","#tab-snapshot"],
+    ["/tools/ai-prompt-builder/","#prompt-goal"],
+    ["/tools/interview-preparation-planner/","#jd"],
+    ["/tools/it-troubleshooting-assistant/","#symptom"],
+    ["/tools/resume-bullet-strength-checker/","#bullets"],
+    ["/tools/service-desk-note-formatter/","#note-issue"],
+    ["/tools/ticket-to-knowledge-base-draft/","#kb-problem"],
+    ["/tools/","#tools-filter"],
+    ["/topics/","#topics-filter"],
+    ["/resources/","#resources-filter"],
+    ["/notes/","#notes-filter"],
+    ["/blog/","#blog-filter"]
   ];
-  for(let attempt=0;attempt<120;attempt++){
-    let ready=true;
-    for(const [path,marker] of checks){
-      try{const response=await fetch(BASE_URL+path,{cache:"no-store"});const source=await response.text();if(!response.ok||!source.includes(marker)){ready=false;break;}}
-      catch{ready=false;break;}
-    }
-    if(ready){console.log("Production revision markers are live.");return;}
-    await sleep(1000);
+  for(const [path,selector] of routes){
+    await openPage(path,selector);
+    const state=await js("return {selector:!!document.querySelector(arguments[0]),root:!!document.querySelector('.site-wrapper'),title:document.querySelector('h1')?.textContent||''}",[selector]);
+    if(!state.selector||!state.root)throw new Error("React route did not render expected control: "+path+" "+JSON.stringify(state));
   }
-  throw new Error("Production did not expose the expected finance-tool revision within 120 seconds.");
+  const contentRoutes=[
+    ["/notes/retirement-withdrawals-sequence-risk-income-review/","Why the sequence of returns matters"],
+    ["/notes/portfolio-allocation-rebalancing-framework/","Worked example: calculate allocation drift"],
+    ["/notes/us-stocks-etfs-starting-point/","Worked example: two ETFs can still overlap"],
+    ["/notes/it-troubleshooting-guide-knowledge-base/","Worked example: turn one ticket into a reusable guide"]
+  ];
+  for(const [path,marker] of contentRoutes){
+    await command("POST","/url",{url:BASE_URL+path});
+    await waitFor("()=>document.body.innerText.includes("+JSON.stringify(marker)+")");
+  }
+  console.log("Current React/Vite routes and content markers are live.");
 }
 async function testGrowth(label){
   await openPage("/tools/compound-growth-sip-calculator/","#initial");
