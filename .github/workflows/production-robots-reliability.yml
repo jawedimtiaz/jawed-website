@@ -5,7 +5,8 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "robots.txt"      - "public/robots.txt"
+      - "robots.txt"
+      - "public/robots.txt"
       - "public/_redirects"
 
       - "config/production-robots-contract.json"
@@ -14,7 +15,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "robots.txt"      - "public/robots.txt"
+      - "robots.txt"
+      - "public/robots.txt"
       - "public/_redirects"
 
       - "config/production-robots-contract.json"
