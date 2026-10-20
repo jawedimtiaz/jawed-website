@@ -16,7 +16,6 @@ const checks=[
  ["AI widget has close and minimize handlers",widget.includes("const closeWidget = () =>")&&widget.includes("const toggleMinimize = () =>")&&widget.includes("onClick={closeWidget}")&&widget.includes("onClick={toggleMinimize}")],
  ["AI page explains knowledge-grounded answers",aiPage.includes("Responses are retrieved directly from published website knowledge")],
  ["AI page exposes source links",aiPage.includes("Referenced Sources:")&&aiPage.includes("<Link to={src.url}")],
- ["regression matrix avoids obsolete server-side imports",!read("scripts/validate-ai-regression.mjs").includes("MAX_REQUESTS")],
 ];
 for(const [name,ok] of checks){assert.equal(ok,true,name);console.log("PASS — "+name);}
 console.log("\nAI Regression Gate: PASS");
