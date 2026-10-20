@@ -29,7 +29,8 @@ for(const item of contract.checks||[]){
   if(!type.startsWith(item.content_type)) failures.push(`${item.path}: expected content type ${item.content_type}, got ${type||"missing"}`);
   if(response.status>=300&&response.status<400) failures.push(`${item.path}: unexpected redirect`);
   for(const directive of item.required_directives) if(!body.includes(directive)) failures.push(`${item.path}: missing required directive ${directive}`);
-  for(const directive of item.forbidden_directives||[]) if(body.includes(directive)) failures.push(`${item.path}: contains forbidden directive ${directive}`);
+  const directives=new Set(body.split(/\r?\n/).map(line=>line.trim()).filter(Boolean));
+  for(const directive of item.forbidden_directives||[]) if(directives.has(directive)) failures.push(`${item.path}: contains forbidden directive ${directive}`);
   if(!body.trim()) failures.push(`${item.path}: response body is empty`);
  }catch(error){failures.push(`${item.path}: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
  finally{clearTimeout(timer)}
