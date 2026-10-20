@@ -5,9 +5,15 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "tools/career-match-resume-review/index.html"
+      - "src/tools/CareerMatchResumeReview.tsx"
+      - "src/pages/PrivacyPage.tsx"
+      - "src/App.tsx"
+      - "src/index.css"
+      - "src/components/**"
       - "scripts/validate-career-match-browser-runtime.mjs"
       - ".github/workflows/career-match-browser-runtime.yml"
+      - "package.json"
+      - "vite.config.ts"
       - "scripts/validate-site-integrity.mjs"
   workflow_dispatch:
 permissions:
@@ -16,7 +22,7 @@ jobs:
   browser-runtime:
     name: Career Match browser runtime
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -28,21 +34,28 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
+      - name: Install dependencies without generating a lockfile
+        run: npm install --no-package-lock --ignore-scripts
+      - name: Build the current Vite application
+        run: npm run build
       - name: Verify browser tooling
         run: |
           google-chrome --version
           chromedriver --version
-      - name: Start local site for browser runtime smoke
+      - name: Start Vite preview server
         run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/career-match-http.log 2>&1 &
-          echo $! > /tmp/career-match-http.pid
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/career-match-preview.log 2>&1 &
+          echo $! > /tmp/career-match-preview.pid
           ready=0
-          for attempt in $(seq 1 50); do
+          for attempt in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:4173/tools/career-match-resume-review/ > /dev/null; then ready=1; break; fi
-            sleep 0.2
+            sleep 0.5
           done
-          if [ "$ready" != "1" ]; then cat /tmp/career-match-http.log; exit 1; fi
-      - name: Run local browser runtime smoke
+          if [ "$ready" != "1" ]; then cat /tmp/career-match-preview.log; exit 1; fi
+      - name: Run current React browser runtime smoke
         env:
           BASE_URL: http://127.0.0.1:4173
         run: node scripts/validate-career-match-browser-runtime.mjs
+      - name: Show preview logs on failure
+        if: failure()
+        run: cat /tmp/career-match-preview.log || true
