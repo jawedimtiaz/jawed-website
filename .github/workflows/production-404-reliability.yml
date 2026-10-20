@@ -5,14 +5,18 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "404.html"
+      - "404.html"      - "public/404.html"
+      - "public/_redirects"
+
       - "config/production-404-contract.json"
       - "scripts/validate-production-404.mjs"
       - ".github/workflows/production-404-reliability.yml"
   push:
     branches: [main]
     paths:
-      - "404.html"
+      - "404.html"      - "public/404.html"
+      - "public/_redirects"
+
       - "config/production-404-contract.json"
       - "scripts/validate-production-404.mjs"
       - ".github/workflows/production-404-reliability.yml"
