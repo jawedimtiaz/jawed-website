@@ -5,7 +5,8 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "config/production-security-header-contract.json"      - "public/_headers"
+      - "config/production-security-header-contract.json"
+      - "public/_headers"
       - "public/_redirects"
       - "src/App.tsx"
 
@@ -15,7 +16,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "config/production-security-header-contract.json"      - "public/_headers"
+      - "config/production-security-header-contract.json"
+      - "public/_headers"
       - "public/_redirects"
       - "src/App.tsx"
 
