@@ -24,7 +24,7 @@ export const PrivacyPage: React.FC = () => {
       <section className="content-section">
         <h2>2. Google AdSense &amp; Third-Party Advertising</h2>
         <p>
-          This website uses <strong>Google AdSense</strong> to display advertisements. AdSense uses cookies, web beacons, and unique device identifiers to serve personalized and non-personalized advertisements based on a user’s prior visits to this website or other websites on the internet.
+          This website is being prepared for potential advertising, but advertising is not active merely because this policy discusses it or the site is verified in an advertising account. Google AdSense scripts, ad slots, and advertising cookies will be introduced only after the publisher has completed the required review, consent, policy, and technical checks and explicitly enables advertising. If advertising is enabled, Google and its partners may use cookies or similar technologies to serve personalized or non-personalized ads, subject to applicable choices and consent requirements.
         </p>
         <ul style={{ paddingLeft: '20px', lineHeight: 1.8 }}>
           <li>
@@ -42,7 +42,7 @@ export const PrivacyPage: React.FC = () => {
       <section className="content-section">
         <h2>3. Web Analytics &amp; Telemetry (Google Analytics 4)</h2>
         <p>
-          We use <strong>Google Analytics 4 (GA4)</strong> to aggregate anonymized visitor metrics, such as pageviews, average session duration, technical browser parameters, and geographic region. GA4 collects data using first-party cookies (e.g. <code>_ga</code>). IP addresses are automatically anonymized, and no personally identifiable information (PII) is transmitted to Google Analytics.
+          Analytics measurement may be introduced only when the corresponding analytics service is configured and the applicable consent and privacy requirements are met. If Google Analytics 4 (GA4) is enabled, it may collect usage and technical metrics using cookies or similar technologies. This policy does not mean that GA4 is currently active. The site should not send directly identifying personal information to analytics services.
         </p>
       </section>
 
