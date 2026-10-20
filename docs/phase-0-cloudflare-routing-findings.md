@@ -53,3 +53,16 @@ The preview route test does not prove that the public homepage blank-page sympto
 - [ ] Do not merge/deploy until remaining relevant checks and the release candidate have been reviewed.
 
 No production mutation was made.
+
+
+## Continued gate repair (2026-10-20)
+
+Further changes on the same review branch:
+
+- Replaced the obsolete AI regression entry point, which imported retired `functions/lib/*` modules, with source/data checks for the current bundled client-side knowledge engine, personal-query guardrail, widget closed-by-default state, close/minimize handlers, and source links.
+- Updated the AdSense privacy validator and final readiness validator to inspect the current React `src/pages/PrivacyPage.tsx` instead of assuming `privacy/index.html` exists.
+- Corrected privacy wording that previously implied AdSense and GA4 were active and labelled the policy as GDPR/CCPA compliant. The page now describes advertising/analytics as conditional on actual configuration, consent, and activation gates. This is a source-level wording correction, not a legal compliance certification.
+- Rebuilt the Career Match browser check to exercise the current React form and output, and changed its workflow to install dependencies, build Vite, and test the Vite preview instead of serving the repository root as plain static files.
+- Corrected the security validator to allow only the named `.env.example` template while scanning its contents, and to validate the expected `package.json` instead of rejecting the app's manifest.
+
+The latest CI runs for these changes are pending/in progress. Do not report these changes as passed until the corresponding workflow runs complete. The broader AdSense content audit still needs a review of legacy static-page assumptions and should continue to fail closed where published-content evidence is missing.
