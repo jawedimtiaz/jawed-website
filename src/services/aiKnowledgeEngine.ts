@@ -76,7 +76,11 @@ export function isPersonalQuery(query: string): boolean {
     return true;
   }
 
-  if (PERSONAL_FACT_TERMS.some((term) => lower.includes(term)) && asksAboutPersonalSubject(trimmed)) {
+  const asksAboutJawed = /\\b(jawed|he|his|him)\\b/i.test(lower);
+  const containsPersonalFact = PERSONAL_FACT_TERMS.some((term) =>
+    term.includes(' ') ? lower.includes(term) : containsWholeWord(lower, term)
+  );
+  if (asksAboutJawed && containsPersonalFact && asksAboutPersonalSubject(query)) {
     return true;
   }
 
