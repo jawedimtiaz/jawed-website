@@ -67,9 +67,9 @@
   --accent: #0284c7;
   --accent-hover: #0369a1;
   --accent-dark: #075985;
-  --teal: #0d9488;
+  --teal: #0f766e;       /* Darker teal for readable text on light surfaces */
   --indigo: #4f46e5;
-  --emerald: #059669;
+  --emerald: #047857;     /* Darker green for readable text on light surfaces */
   --amber: #b45309;
   --rose: #e11d48;
 
