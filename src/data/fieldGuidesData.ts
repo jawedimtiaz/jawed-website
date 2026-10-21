@@ -33,7 +33,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
       <div className="card" style="border-left: 4px solid var(--accent); background: var(--surface); padding: 18px; margin-bottom: 24px;">
         <strong style="color: var(--accent); font-size: 1.05rem;">⚡ Field Engineering Summary</strong>
         <p style="margin: 8px 0 0; font-size: 0.95rem;">
-          In modern structured cabling deployments, <strong>T568B</strong> is the overwhelming commercial standard across North America and Asia, while <strong>T568A</strong> is mandated for US federal government facilities and legacy residential installations. Maintaining color code consistency on both ends of a cable run is crucial to avoid split pairs and near-end crosstalk (NEXT).
+          Both <strong>T568A</strong> and <strong>T568B</strong> are recognized pin/pair schemes. Use the scheme specified by the project, customer, contract or existing cabling design, and keep the same scheme at both ends of a straight-through link. Do not change an established site standard without approval.
         </p>
       </div>
 
@@ -42,7 +42,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
         The <strong>ANSI/TIA-568</strong> commercial building telecommunications cabling standard defines the pin/pair assignments for eight-conductor 100-ohm balanced twisted-pair cabling (Cat5e, Cat6, and Cat6A). Proper termination requires maintaining the tight physical twist of signal pairs right up to the RJ45 (8P8C) plug contact blades.
       </p>
       <p>
-        While both <strong>T568A</strong> and <strong>T568B</strong> provide identical transmission performance up to 10 Gbps (10GBASE-T), mixing both standards on opposite ends of a single patch cable creates a crossover connection, resulting in autonegotiation failures on legacy non-Auto-MDIX equipment.
+        T568A and T568B differ in the placement of the orange and green pairs. Using one scheme at each end creates a traditional crossover wiring arrangement for Ethernet modes that depend on separate transmit and receive pairs. Whether a crossover causes a link problem depends on the endpoint PHY and Auto-MDI-X support; do not diagnose a fault from cable color alone. Gigabit Ethernet uses all four pairs bidirectionally, so older Tx/Rx labels are not a complete description of modern signaling.
       </p>
 
       <h2 id="pinout-tables">2. T568A vs T568B Color Code Pinout Tables</h2>
@@ -55,7 +55,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
           <thead>
             <tr style="background: var(--surface-hover); color: var(--text-heading); text-align: left;">
               <th style="padding: 12px; border: 1px solid var(--line);">Pin #</th>
-              <th style="padding: 12px; border: 1px solid var(--line);">Signal / Pair</th>
+              <th style="padding: 12px; border: 1px solid var(--line);">Pair assignment</th>
               <th style="padding: 12px; border: 1px solid var(--line);">T568A Wire Color</th>
               <th style="padding: 12px; border: 1px solid var(--line);">T568B Wire Color</th>
             </tr>
@@ -63,19 +63,19 @@ export const FIELD_GUIDES: FieldGuide[] = [
           <tbody>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-weight: bold;">Pin 1</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Tx+ (Pair 3 / 2)</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Pair 3 (T568A) / Pair 2 (T568B)</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #34d399;">White / Green</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #fb923c;">White / Orange</td>
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-weight: bold;">Pin 2</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Tx- (Pair 3 / 2)</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Pair 3 (T568A) / Pair 2 (T568B)</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #10b981;">Solid Green</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #f97316;">Solid Orange</td>
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-weight: bold;">Pin 3</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Rx+ (Pair 2 / 3)</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Pair 2 (T568A) / Pair 3 (T568B)</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #fb923c;">White / Orange</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #34d399;">White / Green</td>
             </tr>
@@ -93,7 +93,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-weight: bold;">Pin 6</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Rx- (Pair 2 / 3)</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Pair 2 (T568A) / Pair 3 (T568B)</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #f97316;">Solid Orange</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #10b981;">Solid Green</td>
             </tr>
@@ -148,10 +148,17 @@ export const FIELD_GUIDES: FieldGuide[] = [
 
       <h2 id="key-takeaways">6. Field Summary & Checklist</h2>
       <ul>
-        <li>Standardize on <strong>T568B</strong> for all new commercial enterprise deployments.</li>
-        <li>Limit pair untwist to <strong>less than 0.5 inches (12 mm)</strong> near the plug.</li>
-        <li>Always verify 100% of newly terminated drop cables with a verified wiremapper before connecting PoE+ switches.</li>
+        <li>Use the approved site/project wiring scheme consistently; do not prescribe T568A or T568B universally.</li>
+        <li>Keep pair untwist as short as required by the cable manufacturer and applicable installation standard.</li>
+        <li>Test each new termination with a suitable wiremap tester. Where acceptance requires performance certification, use an appropriate cable certifier and follow the approved PoE installation procedure.</li>
       </ul>
+      <h2 id="references">Sources and further reading</h2>
+      <ul>
+        <li><a href="https://www.h3c.com/en/d_202211/1715520_294551_0.htm" target="_blank" rel="noopener noreferrer">H3C documentation: Ethernet RJ-45 connector pinout and T568A/T568B assignments</a>.</li>
+        <li><a href="https://www.intel.com/content/www/us/en/support/articles/000007187/ethernet-products.html" target="_blank" rel="noopener noreferrer">Intel Support: Ethernet cabling specifications and crossover wiring</a>.</li>
+      </ul>
+      <p>Use the project specification and the cable/connector manufacturer's instructions for acceptance limits. A continuity or wiremap test does not by itself certify a link's Cat5e/Cat6/Cat6A performance.</p>
+
     `
   },
   {
@@ -260,11 +267,18 @@ export const FIELD_GUIDES: FieldGuide[] = [
 
       <h2 id="rack-checklist">6. Server Rack Dressing Checklist</h2>
       <ul>
-        <li>[ ] Use 1-foot slimline 28 AWG Cat6A patch cords for 1:1 patch-to-switch mapping.</li>
-        <li>[ ] Secure bundles using double-sided Velcro straps spaced 12 to 18 inches apart.</li>
-        <li>[ ] Verify no fiber patch cable exceeds its minimum 1.2-inch bend radius.</li>
+        <li>[ ] Choose patch-cord type, gauge and length for the actual route, port density, PoE load, airflow and manufacturer requirements.</li>
+        <li>[ ] Use suitable hook-and-loop straps or cable managers; secure bundles without crushing jackets or restricting maintenance access. Follow the rack and cabling design rather than a universal strap spacing.</li>
+        <li>[ ] Follow the specified minimum bend radius for each copper or fiber cable; the value depends on cable construction and installation conditions.</li>
         <li>[ ] Label both cable ends in accordance with ANSI/TIA-606-C.</li>
       </ul>
+      <h2 id="references">Sources and further reading</h2>
+      <ul>
+        <li><a href="https://www.commscope.com/blog/2018/guide-to-patch-cord-management-using-twisted-pair-infrastructure/" target="_blank" rel="noopener noreferrer">CommScope: Guide to patch-cord management using twisted-pair infrastructure</a>.</li>
+        <li><a href="https://www.commscope.com/resources/knowledge/what-are-the-fundamentals-of-cable-management/" target="_blank" rel="noopener noreferrer">CommScope: Fundamentals of cable management</a>.</li>
+      </ul>
+      <p>These references are general guidance. Follow the actual cable datasheet, rack layout, thermal design and applicable site standard when choosing bend radius, bundling and labeling practices.</p>
+
     `
   },
   {
@@ -378,12 +392,12 @@ export const FIELD_GUIDES: FieldGuide[] = [
 
       <h2 id="sfp-optical-ddm">5. SFP Transceiver Diagnostics & Optical dBm Power</h2>
       <p>
-        Digital Diagnostic Monitoring (DDM) allows switches to read real-time optical Transmit (Tx) and Receive (Rx) power levels in dBm:
+        Digital Diagnostic Monitoring (DDM) can report optical Transmit (Tx) and Receive (Rx) power in dBm. Interpret readings against the exact transceiver's datasheet and the switch platform's documented alarm thresholds; supported wavelengths, distances, optic models and acceptable ranges differ:
       </p>
       <ul>
-        <li><strong>Rx Power Too Low (< -18 dBm on 10GBASE-SR):</strong> Indicates fiber bend macro-fracture, dirty LC connector end-face, or excessive patch panel attenuation. Clean fiber with click-cleaner!</li>
-        <li><strong>Rx Power Too High (> -1 dBm on Short Range):</strong> Over-saturates receiver photodiode. Requires an optical attenuator.</li>
-        <li><strong>Tx Power Fault (Tx = -40 dBm):</strong> Internal laser diode failed; replace SFP transceiver immediately.</li>
+        <li><strong>Rx power below the documented receiver range:</strong> Possible causes include excessive loss, contamination, a damaged patch lead, a bend-radius violation, incompatible optics or a remote transmitter issue. Inspect and clean using the approved procedure, then compare readings with the optic specifications.</li>
+        <li><strong>Rx power above the documented receiver range:</strong> Confirm the exact optic's maximum receive level and the platform's alarms before considering attenuation. Do not apply an attenuator based on a generic dBm threshold.</li>
+        <li><strong>Tx reading at or near a reported fault value:</strong> Treat it as a diagnostic clue, not a universal failure code. Verify the transceiver model, supported optic, DOM capability and vendor-defined thresholds before reseating or replacing hardware.</li>
       </ul>
 
       <h2 id="triage-matrix">6. Field Triage Resolution Matrix</h2>
@@ -391,8 +405,15 @@ export const FIELD_GUIDES: FieldGuide[] = [
         <li>Swap the patch cable with a known-good Cat6A factory cable.</li>
         <li>Ensure both local and remote interfaces are set to <code>speed auto</code> and <code>duplex auto</code>.</li>
         <li>Clean fiber LC connectors using an approved 1.25mm/2.5mm optical cleaning pen.</li>
-        <li>If flapping persists, test interface with <code>link flap-suspend</code> threshold controls to prevent network-wide STP instability.</li>
+        <li>If flapping persists, consult the exact switch platform documentation for any approved port-protection or flap-suppression controls. Such controls may limit impact but do not replace root-cause diagnosis; do not copy commands across vendors or software releases.</li>
       </ol>
+      <h2 id="references">Sources and further reading</h2>
+      <ul>
+        <li><a href="https://www.cisco.com/c/en/us/support/docs/switches/catalyst-9500-series-switches/218397-troubleshoot-port-flaps-on-catalyst-9000.html" target="_blank" rel="noopener noreferrer">Cisco: Troubleshoot Port Flaps on Catalyst 9000 Switches</a>.</li>
+        <li><a href="https://www.intel.com/content/www/us/en/support/articles/000007187/ethernet-products.html" target="_blank" rel="noopener noreferrer">Intel Support: Ethernet cabling specifications</a>.</li>
+      </ul>
+      <p>CLI syntax, DOM thresholds, transceiver compatibility and port-protection behavior vary by platform and software release. Verify commands and alarm limits in the exact vendor documentation before using them on production equipment.</p>
+
     `
   },
   {
@@ -476,13 +497,13 @@ export const FIELD_GUIDES: FieldGuide[] = [
 
       <h2 id="hpe-proliant-matrix">3. HPE ProLiant Systems Insight Display (SID) Matrix</h2>
       <p>
-        HPE ProLiant Gen9/Gen10/Gen11 servers feature a pull-out Systems Insight Display (SID) panel providing per-component LED diagnosis:
+        LED layouts and meanings vary by exact server model, generation, installed options and firmware. The examples below are triage prompts only—not a universal Dell/HPE code map. Confirm the exact model and consult its current service manual and event log before taking hardware action:
       </p>
       <ul>
         <li><strong>Processor LED Amber:</strong> CPU socket fault or thermal shutdown.</li>
         <li><strong>DIMM Slot LED Amber (e.g., Ch A Slot 2):</strong> Specific memory slot degraded or disabled by ROM during POST.</li>
         <li><strong>Over-Temp LED Amber:</strong> Chassis ambient temperature exceeded limit; check intake fan assembly.</li>
-        <li><strong>iLO Health LED Flashing Amber:</strong> iLO dedicated management port lost network link or license error.</li>
+        <li><strong>Health LED amber/red:</strong> On some ProLiant models this indicates degraded or critical system health; the exact meaning depends on the model and other indicators. Check the model-specific guide and Integrated Management Log (IML).</li>
       </ul>
 
       <h2 id="psu-power-faults">4. Power Supply (PSU) Amber Flash Patterns</h2>
@@ -494,32 +515,35 @@ export const FIELD_GUIDES: FieldGuide[] = [
           <li><strong>Off:</strong> No AC power connected to C13/C19 inlet.</li>
           <li><strong>Solid Green:</strong> PSU output active and supplying 12V main power.</li>
           <li><strong>Blinking Green (1Hz):</strong> AC power present, 12V standby active, main server powered off.</li>
-          <li><strong>Solid Amber:</strong> PSU critical fault (over-current, over-voltage, fan failure). Replace PSU!</li>
-          <li><strong>Blinking Amber (1Hz):</strong> PSU firmware updating or input power mismatch (e.g. 110V connected to 240V high-line requirement).</li>
+          <li><strong>Amber indicator:</strong> Treat as a model-specific fault indication. Check the PSU label/manual and system event log before deciding whether the PSU or another component needs service.</li>
+          <li><strong>Blinking or alternating indicator:</strong> Interpret the pattern using the exact PSU model documentation; do not infer firmware-update or input-voltage status from color alone.</li>
         </ul>
       </div>
 
       <h2 id="ram-dimm-isolation">5. Isolating RAM DIMM Faults & Minimum-to-POST</h2>
       <p>
-        When a server refuses to boot and displays a fatal memory LED amber code, perform this minimum-to-POST bench routine:
+        A minimum-to-POST configuration is a model-specific service procedure, not a universal checklist. Do not remove CPUs, drives or PCIe cards, or assume that DIMM slot A1 is the correct starting point, unless the exact server maintenance guide specifies those steps.
       </p>
-      <ol style="line-height: 1.8;">
-        <li>Disconnect external power cords and drain residual flea power.</li>
-        <li>Strip non-essential hardware: remove all expansion PCIe cards, secondary CPUs (if dual-socket), and all hard drives.</li>
-        <li>Install a single known-good DIMM module in <strong>CPU1 DIMM Slot A1</strong>.</li>
-        <li>Attempt power ON. If successful, systematically re-add DIMMs into matching channels to locate the defective module.</li>
-      </ol>
+      <ul style="line-height: 1.8;">
+        <li>Record the exact model, LED pattern, POST message and management-controller event log before changing hardware.</li>
+        <li>Confirm the approved maintenance window, workload impact, backup/restore plan and component-redundancy state.</li>
+        <li>Follow the manufacturer procedure for shutdown, power isolation, electrostatic-discharge protection and supported memory population.</li>
+        <li>Change one variable at a time and record each observed result; escalate if the next step is not documented for the model or exceeds your authorization.</li>
+      </ul>
 
       <h2 id="field-recovery-steps">6. Field Recovery Protocol & Flea Power Release</h2>
       <p>
-        <strong>Flea Power Release Procedure (Drain Residual Current):</strong>
+        Residual-power release and controller-reset steps vary by model. Do not apply generic button-hold or wait timings. Use the exact Dell or HPE service procedure, verify the system is in an approved maintenance state, and disconnect power only as instructed by the manufacturer. Do not interrupt a firmware update or a protected storage operation.
       </p>
-      <ol style="line-height: 1.8;">
-        <li>Disconnect all AC power cords from both PSUs.</li>
-        <li>Press and hold the chassis Power Button for 20 to 30 seconds.</li>
-        <li>Wait 2 minutes for motherboard capacitors to discharge fully.</li>
-        <li>Reconnect AC power, allow iDRAC/iLO 3 minutes to boot completely, and attempt power ON.</li>
-      </ol>
+      <h2 id="references">Sources and model-specific service documentation</h2>
+      <ul>
+        <li><a href="https://www.dell.com/support/manuals/en-in/oth-r260/r260_ism/system-health-and-system-id-indicator-codes?guid=guid-6d47de6d-f69f-4d82-ba9f-51af4e3c6dfe&lang=en-us" target="_blank" rel="noopener noreferrer">Dell PowerEdge R260: System health and system ID indicator codes</a>.</li>
+        <li><a href="https://www.dell.com/support/manuals/en-in/poweredge-r740/per740_ism_pub/status-led-indicators?guid=guid-e968effd-8b55-4b6e-abe9-7d95a95407ef&lang=en-us" target="_blank" rel="noopener noreferrer">Dell PowerEdge R740: Status LED indicators</a>.</li>
+        <li><a href="https://support.hpe.com/hpesc/public/api/document/a00106496en_us" target="_blank" rel="noopener noreferrer">HPE ProLiant DL380 Gen10: Maintenance and service guide</a>.</li>
+        <li><a href="https://www.hpe.com/info/gen11-troubleshooting" target="_blank" rel="noopener noreferrer">HPE: ProLiant Gen11 troubleshooting resources</a>.</li>
+      </ul>
+      <p>LED combinations and recovery steps are model-specific. Use these references as examples, then select the exact model and generation in the vendor support portal. Do not remove hardware or perform power-release/reset procedures from a generic guide without checking the applicable service manual and approved maintenance process.</p>
+
     `
   }
 ];
