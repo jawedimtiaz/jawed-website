@@ -122,12 +122,12 @@ export const FIELD_GUIDES: FieldGuide[] = [
       <ul>
         <li><strong>Straight-Through Cable:</strong> Both ends are terminated with the same pattern (T568B to T568B OR T568A to T568A). Used to connect dissimilar devices, such as a Workstation/Server to a Switch port or a Router to a LAN switch.</li>
         <li><strong>Crossover Cable:</strong> One end terminated in T568A and the opposite end in T568B. Swaps Transmit (Pins 1/2) and Receive (Pins 3/6) pairs. Historically required to connect like-to-like equipment (Switch-to-Switch, Router-to-Router, or PC-to-PC).</li>
-        <li><strong>Auto-MDIX (Automatic Medium-Dependent Interface Crossover):</strong> Modern Gigabit and 10GbE network interfaces automatically detect cable pinout types and reconfigure internal PHY logic. However, manual fixed-pinout legacy devices still require proper straight-through cables.</li>
+        <li><strong>Auto-MDIX (Automatic Medium-Dependent Interface Crossover):</strong> Many modern copper Ethernet PHYs support Auto-MDI-X, but support depends on the specific interface/PHY and configuration. Verify the adapter or switch documentation rather than assuming it is available. Where supported, Auto-MDI-X can adjust the MDI/MDI-X relationship; cable correctness and link negotiation still need validation. However, manual fixed-pinout legacy devices still require proper straight-through cables.</li>
       </ul>
 
       <h2 id="crimping-mistakes">4. Top 5 Field Crimping Mistakes to Avoid</h2>
       <ol style="line-height: 1.8;">
-        <li><strong>Excessive Pair Untwisting:</strong> Stripping outer jacket back too far and untwisting pairs more than 0.5 inches (13 mm) introduces high <strong>Near-End Crosstalk (NEXT)</strong>, causing Cat6 cables to fail certification at Gigabit frequencies.</li>
+        <li><strong>Excessive Pair Untwisting:</strong> Keep pair twists as close as practical to the termination and follow the connector/cabling manufacturer's instructions. A commonly cited TIA guideline for Category 5e and higher is to maintain twists within 13 mm (0.5 in) of the termination when manufacturer instructions do not specify otherwise. Excess untwist can degrade <strong>Near-End Crosstalk (NEXT)</strong> and transmission performance, but certification depends on the complete link and measured test results.</li>
         <li><strong>Jacket Strain Relief Failure:</strong> Failing to push the outer PVC cable jacket inside the RJ45 housing under the primary crimp wedge leads to wire fatigue, intermittent pin contact, and wire pull-outs.</li>
         <li><strong>Incomplete Pin Penetration:</strong> Using non-ratcheting crimpers or applying insufficient force prevents the gold-plated contact prongs from piercing copper wire insulation evenly.</li>
         <li><strong>Crossed Pairs / Wrong Wire Sequence:</strong> Swapping Pin 3 (White/Green) and Pin 5 (White/Blue) during manual fan-out leads to immediate pinout failures.</li>
