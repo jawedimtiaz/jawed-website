@@ -25,6 +25,8 @@ export const JawedAiWidget: React.FC = () => {
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -32,6 +34,12 @@ export const JawedAiWidget: React.FC = () => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen, isMinimized]);
+
+  useEffect(() => {
+    if (isOpen && !isMinimized) {
+      inputRef.current?.focus();
+    }
+  }, [isOpen, isMinimized]);
 
   // Hide widget on dedicated /ai page
   if (location.pathname.startsWith('/ai')) {
@@ -84,6 +92,7 @@ export const JawedAiWidget: React.FC = () => {
   const closeWidget = () => {
     setIsOpen(false);
     setIsMinimized(false);
+    requestAnimationFrame(() => launcherRef.current?.focus());
   };
 
   const toggleMinimize = () => {
@@ -96,6 +105,7 @@ export const JawedAiWidget: React.FC = () => {
       {!isOpen && (
         <button
           className="jawed-ai-toggle"
+          ref={launcherRef}
           type="button"
           aria-expanded="false"
           aria-label="Open Jawed AI Assistant"
@@ -256,6 +266,7 @@ export const JawedAiWidget: React.FC = () => {
               <input
                 type="text"
                 placeholder="Ask a question..."
+                ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 disabled={loading}
