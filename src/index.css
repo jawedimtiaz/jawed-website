@@ -51,7 +51,7 @@
   --text: #0f172a;             /* Slate 900 */
   --text-muted: #64748b;      /* Slate 500 */
   --nav-link: #334155;         /* Slate 700 */
-  --nav-link-hover: #0284c7;   /* Sky 600 */
+  --nav-link-hover: #075985;   /* Darker blue for AA text contrast */
 
   /* Mapped & Alias System Tokens */
   --card: #ffffff;
