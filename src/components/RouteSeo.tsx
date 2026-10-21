@@ -199,13 +199,28 @@ function resolveMetadata(pathname: string): RouteMetadata {
   const fieldGuideMatch = path.match(/^\/(?:guides|field-guides)\/([^/]+)$/);
   if (fieldGuideMatch) {
     const guide = FIELD_GUIDES.find((entry) => entry.slug === fieldGuideMatch[1]);
-    if (!guide) return { title: 'Page Not Found', description: 'The requested page could not be found on jawed.co.in.', canonicalPath: '/404', robots: 'noindex, follow' };
-    return {
-      title: guide.title,
-      description: guide.description,
-      canonicalPath: '/field-guides/' + guide.slug,
-      ogType: 'article',
-    };
+    if (guide) {
+      return {
+        title: guide.title,
+        description: guide.description,
+        canonicalPath: '/field-guides/' + guide.slug,
+        ogType: 'article',
+      };
+    }
+
+    // These legacy route aliases can also render notesData entries via NoteDetailPage.
+    // Preserve their content metadata and canonicalize notes to their canonical /notes/ URL.
+    const note = notesData.find((entry) => entry.slug === fieldGuideMatch[1]);
+    if (note) {
+      return {
+        title: note.title,
+        description: note.description,
+        canonicalPath: '/notes/' + note.slug,
+        ogType: 'article',
+      };
+    }
+
+    return { title: 'Page Not Found', description: 'The requested page could not be found on jawed.co.in.', canonicalPath: '/404', robots: 'noindex, follow' };
   }
 
   const blogMatch = path.match(/^\/blog\/([^/]+)$/);
