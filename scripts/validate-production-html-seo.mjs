@@ -28,11 +28,15 @@ async function get(path,label){
   return await readBoundedText(response,contract.max_body_bytes);
  }catch(e){failures.push(label+": request failed: "+(e?.name==="AbortError"?"timeout":String(e)));return "";}finally{clearTimeout(timer);}
 }
+function normalizeHtmlForMarkerChecks(html){
+ return html.replace(/\\s+/g," ").replace(/\\s+\\/>/g,">").trim();
+}
 if(!failures.length){
  const root=await get(contract.root_check.path,"homepage SEO shell");
- for(const marker of contract.root_check.required||[])if(!root.includes(marker))failures.push("homepage SEO shell missing marker: "+marker);
- for(const marker of contract.root_check.forbidden||[])if(root.toLowerCase().includes(marker.toLowerCase()))failures.push("homepage SEO shell contains forbidden marker: "+marker);
- if(!root.includes(contract.root_check.canonical))failures.push("homepage canonical URL mismatch");
+ const normalizedRoot=normalizeHtmlForMarkerChecks(root);
+ for(const marker of contract.root_check.required||[])if(!normalizedRoot.includes(normalizeHtmlForMarkerChecks(marker)))failures.push("homepage SEO shell missing marker: "+marker);
+ for(const marker of contract.root_check.forbidden||[])if(normalizedRoot.toLowerCase().includes(normalizeHtmlForMarkerChecks(marker).toLowerCase()))failures.push("homepage SEO shell contains forbidden marker: "+marker);
+ if(!normalizedRoot.includes(normalizeHtmlForMarkerChecks(contract.root_check.canonical)))failures.push("homepage canonical URL mismatch");
  for(const path of contract.route_shells||[]){
   const body=await get(path,"SPA route "+path);
   for(const marker of contract.route_shell_required||[])if(!body.includes(marker))failures.push(path+": missing React SPA shell marker "+marker);
