@@ -214,19 +214,19 @@ export const FIELD_GUIDES: FieldGuide[] = [
           <tbody>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-weight: bold;">Cat5e / Cat6 UTP</td>
-              <td style="padding: 10px; border: 1px solid var(--line);" colspan="2">Use the cable manufacturer's stated minimum radius for the specific cable and installation condition.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Use the cable manufacturer's stated minimum radius for the specific cable and installation condition.</td>
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-weight: bold;">Cat6A Shielded (F/UTP or S/FTP)</td>
-              <td style="padding: 10px; border: 1px solid var(--line);" colspan="2">Do not assume all shielded Cat6A constructions share one radius; check the product datasheet.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Do not assume all shielded Cat6A constructions share one radius; check the product datasheet.</td>
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-weight: bold;">Single-Mode Fiber (OS2 Zipcord)</td>
-              <td style="padding: 10px; border: 1px solid var(--line);" colspan="2">For fiber, distinguish installation/loaded radius from installed/unloaded radius where the manufacturer specifies both.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">For fiber, distinguish installation/loaded radius from installed/unloaded radius where the manufacturer specifies both.</td>
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-weight: bold;">Armored Fiber Patch Cords</td>
-              <td style="padding: 10px; border: 1px solid var(--line);" colspan="2">Armoring alone does not establish a universal bend radius; use the patch-cord datasheet.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Armoring alone does not establish a universal bend radius; use the patch-cord datasheet.</td>
             </tr>
           </tbody>
         </table>
