@@ -6,8 +6,12 @@ export const Header: React.FC = () => {
   const menuToggleRef = useRef<HTMLButtonElement>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme');
-      if (saved === 'light' || saved === 'dark') return saved;
+      try {
+        const saved = window.localStorage.getItem('theme');
+        if (saved === 'light' || saved === 'dark') return saved;
+      } catch {
+        // Storage can be unavailable in private or restricted browser contexts.
+      }
       return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }
     return 'dark';
@@ -34,7 +38,11 @@ export const Header: React.FC = () => {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
+    try {
+      window.localStorage.setItem('theme', theme);
+    } catch {
+      // Keep the selected theme for this page session even when persistence is blocked.
+    }
   }, [theme]);
 
   const toggleTheme = () => {
