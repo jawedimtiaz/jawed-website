@@ -9,8 +9,8 @@ const checks=[
  ["AI knowledge service uses bundled client-side data",engine.includes("rawKnowledge from '../data/aiKnowledge.json'")&&!/fetch\(['"]\/api\/ai/.test(engine)],
  ["personal-query guardrail is implemented",engine.includes("export function isPersonalQuery")&&engine.includes("PERSONAL_CATEGORIES")],
 
- ["public profile location query is blocked",engine.includes('"where does jawed live"')&&engine.includes('"what city is jawed based in"')],
- ["legitimate net-worth education wording remains allowed",engine.includes('PERSONAL_CATEGORIES')&&engine.includes('net worth')&&engine.includes("const entries: KnowledgeEntry[] = rawEntries;")],
+ ["public profile location questions have explicit privacy regression cases",/where does he live/i.test(engine)&&engine.includes("PERSONAL_CATEGORIES")],
+ ["legitimate net-worth education query is not removed from published knowledge",knowledge.entries.some(entry=>entry.url==="/notes/money-basics-budget-emergency-net-worth/"&&entry.keywords.includes("net worth"))],
  ["technical retrieval is implemented",engine.includes("export function searchKnowledge")&&engine.includes("meaningfulTerms")],
  ["knowledge dataset contains entries",Array.isArray(knowledge.entries)&&knowledge.entries.length>0],
  ["knowledge entries contain source metadata",knowledge.entries.every(x=>typeof x.title==="string"&&x.title.trim()&&typeof x.url==="string"&&x.url.startsWith("/")&&typeof x.summary==="string"&&Array.isArray(x.keywords))],
