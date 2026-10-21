@@ -802,6 +802,13 @@ select:focus-visible {
   color: var(--accent);
 }
 
+/* Keep cookie-preference hover text readable on the light footer surface. */
+[data-theme="light"] .cookie-trigger-btn:hover,
+.light .cookie-trigger-btn:hover {
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
+}
+
 /* Modal Overlay for Cookies */
 .modal-overlay {
   position: fixed;
