@@ -1055,6 +1055,24 @@ select:focus-visible {
   color: var(--accent);
 }
 
+/* Give AI widget header actions comfortable touch targets on mobile. */
+@media (max-width: 768px) {
+  .jawed-ai-action-btn {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+  }
+
+  .jawed-ai-widget-header {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .jawed-ai-header-actions {
+    gap: 4px;
+  }
+}
+
 /* Preserve readable AI-widget action glyphs on light-theme hover surfaces. */
 [data-theme="light"] .jawed-ai-action-btn:hover,
 .light .jawed-ai-action-btn:hover {
