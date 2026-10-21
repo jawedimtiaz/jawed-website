@@ -76,7 +76,7 @@ export function isPersonalQuery(query: string): boolean {
     return true;
   }
 
-  if (PERSONAL_FACT_TERMS.some((term) => lower.includes(term)) && asksAboutPersonalSubject(trimmed)) {
+  if (PERSONAL_FACT_TERMS.some((term) => lower.includes(term)) && asksAboutPersonalSubject(query)) {
     return true;
   }
 
@@ -84,7 +84,7 @@ export function isPersonalQuery(query: string): boolean {
     if (item.includes(' ')) {
       if (lower.includes(item)) return true;
     } else {
-      const regex = new RegExp(`\\\\b${escapeRegExp(item)}\\\\b`, 'i');
+      const regex = new RegExp(`\\b${escapeRegExp(item)}\\b`, 'i');
       if (regex.test(lower)) return true;
     }
   }
