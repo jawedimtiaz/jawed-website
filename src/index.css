@@ -922,6 +922,8 @@ select:focus-visible {
 .jawed-ai-panel {
   width: 380px;
   max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
@@ -1010,9 +1012,12 @@ select:focus-visible {
 
 /* Contained Scrollable Message Container */
 .jawed-ai-widget-messages {
-  height: 260px;
-  max-height: 260px;
+  height: min(260px, calc(100vh - 240px));
+  height: min(260px, calc(100dvh - 240px));
+  max-height: min(260px, calc(100dvh - 240px));
+  min-height: 80px;
   overflow-y: auto;
+  flex-shrink: 1;
   padding: 14px;
   display: flex;
   flex-direction: column;
