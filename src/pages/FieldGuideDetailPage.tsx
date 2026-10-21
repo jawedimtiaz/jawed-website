@@ -62,6 +62,12 @@ export const FieldGuideDetailPage: React.FC = () => {
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{guide.readTime}</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Published {guide.publishedDate}</span>
+            {guide.updatedDate && guide.updatedDate !== guide.publishedDate && (
+              <>
+                <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Updated {guide.updatedDate}</span>
+              </>
+            )}
           </div>
 
           <h1 style={{ fontSize: '2.2rem', lineHeight: 1.25, marginBottom: '16px', color: 'var(--text-heading)' }}>
