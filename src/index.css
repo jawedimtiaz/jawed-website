@@ -266,6 +266,12 @@ select:focus-visible {
   box-shadow: 0 6px 16px rgba(2, 132, 199, 0.4);
 }
 
+[data-theme="light"] .nav-cta:hover,
+.light .nav-cta:hover {
+  background: linear-gradient(135deg, var(--accent-dark), var(--accent-hover));
+  color: #ffffff !important;
+}
+
 .theme-toggle-btn {
   display: inline-flex;
   align-items: center;
