@@ -28,10 +28,10 @@ const PERSONAL_CATEGORIES = [
 ];
 
 const PERSONAL_LOCATION_QUESTIONS = [
-  /\\bwhere\\s+(?:does|is)\\s+(?:jawed|he)\\s+(?:live|based|located)\\b/i,
-  /\\bwhat\\s+(?:city|town|area|address)\\s+(?:is|does)\\s+(?:jawed|he)\\b/i,
-  /\\bwhere\\s+(?:is|does)\\s+(?:jawed|he)\\s+(?:from|work|stay)\\b/i,
-  /\\b(?:jawed|he)(?:'s|\\s+is)\\s+(?:home|residence|location|address)\\b/i
+  /\bwhere\s+(?:does|is)\s+(?:jawed|he)\s+(?:live|based|located)\b/i,
+  /\bwhat\s+(?:city|town|area|address)\s+(?:is|does)\s+(?:jawed|he)\b/i,
+  /\bwhere\s+(?:is|does)\s+(?:jawed|he)\s+(?:from|work|stay)\b/i,
+  /\b(?:jawed|he)(?:'s|\s+is)\s+(?:home|residence|location|address)\b/i
 ];
 
 // 2. Stop-Words List (Common filler words to filter out before scoring technical queries)
