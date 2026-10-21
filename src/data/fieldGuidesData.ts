@@ -439,23 +439,23 @@ export const FIELD_GUIDES: FieldGuide[] = [
       <div className="card" style="border-left: 4px solid var(--amber); background: var(--surface); padding: 18px; margin-bottom: 24px;">
         <strong style="color: var(--amber); font-size: 1.05rem;">⚠️ On-Site Server Diagnostic Protocol</strong>
         <p style="margin: 8px 0 0; font-size: 0.95rem;">
-          When called to a data center floor for a degraded enterprise server, front bezel LEDs and internal motherboard fault indicators provide instant hardware failure diagnosis before attaching a KVM console.
+          When responding to a degraded enterprise server, chassis LEDs and internal fault indicators can provide useful initial clues before or alongside console access. They are not a diagnosis by themselves: correlate the exact model-specific indicator pattern with POST messages and the management-controller event log.
         </p>
       </div>
 
       <h2 id="overview-leds">1. Understanding Server Health LED Indicators</h2>
       <p>
-        Enterprise servers utilize multi-color chassis LEDs to signal system state:
+        LED colors and flash patterns are not standardized across all server families or generations. Treat the following as broad possibilities only; use the exact system's service guide to interpret its indicators:
       </p>
       <ul>
-        <li><strong>Solid Blue / Green:</strong> System powered ON and operating normally.</li>
-        <li><strong>Blinking Amber / Yellow:</strong> System degraded (non-critical event, e.g. single redundant PSU lost power, fan failure in redundant array).</li>
-        <li><strong>Solid Amber / Blinking Red:</strong> Critical hardware failure (CPU thermal trip, fatal memory uncorrectable ECC error, total RAID volume loss).</li>
+        <li><strong>Blue or green:</strong> May indicate identification, power, or normal status on some models; confirm the indicator label and model manual.</li>
+        <li><strong>Amber or yellow, steady or flashing:</strong> May signal a warning or degraded/critical condition depending on the model and the specific LED. Check event logs rather than inferring the failed component from color alone.</li>
+        <li><strong>Red or other fault pattern:</strong> Meaning varies by platform; consult the exact indicator table and event details before classifying severity or taking action.</li>
       </ul>
 
       <h2 id="dell-poweredge-matrix">2. Dell PowerEdge iDRAC & Bezel Error Codes</h2>
       <p>
-        Dell 14G/15G/16G PowerEdge servers feature a front LED status indicator button and LCD bezel displaying standard SEL event codes:
+        PowerEdge front indicators, LCDs, iDRAC event records and available diagnostic fields vary by model and generation. The entries below are examples of event-code families, not a universal mapping from code to bezel color or failed part. Verify the full message, model, firmware and vendor troubleshooting procedure:
       </p>
 
       <div style="overflow-x: auto; margin: 20px 0;">
@@ -472,26 +472,26 @@ export const FIELD_GUIDES: FieldGuide[] = [
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-family: monospace; font-weight: bold;">MEM0001 / MEM0702</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #fbbf24;">Blinking Amber</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Uncorrectable ECC Memory error on DIMM [X]</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Reseat indicated DIMM. If persistent, replace memory module.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Memory-related event; confirm the full message, DIMM locator and whether the event is current or historical in the system log.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Follow the model-specific memory troubleshooting procedure and supported population rules. Do not reseat or replace a DIMM solely from a code label; confirm the event and maintenance authorization first.</td>
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-family: monospace; font-weight: bold;">PDR1001 / PDR0001</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #f43f5e;">Solid Amber</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Physical Drive fault or removed during rebuild</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Check PERC RAID status; replace failed SAS/NVMe drive.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Storage/physical-drive event; determine the exact drive, controller, virtual-disk state and whether a rebuild or other storage operation is active.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Check controller and array health, identify the exact drive and confirm redundancy/rebuild state. Replace only when the vendor procedure confirms a failed drive and the change is authorized.</td>
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-family: monospace; font-weight: bold;">PSU0003 / PSU0006</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #fbbf24;">Blinking Amber</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Power Supply input voltage loss or mismatch</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Verify C13/C14 power cord seated into PDU; replace PSU block.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Power-supply event; verify the full event text, input source, PSU model and current power redundancy state.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Use the approved power-path and PSU diagnostics for the exact chassis. Do not reseat power or replace a PSU until input conditions, redundancy and the vendor procedure have been checked.</td>
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid var(--line); font-family: monospace; font-weight: bold;">CPU0001 / CPU0700</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #f43f5e;">Solid Amber</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">CPU Thermal trip or Internal Timer Error (IERR)</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Inspect heatsink thermal paste, fan array, or clear flea power.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Processor/platform event; use the full event record and model-specific diagnostics to distinguish thermal, processor, firmware or platform causes.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Follow the exact vendor diagnostic and service procedure. Do not remove a heatsink, apply thermal compound or perform a power reset based on this code alone.</td>
             </tr>
           </tbody>
         </table>
@@ -510,13 +510,13 @@ export const FIELD_GUIDES: FieldGuide[] = [
 
       <h2 id="psu-power-faults">4. Power Supply (PSU) Amber Flash Patterns</h2>
       <p>
-        Hot-plug Power Supply Units incorporate dedicated status LEDs directly on the handle:
+        Many hot-plug PSUs have a status indicator, but colors and flash meanings depend on the PSU model and server platform. Check the label and the matching PSU/chassis documentation:
       </p>
       <div style="background: var(--bg-darker); border: 1px solid var(--line); padding: 16px; border-radius: 10px; margin: 16px 0;">
         <ul style="margin-bottom: 0;">
-          <li><strong>Off:</strong> No AC power connected to C13/C19 inlet.</li>
-          <li><strong>Solid Green:</strong> PSU output active and supplying 12V main power.</li>
-          <li><strong>Blinking Green (1Hz):</strong> AC power present, 12V standby active, main server powered off.</li>
+          <li><strong>Off:</strong> Could indicate no input power, an inactive indicator, or another model-specific state; confirm using the PSU documentation and system logs.</li>
+          <li><strong>Solid green:</strong> Often indicates a healthy or active PSU on some models, but do not infer output rails or system power state without the exact model documentation.</li>
+          <li><strong>Blinking green:</strong> Interpret the frequency and pattern from the exact PSU manual; do not assume a universal 1 Hz or standby-power meaning.</li>
           <li><strong>Amber indicator:</strong> Treat as a model-specific fault indication. Check the PSU label/manual and system event log before deciding whether the PSU or another component needs service.</li>
           <li><strong>Blinking or alternating indicator:</strong> Interpret the pattern using the exact PSU model documentation; do not infer firmware-update or input-voltage status from color alone.</li>
         </ul>
