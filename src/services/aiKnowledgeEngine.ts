@@ -76,7 +76,7 @@ export function isPersonalQuery(query: string): boolean {
     return true;
   }
 
-  const asksAboutJawed = /\\b(jawed|he|his|him)\\b/i.test(lower);
+  const asksAboutJawed = /\b(jawed|he|his|him)\b/i.test(lower);
   const containsPersonalFact = PERSONAL_FACT_TERMS.some((term) =>
     term.includes(' ') ? lower.includes(term) : containsWholeWord(lower, term)
   );
@@ -88,7 +88,7 @@ export function isPersonalQuery(query: string): boolean {
     if (item.includes(' ')) {
       if (lower.includes(item)) return true;
     } else {
-      const regex = new RegExp(`\\\\b${escapeRegExp(item)}\\\\b`, 'i');
+      const regex = new RegExp(`\\b${escapeRegExp(item)}\\b`, 'i');
       if (regex.test(lower)) return true;
     }
   }
