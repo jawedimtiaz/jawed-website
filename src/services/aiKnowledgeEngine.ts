@@ -20,10 +20,18 @@ const PERSONAL_CATEGORIES = [
   "wife", "husband", "spouse", "partner", "married", "marriage", "children",
   "child", "son", "daughter", "kids", "family", "father", "mother", "parents",
   "brother", "sister", "sibling", "relatives",
-  // Living & Personal Details
+  // Sensitive personal details. Broad terms like "income" and "net worth" are
+  // intentionally handled by context rather than blanket-blocked because they
+  // are also used by legitimate educational finance content.
   "age", "birthday", "birthdate", "born", "home address", "exact address",
-  "where does he live", "where do you live", "personal phone", "mobile number",
-  "whatsapp number", "salary", "income", "net worth", "religion", "caste"
+  "personal phone", "mobile number", "whatsapp number", "salary", "religion", "caste"
+];
+
+const PERSONAL_LOCATION_QUESTIONS = [
+  /\\bwhere\\s+(?:does|is)\\s+(?:jawed|he)\\s+(?:live|based|located)\\b/i,
+  /\\bwhat\\s+(?:city|town|area|address)\\s+(?:is|does)\\s+(?:jawed|he)\\b/i,
+  /\\bwhere\\s+(?:is|does)\\s+(?:jawed|he)\\s+(?:from|work|stay)\\b/i,
+  /\\b(?:jawed|he)(?:'s|\\s+is)\\s+(?:home|residence|location|address)\\b/i
 ];
 
 // 2. Stop-Words List (Common filler words to filter out before scoring technical queries)
@@ -56,6 +64,10 @@ function containsWholeWord(text: string, term: string): boolean {
 export function isPersonalQuery(query: string): boolean {
   if (!query) return false;
   const lower = query.toLowerCase();
+
+  if (PERSONAL_LOCATION_QUESTIONS.some((pattern) => pattern.test(lower))) {
+    return true;
+  }
 
   for (const item of PERSONAL_CATEGORIES) {
     if (item.includes(' ')) {
