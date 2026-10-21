@@ -1055,6 +1055,13 @@ select:focus-visible {
   color: var(--accent);
 }
 
+/* Preserve readable AI-widget action glyphs on light-theme hover surfaces. */
+[data-theme="light"] .jawed-ai-action-btn:hover,
+.light .jawed-ai-action-btn:hover {
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
+}
+
 .jawed-ai-widget-privacy {
   padding: 8px 16px;
   background: var(--bg-darker);
