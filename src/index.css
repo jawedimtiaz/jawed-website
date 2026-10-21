@@ -389,6 +389,18 @@ select:focus-visible {
   border-color: var(--accent);
 }
 
+/* Keep light-theme button hover text above WCAG AA contrast for normal text. */
+[data-theme="light"] .button:hover,
+.light .button:hover {
+  background: var(--accent-hover);
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .button-secondary:hover,
+.light .button-secondary:hover {
+  color: var(--accent-hover) !important;
+}
+
 /* Proof Strip */
 .hero-proof-strip {
   display: flex;
