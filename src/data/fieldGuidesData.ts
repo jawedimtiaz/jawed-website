@@ -5,6 +5,7 @@ export interface FieldGuide {
   category: string;
   readTime: string;
   publishedDate: string;
+  updatedDate?: string;
   author: string;
   keywords: string[];
   toc: { id: string; text: string }[];
@@ -19,6 +20,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     category: 'Network Infrastructure',
     readTime: '8 min read',
     publishedDate: 'October 20, 2026',
+    updatedDate: 'October 21, 2026',
     author: 'Jawed Imtiaz (IT Field Lead)',
     keywords: ['RJ45', 'T568B', 'T568A', 'Cat6', 'Ethernet Pinout', 'Cable Tester', 'Wiremap', 'Crimping'],
     toc: [
@@ -168,6 +170,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     category: 'Data Center & Hardware',
     readTime: '9 min read',
     publishedDate: 'October 20, 2026',
+    updatedDate: 'October 21, 2026',
     author: 'Jawed Imtiaz (IT Field Lead)',
     keywords: ['Server Rack', 'Cable Management', 'Patch Panel', 'Cat6A Bend Radius', 'Velcro vs Zip Ties', 'ANSI/TIA-606-C'],
     toc: [
@@ -288,6 +291,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     category: 'Network Switching & Triage',
     readTime: '10 min read',
     publishedDate: 'October 20, 2026',
+    updatedDate: 'October 21, 2026',
     author: 'Jawed Imtiaz (IT Field Lead)',
     keywords: ['Port Flapping', 'CLI Commands', 'Duplex Mismatch', 'Cisco IOS', 'Aruba CX', 'CRC Errors', 'SFP DDM'],
     toc: [
@@ -423,6 +427,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     category: 'Server Hardware & Field Service',
     readTime: '9 min read',
     publishedDate: 'October 20, 2026',
+    updatedDate: 'October 21, 2026',
     author: 'Jawed Imtiaz (IT Field Lead)',
     keywords: ['Dell PowerEdge', 'HPE ProLiant', 'iDRAC', 'iLO', 'Amber LED', 'Systems Insight Display', 'RAID Fault'],
     toc: [
