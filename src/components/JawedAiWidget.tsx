@@ -107,27 +107,23 @@ export const JawedAiWidget: React.FC = () => {
 
       {/* 2. Minimized State: Compact Bottom Bar */}
       {isOpen && isMinimized && (
-        <div
-          className="jawed-ai-minimized-bar"
-          onClick={openWidget}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && openWidget()}
-        >
-          <div className="jawed-ai-minimized-info">
+        <div className="jawed-ai-minimized-bar">
+          <button
+            className="jawed-ai-minimized-info"
+            type="button"
+            aria-label="Expand Jawed AI Assistant"
+            onClick={openWidget}
+          >
             <span className="online-indicator" aria-hidden="true" />
             <strong>Jawed AI Assistant</strong>
-          </div>
+          </button>
           <div className="jawed-ai-header-actions">
             <button
               className="jawed-ai-action-btn"
               type="button"
               aria-label="Expand Assistant"
               title="Expand"
-              onClick={(e) => {
-                e.stopPropagation();
-                openWidget();
-              }}
+              onClick={openWidget}
             >
               ▲
             </button>
@@ -136,10 +132,7 @@ export const JawedAiWidget: React.FC = () => {
               type="button"
               aria-label="Close Assistant"
               title="Close"
-              onClick={(e) => {
-                e.stopPropagation();
-                closeWidget();
-              }}
+              onClick={closeWidget}
             >
               ✕
             </button>
