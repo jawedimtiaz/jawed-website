@@ -29,7 +29,7 @@ async function get(path,label){
  }catch(e){failures.push(label+": request failed: "+(e?.name==="AbortError"?"timeout":String(e)));return "";}finally{clearTimeout(timer);}
 }
 function normalizeHtmlForMarkerChecks(html){
- return html.replace(/\\s+/g," ").replace(/\\s+\\/>/g,">").trim();
+ return html.replace(/\s+/g," ").replace(/\s+\/>/g,">").trim();
 }
 if(!failures.length){
  const root=await get(contract.root_check.path,"homepage SEO shell");
