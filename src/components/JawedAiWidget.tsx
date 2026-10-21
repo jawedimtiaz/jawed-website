@@ -223,7 +223,7 @@ export const JawedAiWidget: React.FC = () => {
                         key={sIdx}
                         to={src.url}
                         onClick={closeWidget}
-                        style={{ display: 'block', fontSize: '0.8rem', color: 'var(--accent)', marginTop: '2px' }}
+                        style={{ display: 'block', fontSize: '0.8rem', color: 'var(--accent-hover)', marginTop: '2px' }}
                       >
                         {src.title}
                       </Link>
