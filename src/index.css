@@ -1475,3 +1475,11 @@ select:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Keep the AI send action readable when hovered in the light theme. */
+[data-theme="light"] .jawed-ai-send-btn:hover:not(:disabled),
+.light .jawed-ai-send-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  color: #ffffff;
+}
