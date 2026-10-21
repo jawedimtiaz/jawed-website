@@ -410,6 +410,8 @@ export const FIELD_GUIDES: FieldGuide[] = [
       <ul>
         <li><a href="https://www.cisco.com/c/en/us/support/docs/switches/catalyst-9500-series-switches/218397-troubleshoot-port-flaps-on-catalyst-9000.html" target="_blank" rel="noopener noreferrer">Cisco: Troubleshoot Port Flaps on Catalyst 9000 Switches</a>.</li>
         <li><a href="https://www.intel.com/content/www/us/en/support/articles/000007187/ethernet-products.html" target="_blank" rel="noopener noreferrer">Intel Support: Ethernet cabling specifications</a>.</li>
+        <li><a href="https://www.cisco.com/c/en/us/support/docs/lan-switching/ethernet/10561-3.html" target="_blank" rel="noopener noreferrer">Cisco: Configure and verify Ethernet auto-negotiation</a>.</li>
+        <li><a href="https://www.arubanetworks.com/techdocs/AOS-CX/10.15/PDF/fundamentals_6300-6400.pdf" target="_blank" rel="noopener noreferrer">Aruba AOS-CX Fundamentals: interface and transceiver diagnostics</a>.</li>
       </ul>
       <p>CLI syntax, DOM thresholds, transceiver compatibility and port-protection behavior vary by platform and software release. Verify commands and alarm limits in the exact vendor documentation before using them on production equipment.</p>
 
