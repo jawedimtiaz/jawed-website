@@ -55,7 +55,7 @@ try{
   ["/tools/ticket-to-knowledge-base-draft/","Ticket to Knowledge Base"],
   ["/tools/ipv4-subnet-calculator/","IPv4 Subnet"],
   ["/tools/server-rack-power-btu-calculator/","Server Rack Power"],
-  ["/tools/career-match-resume-review/","Career Match"],
+  ["/tools/career-match-resume-review/","How well does your resume match this job?"],
   ["/tools/","Tools & Calculators"],
   ["/diagnostic-tools/","Tools & Calculators"],
   ["/field-guides/","Field Guides & Knowledge Base"],
