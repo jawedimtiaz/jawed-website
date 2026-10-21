@@ -6,6 +6,9 @@ on:
   pull_request:
     paths:
       - "assets/images/**"
+      - "public/assets/images/**"
+      - "public/favicon.svg"
+      - "public/favicon.ico"
       - "favicon.svg"
       - "config/production-media-asset-contract.json"
       - "scripts/validate-production-media-assets.mjs"
@@ -15,6 +18,9 @@ on:
       - main
     paths:
       - "assets/images/**"
+      - "public/assets/images/**"
+      - "public/favicon.svg"
+      - "public/favicon.ico"
       - "favicon.svg"
       - "config/production-media-asset-contract.json"
       - "scripts/validate-production-media-assets.mjs"

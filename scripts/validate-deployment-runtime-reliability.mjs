@@ -3,69 +3,73 @@ import path from "node:path";
 
 const root=process.cwd();
 const read=p=>fs.readFileSync(path.join(root,p),"utf8");
+const exists=p=>fs.existsSync(path.join(root,p));
+const fail=[];
 const contract=JSON.parse(read("config/deployment-runtime-contract.json"));
 const smokeContract=JSON.parse(read("config/production-smoke-contract.json"));
-const fail=[];
-if(contract.production_origin!==smokeContract.production_origin) fail.push("deployment and production smoke production_origin values drifted");
-if(contract.alternate_origin!==smokeContract.alternate_origin) fail.push("deployment and production smoke alternate_origin values drifted");
 const isHttpsOrigin=value=>{if(typeof value!=="string"||!/^https:\/\//.test(value))return false;try{const url=new URL(value);return url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
-if(!isHttpsOrigin(contract.production_origin)) fail.push("production_origin must be an origin-only HTTPS URL");
-if(!isHttpsOrigin(contract.alternate_origin)) fail.push("alternate_origin must be an origin-only HTTPS URL");
-if(typeof contract.functions_directory!=="string"||!contract.functions_directory.trim()) fail.push("functions_directory must be non-empty");
-if(!Array.isArray(contract.required_runtime_files)||contract.required_runtime_files.length<1||contract.required_runtime_files.some(file=>typeof file!=="string"||!file.trim()||path.isAbsolute(file)||file.split("/").includes(".."))) fail.push("required_runtime_files must contain safe relative file paths");
-if(!Array.isArray(contract.api_routes)||contract.api_routes.some(route=>typeof route!=="string"||!route.startsWith("/"))) fail.push("api_routes must contain absolute paths");
-if(!Array.isArray(contract.required_security_headers)||contract.required_security_headers.length<1||contract.required_security_headers.some(header=>typeof header!=="string"||!header.trim())) fail.push("required_security_headers must contain non-empty strings");
-if(typeof contract.required_route_configuration!=="object"||contract.required_route_configuration===null) fail.push("required_route_configuration must be declared");
 
-
-const exists=p=>fs.existsSync(path.join(root,p));
-for(const p of contract.required_runtime_files){
-  if(!exists(p)) fail.push(`missing required runtime file: ${p}`);
-  else if(!fs.statSync(path.join(root,p)).isFile()) fail.push(`required runtime path is not a file: ${p}`);
+if(contract.production_origin!==smokeContract.production_origin)fail.push("deployment and smoke production_origin values drifted");
+if(contract.alternate_origin!==smokeContract.alternate_origin)fail.push("deployment and smoke alternate_origin values drifted");
+if(!isHttpsOrigin(contract.production_origin))fail.push("production_origin must be an origin-only HTTPS URL");
+if(!isHttpsOrigin(contract.alternate_origin))fail.push("alternate_origin must be an origin-only HTTPS URL");
+if(contract.deployment_model!=="cloudflare-pages")fail.push("deployment_model must remain cloudflare-pages");
+if(contract.build_command!=="npm run build")fail.push("build_command must match the Vite app build");
+if(contract.build_output_directory!=="dist")fail.push("build_output_directory must be dist");
+if(!Array.isArray(contract.required_runtime_files)||!contract.required_runtime_files.length)fail.push("required_runtime_files must be declared");
+for(const p of contract.required_runtime_files||[]){
+ if(typeof p!=="string"||!p.trim()||path.isAbsolute(p)||p.split("/").includes("..")){fail.push("required runtime path is unsafe: "+p);continue;}
+ if(!exists(p))fail.push("missing required runtime file: "+p);
+ else if(!fs.statSync(path.join(root,p)).isFile())fail.push("required runtime path is not a file: "+p);
 }
-if(!exists(contract.functions_directory)) fail.push(`missing functions directory: ${contract.functions_directory}`);
-else if(!fs.statSync(path.join(root,contract.functions_directory)).isDirectory()) fail.push(`functions_directory is not a directory: ${contract.functions_directory}`);
 
-const headers=read("_headers");
-for(const required of (contract.required_security_headers||[])) if(!headers.includes(required)) fail.push(`production headers missing required baseline: ${required}`);
+let pkg={};
+try{pkg=JSON.parse(read("package.json"));if(!pkg.name||!pkg.scripts||pkg.scripts.build!== "tsc && vite build")fail.push("package.json must declare the expected Vite build script");}
+catch{fail.push("package.json must be valid JSON");}
 
-const routes=JSON.parse(read("_routes.json"));
-const routeContract=contract.required_route_configuration||{};
-if(routes.version!==routeContract.version) fail.push("_routes.json version drifted from deployment contract");
-if(JSON.stringify(routes.include)!==JSON.stringify(routeContract.include)) fail.push("_routes.json include rules drifted from deployment contract");
-if(JSON.stringify(routes.exclude||[])!==JSON.stringify(routeContract.exclude||[])) fail.push("_routes.json exclude rules drifted from deployment contract");
-for(const apiRoute of (contract.api_routes||[])) if(!(routes.include||[]).some(rule=>rule==="/*"||rule===apiRoute||rule===apiRoute+"/*"||rule.endsWith("*")&&apiRoute.startsWith(rule.slice(0,-1)))) fail.push(`declared API route is not covered by _routes.json include rules: ${apiRoute}`);
+const headers=exists("public/_headers")?read("public/_headers"):"";
+const rootHeaders=exists("_headers")?read("_headers"):"";
+for(const required of contract.required_security_headers||[]){
+ if(!headers.includes(required))fail.push("public/_headers missing required security header: "+required);
+ if(rootHeaders&&!rootHeaders.includes(required))fail.push("root _headers missing required baseline: "+required);
+}
 
-if(!Array.isArray(contract.allowed_redirect_statuses)||contract.allowed_redirect_statuses.length<1||!contract.allowed_redirect_statuses.every(status=>Number.isInteger(status)&&status>=100&&status<=599)) fail.push("deployment redirect status policy must be a non-empty valid HTTP status array");
-const redirects=read("_redirects");
-for(const line of redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
-  const parts=line.trim().split(/\s+/);
-  if(parts.length>=3 && !contract.allowed_redirect_statuses.includes(Number(parts.at(-1)))) fail.push(`unexpected redirect status: ${line}`);
+const rootRedirects=exists("_redirects")?read("_redirects"):"";
+const publicRedirects=exists("public/_redirects")?read("public/_redirects"):"";
+const publicLines=new Set(publicRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#")));
+for(const line of rootRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
+ if(!publicLines.has(line))fail.push("public/_redirects is missing legacy redirect: "+line);
+}
+for(const line of contract.spa_route_rewrites||[]){
+ if(!publicLines.has(line))fail.push("public/_redirects is missing SPA route rewrite: "+line);
+ const parts=line.split(/\s+/);
+ if(parts.length!==3||parts[1]!=="/"||Number(parts[2])!==200)fail.push("SPA route rewrite must safely rewrite to / with status 200: "+line);
+ const prefix=parts[0].replace(/\/\*$/,"").replace(/\/$/,"");
+ if(prefix&&!read("src/App.tsx").includes('path="'+prefix))fail.push("SPA rewrite has no matching React Router path: "+prefix);
+}
+for(const line of publicRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
+ const parts=line.split(/\s+/);
+ if(parts.length>=3&&!((contract.allowed_redirect_statuses||[]).includes(Number(parts.at(-1)))))fail.push("unexpected redirect status: "+line);
+ if(parts[1]==="/index.html"&&Number(parts.at(-1))===200)fail.push("SPA rewrites must not target /index.html because the legacy redirect strips that path: "+line);
 }
 
 const index=read("index.html");
-if(contract.canonical_origin_must_be_exact && !index.includes(`<link rel="canonical" href="${contract.production_origin}/"`)) fail.push("index canonical origin must match production origin");
+if(contract.canonical_origin_must_be_exact&&!index.includes('<link rel="canonical" href="'+contract.production_origin+'/"'))fail.push("index canonical origin must match production origin");
+const sitemap=read("public/sitemap.xml");
+if(!sitemap.includes(contract.production_origin))fail.push("public sitemap must use production origin");
+if(sitemap.includes(contract.alternate_origin))fail.push("public sitemap must not contain alternate origin");
+const robots=read("public/robots.txt");
+if(!robots.includes("Allow: /"))fail.push("public robots.txt must allow public crawling");
+if(!robots.includes("Sitemap: "+contract.production_origin+"/sitemap.xml"))fail.push("public robots.txt must declare the canonical sitemap");
+const app=read("src/App.tsx");
+const ai=read("src/services/aiKnowledgeEngine.ts");
+if(contract.ai_runtime!=="client-side-knowledge-search")fail.push("AI runtime contract must explicitly describe the client-side architecture");
+if(!app.includes('path="/ai/*"')||!ai.includes("export async function askJawedAi"))fail.push("client-side AI route or knowledge-search entry point is missing");
+if((contract.api_routes||[]).length)fail.push("current client-side AI architecture must not declare server API routes without a reviewed Functions implementation");
+if(exists("functions")&&(contract.api_routes||[]).length===0)fail.push("unexpected Functions directory requires an explicit reviewed API contract");
 
-const sitemap=read("sitemap.xml");
-if(!sitemap.includes(contract.production_origin)) fail.push("sitemap must use the production origin");
-if(sitemap.includes(contract.alternate_origin)) fail.push("sitemap must not contain the alternate origin");
-
-const ai=read("functions/api/ai.js");
-
-if(!ai.includes(`origin==="${contract.production_origin}"`)) fail.push("AI API must allow the production origin");
-
-if(contract.no_package_manifest_required){
-  for(const p of ["package.json","package-lock.json","pnpm-lock.yaml","yarn.lock"]) if(exists(p)) fail.push(`unexpected package/dependency manifest: ${p}`);
-}
-if(!contract.build_command && !contract.external_deployment_provider) fail.push("deployment contract must identify external deployment provider");
-
-if(fail.length){
-  console.error("Deployment Runtime Reliability Gate FAILED");
-  for(const item of fail) console.error("- "+item);
-  process.exit(1);
-}
+if(fail.length){console.error("Deployment Runtime Reliability Gate FAILED");for(const item of fail)console.error("- "+item);process.exit(1);}
 console.log("Deployment Runtime Reliability Gate PASSED");
-console.log(`Production origin: ${contract.production_origin}`);
-console.log(`Deployment model: ${contract.deployment_model}`);
-console.log(`Functions directory: ${contract.functions_directory}`);
-console.log(`API boundary: ${routes.include.join(", ")}`);
+console.log("Build: "+contract.build_command+" -> "+contract.build_output_directory);
+console.log("Runtime: Vite/React Router SPA");
+console.log("Pages headers, legacy redirects, SPA rewrites, sitemap, robots, and client-side AI contracts: validated");

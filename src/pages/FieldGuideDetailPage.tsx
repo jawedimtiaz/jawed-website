@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { FIELD_GUIDES, FieldGuide } from '../data/fieldGuidesData';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
-import { SeoHead } from '../components/SeoHead';
 
 export const FieldGuideDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -43,11 +42,6 @@ export const FieldGuideDetailPage: React.FC = () => {
 
   return (
     <main className="container page">
-      <SeoHead
-        title={guide.title}
-        description={guide.description}
-        canonicalUrl={currentUrl}
-      />
 
       {/* Breadcrumbs */}
       <nav className="breadcrumbs" aria-label="Breadcrumb">

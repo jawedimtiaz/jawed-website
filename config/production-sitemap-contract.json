@@ -14,5 +14,8 @@
     ".html"
   ],
   "require_unique_urls": true,
-  "require_absolute_urls": true
+  "require_absolute_urls": true,
+  "route_shell_required": [
+    "<div id=\"root\"></div>"
+  ]
 }

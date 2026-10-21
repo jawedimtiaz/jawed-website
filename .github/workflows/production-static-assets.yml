@@ -7,6 +7,8 @@ on:
   pull_request:
     paths:
       - "assets/**"
+      - "public/**"
+
       - "config/production-asset-contract.json"
       - "scripts/validate-production-assets.mjs"
       - ".github/workflows/production-static-assets.yml"
@@ -15,6 +17,8 @@ on:
       - main
     paths:
       - "assets/**"
+      - "public/**"
+
       - "config/production-asset-contract.json"
       - "scripts/validate-production-assets.mjs"
       - ".github/workflows/production-static-assets.yml"

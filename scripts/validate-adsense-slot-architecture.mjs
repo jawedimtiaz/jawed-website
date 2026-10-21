@@ -6,9 +6,12 @@ const contract=JSON.parse(fs.readFileSync("config/adsense-slot-contract.json","u
 const placement=JSON.parse(fs.readFileSync("config/adsense-placement-policy.json","utf8"));
 const inventory=JSON.parse(fs.readFileSync("config/adsense-inventory.json","utf8"));
 const css=fs.readFileSync("assets/css/style.css","utf8");
+const placeholder=fs.readFileSync("src/components/AdUnitPlaceholder.tsx","utf8");
 
 assert.equal(contract.status,"pre-activation");
 assert.equal(contract.runtime_active,false);
+assert.equal(placeholder.includes("const ADSENSE_PLACEHOLDERS_ENABLED = false;"),true,"Visible ad placeholders must be disabled while the contract is pre-activation");
+assert.equal(placeholder.includes("if (!ADSENSE_PLACEHOLDERS_ENABLED) return null;"),true,"Placeholder component must render nothing before activation");
 assert.equal(contract.slot_class,"ad-slot-boundary");
 assert.equal(contract.reservation.desktop_min_height_px,280);
 assert.equal(contract.reservation.mobile_min_height_px,180);

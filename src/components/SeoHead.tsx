@@ -6,6 +6,7 @@ interface SeoHeadProps {
   ogType?: string;
   ogImage?: string;
   canonicalUrl?: string;
+  robots?: string;
 }
 
 const DEFAULT_TITLE = 'Jawed Imtiaz | Guides, Tools & Services';
@@ -17,9 +18,10 @@ export const SeoHead: React.FC<SeoHeadProps> = ({
   ogType = 'article',
   ogImage = 'https://jawed.co.in/assets/images/social-preview.png',
   canonicalUrl,
+  robots = 'index, follow',
 }) => {
   useEffect(() => {
-    const fullTitle = title ? `${title} | Jawed Imtiaz` : DEFAULT_TITLE;
+    const fullTitle = title ? (title.includes('Jawed Imtiaz') ? title : `${title} | Jawed Imtiaz`) : DEFAULT_TITLE;
     const fullDesc = description || DEFAULT_DESC;
 
     // Update document title
@@ -43,6 +45,7 @@ export const SeoHead: React.FC<SeoHeadProps> = ({
     };
 
     updateMeta('meta[name="description"]', fullDesc);
+    updateMeta('meta[name="robots"]', robots);
     updateMeta('meta[property="og:site_name"]', 'Jawed Imtiaz');
     updateMeta('meta[property="og:title"]', fullTitle);
     updateMeta('meta[property="og:description"]', fullDesc);
@@ -65,7 +68,7 @@ export const SeoHead: React.FC<SeoHeadProps> = ({
       document.head.appendChild(linkEl);
     }
     linkEl.setAttribute('href', resolvedCanonical);
-  }, [title, description, ogType, ogImage, canonicalUrl]);
+  }, [title, description, ogType, ogImage, canonicalUrl, robots]);
 
   return null;
 };

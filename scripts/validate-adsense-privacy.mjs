@@ -1,27 +1,22 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-
-const privacy=fs.readFileSync("privacy/index.html","utf8");
-
-const contracts=[
-  ["privacy page identifies advertising and AdSense",privacy.includes("<h2>Advertising and AdSense</h2>")],
-  ["privacy page discloses third-party advertising cookies",privacy.includes("third-party vendors, including Google")&&privacy.includes("cookies or similar technologies")],
-  ["privacy page discloses prior-visit based advertising",privacy.includes("prior visits to this or other websites")],
-  ["privacy page explains personalized advertising",privacy.includes("personalize ads")],
-  ["privacy page provides Google Ads Settings",privacy.includes('href="https://adssettings.google.com/"')],
-  ["privacy page identifies regional consent requirements",privacy.includes("European Economic Area")&&privacy.includes("United Kingdom")&&privacy.includes("Switzerland")],
-  ["privacy page identifies Google's certified CMP requirement",privacy.includes("Google-certified consent management platform")&&privacy.includes("Transparency and Consent Framework")],
-  ["privacy page avoids claiming ads are already enabled",privacy.includes("If Google AdSense or another advertising service is enabled")],
-  ["privacy page distinguishes site verification from ad serving",privacy.includes("connected to the publisher's AdSense account for site verification and review")&&privacy.includes("Advertising cookies, advertising scripts, ad slots, and advertising partners will be introduced only when the corresponding advertising service is actually enabled")],
-  ["privacy page retains privacy contact",privacy.includes("mailto:webmaster@jawed.co.in")]
+const privacy=fs.readFileSync("src/pages/PrivacyPage.tsx","utf8");
+const app=fs.readFileSync("src/App.tsx","utf8");
+const inventory=JSON.parse(fs.readFileSync("config/adsense-inventory.json","utf8"));
+const checks=[
+ ["privacy page is a registered React route",app.includes('path="/privacy/*"')&&app.includes("<PrivacyPage")],
+ ["privacy page identifies the publisher and purpose",privacy.includes("Privacy Policy")&&privacy.includes("Jawed.co.in")],
+ ["privacy page explains local processing of diagnostic tools",privacy.includes("entirely locally within your web browser")&&privacy.includes("No resume text")],
+ ["privacy page provides Google Ads Settings",privacy.includes("https://adssettings.google.com/")],
+ ["privacy page identifies regional consent requirements",privacy.includes("European Economic Area")&&privacy.includes("Switzerland")&&privacy.includes("certified Consent Management Platform")],
+ ["privacy page provides privacy contact",privacy.includes("mailto:webmaster@jawed.co.in")],
+ ["AdSense inventory keeps AI, tools, and privacy excluded initially",inventory.excluded_initial.includes("/ai/")&&inventory.excluded_initial.includes("/tools/")&&inventory.excluded_initial.includes("/privacy/")],
+ ["advertising status is conditional and not falsely described as active",privacy.includes("advertising is not active merely because")&&privacy.includes("will be introduced only after")],
+ ["analytics status is conditional and not falsely described as active",privacy.includes("This policy does not mean that GA4 is currently active")],
+ ["policy does not promise approval or certify legal compliance",!privacy.includes("Google AdSense approved")&&!privacy.includes("guaranteed compliant")]
 ];
-
-for(const [name,ok] of contracts){
-  assert.equal(ok,true,name+" contract is missing");
-  console.log("PASS — "+name);
-}
-
+for(const [name,ok] of checks){assert.equal(ok,true,name);console.log("PASS — "+name);}
 console.log("\nAdSense privacy readiness validation: PASS");
-console.log("Contracts checked:",contracts.length);
-console.log("Ad code or publisher ID asserted: no");
+console.log("Checks:",checks.length);
+console.log("Source checks do not certify legal compliance or Google approval.");

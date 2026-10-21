@@ -298,12 +298,6 @@ select:focus-visible {
   font-weight: 600;
   cursor: pointer;
 }
-  color: var(--text);
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
 
 /* Page Layouts & Hero */
 .hero {

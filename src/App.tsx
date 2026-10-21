@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { JawedAiWidget } from './components/JawedAiWidget';
 import { IosInstallPrompt } from './components/IosInstallPrompt';
+import { RouteSeo } from './components/RouteSeo';
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -71,6 +72,7 @@ export const App: React.FC = () => {
   return (
     <div className="site-wrapper" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <ScrollToTop />
+      <RouteSeo />
       <Header />
 
       <div style={{ flex: 1 }}>

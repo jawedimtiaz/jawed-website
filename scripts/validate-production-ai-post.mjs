@@ -1,70 +1,35 @@
 import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-ai-post-contract.json","utf8"));
-const failures=[],timeoutMs=10000;
-const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
-if(!isHttpsOrigin(contract.production_origin)) failures.push("production AI POST production_origin must be an origin-only HTTPS URL");
-if(contract.max_redirects!==0) failures.push("production AI POST checks must not follow redirects");
-if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production AI POST contract must contain at least one check");
-for(const item of contract.checks||[]){
- if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\/)\.{1,2}(?:$|\/)/.test(item.path)||/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(item.path)) failures.push(item.path+": production AI POST path must be an absolute site path");
- if(item.method!=="POST") failures.push(item.path+": production AI POST contract must use POST");
- if(!isHttpsOrigin(item.origin)) failures.push(item.path+": origin must be an origin-only HTTPS URL");
- if(typeof item.content_type!=="string"||item.content_type!=="application/json") failures.push(item.path+": content_type must be application/json");
- if(!Number.isInteger(item.expected_status)||item.expected_status<100||item.expected_status>599) failures.push(item.path+": expected_status must be a valid HTTP status");
- if(typeof item.expected_code!=="string"||!item.expected_code.trim()) failures.push(item.path+": expected_code must be non-empty");
- if(!Number.isInteger(item.max_body_bytes)||item.max_body_bytes<=0) failures.push(item.path+": max_body_bytes must be a positive integer");
- if(!Array.isArray(item.required_headers)||item.required_headers.length<1) failures.push(item.path+": required_headers must contain at least one header");
+const failures=[];
+const safeOrigin=value=>{try{const u=new URL(value);return typeof value==="string"&&u.protocol==="https:"&&u.origin===value&&u.username===""&&u.password===""&&u.pathname==="/"&&!u.search&&!u.hash;}catch{return false;}};
+const safePath=value=>typeof value==="string"&&value.startsWith("/")&&!value.startsWith("//")&&!value.includes("\\")&&!/(^|\/)\.{1,2}(?:$|\/)/.test(value);
+if(!safeOrigin(contract.production_origin))failures.push("retired API boundary origin must be an origin-only HTTPS URL");
+if(contract.max_redirects!==0)failures.push("retired API boundary must not follow redirects");
+if(!Array.isArray(contract.checks)||!contract.checks.length)failures.push("retired API boundary checks are required");
+async function readBoundedText(response,maxBytes){
+ const declared=Number(response.headers.get("content-length"));if(Number.isInteger(declared)&&declared>maxBytes)throw Error("response exceeds declared body limit");
+ const reader=response.body?.getReader();if(!reader){const t=await response.text();if(Buffer.byteLength(t)>maxBytes)throw Error("response exceeds body limit");return t;}
+ const chunks=[];let total=0;try{while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>maxBytes){await reader.cancel();throw Error("response exceeds body limit");}chunks.push(Buffer.from(value));}}finally{reader.releaseLock();}
+ return Buffer.concat(chunks).toString("utf8");
 }
-
-function readBoundedText(response,maxBytes){
- return (async()=>{
-  const declared=Number(response.headers.get("content-length"));
-  if(Number.isInteger(declared)&&declared>maxBytes) throw new Error("response exceeds declared AI POST body limit");
-  if(!response.body){
-   const text=await response.text();
-   if(Buffer.byteLength(text)>maxBytes) throw new Error("response exceeds AI POST body limit");
-   return text;
-  }
-  const reader=response.body.getReader(),chunks=[];let total=0;
+for(const item of contract.checks||[]){
+ if(!safePath(item.path)) {failures.push("retired API boundary path must be safe: "+item.path);continue;}
+ if(item.method!=="POST") {failures.push(item.path+": method must be POST");continue;}
+ if(!Array.isArray(item.expected_statuses)||!item.expected_statuses.length||!item.expected_statuses.every(n=>[404,405].includes(n)))failures.push(item.path+": only 404/405 are accepted for the retired endpoint");
+ if(!Number.isInteger(item.max_body_bytes)||item.max_body_bytes<=0)failures.push(item.path+": max_body_bytes must be positive");
+}
+if(!failures.length){
+ for(const item of contract.checks||[]){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
   try{
-   while(true){
-    const {done,value}=await reader.read();
-    if(done) break;
-    total+=value.byteLength;
-    if(total>maxBytes){await reader.cancel();throw new Error("response exceeds AI POST body limit");}
-    chunks.push(value);
-   }
-  }finally{reader.releaseLock();}
-  return new TextDecoder().decode(Buffer.concat(chunks.map(chunk=>Buffer.from(chunk))));
- })();
+   const response=await fetch(new URL(item.path,contract.production_origin),{method:"POST",redirect:"manual",signal:controller.signal,headers:{"content-type":"application/json","origin":"https://invalid-phase-39h.example","user-agent":"jawed-retired-api-boundary/39H"},body:JSON.stringify(item.body||{probe:"retired-endpoint"})});
+   const type=(response.headers.get("content-type")||"").toLowerCase();
+   if(!item.expected_statuses.includes(response.status))failures.push(item.path+": retired endpoint should return 404/405, got "+response.status);
+   if(type.includes((item.forbidden_content_type||"application/json").toLowerCase()))failures.push(item.path+": retired endpoint unexpectedly returned JSON");
+   const body=await readBoundedText(response,item.max_body_bytes);
+   if(/"service"\s*:\s*"jawed-ai"|"knowledge_entries"\s*:|"rate_limit"\s*:/i.test(body))failures.push(item.path+": retired server-side AI API signature detected");
+  }catch(e){failures.push(item.path+": boundary probe failed: "+(e?.name==="AbortError"?"timeout":String(e)));}finally{clearTimeout(timer);}
+ }
 }
-for(const item of contract.checks||[]){
- if(item.method!=="POST") failures.push(`${item.path}: production AI POST contract must use POST`);
- const validOrigin=isHttpsOrigin(contract.production_origin);
- const validPath=typeof item.path==="string"&&item.path.startsWith("/")&&!item.path.startsWith("//")&&!item.path.includes("\\")&&!/(^|\/)\.{1,2}(?:$|\/)/.test(item.path)&&!/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(item.path);
- if(!validPath||!validOrigin){failures.push(`${item.path}: AI POST probe URL is invalid`);continue;}
- const url=new URL(item.path,contract.production_origin),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
- try{
-  const response=await fetch(url,{method:item.method,redirect:"manual",signal:controller.signal,headers:{"origin":item.origin,"content-type":item.content_type,"user-agent":"jawed-production-ai/38J"},body:JSON.stringify(item.body)});
-  const type=(response.headers.get("content-type")||"").toLowerCase();
-  if(response.status!==item.expected_status) failures.push(`${item.path}: expected HTTP ${item.expected_status}, got ${response.status}`);
-  if(!type.startsWith("application/json")) failures.push(`${item.path}: expected JSON response, got ${type||"missing"}`);
-  let json;
-  try{const text=await readBoundedText(response,item.max_body_bytes);json=JSON.parse(text)}catch(error){failures.push(`${item.path}: ${error?.message||"response is not valid JSON"}`);continue}
-  if(json.code!==item.expected_code) failures.push(`${item.path}: expected code ${item.expected_code}, got ${json.code||"missing"}`);
-  for(const required of item.required_headers||[]){
-   const actual=(response.headers.get(required.name)||"").trim();
-   if(required.nonempty&&!actual) failures.push(`${item.path}: missing response header ${required.name}`);
-   else if(required.includes&&!actual.toLowerCase().includes(required.includes.toLowerCase())) failures.push(`${item.path}: ${required.name} does not include expected value ${required.includes}`);
-  }
-  if(Object.keys(json).sort().join(",")!=="code,error,request_id") failures.push(`${item.path}: rejected-origin response exposed an unexpected field`);
-  const headerRequestId=(response.headers.get("x-request-id")||"").trim();
-  if(typeof json.request_id!=="string"||!json.request_id) failures.push(`${item.path}: missing request_id`);
-  else if(headerRequestId&&json.request_id!==headerRequestId) failures.push(`${item.path}: body request_id does not match x-request-id`);
- }catch(error){failures.push(`${item.path}: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
- finally{clearTimeout(timer)}
-}
-if(failures.length){console.error("Production AI POST Reliability Gate FAILED");for(const failure of failures) console.error("- "+failure);process.exit(1)}
-console.log("Production AI POST Reliability Gate PASSED");
-console.log(`Origin: ${contract.production_origin}`);
-console.log("Provider allocation consumed: no (request rejected before provider path).");
+if(failures.length){console.error("Production retired AI API boundary validation FAILED");for(const f of failures)console.error(" - "+f);process.exitCode=1;}
+else{console.log("Production retired AI API boundary validation: PASS");console.log("The obsolete /api/ai endpoint remains unavailable; no API runtime is assumed.");}

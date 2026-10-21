@@ -49,15 +49,6 @@
       ]
     },
     {
-      "path": "/api/ai",
-      "required_headers": [
-        {
-          "name": "x-content-type-options",
-          "includes": "nosniff"
-        }
-      ]
-    },
-    {
       "path": "/missing-phase-39f-security-header-test",
       "expected_status": 404,
       "required_headers": [
@@ -72,6 +63,32 @@
         {
           "name": "x-content-type-options",
           "includes": "nosniff"
+        }
+      ]
+    },
+    {
+      "path": "/ai/",
+      "required_headers": [
+        {
+          "name": "x-content-type-options",
+          "includes": "nosniff"
+        },
+        {
+          "name": "content-security-policy",
+          "includes": "default-src 'self'"
+        }
+      ]
+    },
+    {
+      "path": "/notes/?q=automation",
+      "required_headers": [
+        {
+          "name": "x-content-type-options",
+          "includes": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "includes": "DENY"
         }
       ]
     }

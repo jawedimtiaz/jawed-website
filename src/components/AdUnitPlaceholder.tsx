@@ -15,7 +15,10 @@ interface SlotConfig {
   description: string;
 }
 
+const ADSENSE_PLACEHOLDERS_ENABLED = false;
+
 export const AdUnitPlaceholder: React.FC<AdUnitProps> = ({ slotType, label = 'Advertisement', style }) => {
+  if (!ADSENSE_PLACEHOLDERS_ENABLED) return null;
   const configs: Record<'top-leaderboard' | 'sidebar-unit' | 'in-feed', SlotConfig> = {
     'top-leaderboard': {
       minHeight: '90px',

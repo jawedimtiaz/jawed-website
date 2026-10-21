@@ -1,25 +1,27 @@
 {
   "phase": "39C",
-  "scope": "deployment-runtime-and-security-baseline-reliability",
+  "scope": "vite-react-spa-deployment-runtime-and-security-baseline",
   "production_origin": "https://jawed.co.in",
   "alternate_origin": "https://www.jawed.co.in",
   "deployment_model": "cloudflare-pages",
-  "build_command": null,
-  "build_output_directory": ".",
-  "functions_directory": "functions",
+  "build_command": "npm run build",
+  "build_output_directory": "dist",
   "required_runtime_files": [
-    "_headers",
-    "_redirects",
-    "_routes.json",
-    "404.html",
-    "sitemap.xml",
-    "index.html"
+    "index.html",
+    "package.json",
+    "vite.config.ts",
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/services/aiKnowledgeEngine.ts",
+    "public/_headers",
+    "public/_redirects",
+    "public/404.html",
+    "public/robots.txt",
+    "public/sitemap.xml"
   ],
-  "api_routes": [
-    "/api/ai"
-  ],
+  "api_routes": [],
   "canonical_origin_must_be_exact": true,
-  "no_package_manifest_required": true,
+  "package_manifest_required": true,
   "external_deployment_provider": "Cloudflare Pages",
   "required_security_headers": [
     "X-Frame-Options: DENY",
@@ -31,12 +33,45 @@
     "Strict-Transport-Security: max-age=31536000",
     "Content-Security-Policy:"
   ],
-  "allowed_redirect_statuses": [200, 301],
-  "required_route_configuration": {
-    "version": 1,
-    "include": [
-      "/api/*"
-    ],
-    "exclude": []
-  }
+  "allowed_redirect_statuses": [
+    200,
+    301
+  ],
+  "spa_route_rewrites": [
+    "/guides / 200",
+    "/guides/* / 200",
+    "/field-guides / 200",
+    "/field-guides/* / 200",
+    "/notes / 200",
+    "/notes/* / 200",
+    "/tools / 200",
+    "/tools/* / 200",
+    "/diagnostic-tools / 200",
+    "/diagnostic-tools/* / 200",
+    "/services / 200",
+    "/services/* / 200",
+    "/services-dispatch / 200",
+    "/services-dispatch/* / 200",
+    "/about / 200",
+    "/about/* / 200",
+    "/work / 200",
+    "/work/* / 200",
+    "/topics / 200",
+    "/topics/* / 200",
+    "/resources / 200",
+    "/resources/* / 200",
+    "/blog / 200",
+    "/blog/* / 200",
+    "/contact / 200",
+    "/contact/* / 200",
+    "/privacy / 200",
+    "/privacy/* / 200",
+    "/terms / 200",
+    "/terms/* / 200",
+    "/cookies / 200",
+    "/cookies/* / 200",
+    "/ai / 200",
+    "/ai/* / 200"
+  ],
+  "ai_runtime": "client-side-knowledge-search"
 }

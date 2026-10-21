@@ -21,10 +21,30 @@ import fs from "node:fs";
 const contract=JSON.parse(fs.readFileSync("config/production-asset-contract.json","utf8"));
 const failures=[],timeoutMs=10000;
 const isHttpsOrigin=value=>{try{const url=new URL(value);return typeof value==="string"&&url.protocol==="https:"&&url.origin===value&&url.username===""&&url.password===""&&url.pathname==="/"&&url.search===""&&url.hash==="";}catch{return false;}};
+const checks=[...(contract.checks||[])];
+if(contract.discover_vite_assets_from_homepage&&isHttpsOrigin(contract.production_origin)){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{
+  const response=await fetch(contract.production_origin+"/",{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-assets/38P"}});
+  if(response.status!==200)failures.push("homepage asset discovery: expected HTTP 200, got "+response.status);
+  const type=(response.headers.get("content-type")||"").toLowerCase();
+  if(!type.startsWith("text/html"))failures.push("homepage asset discovery: expected HTML, got "+type);
+  const bytes=await readBoundedBytes(response,Math.min(contract.max_body_bytes,1000000));
+  const html=new TextDecoder().decode(bytes);
+  const found=[...html.matchAll(/(?:src|href)="(\/assets\/index-[^"]+\.(?:js|css))"/g)].map(m=>m[1]);
+  if(!found.some(p=>p.endsWith(".js")))failures.push("homepage did not expose a hashed Vite JavaScript bundle");
+  if(!found.some(p=>p.endsWith(".css")))failures.push("homepage did not expose a hashed Vite CSS bundle");
+  for(const path of found){
+   if(!checks.some(item=>item.path===path))checks.push({path,status:200,content_type:path.endsWith(".css")?"text/css":"javascript",min_body_bytes:1000});
+  }
+ }catch(error){failures.push("homepage asset discovery failed: "+(error?.name==="AbortError"?"request timed out":error?.message||"request failed"))}
+ finally{clearTimeout(timer)}
+}
+
 if(!isHttpsOrigin(contract.production_origin)) failures.push("production asset origin must be an origin-only HTTPS URL");
 if(contract.max_redirects!==0) failures.push("production asset checks must not follow redirects");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("production asset contract must contain at least one check");
-for(const item of contract.checks||[]){
+for(const item of checks){
  if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||/(^|\/)\.{1,2}(?:$|\/)/.test(item.path)||/(^|\/)(?:%2e){1,2}(?:$|\/)/i.test(item.path)) failures.push("production asset check path must be an absolute site path");
  if(!Number.isInteger(item.status)||item.status<100||item.status>599) failures.push(item.path+": expected status must be a valid HTTP status");
  if(typeof item.content_type!=="string"||!item.content_type.trim()) failures.push(item.path+": content_type must be non-empty");
@@ -41,7 +61,7 @@ for(const item of contract.checks||[]){
   const response=await fetch(url,{redirect:"manual",signal:controller.signal,headers:{"user-agent":"jawed-production-assets/38P"}});
   const type=(response.headers.get("content-type")||"").toLowerCase(),body=await readBoundedBytes(response,contract.max_body_bytes),bytes=body.byteLength;
   if(response.status!==item.status) failures.push(`${item.path}: expected HTTP ${item.status}, got ${response.status}`);
-  if(item.content_type&&!type.startsWith(item.content_type)) failures.push(`${item.path}: expected content type ${item.content_type}, got ${type||"missing"}`);
+  if(item.content_type&&!type.includes(item.content_type)) failures.push(`${item.path}: expected content type ${item.content_type}, got ${type||"missing"}`);
   if(response.status>=300&&response.status<400) failures.push(`${item.path}: unexpected redirect`);
   if(bytes<item.min_body_bytes) failures.push(`${item.path}: response is too small (${bytes} bytes)`);
   if(bytes>contract.max_body_bytes) failures.push(`${item.path}: response exceeds body limit`);
@@ -50,4 +70,4 @@ for(const item of contract.checks||[]){
 }
 if(failures.length){console.error("Production Static Asset Reliability Gate FAILED");for(const f of failures)console.error("- "+f);process.exit(1)}
 console.log("Production Static Asset Reliability Gate PASSED");
-console.log(`Assets checked: ${contract.checks.length}`);
+console.log(`Assets checked: ${checks.length}`);

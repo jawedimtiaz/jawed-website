@@ -6,6 +6,9 @@ on:
   pull_request:
     paths:
       - "robots.txt"
+      - "public/robots.txt"
+      - "public/_redirects"
+
       - "config/production-robots-contract.json"
       - "scripts/validate-production-robots.mjs"
       - ".github/workflows/production-robots-reliability.yml"
@@ -13,6 +16,9 @@ on:
     branches: [main]
     paths:
       - "robots.txt"
+      - "public/robots.txt"
+      - "public/_redirects"
+
       - "config/production-robots-contract.json"
       - "scripts/validate-production-robots.mjs"
       - ".github/workflows/production-robots-reliability.yml"

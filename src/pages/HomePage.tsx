@@ -1,16 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { SeoHead } from '../components/SeoHead';
 
 export const HomePage: React.FC = () => {
   return (
     <main>
-      <SeoHead
-        title="Jawed Imtiaz | IT Field Tech, Troubleshooting Guides & Practical Tools"
-        description="Practical IT field guides, IPv4 subnet calculators, server rack power calculators, and interactive IT service desk diagnostic utilities by Jawed Imtiaz."
-        canonicalUrl="https://jawed.co.in/"
-        ogType="website"
-      />
 
       {/* Hero Section - High-Intent CRO & Resource Navigation */}
       <section className="hero container">

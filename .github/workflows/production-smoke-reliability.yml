@@ -7,6 +7,16 @@ on:
     branches: [main]
     paths:
       - "config/production-smoke-contract.json"
+      - "public/_redirects"
+      - "public/_headers"
+      - "public/sitemap.xml"
+      - "public/robots.txt"
+      - "public/404.html"
+      - "src/App.tsx"
+      - "src/main.tsx"
+      - "package.json"
+      - "vite.config.ts"
+
       - "scripts/validate-production-smoke.mjs"
       - ".github/workflows/production-smoke-reliability.yml"
       - "_headers"

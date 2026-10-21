@@ -2,58 +2,59 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-const headers=fs.readFileSync("_headers","utf8");
-const redirects=fs.readFileSync("_redirects","utf8");
-const routes=JSON.parse(fs.readFileSync("_routes.json","utf8"));
+const headers=fs.readFileSync("public/_headers","utf8");
+const rootHeaders=fs.readFileSync("_headers","utf8");
+const redirects=fs.readFileSync("public/_redirects","utf8");
+const rootRedirects=fs.readFileSync("_redirects","utf8");
 const deploymentContract=JSON.parse(fs.readFileSync("config/deployment-runtime-contract.json","utf8"));
 const deploymentHeaders=deploymentContract.required_security_headers;
 assert.equal(Array.isArray(deploymentHeaders)&&deploymentHeaders.length>0,true,"Deployment security-header contract must be non-empty");
 assert.equal(deploymentHeaders.every(value=>typeof value==="string"&&value.trim().length>0),true,"Deployment security-header contract must contain non-empty strings");
 
-
 const requiredHeaders=[
-  "X-Frame-Options: DENY",
-  "Cross-Origin-Opener-Policy: same-origin",
-  "X-Content-Type-Options: nosniff",
-  "X-Permitted-Cross-Domain-Policies: none",
-  "Referrer-Policy: strict-origin-when-cross-origin",
-  "Permissions-Policy: geolocation=(), microphone=(), camera=()",
-  "Strict-Transport-Security: max-age=31536000",
-  "Content-Security-Policy:"
+ "X-Frame-Options: DENY",
+ "Cross-Origin-Opener-Policy: same-origin",
+ "X-Content-Type-Options: nosniff",
+ "X-Permitted-Cross-Domain-Policies: none",
+ "Referrer-Policy: strict-origin-when-cross-origin",
+ "Permissions-Policy: geolocation=(), microphone=(), camera=()",
+ "Strict-Transport-Security: max-age=31536000",
+ "Content-Security-Policy:"
 ];
-for(const contract of requiredHeaders)assert.equal(headers.includes(contract),true,"Security header contract missing: "+contract);
-
+for(const value of requiredHeaders){
+ assert.equal(headers.includes(value),true,"Published security header contract missing: "+value);
+ assert.equal(rootHeaders.includes(value),true,"Root reference security header contract missing: "+value);
+}
 const csp=headers.match(/Content-Security-Policy:\s*([^\n]+)/)?.[1]||"";
 for(const directive of ["default-src 'self'","base-uri 'self'","frame-ancestors 'none'","frame-src 'none'","form-action 'self' mailto:","object-src 'none'","script-src ","worker-src ","connect-src ","img-src ","style-src ","font-src "]){
-  assert.equal(csp.includes(directive),true,"CSP directive missing: "+directive);
+ assert.equal(csp.includes(directive),true,"CSP directive missing: "+directive);
 }
 assert.equal(csp.includes("https://www.googletagmanager.com"),true,"CSP must retain the deferred analytics tag-manager origin");
 assert.equal(csp.includes("https://www.google-analytics.com"),true,"CSP must retain the analytics collection origin");
 assert.equal(csp.includes("https://cdnjs.cloudflare.com"),true,"CSP must retain the approved PDF reader resource origin");
-assert.equal(csp.includes("https://adsbygoogle"),false,"AdSense runtime must remain absent before Google Ready");
+assert.equal(/adsbygoogle|googlesyndication\.com|googleadservices\.com/i.test(csp),false,"Ad-serving hosts must remain absent before activation");
 assert.equal(csp.includes("unsafe-eval"),false,"CSP must not permit unsafe-eval");
 assert.equal(csp.includes("frame-ancestors 'none'"),true,"CSP must prevent framing");
 
-assert.equal(routes.version,1,"_routes.json version must remain supported");
-assert.deepEqual(routes.include,["/api/*"],"_routes.json must keep API-only function routing");
-assert.deepEqual(routes.exclude,[],"_routes.json must not silently exclude API routes");
+assert.equal(fs.existsSync("functions"),false,"Current application uses client-side AI; do not assume a Pages Functions runtime");
+assert.equal(fs.existsSync("public/_routes.json"),false,"Obsolete API-only route configuration must not be published");
+assert.equal(Array.isArray(deploymentContract.api_routes)&&deploymentContract.api_routes.length===0,true,"No server-side API routes are declared for the current client-side AI architecture");
 
-assert.equal(Array.isArray(deploymentContract.allowed_redirect_statuses),true,"Deployment redirect status policy must be declared");
-assert.equal(deploymentContract.allowed_redirect_statuses.every(Number.isInteger),true,"Deployment redirect status policy must contain integers");
-const redirectLines=redirects.split(/\r?\n/).filter(line=>line.trim()&&!line.trim().startsWith("#"));
-for(const line of redirectLines){
-  const parts=line.trim().split(/\s+/);
-  if(parts.length<3)continue;
-  const status=Number(parts.at(-1));
-  assert.equal(deploymentContract.allowed_redirect_statuses.includes(status),true,"Unexpected redirect status in _redirects: "+line);
+const redirectLines=redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"));
+const rootRedirectLines=rootRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"));
+for(const line of rootRedirectLines)assert.equal(redirectLines.includes(line),true,"Published redirects must preserve legacy redirect: "+line);
+for(const route of ["/notes / 200","/field-guides / 200","/tools / 200","/ai / 200","/privacy / 200"]){
+ assert.equal(redirectLines.includes(route),true,"Published SPA route rewrite missing: "+route);
 }
+assert.equal(redirectLines.some(line=>/\s\/index\.html\s+200$/.test(line)),false,"SPA rewrites must not target /index.html and create redirect loops");
 
-assert.equal(fs.existsSync("404.html"),true,"Custom 404 boundary must remain present");
-assert.equal(fs.existsSync("sitemap.xml"),true,"Sitemap must remain present");
+assert.equal(fs.existsSync("public/404.html"),true,"Published custom 404 boundary must remain present");
+assert.equal(fs.existsSync("public/sitemap.xml"),true,"Published sitemap must remain present");
+assert.equal(fs.readFileSync("sitemap.xml","utf8"),fs.readFileSync("public/sitemap.xml","utf8"),"Root and published sitemap copies must remain identical");
 
 console.log("Security baseline: PASS");
-console.log("Security headers and CSP: PASS");
-console.log("API routing boundary: PASS");
-console.log("Redirect policy syntax: PASS");
+console.log("Published security headers and CSP: PASS");
+console.log("Client-side AI and no-Functions boundary: PASS");
+console.log("SPA routing and legacy redirect policy: PASS");
 console.log("Pre-activation AdSense boundary: PASS");
-console.log("Custom 404 and sitemap presence: PASS");
+console.log("Published custom 404 and synchronized sitemap: PASS");
