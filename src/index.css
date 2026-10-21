@@ -797,7 +797,14 @@ select:focus-visible {
 
 @media (max-width: 768px) {
   .menu-toggle {
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .theme-toggle-btn {
+    min-height: 44px;
   }
 
   .site-nav {
