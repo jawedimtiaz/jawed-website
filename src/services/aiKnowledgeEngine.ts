@@ -16,16 +16,23 @@ export interface AiResponse {
 
 // 1. Personal & Privacy Query Categories Guardrail
 const PERSONAL_CATEGORIES = [
-  // Family & Relationships
+  // Family / relationship questions are never part of the public AI profile.
   "wife", "husband", "spouse", "partner", "married", "marriage", "children",
   "child", "son", "daughter", "kids", "family", "father", "mother", "parents",
   "brother", "sister", "sibling", "relatives",
-  // Sensitive personal details. Broad terms like "income" and "net worth" are
-  // intentionally handled by context rather than blanket-blocked because they
-  // are also used by legitimate educational finance content.
-  "age", "birthday", "birthdate", "born", "home address", "exact address",
-  "personal phone", "mobile number", "whatsapp number", "salary", "religion", "caste"
+  // Direct requests for sensitive personal identifiers or personal facts.
+  "home address", "exact address", "personal phone", "mobile number",
+  "whatsapp number", "religion", "caste"
 ];
+
+const PERSONAL_FACT_TERMS = ["salary", "income", "net worth", "age", "birthday", "birthdate", "born"];
+
+const asksAboutPersonalSubject = (query: string): boolean => {
+  const lower = query.toLowerCase();
+  const subject = /\b(jawed|he|his|him|jawed's|jawed’s)\b/i.test(lower);
+  const personalIntent = /\b(what|how old|tell me|give me|reveal|share|find|know|is|are|about|tell)\b/i.test(lower);
+  return subject && personalIntent;
+};
 
 const PERSONAL_LOCATION_QUESTIONS = [
   /\bwhere\s+(?:does|is)\s+(?:jawed|he)\s+(?:live|based|located)\b/i,
@@ -69,19 +76,15 @@ export function isPersonalQuery(query: string): boolean {
     return true;
   }
 
+  if (PERSONAL_FACT_TERMS.some((term) => lower.includes(term)) && asksAboutPersonalSubject(trimmed)) {
+    return true;
+  }
+
   for (const item of PERSONAL_CATEGORIES) {
-    if (["salary", "age", "birthday", "birthdate", "born"].includes(item)) {
-      // Do not globally block words that can appear in legitimate educational/support queries.
-      const personalSubject = /\b(jawed|he|his|him|my|me|i|you|your)\b/i.test(lower);
-      const personalDetailIntent = /\b(what|how old|tell me|give me|reveal|share|find|know|is|are|about)\b/i.test(lower);
-      const mentionsDetail = new RegExp(`\\b${escapeRegExp(item)}\\b`, 'i').test(lower);
-      if (personalSubject && personalDetailIntent && mentionsDetail) return true;
-    } else if (item.includes(' ')) {
-      // Multi-word phrase check
+    if (item.includes(' ')) {
       if (lower.includes(item)) return true;
     } else {
-      // Single word boundary check
-      const regex = new RegExp(`\\b${escapeRegExp(item)}\\b`, 'i');
+      const regex = new RegExp(`\\\\b${escapeRegExp(item)}\\\\b`, 'i');
       if (regex.test(lower)) return true;
     }
   }
