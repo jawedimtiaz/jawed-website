@@ -192,6 +192,7 @@ export const JawedAiWidget: React.FC = () => {
           <div
             className="jawed-ai-widget-messages"
             role="log"
+            aria-busy={loading}
             aria-live="polite"
             aria-relevant="additions"
             aria-atomic="false"
@@ -246,6 +247,8 @@ export const JawedAiWidget: React.FC = () => {
             {loading && (
               <div
                 className="jawed-ai-widget-message assistant"
+                role="status"
+                aria-live="polite"
                 style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}
               >
                 Searching documentation...
