@@ -1501,3 +1501,16 @@ select:focus-visible {
   background: var(--accent-hover);
   color: #ffffff;
 }
+
+
+/* Keep the floating AI widget clear of mobile browser and device safe areas. */
+@media (max-width: 768px) {
+  .jawed-ai-widget {
+    right: calc(16px + env(safe-area-inset-right, 0px));
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .jawed-ai-panel {
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+}
