@@ -136,6 +136,17 @@ a:hover {
   text-underline-offset: 3px;
 }
 
+/* Default unclassed links need darker text in the light theme. */
+[data-theme="light"] a:not([class]),
+.light a:not([class]) {
+  color: var(--accent-hover);
+}
+
+[data-theme="light"] a:not([class]):hover,
+.light a:not([class]):hover {
+  color: var(--accent-dark);
+}
+
 /* High-Visibility :focus-visible Rules (Replaces outline: none) */
 a:focus-visible,
 button:focus-visible,
