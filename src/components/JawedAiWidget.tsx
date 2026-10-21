@@ -41,6 +41,21 @@ export const JawedAiWidget: React.FC = () => {
     }
   }, [isOpen, isMinimized]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        setIsMinimized(false);
+        requestAnimationFrame(() => launcherRef.current?.focus());
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
   // Hide widget on dedicated /ai page
   if (location.pathname.startsWith('/ai')) {
     return null;
