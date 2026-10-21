@@ -753,6 +753,11 @@ select:focus-visible {
   text-decoration: underline;
 }
 
+[data-theme="light"] .footer-links a:hover,
+.light .footer-links a:hover {
+  color: var(--accent-hover);
+}
+
 .footer-compliance-badge {
   display: inline-flex;
   align-items: center;
