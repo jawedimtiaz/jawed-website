@@ -70,7 +70,13 @@ export function isPersonalQuery(query: string): boolean {
   }
 
   for (const item of PERSONAL_CATEGORIES) {
-    if (item.includes(' ')) {
+    if (["salary", "age", "birthday", "birthdate", "born"].includes(item)) {
+      // Do not globally block words that can appear in legitimate educational/support queries.
+      const personalSubject = /\b(jawed|he|his|him|my|me|i|you|your)\b/i.test(lower);
+      const personalDetailIntent = /\b(what|how old|tell me|give me|reveal|share|find|know|is|are|about)\b/i.test(lower);
+      const mentionsDetail = new RegExp(`\\b${escapeRegExp(item)}\\b`, 'i').test(lower);
+      if (personalSubject && personalDetailIntent && mentionsDetail) return true;
+    } else if (item.includes(' ')) {
       // Multi-word phrase check
       if (lower.includes(item)) return true;
     } else {
