@@ -307,18 +307,18 @@ export const FIELD_GUIDES: FieldGuide[] = [
 
       <h2 id="link-flapping-causes">1. What Causes Network Port Flapping?</h2>
       <p>
-        Intermittent interface flapping disrupts STP topology recalculations, triggers OSPF neighbor drops, and degrades VoIP call quality. Primary root causes include:
+        Repeated link transitions can interrupt traffic and may trigger spanning-tree or routing-protocol reconvergence, depending on the topology. Investigate the observed symptoms and event timeline; possible causes include:
       </p>
       <ul>
         <li><strong>Physical Layer (L1):</strong> Damaged copper patch cables, loose RJ45 locking tabs, dirty fiber end-faces, or failing SFP transceivers.</li>
         <li><strong>Speed/Duplex Mismatch:</strong> One side hardcoded to Full-Duplex while the peer is set to Auto-negotiation.</li>
-        <li><strong>PoE Over-Current Trips:</strong> IP camera or Access Point drawing power exceeding port PoE budget limits.</li>
-        <li><strong>EEE (Energy Efficient Ethernet) Sleep Glitches:</strong> Power-saving PHY state mismatches between host NICs and switch ASICs.</li>
+        <li><strong>Power or port protection events:</strong> On PoE-enabled ports, check logs and negotiated power for documented overload, power-denial or protection events. Treat these as possibilities only when supported by platform evidence.</li>
+        <li><strong>Negotiation, compatibility or power-management behavior:</strong> Consider these only when supported by device logs, known compatibility information or a reproducible test; do not assume EEE is the cause from flapping alone.</li>
       </ul>
 
       <h2 id="cisco-cli-workflow">2. Cisco IOS / IOS-XE Diagnostic CLI Workflow</h2>
       <p>
-        Execute these commands sequentially on Cisco Catalyst / Nexus switches to isolate the failure point:
+        Use the commands supported by the exact Cisco platform and software release. Confirm the interface identifier and capture a baseline before making changes; Catalyst and Nexus command availability can differ:
       </p>
 
       <div style="background: var(--bg-darker); border: 1px solid var(--line); padding: 16px; border-radius: 10px; font-family: monospace; color: var(--accent); margin: 16px 0;">
@@ -326,20 +326,20 @@ export const FIELD_GUIDES: FieldGuide[] = [
         Switch# show logging | include LINK-3-UPDOWN|LINEPROTO-5-UPDOWN<br/><br/>
         # Step 2: Inspect interface status, duplex, and error counters<br/>
         Switch# show interface GigabitEthernet1/0/12<br/><br/>
-        # Step 3: Check detailed controller register statistics<br/>
+        # Step 3: Check interface error counters<br/>
         Switch# show interfaces GigabitEthernet1/0/12 counters errors
       </div>
 
       <p><strong>Interpreting Cisco Output Counters:</strong></p>
       <ul>
-        <li><strong>FCS Errors (Frame Check Sequence):</strong> Indicates corrupted frames arriving at the ASIC. Almost always caused by bad copper cables, loose connectors, or electrical EMI noise.</li>
-        <li><strong>Late Collisions:</strong> Indicates a <strong>Duplex Mismatch</strong> where a half-duplex node transmits after the 512-bit slot time has passed.</li>
-        <li><strong>Runts / Giants:</strong> Runts (< 64 bytes) indicate collision or bad NIC driver; Giants (> 1518/9000 bytes) indicate MTU mismatch.</li>
+        <li><strong>FCS/CRC errors:</strong> Indicate frames received with an invalid frame check sequence. Possible causes include cabling or connector faults, interference, a faulty port or transceiver, and other physical-path issues; correlate counters with interface type, traffic and peer-side evidence.</li>
+        <li><strong>Late collisions:</strong> On legacy half-duplex Ethernet, these can indicate a duplex mismatch or physical-layer problem. Interpret them in context; they are not expected on a properly operating full-duplex link.</li>
+        <li><strong>Runts / giants:</strong> Definitions and counters vary by platform, encapsulation and configured frame size. Check the switch documentation and correlate with collisions, MTU/jumbo-frame settings and packet captures before assigning a cause.</li>
       </ul>
 
       <h2 id="aruba-cli-workflow">3. Aruba OS-CX Diagnostic CLI Workflow</h2>
       <p>
-        For Aruba OS-CX switches (6300/8320/8360 series), use the following diagnostic command sequences:
+        For Aruba CX, use commands documented for the exact switch model and AOS-CX release. Syntax and supported output can vary across releases:
       </p>
 
       <div style="background: var(--bg-darker); border: 1px solid var(--line); padding: 16px; border-radius: 10px; font-family: monospace; color: var(--teal); margin: 16px 0;">
@@ -353,7 +353,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
 
       <h2 id="duplex-mismatch">4. Isolating Speed & Duplex Mismatches</h2>
       <p>
-        When IEEE 802.3u autonegotiation fails or is improperly configured, the autonegotiation protocol defaults to **Half-Duplex** if speed sensing succeeds but duplex handshake fails:
+        On 10/100 Mb/s Ethernet, a forced-speed/duplex mismatch can cause one endpoint to operate half-duplex while the other operates full-duplex. Do not assume every failed negotiation defaults to half-duplex; behavior depends on PHY and configuration. For 1000BASE-T, IEEE-compliant operation requires auto-negotiation, so follow vendor guidance rather than forcing speed/duplex:
       </p>
 
       <div style="overflow-x: auto; margin: 20px 0;">
@@ -377,13 +377,13 @@ export const FIELD_GUIDES: FieldGuide[] = [
               <td style="padding: 10px; border: 1px solid var(--line);">Hardcoded 100/Full</td>
               <td style="padding: 10px; border: 1px solid var(--line);">Auto-Negotiate</td>
               <td style="padding: 10px; border: 1px solid var(--line); color: #f43f5e;">Duplex Mismatch!</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Remote side falls back to 100/Half. Massive late collisions and slow TCP speed.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">A duplex mismatch may occur on the auto-negotiating endpoint; confirm negotiated values and counters on both ends.</td>
             </tr>
             <tr>
-              <td style="padding: 10px; border: 1px solid var(--line);">Hardcoded 1000/Full</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Hardcoded 1000/Full</td>
-              <td style="padding: 10px; border: 1px solid var(--line); color: #fbbf24;">Manual Full-Duplex</td>
-              <td style="padding: 10px; border: 1px solid var(--line);">Works, but violates Gigabit standard requirement for autonegotiation.</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Forced 1000/Full</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">Forced 1000/Full</td>
+              <td style="padding: 10px; border: 1px solid var(--line); color: #fbbf24;">Avoid as a generic recommendation</td>
+              <td style="padding: 10px; border: 1px solid var(--line);">1000BASE-T uses auto-negotiation in standards-compliant operation. Restore the documented vendor-supported configuration and verify both ends.</td>
             </tr>
           </tbody>
         </table>
@@ -401,9 +401,9 @@ export const FIELD_GUIDES: FieldGuide[] = [
 
       <h2 id="triage-matrix">6. Field Triage Resolution Matrix</h2>
       <ol style="line-height: 1.8;">
-        <li>Swap the patch cable with a known-good Cat6A factory cable.</li>
-        <li>Ensure both local and remote interfaces are set to <code>speed auto</code> and <code>duplex auto</code>.</li>
-        <li>Clean fiber LC connectors using an approved 1.25mm/2.5mm optical cleaning pen.</li>
+        <li>Where authorized and operationally safe, test with a known-good, correctly rated patch cable; document the before/after result and avoid disrupting production links without approval.</li>
+        <li>Compare speed, duplex and negotiation settings at both ends. Apply the approved configuration for the specific PHY and link type; do not blindly paste generic <code>speed auto</code> or <code>duplex auto</code> commands across vendors or interface types.</li>
+        <li>Inspect and clean fiber connectors only with the approved inspection/cleaning tools and procedure for the connector type. Verify end-face cleanliness before reconnecting and never look into a fiber or optical port.</li>
         <li>If flapping persists, consult the exact switch platform documentation for any approved port-protection or flap-suppression controls. Such controls may limit impact but do not replace root-cause diagnosis; do not copy commands across vendors or software releases.</li>
       </ol>
       <h2 id="references">Sources and further reading</h2>
