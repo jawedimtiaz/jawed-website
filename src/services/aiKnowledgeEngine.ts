@@ -37,32 +37,9 @@ const STOP_WORDS = new Set([
 
 const rawEntries: KnowledgeEntry[] = (rawKnowledge as any).entries || [];
 
-// Hydrate entries with explicit location and workplace details
-const entries: KnowledgeEntry[] = rawEntries.map((entry) => {
-  if (entry.url === '/about/' || entry.title.toLowerCase().includes('about jawed')) {
-    return {
-      ...entry,
-      summary:
-        "Jawed Imtiaz is an IT professional and IT Field Tech based in Kolkata, India, providing Enterprise Workplace Support (Uber environment via Milestone Technologies). He specializes in technical support, system administration, IT operations, Service Desk operations, and workplace technology, and holds a Bachelor of Science from the University of Calcutta.",
-      keywords: Array.from(
-        new Set([
-          ...(entry.keywords || []),
-          "based",
-          "location",
-          "kolkata",
-          "india",
-          "where",
-          "work",
-          "employer",
-          "uber",
-          "milestone technologies",
-          "enterprise workplace support",
-        ])
-      ),
-    };
-  }
-  return entry;
-});
+// Use aiKnowledge.json as the single source of truth for public summaries
+// and searchable terms. This avoids silently overriding editorial content here.
+const entries: KnowledgeEntry[] = rawEntries;
 
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
