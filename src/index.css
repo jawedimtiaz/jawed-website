@@ -477,6 +477,12 @@ select:focus-visible {
   color: var(--accent);
 }
 
+[data-theme="light"] .ribbon-link:hover,
+.light .ribbon-link:hover {
+  color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
 .page {
   padding: 48px 0 72px;
 }
