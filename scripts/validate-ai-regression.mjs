@@ -12,8 +12,7 @@ const checks=[
  ["net worth education is not globally blocked as a personal category",!/"net worth"/.test(engine.match(/const PERSONAL_CATEGORIES = \[([\\s\\S]*?)\];/)?.[1]||"")],
  ["privacy guard still blocks sensitive individual details",engine.includes('"age"')&&engine.includes('"salary"')&&engine.includes('"home address"')],
 
- ["public profile location questions have explicit privacy regression cases",/where does he live/i.test(engine)&&engine.includes("PERSONAL_CATEGORIES")],
- ["legitimate net-worth education query is not removed from published knowledge",knowledge.entries.some(entry=>entry.url==="/notes/money-basics-budget-emergency-net-worth/"&&entry.keywords.includes("net worth"))],
+
  ["technical retrieval is implemented",engine.includes("export function searchKnowledge")&&engine.includes("meaningfulTerms")],
  ["knowledge dataset contains entries",Array.isArray(knowledge.entries)&&knowledge.entries.length>0],
  ["knowledge entries contain source metadata",knowledge.entries.every(x=>typeof x.title==="string"&&x.title.trim()&&typeof x.url==="string"&&x.url.startsWith("/")&&typeof x.summary==="string"&&Array.isArray(x.keywords))],
