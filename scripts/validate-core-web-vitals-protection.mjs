@@ -9,7 +9,7 @@ assert.ok(htmlFiles.length>0,"HTML inventory must not be empty");
 for(const file of htmlFiles){
   const html=fs.readFileSync(file,"utf8");
   assert.equal(html.includes("https://www.googletagmanager.com/gtag/js?id=G-14C5DCPM15"),false,`immediate GA loader remains in ${file}`);
-  const count=(html.match(/<script src="\/assets\/js\/analytics\.js" defer><\/script>/g)||[]).length;
+  const count=(html.match(/<script src="(?:\/|%BASE_URL%)assets\/js\/analytics\.js" defer><\/script>/g)||[]).length;
   assert.equal(count,1,`analytics loader must occur exactly once in ${file}`);
   assert.equal(html.includes('gtag("config","G-14C5DCPM15")'),false,`inline GA config must not remain in ${file}`);
 }
