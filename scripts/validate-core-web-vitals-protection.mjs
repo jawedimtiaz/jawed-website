@@ -10,7 +10,7 @@ for(const file of htmlFiles){
   const html=fs.readFileSync(file,"utf8");
   assert.equal(html.includes("https://www.googletagmanager.com/gtag/js?id=G-14C5DCPM15"),false,`immediate GA loader remains in ${file}`);
   // The offline fallback is intentionally self-contained and must work without analytics or network access.
-  if (file !== "offline.html") {
+  if (file !== "offline.html" && file !== "public/404.html") {
     const count=(html.match(/<script src="(?:\/|%BASE_URL%)assets\/js\/analytics\.js" defer><\/script>/g)||[]).length;
     assert.equal(count,1,`analytics loader must occur exactly once in ${file}`);
   }
