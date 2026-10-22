@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Image } from '../components/Image';
 
 export const AboutPage: React.FC = () => {
   return (
@@ -13,6 +14,29 @@ export const AboutPage: React.FC = () => {
       <p className="lead">
         Senior IT Field Tech and Workplace Engineering Specialist focused on Service Desk operations, enterprise device lifecycle management, Apple/Jamf infrastructure, and practical diagnostic tools.
       </p>
+
+      {/* Profile & Engineering Identity Banner (LCP Optimized with Priority & WebP) */}
+      <div
+        style={{
+          margin: '28px 0 36px',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          border: '1px solid var(--border)',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
+          background: 'var(--surface)',
+        }}
+      >
+        <Image
+          src="/assets/images/social-preview.png"
+          alt="Jawed Imtiaz - IT Field Tech & Engineering Lead"
+          width={1200}
+          height={630}
+          priority={true}
+          aspectRatio="16 / 9"
+          className="img-aspect-16-9"
+          style={{ width: '100%', height: 'auto', maxHeight: '420px', objectFit: 'cover', display: 'block' }}
+        />
+      </div>
 
       <section className="content-section">
         <h2>Professional Background &amp; Current Role</h2>

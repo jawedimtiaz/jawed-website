@@ -1,11 +1,22 @@
 /* Jawed.co.in Service Worker (PWA Offline Fallback & Cache-First Strategy) */
 
-const CACHE_NAME = 'jawed-co-in-v1';
+const CACHE_NAME = 'jawed-co-in-v2';
 const CORE_ASSETS = [
   '/',
   '/index.html',
   '/favicon.svg',
   '/manifest.webmanifest',
+  '/assets/images/social-preview.webp',
+  '/apple-touch-icon.webp',
+  '/apple-touch-icon.png',
+  '/pwa-192x192.webp',
+  '/pwa-192x192.png',
+  '/pwa-512x512.webp',
+  '/pwa-512x512.png',
+  '/pwa-maskable-192x192.webp',
+  '/pwa-maskable-192x192.png',
+  '/pwa-maskable-512x512.webp',
+  '/pwa-maskable-512x512.png',
   '/offline.html'
 ];
 

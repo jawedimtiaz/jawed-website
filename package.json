@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 3000",
+    "generate:webp": "node scripts/generate-webp.js",
     "build": "tsc && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "lint": "tsc --noEmit"

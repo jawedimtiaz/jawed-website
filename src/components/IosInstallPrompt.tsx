@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Image } from './Image';
 
 const STORAGE_KEY = 'ios_pwa_prompt_dismissed_until';
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -55,7 +56,16 @@ export const IosInstallPrompt: React.FC = () => {
     >
       <div className="ios-pwa-content">
         <div className="ios-pwa-header">
-          <div className="ios-pwa-icon">JI</div>
+          <div className="ios-pwa-icon" style={{ overflow: 'hidden', padding: 0 }}>
+            <Image
+              src="/apple-touch-icon.png"
+              alt="Jawed Imtiaz PWA Icon"
+              width={40}
+              height={40}
+              priority={true}
+              style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '10px', display: 'block' }}
+            />
+          </div>
           <div className="ios-pwa-titles">
             <h3 id="ios-pwa-title">Install Jawed Imtiaz App</h3>
             <p id="ios-pwa-desc">Install on your iPhone or iPad home screen for fast access to IT field tools &amp; guides.</p>

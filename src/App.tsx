@@ -5,6 +5,7 @@ import { Footer } from './components/Footer';
 import { JawedAiWidget } from './components/JawedAiWidget';
 import { IosInstallPrompt } from './components/IosInstallPrompt';
 import { RouteSeo } from './components/RouteSeo';
+import { ScrollProgress } from './components/ScrollProgress';
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -73,6 +74,7 @@ export const App: React.FC = () => {
     <div className="site-wrapper" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <ScrollToTop />
       <RouteSeo />
+      <ScrollProgress />
       <Header />
 
       <div style={{ flex: 1 }}>

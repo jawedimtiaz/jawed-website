@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { FIELD_GUIDES, FieldGuide } from '../data/fieldGuidesData';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
+import { SeoHead } from '../components/SeoHead';
+import { Image } from '../components/Image';
 
 export const FieldGuideDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -42,6 +44,11 @@ export const FieldGuideDetailPage: React.FC = () => {
 
   return (
     <main className="container page">
+      <SeoHead
+        title={guide.title}
+        description={guide.description}
+        canonicalUrl={currentUrl}
+      />
 
       {/* Breadcrumbs */}
       <nav className="breadcrumbs" aria-label="Breadcrumb">
@@ -80,8 +87,15 @@ export const FieldGuideDetailPage: React.FC = () => {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', paddingTop: '16px', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)', paddingBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--accent)', border: '1px solid var(--line)' }}>
-                JI
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--line)', flexShrink: 0 }}>
+                <Image
+                  src="/apple-touch-icon.png"
+                  alt={guide.author}
+                  width={40}
+                  height={40}
+                  loading="lazy"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
               </div>
               <div>
                 <strong style={{ display: 'block', color: 'var(--text-heading)', fontSize: '0.95rem' }}>{guide.author}</strong>

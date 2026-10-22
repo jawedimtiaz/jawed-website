@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { SiteSearchBar } from './SiteSearchBar';
 
 export const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -60,6 +61,11 @@ export const Header: React.FC = () => {
           </div>
         </Link>
 
+        {/* Site-Wide Search Bar Powered by aiKnowledgeEngine */}
+        <div className="header-search-slot">
+          <SiteSearchBar onNavigated={closeMenu} />
+        </div>
+
         <button
           ref={menuToggleRef}
           className="menu-toggle"
@@ -81,7 +87,6 @@ export const Header: React.FC = () => {
           >
             Guides
           </Link>
-
           <Link
             className="nav-item"
             to="/tools"
@@ -90,7 +95,6 @@ export const Header: React.FC = () => {
           >
             Tools
           </Link>
-
           <Link
             className="nav-item"
             to="/services"
@@ -99,7 +103,6 @@ export const Header: React.FC = () => {
           >
             Services
           </Link>
-
           <Link
             className="nav-item"
             to="/about"
@@ -108,7 +111,6 @@ export const Header: React.FC = () => {
           >
             About
           </Link>
-
           <Link
             className="nav-item"
             to="/ai"
@@ -117,7 +119,6 @@ export const Header: React.FC = () => {
           >
             Ask AI
           </Link>
-
           <button
             type="button"
             className="theme-toggle-btn"
@@ -127,7 +128,6 @@ export const Header: React.FC = () => {
           >
             {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
           </button>
-
           <Link
             className="nav-cta"
             to="/contact"

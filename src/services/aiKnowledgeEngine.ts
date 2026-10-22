@@ -233,3 +233,209 @@ export async function askJawedAi(query: string): Promise<AiResponse> {
     })),
   };
 }
+
+export type SiteCategory = 'guide' | 'tool' | 'page';
+
+export interface SiteSearchResult extends KnowledgeEntry {
+  category: SiteCategory;
+  categoryLabel: string;
+  score: number;
+}
+
+export interface CategorizedSearchResults {
+  all: SiteSearchResult[];
+  guides: SiteSearchResult[];
+  tools: SiteSearchResult[];
+  pages: SiteSearchResult[];
+  query: string;
+  isPersonal?: boolean;
+}
+
+// Helper to categorize site entries into Pages, Tools, and Technical Guides
+export function categorizeEntry(url: string, title: string = ''): { category: SiteCategory; categoryLabel: string } {
+  const u = url.toLowerCase().replace(/\/+$/, '');
+  const t = title.toLowerCase();
+
+  // Tools detection
+  if (
+    u.startsWith('/tools') ||
+    u.includes('calculator') ||
+    u.includes('assistant') ||
+    u.includes('builder') ||
+    u.includes('planner') ||
+    u.includes('checker') ||
+    u.includes('formatter') ||
+    t.includes('calculator') ||
+    t.includes('builder') ||
+    t.includes('formatter') ||
+    t.includes('planner')
+  ) {
+    return { category: 'tool', categoryLabel: 'Tool' };
+  }
+
+  // Technical Guides detection
+  if (
+    u.startsWith('/notes') ||
+    u.startsWith('/guides') ||
+    u.startsWith('/field-guides') ||
+    u.startsWith('/blog') ||
+    t.includes('checklist') ||
+    t.includes('guide') ||
+    t.includes('workflow') ||
+    t.includes('framework') ||
+    t.includes('documentation')
+  ) {
+    return { category: 'guide', categoryLabel: 'Technical Guide' };
+  }
+
+  // Otherwise Page
+  return { category: 'page', categoryLabel: 'Page' };
+}
+
+// Site-Wide Categorized Search Engine
+export function searchSite(query: string, maxResults: number = 30): CategorizedSearchResults {
+  const trimmed = query.trim().toLowerCase();
+
+  if (!trimmed) {
+    return {
+      all: [],
+      guides: [],
+      tools: [],
+      pages: [],
+      query: '',
+    };
+  }
+
+  // Intercept personal questions with privacy flag
+  if (isPersonalQuery(trimmed)) {
+    return {
+      all: [],
+      guides: [],
+      tools: [],
+      pages: [],
+      query: trimmed,
+      isPersonal: true,
+    };
+  }
+
+  const rawTokens = trimmed.split(/[^a-z0-9]+/i).filter(Boolean);
+  const searchTerms = rawTokens.length > 0 ? rawTokens : [trimmed];
+
+  const scoredResults: SiteSearchResult[] = [];
+
+  for (const entry of entries) {
+    const { category, categoryLabel } = categorizeEntry(entry.url, entry.title);
+    const titleLower = entry.title.toLowerCase();
+    const summaryLower = entry.summary.toLowerCase();
+    const urlLower = entry.url.toLowerCase();
+    const keywordsLower = (entry.keywords || []).map((k) => k.toLowerCase());
+
+    let score = 0;
+
+    // Exact full query matches
+    if (titleLower === trimmed) {
+      score += 150;
+    } else if (titleLower.includes(trimmed)) {
+      score += 80;
+    }
+
+    if (keywordsLower.includes(trimmed)) {
+      score += 70;
+    }
+
+    if (summaryLower.includes(trimmed)) {
+      score += 40;
+    }
+
+    // Per-term scoring
+    for (const term of searchTerms) {
+      if (term.length < 2 && searchTerms.length > 1) continue;
+
+      if (containsWholeWord(entry.title, term)) {
+        score += 45;
+      } else if (titleLower.includes(term)) {
+        score += 20;
+      }
+
+      for (const kw of keywordsLower) {
+        if (kw === term) {
+          score += 35;
+          break;
+        } else if (kw.includes(term)) {
+          score += 18;
+          break;
+        }
+      }
+
+      if (containsWholeWord(entry.summary, term)) {
+        score += 20;
+      } else if (summaryLower.includes(term)) {
+        score += 8;
+      }
+
+      if (urlLower.includes(term)) {
+        score += 15;
+      }
+    }
+
+    if (score > 0) {
+      scoredResults.push({
+        ...entry,
+        category,
+        categoryLabel,
+        score,
+      });
+    }
+  }
+
+  // Sort by highest score first
+  scoredResults.sort((a, b) => b.score - a.score);
+
+  const limited = scoredResults.slice(0, maxResults);
+  const guides = limited.filter((r) => r.category === 'guide');
+  const tools = limited.filter((r) => r.category === 'tool');
+  const pages = limited.filter((r) => r.category === 'page');
+
+  return {
+    all: limited,
+    guides,
+    tools,
+    pages,
+    query: trimmed,
+    isPersonal: false,
+  };
+}
+
+// Quick Search Recommendations (shown before user types)
+export function getQuickSearchRecommendations(): SiteSearchResult[] {
+  const recommendedUrls = [
+    '/notes/apple-macos-first-response-checklist/',
+    '/tools/it-troubleshooting-assistant/',
+    '/tools/ipv4-subnet-calculator',
+    '/notes/it-service-desk-troubleshooting-workflow/',
+    '/tools/service-desk-note-formatter/',
+    '/about/',
+    '/tools/server-rack-power-btu-calculator',
+    '/services',
+  ];
+
+  const results: SiteSearchResult[] = [];
+
+  for (const targetUrl of recommendedUrls) {
+    const cleanTarget = targetUrl.toLowerCase().replace(/\/+$/, '');
+    const found = entries.find(
+      (e) => e.url.toLowerCase().replace(/\/+$/, '') === cleanTarget
+    );
+    if (found) {
+      const { category, categoryLabel } = categorizeEntry(found.url, found.title);
+      results.push({
+        ...found,
+        category,
+        categoryLabel,
+        score: 100,
+      });
+    }
+  }
+
+  return results;
+}

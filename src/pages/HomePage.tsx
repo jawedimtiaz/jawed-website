@@ -1,9 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { SeoHead } from '../components/SeoHead';
+import { Image } from '../components/Image';
 
 export const HomePage: React.FC = () => {
   return (
     <main>
+      <SeoHead
+        title="Jawed Imtiaz | IT Field Tech, Troubleshooting Guides & Practical Tools"
+        description="Practical IT field guides, IPv4 subnet calculators, server rack power calculators, and interactive IT service desk diagnostic utilities by Jawed Imtiaz."
+        canonicalUrl="https://jawed.co.in/"
+        ogType="website"
+      />
 
       {/* Hero Section - High-Intent CRO & Resource Navigation */}
       <section className="hero container">
@@ -47,6 +55,31 @@ export const HomePage: React.FC = () => {
                 🤖 Ask AI
               </Link>
             </div>
+          </div>
+
+          {/* Hero Visual Card (LCP Optimized with Priority & WebP) */}
+          <div
+            className="hero-image-wrapper"
+            style={{
+              marginTop: '36px',
+              maxWidth: '920px',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              border: '1px solid var(--border)',
+              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.22)',
+              background: 'var(--surface)',
+            }}
+          >
+            <Image
+              src="/assets/images/social-preview.png"
+              alt="Jawed Imtiaz Enterprise IT Support, Field Engineering & Utilities Overview"
+              width={1200}
+              height={630}
+              priority={true}
+              aspectRatio="16 / 9"
+              className="img-aspect-16-9"
+              style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
+            />
           </div>
         </div>
       </section>

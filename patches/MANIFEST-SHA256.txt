@@ -1,0 +1,4 @@
+5a82d70a02cce48ebc2bac8ba219d58f8ff97c3f64800c82c1a59fe775422bbf  0001-feat-pwa-add-web-app-manifest-icons-service-worker-a.patch
+96ec4132972e2959b921234055350fae6063f4e9a0b5b8a9ec6d2638bd01e741  0002-feat-perf-add-progressive-Image-component-and-WebP-a.patch
+264ebc0f7c8999927ffe089173280f1d3e89c7852905752d1c0e05df4b83821c  0003-feat-ux-add-top-reading-scroll-progress-indicator.patch
+3822f480619031eedca1e584087553d566194eccff247e066a8bd50f66f21b8f  0004-feat-search-ai-add-modal-site-search-and-web-speech-.patch

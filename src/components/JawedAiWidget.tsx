@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { askJawedAi } from '../services/aiKnowledgeEngine';
 
@@ -16,6 +16,10 @@ export const JawedAiWidget: React.FC = () => {
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechNotice, setSpeechNotice] = useState<string | null>(null);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'msg-welcome',
@@ -27,7 +31,20 @@ export const JawedAiWidget: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const baseQueryRef = useRef<string>('');
+  const noticeTimeoutRef = useRef<any>(null);
   const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        setSpeechSupported(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen && !isMinimized) {
@@ -41,11 +58,23 @@ export const JawedAiWidget: React.FC = () => {
     }
   }, [isOpen, isMinimized]);
 
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // ignore if already stopped
+      }
+    }
+    setIsListening(false);
+  }, []);
+
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        stopListening();
         setIsOpen(false);
         setIsMinimized(false);
         requestAnimationFrame(() => launcherRef.current?.focus());
@@ -54,14 +83,116 @@ export const JawedAiWidget: React.FC = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, stopListening]);
+
+  // Cleanup on unmount or when closed
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+      if (noticeTimeoutRef.current) {
+        clearTimeout(noticeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Hide widget on dedicated /ai page
   if (location.pathname.startsWith('/ai')) {
     return null;
   }
 
+  const showNotice = (msg: string) => {
+    setSpeechNotice(msg);
+    if (noticeTimeoutRef.current) {
+      clearTimeout(noticeTimeoutRef.current);
+    }
+    noticeTimeoutRef.current = setTimeout(() => {
+      setSpeechNotice(null);
+    }, 4500);
+  };
+
+  const startListening = () => {
+    if (typeof window === 'undefined') return;
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      showNotice('Speech recognition is not supported in this browser. Try Chrome, Edge, or Safari.');
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      baseQueryRef.current = query.trim();
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setSpeechNotice(null);
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.resultIndex !== undefined ? event.results[i][0].transcript : '';
+        }
+
+        const base = baseQueryRef.current;
+        const newText = base ? `${base} ${transcript.trim()}` : transcript.trim();
+        setQuery(newText);
+      };
+
+      recognition.onerror = (event: any) => {
+        setIsListening(false);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          showNotice('Microphone permission was denied. Please allow microphone access.');
+        } else if (event.error === 'no-speech') {
+          // Silent timeout
+        } else if (event.error === 'network') {
+          showNotice('Voice recognition network connection error.');
+        } else {
+          showNotice(`Voice recognition error: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      showNotice('Could not start microphone. Please check browser permissions.');
+    }
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
   const handleSend = async () => {
+    if (isListening) {
+      stopListening();
+    }
+
     const userText = query.trim();
     if (!userText || loading) return;
 
@@ -105,12 +236,16 @@ export const JawedAiWidget: React.FC = () => {
   };
 
   const closeWidget = () => {
+    stopListening();
     setIsOpen(false);
     setIsMinimized(false);
     requestAnimationFrame(() => launcherRef.current?.focus());
   };
 
   const toggleMinimize = () => {
+    if (!isMinimized) {
+      stopListening();
+    }
     setIsMinimized((prev) => !prev);
   };
 
@@ -119,8 +254,8 @@ export const JawedAiWidget: React.FC = () => {
       {/* 1. Closed State: Floating Action Launcher Trigger Pill */}
       {!isOpen && (
         <button
-          className="jawed-ai-toggle"
           ref={launcherRef}
+          className="jawed-ai-toggle"
           type="button"
           aria-expanded="false"
           aria-label="Open Jawed AI Assistant"
@@ -200,17 +335,17 @@ export const JawedAiWidget: React.FC = () => {
           </div>
 
           <div className="jawed-ai-widget-privacy">
-            🔒 Answers retrieved from published technical guides &amp; documentation.
+            🔒 Hands-free voice enabled for field technicians. Local notes grounded.
           </div>
 
           {/* Contained Scrollable Message History */}
           <div
             className="jawed-ai-widget-messages"
             role="log"
-            aria-busy={loading}
             aria-live="polite"
             aria-relevant="additions"
             aria-atomic="false"
+            aria-busy={loading}
           >
             {messages.map((m) => (
               <div key={m.id} className={`jawed-ai-widget-message ${m.role}`}>
@@ -262,9 +397,9 @@ export const JawedAiWidget: React.FC = () => {
             {loading && (
               <div
                 className="jawed-ai-widget-message assistant"
+                style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}
                 role="status"
                 aria-live="polite"
-                style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}
               >
                 Searching documentation...
               </div>
@@ -272,7 +407,7 @@ export const JawedAiWidget: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Spacious & Accessible Input Form */}
+          {/* Spacious & Accessible Input Form with Web Speech API */}
           <form
             className="jawed-ai-widget-form"
             onSubmit={(e) => {
@@ -280,16 +415,95 @@ export const JawedAiWidget: React.FC = () => {
               handleSend();
             }}
           >
+            {/* Real-time Hands-free Listening Bar */}
+            {isListening && (
+              <div className="jawed-ai-voice-bar" role="status" aria-live="polite">
+                <div className="jawed-ai-voice-bar-left">
+                  <span className="voice-pulse-dot" aria-hidden="true" />
+                  <span>Listening hands-free... Speak your troubleshooting issue</span>
+                </div>
+                <button
+                  type="button"
+                  className="jawed-ai-voice-done-btn"
+                  onClick={stopListening}
+                  aria-label="Finish voice dictation"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+
+            {/* Error or browser support notice */}
+            {speechNotice && (
+              <div className="jawed-ai-voice-notice" role="alert">
+                {speechNotice}
+              </div>
+            )}
+
             <div className="jawed-ai-input-row">
               <input
-                type="text"
-                placeholder="Ask a question..."
                 ref={inputRef}
+                type="text"
+                placeholder={
+                  isListening
+                    ? 'Listening... Speak into microphone...'
+                    : 'Ask a question or describe an issue...'
+                }
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 disabled={loading}
-                aria-label="Type your question for Jawed AI"
+                aria-label="Type or dictate your question for Jawed AI"
+                className={isListening ? 'is-listening' : ''}
               />
+
+              {/* Web Speech API Voice Dictation Button */}
+              <button
+                type="button"
+                className={`jawed-ai-mic-btn ${isListening ? 'active' : ''}`}
+                onClick={toggleListening}
+                disabled={loading}
+                aria-label={
+                  isListening
+                    ? 'Stop hands-free voice dictation'
+                    : 'Start hands-free voice dictation'
+                }
+                title={
+                  !speechSupported
+                    ? 'Voice dictation (Web Speech API)'
+                    : isListening
+                    ? 'Stop listening'
+                    : 'Dictate hands-free issue (Web Speech API)'
+                }
+              >
+                {isListening ? (
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                ) : (
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                  </svg>
+                )}
+              </button>
+
               <button
                 className="jawed-ai-send-btn"
                 type="submit"

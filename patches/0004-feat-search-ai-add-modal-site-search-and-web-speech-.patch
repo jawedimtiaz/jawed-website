@@ -1,0 +1,2049 @@
+From cf2e0afe9f725a23507d62120e7943c0c2e505b6 Mon Sep 17 00:00:00 2001
+From: Jawed Imtiaz <jawedimtiaz@gmail.com>
+Date: Thu, 22 Oct 2026 07:17:21 +0000
+Subject: [PATCH 4/4] feat(search-ai): add modal site search and web speech
+ voice dictation
+
+---
+ src/components/Header.tsx                  |  12 +-
+ src/components/JawedAiWidget.tsx           | 234 ++++++-
+ src/components/SiteSearchBar.tsx           | 472 ++++++++++++++
+ src/index.css                              | 696 +++++++++++++++++++++
+ src/pages/AboutPage.tsx                    |  24 +
+ src/pages/FieldGuideDetailPage.tsx         |  18 +-
+ src/pages/HomePage.tsx                     |  33 +
+ src/pages/NotFoundPage.tsx                 |   6 +
+ src/services/aiKnowledgeEngine.ts          | 206 ++++++
+ src/tools/Ipv4SubnetCalculator.tsx         |   5 +
+ src/tools/ServerRackPowerBtuCalculator.tsx |   5 +
+ 11 files changed, 1693 insertions(+), 18 deletions(-)
+ create mode 100644 src/components/SiteSearchBar.tsx
+
+diff --git a/src/components/Header.tsx b/src/components/Header.tsx
+index d540f8f..fb9c30b 100644
+--- a/src/components/Header.tsx
++++ b/src/components/Header.tsx
+@@ -1,5 +1,6 @@
+ import React, { useState, useEffect, useRef } from 'react';
+ import { Link, useLocation } from 'react-router-dom';
++import { SiteSearchBar } from './SiteSearchBar';
+ 
+ export const Header: React.FC = () => {
+   const [isOpen, setIsOpen] = useState(false);
+@@ -60,6 +61,11 @@ export const Header: React.FC = () => {
+           </div>
+         </Link>
+ 
++        {/* Site-Wide Search Bar Powered by aiKnowledgeEngine */}
++        <div className="header-search-slot">
++          <SiteSearchBar onNavigated={closeMenu} />
++        </div>
++
+         <button
+           ref={menuToggleRef}
+           className="menu-toggle"
+@@ -81,7 +87,6 @@ export const Header: React.FC = () => {
+           >
+             Guides
+           </Link>
+-
+           <Link
+             className="nav-item"
+             to="/tools"
+@@ -90,7 +95,6 @@ export const Header: React.FC = () => {
+           >
+             Tools
+           </Link>
+-
+           <Link
+             className="nav-item"
+             to="/services"
+@@ -99,7 +103,6 @@ export const Header: React.FC = () => {
+           >
+             Services
+           </Link>
+-
+           <Link
+             className="nav-item"
+             to="/about"
+@@ -108,7 +111,6 @@ export const Header: React.FC = () => {
+           >
+             About
+           </Link>
+-
+           <Link
+             className="nav-item"
+             to="/ai"
+@@ -117,7 +119,6 @@ export const Header: React.FC = () => {
+           >
+             Ask AI
+           </Link>
+-
+           <button
+             type="button"
+             className="theme-toggle-btn"
+@@ -127,7 +128,6 @@ export const Header: React.FC = () => {
+           >
+             {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+           </button>
+-
+           <Link
+             className="nav-cta"
+             to="/contact"
+diff --git a/src/components/JawedAiWidget.tsx b/src/components/JawedAiWidget.tsx
+index e75a21a..5244e8d 100644
+--- a/src/components/JawedAiWidget.tsx
++++ b/src/components/JawedAiWidget.tsx
+@@ -1,4 +1,4 @@
+-import React, { useState, useRef, useEffect } from 'react';
++import React, { useState, useRef, useEffect, useCallback } from 'react';
+ import { useLocation, Link } from 'react-router-dom';
+ import { askJawedAi } from '../services/aiKnowledgeEngine';
+ 
+@@ -16,6 +16,10 @@ export const JawedAiWidget: React.FC = () => {
+   const [isMinimized, setIsMinimized] = useState<boolean>(false);
+   const [query, setQuery] = useState('');
+   const [loading, setLoading] = useState(false);
++  const [isListening, setIsListening] = useState(false);
++  const [speechSupported, setSpeechSupported] = useState(false);
++  const [speechNotice, setSpeechNotice] = useState<string | null>(null);
++
+   const [messages, setMessages] = useState<Message[]>([
+     {
+       id: 'msg-welcome',
+@@ -27,8 +31,21 @@ export const JawedAiWidget: React.FC = () => {
+   const messagesEndRef = useRef<HTMLDivElement>(null);
+   const launcherRef = useRef<HTMLButtonElement>(null);
+   const inputRef = useRef<HTMLInputElement>(null);
++  const recognitionRef = useRef<any>(null);
++  const baseQueryRef = useRef<string>('');
++  const noticeTimeoutRef = useRef<any>(null);
+   const location = useLocation();
+ 
++  useEffect(() => {
++    if (typeof window !== 'undefined') {
++      const SpeechRecognition =
++        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
++      if (SpeechRecognition) {
++        setSpeechSupported(true);
++      }
++    }
++  }, []);
++
+   useEffect(() => {
+     if (isOpen && !isMinimized) {
+       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+@@ -41,11 +58,23 @@ export const JawedAiWidget: React.FC = () => {
+     }
+   }, [isOpen, isMinimized]);
+ 
++  const stopListening = useCallback(() => {
++    if (recognitionRef.current) {
++      try {
++        recognitionRef.current.stop();
++      } catch {
++        // ignore if already stopped
++      }
++    }
++    setIsListening(false);
++  }, []);
++
+   useEffect(() => {
+     if (!isOpen) return;
+ 
+     const handleKeyDown = (event: KeyboardEvent) => {
+       if (event.key === 'Escape') {
++        stopListening();
+         setIsOpen(false);
+         setIsMinimized(false);
+         requestAnimationFrame(() => launcherRef.current?.focus());
+@@ -54,14 +83,116 @@ export const JawedAiWidget: React.FC = () => {
+ 
+     document.addEventListener('keydown', handleKeyDown);
+     return () => document.removeEventListener('keydown', handleKeyDown);
+-  }, [isOpen]);
++  }, [isOpen, stopListening]);
++
++  // Cleanup on unmount or when closed
++  useEffect(() => {
++    return () => {
++      if (recognitionRef.current) {
++        try {
++          recognitionRef.current.abort();
++        } catch {}
++      }
++      if (noticeTimeoutRef.current) {
++        clearTimeout(noticeTimeoutRef.current);
++      }
++    };
++  }, []);
+ 
+   // Hide widget on dedicated /ai page
+   if (location.pathname.startsWith('/ai')) {
+     return null;
+   }
+ 
++  const showNotice = (msg: string) => {
++    setSpeechNotice(msg);
++    if (noticeTimeoutRef.current) {
++      clearTimeout(noticeTimeoutRef.current);
++    }
++    noticeTimeoutRef.current = setTimeout(() => {
++      setSpeechNotice(null);
++    }, 4500);
++  };
++
++  const startListening = () => {
++    if (typeof window === 'undefined') return;
++
++    const SpeechRecognition =
++      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
++
++    if (!SpeechRecognition) {
++      showNotice('Speech recognition is not supported in this browser. Try Chrome, Edge, or Safari.');
++      return;
++    }
++
++    try {
++      if (recognitionRef.current) {
++        try {
++          recognitionRef.current.abort();
++        } catch {}
++      }
++
++      const recognition = new SpeechRecognition();
++      recognition.continuous = true;
++      recognition.interimResults = true;
++      recognition.lang = 'en-US';
++
++      baseQueryRef.current = query.trim();
++
++      recognition.onstart = () => {
++        setIsListening(true);
++        setSpeechNotice(null);
++      };
++
++      recognition.onresult = (event: any) => {
++        let transcript = '';
++        for (let i = event.resultIndex; i < event.results.length; i++) {
++          transcript += event.resultIndex !== undefined ? event.results[i][0].transcript : '';
++        }
++
++        const base = baseQueryRef.current;
++        const newText = base ? `${base} ${transcript.trim()}` : transcript.trim();
++        setQuery(newText);
++      };
++
++      recognition.onerror = (event: any) => {
++        setIsListening(false);
++        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
++          showNotice('Microphone permission was denied. Please allow microphone access.');
++        } else if (event.error === 'no-speech') {
++          // Silent timeout
++        } else if (event.error === 'network') {
++          showNotice('Voice recognition network connection error.');
++        } else {
++          showNotice(`Voice recognition error: ${event.error}`);
++        }
++      };
++
++      recognition.onend = () => {
++        setIsListening(false);
++      };
++
++      recognitionRef.current = recognition;
++      recognition.start();
++    } catch {
++      setIsListening(false);
++      showNotice('Could not start microphone. Please check browser permissions.');
++    }
++  };
++
++  const toggleListening = () => {
++    if (isListening) {
++      stopListening();
++    } else {
++      startListening();
++    }
++  };
++
+   const handleSend = async () => {
++    if (isListening) {
++      stopListening();
++    }
++
+     const userText = query.trim();
+     if (!userText || loading) return;
+ 
+@@ -105,12 +236,16 @@ export const JawedAiWidget: React.FC = () => {
+   };
+ 
+   const closeWidget = () => {
++    stopListening();
+     setIsOpen(false);
+     setIsMinimized(false);
+     requestAnimationFrame(() => launcherRef.current?.focus());
+   };
+ 
+   const toggleMinimize = () => {
++    if (!isMinimized) {
++      stopListening();
++    }
+     setIsMinimized((prev) => !prev);
+   };
+ 
+@@ -119,8 +254,8 @@ export const JawedAiWidget: React.FC = () => {
+       {/* 1. Closed State: Floating Action Launcher Trigger Pill */}
+       {!isOpen && (
+         <button
+-          className="jawed-ai-toggle"
+           ref={launcherRef}
++          className="jawed-ai-toggle"
+           type="button"
+           aria-expanded="false"
+           aria-label="Open Jawed AI Assistant"
+@@ -200,17 +335,17 @@ export const JawedAiWidget: React.FC = () => {
+           </div>
+ 
+           <div className="jawed-ai-widget-privacy">
+-            🔒 Answers retrieved from published technical guides &amp; documentation.
++            🔒 Hands-free voice enabled for field technicians. Local notes grounded.
+           </div>
+ 
+           {/* Contained Scrollable Message History */}
+           <div
+             className="jawed-ai-widget-messages"
+             role="log"
+-            aria-busy={loading}
+             aria-live="polite"
+             aria-relevant="additions"
+             aria-atomic="false"
++            aria-busy={loading}
+           >
+             {messages.map((m) => (
+               <div key={m.id} className={`jawed-ai-widget-message ${m.role}`}>
+@@ -262,9 +397,9 @@ export const JawedAiWidget: React.FC = () => {
+             {loading && (
+               <div
+                 className="jawed-ai-widget-message assistant"
++                style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}
+                 role="status"
+                 aria-live="polite"
+-                style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}
+               >
+                 Searching documentation...
+               </div>
+@@ -272,7 +407,7 @@ export const JawedAiWidget: React.FC = () => {
+             <div ref={messagesEndRef} />
+           </div>
+ 
+-          {/* Spacious & Accessible Input Form */}
++          {/* Spacious & Accessible Input Form with Web Speech API */}
+           <form
+             className="jawed-ai-widget-form"
+             onSubmit={(e) => {
+@@ -280,16 +415,95 @@ export const JawedAiWidget: React.FC = () => {
+               handleSend();
+             }}
+           >
++            {/* Real-time Hands-free Listening Bar */}
++            {isListening && (
++              <div className="jawed-ai-voice-bar" role="status" aria-live="polite">
++                <div className="jawed-ai-voice-bar-left">
++                  <span className="voice-pulse-dot" aria-hidden="true" />
++                  <span>Listening hands-free... Speak your troubleshooting issue</span>
++                </div>
++                <button
++                  type="button"
++                  className="jawed-ai-voice-done-btn"
++                  onClick={stopListening}
++                  aria-label="Finish voice dictation"
++                >
++                  Done
++                </button>
++              </div>
++            )}
++
++            {/* Error or browser support notice */}
++            {speechNotice && (
++              <div className="jawed-ai-voice-notice" role="alert">
++                {speechNotice}
++              </div>
++            )}
++
+             <div className="jawed-ai-input-row">
+               <input
+-                type="text"
+-                placeholder="Ask a question..."
+                 ref={inputRef}
++                type="text"
++                placeholder={
++                  isListening
++                    ? 'Listening... Speak into microphone...'
++                    : 'Ask a question or describe an issue...'
++                }
+                 value={query}
+                 onChange={(e) => setQuery(e.target.value)}
+                 disabled={loading}
+-                aria-label="Type your question for Jawed AI"
++                aria-label="Type or dictate your question for Jawed AI"
++                className={isListening ? 'is-listening' : ''}
+               />
++
++              {/* Web Speech API Voice Dictation Button */}
++              <button
++                type="button"
++                className={`jawed-ai-mic-btn ${isListening ? 'active' : ''}`}
++                onClick={toggleListening}
++                disabled={loading}
++                aria-label={
++                  isListening
++                    ? 'Stop hands-free voice dictation'
++                    : 'Start hands-free voice dictation'
++                }
++                title={
++                  !speechSupported
++                    ? 'Voice dictation (Web Speech API)'
++                    : isListening
++                    ? 'Stop listening'
++                    : 'Dictate hands-free issue (Web Speech API)'
++                }
++              >
++                {isListening ? (
++                  <svg
++                    width="18"
++                    height="18"
++                    viewBox="0 0 24 24"
++                    fill="currentColor"
++                    aria-hidden="true"
++                  >
++                    <rect x="6" y="6" width="12" height="12" rx="2" />
++                  </svg>
++                ) : (
++                  <svg
++                    width="18"
++                    height="18"
++                    viewBox="0 0 24 24"
++                    fill="none"
++                    stroke="currentColor"
++                    strokeWidth="2"
++                    strokeLinecap="round"
++                    strokeLinejoin="round"
++                    aria-hidden="true"
++                  >
++                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
++                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
++                    <line x1="12" y1="19" x2="12" y2="22" />
++                  </svg>
++                )}
++              </button>
++
+               <button
+                 className="jawed-ai-send-btn"
+                 type="submit"
+diff --git a/src/components/SiteSearchBar.tsx b/src/components/SiteSearchBar.tsx
+new file mode 100644
+index 0000000..caee55a
+--- /dev/null
++++ b/src/components/SiteSearchBar.tsx
+@@ -0,0 +1,472 @@
++import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
++import { useNavigate } from 'react-router-dom';
++import {
++  searchSite,
++  getQuickSearchRecommendations,
++  SiteSearchResult,
++  SiteCategory,
++} from '../services/aiKnowledgeEngine';
++
++interface SiteSearchBarProps {
++  onNavigated?: () => void;
++}
++
++export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => {
++  const [isOpen, setIsOpen] = useState(false);
++  const [query, setQuery] = useState('');
++  const [activeCategory, setActiveCategory] = useState<'all' | SiteCategory>('all');
++  const [selectedIndex, setSelectedIndex] = useState(0);
++  const inputRef = useRef<HTMLInputElement>(null);
++  const listRef = useRef<HTMLUListElement>(null);
++  const navigate = useNavigate();
++
++  // Recommendations when query is empty
++  const recommendations = useMemo(() => getQuickSearchRecommendations(), []);
++
++  // Search results from aiKnowledgeEngine
++  const searchResults = useMemo(() => {
++    if (!query.trim()) {
++      return {
++        all: recommendations,
++        guides: recommendations.filter((r) => r.category === 'guide'),
++        tools: recommendations.filter((r) => r.category === 'tool'),
++        pages: recommendations.filter((r) => r.category === 'page'),
++        query: '',
++        isPersonal: false,
++      };
++    }
++    return searchSite(query);
++  }, [query, recommendations]);
++
++  // Filter by category tab
++  const displayedItems = useMemo(() => {
++    if (activeCategory === 'guide') return searchResults.guides;
++    if (activeCategory === 'tool') return searchResults.tools;
++    if (activeCategory === 'page') return searchResults.pages;
++    return searchResults.all;
++  }, [searchResults, activeCategory]);
++
++  // Keep selectedIndex in bounds
++  useEffect(() => {
++    setSelectedIndex(0);
++  }, [query, activeCategory]);
++
++  // Open modal handler
++  const handleOpen = useCallback(() => {
++    setIsOpen(true);
++    setTimeout(() => {
++      inputRef.current?.focus();
++      inputRef.current?.select();
++    }, 50);
++  }, []);
++
++  // Close modal handler
++  const handleClose = useCallback(() => {
++    setIsOpen(false);
++    setQuery('');
++    setActiveCategory('all');
++  }, []);
++
++  // Global keyboard shortcuts (Cmd+K, Ctrl+K, '/')
++  useEffect(() => {
++    const handleKeyDown = (e: KeyboardEvent) => {
++      // Cmd+K or Ctrl+K
++      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
++        e.preventDefault();
++        if (isOpen) {
++          handleClose();
++        } else {
++          handleOpen();
++        }
++        return;
++      }
++
++      // Forward slash '/' when not typing in an editable field
++      if (
++        e.key === '/' &&
++        !isOpen &&
++        !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)
++      ) {
++        e.preventDefault();
++        handleOpen();
++        return;
++      }
++
++      // Escape to close
++      if (e.key === 'Escape' && isOpen) {
++        e.preventDefault();
++        handleClose();
++      }
++    };
++
++    window.addEventListener('keydown', handleKeyDown);
++    return () => window.removeEventListener('keydown', handleKeyDown);
++  }, [isOpen, handleOpen, handleClose]);
++
++  // Lock body scroll when modal is open
++  useEffect(() => {
++    if (isOpen) {
++      const originalOverflow = document.body.style.overflow;
++      document.body.style.overflow = 'hidden';
++      return () => {
++        document.body.style.overflow = originalOverflow;
++      };
++    }
++  }, [isOpen]);
++
++  // Normalize URL for React Router navigation
++  const navigateToResult = useCallback(
++    (item: SiteSearchResult) => {
++      let targetPath = item.url.replace(/\/+$/, '') || '/';
++      // Map /notes/... to /guides/... if desired, or use directly as router supports both
++      handleClose();
++      if (onNavigated) onNavigated();
++      navigate(targetPath);
++    },
++    [navigate, handleClose, onNavigated]
++  );
++
++  // Keyboard navigation within the results list
++  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
++    if (e.key === 'ArrowDown') {
++      e.preventDefault();
++      setSelectedIndex((prev) =>
++        displayedItems.length === 0 ? 0 : (prev + 1) % displayedItems.length
++      );
++      scrollItemIntoView((selectedIndex + 1) % displayedItems.length);
++    } else if (e.key === 'ArrowUp') {
++      e.preventDefault();
++      setSelectedIndex((prev) =>
++        displayedItems.length === 0
++          ? 0
++          : (prev - 1 + displayedItems.length) % displayedItems.length
++      );
++      scrollItemIntoView(
++        (selectedIndex - 1 + displayedItems.length) % displayedItems.length
++      );
++    } else if (e.key === 'Enter') {
++      e.preventDefault();
++      if (displayedItems[selectedIndex]) {
++        navigateToResult(displayedItems[selectedIndex]);
++      }
++    }
++  };
++
++  const scrollItemIntoView = (index: number) => {
++    if (!listRef.current) return;
++    const items = listRef.current.querySelectorAll('li');
++    if (items[index]) {
++      items[index].scrollIntoView({ block: 'nearest' });
++    }
++  };
++
++  // Helper to highlight matching terms in text
++  const highlightMatch = (text: string, term: string) => {
++    if (!term || !term.trim()) return text;
++    const words = term
++      .trim()
++      .split(/[^a-z0-9]+/i)
++      .filter((w) => w.length >= 2);
++    if (words.length === 0) return text;
++
++    try {
++      const pattern = new RegExp(`(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
++      const parts = text.split(pattern);
++      return parts.map((part, i) =>
++        words.some((w) => w.toLowerCase() === part.toLowerCase()) ? (
++          <mark key={i} className="search-highlight">
++            {part}
++          </mark>
++        ) : (
++          part
++        )
++      );
++    } catch {
++      return text;
++    }
++  };
++
++  return (
++    <div className="site-search-wrapper">
++      {/* Search Header Trigger Button */}
++      <button
++        type="button"
++        className="header-search-btn"
++        onClick={handleOpen}
++        aria-label="Search guides, tools, and pages (Press Ctrl+K or Cmd+K)"
++        title="Search site (Ctrl+K or Cmd+K)"
++      >
++        <svg
++          className="header-search-icon"
++          viewBox="0 0 24 24"
++          fill="none"
++          stroke="currentColor"
++          strokeWidth="2"
++          strokeLinecap="round"
++          strokeLinejoin="round"
++          aria-hidden="true"
++        >
++          <circle cx="11" cy="11" r="8" />
++          <line x1="21" y1="21" x2="16.65" y2="16.65" />
++        </svg>
++        <span className="header-search-placeholder">Search site...</span>
++        <kbd className="header-search-kbd" aria-hidden="true">
++          <abbr title="Command" style={{ textDecoration: 'none' }}>⌘</abbr>K
++        </kbd>
++      </button>
++
++      {/* Full-Screen Search Modal Overlay */}
++      {isOpen && (
++        <div
++          className="search-modal-backdrop"
++          role="dialog"
++          aria-modal="true"
++          aria-label="Site Search Dialog"
++          onClick={handleClose}
++        >
++          <div
++            className="search-modal-box"
++            onClick={(e) => e.stopPropagation()}
++            role="document"
++          >
++            {/* Search Input Bar */}
++            <div className="search-input-row">
++              <svg
++                className="search-input-icon"
++                viewBox="0 0 24 24"
++                fill="none"
++                stroke="currentColor"
++                strokeWidth="2.2"
++                strokeLinecap="round"
++                strokeLinejoin="round"
++                aria-hidden="true"
++              >
++                <circle cx="11" cy="11" r="8" />
++                <line x1="21" y1="21" x2="16.65" y2="16.65" />
++              </svg>
++              <input
++                ref={inputRef}
++                type="search"
++                className="search-modal-input"
++                placeholder="Search technical guides, interactive tools, pages..."
++                value={query}
++                onChange={(e) => setQuery(e.target.value)}
++                onKeyDown={handleInputKeyDown}
++                role="combobox"
++                aria-autocomplete="list"
++                aria-expanded={displayedItems.length > 0}
++                aria-controls="search-results-list"
++                autoComplete="off"
++                spellCheck="false"
++              />
++              {query && (
++                <button
++                  type="button"
++                  className="search-clear-btn"
++                  onClick={() => {
++                    setQuery('');
++                    inputRef.current?.focus();
++                  }}
++                  aria-label="Clear search query"
++                >
++                  ✕
++                </button>
++              )}
++              <button
++                type="button"
++                className="search-modal-close-btn"
++                onClick={handleClose}
++                aria-label="Close search (Esc)"
++              >
++                <span className="search-esc-badge">ESC</span>
++              </button>
++            </div>
++
++            {/* Category Filter Tabs */}
++            <div className="search-category-tabs" role="tablist" aria-label="Search Categories">
++              <button
++                type="button"
++                role="tab"
++                aria-selected={activeCategory === 'all'}
++                className={`search-tab ${activeCategory === 'all' ? 'is-active' : ''}`}
++                onClick={() => setActiveCategory('all')}
++              >
++                All Results ({searchResults.all.length})
++              </button>
++              <button
++                type="button"
++                role="tab"
++                aria-selected={activeCategory === 'guide'}
++                className={`search-tab ${activeCategory === 'guide' ? 'is-active' : ''}`}
++                onClick={() => setActiveCategory('guide')}
++              >
++                📘 Technical Guides ({searchResults.guides.length})
++              </button>
++              <button
++                type="button"
++                role="tab"
++                aria-selected={activeCategory === 'tool'}
++                className={`search-tab ${activeCategory === 'tool' ? 'is-active' : ''}`}
++                onClick={() => setActiveCategory('tool')}
++              >
++                🛠️ Tools ({searchResults.tools.length})
++              </button>
++              <button
++                type="button"
++                role="tab"
++                aria-selected={activeCategory === 'page'}
++                className={`search-tab ${activeCategory === 'page' ? 'is-active' : ''}`}
++                onClick={() => setActiveCategory('page')}
++              >
++                📄 Pages ({searchResults.pages.length})
++              </button>
++            </div>
++
++            {/* Results Container */}
++            <div className="search-results-viewport">
++              {/* Privacy Guardrail Interception */}
++              {searchResults.isPersonal ? (
++                <div className="search-guardrail-notice">
++                  <div className="search-guardrail-header">
++                    <span className="search-guardrail-badge">🔒 Privacy &amp; Support Guardrail</span>
++                  </div>
++                  <p className="search-guardrail-text">
++                    I only share verified professional background, technical documentation, and interactive IT tools here.
++                    For personal questions or direct inquiries, please reach out to Jawed directly.
++                  </p>
++                  <div className="search-guardrail-actions">
++                    <button
++                      type="button"
++                      className="search-guardrail-btn"
++                      onClick={() => {
++                        handleClose();
++                        navigate(`/contact?question=${encodeURIComponent(query.trim())}`);
++                      }}
++                    >
++                      ✉️ Ask Jawed Directly →
++                    </button>
++                  </div>
++                </div>
++              ) : displayedItems.length === 0 ? (
++                /* Empty State with Quick Suggestion Chips */
++                <div className="search-empty-state">
++                  <p className="search-empty-title">
++                    No results found for &ldquo;<span className="text-accent">{query}</span>&rdquo;
++                  </p>
++                  <p className="search-empty-sub">
++                    Try searching for specific technical terms, diagnostic workflows, or workplace tools:
++                  </p>
++                  <div className="search-suggestion-chips">
++                    {[
++                      'macOS',
++                      'IT Troubleshooting',
++                      'IPv4 Subnet',
++                      'Jamf Pro',
++                      'Server Rack BTU',
++                      'Service Desk Note',
++                      'AI Prompt Builder',
++                      'Work Experience',
++                    ].map((suggestion) => (
++                      <button
++                        key={suggestion}
++                        type="button"
++                        className="search-suggestion-chip"
++                        onClick={() => {
++                          setQuery(suggestion);
++                          inputRef.current?.focus();
++                        }}
++                      >
++                        {suggestion}
++                      </button>
++                    ))}
++                  </div>
++                </div>
++              ) : (
++                /* Results List */
++                <div>
++                  {!query.trim() && (
++                    <div className="search-section-header">
++                      <span>✨ Popular Guides, Tools &amp; Pages</span>
++                    </div>
++                  )}
++
++                  <ul
++                    id="search-results-list"
++                    ref={listRef}
++                    className="search-results-list"
++                    role="listbox"
++                    aria-label="Search results"
++                  >
++                    {displayedItems.map((item, index) => {
++                      const isSelected = index === selectedIndex;
++                      const badgeClass =
++                        item.category === 'guide'
++                          ? 'badge-guide'
++                          : item.category === 'tool'
++                          ? 'badge-tool'
++                          : 'badge-page';
++
++                      return (
++                        <li
++                          key={item.url + index}
++                          role="option"
++                          aria-selected={isSelected}
++                          className={`search-result-item ${isSelected ? 'is-selected' : ''}`}
++                          onClick={() => navigateToResult(item)}
++                          onMouseEnter={() => setSelectedIndex(index)}
++                        >
++                          <div className="search-result-main">
++                            <div className="search-result-header">
++                              <span className={`search-category-pill ${badgeClass}`}>
++                                {item.category === 'guide'
++                                  ? '📘 Guide'
++                                  : item.category === 'tool'
++                                  ? '🛠️ Tool'
++                                  : '📄 Page'}
++                              </span>
++                              <span className="search-result-title">
++                                {highlightMatch(item.title, query)}
++                              </span>
++                              <span className="search-result-url">
++                                {item.url}
++                              </span>
++                            </div>
++                            <p className="search-result-summary">
++                              {highlightMatch(item.summary, query)}
++                            </p>
++                          </div>
++                          <div className="search-result-enter-hint" aria-hidden="true">
++                            ↵
++                          </div>
++                        </li>
++                      );
++                    })}
++                  </ul>
++                </div>
++              )}
++            </div>
++
++            {/* Modal Footer with Keyboard Shortcuts */}
++            <div className="search-modal-footer">
++              <div className="search-footer-hints">
++                <span className="search-footer-hint">
++                  <kbd className="search-footer-kbd">↑</kbd>
++                  <kbd className="search-footer-kbd">↓</kbd> Navigate
++                </span>
++                <span className="search-footer-hint">
++                  <kbd className="search-footer-kbd">↵</kbd> Select
++                </span>
++                <span className="search-footer-hint">
++                  <kbd className="search-footer-kbd">esc</kbd> Close
++                </span>
++              </div>
++              <div className="search-footer-powered">
++                <span>Powered by verified on-site AI knowledge index</span>
++              </div>
++            </div>
++          </div>
++        </div>
++      )}
++    </div>
++  );
++};
+diff --git a/src/index.css b/src/index.css
+index e7bfc8e..927067d 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -1586,3 +1586,699 @@ select:focus-visible {
+     font-size: 0.84rem;
+   }
+ }
++
++/* Site-Wide Search Bar & Command Palette */
++.header-search-slot {
++  display: flex;
++  align-items: center;
++  flex: 0 1 240px;
++}
++
++.site-search-wrapper {
++  position: relative;
++  width: 100%;
++}
++
++.header-search-btn {
++  width: 100%;
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 8px;
++  padding: 7px 12px;
++  border-radius: 9px;
++  background: var(--surface);
++  border: 1px solid var(--border);
++  color: var(--text-muted);
++  font-size: 0.85rem;
++  font-weight: 500;
++  cursor: pointer;
++  transition: all 0.15s ease;
++  white-space: nowrap;
++}
++
++.header-search-btn:hover {
++  border-color: var(--accent);
++  color: var(--text);
++  background: var(--surface-hover);
++  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.12);
++}
++
++.header-search-icon {
++  width: 16px;
++  height: 16px;
++  flex-shrink: 0;
++  color: var(--text-muted);
++  transition: color 0.15s ease;
++}
++
++.header-search-btn:hover .header-search-icon {
++  color: var(--accent);
++}
++
++.header-search-placeholder {
++  flex: 1;
++  text-align: left;
++  overflow: hidden;
++  text-overflow: ellipsis;
++  color: var(--text-muted);
++}
++
++.header-search-kbd {
++  display: inline-flex;
++  align-items: center;
++  gap: 2px;
++  padding: 2px 6px;
++  border-radius: 5px;
++  background: var(--bg-darker);
++  border: 1px solid var(--border);
++  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
++  font-size: 0.7rem;
++  font-weight: 600;
++  color: var(--text-muted);
++  line-height: 1;
++}
++
++/* Search Modal Overlay */
++.search-modal-backdrop {
++  position: fixed;
++  inset: 0;
++  z-index: 9999;
++  background: rgba(15, 23, 42, 0.78);
++  backdrop-filter: blur(8px);
++  -webkit-backdrop-filter: blur(8px);
++  display: flex;
++  align-items: flex-start;
++  justify-content: center;
++  padding: 68px 16px 24px;
++  animation: searchModalFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
++}
++
++@keyframes searchModalFadeIn {
++  from {
++    opacity: 0;
++  }
++  to {
++    opacity: 1;
++  }
++}
++
++.search-modal-box {
++  width: 100%;
++  max-width: 680px;
++  max-height: 84vh;
++  background: var(--surface);
++  border: 1px solid var(--border);
++  border-radius: 16px;
++  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05);
++  display: flex;
++  flex-direction: column;
++  overflow: hidden;
++  animation: searchModalSlideDown 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
++}
++
++@keyframes searchModalSlideDown {
++  from {
++    transform: translateY(-12px) scale(0.98);
++    opacity: 0;
++  }
++  to {
++    transform: translateY(0) scale(1);
++    opacity: 1;
++  }
++}
++
++/* Modal Input Bar */
++.search-input-row {
++  display: flex;
++  align-items: center;
++  gap: 12px;
++  padding: 14px 18px;
++  border-bottom: 1px solid var(--border);
++  background: var(--surface);
++}
++
++.search-input-icon {
++  width: 20px;
++  height: 20px;
++  color: var(--accent);
++  flex-shrink: 0;
++}
++
++.search-modal-input {
++  flex: 1;
++  border: none !important;
++  outline: none !important;
++  background: transparent !important;
++  color: var(--text) !important;
++  font-size: 1.05rem !important;
++  font-weight: 500;
++  box-shadow: none !important;
++  padding: 0 !important;
++  line-height: 1.4;
++}
++
++.search-modal-input::placeholder {
++  color: var(--text-muted);
++}
++
++.search-clear-btn {
++  background: var(--bg-darker);
++  border: 1px solid var(--border);
++  color: var(--text-muted);
++  width: 24px;
++  height: 24px;
++  border-radius: 50%;
++  font-size: 0.75rem;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  cursor: pointer;
++  transition: all 0.15s ease;
++}
++
++.search-clear-btn:hover {
++  color: var(--text);
++  border-color: var(--text-muted);
++}
++
++.search-modal-close-btn {
++  background: transparent;
++  border: none;
++  cursor: pointer;
++  padding: 0;
++}
++
++.search-esc-badge {
++  display: inline-block;
++  padding: 3px 6px;
++  border-radius: 5px;
++  background: var(--bg-darker);
++  border: 1px solid var(--border);
++  color: var(--text-muted);
++  font-size: 0.7rem;
++  font-family: ui-monospace, SFMono-Regular, monospace;
++  font-weight: 700;
++  line-height: 1;
++  transition: all 0.15s ease;
++}
++
++.search-modal-close-btn:hover .search-esc-badge {
++  border-color: var(--accent);
++  color: var(--accent);
++}
++
++/* Filter Tabs */
++.search-category-tabs {
++  display: flex;
++  gap: 6px;
++  padding: 10px 16px;
++  border-bottom: 1px solid var(--border);
++  background: var(--bg-darker);
++  overflow-x: auto;
++  scrollbar-width: none;
++}
++
++.search-category-tabs::-webkit-scrollbar {
++  display: none;
++}
++
++.search-tab {
++  padding: 5px 12px;
++  border-radius: 7px;
++  background: transparent;
++  border: 1px solid transparent;
++  color: var(--text-muted);
++  font-size: 0.8rem;
++  font-weight: 600;
++  cursor: pointer;
++  white-space: nowrap;
++  transition: all 0.15s ease;
++}
++
++.search-tab:hover {
++  color: var(--text);
++  background: var(--surface-hover);
++}
++
++.search-tab.is-active {
++  background: var(--surface);
++  border-color: var(--border);
++  color: var(--accent);
++  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
++}
++
++/* Results Viewport */
++.search-results-viewport {
++  flex: 1;
++  max-height: 54vh;
++  overflow-y: auto;
++  padding: 12px 16px;
++}
++
++.search-results-viewport::-webkit-scrollbar {
++  width: 6px;
++}
++
++.search-results-viewport::-webkit-scrollbar-track {
++  background: transparent;
++}
++
++.search-results-viewport::-webkit-scrollbar-thumb {
++  background: var(--border);
++  border-radius: 4px;
++}
++
++.search-section-header {
++  font-size: 0.75rem;
++  font-weight: 700;
++  text-transform: uppercase;
++  letter-spacing: 0.05em;
++  color: var(--text-muted);
++  margin-bottom: 10px;
++  padding: 0 4px;
++}
++
++.search-results-list {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++  display: flex;
++  flex-direction: column;
++  gap: 6px;
++}
++
++.search-result-item {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 12px;
++  padding: 11px 14px;
++  border-radius: 10px;
++  background: transparent;
++  border: 1px solid transparent;
++  cursor: pointer;
++  transition: all 0.12s ease;
++}
++
++.search-result-item:hover,
++.search-result-item.is-selected {
++  background: var(--surface-hover);
++  border-color: var(--border);
++}
++
++.search-result-item.is-selected {
++  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
++  border-color: var(--accent);
++}
++
++.search-result-main {
++  flex: 1;
++  min-width: 0;
++  display: flex;
++  flex-direction: column;
++  gap: 3px;
++}
++
++.search-result-header {
++  display: flex;
++  align-items: center;
++  gap: 8px;
++  flex-wrap: wrap;
++}
++
++.search-category-pill {
++  display: inline-flex;
++  align-items: center;
++  padding: 2px 7px;
++  border-radius: 6px;
++  font-size: 0.7rem;
++  font-weight: 700;
++  line-height: 1.2;
++}
++
++.search-category-pill.badge-guide {
++  background: rgba(45, 212, 191, 0.14);
++  color: var(--teal);
++  border: 1px solid rgba(45, 212, 191, 0.25);
++}
++
++.search-category-pill.badge-tool {
++  background: rgba(56, 189, 248, 0.14);
++  color: var(--accent);
++  border: 1px solid rgba(56, 189, 248, 0.25);
++}
++
++.search-category-pill.badge-page {
++  background: rgba(129, 140, 248, 0.14);
++  color: var(--indigo);
++  border: 1px solid rgba(129, 140, 248, 0.25);
++}
++
++.search-result-title {
++  font-weight: 650;
++  font-size: 0.95rem;
++  color: var(--text-heading);
++  letter-spacing: -0.01em;
++}
++
++.search-result-url {
++  font-size: 0.75rem;
++  color: var(--text-muted);
++  font-family: ui-monospace, SFMono-Regular, monospace;
++}
++
++.search-result-summary {
++  margin: 0;
++  font-size: 0.825rem;
++  color: var(--text-muted);
++  line-height: 1.45;
++  display: -webkit-box;
++  -webkit-line-clamp: 2;
++  -webkit-box-orient: vertical;
++  overflow: hidden;
++}
++
++.search-result-enter-hint {
++  font-size: 0.85rem;
++  color: var(--text-muted);
++  opacity: 0;
++  transition: opacity 0.12s ease;
++  font-weight: 700;
++  font-family: system-ui;
++  padding-right: 4px;
++}
++
++.search-result-item:hover .search-result-enter-hint,
++.search-result-item.is-selected .search-result-enter-hint {
++  opacity: 1;
++  color: var(--accent);
++}
++
++.search-highlight {
++  background: rgba(56, 189, 248, 0.25);
++  color: inherit;
++  font-weight: 700;
++  border-radius: 3px;
++  padding: 0 2px;
++}
++
++/* Guardrail Privacy Notice */
++.search-guardrail-notice {
++  padding: 20px;
++  background: rgba(56, 189, 248, 0.06);
++  border: 1px solid rgba(56, 189, 248, 0.22);
++  border-radius: 12px;
++  margin: 8px 0;
++}
++
++.search-guardrail-header {
++  margin-bottom: 8px;
++}
++
++.search-guardrail-badge {
++  font-size: 0.8rem;
++  font-weight: 700;
++  color: var(--accent);
++  text-transform: uppercase;
++  letter-spacing: 0.04em;
++}
++
++.search-guardrail-text {
++  font-size: 0.9rem;
++  color: var(--text);
++  line-height: 1.5;
++  margin: 0 0 16px;
++}
++
++.search-guardrail-actions {
++  display: flex;
++  justify-content: flex-start;
++}
++
++.search-guardrail-btn {
++  padding: 8px 16px;
++  border-radius: 8px;
++  background: linear-gradient(135deg, var(--accent-dark), var(--teal));
++  color: #fff;
++  font-size: 0.875rem;
++  font-weight: 600;
++  border: none;
++  cursor: pointer;
++  transition: all 0.15s ease;
++}
++
++.search-guardrail-btn:hover {
++  transform: translateY(-1px);
++  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.35);
++}
++
++/* Empty State */
++.search-empty-state {
++  padding: 32px 16px;
++  text-align: center;
++}
++
++.search-empty-title {
++  margin: 0 0 6px;
++  font-size: 1.05rem;
++  font-weight: 600;
++  color: var(--text-heading);
++}
++
++.search-empty-sub {
++  margin: 0 0 16px;
++  font-size: 0.85rem;
++  color: var(--text-muted);
++}
++
++.search-suggestion-chips {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 8px;
++  justify-content: center;
++}
++
++.search-suggestion-chip {
++  padding: 6px 12px;
++  border-radius: 8px;
++  background: var(--bg-darker);
++  border: 1px solid var(--border);
++  color: var(--text-muted);
++  font-size: 0.8rem;
++  font-weight: 600;
++  cursor: pointer;
++  transition: all 0.15s ease;
++}
++
++.search-suggestion-chip:hover {
++  border-color: var(--accent);
++  color: var(--accent);
++  background: var(--surface-hover);
++}
++
++/* Modal Footer */
++.search-modal-footer {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  padding: 10px 18px;
++  border-top: 1px solid var(--border);
++  background: var(--bg-darker);
++  font-size: 0.75rem;
++  color: var(--text-muted);
++}
++
++.search-footer-hints {
++  display: flex;
++  align-items: center;
++  gap: 14px;
++}
++
++.search-footer-hint {
++  display: inline-flex;
++  align-items: center;
++  gap: 4px;
++}
++
++.search-footer-kbd {
++  padding: 2px 5px;
++  border-radius: 4px;
++  background: var(--surface);
++  border: 1px solid var(--border);
++  font-family: ui-monospace, SFMono-Regular, monospace;
++  font-size: 0.7rem;
++  font-weight: 600;
++  line-height: 1;
++}
++
++.search-footer-powered {
++  font-size: 0.725rem;
++  opacity: 0.8;
++}
++
++/* Hands-Free Web Speech API Mic Button */
++.jawed-ai-mic-btn {
++  height: 44px;
++  width: 44px;
++  min-width: 44px;
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  border-radius: 8px;
++  border: 1px solid var(--border);
++  background: var(--bg-darker);
++  color: var(--text-muted);
++  cursor: pointer;
++  transition: all 0.15s ease;
++}
++
++.jawed-ai-mic-btn:hover:not(:disabled) {
++  border-color: var(--accent);
++  color: var(--accent);
++  background: var(--surface-hover);
++}
++
++.jawed-ai-mic-btn.active {
++  background: #ef4444 !important;
++  border-color: #ef4444 !important;
++  color: #ffffff !important;
++  animation: micPulse 1.4s ease-in-out infinite;
++  box-shadow: 0 0 12px rgba(239, 68, 68, 0.45);
++}
++
++@keyframes micPulse {
++  0% {
++    transform: scale(1);
++    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
++  }
++  70% {
++    transform: scale(1.05);
++    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
++  }
++  100% {
++    transform: scale(1);
++    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
++  }
++}
++
++/* Live Voice Bar Feedback for Field Technicians */
++.jawed-ai-voice-bar {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 8px;
++  padding: 6px 12px;
++  background: rgba(239, 68, 68, 0.1);
++  border: 1px solid rgba(239, 68, 68, 0.35);
++  border-radius: 8px;
++  font-size: 0.78rem;
++  color: #ef4444;
++  font-weight: 600;
++  animation: widgetSlideUp 0.15s ease;
++}
++
++.jawed-ai-voice-bar-left {
++  display: flex;
++  align-items: center;
++  gap: 6px;
++}
++
++.voice-pulse-dot {
++  width: 8px;
++  height: 8px;
++  border-radius: 50%;
++  background: #ef4444;
++  animation: blinkPulse 1s infinite;
++  flex-shrink: 0;
++}
++
++@keyframes blinkPulse {
++  0%, 100% { opacity: 1; transform: scale(1); }
++  50% { opacity: 0.4; transform: scale(0.85); }
++}
++
++.jawed-ai-voice-done-btn {
++  background: #ef4444;
++  color: #ffffff;
++  border: none;
++  border-radius: 4px;
++  padding: 3px 8px;
++  font-size: 0.72rem;
++  font-weight: 700;
++  cursor: pointer;
++  transition: opacity 0.15s ease;
++}
++
++.jawed-ai-voice-done-btn:hover {
++  opacity: 0.9;
++}
++
++.jawed-ai-voice-notice {
++  padding: 6px 10px;
++  font-size: 0.75rem;
++  color: var(--amber);
++  background: rgba(245, 158, 11, 0.1);
++  border: 1px solid var(--amber);
++  border-radius: 6px;
++}
++
++.jawed-ai-send-btn {
++  height: 44px;
++  padding: 0 18px;
++  font-weight: 600;
++  font-size: 0.9rem;
++  background: #0284c7;
++  color: #ffffff;
++  border-radius: 8px;
++  border: none;
++  cursor: pointer;
++  transition: all 0.15s ease;
++  white-space: nowrap;
++}
++
++.jawed-ai-send-btn:hover:not(:disabled) {
++  background: var(--accent);
++  color: #ffffff;
++}
++
++.jawed-ai-send-btn:disabled {
++  opacity: 0.5;
++  cursor: not-allowed;
++}
++
++/* Subtle Top-of-Page Scroll Progress Indicator for Long-Form IT Guides */
++.scroll-progress-container {
++  position: fixed;
++  top: 0;
++  left: 0;
++  right: 0;
++  width: 100%;
++  height: 3px;
++  background: rgba(148, 163, 184, 0.12);
++  z-index: 999;
++  pointer-events: none;
++  opacity: 0;
++  transition: opacity 0.25s ease;
++}
++
++.scroll-progress-container.is-visible {
++  opacity: 1;
++}
++
++.scroll-progress-bar {
++  height: 100%;
++  width: 100%;
++  transform-origin: 0% 50%;
++  transform: scaleX(0);
++  background: linear-gradient(90deg, var(--accent), var(--teal));
++  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
++  transition: transform 0.08s ease-out;
++  will-change: transform;
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .scroll-progress-bar {
++    transition: none !important;
++  }
++}
+diff --git a/src/pages/AboutPage.tsx b/src/pages/AboutPage.tsx
+index 59e85ee..fc06256 100644
+--- a/src/pages/AboutPage.tsx
++++ b/src/pages/AboutPage.tsx
+@@ -1,5 +1,6 @@
+ import React from 'react';
+ import { Link } from 'react-router-dom';
++import { Image } from '../components/Image';
+ 
+ export const AboutPage: React.FC = () => {
+   return (
+@@ -14,6 +15,29 @@ export const AboutPage: React.FC = () => {
+         Senior IT Field Tech and Workplace Engineering Specialist focused on Service Desk operations, enterprise device lifecycle management, Apple/Jamf infrastructure, and practical diagnostic tools.
+       </p>
+ 
++      {/* Profile & Engineering Identity Banner (LCP Optimized with Priority & WebP) */}
++      <div
++        style={{
++          margin: '28px 0 36px',
++          borderRadius: '16px',
++          overflow: 'hidden',
++          border: '1px solid var(--border)',
++          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
++          background: 'var(--surface)',
++        }}
++      >
++        <Image
++          src="/assets/images/social-preview.png"
++          alt="Jawed Imtiaz - IT Field Tech & Engineering Lead"
++          width={1200}
++          height={630}
++          priority={true}
++          aspectRatio="16 / 9"
++          className="img-aspect-16-9"
++          style={{ width: '100%', height: 'auto', maxHeight: '420px', objectFit: 'cover', display: 'block' }}
++        />
++      </div>
++
+       <section className="content-section">
+         <h2>Professional Background &amp; Current Role</h2>
+         <p>
+diff --git a/src/pages/FieldGuideDetailPage.tsx b/src/pages/FieldGuideDetailPage.tsx
+index 1c5a168..0a28fa5 100644
+--- a/src/pages/FieldGuideDetailPage.tsx
++++ b/src/pages/FieldGuideDetailPage.tsx
+@@ -2,6 +2,8 @@ import React, { useState } from 'react';
+ import { useParams, Link, Navigate } from 'react-router-dom';
+ import { FIELD_GUIDES, FieldGuide } from '../data/fieldGuidesData';
+ import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
++import { SeoHead } from '../components/SeoHead';
++import { Image } from '../components/Image';
+ 
+ export const FieldGuideDetailPage: React.FC = () => {
+   const { slug } = useParams<{ slug: string }>();
+@@ -42,6 +44,11 @@ export const FieldGuideDetailPage: React.FC = () => {
+ 
+   return (
+     <main className="container page">
++      <SeoHead
++        title={guide.title}
++        description={guide.description}
++        canonicalUrl={currentUrl}
++      />
+ 
+       {/* Breadcrumbs */}
+       <nav className="breadcrumbs" aria-label="Breadcrumb">
+@@ -80,8 +87,15 @@ export const FieldGuideDetailPage: React.FC = () => {
+ 
+           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', paddingTop: '16px', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)', paddingBottom: '16px' }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--accent)', border: '1px solid var(--line)' }}>
+-                JI
++              <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--line)', flexShrink: 0 }}>
++                <Image
++                  src="/apple-touch-icon.png"
++                  alt={guide.author}
++                  width={40}
++                  height={40}
++                  loading="lazy"
++                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
++                />
+               </div>
+               <div>
+                 <strong style={{ display: 'block', color: 'var(--text-heading)', fontSize: '0.95rem' }}>{guide.author}</strong>
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index 968b8ee..781be46 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -1,9 +1,17 @@
+ import React from 'react';
+ import { Link } from 'react-router-dom';
++import { SeoHead } from '../components/SeoHead';
++import { Image } from '../components/Image';
+ 
+ export const HomePage: React.FC = () => {
+   return (
+     <main>
++      <SeoHead
++        title="Jawed Imtiaz | IT Field Tech, Troubleshooting Guides & Practical Tools"
++        description="Practical IT field guides, IPv4 subnet calculators, server rack power calculators, and interactive IT service desk diagnostic utilities by Jawed Imtiaz."
++        canonicalUrl="https://jawed.co.in/"
++        ogType="website"
++      />
+ 
+       {/* Hero Section - High-Intent CRO & Resource Navigation */}
+       <section className="hero container">
+@@ -48,6 +56,31 @@ export const HomePage: React.FC = () => {
+               </Link>
+             </div>
+           </div>
++
++          {/* Hero Visual Card (LCP Optimized with Priority & WebP) */}
++          <div
++            className="hero-image-wrapper"
++            style={{
++              marginTop: '36px',
++              maxWidth: '920px',
++              borderRadius: '16px',
++              overflow: 'hidden',
++              border: '1px solid var(--border)',
++              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.22)',
++              background: 'var(--surface)',
++            }}
++          >
++            <Image
++              src="/assets/images/social-preview.png"
++              alt="Jawed Imtiaz Enterprise IT Support, Field Engineering & Utilities Overview"
++              width={1200}
++              height={630}
++              priority={true}
++              aspectRatio="16 / 9"
++              className="img-aspect-16-9"
++              style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
++            />
++          </div>
+         </div>
+       </section>
+ 
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index d020153..69f6560 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,5 +1,6 @@
+ import React, { useState } from 'react';
+ import { Link, useNavigate } from 'react-router-dom';
++import { SeoHead } from '../components/SeoHead';
+ 
+ export const NotFoundPage: React.FC = () => {
+   const [query, setQuery] = useState('');
+@@ -16,6 +17,11 @@ export const NotFoundPage: React.FC = () => {
+ 
+   return (
+     <main className="container page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '65vh' }}>
++      <SeoHead
++        title="404 — Page Not Found"
++        description="The requested page could not be found on jawed.co.in. Navigate back to technical guides, subnet calculators, or contact Jawed Imtiaz."
++        canonicalUrl="https://jawed.co.in/404"
++      />
+ 
+       <div
+         className="card"
+diff --git a/src/services/aiKnowledgeEngine.ts b/src/services/aiKnowledgeEngine.ts
+index c7282dc..bc782b2 100644
+--- a/src/services/aiKnowledgeEngine.ts
++++ b/src/services/aiKnowledgeEngine.ts
+@@ -233,3 +233,209 @@ export async function askJawedAi(query: string): Promise<AiResponse> {
+     })),
+   };
+ }
++
++export type SiteCategory = 'guide' | 'tool' | 'page';
++
++export interface SiteSearchResult extends KnowledgeEntry {
++  category: SiteCategory;
++  categoryLabel: string;
++  score: number;
++}
++
++export interface CategorizedSearchResults {
++  all: SiteSearchResult[];
++  guides: SiteSearchResult[];
++  tools: SiteSearchResult[];
++  pages: SiteSearchResult[];
++  query: string;
++  isPersonal?: boolean;
++}
++
++// Helper to categorize site entries into Pages, Tools, and Technical Guides
++export function categorizeEntry(url: string, title: string = ''): { category: SiteCategory; categoryLabel: string } {
++  const u = url.toLowerCase().replace(/\/+$/, '');
++  const t = title.toLowerCase();
++
++  // Tools detection
++  if (
++    u.startsWith('/tools') ||
++    u.includes('calculator') ||
++    u.includes('assistant') ||
++    u.includes('builder') ||
++    u.includes('planner') ||
++    u.includes('checker') ||
++    u.includes('formatter') ||
++    t.includes('calculator') ||
++    t.includes('builder') ||
++    t.includes('formatter') ||
++    t.includes('planner')
++  ) {
++    return { category: 'tool', categoryLabel: 'Tool' };
++  }
++
++  // Technical Guides detection
++  if (
++    u.startsWith('/notes') ||
++    u.startsWith('/guides') ||
++    u.startsWith('/field-guides') ||
++    u.startsWith('/blog') ||
++    t.includes('checklist') ||
++    t.includes('guide') ||
++    t.includes('workflow') ||
++    t.includes('framework') ||
++    t.includes('documentation')
++  ) {
++    return { category: 'guide', categoryLabel: 'Technical Guide' };
++  }
++
++  // Otherwise Page
++  return { category: 'page', categoryLabel: 'Page' };
++}
++
++// Site-Wide Categorized Search Engine
++export function searchSite(query: string, maxResults: number = 30): CategorizedSearchResults {
++  const trimmed = query.trim().toLowerCase();
++
++  if (!trimmed) {
++    return {
++      all: [],
++      guides: [],
++      tools: [],
++      pages: [],
++      query: '',
++    };
++  }
++
++  // Intercept personal questions with privacy flag
++  if (isPersonalQuery(trimmed)) {
++    return {
++      all: [],
++      guides: [],
++      tools: [],
++      pages: [],
++      query: trimmed,
++      isPersonal: true,
++    };
++  }
++
++  const rawTokens = trimmed.split(/[^a-z0-9]+/i).filter(Boolean);
++  const searchTerms = rawTokens.length > 0 ? rawTokens : [trimmed];
++
++  const scoredResults: SiteSearchResult[] = [];
++
++  for (const entry of entries) {
++    const { category, categoryLabel } = categorizeEntry(entry.url, entry.title);
++    const titleLower = entry.title.toLowerCase();
++    const summaryLower = entry.summary.toLowerCase();
++    const urlLower = entry.url.toLowerCase();
++    const keywordsLower = (entry.keywords || []).map((k) => k.toLowerCase());
++
++    let score = 0;
++
++    // Exact full query matches
++    if (titleLower === trimmed) {
++      score += 150;
++    } else if (titleLower.includes(trimmed)) {
++      score += 80;
++    }
++
++    if (keywordsLower.includes(trimmed)) {
++      score += 70;
++    }
++
++    if (summaryLower.includes(trimmed)) {
++      score += 40;
++    }
++
++    // Per-term scoring
++    for (const term of searchTerms) {
++      if (term.length < 2 && searchTerms.length > 1) continue;
++
++      if (containsWholeWord(entry.title, term)) {
++        score += 45;
++      } else if (titleLower.includes(term)) {
++        score += 20;
++      }
++
++      for (const kw of keywordsLower) {
++        if (kw === term) {
++          score += 35;
++          break;
++        } else if (kw.includes(term)) {
++          score += 18;
++          break;
++        }
++      }
++
++      if (containsWholeWord(entry.summary, term)) {
++        score += 20;
++      } else if (summaryLower.includes(term)) {
++        score += 8;
++      }
++
++      if (urlLower.includes(term)) {
++        score += 15;
++      }
++    }
++
++    if (score > 0) {
++      scoredResults.push({
++        ...entry,
++        category,
++        categoryLabel,
++        score,
++      });
++    }
++  }
++
++  // Sort by highest score first
++  scoredResults.sort((a, b) => b.score - a.score);
++
++  const limited = scoredResults.slice(0, maxResults);
++  const guides = limited.filter((r) => r.category === 'guide');
++  const tools = limited.filter((r) => r.category === 'tool');
++  const pages = limited.filter((r) => r.category === 'page');
++
++  return {
++    all: limited,
++    guides,
++    tools,
++    pages,
++    query: trimmed,
++    isPersonal: false,
++  };
++}
++
++// Quick Search Recommendations (shown before user types)
++export function getQuickSearchRecommendations(): SiteSearchResult[] {
++  const recommendedUrls = [
++    '/notes/apple-macos-first-response-checklist/',
++    '/tools/it-troubleshooting-assistant/',
++    '/tools/ipv4-subnet-calculator',
++    '/notes/it-service-desk-troubleshooting-workflow/',
++    '/tools/service-desk-note-formatter/',
++    '/about/',
++    '/tools/server-rack-power-btu-calculator',
++    '/services',
++  ];
++
++  const results: SiteSearchResult[] = [];
++
++  for (const targetUrl of recommendedUrls) {
++    const cleanTarget = targetUrl.toLowerCase().replace(/\/+$/, '');
++    const found = entries.find(
++      (e) => e.url.toLowerCase().replace(/\/+$/, '') === cleanTarget
++    );
++    if (found) {
++      const { category, categoryLabel } = categorizeEntry(found.url, found.title);
++      results.push({
++        ...found,
++        category,
++        categoryLabel,
++        score: 100,
++      });
++    }
++  }
++
++  return results;
++}
+diff --git a/src/tools/Ipv4SubnetCalculator.tsx b/src/tools/Ipv4SubnetCalculator.tsx
+index b317e9d..be7055d 100644
+--- a/src/tools/Ipv4SubnetCalculator.tsx
++++ b/src/tools/Ipv4SubnetCalculator.tsx
+@@ -1,6 +1,7 @@
+ import React, { useState, useMemo } from 'react';
+ import { Link } from 'react-router-dom';
+ import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
++import { SeoHead } from '../components/SeoHead';
+ 
+ interface SubnetOption {
+   cidr: number;
+@@ -156,6 +157,10 @@ export const Ipv4SubnetCalculator: React.FC = () => {
+ 
+   return (
+     <main className="container page">
++      <SeoHead
++        title="IPv4 Subnet & CIDR Calculator"
++        description="Interactive IPv4 subnetting tool to calculate network addresses, usable host ranges, broadcast IDs, wildcard masks, and binary octets."
++      />
+ 
+       <nav className="breadcrumbs" aria-label="Breadcrumb">
+         <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>IPv4 Subnet &amp; CIDR Calculator</span>
+diff --git a/src/tools/ServerRackPowerBtuCalculator.tsx b/src/tools/ServerRackPowerBtuCalculator.tsx
+index f3fce5a..705b369 100644
+--- a/src/tools/ServerRackPowerBtuCalculator.tsx
++++ b/src/tools/ServerRackPowerBtuCalculator.tsx
+@@ -1,6 +1,7 @@
+ import React, { useState, useMemo } from 'react';
+ import { Link } from 'react-router-dom';
+ import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
++import { SeoHead } from '../components/SeoHead';
+ 
+ interface DeviceItem {
+   id: string;
+@@ -123,6 +124,10 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
+ 
+   return (
+     <main className="container page">
++      <SeoHead
++        title="Server Rack Power & BTU Calculator"
++        description="Calculate server equipment electrical draw (Watts/Amps), NEC 80% circuit derating, thermal heat dissipation in BTU/hr, and HVAC cooling capacity in Tons."
++      />
+ 
+       <nav className="breadcrumbs" aria-label="Breadcrumb">
+         <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>Server Rack Power &amp; BTU Calculator</span>
+-- 
+2.34.1
+
