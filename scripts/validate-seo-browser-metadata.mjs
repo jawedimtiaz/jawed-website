@@ -103,10 +103,10 @@ const cases = [
   },
   {
     path: "/blog/slug-that-does-not-exist-seo-test",
-    title: "Page Not Found | Jawed Imtiaz",
-    description: "The requested page could not be found on jawed.co.in.",
-    canonical: "https://jawed.co.in/404",
-    robots: "noindex, follow",
+    title: "Blog | Jawed Imtiaz",
+    description: "Updates and reflections on rebuilding Jawed.co.in, IT work, tools, and practical technology projects.",
+    canonical: "https://jawed.co.in/blog/",
+    robots: "index, follow",
   },
   {
     path: "/unknown-seo-test-route",
