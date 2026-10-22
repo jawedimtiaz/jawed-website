@@ -2282,3 +2282,26 @@ select:focus-visible {
     transition: none !important;
   }
 }
+
+/* Mobile layout safety for the interactive tools directory. */
+@media (max-width: 700px) {
+  .card-grid,
+  .card-grid.two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card-grid > *,
+  .discovery-panel,
+  .discovery-panel * {
+    min-width: 0;
+  }
+
+  .discovery-panel {
+    width: 100%;
+  }
+
+  .discovery-panel input,
+  .discovery-panel button {
+    max-width: 100%;
+  }
+}
