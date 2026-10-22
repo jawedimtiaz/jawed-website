@@ -1516,6 +1516,38 @@ select:focus-visible {
 }
 
 
+/* Compact header layout for narrow mobile viewports. */
+@media (max-width: 600px) {
+  .header-inner {
+    gap: 10px;
+  }
+
+  .site-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .site-title {
+    min-width: 0;
+  }
+
+  .site-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .header-search-slot {
+    display: none;
+  }
+
+  .menu-toggle {
+    flex: 0 0 auto;
+    padding-inline: 10px;
+    white-space: nowrap;
+  }
+}
+
 /* Mobile homepage and floating AI launcher refinements (Phase: mobile UX follow-up) */
 @media (max-width: 600px) {
   .hero {
@@ -2280,5 +2312,28 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .scroll-progress-bar {
     transition: none !important;
+  }
+}
+
+/* Mobile layout safety for the interactive tools directory. */
+@media (max-width: 700px) {
+  .card-grid,
+  .card-grid.two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card-grid > *,
+  .discovery-panel,
+  .discovery-panel * {
+    min-width: 0;
+  }
+
+  .discovery-panel {
+    width: 100%;
+  }
+
+  .discovery-panel input,
+  .discovery-panel button {
+    max-width: 100%;
   }
 }

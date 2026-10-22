@@ -23,7 +23,7 @@ function expectedCanonicalPath(path){
  if(p==="/tools"||p==="/diagnostic-tools")return "/tools/";
  if(p==="/services"||p==="/services-dispatch")return "/services-dispatch/";
  if(p.startsWith("/notes/"))return p;
- if(p.startsWith("/guides/")||p.startsWith("/field-guides/"))return "/field-guides/"+p.split("/").filter(Boolean).at(-1);
+ if(p.startsWith("/guides/")||p.startsWith("/field-guides/"))return "/field-guides/"+p.split("/").filter(Boolean).at(-1)+"/";
  if(p==="/tools/calculator")return "/tools/retirement-planning-calculator";
  if(p.startsWith("/tools/"))return p;
  if(["/work/projects","/work/experience","/work/skills","/work/certifications"].includes(p))return p+"/";
@@ -157,7 +157,7 @@ try{
 
  await command("POST","/window/rect",{width:390,height:844});
  await openPage("/tools/","h1");
- const mobile=await js("return {width:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,h1:document.querySelector('h1')?.innerText||''}");
+ const mobile=await js("return {width:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,h1:document.querySelector('h1')?.innerText||'',offenders:[...document.querySelectorAll('body *')].map(e=>({tag:e.tagName,id:e.id,cls:typeof e.className==='string'?e.className:'',left:Math.round(e.getBoundingClientRect().left),right:Math.round(e.getBoundingClientRect().right),width:Math.round(e.getBoundingClientRect().width),position:getComputedStyle(e).position,overflow:getComputedStyle(e).overflowX})).filter(e=>e.right>document.documentElement.clientWidth+1||e.left < -1).sort((a,b)=>b.right-a.right).slice(0,15)}");
  assert.ok(mobile.scrollWidth<=mobile.width+1,"Tools page has horizontal overflow at mobile viewport: "+JSON.stringify(mobile));
  console.log("PASS — mobile Tools page layout");
  console.log("Interactive tools and content discovery browser runtime validation: PASS");
