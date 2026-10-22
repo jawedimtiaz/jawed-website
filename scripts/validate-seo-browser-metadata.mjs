@@ -88,6 +88,27 @@ const cases = [
     robots: "index, follow",
   },
   {
+    path: "/ai/",
+    title: "Jawed AI Assistant | Jawed Imtiaz",
+    description: "Ask questions about published technical guides, IT troubleshooting methods, and tools on Jawed.co.in.",
+    canonical: "https://jawed.co.in/ai/",
+    robots: "noindex, follow",
+  },
+  {
+    path: "/guides/ai-for-it-support-practical-workflow",
+    title: "AI for IT Support: A Practical Starting Workflow | Jawed Imtiaz",
+    description: "A practical, low-risk workflow for using AI to assist IT support work without replacing troubleshooting judgment or exposing sensitive data.",
+    canonical: "https://jawed.co.in/notes/ai-for-it-support-practical-workflow",
+    robots: "index, follow",
+  },
+  {
+    path: "/blog/slug-that-does-not-exist-seo-test",
+    title: "Page Not Found | Jawed Imtiaz",
+    description: "The requested page could not be found on jawed.co.in.",
+    canonical: "https://jawed.co.in/404",
+    robots: "noindex, follow",
+  },
+  {
     path: "/unknown-seo-test-route",
     title: "Page Not Found | Jawed Imtiaz",
     description: "The requested page could not be found on jawed.co.in.",
