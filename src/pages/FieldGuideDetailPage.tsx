@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
-import { FIELD_GUIDES, FieldGuide } from '../data/fieldGuidesData';
+import { FIELD_GUIDES, FieldGuide, determineCategory } from '../data/fieldGuidesData';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { SeoHead } from '../components/SeoHead';
 import { Image } from '../components/Image';
@@ -63,7 +63,7 @@ export const FieldGuideDetailPage: React.FC = () => {
         <header style={{ marginBottom: '32px' }}>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
             <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)', fontWeight: 600 }}>
-              {guide.category}
+              {guide.category || determineCategory(guide)}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{guide.readTime}</span>

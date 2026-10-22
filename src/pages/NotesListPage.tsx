@@ -1,18 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import notesData from '../data/notesData.json';
 import { FIELD_GUIDES } from '../data/fieldGuidesData';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
+import { CATEGORIES, type NoteCategory, determineCategory } from '../utils/categoryHelper';
 
-export const CATEGORIES = [
-  'All',
-  'Network & Cabling',
-  'Server & Hardware',
-  'macOS & Endpoints',
-  'Service Desk & ITSM',
-] as const;
-
-export type NoteCategory = typeof CATEGORIES[number];
+export { CATEGORIES, type NoteCategory };
 
 interface NoteItem {
   slug: string;
@@ -22,23 +15,6 @@ interface NoteItem {
   content?: string;
 }
 
-const NOTE_CATEGORY_FALLBACK: Record<string, string> = {
-  'network-connectivity-first-response-checklist': 'Network & Cabling',
-  'networking-layer-by-layer-diagnostic-framework': 'Network & Cabling',
-  'interactive-tools-ai-assisted-experiences-architecture': 'Server & Hardware',
-  'scoping-it-issues-user-device-service': 'Server & Hardware',
-  'small-it-automation-starting-point': 'Server & Hardware',
-  'apple-device-management-enrollment-models': 'macOS & Endpoints',
-  'apple-macos-first-response-checklist': 'macOS & Endpoints',
-  'windows-first-response-troubleshooting-checklist': 'macOS & Endpoints',
-  'device-provisioning-handoff-checklist': 'macOS & Endpoints',
-  'microsoft-sign-in-troubleshooting-guide': 'macOS & Endpoints',
-};
-
-const getNoteCategory = (note: NoteItem): string => {
-  return note.category || NOTE_CATEGORY_FALLBACK[note.slug] || 'Service Desk & ITSM';
-};
-
 export const NotesListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'field-guides' | 'notes'>('all');
@@ -46,27 +22,66 @@ export const NotesListPage: React.FC = () => {
 
   const q = searchTerm.toLowerCase();
 
-  const filteredGuides = FIELD_GUIDES.filter(g => {
-    const matchesSearch = !q || (
-      g.title.toLowerCase().includes(q) ||
-      g.description.toLowerCase().includes(q) ||
-      g.category.toLowerCase().includes(q) ||
-      g.keywords.some(k => k.toLowerCase().includes(q))
-    );
-    const matchesCategory = activeCategory === 'All' || g.category === activeCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Pre-resolve categories using auto-categorization rules
+  const guidesWithCategory = useMemo(() => {
+    return FIELD_GUIDES.map(guide => ({
+      ...guide,
+      resolvedCategory: determineCategory(guide),
+    }));
+  }, []);
 
-  const filteredNotes = (notesData as NoteItem[]).filter(note => {
-    const category = getNoteCategory(note);
-    const matchesSearch = !q || (
-      note.title.toLowerCase().includes(q) ||
-      note.description.toLowerCase().includes(q) ||
-      category.toLowerCase().includes(q)
-    );
-    const matchesCategory = activeCategory === 'All' || category === activeCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const notesWithCategory = useMemo(() => {
+    return (notesData as NoteItem[]).map(note => ({
+      ...note,
+      resolvedCategory: determineCategory(note),
+    }));
+  }, []);
+
+  // Dynamic Category Counts computed automatically across current data
+  const categoryCounts = useMemo(() => {
+    const counts: Record<NoteCategory, number> = {
+      'All': guidesWithCategory.length + notesWithCategory.length,
+      'Network & Cabling': 0,
+      'Server & Hardware': 0,
+      'macOS & Endpoints': 0,
+      'Service Desk & ITSM': 0,
+    };
+
+    guidesWithCategory.forEach(g => {
+      counts[g.resolvedCategory] = (counts[g.resolvedCategory] || 0) + 1;
+    });
+
+    notesWithCategory.forEach(n => {
+      counts[n.resolvedCategory] = (counts[n.resolvedCategory] || 0) + 1;
+    });
+
+    return counts;
+  }, [guidesWithCategory, notesWithCategory]);
+
+  const filteredGuides = useMemo(() => {
+    return guidesWithCategory.filter(g => {
+      const matchesSearch = !q || (
+        g.title.toLowerCase().includes(q) ||
+        g.description.toLowerCase().includes(q) ||
+        g.resolvedCategory.toLowerCase().includes(q) ||
+        g.keywords.some(k => k.toLowerCase().includes(q))
+      );
+      const matchesCategory = activeCategory === 'All' || g.resolvedCategory === activeCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [guidesWithCategory, q, activeCategory]);
+
+  const filteredNotes = useMemo(() => {
+    return notesWithCategory.filter(note => {
+      const matchesSearch = !q || (
+        note.title.toLowerCase().includes(q) ||
+        note.description.toLowerCase().includes(q) ||
+        note.resolvedCategory.toLowerCase().includes(q)
+      );
+      const matchesCategory = activeCategory === 'All' || note.resolvedCategory === activeCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [notesWithCategory, q, activeCategory]);
 
   const totalFilteredCount = filteredGuides.length + filteredNotes.length;
 
@@ -135,7 +150,7 @@ export const NotesListPage: React.FC = () => {
                 onClick={() => setActiveCategory(category)}
                 style={{ padding: '6px 14px', fontSize: '0.85rem' }}
               >
-                {category}
+                {category} ({categoryCounts[category]})
               </button>
             ))}
           </div>
@@ -182,7 +197,7 @@ export const NotesListPage: React.FC = () => {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
-                      {guide.category}
+                      {guide.resolvedCategory}
                     </span>
                     <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{guide.readTime}</span>
                   </div>
@@ -229,7 +244,7 @@ export const NotesListPage: React.FC = () => {
 
           <div className="card-grid">
             {filteredNotes.map(note => {
-              const cat = getNoteCategory(note);
+              const cat = note.resolvedCategory;
               return (
                 <article key={note.slug} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>

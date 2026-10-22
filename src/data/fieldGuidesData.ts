@@ -1,8 +1,11 @@
+import { determineCategory } from '../utils/categoryHelper';
+export { determineCategory };
+
 export interface FieldGuide {
   slug: string;
   title: string;
   description: string;
-  category: string;
+  category?: string;
   readTime: string;
   publishedDate: string;
   updatedDate?: string;
