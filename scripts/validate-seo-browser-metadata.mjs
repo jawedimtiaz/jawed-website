@@ -88,6 +88,27 @@ const cases = [
     robots: "index, follow",
   },
   {
+    path: "/work/projects/",
+    title: "IT Projects and Practical Tools | Jawed Imtiaz",
+    description: "A portfolio of practical technology projects and browser-based tools, with public-safe examples and clear boundaries around measured outcomes.",
+    canonical: "https://jawed.co.in/work/projects/",
+    robots: "index, follow",
+  },
+  {
+    path: "/resources/",
+    title: "IT Support & Web Resources | Jawed Imtiaz",
+    description: "Curated IT support, workplace technology, troubleshooting, and web resources for practical problem-solving.",
+    canonical: "https://jawed.co.in/resources/",
+    robots: "index, follow",
+  },
+  {
+    path: "/cookies/",
+    title: "Cookie Policy & Preferences | Jawed Imtiaz",
+    description: "Cookie and local-storage choices used by jawed.co.in, including how to review or change browser preferences.",
+    canonical: "https://jawed.co.in/cookies/",
+    robots: "index, follow",
+  },
+  {
     path: "/tools/",
     title: "IT Tools & Calculators | Jawed Imtiaz",
     description: "Explore browser-based IT, career, and personal-finance calculators and practical utilities built by Jawed Imtiaz.",
