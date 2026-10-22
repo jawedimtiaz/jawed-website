@@ -12,6 +12,7 @@ on:
       - "package.json"
       - "vite.config.ts"
       - "scripts/validate-career-match-browser-runtime.mjs"
+      - "scripts/validate-seo-browser-metadata.mjs"
       - "scripts/validate-finance-tools-browser-runtime.mjs"
       - ".github/workflows/finance-tools-browser-runtime.yml"
   push:
@@ -71,6 +72,10 @@ jobs:
         env:
           BASE_URL: http://127.0.0.1:4173
         run: node scripts/validate-career-match-browser-runtime.mjs
+      - name: Run route SEO metadata browser validation
+        env:
+          BASE_URL: http://127.0.0.1:4173
+        run: node scripts/validate-seo-browser-metadata.mjs
       - name: Show preview logs on failure
         if: failure()
         run: cat /tmp/interactive-tools-preview.log || true
