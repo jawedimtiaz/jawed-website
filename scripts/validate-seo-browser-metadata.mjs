@@ -88,6 +88,27 @@ const cases = [
     robots: "index, follow",
   },
   {
+    path: "/tools/",
+    title: "IT Tools & Calculators | Jawed Imtiaz",
+    description: "Explore browser-based IT, career, and personal-finance calculators and practical utilities built by Jawed Imtiaz.",
+    canonical: "https://jawed.co.in/tools/",
+    robots: "index, follow",
+  },
+  {
+    path: "/privacy/",
+    title: "Website Privacy and Data Handling | Jawed Imtiaz",
+    description: "How jawed.co.in handles contact messages, browser-based tools, local storage, third-party services, and privacy choices.",
+    canonical: "https://jawed.co.in/privacy/",
+    robots: "index, follow",
+  },
+  {
+    path: "/services/",
+    title: "Services & IT Field Dispatch | Jawed Imtiaz",
+    description: "Information about IT field support, workplace technology, and service dispatch resources.",
+    canonical: "https://jawed.co.in/services-dispatch/",
+    robots: "index, follow",
+  },
+  {
     path: "/ai/",
     title: "Jawed AI Assistant | Jawed Imtiaz",
     description: "Ask questions about published technical guides, IT troubleshooting methods, and tools on Jawed.co.in.",
