@@ -1,126 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  TOOLS,
+  TOOL_CATEGORIES,
+  type ToolItem,
+  type ToolCategoryId,
+  type BaseToolCategoryId,
+  type BaseToolCategoryLabel,
+  determineToolCategoryId,
+  determineToolCategory,
+} from '../data/toolsData';
 
-interface ToolItem {
-  id: string;
-  name: string;
-  description: string;
-  category: 'it' | 'career' | 'ai' | 'finance';
-  route: string;
+export { TOOL_CATEGORIES, type ToolCategoryId, type ToolItem };
+
+export interface SearchableTool extends ToolItem {
+  resolvedCategory: BaseToolCategoryId;
+  resolvedCategoryLabel: BaseToolCategoryLabel;
+  searchString: string;
 }
 
-const TOOLS: ToolItem[] = [
-  {
-    id: 'ai-prompt-builder',
-    name: 'AI Prompt Builder',
-    description: 'Craft structured, high-context prompts for troubleshooting, communication, and technical writing.',
-    category: 'ai',
-    route: '/tools/ai-prompt-builder',
-  },
-  {
-    id: 'career-match',
-    name: 'Career Match Resume Review',
-    description: 'Compare your resume with any job description to uncover keyword gaps and keyword alignment.',
-    category: 'career',
-    route: '/tools/career-match-resume-review',
-  },
-  {
-    id: 'bullet-checker',
-    name: 'Resume Bullet Strength Checker',
-    description: 'Score and polish resume bullet points for action verbs, quantified metrics, and brevity.',
-    category: 'career',
-    route: '/tools/resume-bullet-strength-checker',
-  },
-  {
-    id: 'interview-planner',
-    name: 'Interview Preparation Planner',
-    description: 'Prepare behavioral STAR stories and reverse-interview questions for IT roles.',
-    category: 'career',
-    route: '/tools/interview-preparation-planner',
-  },
-  {
-    id: 'it-troubleshooter',
-    name: 'IT Troubleshooting Assistant',
-    description: 'Follow systematic, layer-by-layer diagnostic checklists for network, Apple, and Windows issues.',
-    category: 'it',
-    route: '/tools/it-troubleshooting-assistant',
-  },
-  {
-    id: 'service-desk-notes',
-    name: 'Service Desk Note Formatter',
-    description: 'Convert scattered notes into clean, audit-ready ITSM ticket updates.',
-    category: 'it',
-    route: '/tools/service-desk-note-formatter',
-  },
-  {
-    id: 'ticket-to-kb',
-    name: 'Ticket to Knowledge Base Draft',
-    description: 'Transform resolved IT tickets into searchable knowledge base articles and SOPs.',
-    category: 'it',
-    route: '/tools/ticket-to-knowledge-base-draft',
-  },
-  {
-    id: 'ipv4-subnet-calculator',
-    name: 'IPv4 Subnet & CIDR Calculator',
-    description: 'Calculate network bounds, host ranges, broadcast addresses, wildcard masks, and 32-bit binary notation.',
-    category: 'it',
-    route: '/tools/ipv4-subnet-calculator',
-  },
-  {
-    id: 'server-rack-power-btu',
-    name: 'Server Rack Power & BTU Calculator',
-    description: 'Estimate server equipment electrical draw (Watts/Amps), circuit breaker derating, and HVAC BTU/hr cooling load.',
-    category: 'it',
-    route: '/tools/server-rack-power-btu-calculator',
-  },
-  {
-    id: 'finance-snapshot',
-    name: 'Personal Finance Snapshot',
-    description: 'Assess emergency reserves, savings ratios, debt load, and asset distribution in one view.',
-    category: 'finance',
-    route: '/tools/personal-finance-snapshot',
-  },
-  {
-    id: 'finance-workspace',
-    name: 'Finance Planning Workspace',
-    description: 'Integrated multi-tab planner for cash flow, goals, and retirement readiness.',
-    category: 'finance',
-    route: '/tools/finance-planning-workspace',
-  },
-  {
-    id: 'compound-growth',
-    name: 'Compound Growth & SIP Calculator',
-    description: 'Simulate monthly SIP investments with compound growth and inflation adjustments.',
-    category: 'finance',
-    route: '/tools/compound-growth-sip-calculator',
-  },
-  {
-    id: 'inflation-goal',
-    name: 'Inflation & Goal Planning Calculator',
-    description: 'Calculate the true future cost of long-term milestones adjusted for inflation.',
-    category: 'finance',
-    route: '/tools/inflation-goal-planning-calculator',
-  },
-  {
-    id: 'retirement-planner',
-    name: 'Retirement Planning Calculator',
-    description: 'Determine required retirement corpus and ongoing contributions needed to retire comfortably.',
-    category: 'finance',
-    route: '/tools/retirement-planning-calculator',
-  },
-];
-
 export const ToolsPage: React.FC = () => {
-  const [activeCategory, setActiveCategory] = useState<'all' | 'it' | 'career' | 'ai' | 'finance'>('all');
+  const [activeCategory, setActiveCategory] = useState<ToolCategoryId>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filtered = TOOLS.filter(t => {
-    const matchesCat = activeCategory === 'all' || t.category === activeCategory;
-    const matchesSearch =
-      t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCat && matchesSearch;
-  });
+  // Pre-index tools with resolved categories and lowercase search strings once
+  const indexedTools = useMemo<SearchableTool[]>(() => {
+    return TOOLS.map(tool => {
+      const resolvedCategory = determineToolCategoryId(tool);
+      const resolvedCategoryLabel = determineToolCategory(tool);
+      const kw = (tool.keywords || []).join(' ');
+      return {
+        ...tool,
+        resolvedCategory,
+        resolvedCategoryLabel,
+        searchString: `${tool.name} ${tool.description} ${resolvedCategoryLabel} ${kw}`.toLowerCase(),
+      };
+    });
+  }, []);
+
+  // Memoized calculation of dynamic category counts synced with active search query
+  const categoryCounts = useMemo<Record<ToolCategoryId, number>>(() => {
+    const q = searchTerm.trim().toLowerCase();
+    const counts: Record<ToolCategoryId, number> = {
+      all: 0,
+      it: 0,
+      career: 0,
+      finance: 0,
+      ai: 0,
+    };
+
+    for (let i = 0; i < indexedTools.length; i++) {
+      const tool = indexedTools[i];
+      if (!q || tool.searchString.includes(q)) {
+        counts.all++;
+        counts[tool.resolvedCategory]++;
+      }
+    }
+
+    return counts;
+  }, [indexedTools, searchTerm]);
+
+  // Memoized filtered tool items based on active category and search query
+  const filteredTools = useMemo<SearchableTool[]>(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return indexedTools.filter(tool => {
+      const matchesCategory = activeCategory === 'all' || tool.resolvedCategory === activeCategory;
+      const matchesSearch = !q || tool.searchString.includes(q);
+      return matchesCategory && matchesSearch;
+    });
+  }, [indexedTools, activeCategory, searchTerm]);
 
   return (
     <main className="container page">
@@ -135,42 +83,37 @@ export const ToolsPage: React.FC = () => {
       </p>
 
       <div className="discovery-panel" style={{ padding: '16px', borderRadius: '12px', marginBottom: '24px', border: '1px solid var(--line)' }}>
+        {/* Dynamic Category Filter Pills */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
-          <button
-            type="button"
-            className={`tab-button ${activeCategory === 'all' ? 'active' : ''}`}
-            onClick={() => setActiveCategory('all')}
-          >
-            All Tools ({TOOLS.length})
-          </button>
-          <button
-            type="button"
-            className={`tab-button ${activeCategory === 'it' ? 'active' : ''}`}
-            onClick={() => setActiveCategory('it')}
-          >
-            IT Support &amp; ITSM
-          </button>
-          <button
-            type="button"
-            className={`tab-button ${activeCategory === 'career' ? 'active' : ''}`}
-            onClick={() => setActiveCategory('career')}
-          >
-            Career &amp; Resume
-          </button>
-          <button
-            type="button"
-            className={`tab-button ${activeCategory === 'finance' ? 'active' : ''}`}
-            onClick={() => setActiveCategory('finance')}
-          >
-            Finance &amp; Calculators
-          </button>
-          <button
-            type="button"
-            className={`tab-button ${activeCategory === 'ai' ? 'active' : ''}`}
-            onClick={() => setActiveCategory('ai')}
-          >
-            AI Prompting
-          </button>
+          {TOOL_CATEGORIES.map(cat => {
+            const count = categoryCounts[cat.id] ?? 0;
+            const isSelected = activeCategory === cat.id;
+            const isDisabled = count === 0 && !isSelected;
+
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                className={`tab-button ${isSelected ? 'active' : ''}`}
+                onClick={() => {
+                  if (count > 0 || isSelected) {
+                    setActiveCategory(cat.id);
+                  }
+                }}
+                disabled={isDisabled}
+                aria-disabled={isDisabled}
+                aria-label={`${cat.label} (${count} ${count === 1 ? 'tool' : 'tools'})`}
+                style={{
+                  opacity: isDisabled ? 0.45 : 1,
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  transition: 'opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease',
+                }}
+                title={count === 0 ? `No matching tools in ${cat.label}` : undefined}
+              >
+                {cat.label} ({count})
+              </button>
+            );
+          })}
         </div>
 
         <div className="discovery-controls">
@@ -194,8 +137,13 @@ export const ToolsPage: React.FC = () => {
       </div>
 
       <div className="card-grid">
-        {filtered.map(tool => (
+        {filteredTools.map(tool => (
           <article key={tool.id} className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
+                {tool.resolvedCategoryLabel}
+              </span>
+            </div>
             <h3>{tool.name}</h3>
             <p>{tool.description}</p>
             <Link to={tool.route}>Open Tool →</Link>
@@ -203,10 +151,37 @@ export const ToolsPage: React.FC = () => {
         ))}
       </div>
 
-      {filtered.length === 0 && (
-        <p style={{ marginTop: '20px', color: 'var(--muted)' }}>
-          No tools found matching your criteria.
-        </p>
+      {filteredTools.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '36px 20px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--line)', marginTop: '20px' }}>
+          <p style={{ fontSize: '1.05rem', color: 'var(--text-heading)', fontWeight: 600, marginBottom: '8px' }}>
+            No tools found matching your criteria.
+          </p>
+          <p style={{ fontSize: '0.9rem', color: 'var(--muted)', maxWidth: '480px', margin: '0 auto 16px' }}>
+            No tools match {activeCategory !== 'all' ? `category "${TOOL_CATEGORIES.find(c => c.id === activeCategory)?.label}"` : 'your filter'}{searchTerm ? ` and search query "${searchTerm}"` : ''}.
+          </p>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {activeCategory !== 'all' && (
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setActiveCategory('all')}
+                style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+              >
+                Reset to All Tools
+              </button>
+            )}
+            {searchTerm && (
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setSearchTerm('')}
+                style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+              >
+                Clear Search
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </main>
   );
