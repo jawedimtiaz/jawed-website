@@ -1516,6 +1516,23 @@ select:focus-visible {
 }
 
 
+/* Compact header layout for narrow mobile viewports. */
+@media (max-width: 600px) {
+  .header-inner {
+    gap: 10px;
+  }
+
+  .header-search-slot {
+    display: none;
+  }
+
+  .menu-toggle {
+    flex: 0 0 auto;
+    padding-inline: 10px;
+    white-space: nowrap;
+  }
+}
+
 /* Mobile homepage and floating AI launcher refinements (Phase: mobile UX follow-up) */
 @media (max-width: 600px) {
   .hero {
