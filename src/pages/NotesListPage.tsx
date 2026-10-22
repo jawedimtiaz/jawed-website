@@ -37,26 +37,52 @@ export const NotesListPage: React.FC = () => {
     }));
   }, []);
 
-  // Dynamic Category Counts computed automatically across current data
+  // Dynamic Category Counts computed automatically across current search query AND active format tab
   const categoryCounts = useMemo(() => {
+    const includeGuides = activeTab === 'all' || activeTab === 'field-guides';
+    const includeNotes = activeTab === 'all' || activeTab === 'notes';
+
+    const matchingGuides = includeGuides
+      ? guidesWithCategory.filter(g => {
+          if (!q) return true;
+          return (
+            g.title.toLowerCase().includes(q) ||
+            g.description.toLowerCase().includes(q) ||
+            g.resolvedCategory.toLowerCase().includes(q) ||
+            g.keywords.some(k => k.toLowerCase().includes(q))
+          );
+        })
+      : [];
+
+    const matchingNotes = includeNotes
+      ? notesWithCategory.filter(n => {
+          if (!q) return true;
+          return (
+            n.title.toLowerCase().includes(q) ||
+            n.description.toLowerCase().includes(q) ||
+            n.resolvedCategory.toLowerCase().includes(q)
+          );
+        })
+      : [];
+
     const counts: Record<NoteCategory, number> = {
-      'All': guidesWithCategory.length + notesWithCategory.length,
+      'All': matchingGuides.length + matchingNotes.length,
       'Network & Cabling': 0,
       'Server & Hardware': 0,
       'macOS & Endpoints': 0,
       'Service Desk & ITSM': 0,
     };
 
-    guidesWithCategory.forEach(g => {
+    matchingGuides.forEach(g => {
       counts[g.resolvedCategory] = (counts[g.resolvedCategory] || 0) + 1;
     });
 
-    notesWithCategory.forEach(n => {
+    matchingNotes.forEach(n => {
       counts[n.resolvedCategory] = (counts[n.resolvedCategory] || 0) + 1;
     });
 
     return counts;
-  }, [guidesWithCategory, notesWithCategory]);
+  }, [guidesWithCategory, notesWithCategory, q, activeTab]);
 
   const filteredGuides = useMemo(() => {
     return guidesWithCategory.filter(g => {
@@ -136,29 +162,50 @@ export const NotesListPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Category Filter Tabs */}
+        {/* Category Filter Tabs with Real-Time Adaptive Counts */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '16px', paddingTop: '14px', borderTop: '1px solid var(--line)' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             Category:
           </span>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {CATEGORIES.map(category => (
-              <button
-                key={category}
-                type="button"
-                className={`button ${activeCategory === category ? 'button-primary' : 'button-secondary'}`}
-                onClick={() => setActiveCategory(category)}
-                style={{ padding: '6px 14px', fontSize: '0.85rem' }}
-              >
-                {category} ({categoryCounts[category]})
-              </button>
-            ))}
+            {CATEGORIES.map(category => {
+              const count = categoryCounts[category] ?? 0;
+              const isSelected = activeCategory === category;
+              const isDisabled = count === 0 && !isSelected;
+
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  className={`button ${isSelected ? 'button-primary' : 'button-secondary'}`}
+                  onClick={() => {
+                    if (count > 0 || isSelected) {
+                      setActiveCategory(category);
+                    }
+                  }}
+                  disabled={isDisabled}
+                  aria-disabled={isDisabled}
+                  aria-label={`${category} (${count} ${count === 1 ? 'item' : 'items'})`}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '0.85rem',
+                    opacity: isDisabled ? 0.45 : 1,
+                    cursor: isDisabled ? 'not-allowed' : 'pointer',
+                    transition: 'opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease',
+                  }}
+                  title={count === 0 ? `No matching items in ${category}` : undefined}
+                >
+                  {category} ({count})
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="discovery-controls">
+        <div id="search-kb" className="discovery-controls">
           <input
             id="note-search"
+            name="search-kb"
             type="search"
             className="discovery-input"
             placeholder="Search RJ45 pinout, port flapping, PowerEdge LED, Cisco CLI, WiFi, macOS..."
