@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import notesData from '../data/notesData.json';
-import { FIELD_GUIDES } from '../data/fieldGuidesData';
+import { FIELD_GUIDES, type FieldGuide } from '../data/fieldGuidesData';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
-import { CATEGORIES, type NoteCategory, determineCategory } from '../utils/categoryHelper';
+import { CATEGORIES, type NoteCategory, type BaseCategory, determineCategory } from '../utils/categoryHelper';
 
 export { CATEGORIES, type NoteCategory };
 
-interface NoteItem {
+export interface NoteItem {
   slug: string;
   title: string;
   description: string;
@@ -15,99 +15,160 @@ interface NoteItem {
   content?: string;
 }
 
+export interface SearchableGuide extends FieldGuide {
+  resolvedCategory: BaseCategory;
+  searchString: string;
+}
+
+export interface SearchableNote extends NoteItem {
+  resolvedCategory: BaseCategory;
+  searchString: string;
+}
+
+// Memoized individual guide card to prevent re-renders when other items or query state update
+const GuideCard = React.memo<{ guide: SearchableGuide }>(({ guide }) => (
+  <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderLeft: '4px solid var(--accent)' }}>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
+          {guide.resolvedCategory}
+        </span>
+        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{guide.readTime}</span>
+      </div>
+
+      <h3 style={{ fontSize: '1.2rem', marginTop: 0, marginBottom: '10px', lineHeight: '1.35' }}>
+        <Link to={`/field-guides/${guide.slug}`} style={{ textDecoration: 'none', color: 'var(--text-heading)' }}>
+          {guide.title}
+        </Link>
+      </h3>
+
+      <p style={{ fontSize: '0.9rem', color: 'var(--muted-light)', marginBottom: '16px' }}>
+        {guide.description}
+      </p>
+
+      <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '16px' }}>
+        <strong>Topics Covered:</strong> {guide.toc.slice(0, 3).map(t => t.text.replace(/^\d+\.\s*/, '')).join(' • ')}...
+      </div>
+    </div>
+
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--line)' }}>
+      <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>By {guide.author}</span>
+      <Link to={`/field-guides/${guide.slug}`} className="button button-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
+        Read Full Guide →
+      </Link>
+    </div>
+  </article>
+));
+
+// Memoized individual note card to prevent re-renders during search keystrokes
+const NoteCard = React.memo<{ note: SearchableNote }>(({ note }) => (
+  <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
+          {note.resolvedCategory}
+        </span>
+      </div>
+      <h3 style={{ fontSize: '1.05rem', marginTop: 0, marginBottom: '8px' }}>{note.title}</h3>
+      <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>{note.description}</p>
+    </div>
+    <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+      <Link to={`/notes/${note.slug}`} style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>
+        Read Quick Note →
+      </Link>
+    </div>
+  </article>
+));
+
 export const NotesListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'field-guides' | 'notes'>('all');
   const [activeCategory, setActiveCategory] = useState<NoteCategory>('All');
 
-  const q = searchTerm.toLowerCase();
-
-  // Pre-resolve categories using auto-categorization rules
-  const guidesWithCategory = useMemo(() => {
-    return FIELD_GUIDES.map(guide => ({
-      ...guide,
-      resolvedCategory: determineCategory(guide),
-    }));
+  // Pre-index guides with resolved categories and lowercase search strings once
+  const indexedGuides = useMemo<SearchableGuide[]>(() => {
+    return FIELD_GUIDES.map(guide => {
+      const resolvedCategory = determineCategory(guide);
+      return {
+        ...guide,
+        resolvedCategory,
+        searchString: `${guide.title} ${guide.description} ${resolvedCategory} ${guide.keywords.join(' ')}`.toLowerCase(),
+      };
+    });
   }, []);
 
-  const notesWithCategory = useMemo(() => {
-    return (notesData as NoteItem[]).map(note => ({
-      ...note,
-      resolvedCategory: determineCategory(note),
-    }));
+  // Pre-index notes with resolved categories and lowercase search strings once
+  const indexedNotes = useMemo<SearchableNote[]>(() => {
+    return (notesData as NoteItem[]).map(note => {
+      const resolvedCategory = determineCategory(note);
+      return {
+        ...note,
+        resolvedCategory,
+        searchString: `${note.title} ${note.description} ${resolvedCategory}`.toLowerCase(),
+      };
+    });
   }, []);
 
-  // Dynamic Category Counts computed automatically across current search query AND active format tab
-  const categoryCounts = useMemo(() => {
+  // useMemo hook for calculating active category counts efficiently during typing & tab switching
+  const categoryCounts = useMemo<Record<NoteCategory, number>>(() => {
+    const q = searchTerm.trim().toLowerCase();
     const includeGuides = activeTab === 'all' || activeTab === 'field-guides';
     const includeNotes = activeTab === 'all' || activeTab === 'notes';
 
-    const matchingGuides = includeGuides
-      ? guidesWithCategory.filter(g => {
-          if (!q) return true;
-          return (
-            g.title.toLowerCase().includes(q) ||
-            g.description.toLowerCase().includes(q) ||
-            g.resolvedCategory.toLowerCase().includes(q) ||
-            g.keywords.some(k => k.toLowerCase().includes(q))
-          );
-        })
-      : [];
-
-    const matchingNotes = includeNotes
-      ? notesWithCategory.filter(n => {
-          if (!q) return true;
-          return (
-            n.title.toLowerCase().includes(q) ||
-            n.description.toLowerCase().includes(q) ||
-            n.resolvedCategory.toLowerCase().includes(q)
-          );
-        })
-      : [];
-
     const counts: Record<NoteCategory, number> = {
-      'All': matchingGuides.length + matchingNotes.length,
+      'All': 0,
       'Network & Cabling': 0,
       'Server & Hardware': 0,
       'macOS & Endpoints': 0,
       'Service Desk & ITSM': 0,
     };
 
-    matchingGuides.forEach(g => {
-      counts[g.resolvedCategory] = (counts[g.resolvedCategory] || 0) + 1;
-    });
+    if (includeGuides) {
+      for (let i = 0; i < indexedGuides.length; i++) {
+        const guide = indexedGuides[i];
+        if (!q || guide.searchString.includes(q)) {
+          counts['All']++;
+          counts[guide.resolvedCategory] = (counts[guide.resolvedCategory] || 0) + 1;
+        }
+      }
+    }
 
-    matchingNotes.forEach(n => {
-      counts[n.resolvedCategory] = (counts[n.resolvedCategory] || 0) + 1;
-    });
+    if (includeNotes) {
+      for (let i = 0; i < indexedNotes.length; i++) {
+        const note = indexedNotes[i];
+        if (!q || note.searchString.includes(q)) {
+          counts['All']++;
+          counts[note.resolvedCategory] = (counts[note.resolvedCategory] || 0) + 1;
+        }
+      }
+    }
 
     return counts;
-  }, [guidesWithCategory, notesWithCategory, q, activeTab]);
+  }, [indexedGuides, indexedNotes, searchTerm, activeTab]);
 
-  const filteredGuides = useMemo(() => {
-    return guidesWithCategory.filter(g => {
-      const matchesSearch = !q || (
-        g.title.toLowerCase().includes(q) ||
-        g.description.toLowerCase().includes(q) ||
-        g.resolvedCategory.toLowerCase().includes(q) ||
-        g.keywords.some(k => k.toLowerCase().includes(q))
-      );
-      const matchesCategory = activeCategory === 'All' || g.resolvedCategory === activeCategory;
+  // useMemo hook for calculating filtered guides
+  const filteredGuides = useMemo<SearchableGuide[]>(() => {
+    if (activeTab === 'notes') return [];
+    const q = searchTerm.trim().toLowerCase();
+
+    return indexedGuides.filter(guide => {
+      const matchesSearch = !q || guide.searchString.includes(q);
+      const matchesCategory = activeCategory === 'All' || guide.resolvedCategory === activeCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [guidesWithCategory, q, activeCategory]);
+  }, [indexedGuides, searchTerm, activeTab, activeCategory]);
 
-  const filteredNotes = useMemo(() => {
-    return notesWithCategory.filter(note => {
-      const matchesSearch = !q || (
-        note.title.toLowerCase().includes(q) ||
-        note.description.toLowerCase().includes(q) ||
-        note.resolvedCategory.toLowerCase().includes(q)
-      );
+  // useMemo hook for calculating filtered notes
+  const filteredNotes = useMemo<SearchableNote[]>(() => {
+    if (activeTab === 'field-guides') return [];
+    const q = searchTerm.trim().toLowerCase();
+
+    return indexedNotes.filter(note => {
+      const matchesSearch = !q || note.searchString.includes(q);
       const matchesCategory = activeCategory === 'All' || note.resolvedCategory === activeCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [notesWithCategory, q, activeCategory]);
+  }, [indexedNotes, searchTerm, activeTab, activeCategory]);
 
   const totalFilteredCount = filteredGuides.length + filteredNotes.length;
 
@@ -240,37 +301,7 @@ export const NotesListPage: React.FC = () => {
 
           <div className="card-grid two">
             {filteredGuides.map(guide => (
-              <article key={guide.slug} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderLeft: '4px solid var(--accent)' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
-                      {guide.resolvedCategory}
-                    </span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{guide.readTime}</span>
-                  </div>
-
-                  <h3 style={{ fontSize: '1.2rem', marginTop: 0, marginBottom: '10px', lineHeight: '1.35' }}>
-                    <Link to={`/field-guides/${guide.slug}`} style={{ textDecoration: 'none', color: 'var(--text-heading)' }}>
-                      {guide.title}
-                    </Link>
-                  </h3>
-
-                  <p style={{ fontSize: '0.9rem', color: 'var(--muted-light)', marginBottom: '16px' }}>
-                    {guide.description}
-                  </p>
-
-                  <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '16px' }}>
-                    <strong>Topics Covered:</strong> {guide.toc.slice(0, 3).map(t => t.text.replace(/^\d+\.\s*/, '')).join(' • ')}...
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--line)' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>By {guide.author}</span>
-                  <Link to={`/field-guides/${guide.slug}`} className="button button-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
-                    Read Full Guide →
-                  </Link>
-                </div>
-              </article>
+              <GuideCard key={guide.slug} guide={guide} />
             ))}
           </div>
 
@@ -290,27 +321,9 @@ export const NotesListPage: React.FC = () => {
           </h2>
 
           <div className="card-grid">
-            {filteredNotes.map(note => {
-              const cat = note.resolvedCategory;
-              return (
-                <article key={note.slug} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
-                        {cat}
-                      </span>
-                    </div>
-                    <h3 style={{ fontSize: '1.05rem', marginTop: 0, marginBottom: '8px' }}>{note.title}</h3>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>{note.description}</p>
-                  </div>
-                  <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
-                    <Link to={`/notes/${note.slug}`} style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>
-                      Read Quick Note →
-                    </Link>
-                  </div>
-                </article>
-              );
-            })}
+            {filteredNotes.map(note => (
+              <NoteCard key={note.slug} note={note} />
+            ))}
           </div>
 
           {filteredNotes.length === 0 && activeTab === 'notes' && (
@@ -357,4 +370,5 @@ export const NotesListPage: React.FC = () => {
     </main>
   );
 };
+
 
