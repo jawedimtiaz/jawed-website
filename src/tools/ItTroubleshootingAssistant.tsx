@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
 
 export const ItTroubleshootingAssistant: React.FC = () => {
   const [category, setCategory] = useState('network');
@@ -93,9 +94,13 @@ ${triage.escalation}
   return (
     <div className="page">
       <div className="container">
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>IT Troubleshooting Assistant</span>
-        </nav>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools', href: '/tools' },
+            { label: 'IT Troubleshooting Assistant' },
+          ]}
+        />
 
         <header className="page-header">
           <h1 className="page-title">IT Troubleshooting Assistant</h1>

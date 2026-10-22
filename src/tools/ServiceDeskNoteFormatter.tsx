@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
 
 export const ServiceDeskNoteFormatter: React.FC = () => {
   const [ticketId, setTicketId] = useState('INC-84920');
@@ -40,9 +41,13 @@ ${resolutionOrNextStep}
   return (
     <div className="page">
       <div className="container">
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>Service Desk Note Formatter</span>
-        </nav>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools', href: '/tools' },
+            { label: 'Service Desk Note Formatter' },
+          ]}
+        />
 
         <header className="page-header">
           <h1 className="page-title">Service Desk Note Formatter</h1>

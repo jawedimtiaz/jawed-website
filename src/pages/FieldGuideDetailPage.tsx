@@ -3,6 +3,7 @@ import { useParams, Link, Navigate } from 'react-router-dom';
 import { FIELD_GUIDES, FieldGuide, determineCategory } from '../data/fieldGuidesData';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { SeoHead } from '../components/SeoHead';
+import { Breadcrumb } from '../components/Breadcrumb';
 import { Image } from '../components/Image';
 
 export const FieldGuideDetailPage: React.FC = () => {
@@ -51,9 +52,13 @@ export const FieldGuideDetailPage: React.FC = () => {
       />
 
       {/* Breadcrumbs */}
-      <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <Link to="/">Home</Link> &gt; <Link to="/guides">Guides</Link> &gt; <span>{guide.title}</span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Guides', href: '/guides' },
+          { label: guide.title },
+        ]}
+      />
 
       {/* Top Leaderboard Ad Unit (Zero CLS Reserved Container) */}
       <AdUnitPlaceholder slotType="top-leaderboard" />

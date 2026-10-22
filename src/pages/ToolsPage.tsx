@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
 import {
   TOOLS,
   TOOL_CATEGORIES,
@@ -72,9 +73,12 @@ export const ToolsPage: React.FC = () => {
 
   return (
     <main className="container page">
-      <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <Link to="/">Home</Link> &gt; <span>Tools</span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Tools' },
+        ]}
+      />
 
       <p className="eyebrow">Interactive Utilities</p>
       <h1>Tools &amp; Calculators</h1>

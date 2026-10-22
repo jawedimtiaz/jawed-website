@@ -2282,3 +2282,65 @@ select:focus-visible {
     transition: none !important;
   }
 }
+
+/* Accessible & SEO-Optimized Breadcrumbs */
+.breadcrumbs {
+  margin-bottom: 20px;
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.breadcrumbs ol.breadcrumb-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 8px;
+}
+
+.breadcrumbs li.breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.breadcrumbs a,
+.breadcrumbs .breadcrumb-link {
+  color: var(--muted-light);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.breadcrumbs a:hover,
+.breadcrumbs .breadcrumb-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.breadcrumbs .breadcrumb-separator {
+  color: var(--border);
+  user-select: none;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.breadcrumbs .breadcrumb-current {
+  color: var(--text-heading);
+  font-weight: 500;
+  max-width: 440px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .breadcrumbs .breadcrumb-current {
+    max-width: 240px;
+  }
+}
+

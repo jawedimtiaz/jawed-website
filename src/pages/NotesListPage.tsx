@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import notesData from '../data/notesData.json';
 import { FIELD_GUIDES, type FieldGuide } from '../data/fieldGuidesData';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
+import { Breadcrumb } from '../components/Breadcrumb';
 import { CATEGORIES, type NoteCategory, type BaseCategory, determineCategory } from '../utils/categoryHelper';
 
 export { CATEGORIES, type NoteCategory };
@@ -174,9 +175,12 @@ export const NotesListPage: React.FC = () => {
 
   return (
     <main className="container page">
-      <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <Link to="/">Home</Link> &gt; <span>Field Guides &amp; Knowledge Base</span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Field Guides & Knowledge Base' },
+        ]}
+      />
 
       {/* Top Leaderboard Ad Slot */}
       <AdUnitPlaceholder slotType="top-leaderboard" />

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import blogData from '../data/blogData.json';
+import { Breadcrumb } from '../components/Breadcrumb';
 
 export const BlogPostPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -12,9 +13,14 @@ export const BlogPostPage: React.FC = () => {
 
   return (
     <main className="container page">
-      <nav className="breadcrumbs" aria-label="Breadcrumb" style={{ marginBottom: '16px' }}>
-        <Link to="/">Home</Link> &gt; <Link to="/blog">Blog</Link> &gt; <span>{post.title}</span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Blog', href: '/blog' },
+          { label: post.title },
+        ]}
+        style={{ marginBottom: '16px' }}
+      />
 
       <div
         className="blog-rendered-content"

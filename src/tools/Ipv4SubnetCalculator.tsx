@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 
 interface SubnetOption {
@@ -157,9 +158,13 @@ export const Ipv4SubnetCalculator: React.FC = () => {
   return (
     <main className="container page">
 
-      <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>IPv4 Subnet &amp; CIDR Calculator</span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Tools', href: '/tools' },
+          { label: 'IPv4 Subnet & CIDR Calculator' },
+        ]}
+      />
 
       {/* Top Leaderboard Ad Unit */}
       <AdUnitPlaceholder slotType="top-leaderboard" />

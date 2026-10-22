@@ -3,6 +3,7 @@ import { useParams, Link, Navigate } from 'react-router-dom';
 import notesData from '../data/notesData.json';
 import { FIELD_GUIDES } from '../data/fieldGuidesData';
 import { FieldGuideDetailPage } from './FieldGuideDetailPage';
+import { Breadcrumb } from '../components/Breadcrumb';
 
 export const NoteDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -22,9 +23,14 @@ export const NoteDetailPage: React.FC = () => {
 
   return (
     <main className="container page">
-      <nav className="breadcrumbs" aria-label="Breadcrumb" style={{ marginBottom: '16px' }}>
-        <Link to="/">Home</Link> &gt; <Link to="/guides">Guides &amp; Notes</Link> &gt; <span>{note.title}</span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Guides', href: '/guides' },
+          { label: note.title },
+        ]}
+        style={{ marginBottom: '16px' }}
+      />
 
       <div
         className="note-rendered-content"
