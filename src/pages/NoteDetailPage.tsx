@@ -701,6 +701,55 @@ const NOTE_VISUAL_MODULES: Record<string, React.ReactNode> = {
   )
 };
 
+/**
+ * Helper function: extractGuideMetadata
+ * Extracts meta title and description fields from markdown frontmatter (YAML block)
+ * or falls back to note object metadata or HTML heading/lead elements.
+ */
+const extractGuideMetadata = (note: { title?: string; description?: string; content?: string }) => {
+  let metaTitle = note.title || '';
+  let metaDescription = note.description || '';
+
+  if (note.content) {
+    const rawContent = note.content;
+
+    // 1. Check for YAML frontmatter block: --- title: "..." description: "..." ---
+    const frontmatterMatch = rawContent.match(/^---\s*[\r\n]+([\s\S]*?)[\r\n]+---/);
+    if (frontmatterMatch) {
+      const yamlBlock = frontmatterMatch[1];
+      const titleMatch = yamlBlock.match(/title:\s*["']?([^"'\r\n]+)["']?/i);
+      const descMatch = yamlBlock.match(/description:\s*["']?([^"'\r\n]+)["']?/i);
+
+      if (titleMatch?.[1]) {
+        metaTitle = titleMatch[1].trim();
+      }
+      if (descMatch?.[1]) {
+        metaDescription = descMatch[1].trim();
+      }
+    }
+
+    // 2. Fallback to <h1> / <p class="lead"> HTML elements if missing
+    if (!metaTitle) {
+      const h1Match = rawContent.match(/<h1[^>]*>(.*?)<\/h1>/i);
+      if (h1Match?.[1]) {
+        metaTitle = h1Match[1].replace(/<[^>]+>/g, '').trim();
+      }
+    }
+
+    if (!metaDescription) {
+      const leadMatch = rawContent.match(/<p\s+class=["']lead["'][^>]*>(.*?)<\/p>/i);
+      if (leadMatch?.[1]) {
+        metaDescription = leadMatch[1].replace(/<[^>]+>/g, '').trim();
+      }
+    }
+  }
+
+  return {
+    title: metaTitle,
+    description: metaDescription
+  };
+};
+
 export const NoteDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
 
@@ -719,14 +768,21 @@ export const NoteDetailPage: React.FC = () => {
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : `https://jawed.co.in/notes/${note.slug}`;
 
+  // Automatically extract meta title and description from markdown frontmatter or fallback fields
+  const guideMetadata = extractGuideMetadata(note);
+
+  // Strip frontmatter header block from HTML content prior to rendering
+  const cleanHtmlContent = note.content ? note.content.replace(/^---\s*[\r\n]+[\s\S]*?[\r\n]+---\s*/, '') : '';
+
   // Retrieve injected visual module from automated mapping object
   const visualModule = slug ? NOTE_VISUAL_MODULES[slug] : null;
 
   return (
     <main className="container page">
+      {/* Dynamically set head tags (title, description, OpenGraph, Twitter cards, canonical link) */}
       <SeoHead
-        title={note.title}
-        description={note.description}
+        title={guideMetadata.title}
+        description={guideMetadata.description}
         canonicalUrl={shareUrl}
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
@@ -734,13 +790,13 @@ export const NoteDetailPage: React.FC = () => {
           items={[
             { label: 'Home', href: '/' },
             { label: 'Guides', href: '/guides' },
-            { label: note.title },
+            { label: guideMetadata.title },
           ]}
           style={{ marginBottom: 0 }}
         />
         <SocialShareBar
-          title={note.title}
-          text={note.description}
+          title={guideMetadata.title}
+          text={guideMetadata.description}
           url={shareUrl}
         />
       </div>
@@ -749,7 +805,7 @@ export const NoteDetailPage: React.FC = () => {
       <article className="quick-note-article card" style={{ padding: '32px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}>
         <div
           className="note-rendered-content"
-          dangerouslySetInnerHTML={{ __html: note.content }}
+          dangerouslySetInnerHTML={{ __html: cleanHtmlContent }}
         />
 
         {/* Injected Automated Visual Modules */}
@@ -770,8 +826,8 @@ export const NoteDetailPage: React.FC = () => {
           </Link>
         </div>
         <SocialShareBar
-          title={note.title}
-          text={note.description}
+          title={guideMetadata.title}
+          text={guideMetadata.description}
           url={shareUrl}
         />
       </div>
