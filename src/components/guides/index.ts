@@ -7,6 +7,7 @@ import { CalloutBlock } from './CalloutBlock';
 import { InteractiveChecklist } from './InteractiveChecklist';
 import { WorkflowDiagram } from './WorkflowDiagram';
 import { MacOSRecoveryGuide } from './MacOSRecoveryGuide';
+import { MacOSRecoveryFieldGuide } from './MacOSRecoveryFieldGuide';
 
 // Export primary component names
 export {
@@ -18,7 +19,8 @@ export {
   CalloutBlock,
   InteractiveChecklist,
   WorkflowDiagram,
-  MacOSRecoveryGuide
+  MacOSRecoveryGuide,
+  MacOSRecoveryFieldGuide
 };
 
 // Export exact requested aliases for developer ergonomics and route template imports

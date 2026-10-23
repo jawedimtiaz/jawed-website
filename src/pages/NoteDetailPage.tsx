@@ -7,6 +7,7 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { SeoHead } from '../components/SeoHead';
 import { calculateReadTime } from '../utils/readTimeHelper';
+import { useSeoMetadata } from '../hooks/useSeoMetadata';
 
 // Visual Guide Interactive Components
 import {
@@ -722,13 +723,12 @@ const extractGuideMetadata = (note: { title?: string; description?: string; cont
     const rawContent = note.content;
 
     // 1. Check for YAML frontmatter block: --- title: "..." description: "..." ---
-    const frontmatterMatch = rawContent.match(/^---\s*[\r\n]+([\s\S]*?)[\r\n]+---/) ||
-                             rawContent.match(/---\s*[\r\n]+([\s\S]*?)[\r\n]+---/);
+    const frontmatterMatch = rawContent.match(/^\s*---\s*[\r\n]+([\s\S]*?)[\r\n]+---/);
 
     if (frontmatterMatch) {
       const yamlBlock = frontmatterMatch[1];
-      const titleMatch = yamlBlock.match(/^title:\s*(?:"([^"]+)"|'([^']+)'|([^\r\n]+))/m);
-      const descMatch = yamlBlock.match(/^description:\s*(?:"([^"]+)"|'([^']+)'|([^\r\n]+))/m);
+      const titleMatch = yamlBlock.match(/^(?:title|Title):\s*(?:"([^"]+)"|'([^']+)'|([^\r\n]+))/m);
+      const descMatch = yamlBlock.match(/^(?:description|Description):\s*(?:"([^"]+)"|'([^']+)'|([^\r\n]+))/m);
 
       if (titleMatch) {
         const extractedTitle = (titleMatch[1] || titleMatch[2] || titleMatch[3] || '').trim();
@@ -783,25 +783,8 @@ export const NoteDetailPage: React.FC = () => {
   // Automatically extract meta title and description from markdown frontmatter or fallback fields
   const guideMetadata = extractGuideMetadata(note);
 
-  // Dynamically update document.title and <meta name="description" /> in document head
-  React.useEffect(() => {
-    if (guideMetadata.title) {
-      const fullTitle = guideMetadata.title.includes('Jawed Imtiaz')
-        ? guideMetadata.title
-        : `${guideMetadata.title} | Jawed Imtiaz`;
-      document.title = fullTitle;
-    }
-
-    if (guideMetadata.description) {
-      let metaDesc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-      if (!metaDesc) {
-        metaDesc = document.createElement('meta');
-        metaDesc.setAttribute('name', 'description');
-        document.head.appendChild(metaDesc);
-      }
-      metaDesc.setAttribute('content', guideMetadata.description);
-    }
-  }, [guideMetadata.title, guideMetadata.description]);
+  // Dynamically update document.title and <meta name="description" /> via custom hook with unmount cleanup
+  useSeoMetadata(guideMetadata, slug);
 
   // Strip frontmatter header block from HTML content prior to rendering
   const cleanHtmlContent = note.content ? note.content.replace(/^---\s*[\r\n]+[\s\S]*?[\r\n]+---\s*/, '') : '';
