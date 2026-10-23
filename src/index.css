@@ -2517,3 +2517,31 @@ select:focus-visible {
 .note-rendered-content li strong {
   color: var(--text-heading);
 }
+
+/* Mobile header layout: keep the brand and menu on row one, search on row two. */
+@media (max-width: 768px) {
+  .header-inner {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding-block: 10px;
+  }
+
+  .site-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .site-title {
+    min-width: 0;
+  }
+
+  .header-search-slot {
+    order: 3;
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .site-nav {
+    top: calc(100% + 8px);
+  }
+}
