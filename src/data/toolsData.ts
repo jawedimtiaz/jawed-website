@@ -184,6 +184,13 @@ export const TOOLS: ToolItem[] = [
     route: '/tools/resume-bullet-strength-checker',
   },
   {
+    id: 'it-resume-bullet-builder',
+    name: 'IT Resume Bullet Builder',
+    description: 'Turn enterprise IT field, sysadmin, and support experience into metric-driven, ATS-friendly resume bullets.',
+    category: 'career',
+    route: '/tools/it-resume-bullet-builder',
+  },
+  {
     id: 'interview-planner',
     name: 'Interview Preparation Planner',
     description: 'Prepare behavioral STAR stories and reverse-interview questions for IT roles.',

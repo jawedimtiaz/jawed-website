@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IT Resume Bullet Builder – Free Browser Tool</title>
+<meta name="description" content="Turn IT work (help desk, field tech, network, sysadmin, cloud, security) into strong, ATS-friendly resume bullets. Runs in your browser; nothing is uploaded.">
+<style>
+:root{--bg:#0f172a;--card:#16213a;--text:#e2e8f0;--muted:#94a3b8;--line:#2a3857;--brand:#38bdf8;--brand2:#818cf8;--good:#34d399;--bad:#f87171;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}
+[data-theme=light]{--bg:#f4f7fb;--card:#fff;--text:#0f172a;--muted:#5b6b86;--line:#dbe3ef;--brand:#0284c7;--brand2:#4f46e5;--good:#059669;--bad:#dc2626}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+main{max-width:980px;margin:0 auto;padding:20px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{font-size:clamp(26px,5vw,38px);margin:.3em 0 .1em;background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{margin-top:1.6em}.lead,.muted{color:var(--muted)}.muted{font-size:14px}
+button,select,input,textarea{font:inherit;color:var(--text)}
+button{cursor:pointer;background:transparent;border:1px solid var(--line);border-radius:10px;padding:7px 14px}
+button.on,button.primary{background:linear-gradient(90deg,var(--brand),var(--brand2));border:0;color:#fff;font-weight:600}
+button.primary{padding:11px 22px}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:90px;resize:vertical}label{display:block;font-weight:600;margin:12px 0 4px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chips button{padding:3px 10px;font-size:13px;border-radius:99px}
+.out{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:var(--bg)}
+.out b{color:var(--brand)}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.score{font-weight:700}.ok{color:var(--good)}.no{color:var(--bad)}
+ul{padding-left:20px}.hidden{display:none!important}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none}#toast.on{opacity:1}
+details{border-top:1px solid var(--line);padding:8px 0}summary{cursor:pointer;font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><span class="muted">Free tool · runs in your browser</span><button id="theme" aria-label="Toggle light or dark mode">◐ Theme</button></div>
+<h1>IT Resume Bullet Builder</h1>
+<p class="lead">Turn what you actually did in IT into clear, measurable, ATS-friendly resume bullets, or score a bullet you already wrote. Nothing is uploaded or stored on a server.</p>
+<div class="row"><button data-m="build" class="on">Build bullets</button><button data-m="check">Check a bullet</button><button data-m="saved">Saved (<span id="n">0</span>)</button></div>
+
+<section id="m-build" class="panel">
+  <div class="grid">
+    <div><label for="role">Your role area</label><select id="role"></select>
+      <label for="verb">Action verb</label><input id="verb" placeholder="e.g. Configured"><div class="chips" id="chips"></div></div>
+    <div><label for="task">What did you do?</label><textarea id="task" placeholder="e.g. VLAN segmentation across three office floors"></textarea></div>
+    <div><label for="tools">Tools / technology (optional)</label><input id="tools" placeholder="e.g. Cisco Meraki, Active Directory">
+      <label for="scale">Scale (optional)</label><input id="scale" placeholder="e.g. 250 users across 3 sites"></div>
+    <div><label for="result">Result (optional, only if true)</label><textarea id="result" placeholder="e.g. reduced network incidents by 35%"></textarea></div>
+  </div>
+  <div class="row"><button class="primary" id="gen">Generate bullets</button><button id="demo">Fill example</button></div>
+  <div id="outs"></div>
+</section>
+
+<section id="m-check" class="panel hidden">
+  <label for="bul">Paste one resume bullet</label><textarea id="bul" placeholder="e.g. Responsible for managing user accounts in Active Directory"></textarea>
+  <div class="row"><button class="primary" id="chk">Score this bullet</button></div><div id="chkOut"></div>
+</section>
+
+<section id="m-saved" class="panel hidden"><div class="row"><button id="copyAll">Copy all</button><button id="clear">Clear all</button></div><div id="savedList"></div></section>
+
+<h2>How to write strong IT resume bullets</h2>
+<p>Recruiters and applicant tracking systems (ATS) scan IT resumes for three things: <b>what you did</b>, <b>which technology you used</b>, and <b>what changed because of it</b>. A bullet that covers all three is far more useful than a list of duties.</p>
+<p><b>The formula:</b> Action verb + task + tools + scale + result. Example: <i>Configured VLAN segmentation on Cisco Meraki switches for 250 users across 3 sites, reducing network incidents by 35%.</i></p>
+<ul>
+<li><b>Start with a specific past-tense verb.</b> "Deployed", "Diagnosed" and "Migrated" say more than "Responsible for".</li>
+<li><b>Name the technology.</b> ATS filters match tools such as Active Directory, VMware, Intune or Cisco exactly, so use the same spelling as the job posting.</li>
+<li><b>Add numbers you can verify.</b> Users supported, devices managed, tickets closed, uptime, minutes saved, sites covered.</li>
+<li><b>Keep it to one or two lines.</b> Aim for 8–28 words.</li>
+<li><b>Never invent results.</b> If you do not have a number, leave it out or write what you can honestly support. This tool marks missing information as "Not Provided" instead of guessing.</li>
+</ul>
+<h2>Before and after</h2>
+<ul>
+<li><span class="no">Before:</span> Responsible for fixing printers and helping users with laptops.</li>
+<li><span class="ok">After:</span> Diagnosed and repaired laptops and network printers for 120 staff, keeping first-day resolution at [your verified figure].</li>
+<li><span class="no">Before:</span> Worked on server backups.</li>
+<li><span class="ok">After:</span> Automated nightly Veeam backups for 14 Windows Server VMs and tested monthly restores.</li>
+</ul>
+<h2>FAQ</h2>
+<details><summary>Does this tool use AI or send my text anywhere?</summary><p>No. It runs entirely in your browser using fixed templates and checks. Your text is not uploaded. Saved bullets stay in your own browser storage.</p></details>
+<details><summary>What if I have no numbers?</summary><p>Use scale instead: number of users, devices, sites or tickets. If even that is unknown, describe the scope honestly, for example "supported a 40-person office".</p></details>
+<details><summary>How many bullets per job?</summary><p>Three to six for recent roles, fewer for older ones. Put the most job-relevant bullet first.</p></details>
+<details><summary>Will this guarantee interviews?</summary><p>No. It helps your resume read clearly to people and ATS software, but hiring decisions depend on many factors outside any tool.</p></details>
+</main>
+<div id="toast" role="status"></div>
+<script>
+//CORE_START
+const ROLES={"Help desk / service desk":["Resolved","Troubleshot","Escalated","Documented","Onboarded","Supported","Triaged","Restored"],"Field technician":["Installed","Deployed","Repaired","Replaced","Cabled","Commissioned","Diagnosed","Upgraded"],"Network engineer":["Configured","Segmented","Migrated","Monitored","Optimized","Secured","Designed","Troubleshot"],"System administrator":["Administered","Automated","Patched","Migrated","Provisioned","Hardened","Maintained","Restored"],"Cloud / DevOps":["Automated","Deployed","Containerized","Orchestrated","Provisioned","Monitored","Reduced","Scaled"],"Security":["Hardened","Investigated","Audited","Remediated","Monitored","Implemented","Detected","Enforced"]};
+const STRONG=new Set("resolved troubleshot escalated documented onboarded supported triaged restored installed deployed repaired replaced cabled commissioned diagnosed upgraded configured segmented migrated monitored optimized secured designed administered automated patched provisioned hardened maintained containerized orchestrated reduced scaled investigated audited remediated implemented detected enforced built led managed improved created delivered streamlined trained coordinated analyzed developed launched cut increased".split(" "));
+const TOOLS="windows server,active directory,office 365,microsoft 365,azure,aws,gcp,linux,ubuntu,vmware,hyper-v,cisco,juniper,fortinet,palo alto,meraki,vlan,dns,dhcp,vpn,tcp/ip,bgp,ospf,powershell,python,bash,ansible,terraform,docker,kubernetes,jenkins,git,servicenow,jira,zendesk,intune,sccm,okta,splunk,wireshark,nagios,zabbix,veeam,sql,raid,voip,sd-wan,firewall,siem,ticketing,exchange,sharepoint,gpo,mdm".split(",");
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const TOOLRX=new RegExp("(^|[^a-z0-9])("+TOOLS.map(t=>t.replace(/[.*+?^${}()|[\]\\\/]/g,"\\$&")).join("|")+")([^a-z0-9]|$)","i");
+const WEAKRX=/\b(responsible for|worked on|helped( with| to)?|assisted with|duties included|handled|involved in)\b/i;
+function build(f){const v=cap(f.verb.trim()),task=f.task.trim().replace(/[.]+$/,"");if(!v||!task)return null;
+  const tools=f.tools.trim(),scale=f.scale.trim(),res=f.result.trim().replace(/[.]+$/,""),NP="[add a measurable result you can verify — Not Provided]";
+  const t=tools?" using "+tools:"",s=scale?" for "+scale:"";
+  return[{n:"Standard",t:`${v} ${task}${t}${s}, ${res?"resulting in "+res:NP}.`},
+    {n:"Impact-first",t:`${cap(res||NP)} — ${v.toLowerCase()} ${task}${t}${s}.`},
+    {n:"Compact (ATS-friendly)",t:`${v} ${task}${tools?" ("+tools+")":""}${scale?"; "+scale:""}${res?"; "+res:""}.`}]}
+function check(b){const w=b.trim().split(/\s+/).filter(Boolean),first=(w[0]||"").toLowerCase().replace(/[^a-z]/g,"");
+  const c=[{ok:STRONG.has(first),l:"Starts with a strong action verb",tip:"Open with a specific past-tense verb such as Configured, Resolved or Deployed."},
+   {ok:!WEAKRX.test(b)&&!/\b(I|my|me)\b/.test(b),l:"No weak phrases or first person",tip:"Replace 'responsible for', 'worked on', 'helped with' and I/my with what you actually did."},
+   {ok:/\d/.test(b),l:"Includes a number",tip:"Add a count, percentage, time or scale you can verify (users, devices, sites, tickets)."},
+   {ok:TOOLRX.test(b),l:"Names a tool or technology",tip:"Mention the system or tool (e.g. Active Directory, Cisco, VMware) so ATS can match it."},
+   {ok:w.length>=8&&w.length<=28,l:"8–28 words",tip:w.length<8?"Add context: what, with which tool, and the outcome.":"Trim to one clear line."}];
+  return{score:c.filter(x=>x.ok).length*20,items:c}}
+//CORE_END
+const $=s=>document.querySelector(s);
+const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),1500)}
+function setTheme(t){document.documentElement.dataset.theme=t;store.set("rb_theme",t)}
+setTheme(store.get("rb_theme",matchMedia("(prefers-color-scheme:light)").matches?"light":"dark"));
+$("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-m]").forEach(x=>x.classList.toggle("on",x===b));["build","check","saved"].forEach(m=>$("#m-"+m).classList.toggle("hidden",m!==b.dataset.m));if(b.dataset.m==="saved")renderSaved()});
+$("#role").innerHTML=Object.keys(ROLES).map(r=>`<option>${esc(r)}</option>`).join("");
+function chips(){$("#chips").innerHTML=ROLES[$("#role").value].map(v=>`<button type="button" data-v="${v}">${v}</button>`).join("")}
+$("#role").onchange=chips;chips();
+$("#chips").onclick=e=>{const b=e.target.closest("button[data-v]");if(b)$("#verb").value=b.dataset.v};
+$("#demo").onclick=()=>{$("#role").value="Network engineer";chips();$("#verb").value="Configured";$("#task").value="VLAN segmentation across three office floors";$("#tools").value="Cisco Meraki, Active Directory";$("#scale").value="250 users across 3 sites";$("#result").value="reduced network incidents by 35%"};
+const copy=async t=>{try{await navigator.clipboard.writeText(t)}catch{const x=document.createElement("textarea");x.value=t;document.body.append(x);x.select();document.execCommand("copy");x.remove()}toast("Copied")};
+function scoreHtml(r){return `<div class="score">Quality: ${r.score}/100</div><ul>${r.items.map(i=>`<li class="${i.ok?"ok":"no"}">${i.ok?"✓":"✗"} ${esc(i.l)}${i.ok?"":` <span class="muted">— ${esc(i.tip)}</span>`}</li>`).join("")}</ul>`}
+$("#gen").onclick=()=>{const f={verb:$("#verb").value,task:$("#task").value,tools:$("#tools").value,scale:$("#scale").value,result:$("#result").value},o=build(f);
+  if(!o){$("#outs").innerHTML='<p class="no">Enter at least an action verb and what you did.</p>';return}
+  $("#outs").innerHTML=o.map((x,i)=>`<div class="out"><b>${esc(x.n)}</b><p class="bt">${esc(x.t)}</p><div class="muted">Quality ${check(x.t).score}/100</div><div class="row"><button data-c="${i}">Copy</button><button data-s="${i}">Save</button></div></div>`).join("")+'<p class="muted">Fill any [bracketed] part only with facts that are true.</p>'};
+$("#outs").onclick=e=>{const b=e.target.closest("button");if(!b)return;const t=b.closest(".out").querySelector(".bt").textContent;
+  if(b.dataset.c!=null)copy(t);if(b.dataset.s!=null){const s=store.get("rb_saved",[]);s.unshift(t);store.set("rb_saved",s.slice(0,50));count();toast("Saved")}};
+$("#chk").onclick=()=>{const v=$("#bul").value.trim();$("#chkOut").innerHTML=v?scoreHtml(check(v)):'<p class="no">Paste a bullet first.</p>'};
+function count(){$("#n").textContent=store.get("rb_saved",[]).length}
+function renderSaved(){const s=store.get("rb_saved",[]);$("#savedList").innerHTML=s.length?s.map((t,i)=>`<div class="out">${esc(t)}<div class="row"><button data-c="${i}">Copy</button><button data-d="${i}">Delete</button></div></div>`).join(""):'<p class="muted">No saved bullets yet.</p>'}
+$("#savedList").onclick=e=>{const b=e.target.closest("button");if(!b)return;const s=store.get("rb_saved",[]);if(b.dataset.c!=null)copy(s[b.dataset.c]);if(b.dataset.d!=null){s.splice(+b.dataset.d,1);store.set("rb_saved",s);count();renderSaved()}};
+$("#copyAll").onclick=()=>copy(store.get("rb_saved",[]).map(t=>"• "+t).join("\n"));
+$("#clear").onclick=()=>{store.set("rb_saved",[]);count();renderSaved()};
+count();
+</script>
+</body>
+</html>
