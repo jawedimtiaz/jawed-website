@@ -874,7 +874,7 @@ export const FieldGuideDetailPage: React.FC = () => {
       <SeoHead
         title={guide.title}
         description={guide.description}
-        canonicalUrl={currentUrl}
+        canonicalUrl={`https://jawed.co.in/field-guides/${guide.slug}`}
       />
 
       {/* Breadcrumbs */}
