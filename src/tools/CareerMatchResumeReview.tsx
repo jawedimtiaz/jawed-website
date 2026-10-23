@@ -68,6 +68,25 @@ function resumeYears(t: string) {
   return { stated, est, years: stated != null ? stated : est, src: stated != null ? "stated in resume" : est != null ? "estimated from date ranges" : null };
 }
 
+function weakLines(resume: string): { original: string; why: string; better: string }[] {
+  return resume.split(/\r?\n/).flatMap(raw => {
+    const bullet = /^\s*[•\-–*·▪●]/.test(raw);
+    const original = raw.replace(/^[\s•\-–*·▪●]+/, "").trim();
+    if (original.length < 25 || original.split(/\s+/).length > 40) return [];
+    const passive = WEAK.test(original);
+    if (!passive && !(bullet && !/\d/.test(original))) return [];
+    return [{
+      original,
+      why: passive
+        ? "Starts with a passive phrase that can hide the action you took."
+        : "This bullet has no measurable result. Add a number only if you can verify it.",
+      better: passive
+        ? "Rewrite with the specific action you personally took; add a verified outcome if available."
+        : "Keep the claim factual and add a verified scale, time, percentage, or outcome if you have one."
+    }];
+  }).slice(0, 5);
+}
+
 interface AnalysisResult {
   title: string | null;
   company: string | null;
@@ -176,13 +195,7 @@ export const CareerMatchResumeReview: React.FC = () => {
     if (!/\+?\d[\d\s().-]{8,}\d/.test(r)) tips.push("Phone: Not Provided — add a phone number.");
     tips.push("Submit a .docx or text-based PDF; avoid scanned images.");
 
-    const weakSample = [
-      {
-        original: "Responsible for IT support and resolving tickets.",
-        why: "Starts with a passive phrase that hides what you actually did.",
-        better: "Diagnosed desktop and network issues, documented checks and confirmed task validation."
-      }
-    ];
+    const weak = weakLines(r);
 
     const summary = `Professional with ${have.years != null ? have.years + " years of experience" : "relevant experience"} and hands-on skills in ${matching.slice(0, 5).map(pretty).join(", ") || "IT support"}. Targeting ${title}.`;
 
@@ -211,7 +224,7 @@ export const CareerMatchResumeReview: React.FC = () => {
       need,
       have,
       tips,
-      weak: weakSample,
+      weak,
       summary,
       cover,
       questions,
@@ -439,6 +452,43 @@ export const CareerMatchResumeReview: React.FC = () => {
                   <h3>Draft Cover Letter</h3>
                   <pre className="tool-output" style={{ fontSize: '13px' }}>{analysis.cover}</pre>
                 </div>
+              </div>
+
+              <div className="notice" role="note" style={{ marginTop: '18px' }}>
+                <strong>How to read this score:</strong> This is a text-based estimate of detected skill and keyword overlap, not an ATS result or a prediction of hiring outcomes. Review the source text and correct any missed or incorrectly detected terms.
+              </div>
+
+              <div className="grid2" style={{ marginTop: '18px' }}>
+                <section className="panel">
+                  <h3>Experience comparison</h3>
+                  <p>Job asks for: <strong>{analysis.need != null ? `${analysis.need}+ years` : 'Not detected'}</strong></p>
+                  <p>Resume shows: <strong>{analysis.have.years != null ? `${analysis.have.years} years` : 'Not detected'}</strong></p>
+                  <p>Experience match: <strong>{analysis.sExp != null ? `${analysis.sExp}%` : 'Not scored'}</strong></p>
+                  <p className="muted">Date ranges and stated experience are estimated from text and may need manual correction.</p>
+                  <h3 style={{ marginTop: '16px' }}>Job keywords to review</h3>
+                  {analysis.kMiss.length ? (
+                    <ul>{analysis.kMiss.slice(0, 12).map((k, i) => <li key={i}>{k.word}{k.count > 1 ? ` (mentioned ${k.count} times)` : ''}</li>)}</ul>
+                  ) : <p className="muted">No missing terms detected in the selected keyword sample.</p>}
+                </section>
+                <section className="panel">
+                  <h3>Resume improvement checklist</h3>
+                  {analysis.tips.length ? <ul>{analysis.tips.map((tip, i) => <li key={i}>{tip}</li>)}</ul> : <p className="muted">No automatic checklist items detected. Review the resume manually.</p>}
+                  <h3 style={{ marginTop: '16px' }}>Bullet points to review</h3>
+                  {analysis.weak.length ? analysis.weak.map((item, i) => (
+                    <div key={i} style={{ marginBottom: '12px' }}>
+                      <p><strong>Current:</strong> {item.original}</p>
+                      <p className="muted">{item.why}</p>
+                      <p><strong>Suggestion:</strong> {item.better}</p>
+                    </div>
+                  )) : <p className="muted">No likely weak bullets detected automatically. Check that each bullet describes your own action and uses only verifiable results.</p>}
+                </section>
+              </div>
+
+              <div className="panel" style={{ marginTop: '18px' }}>
+                <h3>Skill-gap learning suggestions</h3>
+                {analysis.gaps.length ? (
+                  <ul>{analysis.gaps.slice(0, 10).map((gap, i) => <li key={i}><strong>{gap.skill}</strong> — {gap.tip}</li>)}</ul>
+                ) : <p className="muted">No skill gaps were detected from the built-in skill list. This does not mean every job requirement is covered.</p>}
               </div>
 
               <div className="panel" style={{ marginTop: '18px' }}>
