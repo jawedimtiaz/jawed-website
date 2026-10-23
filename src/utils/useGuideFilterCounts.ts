@@ -53,7 +53,8 @@ export function useGuideFilterCounts({
   const indexedGuides: SearchableGuide[] = useMemo(() => {
     return guides.map(guide => {
       const resolvedCategory = determineCategory(guide);
-      const searchString = `${guide.title} ${guide.description} ${resolvedCategory} ${guide.keywords.join(' ')}`.toLowerCase();
+      const cleanContent = guide.contentHtml ? guide.contentHtml.replace(/<[^>]+>/g, ' ') : '';
+      const searchString = `${guide.title} ${guide.description} ${resolvedCategory} ${guide.keywords.join(' ')} ${guide.slug || ''} ${cleanContent}`.toLowerCase();
       return {
         ...guide,
         resolvedCategory,
@@ -66,7 +67,8 @@ export function useGuideFilterCounts({
   const indexedNotes: SearchableNote[] = useMemo(() => {
     return notes.map(note => {
       const resolvedCategory = determineCategory(note);
-      const searchString = `${note.title} ${note.description} ${resolvedCategory}`.toLowerCase();
+      const cleanContent = note.content ? note.content.replace(/<[^>]+>/g, ' ') : '';
+      const searchString = `${note.title} ${note.description} ${resolvedCategory} ${note.slug || ''} ${cleanContent}`.toLowerCase();
       return {
         ...note,
         resolvedCategory,

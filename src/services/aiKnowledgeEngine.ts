@@ -1,4 +1,5 @@
 import rawKnowledge from '../data/aiKnowledge.json';
+import { GUIDE_SEARCH_INDEX } from '../pages/NotesListPage';
 
 export interface KnowledgeEntry {
   url: string;
@@ -52,9 +53,27 @@ const STOP_WORDS = new Set([
 
 const rawEntries: KnowledgeEntry[] = (rawKnowledge as any).entries || [];
 
-// Use aiKnowledge.json as the single source of truth for public summaries
-// and searchable terms. This avoids silently overriding editorial content here.
-const entries: KnowledgeEntry[] = rawEntries;
+// Dynamically convert GUIDE_SEARCH_INDEX from NotesListPage into KnowledgeEntry objects
+const guideKnowledgeEntries: KnowledgeEntry[] = (GUIDE_SEARCH_INDEX.items || []).map(item => ({
+  url: item.url,
+  title: item.title,
+  summary: item.description,
+  keywords: item.keywords
+}));
+
+// Combine static aiKnowledge.json entries with dynamic GUIDE_SEARCH_INDEX items (de-duplicating by URL)
+const urlSet = new Set<string>();
+const combinedEntries: KnowledgeEntry[] = [];
+
+[...rawEntries, ...guideKnowledgeEntries].forEach(entry => {
+  const normUrl = entry.url.replace(/\/+$/, '');
+  if (!urlSet.has(normUrl)) {
+    urlSet.add(normUrl);
+    combinedEntries.push(entry);
+  }
+});
+
+const entries: KnowledgeEntry[] = combinedEntries;
 
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

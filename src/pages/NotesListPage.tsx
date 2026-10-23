@@ -6,6 +6,7 @@ import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { CATEGORIES, type NoteCategory, type BaseCategory, determineCategory } from '../utils/categoryHelper';
 import { useGuideFilterCounts } from '../utils/useGuideFilterCounts';
+import { calculateReadTime } from '../utils/readTimeHelper';
 
 export { CATEGORIES, type NoteCategory };
 
@@ -27,6 +28,140 @@ export interface SearchableNote extends NoteItem {
   searchString: string;
 }
 
+export interface IndexedGuideItem {
+  slug: string;
+  url: string;
+  title: string;
+  description: string;
+  category: string;
+  type: 'field-guide' | 'quick-note';
+  keywords: string[];
+  searchContent: string;
+  readTime?: string;
+  author?: string;
+}
+
+export interface GuideSearchIndex {
+  items: IndexedGuideItem[];
+  bySlug: Record<string, IndexedGuideItem>;
+  byCategory: Record<string, IndexedGuideItem[]>;
+  totalCount: number;
+}
+
+/**
+ * Indexing function: generateGuideSearchIndex
+ * Generates a unified, structured searchable data object from all field guides and quick notes,
+ * indexed by slug, category, and tokenized search content for consumption by the global header search.
+ */
+export const generateGuideSearchIndex = (
+  guides: typeof FIELD_GUIDES,
+  notes: NoteItem[]
+): GuideSearchIndex => {
+  const items: IndexedGuideItem[] = [];
+  const bySlug: Record<string, IndexedGuideItem> = {};
+  const byCategory: Record<string, IndexedGuideItem[]> = {};
+
+  // Index Featured Field Guides
+  guides.forEach(guide => {
+    const category = guide.category || determineCategory(guide);
+    const tocText = guide.toc ? guide.toc.map(t => t.text).join(' ') : '';
+    const cleanContent = guide.contentHtml ? guide.contentHtml.replace(/<[^>]+>/g, ' ') : '';
+
+    const keywords = Array.from(
+      new Set(
+        `${guide.title} ${guide.description} ${tocText}`
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length > 2)
+      )
+    );
+
+    const indexedItem: IndexedGuideItem = {
+      slug: guide.slug,
+      url: `/field-guides/${guide.slug}`,
+      title: guide.title,
+      description: guide.description,
+      category,
+      type: 'field-guide',
+      keywords,
+      searchContent: `${guide.title} ${guide.description} ${category} ${tocText} ${cleanContent}`.toLowerCase(),
+      readTime: guide.readTime || calculateReadTime(guide.contentHtml || guide.description),
+      author: guide.author || 'Jawed Imtiaz'
+    };
+
+    items.push(indexedItem);
+    bySlug[guide.slug] = indexedItem;
+
+    if (!byCategory[category]) {
+      byCategory[category] = [];
+    }
+    byCategory[category].push(indexedItem);
+  });
+
+  // Index Quick Notes
+  notes.forEach(note => {
+    const category = note.category || 'Service Desk & ITSM';
+    const cleanContent = note.content ? note.content.replace(/<[^>]+>/g, ' ') : '';
+
+    const keywords = Array.from(
+      new Set(
+        `${note.title} ${note.description}`
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length > 2)
+      )
+    );
+
+    const indexedItem: IndexedGuideItem = {
+      slug: note.slug,
+      url: `/notes/${note.slug}`,
+      title: note.title,
+      description: note.description,
+      category,
+      type: 'quick-note',
+      keywords,
+      searchContent: `${note.title} ${note.description} ${category} ${cleanContent}`.toLowerCase(),
+      readTime: calculateReadTime(note.content || note.description),
+      author: 'Jawed Imtiaz'
+    };
+
+    items.push(indexedItem);
+    bySlug[note.slug] = indexedItem;
+
+    if (!byCategory[category]) {
+      byCategory[category] = [];
+    }
+    byCategory[category].push(indexedItem);
+  });
+
+  return {
+    items,
+    bySlug,
+    byCategory,
+    totalCount: items.length
+  };
+};
+
+/**
+ * Pre-indexed singleton data object generated from all active guides and quick notes.
+ * Accessible for global header search filtering and site-wide search engines.
+ */
+export const GUIDE_SEARCH_INDEX = generateGuideSearchIndex(FIELD_GUIDES, notesData as NoteItem[]);
+
+/**
+ * Global search helper to filter indexed guide objects by multi-term queries.
+ */
+export const searchGuideIndex = (query: string): IndexedGuideItem[] => {
+  if (!query || !query.trim()) return GUIDE_SEARCH_INDEX.items;
+  const terms = query.toLowerCase().trim().split(/\s+/).filter(t => t.length > 0);
+
+  return GUIDE_SEARCH_INDEX.items.filter(item => {
+    return terms.every(term => item.searchContent.includes(term));
+  });
+};
+
 // Memoized individual guide card to prevent re-renders when other items or query state update
 const GuideCard = React.memo<{ guide: SearchableGuide }>(({ guide }) => (
   <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderLeft: '4px solid var(--accent)' }}>
@@ -35,7 +170,9 @@ const GuideCard = React.memo<{ guide: SearchableGuide }>(({ guide }) => (
         <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
           {guide.resolvedCategory}
         </span>
-        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{guide.readTime}</span>
+        <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 500 }}>
+          {guide.readTime || calculateReadTime(guide.contentHtml || guide.description)}
+        </span>
       </div>
 
       <h3 style={{ fontSize: '1.2rem', marginTop: 0, marginBottom: '10px', lineHeight: '1.35' }}>
@@ -69,6 +206,9 @@ const NoteCard = React.memo<{ note: SearchableNote }>(({ note }) => (
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
         <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
           {note.resolvedCategory}
+        </span>
+        <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 500 }}>
+          {calculateReadTime(note.content || note.description)}
         </span>
       </div>
       <h3 style={{ fontSize: '1.05rem', marginTop: 0, marginBottom: '8px' }}>{note.title}</h3>

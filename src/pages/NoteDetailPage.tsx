@@ -6,6 +6,7 @@ import { FieldGuideDetailPage } from './FieldGuideDetailPage';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { SeoHead } from '../components/SeoHead';
+import { calculateReadTime } from '../utils/readTimeHelper';
 
 // Visual Guide Interactive Components
 import {
@@ -703,7 +704,7 @@ const NOTE_VISUAL_MODULES: Record<string, React.ReactNode> = {
 
 /**
  * Helper function: extractGuideMetadata
- * Extracts meta title and description fields from markdown frontmatter (YAML block)
+ * Extracts 'title' and 'description' fields from markdown frontmatter (YAML block)
  * or falls back to note object metadata or HTML heading/lead elements.
  */
 const extractGuideMetadata = (note: { title?: string; description?: string; content?: string }) => {
@@ -714,17 +715,21 @@ const extractGuideMetadata = (note: { title?: string; description?: string; cont
     const rawContent = note.content;
 
     // 1. Check for YAML frontmatter block: --- title: "..." description: "..." ---
-    const frontmatterMatch = rawContent.match(/^---\s*[\r\n]+([\s\S]*?)[\r\n]+---/);
+    const frontmatterMatch = rawContent.match(/^---\s*[\r\n]+([\s\S]*?)[\r\n]+---/) ||
+                             rawContent.match(/---\s*[\r\n]+([\s\S]*?)[\r\n]+---/);
+
     if (frontmatterMatch) {
       const yamlBlock = frontmatterMatch[1];
-      const titleMatch = yamlBlock.match(/title:\s*["']?([^"'\r\n]+)["']?/i);
-      const descMatch = yamlBlock.match(/description:\s*["']?([^"'\r\n]+)["']?/i);
+      const titleMatch = yamlBlock.match(/^title:\s*(?:"([^"]+)"|'([^']+)'|([^\r\n]+))/m);
+      const descMatch = yamlBlock.match(/^description:\s*(?:"([^"]+)"|'([^']+)'|([^\r\n]+))/m);
 
-      if (titleMatch?.[1]) {
-        metaTitle = titleMatch[1].trim();
+      if (titleMatch) {
+        const extractedTitle = (titleMatch[1] || titleMatch[2] || titleMatch[3] || '').trim();
+        if (extractedTitle) metaTitle = extractedTitle;
       }
-      if (descMatch?.[1]) {
-        metaDescription = descMatch[1].trim();
+      if (descMatch) {
+        const extractedDesc = (descMatch[1] || descMatch[2] || descMatch[3] || '').trim();
+        if (extractedDesc) metaDescription = extractedDesc;
       }
     }
 
@@ -771,6 +776,26 @@ export const NoteDetailPage: React.FC = () => {
   // Automatically extract meta title and description from markdown frontmatter or fallback fields
   const guideMetadata = extractGuideMetadata(note);
 
+  // Dynamically update document.title and <meta name="description" /> in document head
+  React.useEffect(() => {
+    if (guideMetadata.title) {
+      const fullTitle = guideMetadata.title.includes('Jawed Imtiaz')
+        ? guideMetadata.title
+        : `${guideMetadata.title} | Jawed Imtiaz`;
+      document.title = fullTitle;
+    }
+
+    if (guideMetadata.description) {
+      let metaDesc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement('meta');
+        metaDesc.setAttribute('name', 'description');
+        document.head.appendChild(metaDesc);
+      }
+      metaDesc.setAttribute('content', guideMetadata.description);
+    }
+  }, [guideMetadata.title, guideMetadata.description]);
+
   // Strip frontmatter header block from HTML content prior to rendering
   const cleanHtmlContent = note.content ? note.content.replace(/^---\s*[\r\n]+[\s\S]*?[\r\n]+---\s*/, '') : '';
 
@@ -799,6 +824,17 @@ export const NoteDetailPage: React.FC = () => {
           text={guideMetadata.description}
           url={shareUrl}
         />
+      </div>
+
+      {/* Note Metadata Bar */}
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)', fontWeight: 600, fontSize: '0.8rem' }}>
+          {note.category || 'Quick Note'}
+        </span>
+        <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
+        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>
+          {calculateReadTime(cleanHtmlContent || note.description)}
+        </span>
       </div>
 
       {/* Rendered Note Content */}

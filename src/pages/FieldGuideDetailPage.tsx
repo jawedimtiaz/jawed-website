@@ -6,6 +6,7 @@ import { SeoHead } from '../components/SeoHead';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { Image } from '../components/Image';
+import { calculateReadTime } from '../utils/readTimeHelper';
 
 // Reusable Visual Guide Components & Aliases
 import {
@@ -888,7 +889,9 @@ export const FieldGuideDetailPage: React.FC = () => {
               {guide.category || determineCategory(guide)}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{guide.readTime}</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>
+              {guide.readTime || calculateReadTime(guide.contentHtml || guide.description)}
+            </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Published {guide.publishedDate}</span>
             {guide.updatedDate && guide.updatedDate !== guide.publishedDate && (
