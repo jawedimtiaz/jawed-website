@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const RetirementPlanningCalculator: React.FC = () => {
   const [age, setAge] = useState<number>(45);
@@ -82,7 +82,7 @@ export const RetirementPlanningCalculator: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <ShareButton
+        <SocialShareBar
           title="Retirement Planning Calculator"
           text="Determine required retirement corpus and ongoing contributions needed to retire comfortably."
         />

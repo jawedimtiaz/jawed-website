@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const AiPromptBuilder: React.FC = () => {
   const [role, setRole] = useState('IT Support Specialist');
@@ -47,9 +47,20 @@ ${examples.trim() ? `\n### Examples / Additional Guidance:\n${examples}` : ''}
   return (
     <div className="page">
       <div className="container">
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>AI Prompt Builder</span>
-        </nav>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Tools', href: '/tools' },
+              { label: 'AI Prompt Builder' },
+            ]}
+            style={{ marginBottom: 0 }}
+          />
+          <SocialShareBar
+            title="AI Prompt Builder for Workplace Productivity"
+            text="Craft high-precision, context-rich prompts tailored for workplace troubleshooting, knowledge base authoring, and professional correspondence."
+          />
+        </div>
 
         <header className="page-header">
           <h1 className="page-title">AI Prompt Builder for Workplace Productivity</h1>

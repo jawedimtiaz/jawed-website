@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import blogData from '../data/blogData.json';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const BlogPostPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -25,7 +25,7 @@ export const BlogPostPage: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <ShareButton
+        <SocialShareBar
           title={post.title}
           text={post.description}
           url={shareUrl}
@@ -41,7 +41,7 @@ export const BlogPostPage: React.FC = () => {
         <Link className="button button-secondary" to="/blog">
           ← Back to All Blog Posts
         </Link>
-        <ShareButton
+        <SocialShareBar
           title={post.title}
           text={post.description}
           url={shareUrl}

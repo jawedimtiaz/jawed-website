@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const ItTroubleshootingAssistant: React.FC = () => {
   const [category, setCategory] = useState('network');
@@ -104,7 +104,7 @@ ${triage.escalation}
             ]}
             style={{ marginBottom: 0 }}
           />
-          <ShareButton
+          <SocialShareBar
             title="IT Troubleshooting Assistant"
             text="Follow systematic, layer-by-layer diagnostic checklists for network, Apple, and Windows issues."
           />

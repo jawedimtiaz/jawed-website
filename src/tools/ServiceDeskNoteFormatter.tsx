@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const ServiceDeskNoteFormatter: React.FC = () => {
   const [ticketId, setTicketId] = useState('INC-84920');
@@ -51,7 +51,7 @@ ${resolutionOrNextStep}
             ]}
             style={{ marginBottom: 0 }}
           />
-          <ShareButton
+          <SocialShareBar
             title="Service Desk Note Formatter"
             text="Convert scattered notes into clean, audit-ready ITSM ticket updates."
           />

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 interface BulletAnalysis {
   text: string;
@@ -95,9 +97,20 @@ export const ResumeBulletStrengthChecker: React.FC = () => {
   return (
     <div className="page">
       <div className="container">
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>Resume Bullet Strength Checker</span>
-        </nav>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Tools', href: '/tools' },
+              { label: 'Resume Bullet Strength Checker' },
+            ]}
+            style={{ marginBottom: 0 }}
+          />
+          <SocialShareBar
+            title="Resume Bullet Strength Checker"
+            text="Analyze your resume bullet points for action verbs, quantified business impact, and active phrasing."
+          />
+        </div>
 
         <header className="page-header">
           <h1 className="page-title">Resume Bullet Strength Checker</h1>

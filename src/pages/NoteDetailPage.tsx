@@ -4,7 +4,7 @@ import notesData from '../data/notesData.json';
 import { FIELD_GUIDES } from '../data/fieldGuidesData';
 import { FieldGuideDetailPage } from './FieldGuideDetailPage';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const NoteDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -35,7 +35,7 @@ export const NoteDetailPage: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <ShareButton
+        <SocialShareBar
           title={note.title}
           text={note.description}
           url={shareUrl}
@@ -56,7 +56,7 @@ export const NoteDetailPage: React.FC = () => {
             Launch IT Troubleshooting Assistant →
           </Link>
         </div>
-        <ShareButton
+        <SocialShareBar
           title={note.title}
           text={note.description}
           url={shareUrl}

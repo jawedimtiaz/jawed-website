@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const InterviewPreparationPlanner: React.FC = () => {
   const [roleTitle, setRoleTitle] = useState('Senior IT Support Specialist');
@@ -48,9 +50,20 @@ export const InterviewPreparationPlanner: React.FC = () => {
   return (
     <div className="page">
       <div className="container">
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>Interview Preparation Planner</span>
-        </nav>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Tools', href: '/tools' },
+              { label: 'Interview Preparation Planner' },
+            ]}
+            style={{ marginBottom: 0 }}
+          />
+          <SocialShareBar
+            title="Interview Preparation Planner"
+            text="Organize behavioral STAR stories, technical competencies, and high-impact reverse-interview questions."
+          />
+        </div>
 
         <header className="page-header">
           <h1 className="page-title">Interview Preparation Planner</h1>

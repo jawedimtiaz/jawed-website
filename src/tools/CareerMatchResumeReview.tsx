@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 const STOP = new Set("about above after also and any are been but can could does each for from had has have her his how into its may more most must not our out over per should some such than that the their them then there these they this those through too under was were what when where which while who will with within would you your able ability strong excellent good great including include includes required requirements preferred plus work working works role team teams company candidate candidates job years year experience experienced looking join position responsibilities responsible skills skill knowledge understanding across using use used well based need needs like new".split(" "));
 const SKILLS = "python,java,javascript,typescript,c++,c#,golang,rust,ruby,php,swift,kotlin,scala,sql,nosql,mysql,postgresql,mongodb,redis,oracle,html,css,sass,react,angular,vue,next.js,node.js,express,django,flask,fastapi,spring boot,.net,graphql,rest api,microservices,docker,kubernetes,terraform,ansible,jenkins,ci/cd,git,github,gitlab,linux,bash,aws,azure,gcp,cloud computing,devops,agile,scrum,kanban,jira,confluence,tdd,unit testing,selenium,cypress,jest,machine learning,deep learning,nlp,computer vision,tensorflow,pytorch,scikit-learn,pandas,numpy,data analysis,data science,data engineering,data visualization,tableau,power bi,excel,looker,spark,hadoop,kafka,airflow,etl,snowflake,bigquery,statistics,a/b testing,product management,roadmapping,stakeholder management,project management,leadership,mentoring,communication,problem solving,teamwork,collaboration,customer service,sales,negotiation,crm,salesforce,hubspot,seo,sem,content marketing,social media,google analytics,copywriting,email marketing,marketing automation,budgeting,forecasting,financial modeling,accounting,quickbooks,sap,erp,recruiting,onboarding,payroll,compliance,risk management,auditing,figma,sketch,adobe photoshop,ux design,ui design,user research,wireframing,prototyping,accessibility,cybersecurity,penetration testing,siem,networking,api design,system design,react native,flutter,android,ios,mobile development,blockchain,solidity,supply chain,logistics,six sigma,operations management,customer success,technical writing,presentation,analytics,reporting,strategic planning".split(",");
@@ -274,6 +276,20 @@ export const CareerMatchResumeReview: React.FC = () => {
 
   return (
     <main className="container page career-match-root">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools', href: '/tools' },
+            { label: 'Career Match & Resume Review' },
+          ]}
+          style={{ marginBottom: 0 }}
+        />
+        <SocialShareBar
+          title="Career Match & Resume Review"
+          text="Compare your resume with any job description to uncover keyword gaps and keyword alignment."
+        />
+      </div>
       <div className="tool-top">
         <div className="logo">Career Match &amp; Resume Review</div>
         <nav className="tool-nav" role="tablist">

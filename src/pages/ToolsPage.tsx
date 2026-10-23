@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 import {
   TOOLS,
   TOOL_CATEGORIES,
@@ -82,7 +82,7 @@ export const ToolsPage: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <ShareButton
+        <SocialShareBar
           title="IT Tools & Calculators | Jawed Imtiaz"
           text="Free, browser-based utilities for IT service desk workflows, resume optimization, career preparation, and personal finance planning."
           url={typeof window !== 'undefined' ? `${window.location.origin}/tools` : 'https://jawed.co.in/tools'}
@@ -159,13 +159,14 @@ export const ToolsPage: React.FC = () => {
             </div>
             <h3>{tool.name}</h3>
             <p>{tool.description}</p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid var(--line)', flexWrap: 'wrap', gap: '8px' }}>
               <Link to={tool.route} style={{ fontWeight: 600, color: 'var(--accent)' }}>Open Tool →</Link>
-              <ShareButton
+              <SocialShareBar
                 title={tool.name}
                 text={tool.description}
                 url={typeof window !== 'undefined' ? `${window.location.origin}${tool.route}` : `https://jawed.co.in${tool.route}`}
-                style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                size="small"
+                showLabel={false}
               />
             </div>
           </article>

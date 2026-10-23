@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const InflationGoalCalculator: React.FC = () => {
   const [cost, setCost] = useState<number>(1000000);
@@ -39,7 +39,7 @@ export const InflationGoalCalculator: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <ShareButton
+        <SocialShareBar
           title="Inflation & Goal Planning Calculator"
           text="Calculate the true future cost of long-term milestones adjusted for inflation."
         />

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const CompoundGrowthCalculator: React.FC = () => {
   const [initial, setInitial] = useState<number>(100000);
@@ -56,7 +56,7 @@ export const CompoundGrowthCalculator: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <ShareButton
+        <SocialShareBar
           title="Compound Growth & SIP Calculator"
           text="Simulate monthly SIP investments with compound growth and inflation adjustments."
         />

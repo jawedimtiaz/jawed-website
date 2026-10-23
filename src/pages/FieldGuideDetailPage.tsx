@@ -4,7 +4,7 @@ import { FIELD_GUIDES, FieldGuide, determineCategory } from '../data/fieldGuides
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { SeoHead } from '../components/SeoHead';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 import { Image } from '../components/Image';
 
 export const FieldGuideDetailPage: React.FC = () => {
@@ -109,28 +109,12 @@ export const FieldGuideDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Social Share Buttons */}
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500, marginRight: '4px' }}>Share:</span>
-              <ShareButton
-                title={guide.title}
-                text={guide.description}
-                url={currentUrl}
-                style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-              />
-              <button className="button button-secondary" type="button" onClick={shareOnTwitter} style={{ padding: '6px 12px', fontSize: '0.8rem' }} title="Share on Twitter / X">
-                𝕏 Twitter
-              </button>
-              <button className="button button-secondary" type="button" onClick={shareOnLinkedIn} style={{ padding: '6px 12px', fontSize: '0.8rem' }} title="Share on LinkedIn">
-                in LinkedIn
-              </button>
-              <button className="button button-secondary" type="button" onClick={shareByEmail} style={{ padding: '6px 12px', fontSize: '0.8rem' }} title="Share via Email">
-                ✉ Email
-              </button>
-              <button className="button button-secondary" type="button" onClick={handleCopyLink} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                {copied ? '✓ Link Copied!' : '🔗 Copy Link'}
-              </button>
-            </div>
+            {/* Social Share Bar */}
+            <SocialShareBar
+              title={guide.title}
+              text={guide.description}
+              url={currentUrl}
+            />
           </div>
         </header>
 

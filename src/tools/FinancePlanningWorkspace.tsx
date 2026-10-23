@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const FinancePlanningWorkspace: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'snapshot' | 'goals' | 'retirement' | 'review'>('snapshot');
@@ -111,7 +111,7 @@ export const FinancePlanningWorkspace: React.FC = () => {
             ]}
             style={{ marginBottom: 0 }}
           />
-          <ShareButton
+          <SocialShareBar
             title="Finance Planning Workspace"
             text="Integrated multi-tab planner for cash flow, goals, and retirement readiness."
           />

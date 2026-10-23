@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 
 interface DeviceItem {
@@ -135,7 +135,7 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <ShareButton
+        <SocialShareBar
           title="Server Rack Power & BTU Calculator"
           text="Estimate server equipment electrical draw (Watts/Amps), circuit breaker derating, and HVAC BTU/hr cooling load."
         />

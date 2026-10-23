@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { ShareButton } from '../components/ShareButton';
+import { SocialShareBar } from '../components/SocialShareBar';
 
 export const TicketToKbDraft: React.FC = () => {
   const [kbTitle, setKbTitle] = useState('Resolving Teams Camera Initialization Failure on macOS Sonoma');
@@ -56,7 +56,7 @@ ${resolutionSteps}
             ]}
             style={{ marginBottom: 0 }}
           />
-          <ShareButton
+          <SocialShareBar
             title="Ticket to Knowledge Base Draft"
             text="Transform resolved IT tickets into searchable knowledge base articles and SOPs."
           />
