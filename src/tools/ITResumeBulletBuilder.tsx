@@ -178,6 +178,21 @@ export const ITResumeBulletBuilder: React.FC = () => {
     showToast('Copied');
   };
 
+  const handleDownload = () => {
+    if (savedBullets.length === 0) return;
+    const content = savedBullets.map(t => '• ' + t).join('\n\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'bullets.txt';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Downloaded bullets.txt');
+  };
+
   const handleGenerate = () => {
     const outs = buildBullets({ verb, task, tools, scale, result });
     setGeneratedOuts(outs);
@@ -667,6 +682,13 @@ export const ITResumeBulletBuilder: React.FC = () => {
               disabled={savedBullets.length === 0}
             >
               Copy all
+            </button>
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={savedBullets.length === 0}
+            >
+              Download as TXT
             </button>
             <button
               type="button"
