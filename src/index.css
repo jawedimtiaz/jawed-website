@@ -2602,3 +2602,33 @@ select:focus-visible {
   }
 }
 
+
+/* Career Match & Resume Review form and dashboard layout */
+.career-match-root .tool-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:12px 0 24px;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.career-match-root .logo{color:var(--text-heading);font-size:1.1rem;font-weight:750}
+.career-match-root .tool-nav{display:flex;gap:8px;flex-wrap:wrap}
+.career-match-root .tool-nav button{border:1px solid var(--border);border-radius:8px;padding:8px 12px;background:var(--surface);color:var(--text);font:inherit;font-size:.9rem;cursor:pointer}
+.career-match-root .tool-nav button.on{background:var(--surface-accent);border-color:var(--accent);color:var(--accent-dark);font-weight:700}
+.career-match-root .tool-hero{margin:20px 0}
+.career-match-root .tool-hero h1{font-size:clamp(1.8rem,3vw,2.6rem)}
+.career-match-root .notice,.career-match-root .panel{min-width:0;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:16px}
+.career-match-root .notice{margin:14px 0;background:var(--surface-accent)}
+.career-match-root .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.career-match-root .panel label{display:block;margin:0 0 8px;color:var(--text);font-weight:650}
+.career-match-root textarea,.career-match-root input,.career-match-root select{display:block;width:100%;max-width:100%;min-width:0;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font:inherit;line-height:1.5}
+.career-match-root textarea{min-height:220px;resize:vertical}
+.career-match-root .form-error{color:var(--rose);font-weight:600}
+.career-match-root .stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.career-match-root .stat{display:grid;gap:4px;padding:18px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.career-match-root .stat strong{font-size:1.8rem;color:var(--text-heading)}
+.career-match-root .stat span,.career-match-root .muted,.career-match-root .meta{color:var(--text-muted)}
+.career-match-root .pill{display:inline-flex;margin:4px 6px 4px 0;padding:4px 9px;border-radius:999px;font-size:.85rem;background:var(--surface-accent)}
+.career-match-root .pill.g{color:var(--emerald)}.career-match-root .pill.r{color:var(--rose)}
+.career-match-root .tool-output{white-space:pre-wrap;overflow-wrap:anywhere;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font:inherit}
+.career-match-root .board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}
+.career-match-root .col{min-width:0;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.career-match-root .col h4{display:flex;justify-content:space-between;gap:8px;margin:0 0 12px}
+.career-match-root .job,.career-match-root .card{min-width:0;padding:12px;margin:8px 0;border:1px solid var(--border);border-radius:10px;background:var(--bg)}
+.career-match-root .job small{display:block;color:var(--text-muted);overflow-wrap:anywhere}
+@media(max-width:760px){.career-match-root .grid2,.career-match-root .stats-grid{grid-template-columns:minmax(0,1fr)}.career-match-root .board{grid-template-columns:repeat(2,minmax(0,1fr))}.career-match-root .tool-nav{width:100%}.career-match-root .tool-nav button{flex:1 1 auto}}
+@media(max-width:440px){.career-match-root .board{grid-template-columns:minmax(0,1fr)}.career-match-root .panel,.career-match-root .notice{padding:14px}}
