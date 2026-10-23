@@ -135,6 +135,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
 
   // Saved bullets state
   const [savedBullets, setSavedBullets] = useState<string[]>([]);
+  const [savedSearch, setSavedSearch] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -178,6 +179,37 @@ export const ITResumeBulletBuilder: React.FC = () => {
     showToast('Copied');
   };
 
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('text/plain', index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    const dragIndexStr = e.dataTransfer.getData('text/plain');
+    const dragIndex = parseInt(dragIndexStr, 10);
+    if (isNaN(dragIndex) || dragIndex === dropIndex) return;
+
+    const updated = [...savedBullets];
+    const [movedItem] = updated.splice(dragIndex, 1);
+    updated.splice(dropIndex, 0, movedItem);
+    persistSaved(updated);
+    showToast('Reordered');
+  };
+
+  const handleMove = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= savedBullets.length) return;
+    const updated = [...savedBullets];
+    const [item] = updated.splice(index, 1);
+    updated.splice(targetIndex, 0, item);
+    persistSaved(updated);
+    showToast('Reordered');
+  };
+
   const handleDownload = () => {
     if (savedBullets.length === 0) return;
     const content = savedBullets.map(t => '• ' + t).join('\n\n');
@@ -191,6 +223,47 @@ export const ITResumeBulletBuilder: React.FC = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     showToast('Downloaded bullets.txt');
+  };
+
+  const handleDownloadJson = () => {
+    if (savedBullets.length === 0) return;
+    const data = {
+      app: 'IT Resume Bullet Builder',
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      bullets: savedBullets,
+    };
+    const content = JSON.stringify(data, null, 2);
+    const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'bullets.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Downloaded bullets.json');
+  };
+
+  const handleDownloadCsv = () => {
+    if (savedBullets.length === 0) return;
+    const csvRows = ['"Index","Bullet"'];
+    savedBullets.forEach((t, i) => {
+      const escaped = t.replace(/"/g, '""');
+      csvRows.push(`${i + 1},"${escaped}"`);
+    });
+    const content = csvRows.join('\n');
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'bullets.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Downloaded bullets.csv');
   };
 
   const handleGenerate = () => {
@@ -675,7 +748,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
             marginTop: '14px',
           }}
         >
-          <div className="row" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <div className="row" style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => handleCopy(savedBullets.map(t => '• ' + t).join('\n'))}
@@ -692,9 +765,24 @@ export const ITResumeBulletBuilder: React.FC = () => {
             </button>
             <button
               type="button"
+              onClick={handleDownloadJson}
+              disabled={savedBullets.length === 0}
+            >
+              Download as JSON
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadCsv}
+              disabled={savedBullets.length === 0}
+            >
+              Download as CSV
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 if (window.confirm('Clear all saved bullets?')) {
                   persistSaved([]);
+                  setSavedSearch('');
                   showToast('Cleared');
                 }
               }}
@@ -704,50 +792,110 @@ export const ITResumeBulletBuilder: React.FC = () => {
             </button>
           </div>
 
+          {savedBullets.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <input
+                type="text"
+                value={savedSearch}
+                onChange={e => setSavedSearch(e.target.value)}
+                placeholder="Search saved bullets by keyword (e.g. Cisco, Active Directory, Azure)..."
+                style={{
+                  width: '100%',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  color: 'var(--text)',
+                  fontSize: '0.95rem',
+                }}
+              />
+            </div>
+          )}
+
           <div id="savedList">
             {savedBullets.length === 0 ? (
               <p className="muted" style={{ color: 'var(--muted)' }}>
                 No saved bullets yet.
               </p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {savedBullets.map((t, i) => (
-                  <div
-                    key={i}
-                    className="out"
-                    style={{
-                      border: '1px solid var(--line)',
-                      borderRadius: '12px',
-                      padding: '12px',
-                      background: 'var(--bg)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: '12px',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <span style={{ fontFamily: 'monospace', fontSize: '0.95rem', flex: 1 }}>{t}</span>
-                    <div className="row" style={{ display: 'flex', gap: '8px', margin: 0 }}>
-                      <button type="button" onClick={() => handleCopy(t)}>
-                        Copy
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = [...savedBullets];
-                          updated.splice(i, 1);
-                          persistSaved(updated);
-                          showToast('Deleted');
-                        }}
-                      >
-                        Delete
-                      </button>
+            ) : (() => {
+              const filtered = savedBullets
+                .map((t, originalIndex) => ({ t, originalIndex }))
+                .filter(({ t }) => t.toLowerCase().includes(savedSearch.toLowerCase()));
+
+              if (filtered.length === 0) {
+                return (
+                  <p className="muted" style={{ color: 'var(--muted)' }}>
+                    No saved bullets match &quot;{savedSearch}&quot;.
+                  </p>
+                );
+              }
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {filtered.map(({ t, originalIndex }) => (
+                    <div
+                      key={originalIndex}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, originalIndex)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, originalIndex)}
+                      className="out"
+                      style={{
+                        border: '1px solid var(--line)',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        background: 'var(--bg)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '12px',
+                        flexWrap: 'wrap',
+                        cursor: 'grab',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '240px' }}>
+                        <span title="Drag to reorder" style={{ cursor: 'grab', color: 'var(--muted)', userSelect: 'none', fontSize: '1.1rem' }}>⋮⋮</span>
+                        <span style={{ fontFamily: 'monospace', fontSize: '0.95rem' }}>{t}</span>
+                      </div>
+                      <div className="row" style={{ display: 'flex', gap: '6px', margin: 0, alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          title="Move up"
+                          disabled={originalIndex === 0}
+                          onClick={() => handleMove(originalIndex, 'up')}
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          title="Move down"
+                          disabled={originalIndex === savedBullets.length - 1}
+                          onClick={() => handleMove(originalIndex, 'down')}
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                        >
+                          ↓
+                        </button>
+                        <button type="button" onClick={() => handleCopy(t)}>
+                          Copy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...savedBullets];
+                            updated.splice(originalIndex, 1);
+                            persistSaved(updated);
+                            showToast('Deleted');
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </section>
       )}
