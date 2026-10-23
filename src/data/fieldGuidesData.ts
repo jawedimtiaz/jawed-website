@@ -640,5 +640,39 @@ export const FIELD_GUIDES: FieldGuide[] = [
       <h2>4. Peripheral & Continuity Diagnostic Checklist</h2>
       <p>Field checklist for peripheral validation and wireless continuity troubleshooting.</p>
     `
+  },
+  {
+    slug: 'erase-and-reinstall-macos-apple-silicon-intel-field-guide',
+    title: 'How to Erase and Reinstall macOS: Apple Silicon & Intel Recovery Field Guide',
+    description: 'Definitive enterprise IT field guide for erasing and reinstalling macOS on Apple Silicon (M1–M4) and Intel Macs: macOS Recovery boot sequences, APFS Volume Group wipe, Activation Lock unbinding, and Network Recovery triage.',
+    category: 'Apple Devices',
+    readTime: '9 min read',
+    publishedDate: 'October 23, 2026',
+    updatedDate: 'October 23, 2026',
+    author: 'Jawed Imtiaz (IT Field Lead)',
+    keywords: ['macOS Recovery', 'Erase Mac', 'Reinstall macOS', 'Apple Silicon', 'M1 M2 M3 M4', 'Intel Mac', 'Disk Utility', 'APFS Volume Group', 'Activation Lock', 'T2 Security Chip', 'Apple Devices'],
+    toc: [
+      { id: 'recovery-architecture', text: '1. macOS Recovery Architecture: Apple Silicon vs Intel' },
+      { id: '4-option-menu', text: '2. macOS Recovery 4-Option Menu Overview' },
+      { id: 'apfs-volume-group', text: '3. APFS Volume Group & Storage Format Protocol' },
+      { id: '4-step-protocol', text: '4. Step-by-Step Erase & Reinstall Protocol' },
+      { id: 'operational-warnings', text: '5. Critical Field Warnings & Troubleshooting' }
+    ],
+    contentHtml: `
+      <h2>1. macOS Recovery Architecture: Apple Silicon vs Intel</h2>
+      <p>Understanding hardware-level differences between Apple Silicon boot ROM recovery options and Intel EFI startup key sequences.</p>
+
+      <h2>2. macOS Recovery 4-Option Menu Overview</h2>
+      <p>Detailed breakdown of Time Machine Restore, Reinstall macOS, Safari Online Help, and Disk Utility.</p>
+
+      <h2>3. APFS Volume Group & Storage Format Protocol</h2>
+      <p>Signed System Volume (SSV) architecture and how to properly erase Macintosh HD and Macintosh HD - Data volume groups.</p>
+
+      <h2>4. Step-by-Step Erase & Reinstall Protocol</h2>
+      <p>Standard operating procedure for pre-flight backup, iCloud sign-out, disk formatting, and clean OS reinstallation.</p>
+
+      <h2>5. Critical Field Warnings & Troubleshooting</h2>
+      <p>Handling Activation Lock roadblocks, T2 chip firmware passwords, and DFU mode revive options.</p>
+    `
   }
 ];

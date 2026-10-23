@@ -225,14 +225,18 @@ const NoteCard = React.memo<{ note: SearchableNote }>(({ note }) => (
 export const NotesListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'field-guides' | 'notes'>('all');
-  const [activeCategory, setActiveCategory] = useState<NoteCategory>('All');
+  const [categoryFilter, setCategoryFilter] = useState<NoteCategory>('All');
+
+  // Aliases for compatibility
+  const activeCategory = categoryFilter;
+  const setActiveCategory = setCategoryFilter;
 
   const { categoryCounts, filteredGuides, filteredNotes, totalFilteredCount } = useGuideFilterCounts({
     guides: FIELD_GUIDES,
     notes: notesData as NoteItem[],
     searchTerm,
     activeTab,
-    activeCategory,
+    activeCategory: categoryFilter,
   });
 
   return (

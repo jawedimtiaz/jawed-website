@@ -17,7 +17,8 @@ import {
   CopyableCliBlock,
   CalloutBlock,
   InteractiveChecklist,
-  WorkflowDiagram
+  WorkflowDiagram,
+  MacOSRecoveryGuide
 } from '../components/guides';
 
 export const FieldGuideDetailPage: React.FC = () => {
@@ -848,6 +849,13 @@ export const FieldGuideDetailPage: React.FC = () => {
                 }
               ]}
             />
+          </div>
+        );
+
+      case 'erase-and-reinstall-macos-apple-silicon-intel-field-guide':
+        return (
+          <div className="guide-embedded-body">
+            <MacOSRecoveryGuide />
           </div>
         );
 

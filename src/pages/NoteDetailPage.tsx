@@ -17,7 +17,8 @@ import {
   CopyableCliBlock,
   PowerEdgeProLiantLedMatrix,
   ColorCodedRJ45Pinout,
-  InteractiveServerRackElevation
+  InteractiveServerRackElevation,
+  MacOSRecoveryGuide
 } from '../components/guides';
 
 /**
@@ -698,6 +699,12 @@ const NOTE_VISUAL_MODULES: Record<string, React.ReactNode> = {
           ]
         }}
       />
+    </div>
+  ),
+
+  'erase-and-reinstall-macos-apple-silicon-intel-field-guide': (
+    <div style={{ marginTop: '28px' }}>
+      <MacOSRecoveryGuide />
     </div>
   )
 };
