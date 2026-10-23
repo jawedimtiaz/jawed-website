@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export interface ImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'loading' | 'src'> {
+export interface ImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'loading' | 'src' | 'fetchPriority'> {
   /**
    * Primary image source URL (PNG, JPG, SVG, WebP, etc.).
    */
@@ -38,6 +38,10 @@ export interface ImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElemen
    */
   fetchPriority?: 'high' | 'low' | 'auto';
   /**
+   * Lowercase alias for fetchPriority.
+   */
+  fetchpriority?: 'high' | 'low' | 'auto';
+  /**
    * Optional CSS class name applied to the outer <picture> element when rendered.
    */
   pictureClassName?: string;
@@ -69,6 +73,7 @@ export const Image: React.FC<ImageProps> = ({
   loading,
   decoding,
   fetchPriority,
+  fetchpriority,
   width,
   height,
   className,
@@ -86,7 +91,12 @@ export const Image: React.FC<ImageProps> = ({
   // Determine native loading & decoding attributes
   const effectiveLoading: 'lazy' | 'eager' = loading ?? (priority ? 'eager' : 'lazy');
   const effectiveDecoding: 'async' | 'sync' | 'auto' = decoding ?? (priority ? 'sync' : 'async');
-  const effectiveFetchPriority: 'high' | 'low' | 'auto' = fetchPriority ?? (priority ? 'high' : 'auto');
+  // React 18 only recognizes lowercase `fetchpriority` on native DOM elements
+  const effectiveFetchPriority: 'high' | 'low' | 'auto' | undefined =
+    fetchPriority ?? fetchpriority ?? (priority ? 'high' : undefined);
+  const fetchPriorityProps = effectiveFetchPriority
+    ? ({ fetchpriority: effectiveFetchPriority } as Record<string, unknown>)
+    : {};
 
   // Compute WebP source if appropriate
   const isSvg = /\.svg($|\?)/i.test(src);
@@ -122,9 +132,7 @@ export const Image: React.FC<ImageProps> = ({
       height={height}
       loading={effectiveLoading}
       decoding={effectiveDecoding}
-      // Note: React 18 types support fetchPriority as lowercase or camelCase
-      {...({ fetchpriority: effectiveFetchPriority } as Record<string, unknown>)}
-      fetchPriority={effectiveFetchPriority}
+      {...fetchPriorityProps}
       className={className}
       style={mergedStyle}
       onError={handleImgError}

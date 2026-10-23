@@ -4,6 +4,7 @@ import { FIELD_GUIDES, FieldGuide, determineCategory } from '../data/fieldGuides
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { SeoHead } from '../components/SeoHead';
 import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 import { Image } from '../components/Image';
 
 export const FieldGuideDetailPage: React.FC = () => {
@@ -111,6 +112,12 @@ export const FieldGuideDetailPage: React.FC = () => {
             {/* Social Share Buttons */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500, marginRight: '4px' }}>Share:</span>
+              <ShareButton
+                title={guide.title}
+                text={guide.description}
+                url={currentUrl}
+                style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+              />
               <button className="button button-secondary" type="button" onClick={shareOnTwitter} style={{ padding: '6px 12px', fontSize: '0.8rem' }} title="Share on Twitter / X">
                 𝕏 Twitter
               </button>
