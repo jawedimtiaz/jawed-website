@@ -48,7 +48,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
   };
 
   return (
-    <div className="page">
+    <div className="page interview-prep-page">
       <div className="container">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
           <Breadcrumb
