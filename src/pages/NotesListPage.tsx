@@ -120,7 +120,8 @@ export const NotesListPage: React.FC = () => {
       'All': 0,
       'Network & Cabling': 0,
       'Server & Hardware': 0,
-      'macOS & Endpoints': 0,
+      'Apple Devices': 0,
+      'Microsoft / Windows': 0,
       'Service Desk & ITSM': 0,
     };
 
@@ -188,7 +189,7 @@ export const NotesListPage: React.FC = () => {
       <p className="eyebrow">Technical Articles &amp; Operational Knowledge</p>
       <h1>Field Guides &amp; Knowledge Base</h1>
       <p className="lead">
-        Comprehensive field troubleshooting guides, ANSI cabling pinouts, switch port CLI commands, server LED diagnostic cheatsheets, and practical service desk workflows.
+        Comprehensive field troubleshooting guides, ANSI cabling pinouts, switch port CLI commands, server LED diagnostic cheatsheets, Apple MDM &amp; macOS triage, Windows / Entra ID workflows, and practical service desk procedures.
       </p>
 
       {/* Discovery & Search Panel */}
@@ -273,7 +274,7 @@ export const NotesListPage: React.FC = () => {
             name="search-kb"
             type="search"
             className="discovery-input"
-            placeholder="Search RJ45 pinout, port flapping, PowerEdge LED, Cisco CLI, WiFi, macOS..."
+            placeholder="Search MacBook, AirDrop, DFU, Windows, Entra ID, RJ45 pinout, port flapping..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
@@ -374,5 +375,3 @@ export const NotesListPage: React.FC = () => {
     </main>
   );
 };
-
-

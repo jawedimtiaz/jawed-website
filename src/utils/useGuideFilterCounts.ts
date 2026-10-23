@@ -85,7 +85,8 @@ export function useGuideFilterCounts({
       'All': 0,
       'Network & Cabling': 0,
       'Server & Hardware': 0,
-      'macOS & Endpoints': 0,
+      'Apple Devices': 0,
+      'Microsoft / Windows': 0,
       'Service Desk & ITSM': 0,
     };
 

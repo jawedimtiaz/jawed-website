@@ -2,7 +2,8 @@ export const CATEGORIES = [
   'All',
   'Network & Cabling',
   'Server & Hardware',
-  'macOS & Endpoints',
+  'Apple Devices',
+  'Microsoft / Windows',
   'Service Desk & ITSM',
 ] as const;
 
@@ -51,28 +52,44 @@ const SERVER_KEYWORDS = [
   'ups',
 ];
 
-const ENDPOINT_KEYWORDS = [
-  'macos',
+const APPLE_KEYWORDS = [
   'apple',
-  'jamf',
-  'mdm',
-  'windows',
-  'bitlocker',
-  'entra',
-  'laptop',
-  'endpoint',
-  'm365',
+  'macos',
   'macbook',
+  'iphone',
+  'ipad',
+  'ios',
+  'ipados',
+  'jamf',
+  'airdrop',
+  'filevault',
+  'dfu',
+  'continuity',
+  'sidecar',
+  'universal control',
+  'abm',
+  'awdl',
+];
+
+const MICROSOFT_KEYWORDS = [
+  'windows',
+  'entra',
+  'azure',
+  'active directory',
+  'bitlocker',
+  'm365',
+  'powershell',
+  'office',
   'intune',
-  'provisioning',
-  'workstation',
+  'sign-in',
+  'signin',
 ];
 
 /**
  * Determines the category of a guide or note.
  * If an explicit category is set and valid, it is preserved.
- * If category is missing, empty, or 'auto', it auto-detects based on keywords
- * in title, description, keywords array, slug, and content.
+ * Maps legacy 'macOS & Endpoints' to 'Apple Devices'.
+ * Auto-detects 'Apple Devices' and 'Microsoft / Windows' based on keyword rules.
  * Defaults to 'Service Desk & ITSM'.
  */
 export function determineCategory(item: {
@@ -85,6 +102,9 @@ export function determineCategory(item: {
 }): BaseCategory {
   if (item.category && item.category.trim() !== '' && item.category.toLowerCase() !== 'auto') {
     const trimmed = item.category.trim();
+    if (trimmed === 'macOS & Endpoints') {
+      return 'Apple Devices';
+    }
     if (CATEGORIES.includes(trimmed as any) && trimmed !== 'All') {
       return trimmed as BaseCategory;
     }
@@ -100,21 +120,26 @@ export function determineCategory(item: {
     .join(' ')
     .toLowerCase();
 
-  // 1. Network & Cabling
+  // 1. Apple Devices
+  if (APPLE_KEYWORDS.some(kw => textToScan.includes(kw))) {
+    return 'Apple Devices';
+  }
+
+  // 2. Microsoft / Windows
+  if (MICROSOFT_KEYWORDS.some(kw => textToScan.includes(kw))) {
+    return 'Microsoft / Windows';
+  }
+
+  // 3. Network & Cabling
   if (NETWORK_KEYWORDS.some(kw => textToScan.includes(kw))) {
     return 'Network & Cabling';
   }
 
-  // 2. Server & Hardware
+  // 4. Server & Hardware
   if (SERVER_KEYWORDS.some(kw => textToScan.includes(kw))) {
     return 'Server & Hardware';
   }
 
-  // 3. macOS & Endpoints
-  if (ENDPOINT_KEYWORDS.some(kw => textToScan.includes(kw))) {
-    return 'macOS & Endpoints';
-  }
-
-  // 4. Fallback: Service Desk & ITSM
+  // 5. Fallback: Service Desk & ITSM
   return 'Service Desk & ITSM';
 }

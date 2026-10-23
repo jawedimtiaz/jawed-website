@@ -550,5 +550,95 @@ export const FIELD_GUIDES: FieldGuide[] = [
       <p>LED combinations and recovery steps are model-specific. Use these references as examples, then select the exact model and generation in the vendor support portal. Do not remove hardware or perform power-release/reset procedures from a generic guide without checking the applicable service manual and approved maintenance process.</p>
 
     `
+  },
+  {
+    slug: 'macbook-macos-troubleshooting-and-setup',
+    title: 'MacBook & macOS Field Triage: DFU Mode, Network Plists & FileVault',
+    description: 'Practical field guide for MacBook & macOS enterprise triage: Apple Silicon DFU revive vs restore, network plist resets, SecureToken/Bootstrap token validation, thermal management, and FileVault recovery.',
+    category: 'Apple Devices',
+    readTime: '8 min read',
+    publishedDate: 'October 23, 2026',
+    updatedDate: 'October 23, 2026',
+    author: 'Jawed Imtiaz (IT Field Lead)',
+    keywords: ['MacBook', 'macOS', 'DFU Mode', 'Apple Silicon', 'FileVault', 'SecureToken', 'Network Plist', 'Jamf', 'Apple Devices'],
+    toc: [
+      { id: 'dfu-mode', text: '1. Apple Silicon DFU Revive vs Restore' },
+      { id: 'cli-triage', text: '2. Essential macOS Field CLI Commands' },
+      { id: 'thermal-power', text: '3. Thermal Throttling & Power Requirements' },
+      { id: 'provisioning-checklist', text: '4. Enterprise macOS Provisioning Checklist' }
+    ],
+    contentHtml: `
+      <h2>1. Apple Silicon DFU Revive vs Restore</h2>
+      <p>When an Apple Silicon Mac (M1/M2/M3/M4) exhibits a black screen, exclamation mark error, or failure to boot into recovery, placing the device into Device Firmware Update (DFU) mode allows recovery using Apple Configurator on a host Mac.</p>
+
+      <h2>2. Essential macOS Field CLI Commands</h2>
+      <p>Use terminal commands to quickly diagnose network stack corruption, DNS caching issues, and SecureToken or Bootstrap token status required for FileVault and OS updates.</p>
+
+      <h2>3. Thermal Throttling & Power Requirements</h2>
+      <p>Proper power adapter wattage (e.g., 67W, 96W, 140W USB-C PD) is required for sustained Apple Silicon workstation performance under heavy compile or video workloads.</p>
+
+      <h2>4. Enterprise macOS Provisioning Checklist</h2>
+      <p>Step-by-step checklist for unboxing, zero-touch Jamf enrollment, FileVault key escrow, and user handoff.</p>
+    `
+  },
+  {
+    slug: 'iphone-ipad-mdm-wifi-troubleshooting',
+    title: 'iPhone & iPad Enterprise Setup: MDM Enrollment, Wi-Fi & Activation Lock',
+    description: 'Comprehensive field guide for iOS/iPadOS enterprise deployments: ADE via Apple Business Manager, Private Wi-Fi MAC address captive portal triage, and iCloud Activation Lock prevention.',
+    category: 'Apple Devices',
+    readTime: '7 min read',
+    publishedDate: 'October 23, 2026',
+    updatedDate: 'October 23, 2026',
+    author: 'Jawed Imtiaz (IT Field Lead)',
+    keywords: ['iPhone', 'iPad', 'iOS', 'MDM', 'Apple Business Manager', 'ADE', 'Captive Portal', 'Activation Lock', 'Apple Devices'],
+    toc: [
+      { id: 'ade-workflow', text: '1. Automated Device Enrollment (ADE) Workflow' },
+      { id: 'private-wifi', text: '2. Private Wi-Fi MAC Address & Captive Portals' },
+      { id: 'activation-lock', text: '3. Preventing Activation Lock Bricks' },
+      { id: 'depot-checklist', text: '4. Return & Depot Inspection Checklist' }
+    ],
+    contentHtml: `
+      <h2>1. Automated Device Enrollment (ADE) Workflow</h2>
+      <p>Automated Device Enrollment links Apple Business Manager (ABM) directly to your MDM server (Jamf Pro, Microsoft Intune, Kandji) for zero-touch deployment.</p>
+
+      <h2>2. Private Wi-Fi MAC Address & Captive Portals</h2>
+      <p>iOS Private Wi-Fi address randomization generates randomized MAC addresses per SSID, which frequently disrupts 802.1X radius authentication and captive portal logins.</p>
+
+      <h2>3. Preventing Activation Lock Bricks</h2>
+      <p>User-initiated iCloud sign-in with Find My enabled creates an Activation Lock that persists across factory resets unless bypass codes are escrowed in MDM.</p>
+
+      <h2>4. Return & Depot Inspection Checklist</h2>
+      <p>Field inspection protocol for offboarding, depot returns, and device refurbishment.</p>
+    `
+  },
+  {
+    slug: 'apple-continuity-airdrop-dock-triage',
+    title: 'Apple Continuity & Peripherals: AirDrop, Universal Control & USB-C Docks',
+    description: 'Field triage guide for Apple Wireless Direct Link (AWDL), AirDrop discovery, Universal Control/Sidecar prerequisites, and USB-C DisplayPort Alt-Mode vs DisplayLink docks.',
+    category: 'Apple Devices',
+    readTime: '8 min read',
+    publishedDate: 'October 23, 2026',
+    updatedDate: 'October 23, 2026',
+    author: 'Jawed Imtiaz (IT Field Lead)',
+    keywords: ['AirDrop', 'AWDL', 'Universal Control', 'Sidecar', 'USB-C Dock', 'DisplayLink', 'Thunderbolt', 'Apple Continuity', 'Apple Devices'],
+    toc: [
+      { id: 'awdl-airdrop', text: '1. AirDrop & AWDL Wireless Discovery Triage' },
+      { id: 'dock-comparison', text: '2. Thunderbolt / DP Alt-Mode vs DisplayLink Docks' },
+      { id: 'continuity-prereqs', text: '3. Universal Control & Sidecar Prerequisites' },
+      { id: 'dock-checklist', text: '4. Peripheral & Continuity Diagnostic Checklist' }
+    ],
+    contentHtml: `
+      <h2>1. AirDrop & AWDL Wireless Discovery Triage</h2>
+      <p>AirDrop uses Bluetooth LE for peer discovery and Apple Wireless Direct Link (AWDL) on 5 GHz Wi-Fi channels for peer-to-peer data transfers.</p>
+
+      <h2>2. Thunderbolt / DP Alt-Mode vs DisplayLink Docks</h2>
+      <p>Understanding native DisplayPort Alt-Mode MST limitations on macOS versus DisplayLink software compression drivers for multi-monitor dock setups.</p>
+
+      <h2>3. Universal Control & Sidecar Prerequisites</h2>
+      <p>Prerequisite checklist and network isolation rules for seamless keyboard, mouse, and iPad screen extension.</p>
+
+      <h2>4. Peripheral & Continuity Diagnostic Checklist</h2>
+      <p>Field checklist for peripheral validation and wireless continuity troubleshooting.</p>
+    `
   }
 ];
