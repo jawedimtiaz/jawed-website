@@ -553,6 +553,16 @@ export const ITResumeBulletBuilder: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('saved')}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const text = e.dataTransfer.getData('text/plain');
+            if (text) {
+              handleSaveBullet(text);
+              setActiveTab('saved');
+              showToast('Saved via drag-and-drop');
+            }
+          }}
           className={activeTab === 'saved' ? 'on' : ''}
           style={{
             background: activeTab === 'saved' ? 'linear-gradient(90deg, var(--brand), var(--brand2))' : 'transparent',
@@ -564,7 +574,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          Saved ({savedBullets.length})
+          Saved ({savedBullets.length}) 📥 Drop here
         </button>
       </div>
 
@@ -892,6 +902,8 @@ export const ITResumeBulletBuilder: React.FC = () => {
                     return (
                       <div
                         key={i}
+                        draggable
+                        onDragStart={(e) => e.dataTransfer.setData('text/plain', x.t)}
                         className="out"
                         style={{
                           border: '1px solid var(--line)',
@@ -899,6 +911,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
                           padding: '14px',
                           marginTop: '10px',
                           background: 'var(--bg)',
+                          cursor: 'grab',
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
@@ -1135,6 +1148,30 @@ export const ITResumeBulletBuilder: React.FC = () => {
             marginTop: '14px',
           }}
         >
+          {/* Drag & Drop Drop Zone Banner */}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const text = e.dataTransfer.getData('text/plain');
+              if (text) {
+                handleSaveBullet(text);
+                showToast('Saved bullet via drag-and-drop');
+              }
+            }}
+            style={{
+              border: '2px dashed var(--brand)',
+              borderRadius: '12px',
+              padding: '16px',
+              textAlign: 'center',
+              marginBottom: '16px',
+              background: 'var(--bg)',
+              color: 'var(--muted)',
+              fontSize: '0.9rem',
+            }}
+          >
+            📥 Drag and drop any generated resume bullet here to instantly save it to your collection.
+          </div>
           <div className="row" style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
             <button
               type="button"
