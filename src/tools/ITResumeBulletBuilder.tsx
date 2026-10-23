@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { jsPDF } from 'jspdf';
 import {
   Check,
   X,
@@ -119,6 +120,89 @@ function checkBullet(b: string): BulletCheckResult {
   };
 }
 
+function calculateImpactPotential(bullet: string): { score: number; label: string; color: string } {
+  let score = 40;
+  const words = bullet.trim().split(/\s+/);
+  const first = (words[0] || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (STRONG_VERBS.has(first)) score += 30;
+  if (/\d/.test(bullet)) score += 20;
+  if (TOOL_REGEX.test(bullet)) score += 10;
+  score = Math.min(score, 100);
+
+  let label = 'High Impact';
+  let color = 'var(--good)';
+  if (score < 60) {
+    label = 'Low Impact';
+    color = 'var(--bad)';
+  } else if (score < 80) {
+    label = 'Moderate Impact';
+    color = 'var(--brand)';
+  }
+  return { score, label, color };
+}
+
+const WEAK_PHRASES_MAP: Record<string, string[]> = {
+  'did': ['Executed', 'Engineered', 'Completed', 'Built'],
+  'made': ['Created', 'Developed', 'Generated', 'Constructed'],
+  'fixed': ['Resolved', 'Troubleshot', 'Remediated', 'Restored'],
+  'worked': ['Collaborated', 'Engineered', 'Developed', 'Implemented'],
+  'handled': ['Managed', 'Resolved', 'Triaged', 'Administered'],
+  'helped': ['Supported', 'Facilitated', 'Enabled', 'Coordinated'],
+  'assisted': ['Coordinated', 'Supported', 'Collaborated', 'Facilitated'],
+  'responsible for': ['Managed', 'Spearheaded', 'Executed', 'Administered'],
+  'duties included': ['Executed', 'Administered', 'Maintained', 'Delivered'],
+  'good': ['Robust', 'Optimized', 'High-performance', 'Scalable'],
+};
+
+const ENTERPRISE_ROLE_SYNONYMS: Record<string, Record<string, string[]>> = {
+  'Help desk / service desk': {
+    'helped': ['Facilitated', 'Enabled', 'Supported', 'Coordinated'],
+    'fixed': ['Resolved', 'Restored', 'Triaged', 'Remediated'],
+    'did': ['Executed', 'Delivered', 'Resolved', 'Processed'],
+    'handled': ['Managed', 'Triaged', 'Administered', 'Resolved'],
+  },
+  'Field technician': {
+    'helped': ['Assisted', 'Supported', 'Coordinated', 'Onboarded'],
+    'fixed': ['Repaired', 'Replaced', 'Commissioned', 'Upgraded'],
+    'did': ['Installed', 'Deployed', 'Configured', 'Cabled'],
+    'handled': ['Managed', 'Serviced', 'Diagnosed', 'Maintained'],
+  },
+  'Network engineer': {
+    'helped': ['Architected', 'Engineered', 'Optimized', 'Collaborated'],
+    'fixed': ['Troubleshot', 'Remediated', 'Restored', 'Secured'],
+    'did': ['Configured', 'Segmented', 'Migrated', 'Designed'],
+    'handled': ['Administered', 'Monitored', 'Optimized', 'Secured'],
+  },
+  'System administrator': {
+    'helped': ['Enabled', 'Coordinated', 'Supported', 'Collaborated'],
+    'fixed': ['Patched', 'Hardened', 'Restored', 'Remediated'],
+    'did': ['Administered', 'Automated', 'Provisioned', 'Migrated'],
+    'handled': ['Managed', 'Maintained', 'Orchestrated', 'Controlled'],
+  },
+  'Cloud / DevOps': {
+    'helped': ['Collaborated', 'Enabled', 'Accelerated', 'Integrated'],
+    'fixed': ['Remediated', 'Resolved', 'Optimized', 'Debugged'],
+    'did': ['Automated', 'Deployed', 'Containerized', 'Orchestrated'],
+    'handled': ['Scaled', 'Provisioned', 'Monitored', 'Managed'],
+  },
+  'Security': {
+    'helped': ['Advised', 'Coordinated', 'Collaborated', 'Supported'],
+    'fixed': ['Remediated', 'Mitigated', 'Patched', 'Resolved'],
+    'did': ['Hardened', 'Audited', 'Investigated', 'Enforced'],
+    'handled': ['Monitored', 'Detected', 'Evaluated', 'Responded'],
+  },
+};
+
+function getSuggestionsForText(text: string): { weakWord: string; suggestions: string[] } | null {
+  const lower = text.toLowerCase();
+  for (const [weak, strongList] of Object.entries(WEAK_PHRASES_MAP)) {
+    if (new RegExp(`\\b${weak}\\b`, 'i').test(lower)) {
+      return { weakWord: weak, suggestions: strongList };
+    }
+  }
+  return null;
+}
+
 export const ITResumeBulletBuilder: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'build' | 'check' | 'saved'>('build');
   const [role, setRole] = useState(Object.keys(ROLES)[0]);
@@ -132,10 +216,32 @@ export const ITResumeBulletBuilder: React.FC = () => {
   // Check tab state
   const [bulletToCheck, setBulletToCheck] = useState('Responsible for managing user accounts in Active Directory');
   const [checkResult, setCheckResult] = useState<BulletCheckResult | null>(null);
+  const [batchText, setBatchText] = useState('');
+  const [batchResults, setBatchResults] = useState<Array<{ text: string; result: BulletCheckResult }> | null>(null);
+
+  const handleBatchCheck = () => {
+    const lines = batchText
+      .split('\n')
+      .map(l => l.replace(/^[•\-\*\s]+/, '').trim())
+      .filter(Boolean);
+    if (lines.length === 0) {
+      showToast('Please enter at least one bullet point.');
+      setBatchResults(null);
+      return;
+    }
+    const results = lines.map(text => ({
+      text,
+      result: checkBullet(text),
+    }));
+    setBatchResults(results);
+    showToast(`Analyzed ${results.length} bullets`);
+  };
 
   // Saved bullets state
   const [savedBullets, setSavedBullets] = useState<string[]>([]);
   const [savedSearch, setSavedSearch] = useState('');
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const [showSynonymsModal, setShowSynonymsModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -264,6 +370,44 @@ export const ITResumeBulletBuilder: React.FC = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     showToast('Downloaded bullets.csv');
+  };
+
+  const handleDownloadPdf = () => {
+    if (savedBullets.length === 0) return;
+    const doc = new jsPDF();
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('IT Resume Bullets', 14, 20);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on ${new Date().toLocaleDateString()} — IT Resume Bullet Builder`, 14, 26);
+
+    doc.setTextColor(0);
+    doc.setFontSize(11);
+
+    let y = 36;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const maxWidth = 182;
+
+    savedBullets.forEach((bullet) => {
+      const text = `•  ${bullet}`;
+      const lines = doc.splitTextToSize(text, maxWidth);
+
+      if (y + (lines.length * 6) > pageHeight - 20) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.text(lines, margin, y);
+      y += (lines.length * 6) + 4;
+    });
+
+    doc.save('resume-bullets.pdf');
+    showToast('Downloaded resume-bullets.pdf');
   };
 
   const handleGenerate = () => {
@@ -461,24 +605,145 @@ export const ITResumeBulletBuilder: React.FC = () => {
                 ))}
               </select>
 
-              <label htmlFor="verb" style={{ display: 'block', fontWeight: 600, margin: '12px 0 4px', color: 'var(--text)' }}>
-                Action verb
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '12px 0 4px' }}>
+                <label htmlFor="verb" style={{ fontWeight: 600, color: 'var(--text)', margin: 0 }}>
+                  Action verb
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowSynonymsModal(true)}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--brand)',
+                    color: 'var(--brand)',
+                    borderRadius: '8px',
+                    padding: '2px 8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✨ Role Synonyms
+                </button>
+              </div>
+
+              {/* Enterprise Synonyms Modal */}
+              {showSynonymsModal && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    zIndex: 99999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => setShowSynonymsModal(false)}
+                >
+                  <div
+                    style={{
+                      background: 'var(--card)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '16px',
+                      padding: '24px',
+                      maxWidth: '500px',
+                      width: '100%',
+                      boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+                        Enterprise Synonyms for {role}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowSynonymsModal(false)}
+                        style={{ background: 'transparent', border: 0, fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text)' }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p className="muted" style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: '16px' }}>
+                      Click any enterprise-grade verb below to instantly apply it to your action verb field.
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto' }}>
+                      {Object.entries(ENTERPRISE_ROLE_SYNONYMS[role] || ENTERPRISE_ROLE_SYNONYMS['Network engineer']).map(([weakVerb, strongList]) => (
+                        <div key={weakVerb} style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '10px', padding: '10px' }}>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'capitalize' }}>
+                            Instead of &quot;{weakVerb}&quot;:
+                          </span>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                            {strongList.map(syn => (
+                              <button
+                                key={syn}
+                                type="button"
+                                onClick={() => {
+                                  setVerb(syn);
+                                  setShowSynonymsModal(false);
+                                  showToast(`Applied "${syn}"`);
+                                }}
+                                style={{
+                                  background: 'var(--card)',
+                                  border: '1px solid var(--brand)',
+                                  color: 'var(--text)',
+                                  borderRadius: '8px',
+                                  padding: '4px 10px',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {syn}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
               <input
                 id="verb"
                 value={verb}
                 onChange={e => setVerb(e.target.value)}
                 placeholder="e.g. Configured"
                 style={{
-                  width: '100%',
-                  background: 'var(--bg)',
-                  border: '1px solid var(--line)',
-                  borderRadius: '10px',
-                  padding: '10px',
-                  color: 'var(--text)',
+                  width: "100%",
+                  background: "var(--bg)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "10px",
+                  padding: "10px",
+                  color: "var(--text)",
                 }}
               />
-
+              {(() => {
+                const sugg = getSuggestionsForText(verb);
+                if (!sugg) return null;
+                return (
+                  <div style={{ marginTop: "6px", fontSize: "0.85rem", color: "var(--brand)", background: "var(--card)", border: "1px solid var(--line)", padding: "6px 10px", borderRadius: "8px" }}>
+                    <span>💡 Stronger synonym for &quot;{sugg.weakWord}&quot;: </span>
+                    <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px" }}>
+                      {sugg.suggestions.map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setVerb(s)}
+                          style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: "6px", background: "var(--bg)", border: "1px solid var(--line)", color: "var(--text)", cursor: "pointer" }}
+                        >
+                          Use &quot;{s}&quot;
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="chips" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
                 {ROLES[role]?.map(v => (
                   <button
@@ -636,7 +901,27 @@ export const ITResumeBulletBuilder: React.FC = () => {
                           background: 'var(--bg)',
                         }}
                       >
-                        <b style={{ color: 'var(--brand)' }}>{x.n}</b>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          <b style={{ color: 'var(--brand)' }}>{x.n}</b>
+                          {(() => {
+                            const impact = calculateImpactPotential(x.t);
+                            return (
+                              <span
+                                style={{
+                                  background: 'var(--card)',
+                                  border: `1px solid ${impact.color}`,
+                                  color: impact.color,
+                                  padding: '2px 10px',
+                                  borderRadius: '99px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                Impact Potential: {impact.score}% — {impact.label}
+                              </span>
+                            );
+                          })()}
+                        </div>
                         <p className="bt" style={{ margin: '6px 0 8px', fontFamily: 'monospace', fontSize: '0.95rem' }}>
                           {x.t}
                         </p>
@@ -733,6 +1018,108 @@ export const ITResumeBulletBuilder: React.FC = () => {
               </p>
             )}
           </div>
+
+          {/* Batch Analyze Section */}
+          <div style={{ marginTop: '36px', borderTop: '1px solid var(--line)', paddingTop: '24px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text)' }}>
+              Batch Analyze Multiple Bullets
+            </h3>
+            <p className="muted" style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: '12px' }}>
+              Paste a text block with multiple resume bullets (separated by newlines) to receive a composite quality score report.
+            </p>
+            <textarea
+              value={batchText}
+              onChange={e => setBatchText(e.target.value)}
+              placeholder="Paste multiple bullets here, one per line...&#10;• Configured Cisco Meraki switches for 250 users&#10;• Responsible for managing user accounts in Active Directory&#10;• Migrated 14 VMs to AWS EC2 with zero downtime"
+              style={{
+                width: '100%',
+                background: 'var(--bg)',
+                border: '1px solid var(--line)',
+                borderRadius: '10px',
+                padding: '10px',
+                minHeight: '130px',
+                color: 'var(--text)',
+                fontFamily: 'monospace',
+                fontSize: '0.9rem',
+              }}
+            />
+            <div className="row" style={{ marginTop: '12px' }}>
+              <button
+                type="button"
+                className="primary"
+                onClick={handleBatchCheck}
+                style={{
+                  background: 'linear-gradient(90deg, var(--brand), var(--brand2))',
+                  border: 0,
+                  color: '#fff',
+                  fontWeight: 600,
+                  padding: '10px 20px',
+                  borderRadius: '10px',
+                }}
+              >
+                Run Batch Analysis
+              </button>
+            </div>
+
+            {batchResults && (
+              <div style={{ marginTop: '20px' }}>
+                {(() => {
+                  const total = batchResults.length;
+                  const avgScore = Math.round(batchResults.reduce((acc, curr) => acc + curr.result.score, 0) / total);
+
+                  return (
+                    <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
+                      <h4 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text)' }}>
+                        Composite Quality Report ({total} bullets analyzed)
+                      </h4>
+                      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: avgScore >= 80 ? 'var(--good)' : avgScore >= 60 ? 'var(--brand)' : 'var(--bad)' }}>
+                          Composite Score: {avgScore}/100
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {batchResults.map((item, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        border: '1px solid var(--line)',
+                        borderRadius: '10px',
+                        padding: '12px',
+                        background: 'var(--bg)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 600 }}>Bullet #{idx + 1}</span>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: item.result.score >= 80 ? 'var(--good)' : item.result.score >= 60 ? 'var(--brand)' : 'var(--bad)' }}>
+                          Score: {item.result.score}/100
+                        </span>
+                      </div>
+                      <p style={{ fontFamily: 'monospace', fontSize: '0.9rem', margin: '4px 0 8px' }}>{item.text}</p>
+                      <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
+                        {item.result.items.map((chk, cIdx) => (
+                          <li key={cIdx} style={{ color: chk.ok ? 'var(--good)' : 'var(--bad)' }}>
+                            {chk.ok ? '✓' : '✗'} {chk.l}
+                          </li>
+                        ))}
+                      </ul>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        <button type="button" onClick={() => handleCopy(item.text)} style={{ fontSize: '0.8rem', padding: '4px 8px' }}>
+                          Copy
+                        </button>
+                        <button type="button" onClick={() => handleSaveBullet(item.text)} style={{ fontSize: '0.8rem', padding: '4px 8px' }}>
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </section>
       )}
 
@@ -756,27 +1143,75 @@ export const ITResumeBulletBuilder: React.FC = () => {
             >
               Copy all
             </button>
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={savedBullets.length === 0}
-            >
-              Download as TXT
-            </button>
-            <button
-              type="button"
-              onClick={handleDownloadJson}
-              disabled={savedBullets.length === 0}
-            >
-              Download as JSON
-            </button>
-            <button
-              type="button"
-              onClick={handleDownloadCsv}
-              disabled={savedBullets.length === 0}
-            >
-              Download as CSV
-            </button>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <button
+                type="button"
+                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                disabled={savedBullets.length === 0}
+                style={{
+                  background: exportDropdownOpen ? 'var(--brand)' : 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  color: exportDropdownOpen ? '#fff' : 'var(--text)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                }}
+              >
+                📥 Download / Export ▾
+              </button>
+              {exportDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    marginTop: '6px',
+                    background: 'var(--card)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.25)',
+                    zIndex: 1000,
+                    minWidth: '200px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '8px',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => { handleDownload(); setExportDropdownOpen(false); }}
+                    style={{ background: 'transparent', border: 0, textAlign: 'left', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text)', fontSize: '0.9rem' }}
+                  >
+                    📄 Download as TXT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { handleDownloadJson(); setExportDropdownOpen(false); }}
+                    style={{ background: 'transparent', border: 0, textAlign: 'left', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text)', fontSize: '0.9rem' }}
+                  >
+                    📊 Download as JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { handleDownloadCsv(); setExportDropdownOpen(false); }}
+                    style={{ background: 'transparent', border: 0, textAlign: 'left', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text)', fontSize: '0.9rem' }}
+                  >
+                    📈 Download as CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { handleDownloadPdf(); setExportDropdownOpen(false); }}
+                    style={{ background: 'transparent', border: 0, textAlign: 'left', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text)', fontSize: '0.9rem' }}
+                  >
+                    📑 Export as PDF
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => {
