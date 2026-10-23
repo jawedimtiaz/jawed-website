@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 
 export const AiPromptBuilder: React.FC = () => {
   const [role, setRole] = useState('IT Support Specialist');

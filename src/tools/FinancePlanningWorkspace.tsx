@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 
 export const FinancePlanningWorkspace: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'snapshot' | 'goals' | 'retirement' | 'review'>('snapshot');
@@ -100,13 +102,20 @@ export const FinancePlanningWorkspace: React.FC = () => {
   return (
     <main className="workspace">
       <div className="hero">
-        <p className="breadcrumbs">
-          <Link to="/">Home</Link>
-          <span aria-hidden="true">/</span>
-          <Link to="/tools/">Tools</Link>
-          <span aria-hidden="true">/</span>
-          <span aria-current="page">Finance Planning Workspace</span>
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Tools', href: '/tools' },
+              { label: 'Finance Planning Workspace' },
+            ]}
+            style={{ marginBottom: 0 }}
+          />
+          <ShareButton
+            title="Finance Planning Workspace"
+            text="Integrated multi-tab planner for cash flow, goals, and retirement readiness."
+          />
+        </div>
         <p className="eyebrow">Finance · Interactive Workspace</p>
         <h1>Finance Planning Workspace</h1>
         <p className="lead">

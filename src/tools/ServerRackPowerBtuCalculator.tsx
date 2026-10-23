@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 
 interface DeviceItem {
@@ -125,13 +126,20 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
   return (
     <main className="container page">
 
-      <Breadcrumb
-        items={[
-          { label: 'Home', href: '/' },
-          { label: 'Tools', href: '/tools' },
-          { label: 'Server Rack Power & BTU Calculator' },
-        ]}
-      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools', href: '/tools' },
+            { label: 'Server Rack Power & BTU Calculator' },
+          ]}
+          style={{ marginBottom: 0 }}
+        />
+        <ShareButton
+          title="Server Rack Power & BTU Calculator"
+          text="Estimate server equipment electrical draw (Watts/Amps), circuit breaker derating, and HVAC BTU/hr cooling load."
+        />
+      </div>
 
       {/* Top Leaderboard Ad Unit */}
       <AdUnitPlaceholder slotType="top-leaderboard" />

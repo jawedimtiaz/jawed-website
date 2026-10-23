@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 import {
   TOOLS,
   TOOL_CATEGORIES,
@@ -73,12 +74,20 @@ export const ToolsPage: React.FC = () => {
 
   return (
     <main className="container page">
-      <Breadcrumb
-        items={[
-          { label: 'Home', href: '/' },
-          { label: 'Tools' },
-        ]}
-      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools' },
+          ]}
+          style={{ marginBottom: 0 }}
+        />
+        <ShareButton
+          title="IT Tools & Calculators | Jawed Imtiaz"
+          text="Free, browser-based utilities for IT service desk workflows, resume optimization, career preparation, and personal finance planning."
+          url={typeof window !== 'undefined' ? `${window.location.origin}/tools` : 'https://jawed.co.in/tools'}
+        />
+      </div>
 
       <p className="eyebrow">Interactive Utilities</p>
       <h1>Tools &amp; Calculators</h1>
@@ -150,7 +159,15 @@ export const ToolsPage: React.FC = () => {
             </div>
             <h3>{tool.name}</h3>
             <p>{tool.description}</p>
-            <Link to={tool.route}>Open Tool →</Link>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid var(--line)' }}>
+              <Link to={tool.route} style={{ fontWeight: 600, color: 'var(--accent)' }}>Open Tool →</Link>
+              <ShareButton
+                title={tool.name}
+                text={tool.description}
+                url={typeof window !== 'undefined' ? `${window.location.origin}${tool.route}` : `https://jawed.co.in${tool.route}`}
+                style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+              />
+            </div>
           </article>
         ))}
       </div>

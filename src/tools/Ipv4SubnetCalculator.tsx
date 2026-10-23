@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 
 interface SubnetOption {
@@ -158,13 +159,20 @@ export const Ipv4SubnetCalculator: React.FC = () => {
   return (
     <main className="container page">
 
-      <Breadcrumb
-        items={[
-          { label: 'Home', href: '/' },
-          { label: 'Tools', href: '/tools' },
-          { label: 'IPv4 Subnet & CIDR Calculator' },
-        ]}
-      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools', href: '/tools' },
+            { label: 'IPv4 Subnet & CIDR Calculator' },
+          ]}
+          style={{ marginBottom: 0 }}
+        />
+        <ShareButton
+          title="IPv4 Subnet & CIDR Calculator"
+          text="Calculate IPv4 network boundaries, usable host ranges, broadcast addresses, wildcard masks, and 32-bit binary notation."
+        />
+      </div>
 
       {/* Top Leaderboard Ad Unit */}
       <AdUnitPlaceholder slotType="top-leaderboard" />

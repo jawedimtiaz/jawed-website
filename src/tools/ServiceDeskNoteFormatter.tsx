@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 
 export const ServiceDeskNoteFormatter: React.FC = () => {
   const [ticketId, setTicketId] = useState('INC-84920');
@@ -41,13 +42,20 @@ ${resolutionOrNextStep}
   return (
     <div className="page">
       <div className="container">
-        <Breadcrumb
-          items={[
-            { label: 'Home', href: '/' },
-            { label: 'Tools', href: '/tools' },
-            { label: 'Service Desk Note Formatter' },
-          ]}
-        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Tools', href: '/tools' },
+              { label: 'Service Desk Note Formatter' },
+            ]}
+            style={{ marginBottom: 0 }}
+          />
+          <ShareButton
+            title="Service Desk Note Formatter"
+            text="Convert scattered notes into clean, audit-ready ITSM ticket updates."
+          />
+        </div>
 
         <header className="page-header">
           <h1 className="page-title">Service Desk Note Formatter</h1>

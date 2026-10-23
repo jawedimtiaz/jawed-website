@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 
 export const PersonalFinanceSnapshot: React.FC = () => {
   const [income, setIncome] = useState(100000);
@@ -60,14 +62,20 @@ export const PersonalFinanceSnapshot: React.FC = () => {
 
   return (
     <main className="container narrow page">
-      <p className="eyebrow">Tool · Finance</p>
-      <p className="breadcrumbs">
-        <Link to="/">Home</Link>
-        <span aria-hidden="true">/</span>
-        <Link to="/tools/">Tools</Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">Personal Finance Snapshot</span>
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools', href: '/tools' },
+            { label: 'Personal Finance Snapshot' },
+          ]}
+          style={{ marginBottom: 0 }}
+        />
+        <ShareButton
+          title="Personal Finance Snapshot"
+          text="Assess emergency reserves, savings ratios, debt load, and asset distribution in one view."
+        />
+      </div>
       <h1>Personal Finance Snapshot</h1>
       <p className="lead">
         Bring three everyday money concepts together: monthly cash flow, an emergency reserve and net worth. Everything is calculated in your browser from the numbers you enter.

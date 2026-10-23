@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 
 export const CompoundGrowthCalculator: React.FC = () => {
   const [initial, setInitial] = useState<number>(100000);
@@ -45,14 +47,20 @@ export const CompoundGrowthCalculator: React.FC = () => {
 
   return (
     <main className="container narrow page">
-      <p className="eyebrow">Tool · Finance</p>
-      <p className="breadcrumbs">
-        <Link to="/">Home</Link>
-        <span aria-hidden="true">/</span>
-        <Link to="/tools/">Tools</Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">Compound Growth &amp; SIP Calculator</span>
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools', href: '/tools' },
+            { label: 'Compound Growth & SIP Calculator' },
+          ]}
+          style={{ marginBottom: 0 }}
+        />
+        <ShareButton
+          title="Compound Growth & SIP Calculator"
+          text="Simulate monthly SIP investments with compound growth and inflation adjustments."
+        />
+      </div>
       <h1>Compound Growth &amp; SIP Calculator</h1>
       <p className="lead">
         Explore how a starting amount and monthly contributions could grow over time under a constant assumed annual return.

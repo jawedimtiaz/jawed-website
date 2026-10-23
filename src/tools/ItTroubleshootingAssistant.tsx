@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 
 export const ItTroubleshootingAssistant: React.FC = () => {
   const [category, setCategory] = useState('network');
@@ -94,13 +95,20 @@ ${triage.escalation}
   return (
     <div className="page">
       <div className="container">
-        <Breadcrumb
-          items={[
-            { label: 'Home', href: '/' },
-            { label: 'Tools', href: '/tools' },
-            { label: 'IT Troubleshooting Assistant' },
-          ]}
-        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Tools', href: '/tools' },
+              { label: 'IT Troubleshooting Assistant' },
+            ]}
+            style={{ marginBottom: 0 }}
+          />
+          <ShareButton
+            title="IT Troubleshooting Assistant"
+            text="Follow systematic, layer-by-layer diagnostic checklists for network, Apple, and Windows issues."
+          />
+        </div>
 
         <header className="page-header">
           <h1 className="page-title">IT Troubleshooting Assistant</h1>

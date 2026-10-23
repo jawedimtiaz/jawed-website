@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 
 export const InflationGoalCalculator: React.FC = () => {
   const [cost, setCost] = useState<number>(1000000);
@@ -28,14 +30,20 @@ export const InflationGoalCalculator: React.FC = () => {
 
   return (
     <main className="container narrow page">
-      <p className="eyebrow">Tool · Finance</p>
-      <p className="breadcrumbs">
-        <Link to="/">Home</Link>
-        <span aria-hidden="true">/</span>
-        <Link to="/tools/">Tools</Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">Inflation &amp; Goal Planning Calculator</span>
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools', href: '/tools' },
+            { label: 'Inflation & Goal Planning Calculator' },
+          ]}
+          style={{ marginBottom: 0 }}
+        />
+        <ShareButton
+          title="Inflation & Goal Planning Calculator"
+          text="Calculate the true future cost of long-term milestones adjusted for inflation."
+        />
+      </div>
       <h1>Inflation &amp; Goal Planning Calculator</h1>
       <p className="lead">
         Explore how the future cost of a goal can change when today's price is adjusted for an assumed inflation rate.

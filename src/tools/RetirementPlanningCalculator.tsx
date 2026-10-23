@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 
 export const RetirementPlanningCalculator: React.FC = () => {
   const [age, setAge] = useState<number>(45);
@@ -71,14 +73,20 @@ export const RetirementPlanningCalculator: React.FC = () => {
 
   return (
     <main className="container narrow page">
-      <p className="eyebrow">Tool · Finance</p>
-      <p className="breadcrumbs">
-        <Link to="/">Home</Link>
-        <span aria-hidden="true">/</span>
-        <Link to="/tools/">Tools</Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">Retirement Planning Calculator</span>
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools', href: '/tools' },
+            { label: 'Retirement Planning Calculator' },
+          ]}
+          style={{ marginBottom: 0 }}
+        />
+        <ShareButton
+          title="Retirement Planning Calculator"
+          text="Determine required retirement corpus and ongoing contributions needed to retire comfortably."
+        />
+      </div>
       <h1>Retirement Planning Calculator</h1>
       <p className="lead">
         Explore a hypothetical retirement corpus requirement and projected corpus using spending, inflation, time and return assumptions.

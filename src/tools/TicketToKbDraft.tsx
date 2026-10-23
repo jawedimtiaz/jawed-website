@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { ShareButton } from '../components/ShareButton';
 
 export const TicketToKbDraft: React.FC = () => {
   const [kbTitle, setKbTitle] = useState('Resolving Teams Camera Initialization Failure on macOS Sonoma');
@@ -45,9 +47,20 @@ ${resolutionSteps}
   return (
     <div className="page">
       <div className="container">
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <Link to="/">Home</Link> &gt; <Link to="/tools">Tools</Link> &gt; <span>Ticket to Knowledge Base Draft</span>
-        </nav>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Tools', href: '/tools' },
+              { label: 'Ticket to Knowledge Base Draft' },
+            ]}
+            style={{ marginBottom: 0 }}
+          />
+          <ShareButton
+            title="Ticket to Knowledge Base Draft"
+            text="Transform resolved IT tickets into searchable knowledge base articles and SOPs."
+          />
+        </div>
 
         <header className="page-header">
           <h1 className="page-title">Ticket to Knowledge Base Draft</h1>
