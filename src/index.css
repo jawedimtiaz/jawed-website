@@ -2344,3 +2344,176 @@ select:focus-visible {
   }
 }
 
+
+
+/* Enhanced Technical Field Guides & Quick Notes Styling Constitution */
+.note-rendered-content {
+  color: var(--text);
+  font-size: 1.025rem;
+  line-height: 1.75;
+}
+
+.note-rendered-content h1 {
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 800;
+  color: var(--text-heading);
+  letter-spacing: -0.02em;
+  margin: 0.5em 0 0.3em;
+  line-height: 1.2;
+}
+
+.note-rendered-content h2 {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin: 1.8em 0 0.6em;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-rendered-content h3 {
+  font-size: 1.2rem;
+  font-weight: 650;
+  color: var(--text-heading);
+  margin: 1.4em 0 0.5em;
+}
+
+.note-rendered-content p.meta,
+.note-rendered-content .meta {
+  font-size: 0.875rem;
+  color: var(--muted);
+  background: var(--bg-darker);
+  border: 1px solid var(--line);
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-rendered-content p.eyebrow {
+  margin: 0 0 8px;
+  color: var(--teal);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+/* Structured Reference Micro-Tables */
+.note-rendered-content table,
+.note-rendered-content .table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  background: var(--bg-darker);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 0.925rem;
+}
+
+.note-rendered-content th,
+.note-rendered-content .table-wrap th {
+  background: var(--surface-hover);
+  color: var(--text-heading);
+  font-weight: 700;
+  text-align: left;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.note-rendered-content td,
+.note-rendered-content .table-wrap td {
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  vertical-align: top;
+}
+
+.note-rendered-content tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 20px 0;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Copy-Ready CLI Code Blocks & Tool Outputs */
+.note-rendered-content pre,
+.note-rendered-content code,
+.note-rendered-content .tool-output {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9rem;
+}
+
+.note-rendered-content pre,
+.note-rendered-content .tool-output {
+  background: #020617;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 20px;
+  color: var(--emerald);
+  line-height: 1.6;
+  overflow-x: auto;
+  margin: 20px 0;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.note-rendered-content code:not(pre code) {
+  background: var(--bg-darker);
+  border: 1px solid var(--line);
+  color: var(--accent);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 0.875rem;
+}
+
+/* Callouts and Tip Boxes inside rendered content */
+.note-rendered-content .card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  padding: 18px 22px;
+  margin: 20px 0;
+}
+
+.note-rendered-content blockquote {
+  margin: 20px 0;
+  padding: 16px 20px;
+  background: rgba(56, 189, 248, 0.06);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  color: var(--text);
+  font-style: normal;
+}
+
+/* List Styling */
+.note-rendered-content ul,
+.note-rendered-content ol {
+  padding-left: 24px;
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.note-rendered-content li {
+  line-height: 1.6;
+}
+
+.note-rendered-content li strong {
+  color: var(--text-heading);
+}
