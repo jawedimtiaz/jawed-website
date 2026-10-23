@@ -160,7 +160,7 @@ export const NoteDetailPage: React.FC = () => {
       <SeoHead
         title={guideMetadata.title}
         description={guideMetadata.description}
-        canonicalUrl={shareUrl}
+        canonicalUrl={`https://jawed.co.in/notes/${note.slug}`}
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
         <Breadcrumb
