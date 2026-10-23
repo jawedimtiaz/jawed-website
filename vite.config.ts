@@ -2,7 +2,16 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import viteImagemin from 'vite-plugin-imagemin';
 
+// GitHub Pages project URLs are served below /jawed-website/.
+// Keep local development, PR browser tests, and Cloudflare Pages at the domain root.
+const isGitHubPagesMainBuild =
+  process.env.GITHUB_ACTIONS === 'true' &&
+  process.env.GITHUB_EVENT_NAME === 'push' &&
+  process.env.GITHUB_REF === 'refs/heads/main';
+const base = isGitHubPagesMainBuild ? '/jawed-website/' : '/';
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     viteImagemin({
