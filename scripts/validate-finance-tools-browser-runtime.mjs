@@ -34,7 +34,7 @@ function expectedCanonicalPath(path){
 }
 
 async function pageState(){return js("return {title:document.title,h1:document.querySelector('h1')?.innerText||'',root:!!document.querySelector('.site-wrapper'),overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1,body:document.body.innerText||'',adSlots:document.querySelectorAll('.adsense-container').length}")}
-async function testReset(path,inputSelector){await openPage(path,inputSelector);const before=await js("return document.querySelector(arguments[0]).value",[inputSelector]);await type(inputSelector,"123456");const changed=await js("return document.querySelector(arguments[0]).value",[inputSelector]);assert.equal(changed,"123456",path+" input did not accept changes");await click("form.contact-form button");const after=await js("return document.querySelector(arguments[0]).value",[inputSelector]);assert.equal(after,before,path+" reset did not restore the original input");console.log("PASS — reset interaction "+path)}
+async function testReset(path,inputSelector){await openPage(path,inputSelector);const before=await js("return document.querySelector(arguments[0]).value",[inputSelector]);await type(inputSelector,"123456");const changed=await js("return document.querySelector(arguments[0]).value",[inputSelector]);assert.equal(changed,"123456",path+" input did not accept changes");await js("Array.from(document.querySelectorAll('button')).find(b=>/reset/i.test(b.innerText))?.click()");await sleep(150);const after=await js("return document.querySelector(arguments[0]).value",[inputSelector]);assert.equal(after,before,path+" reset did not restore the original input");console.log("PASS — reset interaction "+path)}
 try{
  driver=spawn(CHROMEDRIVER,["--port=9515"],{stdio:"ignore"});
  let ready=false;for(let i=0;i<60;i++){try{await fetch("http://127.0.0.1:9515/status");ready=true;break}catch{}await sleep(100)}assert.equal(ready,true,"ChromeDriver did not start");
@@ -111,7 +111,8 @@ try{
  await type("#goal","Diagnose a workplace VPN connection issue");
  const prompt=await js("return document.querySelector('pre.tool-output')?.innerText||''");
  assert.ok(prompt.includes("Diagnose a workplace VPN connection issue"),"AI Prompt Builder output did not reflect input");
- await click("button.button-secondary");
+ await js("Array.from(document.querySelectorAll('button')).find(b=>/reset/i.test(b.innerText))?.click()");
+ await sleep(150);
  assert.equal(await js("return document.querySelector('#goal').value"),"","AI Prompt Builder reset did not clear input");
  console.log("PASS — AI Prompt Builder output and reset");
 
