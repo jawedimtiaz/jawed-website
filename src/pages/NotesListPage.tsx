@@ -49,9 +49,57 @@ export interface GuideSearchIndex {
 }
 
 /**
+ * Helper: parseFrontmatter
+ * Extracts title, description, category, author, and keywords from markdown YAML frontmatter block
+ * and strips frontmatter to return clean body content.
+ */
+export interface ParsedMarkdownFrontmatter {
+  title?: string;
+  description?: string;
+  category?: string;
+  author?: string;
+  keywords?: string[];
+  cleanContent: string;
+}
+
+export const parseFrontmatter = (rawContent?: string): ParsedMarkdownFrontmatter => {
+  if (!rawContent) return { cleanContent: '' };
+
+  const frontmatterRegex = /^\s*---\s*[\r\n]+([\s\S]*?)[\r\n]+---\s*/;
+  const match = rawContent.match(frontmatterRegex);
+
+  if (!match) {
+    return { cleanContent: rawContent };
+  }
+
+  const yamlBlock = match[1];
+  const cleanContent = rawContent.replace(frontmatterRegex, '');
+
+  const titleMatch = yamlBlock.match(/^(?:title|Title):\s*(?:"([^"]+)"|'([^']+)'|([^\r\n]+))/m);
+  const descMatch = yamlBlock.match(/^(?:description|Description):\s*(?:"([^"]+)"|'([^']+)'|([^\r\n]+))/m);
+  const catMatch = yamlBlock.match(/^(?:category|Category):\s*(?:"([^"]+)"|'([^']+)'|([^\r\n]+))/m);
+  const authorMatch = yamlBlock.match(/^(?:author|Author):\s*(?:"([^"]+)"|'([^']+)'|([^\r\n]+))/m);
+  const keywordsMatch = yamlBlock.match(/^(?:keywords|Keywords|tags|Tags):\s*\[(.*?)\]/m);
+
+  let keywords: string[] | undefined;
+  if (keywordsMatch?.[1]) {
+    keywords = keywordsMatch[1].split(',').map(k => k.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+  }
+
+  return {
+    title: titleMatch ? (titleMatch[1] || titleMatch[2] || titleMatch[3] || '').trim() : undefined,
+    description: descMatch ? (descMatch[1] || descMatch[2] || descMatch[3] || '').trim() : undefined,
+    category: catMatch ? (catMatch[1] || catMatch[2] || catMatch[3] || '').trim() : undefined,
+    author: authorMatch ? (authorMatch[1] || authorMatch[2] || authorMatch[3] || '').trim() : undefined,
+    keywords,
+    cleanContent
+  };
+};
+
+/**
  * Indexing function: generateGuideSearchIndex
- * Generates a unified, structured searchable data object from all field guides and quick notes,
- * indexed by slug, category, and tokenized search content for consumption by the global header search.
+ * Aggregates all markdown content from field guides and quick notes, parsing frontmatter
+ * and returning a structured searchable index object for global search.
  */
 export const generateGuideSearchIndex = (
   guides: typeof FIELD_GUIDES,
@@ -63,31 +111,40 @@ export const generateGuideSearchIndex = (
 
   // Index Featured Field Guides
   guides.forEach(guide => {
-    const category = guide.category || determineCategory(guide);
-    const tocText = guide.toc ? guide.toc.map(t => t.text).join(' ') : '';
-    const cleanContent = guide.contentHtml ? guide.contentHtml.replace(/<[^>]+>/g, ' ') : '';
+    const rawMarkdown = guide.contentHtml || '';
+    const parsed = parseFrontmatter(rawMarkdown);
 
-    const keywords = Array.from(
-      new Set(
-        `${guide.title} ${guide.description} ${tocText}`
-          .toLowerCase()
-          .replace(/[^a-z0-9\s-]/g, ' ')
-          .split(/\s+/)
-          .filter(w => w.length > 2)
-      )
-    );
+    const title = parsed.title || guide.title;
+    const description = parsed.description || guide.description;
+    const category = parsed.category || guide.category || determineCategory(guide);
+    const author = parsed.author || guide.author || 'Jawed Imtiaz';
+
+    const tocText = guide.toc ? guide.toc.map(t => t.text).join(' ') : '';
+    const cleanContent = parsed.cleanContent ? parsed.cleanContent.replace(/<[^>]+>/g, ' ') : '';
+
+    const keywordSet = new Set<string>([
+      ...(parsed.keywords || []),
+      ...(guide.keywords || [])
+    ]);
+
+    `${title} ${description} ${tocText}`
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 2)
+      .forEach(w => keywordSet.add(w));
 
     const indexedItem: IndexedGuideItem = {
       slug: guide.slug,
       url: `/field-guides/${guide.slug}`,
-      title: guide.title,
-      description: guide.description,
+      title,
+      description,
       category,
       type: 'field-guide',
-      keywords,
-      searchContent: `${guide.title} ${guide.description} ${category} ${tocText} ${cleanContent}`.toLowerCase(),
-      readTime: guide.readTime || calculateReadTime(guide.contentHtml || guide.description),
-      author: guide.author || 'Jawed Imtiaz'
+      keywords: Array.from(keywordSet),
+      searchContent: `${title} ${description} ${category} ${tocText} ${cleanContent}`.toLowerCase(),
+      readTime: guide.readTime || calculateReadTime(parsed.cleanContent || description),
+      author
     };
 
     items.push(indexedItem);
@@ -101,30 +158,35 @@ export const generateGuideSearchIndex = (
 
   // Index Quick Notes
   notes.forEach(note => {
-    const category = note.category || 'Service Desk & ITSM';
-    const cleanContent = note.content ? note.content.replace(/<[^>]+>/g, ' ') : '';
+    const rawMarkdown = note.content || '';
+    const parsed = parseFrontmatter(rawMarkdown);
 
-    const keywords = Array.from(
-      new Set(
-        `${note.title} ${note.description}`
-          .toLowerCase()
-          .replace(/[^a-z0-9\s-]/g, ' ')
-          .split(/\s+/)
-          .filter(w => w.length > 2)
-      )
-    );
+    const title = parsed.title || note.title;
+    const description = parsed.description || note.description;
+    const category = parsed.category || note.category || 'Service Desk & ITSM';
+    const author = parsed.author || 'Jawed Imtiaz';
+
+    const cleanContent = parsed.cleanContent ? parsed.cleanContent.replace(/<[^>]+>/g, ' ') : '';
+
+    const keywordSet = new Set<string>(parsed.keywords || []);
+    `${title} ${description}`
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 2)
+      .forEach(w => keywordSet.add(w));
 
     const indexedItem: IndexedGuideItem = {
       slug: note.slug,
       url: `/notes/${note.slug}`,
-      title: note.title,
-      description: note.description,
+      title,
+      description,
       category,
       type: 'quick-note',
-      keywords,
-      searchContent: `${note.title} ${note.description} ${category} ${cleanContent}`.toLowerCase(),
-      readTime: calculateReadTime(note.content || note.description),
-      author: 'Jawed Imtiaz'
+      keywords: Array.from(keywordSet),
+      searchContent: `${title} ${description} ${category} ${cleanContent}`.toLowerCase(),
+      readTime: calculateReadTime(parsed.cleanContent || description),
+      author
     };
 
     items.push(indexedItem);
@@ -145,6 +207,19 @@ export const generateGuideSearchIndex = (
 };
 
 /**
+ * Custom React Hook: useGuideSearchIndex
+ * Memoizes search index generation across all project markdown content and frontmatter metadata.
+ */
+export const useGuideSearchIndex = (
+  guides: typeof FIELD_GUIDES = FIELD_GUIDES,
+  notes: NoteItem[] = notesData as NoteItem[]
+): GuideSearchIndex => {
+  return useMemo(() => {
+    return generateGuideSearchIndex(guides, notes);
+  }, [guides, notes]);
+};
+
+/**
  * Pre-indexed singleton data object generated from all active guides and quick notes.
  * Accessible for global header search filtering and site-wide search engines.
  */
@@ -160,6 +235,13 @@ export const searchGuideIndex = (query: string): IndexedGuideItem[] => {
   return GUIDE_SEARCH_INDEX.items.filter(item => {
     return terms.every(term => item.searchContent.includes(term));
   });
+};
+
+/**
+ * Serializer helper: returns the centralized guide search index as a JSON string or object.
+ */
+export const getGuideSearchIndexJson = (): string => {
+  return JSON.stringify(GUIDE_SEARCH_INDEX, null, 2);
 };
 
 // Memoized individual guide card to prevent re-renders when other items or query state update
@@ -226,6 +308,9 @@ export const NotesListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'field-guides' | 'notes'>('all');
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory>('All');
+
+  // Memoized search index generated from markdown content and frontmatter
+  const searchIndex = useGuideSearchIndex(FIELD_GUIDES, notesData as NoteItem[]);
 
   // Aliases for compatibility
   const activeCategory = categoryFilter;
