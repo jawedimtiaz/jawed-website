@@ -5,6 +5,7 @@ import { FIELD_GUIDES, type FieldGuide } from '../data/fieldGuidesData';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { CATEGORIES, type NoteCategory, type BaseCategory, determineCategory } from '../utils/categoryHelper';
+import { useGuideFilterCounts } from '../utils/useGuideFilterCounts';
 
 export { CATEGORIES, type NoteCategory };
 
@@ -86,93 +87,13 @@ export const NotesListPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'field-guides' | 'notes'>('all');
   const [activeCategory, setActiveCategory] = useState<NoteCategory>('All');
 
-  // Pre-index guides with resolved categories and lowercase search strings once
-  const indexedGuides = useMemo<SearchableGuide[]>(() => {
-    return FIELD_GUIDES.map(guide => {
-      const resolvedCategory = determineCategory(guide);
-      return {
-        ...guide,
-        resolvedCategory,
-        searchString: `${guide.title} ${guide.description} ${resolvedCategory} ${guide.keywords.join(' ')}`.toLowerCase(),
-      };
-    });
-  }, []);
-
-  // Pre-index notes with resolved categories and lowercase search strings once
-  const indexedNotes = useMemo<SearchableNote[]>(() => {
-    return (notesData as NoteItem[]).map(note => {
-      const resolvedCategory = determineCategory(note);
-      return {
-        ...note,
-        resolvedCategory,
-        searchString: `${note.title} ${note.description} ${resolvedCategory}`.toLowerCase(),
-      };
-    });
-  }, []);
-
-  // useMemo hook for calculating active category counts efficiently during typing & tab switching
-  const categoryCounts = useMemo<Record<NoteCategory, number>>(() => {
-    const q = searchTerm.trim().toLowerCase();
-    const includeGuides = activeTab === 'all' || activeTab === 'field-guides';
-    const includeNotes = activeTab === 'all' || activeTab === 'notes';
-
-    const counts: Record<NoteCategory, number> = {
-      'All': 0,
-      'Network & Cabling': 0,
-      'Server & Hardware': 0,
-      'Apple Devices': 0,
-      'Microsoft / Windows': 0,
-      'Service Desk & ITSM': 0,
-    };
-
-    if (includeGuides) {
-      for (let i = 0; i < indexedGuides.length; i++) {
-        const guide = indexedGuides[i];
-        if (!q || guide.searchString.includes(q)) {
-          counts['All']++;
-          counts[guide.resolvedCategory] = (counts[guide.resolvedCategory] || 0) + 1;
-        }
-      }
-    }
-
-    if (includeNotes) {
-      for (let i = 0; i < indexedNotes.length; i++) {
-        const note = indexedNotes[i];
-        if (!q || note.searchString.includes(q)) {
-          counts['All']++;
-          counts[note.resolvedCategory] = (counts[note.resolvedCategory] || 0) + 1;
-        }
-      }
-    }
-
-    return counts;
-  }, [indexedGuides, indexedNotes, searchTerm, activeTab]);
-
-  // useMemo hook for calculating filtered guides
-  const filteredGuides = useMemo<SearchableGuide[]>(() => {
-    if (activeTab === 'notes') return [];
-    const q = searchTerm.trim().toLowerCase();
-
-    return indexedGuides.filter(guide => {
-      const matchesSearch = !q || guide.searchString.includes(q);
-      const matchesCategory = activeCategory === 'All' || guide.resolvedCategory === activeCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [indexedGuides, searchTerm, activeTab, activeCategory]);
-
-  // useMemo hook for calculating filtered notes
-  const filteredNotes = useMemo<SearchableNote[]>(() => {
-    if (activeTab === 'field-guides') return [];
-    const q = searchTerm.trim().toLowerCase();
-
-    return indexedNotes.filter(note => {
-      const matchesSearch = !q || note.searchString.includes(q);
-      const matchesCategory = activeCategory === 'All' || note.resolvedCategory === activeCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [indexedNotes, searchTerm, activeTab, activeCategory]);
-
-  const totalFilteredCount = filteredGuides.length + filteredNotes.length;
+  const { categoryCounts, filteredGuides, filteredNotes, totalFilteredCount } = useGuideFilterCounts({
+    guides: FIELD_GUIDES,
+    notes: notesData as NoteItem[],
+    searchTerm,
+    activeTab,
+    activeCategory,
+  });
 
   return (
     <main className="container page">
