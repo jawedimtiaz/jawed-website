@@ -3,7 +3,7 @@ import { Routes, Route, useLocation, Link } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { JawedAiWidget } from './components/JawedAiWidget';
-import { IosInstallPrompt } from './components/IosInstallPrompt';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { RouteSeo } from './components/RouteSeo';
 import { ScrollProgress } from './components/ScrollProgress';
 
@@ -139,7 +139,7 @@ export const App: React.FC = () => {
 
       <Footer onOpenCookieModal={() => setCookieModalOpen(true)} />
       <JawedAiWidget />
-      <IosInstallPrompt />
+      <PWAInstallBanner />
 
       {/* Cookie Preference Modal */}
       {cookieModalOpen && (

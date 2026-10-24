@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { askJawedAi, AiResponse } from '../services/aiKnowledgeEngine';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 export const AiPage: React.FC = () => {
+  const isOnline = useOnlineStatus();
   const [searchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
   const [query, setQuery] = useState(initialQuery);
@@ -12,6 +14,17 @@ export const AiPage: React.FC = () => {
   const handleAsk = async (textToAsk: string) => {
     const q = textToAsk.trim();
     if (!q) return;
+
+    if (!isOnline) {
+      setResult({
+        reply: 'Jawed AI needs internet',
+        sources: [],
+        isFallback: true,
+        userQuery: q
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await askJawedAi(q);
@@ -54,12 +67,33 @@ export const AiPage: React.FC = () => {
           </p>
         </div>
 
+        {!isOnline && (
+          <div
+            style={{
+              padding: '12px 16px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: '10px',
+              color: '#fca5a5',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              margin: '16px 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+            role="status"
+          >
+            <span aria-hidden="true">📡</span> Jawed AI needs internet
+          </div>
+        )}
+
         <form className="ai-form" onSubmit={handleSubmit}>
           <div className="ai-form-row">
             <input
               type="text"
               className="discovery-input"
-              placeholder="e.g. How does Jawed approach ticket documentation?"
+              placeholder={!isOnline ? 'Jawed AI needs internet' : 'e.g. How does Jawed approach ticket documentation?'}
               value={query}
               onChange={e => setQuery(e.target.value)}
               disabled={loading}

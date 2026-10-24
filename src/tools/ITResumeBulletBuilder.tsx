@@ -193,6 +193,44 @@ const ENTERPRISE_ROLE_SYNONYMS: Record<string, Record<string, string[]>> = {
   },
 };
 
+const IT_BULLET_TEMPLATES = [
+  {
+    category: 'Cloud Migration',
+    bullets: [
+      'Migrated 14 legacy Windows Server VMs to AWS EC2 instances, reducing monthly infrastructure costs by 28% and ensuring zero downtime.',
+      'Orchestrated containerized microservices deployment on Kubernetes (EKS) across 3 environments, accelerating release velocity by 40%.',
+    ],
+  },
+  {
+    category: 'Help Desk Automation',
+    bullets: [
+      'Automated onboarding workflows in Active Directory and Microsoft 365, cutting new hire provisioning time from 4 hours to 15 minutes for 300+ staff.',
+      'Resolved 1,200+ tier 1/2 service desk tickets annually via ServiceNow with a 96% customer satisfaction rating and record first-call resolution.',
+    ],
+  },
+  {
+    category: 'Network Hardening',
+    bullets: [
+      'Configured VLAN segmentation and firewalls across Cisco Meraki switches for 250 users across 3 sites, reducing network security incidents by 35%.',
+      'Monitored and optimized BGP/OSPF routing protocols across enterprise WAN links, improving uptime to 99.99%.',
+    ],
+  },
+  {
+    category: 'Security & Compliance',
+    bullets: [
+      'Executed vulnerability audits and deployed endpoint hardening policies via Microsoft Intune across 500 endpoints, achieving 100% compliance.',
+      'Investigated and remediated security alerts in SIEM (Splunk), isolating compromised endpoints within 15 minutes of detection.',
+    ],
+  },
+  {
+    category: 'System Administration & Backup',
+    bullets: [
+      'Provisioned nightly automated Veeam backups for 40 virtualized workloads and verified monthly disaster recovery restores.',
+      'Administered Group Policy Objects (GPOs) and Active Directory permissions for 800 domain users across 2 forest domains.',
+    ],
+  },
+];
+
 function getSuggestionsForText(text: string): { weakWord: string; suggestions: string[] } | null {
   const lower = text.toLowerCase();
   for (const [weak, strongList] of Object.entries(WEAK_PHRASES_MAP)) {
@@ -242,6 +280,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
   const [savedSearch, setSavedSearch] = useState('');
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
   const [showSynonymsModal, setShowSynonymsModal] = useState(false);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -255,6 +294,19 @@ export const ITResumeBulletBuilder: React.FC = () => {
     } catch (err) {
       console.error('Failed to load saved bullets:', err);
     }
+  }, []);
+
+  // Keyboard accessibility: Escape key closes modals/dropdowns
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowSynonymsModal(false);
+        setShowTemplatesModal(false);
+        setExportDropdownOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const persistSaved = (items: string[]) => {
@@ -640,6 +692,9 @@ export const ITResumeBulletBuilder: React.FC = () => {
               {/* Enterprise Synonyms Modal */}
               {showSynonymsModal && (
                 <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="synonyms-modal-title"
                   style={{
                     position: 'fixed',
                     top: 0,
@@ -668,7 +723,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
                     onClick={e => e.stopPropagation()}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                      <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+                      <h3 id="synonyms-modal-title" style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--text)' }}>
                         Enterprise Synonyms for {role}
                       </h3>
                       <button
@@ -883,9 +938,24 @@ export const ITResumeBulletBuilder: React.FC = () => {
                 padding: '11px 18px',
                 background: 'transparent',
                 color: 'var(--text)',
+                cursor: 'pointer',
               }}
             >
               Fill example
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowTemplatesModal(true)}
+              style={{
+                border: '1px solid var(--line)',
+                borderRadius: '10px',
+                padding: '11px 18px',
+                background: 'transparent',
+                color: 'var(--text)',
+                cursor: 'pointer',
+              }}
+            >
+              📋 Bullet Templates
             </button>
           </div>
 
@@ -1457,6 +1527,99 @@ export const ITResumeBulletBuilder: React.FC = () => {
           </details>
         );
       })}
+      {/* Bullet Templates Modal */}
+      {showTemplatesModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="templates-modal-title"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setShowTemplatesModal(false)}
+        >
+          <div
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: '16px',
+              padding: '24px',
+              maxWidth: '650px',
+              width: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 id="templates-modal-title" style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+                IT Resume Bullet Templates
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowTemplatesModal(false)}
+                style={{ background: 'transparent', border: 0, fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text)' }}
+              >
+                ✕
+              </button>
+            </div>
+            <p className="muted" style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: '16px' }}>
+              Pre-written, highly effective resume bullet examples categorized by IT domain. Click <strong>Save</strong> or <strong>Copy</strong> to add them to your collection.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', paddingRight: '4px' }}>
+              {IT_BULLET_TEMPLATES.map((cat, idx) => (
+                <div key={idx} style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '14px' }}>
+                  <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--brand)', marginBottom: '8px' }}>
+                    {cat.category}
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {cat.bullets.map((b, bIdx) => (
+                      <div key={bIdx} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', flex: 1, minWidth: '220px' }}>{b}</span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleCopy(b);
+                              setShowTemplatesModal(false);
+                            }}
+                            style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer' }}
+                          >
+                            Copy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleSaveBullet(b);
+                              setShowTemplatesModal(false);
+                              setActiveTab('saved');
+                            }}
+                            style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', background: 'var(--brand)', color: '#fff', border: 0 }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

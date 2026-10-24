@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { SiteSearchBar } from './SiteSearchBar';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,6 +19,7 @@ export const Header: React.FC = () => {
     return 'dark';
   });
 
+  const { isInstallable, isInstalled, isStandalone, isIOS, install } = usePWAInstall();
   const location = useLocation();
   const path = location.pathname;
 
@@ -119,6 +121,23 @@ export const Header: React.FC = () => {
           >
             Ask AI
           </Link>
+          {!isStandalone && !isInstalled && (isInstallable || isIOS) && (
+            <button
+              type="button"
+              className="nav-item pwa-install-nav-btn"
+              onClick={() => {
+                closeMenu();
+                if (isInstallable) {
+                  install();
+                } else {
+                  window.dispatchEvent(new CustomEvent('open-pwa-install'));
+                }
+              }}
+              aria-label="Install Jawed Imtiaz App"
+            >
+              📲 Install App
+            </button>
+          )}
           <button
             type="button"
             className="theme-toggle-btn"

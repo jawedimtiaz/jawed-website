@@ -3,6 +3,9 @@
 .env*
 !.env.example
 
-# Local tooling
+# Local tooling & builds
 node_modules/
+dist/
+*.zip
+.aistudio/
 .DS_Store

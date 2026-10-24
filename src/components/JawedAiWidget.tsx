@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { askJawedAi } from '../services/aiKnowledgeEngine';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 interface Message {
   id: string;
@@ -12,6 +13,7 @@ interface Message {
 }
 
 export const JawedAiWidget: React.FC = () => {
+  const isOnline = useOnlineStatus();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [query, setQuery] = useState('');
@@ -199,6 +201,22 @@ export const JawedAiWidget: React.FC = () => {
     const userMsgId = `user-${Date.now()}`;
     setMessages((prev) => [...prev, { id: userMsgId, role: 'user', content: userText }]);
     setQuery('');
+
+    if (!isOnline) {
+      const assistantMsgId = `assistant-${Date.now()}`;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: assistantMsgId,
+          role: 'assistant',
+          content: 'Jawed AI needs internet',
+          isFallback: true,
+          userQuery: userText,
+        },
+      ]);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -307,10 +325,19 @@ export const JawedAiWidget: React.FC = () => {
           <div className="jawed-ai-widget-header">
             <div className="jawed-ai-header-titles">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="online-indicator" aria-hidden="true" />
+                <span
+                  className={isOnline ? "online-indicator" : "offline-indicator"}
+                  aria-hidden="true"
+                  style={!isOnline ? { background: '#ef4444' } : undefined}
+                />
                 <strong>Jawed AI Assistant</strong>
+                {!isOnline && (
+                  <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                    Offline
+                  </span>
+                )}
               </div>
-              <span>Grounded in Jawed's notes &amp; tools</span>
+              <span>{isOnline ? "Grounded in Jawed's notes & tools" : "Jawed AI needs internet"}</span>
             </div>
             <div className="jawed-ai-header-actions">
               <button
@@ -445,7 +472,9 @@ export const JawedAiWidget: React.FC = () => {
                 ref={inputRef}
                 type="text"
                 placeholder={
-                  isListening
+                  !isOnline
+                    ? 'Jawed AI needs internet'
+                    : isListening
                     ? 'Listening... Speak into microphone...'
                     : 'Ask a question or describe an issue...'
                 }
