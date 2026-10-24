@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
 import {
   Check,
@@ -13,6 +13,10 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  Gauge,
+  TrendingUp,
+  Zap,
+  AlertTriangle,
 } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
@@ -120,25 +124,825 @@ function checkBullet(b: string): BulletCheckResult {
   };
 }
 
-function calculateImpactPotential(bullet: string): { score: number; label: string; color: string } {
-  let score = 40;
-  const words = bullet.trim().split(/\s+/);
-  const first = (words[0] || '').toLowerCase().replace(/[^a-z]/g, '');
-  if (STRONG_VERBS.has(first)) score += 30;
-  if (/\d/.test(bullet)) score += 20;
-  if (TOOL_REGEX.test(bullet)) score += 10;
-  score = Math.min(score, 100);
+export interface StrengthItemFeedback {
+  category: 'verb' | 'length' | 'metrics';
+  status: 'good' | 'warning' | 'danger';
+  title: string;
+  advice: string;
+  fixSuggestion?: string;
+}
 
-  let label = 'High Impact';
-  let color = 'var(--good)';
-  if (score < 60) {
-    label = 'Low Impact';
-    color = 'var(--bad)';
-  } else if (score < 80) {
-    label = 'Moderate Impact';
-    color = 'var(--brand)';
+export interface BulletStrengthResult {
+  score: number; // 0 - 100
+  tier: 'Needs Work' | 'Developing' | 'Strong' | 'Exceptional';
+  color: string;
+  badgeBg: string;
+  verbImpact: {
+    score: number; // 0 - 100
+    detectedVerb: string;
+    isStrong: boolean;
+    isWeak: boolean;
+    hasFirstPerson: boolean;
+    label: string;
+    feedback: string;
+    suggestions: string[];
+  };
+  lengthAnalysis: {
+    score: number; // 0 - 100
+    wordCount: number;
+    charCount: number;
+    status: 'empty' | 'too-short' | 'short' | 'ideal' | 'verbose' | 'too-long';
+    label: string;
+    feedback: string;
+  };
+  metricsAnalysis: {
+    score: number; // 0 - 100
+    detectedMetrics: string[];
+    count: number;
+    label: string;
+    feedback: string;
+  };
+  feedbackList: StrengthItemFeedback[];
+}
+
+function extractMetrics(text: string): string[] {
+  if (!text) return [];
+  const matches: string[] = [];
+  const percentRegex = /\b\d+(\.\d+)?%/gi;
+  const timeRegex = /\b\d[\d,]*\+?\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?|days?|weeks?|months?|years?)\b/gi;
+  const scaleRegex = /\b\d[\d,]*\+?\s*(users?|devices?|vms?|virtual machines?|endpoints?|servers?|tickets?|sites?|nodes?|clients?|laptops?|workstations?|switches?|routers?|ports?|firewalls?|accounts?|staff|employees?|members?|workloads?|domains?)\b/gi;
+  const currencyRegex = /\$[\d,]+(\.\d+)?(k|m|b)?\b/gi;
+  const slaRegex = /\b(99\.99?%|zero downtime|100% compliance)\b/gi;
+  const generalNumRegex = /\b\d[\d,]*\+?\b/g;
+
+  let m: RegExpExecArray | null;
+  while ((m = percentRegex.exec(text)) !== null) matches.push(m[0]);
+  while ((m = timeRegex.exec(text)) !== null) matches.push(m[0]);
+  while ((m = scaleRegex.exec(text)) !== null) matches.push(m[0]);
+  while ((m = currencyRegex.exec(text)) !== null) matches.push(m[0]);
+  while ((m = slaRegex.exec(text)) !== null) matches.push(m[0]);
+
+  if (matches.length === 0) {
+    while ((m = generalNumRegex.exec(text)) !== null) matches.push(m[0]);
   }
-  return { score, label, color };
+
+  return Array.from(new Set(matches.map(s => s.trim()))).filter(Boolean);
+}
+
+function getCompositeBullet(f: BulletInputForm): string {
+  const v = cap((f.verb || '').trim());
+  const task = (f.task || '').trim().replace(/[.]+$/, '');
+  const tools = (f.tools || '').trim();
+  const scale = (f.scale || '').trim();
+  const res = (f.result || '').trim().replace(/[.]+$/, '');
+
+  if (!v && !task && !tools && !scale && !res) return '';
+
+  const parts: string[] = [];
+  if (v) parts.push(v);
+  if (task) parts.push(task);
+  if (tools) parts.push(`using ${tools}`);
+  if (scale) parts.push(`for ${scale}`);
+  if (res) parts.push(`resulting in ${res}`);
+
+  return parts.join(' ').replace(/\s+/g, ' ').trim() + (parts.length > 0 ? '.' : '');
+}
+
+function analyzeBulletStrength(
+  rawText: string,
+  fields?: { verb?: string; task?: string; tools?: string; scale?: string; result?: string }
+): BulletStrengthResult {
+  const text = (rawText || '').trim();
+  const words = text ? text.split(/\s+/).filter(Boolean) : [];
+  const wordCount = words.length;
+  const charCount = text.length;
+
+  const feedbackList: StrengthItemFeedback[] = [];
+
+  // 1. Action Verb Analysis
+  const explicitVerb = fields?.verb ? fields.verb.trim() : '';
+  const firstWord = (words[0] || '').replace(/[^a-zA-Z]/g, '');
+  const candidateVerb = explicitVerb || firstWord;
+  const lowerVerb = candidateVerb.toLowerCase();
+
+  const hasFirstPerson = /\b(I|my|me|we|our)\b/i.test(text);
+  const weakMatch = text.match(WEAK_REGEX);
+  const isWeak = !!weakMatch || ['did', 'made', 'fixed', 'worked', 'handled', 'helped', 'assisted', 'responsible', 'duties'].includes(lowerVerb);
+  const isStrong = !isWeak && !hasFirstPerson && STRONG_VERBS.has(lowerVerb);
+
+  let verbScore = 0;
+  let verbLabel = 'No Verb';
+  let verbFeedback = 'Enter an action verb to begin your bullet point.';
+  let verbSuggestions: string[] = ['Configured', 'Automated', 'Deployed', 'Resolved', 'Provisioned'];
+
+  if (isWeak) {
+    const weakWord = (weakMatch ? weakMatch[0] : candidateVerb).toLowerCase();
+    verbSuggestions = WEAK_PHRASES_MAP[weakWord] || ['Configured', 'Automated', 'Spearheaded', 'Optimized', 'Resolved'];
+  }
+
+  if (!candidateVerb && wordCount === 0) {
+    verbScore = 0;
+    verbLabel = 'Missing Verb';
+    verbFeedback = 'Start your bullet with a decisive past-tense action verb (e.g., Configured, Automated, Deployed).';
+    feedbackList.push({
+      category: 'verb',
+      status: 'warning',
+      title: 'Missing Action Verb',
+      advice: 'Start with a past-tense action verb (e.g., Configured, Automated, Deployed) to lead with immediate impact.',
+    });
+  } else if (hasFirstPerson) {
+    verbScore = 20;
+    verbLabel = 'First-Person Detected';
+    verbFeedback = "Avoid 'I', 'my', or 'we'. Resumes use implied first person.";
+    feedbackList.push({
+      category: 'verb',
+      status: 'danger',
+      title: 'First-Person Pronouns Detected',
+      advice: "Remove personal pronouns ('I', 'my', 'we'). Begin directly with your action verb (e.g. 'Configured...' instead of 'I configured...').",
+    });
+  } else if (isWeak) {
+    verbScore = 30;
+    const weakWord = weakMatch ? weakMatch[0] : candidateVerb;
+    verbLabel = `Weak Verb ("${weakWord}")`;
+    verbFeedback = `Replace passive phrase "${weakWord}" with an active technical verb.`;
+    feedbackList.push({
+      category: 'verb',
+      status: 'danger',
+      title: `Weak Action Verb ("${weakWord}")`,
+      advice: `Replace "${weakWord}" with high-impact alternatives like ${verbSuggestions.slice(0, 3).join(', ')}.`,
+      fixSuggestion: verbSuggestions[0],
+    });
+  } else if (isStrong) {
+    verbScore = 100;
+    verbLabel = `High Impact ("${cap(candidateVerb)}")`;
+    verbFeedback = `Starts with high-impact technical verb "${cap(candidateVerb)}".`;
+    feedbackList.push({
+      category: 'verb',
+      status: 'good',
+      title: `Strong Action Verb ("${cap(candidateVerb)}")`,
+      advice: 'Excellent opening verb that demonstrates decisive leadership and technical capability.',
+    });
+  } else if (candidateVerb.length > 2) {
+    verbScore = 75;
+    verbLabel = `Active Verb ("${cap(candidateVerb)}")`;
+    verbFeedback = `Decent opening verb "${cap(candidateVerb)}". Consider enterprise verbs for greater ATS punch.`;
+    feedbackList.push({
+      category: 'verb',
+      status: 'good',
+      title: `Active Verb ("${cap(candidateVerb)}")`,
+      advice: 'Good opening verb. For even stronger recruiter response, consider power verbs like Engineered, Spearheaded, or Orchestrated.',
+    });
+  } else {
+    verbScore = 20;
+    verbLabel = 'Incomplete Verb';
+    verbFeedback = 'Provide a full action verb.';
+  }
+
+  // 2. Length Analysis
+  let lengthScore = 0;
+  let lengthStatus: 'empty' | 'too-short' | 'short' | 'ideal' | 'verbose' | 'too-long' = 'empty';
+  let lengthLabel = '0 words';
+  let lengthFeedback = 'Add context to see length evaluation.';
+
+  if (wordCount === 0) {
+    lengthScore = 0;
+    lengthStatus = 'empty';
+    lengthLabel = '0 words';
+    lengthFeedback = 'Write your bullet to analyze length and density.';
+  } else if (wordCount < 6) {
+    lengthScore = 30;
+    lengthStatus = 'too-short';
+    lengthLabel = `${wordCount} words · Too short`;
+    lengthFeedback = `Too short (${wordCount} words). Recruiters can't see the depth of your accomplishment.`;
+    feedbackList.push({
+      category: 'length',
+      status: 'danger',
+      title: `Too Brief (${wordCount} words)`,
+      advice: 'Expand your bullet to at least 10–12 words by adding the environment, tools, or business outcome.',
+    });
+  } else if (wordCount < 10) {
+    lengthScore = 65;
+    lengthStatus = 'short';
+    lengthLabel = `${wordCount} words · Basic`;
+    lengthFeedback = `A bit brief (${wordCount} words). Adding the scope or system will elevate it into the top tier.`;
+    feedbackList.push({
+      category: 'length',
+      status: 'warning',
+      title: `Slightly Brief (${wordCount} words)`,
+      advice: 'Add scope details (e.g. user counts or systems impacted) to bring it into the optimal 12–24 word zone.',
+    });
+  } else if (wordCount <= 24) {
+    lengthScore = 100;
+    lengthStatus = 'ideal';
+    lengthLabel = `${wordCount} words · Ideal (12–24)`;
+    lengthFeedback = `Optimal length (${wordCount} words). Perfect for executive skimming and ATS parsers.`;
+    feedbackList.push({
+      category: 'length',
+      status: 'good',
+      title: `Optimal Length (${wordCount} words)`,
+      advice: 'Perfect length for recruiter skimming. Fits neatly on 1–2 resume lines without clutter.',
+    });
+  } else if (wordCount <= 28) {
+    lengthScore = 75;
+    lengthStatus = 'verbose';
+    lengthLabel = `${wordCount} words · Slightly Long`;
+    lengthFeedback = `Slightly long (${wordCount} words). Watch out for wrapping across too many lines.`;
+    feedbackList.push({
+      category: 'length',
+      status: 'warning',
+      title: `Slightly Long (${wordCount} words)`,
+      advice: 'Consider trimming unnecessary filler words to keep the bullet punchy and under 25 words.',
+    });
+  } else {
+    lengthScore = 35;
+    lengthStatus = 'too-long';
+    lengthLabel = `${wordCount} words · Run-on`;
+    lengthFeedback = `Too verbose (${wordCount} words). Recruiters spend only 6 seconds per resume; keep it punchy.`;
+    feedbackList.push({
+      category: 'length',
+      status: 'danger',
+      title: `Run-on Sentence (${wordCount} words)`,
+      advice: 'This bullet is too long and risks being skipped. Split into two separate accomplishments or edit below 25 words.',
+    });
+  }
+
+  // 3. Quantitative Metrics Analysis
+  const detectedMetrics = extractMetrics(text);
+  const metricCount = detectedMetrics.length;
+  let metricsScore = 0;
+  let metricsLabel = '0 metrics';
+  let metricsFeedback = 'No quantitative metrics found.';
+
+  if (wordCount === 0) {
+    metricsScore = 0;
+    metricsLabel = '0 metrics';
+    metricsFeedback = 'Include quantifiable data to measure results.';
+  } else if (metricCount === 0) {
+    metricsScore = 10;
+    metricsLabel = 'No metrics detected';
+    metricsFeedback = 'Missing numbers. Bullets with data get 40% more interview callbacks.';
+    feedbackList.push({
+      category: 'metrics',
+      status: 'danger',
+      title: 'Missing Quantitative Metrics',
+      advice: 'Add numbers, percentages, ticket volumes, users, or time saved (e.g., "for 250 users", "cutting MTTR by 35%").',
+    });
+  } else if (metricCount === 1) {
+    metricsScore = 70;
+    metricsLabel = `1 metric (${detectedMetrics[0]})`;
+    metricsFeedback = `Good start with "${detectedMetrics[0]}". Adding a second metric (like % improvement or time saved) completes the picture.`;
+    feedbackList.push({
+      category: 'metrics',
+      status: 'warning',
+      title: `Partially Quantified (${detectedMetrics[0]})`,
+      advice: `You have 1 metric (${detectedMetrics[0]}). Try pairing scale with a tangible business result (e.g. "% reduction", "hours saved", or "$ saved").`,
+    });
+  } else {
+    metricsScore = 100;
+    metricsLabel = `${metricCount} metrics (${detectedMetrics.slice(0, 3).join(', ')})`;
+    metricsFeedback = `Excellent quantitative rigor! Verified scale and outcome (${detectedMetrics.slice(0, 3).join(', ')}).`;
+    feedbackList.push({
+      category: 'metrics',
+      status: 'good',
+      title: `Strong Quantitative Impact (${metricCount} metrics)`,
+      advice: `Outstanding! Verified with ${detectedMetrics.slice(0, 3).join(', ')}. Backing achievements with hard numbers wins interviews.`,
+    });
+  }
+
+  // Calculate Weighted Total Score:
+  // Action Verb: 35%, Length: 30%, Quantitative Metrics: 35%
+  let totalScore = Math.round(
+    (verbScore * 0.35) +
+    (lengthScore * 0.30) +
+    (metricsScore * 0.35)
+  );
+
+  if (wordCount === 0 && !candidateVerb) {
+    totalScore = 0;
+  }
+
+  totalScore = Math.max(0, Math.min(100, totalScore));
+
+  let tier: 'Needs Work' | 'Developing' | 'Strong' | 'Exceptional' = 'Needs Work';
+  let color = 'var(--bad, #ef4444)';
+  let badgeBg = 'rgba(239, 68, 68, 0.12)';
+
+  if (totalScore >= 85) {
+    tier = 'Exceptional';
+    color = 'var(--good, #10b981)';
+    badgeBg = 'rgba(16, 185, 129, 0.14)';
+  } else if (totalScore >= 70) {
+    tier = 'Strong';
+    color = 'var(--accent, #38bdf8)';
+    badgeBg = 'rgba(56, 189, 248, 0.14)';
+  } else if (totalScore >= 50) {
+    tier = 'Developing';
+    color = 'var(--amber, #f59e0b)';
+    badgeBg = 'rgba(245, 158, 11, 0.14)';
+  }
+
+  return {
+    score: totalScore,
+    tier,
+    color,
+    badgeBg,
+    verbImpact: {
+      score: verbScore,
+      detectedVerb: candidateVerb,
+      isStrong,
+      isWeak,
+      hasFirstPerson,
+      label: verbLabel,
+      feedback: verbFeedback,
+      suggestions: verbSuggestions,
+    },
+    lengthAnalysis: {
+      score: lengthScore,
+      wordCount,
+      charCount,
+      status: lengthStatus,
+      label: lengthLabel,
+      feedback: lengthFeedback,
+    },
+    metricsAnalysis: {
+      score: metricsScore,
+      detectedMetrics,
+      count: metricCount,
+      label: metricsLabel,
+      feedback: metricsFeedback,
+    },
+    feedbackList,
+  };
+}
+
+interface StrengthScoreIndicatorProps {
+  strength: BulletStrengthResult;
+  draftText?: string;
+  onApplyVerb?: (verb: string) => void;
+  onCopyDraft?: (text: string) => void;
+  title?: string;
+  subtitle?: string;
+}
+
+export const StrengthScoreIndicator: React.FC<StrengthScoreIndicatorProps> = ({
+  strength,
+  draftText,
+  onApplyVerb,
+  onCopyDraft,
+  title = "Real-Time Strength Score",
+  subtitle = "Live analysis of Action Verb Impact, Length, and Quantitative Metrics",
+}) => {
+  return (
+    <div
+      role="region"
+      aria-label="Real-time Strength Score Indicator"
+      style={{
+        background: 'var(--card)',
+        border: '1px solid var(--line)',
+        borderRadius: '14px',
+        padding: '20px',
+        marginTop: '20px',
+        marginBottom: '20px',
+        boxShadow: '0 4px 14px -2px rgba(0,0,0,0.06)',
+      }}
+    >
+      {/* Header with Title and Overall Score */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: strength.badgeBg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: strength.color,
+            }}
+          >
+            <Gauge size={22} aria-hidden="true" />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+              {title}
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '2px 0 0' }}>
+              {subtitle}
+            </p>
+          </div>
+        </div>
+
+        {/* Overall Score Dial Badge */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: strength.badgeBg,
+            border: `1px solid ${strength.color}`,
+            borderRadius: '99px',
+            padding: '6px 14px',
+          }}
+        >
+          <span style={{ fontSize: '1.25rem', fontWeight: 800, color: strength.color, lineHeight: 1 }}>
+            {strength.score}
+          </span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600 }}>/100</span>
+          <span
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              color: strength.color,
+              background: 'var(--card)',
+              padding: '2px 8px',
+              borderRadius: '99px',
+            }}
+          >
+            {strength.tier}
+          </span>
+        </div>
+      </div>
+
+      {/* Primary Score Progress Bar */}
+      <div
+        style={{
+          width: '100%',
+          height: '8px',
+          background: 'var(--bg)',
+          borderRadius: '99px',
+          overflow: 'hidden',
+          marginTop: '14px',
+          border: '1px solid var(--line)',
+        }}
+      >
+        <div
+          style={{
+            width: `${strength.score}%`,
+            height: '100%',
+            background: `linear-gradient(90deg, ${strength.color}, var(--brand))`,
+            borderRadius: '99px',
+            transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        />
+      </div>
+
+      {/* 3 Core Pillars Analysis Grid */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '12px',
+          marginTop: '16px',
+        }}
+      >
+        {/* Pillar 1: Action Verb Impact */}
+        <div
+          style={{
+            background: 'var(--bg)',
+            border: '1px solid var(--line)',
+            borderRadius: '10px',
+            padding: '12px 14px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Zap size={14} color="var(--brand)" aria-hidden="true" /> Action Verb Impact
+            </span>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: strength.verbImpact.score >= 80 ? 'var(--good, #10b981)' : strength.verbImpact.score >= 50 ? 'var(--amber, #f59e0b)' : 'var(--bad, #ef4444)',
+              }}
+            >
+              {strength.verbImpact.score}%
+            </span>
+          </div>
+
+          <div
+            style={{
+              width: '100%',
+              height: '4px',
+              background: 'var(--card)',
+              borderRadius: '99px',
+              overflow: 'hidden',
+              marginBottom: '8px',
+            }}
+          >
+            <div
+              style={{
+                width: `${strength.verbImpact.score}%`,
+                height: '100%',
+                background: strength.verbImpact.score >= 80 ? 'var(--good, #10b981)' : strength.verbImpact.score >= 50 ? 'var(--amber, #f59e0b)' : 'var(--bad, #ef4444)',
+                borderRadius: '99px',
+                transition: 'width 0.25s ease',
+              }}
+            />
+          </div>
+
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+            {strength.verbImpact.label}
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0, lineHeight: '1.4' }}>
+            {strength.verbImpact.feedback}
+          </p>
+
+          {/* Quick-apply verb suggestions if weak or incomplete */}
+          {strength.verbImpact.isWeak && onApplyVerb && strength.verbImpact.suggestions.length > 0 && (
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>Quick fix:</span>
+              {strength.verbImpact.suggestions.slice(0, 3).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => onApplyVerb(v)}
+                  style={{
+                    fontSize: '0.7rem',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    background: 'var(--card)',
+                    border: '1px solid var(--brand)',
+                    color: 'var(--brand)',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                  }}
+                >
+                  Use &quot;{v}&quot;
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Pillar 2: Length & Structure */}
+        <div
+          style={{
+            background: 'var(--bg)',
+            border: '1px solid var(--line)',
+            borderRadius: '10px',
+            padding: '12px 14px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FileText size={14} color="var(--brand)" aria-hidden="true" /> Length & Conciseness
+            </span>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: strength.lengthAnalysis.score >= 80 ? 'var(--good, #10b981)' : strength.lengthAnalysis.score >= 50 ? 'var(--amber, #f59e0b)' : 'var(--bad, #ef4444)',
+              }}
+            >
+              {strength.lengthAnalysis.score}%
+            </span>
+          </div>
+
+          <div
+            style={{
+              width: '100%',
+              height: '4px',
+              background: 'var(--card)',
+              borderRadius: '99px',
+              overflow: 'hidden',
+              marginBottom: '8px',
+            }}
+          >
+            <div
+              style={{
+                width: `${strength.lengthAnalysis.score}%`,
+                height: '100%',
+                background: strength.lengthAnalysis.score >= 80 ? 'var(--good, #10b981)' : strength.lengthAnalysis.score >= 50 ? 'var(--amber, #f59e0b)' : 'var(--bad, #ef4444)',
+                borderRadius: '99px',
+                transition: 'width 0.25s ease',
+              }}
+            />
+          </div>
+
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+            {strength.lengthAnalysis.label}
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0, lineHeight: '1.4' }}>
+            {strength.lengthAnalysis.feedback}
+          </p>
+          <div style={{ marginTop: '6px', fontSize: '0.7rem', color: 'var(--muted)' }}>
+            Target: 12–24 words ({strength.lengthAnalysis.charCount} characters)
+          </div>
+        </div>
+
+        {/* Pillar 3: Quantitative Metrics */}
+        <div
+          style={{
+            background: 'var(--bg)',
+            border: '1px solid var(--line)',
+            borderRadius: '10px',
+            padding: '12px 14px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <TrendingUp size={14} color="var(--brand)" aria-hidden="true" /> Quantitative Metrics
+            </span>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: strength.metricsAnalysis.score >= 80 ? 'var(--good, #10b981)' : strength.metricsAnalysis.score >= 50 ? 'var(--amber, #f59e0b)' : 'var(--bad, #ef4444)',
+              }}
+            >
+              {strength.metricsAnalysis.score}%
+            </span>
+          </div>
+
+          <div
+            style={{
+              width: '100%',
+              height: '4px',
+              background: 'var(--card)',
+              borderRadius: '99px',
+              overflow: 'hidden',
+              marginBottom: '8px',
+            }}
+          >
+            <div
+              style={{
+                width: `${strength.metricsAnalysis.score}%`,
+                height: '100%',
+                background: strength.metricsAnalysis.score >= 80 ? 'var(--good, #10b981)' : strength.metricsAnalysis.score >= 50 ? 'var(--amber, #f59e0b)' : 'var(--bad, #ef4444)',
+                borderRadius: '99px',
+                transition: 'width 0.25s ease',
+              }}
+            />
+          </div>
+
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+            {strength.metricsAnalysis.label}
+          </div>
+
+          {strength.metricsAnalysis.detectedMetrics.length > 0 ? (
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px', marginBottom: '4px' }}>
+              {strength.metricsAnalysis.detectedMetrics.map((dm, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    background: 'var(--card)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--text)',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {dm}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0, lineHeight: '1.4' }}>
+              {strength.metricsAnalysis.feedback}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Live Composite Draft Box (if user has started typing) */}
+      {draftText && draftText.trim().length > 0 && (
+        <div
+          style={{
+            marginTop: '16px',
+            background: 'var(--bg)',
+            border: '1px solid var(--line)',
+            borderRadius: '10px',
+            padding: '12px 14px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Live Bullet Draft Preview
+            </span>
+            {onCopyDraft && (
+              <button
+                type="button"
+                onClick={() => onCopyDraft(draftText)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: 'var(--card)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  padding: '3px 8px',
+                  fontSize: '0.75rem',
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                <Copy size={12} aria-hidden="true" /> Copy Draft
+              </button>
+            )}
+          </div>
+          <p
+            style={{
+              margin: 0,
+              fontFamily: 'monospace',
+              fontSize: '0.88rem',
+              color: 'var(--text)',
+              lineHeight: '1.5',
+              wordBreak: 'break-word',
+            }}
+          >
+            {draftText}
+          </p>
+        </div>
+      )}
+
+      {/* Immediate Actionable Feedback / How to Improve Section */}
+      <div style={{ marginTop: '16px', borderTop: '1px solid var(--line)', paddingTop: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+          <Sparkles size={16} color="var(--brand)" aria-hidden="true" />
+          <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+            Immediate Feedback & Improvement Guidance
+          </h4>
+        </div>
+
+        {strength.feedbackList.length === 0 ? (
+          <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0 }}>
+            Enter your action verb and task description above to see instant feedback.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {strength.feedbackList.map((item, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '8px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  fontSize: '0.82rem',
+                }}
+              >
+                <div style={{ marginTop: '2px', flexShrink: 0 }}>
+                  {item.status === 'good' ? (
+                    <CheckCircle2 size={16} color="var(--good, #10b981)" aria-hidden="true" />
+                  ) : item.status === 'warning' ? (
+                    <AlertTriangle size={16} color="var(--amber, #f59e0b)" aria-hidden="true" />
+                  ) : (
+                    <AlertCircle size={16} color="var(--bad, #ef4444)" aria-hidden="true" />
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '2px' }}>
+                    {item.title}
+                  </div>
+                  <div style={{ color: 'var(--muted)', lineHeight: '1.4' }}>
+                    {item.advice}
+                  </div>
+                </div>
+                {item.fixSuggestion && onApplyVerb && (
+                  <button
+                    type="button"
+                    onClick={() => onApplyVerb(item.fixSuggestion!)}
+                    style={{
+                      background: 'var(--brand)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      alignSelf: 'center',
+                    }}
+                  >
+                    Fix: &quot;{item.fixSuggestion}&quot;
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+function calculateImpactPotential(bullet: string): { score: number; label: string; color: string } {
+  const analysis = analyzeBulletStrength(bullet);
+  return {
+    score: analysis.score,
+    label: `${analysis.tier} (${analysis.metricsAnalysis.count} metrics · ${analysis.lengthAnalysis.wordCount} words)`,
+    color: analysis.color,
+  };
 }
 
 const WEAK_PHRASES_MAP: Record<string, string[]> = {
@@ -302,6 +1106,24 @@ export const ITResumeBulletBuilder: React.FC = () => {
   const [checkResult, setCheckResult] = useState<BulletCheckResult | null>(null);
   const [batchText, setBatchText] = useState('');
   const [batchResults, setBatchResults] = useState<Array<{ text: string; result: BulletCheckResult }> | null>(null);
+
+  // Real-time composite draft bullet derived from active builder fields
+  const liveDraftBullet = useMemo(
+    () => getCompositeBullet({ verb, task, tools, scale, result }),
+    [verb, task, tools, scale, result]
+  );
+
+  // Real-time Strength Score analysis for active builder inputs
+  const liveStrength = useMemo(
+    () => analyzeBulletStrength(liveDraftBullet, { verb, task, tools, scale, result }),
+    [liveDraftBullet, verb, task, tools, scale, result]
+  );
+
+  // Real-time Strength Score analysis for check tab bullet
+  const checkLiveStrength = useMemo(
+    () => analyzeBulletStrength(bulletToCheck),
+    [bulletToCheck]
+  );
 
   const handleBatchCheck = () => {
     const lines = batchText
@@ -965,6 +1787,19 @@ export const ITResumeBulletBuilder: React.FC = () => {
             </div>
           </div>
 
+          {/* Real-Time Strength Score Indicator */}
+          <StrengthScoreIndicator
+            strength={liveStrength}
+            draftText={liveDraftBullet}
+            onApplyVerb={(v) => {
+              setVerb(v);
+              showToast(`Applied "${v}"`);
+            }}
+            onCopyDraft={handleCopy}
+            title="Real-Time Bullet Strength Score"
+            subtitle="Live ATS impact analyzer evaluating action verb strength, bullet length, and quantitative metrics"
+          />
+
           <div className="row" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginTop: '16px' }}>
             <button
               type="button"
@@ -1191,6 +2026,25 @@ export const ITResumeBulletBuilder: React.FC = () => {
               Score this bullet
             </button>
           </div>
+
+          {/* Real-Time Strength Score Indicator for Check Tab */}
+          <StrengthScoreIndicator
+            strength={checkLiveStrength}
+            draftText={bulletToCheck}
+            onApplyVerb={(v) => {
+              const parts = bulletToCheck.trim().split(/\s+/);
+              if (parts.length > 0) {
+                parts[0] = v;
+                setBulletToCheck(parts.join(' '));
+              } else {
+                setBulletToCheck(v);
+              }
+              showToast(`Applied "${v}"`);
+            }}
+            onCopyDraft={handleCopy}
+            title="Real-Time Bullet Strength Analysis"
+            subtitle="Immediate evaluation of action verb impact, length, and quantitative metrics"
+          />
 
           <div id="chkOut" style={{ marginTop: '16px' }}>
             {checkResult ? (
