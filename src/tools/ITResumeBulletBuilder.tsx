@@ -244,12 +244,58 @@ function getSuggestionsForText(text: string): { weakWord: string; suggestions: s
 export const ITResumeBulletBuilder: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'build' | 'check' | 'saved'>('build');
   const [role, setRole] = useState(Object.keys(ROLES)[0]);
-  const [verb, setVerb] = useState('');
-  const [task, setTask] = useState('');
+  const [verb, setVerb] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('rb_verb') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+
+  const [task, setTask] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('rb_task') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+
   const [tools, setTools] = useState('');
   const [scale, setScale] = useState('');
   const [result, setResult] = useState('');
   const [generatedOuts, setGeneratedOuts] = useState<Array<{ n: string; t: string }> | null>(null);
+
+  // Persist 'Action Verb' to localStorage so users don't lose work on page refresh
+  useEffect(() => {
+    try {
+      if (verb) {
+        localStorage.setItem('rb_verb', verb);
+      } else {
+        localStorage.removeItem('rb_verb');
+      }
+    } catch (err) {
+      console.warn('Failed to persist verb to localStorage:', err);
+    }
+  }, [verb]);
+
+  // Persist 'Task/Scope' to localStorage so users don't lose work on page refresh
+  useEffect(() => {
+    try {
+      if (task) {
+        localStorage.setItem('rb_task', task);
+      } else {
+        localStorage.removeItem('rb_task');
+      }
+    } catch (err) {
+      console.warn('Failed to persist task to localStorage:', err);
+    }
+  }, [task]);
 
   // Check tab state
   const [bulletToCheck, setBulletToCheck] = useState('Responsible for managing user accounts in Active Directory');
@@ -832,7 +878,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
 
             <div>
               <label htmlFor="task" style={{ display: 'block', fontWeight: 600, margin: '12px 0 4px', color: 'var(--text)' }}>
-                What did you do?
+                What did you do? (Task / Scope)
               </label>
               <textarea
                 id="task"
