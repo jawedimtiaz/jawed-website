@@ -9,7 +9,6 @@ import {
   Plus,
   Sparkles,
   BookOpen,
-  Tag,
   Building2,
   Briefcase,
   Award,
@@ -65,14 +64,16 @@ export const InterviewPreparationPlanner: React.FC = () => {
     return SAMPLE_STORIES;
   });
 
-  // Form State
+  // Active form state using newStory object as requested
+  const [newStory, setNewStory] = useState({
+    theme: '',
+    situation: '',
+    task: '',
+    action: '',
+    result: ''
+  });
+
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [theme, setTheme] = useState('');
-  const [situation, setSituation] = useState('');
-  const [task, setTask] = useState('');
-  const [action, setAction] = useState('');
-  const [result, setResult] = useState('');
-  const [formError, setFormError] = useState('');
 
   // UI Feedback
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -98,12 +99,11 @@ export const InterviewPreparationPlanner: React.FC = () => {
     }, 3000);
   };
 
-  const handleSaveStory = () => {
-    if (!theme.trim() && !situation.trim() && !task.trim() && !action.trim() && !result.trim()) {
-      setFormError('Please fill in at least a category theme or one STAR dimension.');
+  const handleAddStory = () => {
+    if (!newStory.theme.trim() && !newStory.situation.trim() && !newStory.task.trim() && !newStory.action.trim() && !newStory.result.trim()) {
+      showToast('Please enter at least a theme or one STAR dimension.');
       return;
     }
-    setFormError('');
 
     if (editingId !== null) {
       // Update existing
@@ -112,78 +112,83 @@ export const InterviewPreparationPlanner: React.FC = () => {
           story.id === editingId
             ? {
                 ...story,
-                theme: theme.trim() || 'General Technical Achievement',
-                situation: situation.trim(),
-                task: task.trim(),
-                action: action.trim(),
-                result: result.trim(),
+                theme: newStory.theme.trim() || 'General Technical Achievement',
+                situation: newStory.situation.trim(),
+                task: newStory.task.trim(),
+                action: newStory.action.trim(),
+                result: newStory.result.trim(),
               }
             : story
         )
       );
       showToast('Story updated in vault!');
-      cancelEdit();
+      setEditingId(null);
     } else {
       // Create new
-      const newStory: StarStory = {
+      const created: StarStory = {
         id: Date.now(),
-        theme: theme.trim() || 'General Technical Achievement',
-        situation: situation.trim(),
-        task: task.trim(),
-        action: action.trim(),
-        result: result.trim(),
+        theme: newStory.theme.trim() || 'General Technical Achievement',
+        situation: newStory.situation.trim(),
+        task: newStory.task.trim(),
+        action: newStory.action.trim(),
+        result: newStory.result.trim(),
       };
-      setStarStories(prev => [newStory, ...prev]);
-      showToast('New story added to vault!');
-      resetForm();
+      setStarStories(prev => [...prev, created]);
+      showToast('Story added to vault!');
     }
-  };
 
-  const resetForm = () => {
-    setTheme('');
-    setSituation('');
-    setTask('');
-    setAction('');
-    setResult('');
-    setEditingId(null);
-    setFormError('');
+    setNewStory({
+      theme: '',
+      situation: '',
+      task: '',
+      action: '',
+      result: ''
+    });
   };
 
   const handleEditStory = (story: StarStory) => {
     setEditingId(story.id);
-    setTheme(story.theme);
-    setSituation(story.situation);
-    setTask(story.task);
-    setAction(story.action);
-    setResult(story.result);
-    setFormError('');
+    setNewStory({
+      theme: story.theme,
+      situation: story.situation,
+      task: story.task,
+      action: story.action,
+      result: story.result,
+    });
 
-    // Smooth scroll to the form
     const formElement = document.getElementById('star-editor-form');
     if (formElement) {
       formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
-  const cancelEdit = () => {
-    resetForm();
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setNewStory({
+      theme: '',
+      situation: '',
+      task: '',
+      action: '',
+      result: ''
+    });
   };
 
   const handleDeleteStory = (id: number) => {
     setStarStories(prev => prev.filter(s => s.id !== id));
     if (editingId === id) {
-      cancelEdit();
+      handleCancelEdit();
     }
     showToast('Story removed from vault.');
   };
 
   const handleLoadSample = () => {
-    setTheme('Cross-Functional Data Migration & Zero Downtime');
-    setSituation('During cloud consolidation, our customer billing database had to be migrated across AWS regions with a strict zero-downtime SLA during business hours.');
-    setTask('Lead IT systems validation, engineer failover rollback scripts, and conduct pre-flight sync simulations without impacting active API requests.');
-    setAction('Utilized AWS DMS with Change Data Capture (CDC). Orchestrated double-write verification in staging, wrote custom Python validation checksums, and executed the cutover during a 15-minute maintenance window.');
-    setResult('100% data integrity verified; 0 seconds of unplanned downtime; saved $14,000 monthly in legacy infrastructure overhead.');
-    setFormError('');
+    setNewStory({
+      theme: 'Cross-Functional Data Migration & Zero Downtime',
+      situation: 'During cloud consolidation, our customer billing database had to be migrated across AWS regions with a strict zero-downtime SLA during business hours.',
+      task: 'Lead IT systems validation, engineer failover rollback scripts, and conduct pre-flight sync simulations without impacting active API requests.',
+      action: 'Utilized AWS DMS with Change Data Capture (CDC). Orchestrated double-write verification in staging, wrote custom Python validation checksums, and executed the cutover during a 15-minute maintenance window.',
+      result: '100% data integrity verified; 0 seconds of unplanned downtime; saved $14,000 monthly in legacy infrastructure overhead.'
+    });
     showToast('Sample STAR story loaded into form!');
   };
 
@@ -276,7 +281,7 @@ ${story.result || 'N/A'}
                   value={roleTitle}
                   onChange={e => setRoleTitle(e.target.value)}
                   placeholder="e.g. Senior IT Support Specialist, Cloud Systems Engineer"
-                  className="w-full block bg-slate-950/60 border border-slate-700/70 rounded-xl px-4 py-3 text-sm md:text-base text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/50 transition-all"
+                  className="w-full block rounded-xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 transition-all"
                 />
               </div>
 
@@ -291,209 +296,13 @@ ${story.result || 'N/A'}
                   value={targetCompany}
                   onChange={e => setTargetCompany(e.target.value)}
                   placeholder="e.g. Fintech Enterprise, High-Growth SaaS, Healthcare"
-                  className="w-full block bg-slate-950/60 border border-slate-700/70 rounded-xl px-4 py-3 text-sm md:text-base text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/50 transition-all"
+                  className="w-full block rounded-xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 transition-all"
                 />
               </div>
             </div>
           </div>
 
-          {/* ADD / EDIT STAR STORY FORM (Spacious 2-column layout matching CareerMatchResumeReview) */}
-          <div
-            id="star-editor-form"
-            className="bg-slate-900 border border-slate-700/60 rounded-2xl p-6 md:p-8 shadow-2xl relative"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-sky-500/20 to-indigo-500/20 text-sky-400 border border-sky-500/30">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-xl md:text-2xl font-bold text-slate-100 flex items-center gap-2">
-                    {editingId !== null ? 'Edit STAR Story' : 'Add / Expand STAR Story'}
-                    {editingId !== null && (
-                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                        Editing Active
-                      </span>
-                    )}
-                  </h2>
-                  <p className="text-xs md:text-sm text-slate-400">
-                    Craft high-impact behavioral answers with the 4-part STAR methodology.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleLoadSample}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-slate-600 transition-colors"
-                >
-                  <BookOpen className="w-4 h-4 text-sky-400" />
-                  Load Sample Story
-                </button>
-                {editingId !== null && (
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs md:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {formError && (
-              <div className="mb-6 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                {formError}
-              </div>
-            )}
-
-            {/* 1. Theme / Category Input (Full Width) */}
-            <div className="mb-6">
-              <label htmlFor="story-theme" className="block text-sm md:text-base font-semibold text-slate-200 mb-1 flex items-center gap-2">
-                <Tag className="w-4 h-4 text-sky-400" />
-                Theme / Category
-              </label>
-              <p className="text-xs text-slate-400 mb-2">
-                Categorize the primary competence: e.g., High-Severity Incident, Automation, Conflict Escalation, Architecture Refactor.
-              </p>
-              <input
-                id="story-theme"
-                type="text"
-                value={theme}
-                onChange={e => setTheme(e.target.value)}
-                placeholder="e.g., Critical Incident Response, Identity Governance, Cross-Team Conflict Resolution"
-                className="w-full block bg-slate-950/60 border border-slate-700/70 rounded-xl p-3.5 text-sm md:text-base text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/50 transition-all"
-              />
-            </div>
-
-            {/* 2. 2-Column Responsive Grid for STAR Textareas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Card 1: Situation */}
-              <div className="bg-slate-950/40 border border-slate-800/90 rounded-2xl p-5 hover:border-slate-700/80 transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <label htmlFor="star-situation" className="text-sm md:text-base font-semibold text-slate-200 flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-bold flex items-center justify-center">
-                      S
-                    </span>
-                    1. Situation (The Context)
-                  </label>
-                </div>
-                <p className="text-xs text-slate-400 mb-3">
-                  What was the initial state, workplace infrastructure challenge, urgency, or background?
-                </p>
-                <textarea
-                  id="star-situation"
-                  rows={4}
-                  value={situation}
-                  onChange={e => setSituation(e.target.value)}
-                  placeholder="Describe the specific event, client, or workplace infrastructure challenge..."
-                  className="w-full block min-h-[130px] resize-y bg-slate-950/60 border border-slate-700/70 rounded-xl p-3.5 text-sm md:text-base text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/50 transition-all"
-                />
-              </div>
-
-              {/* Card 2: Task */}
-              <div className="bg-slate-950/40 border border-slate-800/90 rounded-2xl p-5 hover:border-slate-700/80 transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <label htmlFor="star-task" className="text-sm md:text-base font-semibold text-slate-200 flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs font-bold flex items-center justify-center">
-                      T
-                    </span>
-                    2. Task (Your Responsibility)
-                  </label>
-                </div>
-                <p className="text-xs text-slate-400 mb-3">
-                  What was expected of you personally, and what were the key operational constraints?
-                </p>
-                <textarea
-                  id="star-task"
-                  rows={4}
-                  value={task}
-                  onChange={e => setTask(e.target.value)}
-                  placeholder="Explain what you were personally tasked with fixing, leading, or delivering..."
-                  className="w-full block min-h-[130px] resize-y bg-slate-950/60 border border-slate-700/70 rounded-xl p-3.5 text-sm md:text-base text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/50 transition-all"
-                />
-              </div>
-
-              {/* Card 3: Action */}
-              <div className="bg-slate-950/40 border border-slate-800/90 rounded-2xl p-5 hover:border-slate-700/80 transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <label htmlFor="star-action" className="text-sm md:text-base font-semibold text-slate-200 flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs font-bold flex items-center justify-center">
-                      A
-                    </span>
-                    3. Action (Specific Steps You Took)
-                  </label>
-                </div>
-                <p className="text-xs text-slate-400 mb-3">
-                  Focus on what YOU did—technical CLI tools, hardware swaps, protocols, and leadership.
-                </p>
-                <textarea
-                  id="star-action"
-                  rows={4}
-                  value={action}
-                  onChange={e => setAction(e.target.value)}
-                  placeholder="Detail the technical tools, diagnostic CLI commands, hardware swaps, or team coordination..."
-                  className="w-full block min-h-[130px] resize-y bg-slate-950/60 border border-slate-700/70 rounded-xl p-3.5 text-sm md:text-base text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/50 transition-all"
-                />
-              </div>
-
-              {/* Card 4: Result */}
-              <div className="bg-slate-950/40 border border-slate-800/90 rounded-2xl p-5 hover:border-slate-700/80 transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <label htmlFor="star-result" className="text-sm md:text-base font-semibold text-slate-200 flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center justify-center">
-                      R
-                    </span>
-                    4. Result (Measurable Outcome)
-                  </label>
-                </div>
-                <p className="text-xs text-slate-400 mb-3">
-                  Quantify the resolution: SLA recovery time, downtime avoided, % improvement, or zero-incident metrics.
-                </p>
-                <textarea
-                  id="star-result"
-                  rows={4}
-                  value={result}
-                  onChange={e => setResult(e.target.value)}
-                  placeholder="Quantify the resolution: SLA recovery time, downtime avoided, % improvement..."
-                  className="w-full block min-h-[130px] resize-y bg-slate-950/60 border border-slate-700/70 rounded-xl p-3.5 text-sm md:text-base text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/50 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* 3. Action Bar */}
-            <div className="mt-8 pt-6 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleSaveStory}
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-medium px-6 py-2.5 rounded-xl shadow-lg hover:shadow-sky-500/20 transition-all"
-                >
-                  <Plus className="w-4 h-4" />
-                  {editingId !== null ? 'Update Story in Vault' : 'Add Story to Vault'}
-                </button>
-
-                {editingId !== null && (
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors"
-                  >
-                    Cancel Editing
-                  </button>
-                )}
-              </div>
-
-              <span className="text-xs text-slate-500">
-                Stories are securely stored in your browser local storage.
-              </span>
-            </div>
-          </div>
-
-          {/* 4. SAVED STORIES VAULT CARDS */}
+          {/* STAR Method Story Vault */}
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -505,37 +314,48 @@ ${story.result || 'N/A'}
                   </span>
                 </h2>
                 <p className="text-xs md:text-sm text-slate-400 mt-1">
-                  Ready-to-deliver stories for behavioral, system troubleshooting, and technical leadership rounds.
+                  Structure your accomplishments using Situation, Task, Action, and Result. Interviewers remember measurable outcomes.
                 </p>
               </div>
 
               {starStories.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const allText = starStories.map((s, idx) => `STORY #${idx + 1}: ${s.theme}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleLoadSample}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs md:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                    Load Sample
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allText = starStories.map((s, idx) => `STORY #${idx + 1}: ${s.theme}
 [Situation]: ${s.situation}
 [Task]: ${s.task}
 [Action]: ${s.action}
 [Result]: ${s.result}
 ----------------------------------------`).join('\n\n');
-                    navigator.clipboard.writeText(allText);
-                    showToast('All STAR stories copied to clipboard!');
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
-                >
-                  <Copy className="w-4 h-4 text-sky-400" />
-                  Copy All Stories
-                </button>
+                      navigator.clipboard.writeText(allText);
+                      showToast('All STAR stories copied to clipboard!');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs md:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-sky-400" />
+                    Copy All Stories
+                  </button>
+                </div>
               )}
             </div>
 
+            {/* List of saved STAR Stories */}
             {starStories.length === 0 ? (
               <div className="bg-slate-900/60 border border-dashed border-slate-800 rounded-2xl p-12 text-center">
                 <BookOpen className="w-10 h-10 text-slate-600 mx-auto mb-3" />
                 <h3 className="text-base font-semibold text-slate-300">Your Story Vault is Empty</h3>
                 <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1 mb-5">
-                  Use the editor above to draft your first STAR story, or load our battle-tested sample stories to get started.
+                  Use the editor below to draft your first STAR story, or load our battle-tested sample stories to get started.
                 </p>
                 <button
                   type="button"
@@ -671,6 +491,113 @@ ${story.result || 'N/A'}
                 })}
               </div>
             )}
+
+            {/* Exact Requested Form Markup for Add New STAR Story */}
+            <div id="star-editor-form" className="mt-8 rounded-2xl border border-slate-700/60 bg-slate-900/60 p-6 md:p-8 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-sky-400"/>
+                  {editingId !== null ? 'Edit STAR Story' : 'Add New STAR Story'}
+                </h3>
+                {editingId !== null && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
+
+              {/* Full Width Theme/Category Input */}
+              <div className="mb-6">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                  Theme / Category (e.g., Escalation, High-Severity Outage, Automation)
+                </label>
+                <input
+                  type="text"
+                  value={newStory.theme}
+                  onChange={(e) => setNewStory({ ...newStory, theme: e.target.value })}
+                  placeholder="e.g. Automating Device Onboarding & Provisioning"
+                  className="w-full block rounded-xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 transition-all"
+                />
+              </div>
+
+              {/* 2-Column Responsive Grid with Large Textareas */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 1. Situation */}
+                <div className="flex flex-col">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1.5">
+                    1. Situation (The Context)
+                  </label>
+                  <span className="text-xs text-slate-400 mb-2">What was the challenge, incident, or initial state?</span>
+                  <textarea
+                    rows={4}
+                    value={newStory.situation}
+                    onChange={(e) => setNewStory({ ...newStory, situation: e.target.value })}
+                    placeholder="Describe the context: failure event, urgent customer issue, or legacy environment..."
+                    className="w-full flex-1 min-h-[130px] rounded-xl border border-slate-700/80 bg-slate-950/80 p-3.5 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 resize-y transition-all"
+                  />
+                </div>
+
+                {/* 2. Task */}
+                <div className="flex flex-col">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1.5">
+                    2. Task (Your Responsibility)
+                  </label>
+                  <span className="text-xs text-slate-400 mb-2">What were you personally tasked to deliver or solve?</span>
+                  <textarea
+                    rows={4}
+                    value={newStory.task}
+                    onChange={(e) => setNewStory({ ...newStory, task: e.target.value })}
+                    placeholder="Detail your exact mandate, SLAs, and technical constraints..."
+                    className="w-full flex-1 min-h-[130px] rounded-xl border border-slate-700/80 bg-slate-950/80 p-3.5 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 resize-y transition-all"
+                  />
+                </div>
+
+                {/* 3. Action */}
+                <div className="flex flex-col">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1.5">
+                    3. Action (Specific Steps You Took)
+                  </label>
+                  <span className="text-xs text-slate-400 mb-2">What tools, protocols, CLI commands, or actions did you take?</span>
+                  <textarea
+                    rows={4}
+                    value={newStory.action}
+                    onChange={(e) => setNewStory({ ...newStory, action: e.target.value })}
+                    placeholder="What did YOU do? E.g., configured VLANs, isolated loops, deployed scripts..."
+                    className="w-full flex-1 min-h-[130px] rounded-xl border border-slate-700/80 bg-slate-950/80 p-3.5 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 resize-y transition-all"
+                  />
+                </div>
+
+                {/* 4. Result */}
+                <div className="flex flex-col">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1.5">
+                    4. Result (Measurable Outcome)
+                  </label>
+                  <span className="text-xs text-slate-400 mb-2">Quantifiable metrics: time saved, % reduced, SLA recovery</span>
+                  <textarea
+                    rows={4}
+                    value={newStory.result}
+                    onChange={(e) => setNewStory({ ...newStory, result: e.target.value })}
+                    placeholder="Outcome: e.g., restored service in 14 minutes, eliminated recurring tickets by 40%..."
+                    className="w-full flex-1 min-h-[130px] rounded-xl border border-slate-700/80 bg-slate-950/80 p-3.5 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 resize-y transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-6 flex flex-wrap gap-3 items-center">
+                <button
+                  onClick={handleAddStory}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 hover:from-sky-400 hover:to-indigo-400 transition-all"
+                >
+                  <Plus className="w-4 h-4"/> {editingId !== null ? 'Update Story in Vault' : 'Add Story to Vault'}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Reverse Interview Questions Section */}
@@ -740,4 +667,3 @@ ${story.result || 'N/A'}
     </div>
   );
 };
-
