@@ -59,4 +59,4 @@
 /ai/* / 200
 
 # SPA fallback for any React Router path not covered above
-/* /index.html 200
+/* / 200
