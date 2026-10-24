@@ -20,6 +20,8 @@ import {
   Layers,
   Download,
   ListPlus,
+  Tag,
+  Filter,
 } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
@@ -1051,6 +1053,7 @@ function getSuggestionsForText(text: string): { weakWord: string; suggestions: s
 export interface BatchGeneratedItem {
   id: string;
   originalText: string;
+  category: string;
   isRole: boolean;
   detectedRole?: string;
   selectedStyle: 'Standard' | 'Impact-first' | 'ATS-Compact';
@@ -1061,6 +1064,175 @@ export interface BatchGeneratedItem {
   };
   currentBullet: string;
   strength: BulletStrengthResult;
+}
+
+export const STANDARD_CATEGORIES = [
+  'Leadership',
+  'Project Management',
+  'Technical Troubleshooting',
+  'Infrastructure & Cloud',
+  'Security & Compliance',
+  'Service Desk & Support',
+  'General IT',
+] as const;
+
+export type ResumeCategory = typeof STANDARD_CATEGORIES[number];
+
+export const CATEGORY_ORDER: Record<string, number> = {
+  'Leadership': 1,
+  'Project Management': 2,
+  'Technical Troubleshooting': 3,
+  'Infrastructure & Cloud': 4,
+  'Security & Compliance': 5,
+  'Service Desk & Support': 6,
+  'General IT': 7,
+};
+
+export const CATEGORY_META: Record<string, { icon: string; bg: string; color: string; border: string }> = {
+  Leadership: {
+    icon: '👑',
+    bg: 'rgba(234, 179, 8, 0.12)',
+    color: 'var(--amber, #d97706)',
+    border: 'rgba(234, 179, 8, 0.35)',
+  },
+  'Project Management': {
+    icon: '📋',
+    bg: 'rgba(99, 102, 241, 0.12)',
+    color: '#6366f1',
+    border: 'rgba(99, 102, 241, 0.35)',
+  },
+  'Technical Troubleshooting': {
+    icon: '🔧',
+    bg: 'rgba(239, 68, 68, 0.12)',
+    color: '#ef4444',
+    border: 'rgba(239, 68, 68, 0.35)',
+  },
+  'Infrastructure & Cloud': {
+    icon: '☁️',
+    bg: 'rgba(14, 165, 233, 0.12)',
+    color: '#0284c7',
+    border: 'rgba(14, 165, 233, 0.35)',
+  },
+  'Security & Compliance': {
+    icon: '🛡️',
+    bg: 'rgba(16, 185, 129, 0.12)',
+    color: '#059669',
+    border: 'rgba(16, 185, 129, 0.35)',
+  },
+  'Service Desk & Support': {
+    icon: '🎧',
+    bg: 'rgba(168, 85, 247, 0.12)',
+    color: '#9333ea',
+    border: 'rgba(168, 85, 247, 0.35)',
+  },
+  'General IT': {
+    icon: '💻',
+    bg: 'rgba(100, 116, 139, 0.12)',
+    color: '#475569',
+    border: 'rgba(100, 116, 139, 0.35)',
+  },
+};
+
+export function getCategoryMeta(cat: string) {
+  return CATEGORY_META[cat] || {
+    icon: '🏷️',
+    bg: 'rgba(100, 116, 139, 0.12)',
+    color: 'var(--brand)',
+    border: 'rgba(56, 189, 248, 0.35)',
+  };
+}
+
+export function detectCategory(text: string, defaultCat: string = 'auto'): string {
+  // 1. Bracket format: [Category] ...
+  const bracketMatch = text.match(/^\s*\[([^\]]+)\]/);
+  if (bracketMatch && bracketMatch[1].trim()) {
+    const rawCat = bracketMatch[1].trim();
+    const found = STANDARD_CATEGORIES.find(c => c.toLowerCase() === rawCat.toLowerCase());
+    return found || cap(rawCat);
+  }
+
+  // 2. Colon prefix format: Category: ...
+  const colonMatch = text.match(/^\s*([A-Za-z\s&/-]{3,30})\s*:\s*(.+)$/);
+  if (colonMatch) {
+    const candidate = colonMatch[1].trim();
+    const found = STANDARD_CATEGORIES.find(c => c.toLowerCase() === candidate.toLowerCase());
+    if (found) {
+      return found;
+    }
+  }
+
+  // 3. User explicit fallback default category if not auto
+  if (defaultCat && defaultCat !== 'auto' && defaultCat !== 'Auto-detect') {
+    return defaultCat;
+  }
+
+  // 4. Keyword-based intelligent classifier
+  const lower = text.toLowerCase();
+  if (/(?:lead|led|mentor|mentoring|direct|coach|manage[ds]?|manager|head of|chief|supervis|budget|stakeholder|cross-functional|hire|hiring|train|training)/i.test(lower)) {
+    return 'Leadership';
+  }
+  if (/(?:project|migration|rollout|agile|scrum|sprint|lifecycle|milestone|delivered|timeline|vendor contract|rfp|procurement|sla definition)/i.test(lower)) {
+    return 'Project Management';
+  }
+  if (/(?:troubleshot|troubleshoot|diagnos|root cause|outage|packet loss|triage|incident|ticket|flapping|latency|break-fix|debug|vpn disconnect)/i.test(lower)) {
+    return 'Technical Troubleshooting';
+  }
+  if (/(?:cloud|aws|azure|gcp|vmware|esxi|hyper-v|vlan|switch|router|cisco|meraki|bgp|ospf|active directory|veeam|backup|kubernetes|docker|terraform|ansible|storage|san|nas)/i.test(lower)) {
+    return 'Infrastructure & Cloud';
+  }
+  if (/(?:secur|splunk|siem|soc|audit|compliance|vulnerability|firewall|hardening|cve|crowdstrike|palo alto|fortinet|iso 27001|soc 2|nist|hipaa|edr|xdr)/i.test(lower)) {
+    return 'Security & Compliance';
+  }
+  if (/(?:help desk|service desk|onboard|offboard|password|servicenow|jira|zendesk|laptop|desktop|printer|zoom|teams|audio visual|av|user support|tier 1|tier 2|tier 3)/i.test(lower)) {
+    return 'Service Desk & Support';
+  }
+
+  return 'Technical Troubleshooting';
+}
+
+export function extractCategoryAndClean(rawLine: string, defaultCat: string = 'auto') {
+  let line = rawLine.replace(/^[•\-\*\d\.\)\s]+/, '').trim();
+  let category = '';
+
+  // Bracket format: [Category] ...
+  const bracketMatch = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+  if (bracketMatch) {
+    const rawCat = bracketMatch[1].trim();
+    const found = STANDARD_CATEGORIES.find(c => c.toLowerCase() === rawCat.toLowerCase());
+    category = found || cap(rawCat);
+    line = bracketMatch[2].trim();
+  } else {
+    // Colon format: Category: ...
+    const colonMatch = line.match(/^([A-Za-z\s&/-]{3,30}):\s*(.+)$/);
+    if (colonMatch) {
+      const candidate = colonMatch[1].trim();
+      const found = STANDARD_CATEGORIES.find(c => c.toLowerCase() === candidate.toLowerCase());
+      if (found) {
+        category = found;
+        line = colonMatch[2].trim();
+      }
+    }
+  }
+
+  if (!category) {
+    category = detectCategory(line, defaultCat);
+  }
+
+  return { category, cleanedLine: line };
+}
+
+export function sortBatchItems(items: BatchGeneratedItem[], sortBy: 'category' | 'input' = 'category'): BatchGeneratedItem[] {
+  if (sortBy === 'input') {
+    return [...items];
+  }
+  return [...items].sort((a, b) => {
+    const orderA = CATEGORY_ORDER[a.category] || 99;
+    const orderB = CATEGORY_ORDER[b.category] || 99;
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    return a.category.localeCompare(b.category);
+  });
 }
 
 const ROLE_ACCOMPLISHMENTS: Record<string, { verb: string; task: string; tools: string; scale: string; result: string }> = {
@@ -1110,41 +1282,56 @@ const ROLE_ACCOMPLISHMENTS: Record<string, { verb: string; task: string; tools: 
 
 const BATCH_PRESETS = [
   {
+    name: 'Categorized Roles & Tasks',
+    entries: [
+      '[Leadership] Mentored 5 junior sysadmins and instituted weekly tier-2 escalation review sessions',
+      '[Leadership] Led cross-functional incident response team during core datacenter migration',
+      '[Project Management] Spearheaded cloud migration of 40 on-prem Windows VMs to AWS EC2 under budget',
+      '[Project Management] Directed hardware lifecycle replacement and vendor procurement for 350 workstations',
+      '[Technical Troubleshooting] Diagnosed and resolved critical core switch outage and BGP route flapping within 20 minutes',
+      '[Technical Troubleshooting] Triaged complex ServiceNow incidents, isolating root cause and cutting MTTR by 45%',
+      '[Infrastructure & Cloud] Orchestrated Kubernetes microservices and automated CI/CD deployment pipelines',
+      '[Security & Compliance] Hardened endpoint baseline configurations and conducted quarterly SOC 2 compliance audits',
+    ],
+  },
+  {
     name: 'Help Desk / Desktop',
     entries: [
-      'Responsible for Active Directory user onboarding, offboarding, and password resets',
-      'Triaged and resolved ServiceNow tier 1/2 hardware, Outlook, and VPN incidents',
-      'Deployed Windows 11 enterprise laptop images using Microsoft Intune and SCCM',
-      'Configured and supported network multi-function printers and VoIP phones across 2 office floors',
+      '[Service Desk & Support] Responsible for Active Directory user onboarding, offboarding, and password resets',
+      '[Technical Troubleshooting] Triaged and resolved ServiceNow tier 1/2 hardware, Outlook, and VPN incidents',
+      '[Infrastructure & Cloud] Deployed Windows 11 enterprise laptop images using Microsoft Intune and SCCM',
+      '[Service Desk & Support] Configured and supported network multi-function printers and VoIP phones across 2 office floors',
     ],
   },
   {
     name: 'Network & Infrastructure',
     entries: [
-      'Configured VLAN segmentation and dynamic routing on Cisco Meraki switches and firewalls',
-      'Monitored enterprise WAN and LAN links, isolating port flapping and duplex mismatches via CLI',
-      'Terminated and certified Cat6A patch panel connections adhering to ANSI/TIA standards',
-      'Hardened firewall ACLs and deployed secure remote-access IPSec VPN tunnels',
+      '[Infrastructure & Cloud] Configured VLAN segmentation and dynamic routing on Cisco Meraki switches and firewalls',
+      '[Technical Troubleshooting] Monitored enterprise WAN and LAN links, isolating port flapping and duplex mismatches via CLI',
+      '[Infrastructure & Cloud] Terminated and certified Cat6A patch panel connections adhering to ANSI/TIA standards',
+      '[Security & Compliance] Hardened firewall ACLs and deployed secure remote-access IPSec VPN tunnels',
     ],
   },
   {
     name: 'Systems & Cloud',
     entries: [
-      'Administered 40 virtual servers on VMware ESXi with automated Veeam backup schedules',
-      'Migrated legacy on-prem Windows Server 2012 VMs to AWS EC2 instances with zero downtime',
-      'Automated user provisioning and GPO security hardening baselines across domain controllers',
-      'Containerized internal web microservices using Docker and orchestrated deployments on Kubernetes',
+      '[Infrastructure & Cloud] Administered 40 virtual servers on VMware ESXi with automated Veeam backup schedules',
+      '[Project Management] Migrated legacy on-prem Windows Server 2012 VMs to AWS EC2 instances with zero downtime',
+      '[Security & Compliance] Automated user provisioning and GPO security hardening baselines across domain controllers',
+      '[Infrastructure & Cloud] Containerized internal web microservices using Docker and orchestrated deployments on Kubernetes',
     ],
   },
   {
     name: 'List of IT Roles',
     entries: [
-      'Field Technician',
-      'Network Engineer',
-      'System Administrator',
-      'Help Desk Analyst',
-      'Cloud / DevOps Engineer',
-      'Cybersecurity Specialist',
+      '[Leadership] IT Systems Lead',
+      '[Technical Troubleshooting] Field Technician',
+      '[Infrastructure & Cloud] Network Engineer',
+      '[Infrastructure & Cloud] System Administrator',
+      '[Service Desk & Support] Help Desk Analyst',
+      '[Infrastructure & Cloud] Cloud / DevOps Engineer',
+      '[Security & Compliance] Cybersecurity Specialist',
+      '[Project Management] IT Project Manager',
     ],
   },
 ];
@@ -1152,8 +1339,10 @@ const BATCH_PRESETS = [
 function optimizeBatchEntry(
   rawLine: string,
   rolePreference: string,
-  defaultStyle: 'Standard' | 'Impact-first' | 'ATS-Compact' = 'Standard'
+  defaultStyle: 'Standard' | 'Impact-first' | 'ATS-Compact' = 'Standard',
+  defaultCategory: string = 'auto'
 ): {
+  category: string;
   isRole: boolean;
   detectedRole?: string;
   styles: {
@@ -1162,7 +1351,8 @@ function optimizeBatchEntry(
     'ATS-Compact': string;
   };
 } {
-  const clean = rawLine.replace(/^[•\-\*\d\.\)\s]+/, '').trim();
+  const { category, cleanedLine } = extractCategoryAndClean(rawLine, defaultCategory);
+  const clean = cleanedLine.replace(/^[•\-\*\d\.\)\s]+/, '').trim();
   const lower = clean.toLowerCase();
 
   // 1. Check if line is a Role Title (e.g. "Network Engineer", "Field Technician", "Help Desk")
@@ -1193,6 +1383,7 @@ function optimizeBatchEntry(
     };
 
     return {
+      category,
       isRole: true,
       detectedRole: key,
       styles,
@@ -1356,6 +1547,7 @@ function optimizeBatchEntry(
   const atsCompact = `${verb} ${task}${finalTools ? ' (' + finalTools + ')' : ''}${finalScale ? '; ' + finalScale : ''}${resultStr ? '; ' + resultStr : ''}.`.replace(/\s+/g, ' ');
 
   return {
+    category,
     isRole: false,
     styles: {
       Standard: standard,
@@ -1398,9 +1590,32 @@ export const ITResumeBulletBuilder: React.FC = () => {
   // Batch Generator state
   const [batchGenInput, setBatchGenInput] = useState('');
   const [batchGenRole, setBatchGenRole] = useState('auto');
+  const [batchGenDefaultCat, setBatchGenDefaultCat] = useState('auto');
   const [batchGenStyle, setBatchGenStyle] = useState<'Standard' | 'Impact-first' | 'ATS-Compact'>('Standard');
+  const [batchSortBy, setBatchSortBy] = useState<'category' | 'input'>('category');
+  const [batchCategoryFilter, setBatchCategoryFilter] = useState('All');
   const [batchGeneratedItems, setBatchGeneratedItems] = useState<BatchGeneratedItem[] | null>(null);
   const [batchExportDropdownOpen, setBatchExportDropdownOpen] = useState(false);
+
+  // Memoized sorted and filtered items for Batch Generator
+  const sortedBatchItems = useMemo(() => {
+    if (!batchGeneratedItems) return [];
+    return sortBatchItems(batchGeneratedItems, batchSortBy);
+  }, [batchGeneratedItems, batchSortBy]);
+
+  const filteredBatchItems = useMemo(() => {
+    if (batchCategoryFilter === 'All') return sortedBatchItems;
+    return sortedBatchItems.filter(item => item.category === batchCategoryFilter);
+  }, [sortedBatchItems, batchCategoryFilter]);
+
+  const categoryCounts = useMemo(() => {
+    if (!batchGeneratedItems) return {};
+    const counts: Record<string, number> = {};
+    batchGeneratedItems.forEach(item => {
+      counts[item.category] = (counts[item.category] || 0) + 1;
+    });
+    return counts;
+  }, [batchGeneratedItems]);
 
   // Persist 'Action Verb' to localStorage so users don't lose work on page refresh
   useEffect(() => {
@@ -1536,7 +1751,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
   const handleGenerateBatch = () => {
     const lines = batchGenInput
       .split('\n')
-      .map(l => l.replace(/^[•\-\*\d\.\)\s]+/, '').trim())
+      .map(l => l.trim())
       .filter(l => l.length > 0);
 
     if (lines.length === 0) {
@@ -1545,11 +1760,12 @@ export const ITResumeBulletBuilder: React.FC = () => {
     }
 
     const items: BatchGeneratedItem[] = lines.map((line, idx) => {
-      const generated = optimizeBatchEntry(line, batchGenRole, batchGenStyle);
+      const generated = optimizeBatchEntry(line, batchGenRole, batchGenStyle, batchGenDefaultCat);
       const current = generated.styles[batchGenStyle];
       return {
         id: `batch-${Date.now()}-${idx}`,
         originalText: line,
+        category: generated.category,
         isRole: generated.isRole,
         detectedRole: generated.detectedRole,
         selectedStyle: batchGenStyle,
@@ -1559,39 +1775,74 @@ export const ITResumeBulletBuilder: React.FC = () => {
       };
     });
 
-    setBatchGeneratedItems(items);
-    showToast(`Generated ${items.length} optimized bullets`);
+    const sorted = sortBatchItems(items, batchSortBy);
+    setBatchGeneratedItems(sorted);
+    showToast(`Generated and sorted ${items.length} categorized bullets`);
   };
 
-  const handleUpdateBatchItemBullet = (index: number, newText: string) => {
+  const handleUpdateBatchItemBullet = (id: string, newText: string) => {
     if (!batchGeneratedItems) return;
-    const updated = [...batchGeneratedItems];
-    updated[index] = {
-      ...updated[index],
-      currentBullet: newText,
-      strength: analyzeBulletStrength(newText),
-    };
+    const updated = batchGeneratedItems.map(item =>
+      item.id === id
+        ? {
+            ...item,
+            currentBullet: newText,
+            strength: analyzeBulletStrength(newText),
+          }
+        : item
+    );
     setBatchGeneratedItems(updated);
   };
 
-  const handleSwitchBatchItemStyle = (index: number, style: 'Standard' | 'Impact-first' | 'ATS-Compact') => {
+  const handleSwitchBatchItemStyle = (id: string, style: 'Standard' | 'Impact-first' | 'ATS-Compact') => {
     if (!batchGeneratedItems) return;
-    const updated = [...batchGeneratedItems];
-    const newBullet = updated[index].styles[style];
-    updated[index] = {
-      ...updated[index],
-      selectedStyle: style,
-      currentBullet: newBullet,
-      strength: analyzeBulletStrength(newBullet),
-    };
+    const updated = batchGeneratedItems.map(item =>
+      item.id === id
+        ? {
+            ...item,
+            selectedStyle: style,
+            currentBullet: item.styles[style],
+            strength: analyzeBulletStrength(item.styles[style]),
+          }
+        : item
+    );
     setBatchGeneratedItems(updated);
+  };
+
+  const handleUpdateBatchItemCategory = (id: string, newCategory: string) => {
+    if (!batchGeneratedItems) return;
+    const updated = batchGeneratedItems.map(item =>
+      item.id === id ? { ...item, category: newCategory } : item
+    );
+    setBatchGeneratedItems(sortBatchItems(updated, batchSortBy));
+    showToast(`Category updated to "${newCategory}"`);
+  };
+
+  const handleCopyCategoryBullets = (categoryName: string) => {
+    if (!batchGeneratedItems) return;
+    const catItems = batchGeneratedItems.filter(i => i.category === categoryName);
+    if (catItems.length === 0) return;
+    const text = `## ${categoryName}\n` + catItems.map(i => '• ' + i.currentBullet).join('\n\n');
+    handleCopy(text);
+    showToast(`Copied ${catItems.length} ${categoryName} bullets!`);
   };
 
   const handleCopyAllBatch = () => {
     if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
-    const text = batchGeneratedItems.map(item => '• ' + item.currentBullet).join('\n\n');
-    handleCopy(text);
-    showToast(`Copied all ${batchGeneratedItems.length} bullets!`);
+    const items = sortBatchItems(batchGeneratedItems, 'category');
+    const grouped: Record<string, BatchGeneratedItem[]> = {};
+    items.forEach(item => {
+      if (!grouped[item.category]) grouped[item.category] = [];
+      grouped[item.category].push(item);
+    });
+
+    const sections: string[] = [];
+    Object.entries(grouped).forEach(([cat, catItems]) => {
+      sections.push(`## ${cat}\n` + catItems.map(i => '• ' + i.currentBullet).join('\n'));
+    });
+
+    handleCopy(sections.join('\n\n'));
+    showToast(`Copied all ${batchGeneratedItems.length} categorized bullets!`);
   };
 
   const handleSaveAllBatch = () => {
@@ -1604,7 +1855,29 @@ export const ITResumeBulletBuilder: React.FC = () => {
 
   const handleExportBatchTxt = () => {
     if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
-    const content = batchGeneratedItems.map(item => '• ' + item.currentBullet).join('\n\n');
+    const items = sortBatchItems(batchGeneratedItems, 'category');
+    const grouped: Record<string, BatchGeneratedItem[]> = {};
+    items.forEach(item => {
+      if (!grouped[item.category]) grouped[item.category] = [];
+      grouped[item.category].push(item);
+    });
+
+    const sections: string[] = [
+      '====================================================',
+      'IT RESUME BULLETS (CATEGORIZED BATCH EXPORT)',
+      `Generated: ${new Date().toLocaleDateString()} — IT Resume Bullet Builder`,
+      '====================================================\n',
+    ];
+
+    Object.entries(grouped).forEach(([cat, catItems]) => {
+      sections.push(`--- ${cat.toUpperCase()} (${catItems.length}) ---`);
+      catItems.forEach(i => {
+        sections.push(`• ${i.currentBullet}`);
+      });
+      sections.push('');
+    });
+
+    const content = sections.join('\n');
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1620,35 +1893,66 @@ export const ITResumeBulletBuilder: React.FC = () => {
 
   const handleExportBatchPdf = () => {
     if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
+    const items = sortBatchItems(batchGeneratedItems, 'category');
+    const grouped: Record<string, BatchGeneratedItem[]> = {};
+    items.forEach(item => {
+      if (!grouped[item.category]) grouped[item.category] = [];
+      grouped[item.category].push(item);
+    });
+
     const doc = new jsPDF();
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
-    doc.text('IT Resume Bullets (Batch Generated)', 14, 20);
+    doc.text('IT Resume Bullets (Categorized)', 14, 20);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Generated on ${new Date().toLocaleDateString()} — IT Resume Bullet Builder`, 14, 26);
-
-    doc.setTextColor(0);
-    doc.setFontSize(11);
+    doc.text(`Generated on ${new Date().toLocaleDateString()} — Grouped & Sorted by Category`, 14, 26);
 
     let y = 36;
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
     const maxWidth = 182;
 
-    batchGeneratedItems.forEach((item) => {
-      const text = `•  ${item.currentBullet}`;
-      const lines = doc.splitTextToSize(text, maxWidth);
-
-      if (y + (lines.length * 6) > pageHeight - 20) {
+    Object.entries(grouped).forEach(([cat, catItems]) => {
+      if (y + 24 > pageHeight - 20) {
         doc.addPage();
         y = 20;
       }
 
-      doc.text(lines, margin, y);
-      y += (lines.length * 6) + 4;
+      // Category Header
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12.5);
+      doc.setTextColor(30, 64, 175);
+      doc.text(`${cat.toUpperCase()} (${catItems.length})`, margin, y);
+      y += 3;
+
+      // Category divider line
+      doc.setDrawColor(220, 225, 235);
+      doc.setLineWidth(0.5);
+      doc.line(margin, y, margin + maxWidth, y);
+      y += 6;
+
+      // Bullets under category
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(30, 41, 59);
+
+      catItems.forEach((item) => {
+        const text = `•  ${item.currentBullet}`;
+        const lines = doc.splitTextToSize(text, maxWidth);
+
+        if (y + (lines.length * 5.5) > pageHeight - 20) {
+          doc.addPage();
+          y = 20;
+        }
+
+        doc.text(lines, margin, y);
+        y += (lines.length * 5.5) + 3;
+      });
+
+      y += 5;
     });
 
     doc.save('batch-resume-bullets.pdf');
@@ -1658,11 +1962,13 @@ export const ITResumeBulletBuilder: React.FC = () => {
 
   const handleExportBatchCsv = () => {
     if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
-    const csvRows = ['"Index","Original Task / Role","Optimized Resume Bullet","Strength Score","Tier"'];
-    batchGeneratedItems.forEach((item, i) => {
+    const items = sortBatchItems(batchGeneratedItems, batchSortBy);
+    const csvRows = ['"Index","Category","Original Task / Role","Optimized Resume Bullet","Strength Score","Tier"'];
+    items.forEach((item, i) => {
+      const cat = item.category.replace(/"/g, '""');
       const orig = item.originalText.replace(/"/g, '""');
       const b = item.currentBullet.replace(/"/g, '""');
-      csvRows.push(`${i + 1},"${orig}","${b}",${item.strength.score},"${item.strength.tier}"`);
+      csvRows.push(`${i + 1},"${cat}","${orig}","${b}",${item.strength.score},"${item.strength.tier}"`);
     });
     const content = csvRows.join('\n');
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
@@ -1680,11 +1986,20 @@ export const ITResumeBulletBuilder: React.FC = () => {
 
   const handleExportBatchJson = () => {
     if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
+    const items = sortBatchItems(batchGeneratedItems, batchSortBy);
+    const grouped: Record<string, string[]> = {};
+    items.forEach(item => {
+      if (!grouped[item.category]) grouped[item.category] = [];
+      grouped[item.category].push(item.currentBullet);
+    });
+
     const data = {
-      app: 'IT Resume Bullet Builder - Batch Generator',
-      version: '1.0',
+      app: 'IT Resume Bullet Builder - Categorized Batch Generator',
+      version: '1.1',
       exportedAt: new Date().toISOString(),
-      bullets: batchGeneratedItems.map(item => ({
+      categories: grouped,
+      bullets: items.map(item => ({
+        category: item.category,
         original: item.originalText,
         optimized: item.currentBullet,
         style: item.selectedStyle,
@@ -1829,6 +2144,50 @@ export const ITResumeBulletBuilder: React.FC = () => {
 
     doc.save('resume-bullets.pdf');
     showToast('Downloaded resume-bullets.pdf');
+  };
+
+  const handleDownloadGeneratedPdf = () => {
+    if (!generatedOuts || generatedOuts.length === 0) return;
+    const doc = new jsPDF();
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('IT Resume Bullet Builder - Generated Variations', 14, 20);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on ${new Date().toLocaleDateString()} — IT Resume Bullet Builder`, 14, 26);
+
+    doc.setTextColor(0);
+    doc.setFontSize(11);
+
+    let y = 36;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const maxWidth = 182;
+
+    generatedOuts.forEach((item) => {
+      const headerText = `[${item.n}]`;
+      doc.setFont('helvetica', 'bold');
+      doc.text(headerText, margin, y);
+      y += 6;
+
+      doc.setFont('helvetica', 'normal');
+      const text = `•  ${item.t}`;
+      const lines = doc.splitTextToSize(text, maxWidth);
+
+      if (y + (lines.length * 6) > pageHeight - 20) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.text(lines, margin, y);
+      y += (lines.length * 6) + 8;
+    });
+
+    doc.save('resume-bullet-variations.pdf');
+    showToast('Downloaded resume-bullet-variations.pdf');
   };
 
   const handleGenerate = () => {
@@ -2382,7 +2741,31 @@ export const ITResumeBulletBuilder: React.FC = () => {
           </div>
 
           {generatedOuts && (
-            <div id="outs" style={{ marginTop: '16px' }}>
+            <div id="outs" style={{ marginTop: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+                  Generated Bullet Variations
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleDownloadGeneratedPdf}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'var(--card)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--text)',
+                    borderRadius: '8px',
+                    padding: '6px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Download size={14} aria-hidden="true" /> Download as PDF
+                </button>
+              </div>
               {generatedOuts.length === 0 ? (
                 <p className="no" style={{ color: 'var(--bad)' }}>
                   Enter at least an action verb and what you did.
@@ -2610,6 +2993,55 @@ export const ITResumeBulletBuilder: React.FC = () => {
             </div>
           </div>
 
+          {/* Quick Category Tag Insert Helper */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <Tag size={13} aria-hidden="true" /> Click to insert category prefix tag:
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                Syntax: <code>[Category] Task</code> or <code>Category: Task</code>
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {STANDARD_CATEGORIES.map(cat => {
+                const meta = getCategoryMeta(cat);
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => {
+                      const tag = `[${cat}] `;
+                      setBatchGenInput(prev => {
+                        if (!prev) return tag;
+                        if (prev.endsWith('\n')) return prev + tag;
+                        return prev + '\n' + tag;
+                      });
+                      showToast(`Inserted [${cat}] tag`);
+                    }}
+                    style={{
+                      background: meta.bg,
+                      border: `1px solid ${meta.border}`,
+                      color: meta.color,
+                      borderRadius: '8px',
+                      padding: '4px 10px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title={`Insert [${cat}] prefix at new line`}
+                  >
+                    <span>{meta.icon}</span> + [{cat}]
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Input Controls */}
           <div style={{ marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -2629,7 +3061,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
               id="batch-input"
               value={batchGenInput}
               onChange={(e) => setBatchGenInput(e.target.value)}
-              placeholder={`• Responsible for Active Directory user onboarding and password resets\n• Configured Cisco switches and VLANs across multiple office floors\n• Troubleshot laptop hardware issues and deployed Windows 11 images\n• Automated nightly Veeam backups and disaster recovery restores\n• Network Engineer`}
+              placeholder={`• [Leadership] Mentored 5 junior sysadmins and instituted weekly tier-2 escalation review sessions\n• [Project Management] Spearheaded cloud migration of 40 Windows VMs to AWS EC2 under budget\n• [Technical Troubleshooting] Diagnosed and resolved core switch outage and BGP route flapping within 20 mins\n• [Infrastructure & Cloud] Orchestrated Kubernetes microservices and automated CI/CD pipelines\n• [Security & Compliance] Hardened endpoint baseline configurations and conducted quarterly SOC 2 audits\n• [Technical Troubleshooting] Network Engineer`}
               style={{
                 width: '100%',
                 background: 'var(--bg)',
@@ -2675,8 +3107,34 @@ export const ITResumeBulletBuilder: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label htmlFor="batch-default-cat" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>
+                Default Category:
+              </label>
+              <select
+                id="batch-default-cat"
+                value={batchGenDefaultCat}
+                onChange={(e) => setBatchGenDefaultCat(e.target.value)}
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  color: 'var(--text)',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <option value="auto">Auto-detect from content</option>
+                {STANDARD_CATEGORIES.map(c => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <label htmlFor="batch-style" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>
-                Default Format:
+                Format:
               </label>
               <select
                 id="batch-style"
@@ -2694,6 +3152,34 @@ export const ITResumeBulletBuilder: React.FC = () => {
                 <option value="Standard">Standard (Action + Scope + Result)</option>
                 <option value="Impact-first">Impact-first (Result — Action)</option>
                 <option value="ATS-Compact">ATS-Compact (Semi-colon separated)</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label htmlFor="batch-sort" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>
+                Sort:
+              </label>
+              <select
+                id="batch-sort"
+                value={batchSortBy}
+                onChange={(e) => {
+                  const val = e.target.value as 'category' | 'input';
+                  setBatchSortBy(val);
+                  if (batchGeneratedItems) {
+                    setBatchGeneratedItems(sortBatchItems(batchGeneratedItems, val));
+                  }
+                }}
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  color: 'var(--text)',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <option value="category">Categorized (Leadership, PM, Tech...)</option>
+                <option value="input">Original Input Order</option>
               </select>
             </div>
 
@@ -2760,6 +3246,19 @@ export const ITResumeBulletBuilder: React.FC = () => {
                         }}
                       >
                         Avg Quality: {avg}/100 · {avg >= 85 ? 'Exceptional' : 'Strong'}
+                      </span>
+                      <span
+                        style={{
+                          background: 'var(--card)',
+                          border: '1px solid var(--line)',
+                          color: 'var(--muted)',
+                          borderRadius: '99px',
+                          padding: '3px 10px',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {Object.keys(categoryCounts).length} {Object.keys(categoryCounts).length === 1 ? 'Category' : 'Categories'}
                       </span>
                     </div>
                   );
@@ -2845,7 +3344,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
                           borderRadius: '10px',
                           boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
                           zIndex: 50,
-                          minWidth: '150px',
+                          minWidth: '170px',
                           padding: '6px',
                           display: 'flex',
                           flexDirection: 'column',
@@ -2866,7 +3365,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
                             borderRadius: '6px',
                           }}
                         >
-                          📄 Export as .txt
+                          📄 Export as .txt (Categorized)
                         </button>
                         <button
                           type="button"
@@ -2882,7 +3381,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
                             borderRadius: '6px',
                           }}
                         >
-                          📕 Export as .pdf
+                          📕 Export as .pdf (Categorized)
                         </button>
                         <button
                           type="button"
@@ -2922,183 +3421,331 @@ export const ITResumeBulletBuilder: React.FC = () => {
                 </div>
               </div>
 
+              {/* Category Filter Pills */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '4px', marginRight: '4px' }}>
+                  <Filter size={13} aria-hidden="true" /> Category Filter:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBatchCategoryFilter('All')}
+                  style={{
+                    background: batchCategoryFilter === 'All' ? 'var(--brand)' : 'var(--card)',
+                    color: batchCategoryFilter === 'All' ? '#fff' : 'var(--text)',
+                    border: `1px solid ${batchCategoryFilter === 'All' ? 'var(--brand)' : 'var(--line)'}`,
+                    borderRadius: '8px',
+                    padding: '4px 12px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  All ({batchGeneratedItems.length})
+                </button>
+                {Object.entries(categoryCounts).map(([cat, count]) => {
+                  const meta = getCategoryMeta(cat);
+                  const isSelected = batchCategoryFilter === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setBatchCategoryFilter(cat)}
+                      style={{
+                        background: isSelected ? meta.color : meta.bg,
+                        color: isSelected ? '#fff' : meta.color,
+                        border: `1px solid ${isSelected ? meta.color : meta.border}`,
+                        borderRadius: '8px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                      }}
+                    >
+                      <span>{meta.icon}</span> {cat} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Cards List */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {batchGeneratedItems.map((item, idx) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      background: 'var(--bg)',
-                      border: '1px solid var(--line)',
-                      borderRadius: '12px',
-                      padding: '16px',
-                      boxShadow: '0 2px 8px -2px rgba(0,0,0,0.05)',
-                    }}
-                  >
-                    {/* Item Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span
+                {filteredBatchItems.map((item, idx) => {
+                  const isFirstInCategory =
+                    batchSortBy === 'category' &&
+                    batchCategoryFilter === 'All' &&
+                    (idx === 0 || filteredBatchItems[idx - 1].category !== item.category);
+                  const catMeta = getCategoryMeta(item.category);
+                  const catCount = categoryCounts[item.category] || 0;
+
+                  return (
+                    <React.Fragment key={item.id}>
+                      {isFirstInCategory && (
+                        <div
                           style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '8px',
                             background: 'var(--card)',
-                            border: '1px solid var(--line)',
-                            color: 'var(--text)',
-                            borderRadius: '6px',
-                            padding: '2px 8px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
+                            border: `1px solid ${catMeta.border}`,
+                            borderLeft: `4px solid ${catMeta.color}`,
+                            borderRadius: '10px',
+                            padding: '10px 16px',
+                            marginTop: idx === 0 ? '0' : '10px',
+                            marginBottom: '2px',
                           }}
                         >
-                          #{idx + 1}
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                          Original: <em style={{ fontStyle: 'normal', color: 'var(--text)', fontWeight: 600 }}>&quot;{item.originalText}&quot;</em>
-                        </span>
-                        {item.isRole && (
-                          <span
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '1.15rem' }}>{catMeta.icon}</span>
+                            <span style={{ fontWeight: 800, fontSize: '0.98rem', color: 'var(--text)' }}>
+                              {item.category}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.75rem',
+                                background: catMeta.bg,
+                                color: catMeta.color,
+                                border: `1px solid ${catMeta.border}`,
+                                borderRadius: '99px',
+                                padding: '2px 8px',
+                                fontWeight: 700,
+                              }}
+                            >
+                              {catCount} {catCount === 1 ? 'bullet' : 'bullets'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyCategoryBullets(item.category)}
                             style={{
-                              background: 'rgba(56, 189, 248, 0.12)',
-                              color: 'var(--brand)',
-                              border: '1px solid var(--brand)',
-                              borderRadius: '99px',
-                              padding: '1px 8px',
-                              fontSize: '0.7rem',
+                              background: 'transparent',
+                              border: `1px solid ${catMeta.border}`,
+                              color: catMeta.color,
+                              borderRadius: '6px',
+                              padding: '4px 10px',
+                              fontSize: '0.75rem',
                               fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
                             }}
                           >
-                            Role: {item.detectedRole}
-                          </span>
-                        )}
-                      </div>
+                            <Copy size={12} aria-hidden="true" />
+                            Copy {item.category} Bullets
+                          </button>
+                        </div>
+                      )}
 
-                      {/* Strength Score Badge */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span
-                          style={{
-                            background: item.strength.badgeBg,
-                            border: `1px solid ${item.strength.color}`,
-                            color: item.strength.color,
-                            borderRadius: '99px',
-                            padding: '2px 10px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                          }}
-                        >
-                          Strength: {item.strength.score}/100 · {item.strength.tier}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Style Switcher */}
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>Format:</span>
-                      {(['Standard', 'Impact-first', 'ATS-Compact'] as const).map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => handleSwitchBatchItemStyle(idx, s)}
-                          style={{
-                            background: item.selectedStyle === s ? 'var(--brand)' : 'var(--card)',
-                            color: item.selectedStyle === s ? '#fff' : 'var(--text)',
-                            border: '1px solid ' + (item.selectedStyle === s ? 'var(--brand)' : 'var(--line)'),
-                            borderRadius: '6px',
-                            padding: '2px 8px',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Editable Bullet Textarea */}
-                    <textarea
-                      value={item.currentBullet}
-                      onChange={(e) => handleUpdateBatchItemBullet(idx, e.target.value)}
-                      rows={2}
-                      aria-label={`Optimized resume bullet #${idx + 1}`}
-                      style={{
-                        width: '100%',
-                        fontFamily: 'monospace',
-                        fontSize: '0.92rem',
-                        lineHeight: '1.5',
-                        background: 'var(--card)',
-                        border: '1px solid var(--line)',
-                        borderRadius: '8px',
-                        padding: '10px 12px',
-                        color: 'var(--text)',
-                        resize: 'vertical',
-                        marginBottom: '8px',
-                      }}
-                    />
-
-                    {/* Footer with Metrics Tags and Actions */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                      {/* Metric & Verb Pills */}
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.72rem', color: item.strength.verbImpact.score >= 80 ? 'var(--good, #10b981)' : 'var(--amber, #f59e0b)', fontWeight: 600 }}>
-                          ✓ {item.strength.verbImpact.label}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>•</span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
-                          {item.strength.lengthAnalysis.wordCount} words
-                        </span>
-                        {item.strength.metricsAnalysis.detectedMetrics.length > 0 && (
-                          <>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>•</span>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--good, #10b981)', fontWeight: 600 }}>
-                              {item.strength.metricsAnalysis.detectedMetrics.slice(0, 2).join(', ')}
+                      <div
+                        style={{
+                          background: 'var(--bg)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '12px',
+                          padding: '16px',
+                          boxShadow: '0 2px 8px -2px rgba(0,0,0,0.05)',
+                        }}
+                      >
+                        {/* Item Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span
+                              style={{
+                                background: 'var(--card)',
+                                border: '1px solid var(--line)',
+                                color: 'var(--text)',
+                                borderRadius: '6px',
+                                padding: '2px 8px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                              }}
+                            >
+                              #{idx + 1}
                             </span>
-                          </>
-                        )}
-                      </div>
 
-                      {/* Copy & Save Buttons */}
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(item.currentBullet)}
+                            {/* Category Selector Pill */}
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <select
+                                value={item.category}
+                                onChange={(e) => handleUpdateBatchItemCategory(item.id, e.target.value)}
+                                style={{
+                                  background: catMeta.bg,
+                                  color: catMeta.color,
+                                  border: `1px solid ${catMeta.border}`,
+                                  borderRadius: '99px',
+                                  padding: '2px 10px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                }}
+                                title="Change Category for this bullet"
+                                aria-label={`Category for bullet #${idx + 1}`}
+                              >
+                                {STANDARD_CATEGORIES.map(c => (
+                                  <option key={c} value={c}>
+                                    {c}
+                                  </option>
+                                ))}
+                                {!STANDARD_CATEGORIES.includes(item.category as any) && (
+                                  <option value={item.category}>{item.category}</option>
+                                )}
+                              </select>
+                            </div>
+
+                            <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                              Original: <em style={{ fontStyle: 'normal', color: 'var(--text)', fontWeight: 600 }}>&quot;{item.originalText}&quot;</em>
+                            </span>
+                            {item.isRole && (
+                              <span
+                                style={{
+                                  background: 'rgba(56, 189, 248, 0.12)',
+                                  color: 'var(--brand)',
+                                  border: '1px solid var(--brand)',
+                                  borderRadius: '99px',
+                                  padding: '1px 8px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                Role: {item.detectedRole}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Strength Score Badge */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span
+                              style={{
+                                background: item.strength.badgeBg,
+                                border: `1px solid ${item.strength.color}`,
+                                color: item.strength.color,
+                                borderRadius: '99px',
+                                padding: '2px 10px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Strength: {item.strength.score}/100 · {item.strength.tier}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Style Switcher */}
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>Format:</span>
+                          {(['Standard', 'Impact-first', 'ATS-Compact'] as const).map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => handleSwitchBatchItemStyle(item.id, s)}
+                              style={{
+                                background: item.selectedStyle === s ? 'var(--brand)' : 'var(--card)',
+                                color: item.selectedStyle === s ? '#fff' : 'var(--text)',
+                                border: '1px solid ' + (item.selectedStyle === s ? 'var(--brand)' : 'var(--line)'),
+                                borderRadius: '6px',
+                                padding: '2px 8px',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Editable Bullet Textarea */}
+                        <textarea
+                          value={item.currentBullet}
+                          onChange={(e) => handleUpdateBatchItemBullet(item.id, e.target.value)}
+                          rows={2}
+                          aria-label={`Optimized resume bullet #${idx + 1}`}
                           style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            background: 'var(--brand)',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '5px 12px',
-                            fontSize: '0.78rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <Copy size={13} aria-hidden="true" /> Copy
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSaveBullet(item.currentBullet)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
+                            width: '100%',
+                            fontFamily: 'monospace',
+                            fontSize: '0.92rem',
+                            lineHeight: '1.5',
                             background: 'var(--card)',
-                            color: 'var(--text)',
                             border: '1px solid var(--line)',
-                            borderRadius: '6px',
-                            padding: '5px 12px',
-                            fontSize: '0.78rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
+                            borderRadius: '8px',
+                            padding: '10px 12px',
+                            color: 'var(--text)',
+                            resize: 'vertical',
+                            marginBottom: '8px',
                           }}
-                        >
-                          <Bookmark size={13} aria-hidden="true" /> Save
-                        </button>
+                        />
+
+                        {/* Footer with Metrics Tags and Actions */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          {/* Metric & Verb Pills */}
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.72rem', color: item.strength.verbImpact.score >= 80 ? 'var(--good, #10b981)' : 'var(--amber, #f59e0b)', fontWeight: 600 }}>
+                              ✓ {item.strength.verbImpact.label}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>•</span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                              {item.strength.lengthAnalysis.wordCount} words
+                            </span>
+                            {item.strength.metricsAnalysis.detectedMetrics.length > 0 && (
+                              <>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>•</span>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--good, #10b981)', fontWeight: 600 }}>
+                                  {item.strength.metricsAnalysis.detectedMetrics.slice(0, 2).join(', ')}
+                                </span>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Copy & Save Buttons */}
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(item.currentBullet)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: 'var(--brand)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '5px 12px',
+                                fontSize: '0.78rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Copy size={13} aria-hidden="true" /> Copy
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveBullet(item.currentBullet)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: 'var(--card)',
+                                color: 'var(--text)',
+                                border: '1px solid var(--line)',
+                                borderRadius: '6px',
+                                padding: '5px 12px',
+                                fontSize: '0.78rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Bookmark size={13} aria-hidden="true" /> Save
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </React.Fragment>
+                  );
+                })}
               </div>
             </div>
           )}
