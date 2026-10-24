@@ -21,3 +21,6 @@
 /Tips_&_Tricks /resources/ 301
 /Tips_&_Tricks2 /resources/ 301
 /fortune_ / 301
+
+# SPA fallback for any React Router path not covered above
+/* / 200

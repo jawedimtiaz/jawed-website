@@ -57,3 +57,6 @@
 /cookies/* / 200
 /ai / 200
 /ai/* / 200
+
+# SPA fallback for any React Router path not covered above
+/* / 200
