@@ -2652,3 +2652,47 @@ select:focus-visible {
 .interview-prep-page .panel ul{padding-left:22px}
 .interview-prep-page .panel li{margin:0 0 10px;line-height:1.65;overflow-wrap:anywhere}
 @media(max-width:700px){.interview-prep-page .page-header{padding:22px 18px}.interview-prep-page .field-grid{grid-template-columns:minmax(0,1fr)}.interview-prep-page .bullet-item{padding:14px}.interview-prep-page .panel{padding:17px}}
+
+/* Strong layout contract for Interview Preparation Planner form controls */
+.interview-prep-page .field-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  align-items: start;
+}
+.interview-prep-page .field-group {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.interview-prep-page .field-group label {
+  display: block !important;
+  width: 100%;
+  margin: 0 !important;
+}
+.interview-prep-page .field-group input,
+.interview-prep-page .field-group textarea {
+  box-sizing: border-box !important;
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 44px;
+  padding: 11px 12px !important;
+  font: inherit !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 9px !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+.interview-prep-page .field-group textarea {
+  min-height: 112px !important;
+  resize: vertical;
+}
+@media (max-width: 700px) {
+  .interview-prep-page .field-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
