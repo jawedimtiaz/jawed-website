@@ -51,7 +51,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     return localStorage.getItem('ipp_role') || 'Senior IT Support Specialist';
   });
   const [targetCompany, setTargetCompany] = useState(() => {
-    return localStorage.getItem('ipp_company') || 'Fintech Enterprise';
+    return localStorage.getItem('ipp_company') || 'Fintech Enterprise / Cloud Infrastructure';
   });
 
   const [starStories, setStarStories] = useState<StarStory[]>(() => {
@@ -64,15 +64,12 @@ export const InterviewPreparationPlanner: React.FC = () => {
     return SAMPLE_STORIES;
   });
 
-  // Active form state using newStory object as requested
-  const [newStory, setNewStory] = useState({
-    theme: '',
-    situation: '',
-    task: '',
-    action: '',
-    result: ''
-  });
-
+  // Individual Form Field States as per layout specification
+  const [storyTheme, setStoryTheme] = useState('');
+  const [situation, setSituation] = useState('');
+  const [task, setTask] = useState('');
+  const [action, setAction] = useState('');
+  const [result, setResult] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
 
   // UI Feedback
@@ -99,24 +96,32 @@ export const InterviewPreparationPlanner: React.FC = () => {
     }, 3000);
   };
 
+  const loadSampleStory = () => {
+    setStoryTheme('Cross-Functional Data Migration & Zero Downtime');
+    setSituation('During cloud consolidation, our customer billing database had to be migrated across AWS regions with a strict zero-downtime SLA during business hours.');
+    setTask('Lead IT systems validation, engineer failover rollback scripts, and conduct pre-flight sync simulations without impacting active API requests.');
+    setAction('Utilized AWS DMS with Change Data Capture (CDC). Orchestrated double-write verification in staging, wrote custom Python validation checksums, and executed the cutover during a 15-minute maintenance window.');
+    setResult('100% data integrity verified; 0 seconds of unplanned downtime; saved $14,000 monthly in legacy infrastructure overhead.');
+    showToast('Sample STAR story loaded!');
+  };
+
   const handleAddStory = () => {
-    if (!newStory.theme.trim() && !newStory.situation.trim() && !newStory.task.trim() && !newStory.action.trim() && !newStory.result.trim()) {
+    if (!storyTheme.trim() && !situation.trim() && !task.trim() && !action.trim() && !result.trim()) {
       showToast('Please enter at least a theme or one STAR dimension.');
       return;
     }
 
     if (editingId !== null) {
-      // Update existing
       setStarStories(prev =>
         prev.map(story =>
           story.id === editingId
             ? {
                 ...story,
-                theme: newStory.theme.trim() || 'General Technical Achievement',
-                situation: newStory.situation.trim(),
-                task: newStory.task.trim(),
-                action: newStory.action.trim(),
-                result: newStory.result.trim(),
+                theme: storyTheme.trim() || 'General Technical Achievement',
+                situation: situation.trim(),
+                task: task.trim(),
+                action: action.trim(),
+                result: result.trim(),
               }
             : story
         )
@@ -124,53 +129,46 @@ export const InterviewPreparationPlanner: React.FC = () => {
       showToast('Story updated in vault!');
       setEditingId(null);
     } else {
-      // Create new
       const created: StarStory = {
         id: Date.now(),
-        theme: newStory.theme.trim() || 'General Technical Achievement',
-        situation: newStory.situation.trim(),
-        task: newStory.task.trim(),
-        action: newStory.action.trim(),
-        result: newStory.result.trim(),
+        theme: storyTheme.trim() || 'General Technical Achievement',
+        situation: situation.trim(),
+        task: task.trim(),
+        action: action.trim(),
+        result: result.trim(),
       };
-      setStarStories(prev => [...prev, created]);
+      setStarStories(prev => [created, ...prev]);
       showToast('Story added to vault!');
     }
 
-    setNewStory({
-      theme: '',
-      situation: '',
-      task: '',
-      action: '',
-      result: ''
-    });
+    setStoryTheme('');
+    setSituation('');
+    setTask('');
+    setAction('');
+    setResult('');
   };
 
   const handleEditStory = (story: StarStory) => {
     setEditingId(story.id);
-    setNewStory({
-      theme: story.theme,
-      situation: story.situation,
-      task: story.task,
-      action: story.action,
-      result: story.result,
-    });
+    setStoryTheme(story.theme);
+    setSituation(story.situation);
+    setTask(story.task);
+    setAction(story.action);
+    setResult(story.result);
 
-    const formElement = document.getElementById('star-editor-form');
-    if (formElement) {
-      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const builderElement = document.getElementById('star-builder-card');
+    if (builderElement) {
+      builderElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setNewStory({
-      theme: '',
-      situation: '',
-      task: '',
-      action: '',
-      result: ''
-    });
+    setStoryTheme('');
+    setSituation('');
+    setTask('');
+    setAction('');
+    setResult('');
   };
 
   const handleDeleteStory = (id: number) => {
@@ -179,17 +177,6 @@ export const InterviewPreparationPlanner: React.FC = () => {
       handleCancelEdit();
     }
     showToast('Story removed from vault.');
-  };
-
-  const handleLoadSample = () => {
-    setNewStory({
-      theme: 'Cross-Functional Data Migration & Zero Downtime',
-      situation: 'During cloud consolidation, our customer billing database had to be migrated across AWS regions with a strict zero-downtime SLA during business hours.',
-      task: 'Lead IT systems validation, engineer failover rollback scripts, and conduct pre-flight sync simulations without impacting active API requests.',
-      action: 'Utilized AWS DMS with Change Data Capture (CDC). Orchestrated double-write verification in staging, wrote custom Python validation checksums, and executed the cutover during a 15-minute maintenance window.',
-      result: '100% data integrity verified; 0 seconds of unplanned downtime; saved $14,000 monthly in legacy infrastructure overhead.'
-    });
-    showToast('Sample STAR story loaded into form!');
   };
 
   const handleCopyStory = (story: StarStory) => {
@@ -215,10 +202,10 @@ ${story.result || 'N/A'}
   };
 
   return (
-    <div className="page pb-20">
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6">
+    <div className="min-h-screen bg-slate-950 py-10 px-4 sm:px-6 lg:px-8 text-slate-100">
+      <div className="max-w-5xl mx-auto space-y-8">
         {/* Navigation & Share */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
           <Breadcrumb
             items={[
               { label: 'Home', href: '/' },
@@ -229,24 +216,23 @@ ${story.result || 'N/A'}
           />
           <SocialShareBar
             title="Interview Preparation Planner"
-            text="Organize behavioral STAR stories, technical competencies, and high-impact reverse-interview questions."
+            text="Structure high-impact behavioral answers with the 4-part STAR methodology."
           />
         </div>
 
-        {/* Hero Header */}
-        <header className="mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20 mb-3">
+        {/* Tool Header */}
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20 mb-3">
             <Target className="w-3.5 h-3.5" />
-            <span>Behavioral Mastery & STAR Framework</span>
+            <span>Career & Resume</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-100 tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-2">
             Interview Preparation Planner
           </h1>
-          <p className="mt-2 text-sm sm:text-base text-slate-400 max-w-3xl leading-relaxed">
-            Structure your accomplishments using the Situation, Task, Action, and Result (STAR) framework.
-            Draft clear, quantifiable stories that demonstrate leadership, problem-solving, and operational composure.
+          <p className="text-slate-400 text-sm sm:text-base max-w-3xl leading-relaxed">
+            Structure high-impact behavioral answers with the 4-part STAR methodology. Save, refine, and review your stories locally in your browser.
           </p>
-        </header>
+        </div>
 
         {/* Toast Notification */}
         {toastMessage && (
@@ -256,411 +242,383 @@ ${story.result || 'N/A'}
           </div>
         )}
 
-        <div className="space-y-8">
-          {/* Target Opportunity Card */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-xl">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                <Briefcase className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg md:text-xl font-bold text-slate-100">Target Opportunity</h2>
-                <p className="text-xs md:text-sm text-slate-400">Contextualize your preparation for specific interview rounds.</p>
-              </div>
+        {/* Target Role & Company Card */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                Target Role Title
+              </label>
+              <input
+                type="text"
+                value={roleTitle}
+                onChange={(e) => setRoleTitle(e.target.value)}
+                placeholder="e.g. Senior IT Support Specialist"
+                className="w-full block rounded-xl border border-slate-700/80 bg-slate-950 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition"
+              />
             </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                Target Company / Industry
+              </label>
+              <input
+                type="text"
+                value={targetCompany}
+                onChange={(e) => setTargetCompany(e.target.value)}
+                placeholder="e.g. Enterprise Fintech / Cloud Infrastructure"
+                className="w-full block rounded-xl border border-slate-700/80 bg-slate-950 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition"
+              />
+            </div>
+          </div>
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label htmlFor="roleTitle" className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-sky-400" />
-                  Target Role Title
-                </label>
-                <input
-                  id="roleTitle"
-                  type="text"
-                  value={roleTitle}
-                  onChange={e => setRoleTitle(e.target.value)}
-                  placeholder="e.g. Senior IT Support Specialist, Cloud Systems Engineer"
-                  className="w-full block rounded-xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 transition-all"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="targetCompany" className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-indigo-400" />
-                  Target Company / Industry
-                </label>
-                <input
-                  id="targetCompany"
-                  type="text"
-                  value={targetCompany}
-                  onChange={e => setTargetCompany(e.target.value)}
-                  placeholder="e.g. Fintech Enterprise, High-Growth SaaS, Healthcare"
-                  className="w-full block rounded-xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 transition-all"
-                />
-              </div>
+        {/* STAR Story Vault & Builder Card */}
+        <div id="star-builder-card" className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 md:p-8 backdrop-blur-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                STAR Method Story Vault
+                {editingId !== null && (
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                    Editing Story
+                  </span>
+                )}
+              </h2>
+              <p className="text-sm text-slate-400">Craft metric-driven behavioral answers with Situation, Task, Action, and Result.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {editingId !== null && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Cancel Edit
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={loadSampleStory}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                Load Sample Story
+              </button>
             </div>
           </div>
 
-          {/* STAR Method Story Vault */}
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold text-slate-100 flex items-center gap-2">
-                  <Award className="w-5 h-5 text-sky-400" />
-                  STAR Method Story Vault
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-sky-300 border border-slate-700">
-                    {starStories.length} {starStories.length === 1 ? 'Story' : 'Stories'}
-                  </span>
-                </h2>
-                <p className="text-xs md:text-sm text-slate-400 mt-1">
-                  Structure your accomplishments using Situation, Task, Action, and Result. Interviewers remember measurable outcomes.
-                </p>
-              </div>
+          {/* Theme Input */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+              Theme / Competency Category
+            </label>
+            <input
+              type="text"
+              value={storyTheme}
+              onChange={(e) => setStoryTheme(e.target.value)}
+              placeholder="e.g. High-Severity Incident, Automation, Conflict Escalation"
+              className="w-full block rounded-xl border border-slate-700/80 bg-slate-950 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition"
+            />
+          </div>
 
-              {starStories.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleLoadSample}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs md:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                    Load Sample
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const allText = starStories.map((s, idx) => `STORY #${idx + 1}: ${s.theme}
+          {/* 2-Column Wide Textarea Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Situation */}
+            <div className="flex flex-col">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1">
+                1. Situation (The Context)
+              </label>
+              <span className="text-xs text-slate-500 mb-2">What was the initial state, challenge, or urgency?</span>
+              <textarea
+                rows={5}
+                value={situation}
+                onChange={(e) => setSituation(e.target.value)}
+                placeholder="Describe the context: failure event, urgent customer issue, or legacy environment..."
+                className="w-full block flex-1 min-h-[140px] rounded-xl border border-slate-700/80 bg-slate-950 p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition resize-y"
+              />
+            </div>
+
+            {/* Task */}
+            <div className="flex flex-col">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1">
+                2. Task (Your Responsibility)
+              </label>
+              <span className="text-xs text-slate-500 mb-2">What were you personally tasked to solve?</span>
+              <textarea
+                rows={5}
+                value={task}
+                onChange={(e) => setTask(e.target.value)}
+                placeholder="Detail your mandate, SLAs, and technical constraints..."
+                className="w-full block flex-1 min-h-[140px] rounded-xl border border-slate-700/80 bg-slate-950 p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition resize-y"
+              />
+            </div>
+
+            {/* Action */}
+            <div className="flex flex-col">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1">
+                3. Action (Specific Steps You Took)
+              </label>
+              <span className="text-xs text-slate-500 mb-2">What tools, protocols, or commands did you use?</span>
+              <textarea
+                rows={5}
+                value={action}
+                onChange={(e) => setAction(e.target.value)}
+                placeholder="Focus on what YOU did: CLI diagnostic steps, hardware swaps, scripts deployed..."
+                className="w-full block flex-1 min-h-[140px] rounded-xl border border-slate-700/80 bg-slate-950 p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition resize-y"
+              />
+            </div>
+
+            {/* Result */}
+            <div className="flex flex-col">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1">
+                4. Result (Measurable Outcome)
+              </label>
+              <span className="text-xs text-slate-500 mb-2">Quantifiable metrics: time saved, % reduced, SLA hit</span>
+              <textarea
+                rows={5}
+                value={result}
+                onChange={(e) => setResult(e.target.value)}
+                placeholder="Outcome: e.g. restored connectivity in 14 minutes with zero downtime..."
+                className="w-full block flex-1 min-h-[140px] rounded-xl border border-slate-700/80 bg-slate-950 p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition resize-y"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={handleAddStory}
+              className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-semibold text-sm shadow-lg shadow-sky-500/20 hover:from-sky-400 hover:to-indigo-400 transition"
+            >
+              {editingId !== null ? 'Update Story in Vault' : 'Add Story to Vault'}
+            </button>
+          </div>
+        </div>
+
+        {/* Saved Stories Vault Cards */}
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                <Award className="w-5 h-5 text-sky-400" />
+                Saved STAR Stories
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-sky-300 border border-slate-700">
+                  {starStories.length} {starStories.length === 1 ? 'Story' : 'Stories'}
+                </span>
+              </h2>
+              <p className="text-xs md:text-sm text-slate-400 mt-1">
+                Review, refine, or copy your prepared behavioral answers.
+              </p>
+            </div>
+
+            {starStories.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const allText = starStories.map((s, idx) => `STORY #${idx + 1}: ${s.theme}
 [Situation]: ${s.situation}
 [Task]: ${s.task}
 [Action]: ${s.action}
 [Result]: ${s.result}
 ----------------------------------------`).join('\n\n');
-                      navigator.clipboard.writeText(allText);
-                      showToast('All STAR stories copied to clipboard!');
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs md:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-sky-400" />
-                    Copy All Stories
-                  </button>
-                </div>
-              )}
+                  navigator.clipboard.writeText(allText);
+                  showToast('All STAR stories copied to clipboard!');
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+              >
+                <Copy className="w-4 h-4 text-sky-400" />
+                Copy All Stories
+              </button>
+            )}
+          </div>
+
+          {starStories.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-12 text-center">
+              <BookOpen className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+              <h3 className="text-base font-semibold text-slate-300">Your Story Vault is Empty</h3>
+              <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1 mb-5">
+                Use the form above to draft your first STAR story, or click "Load Sample Story" to pre-fill an exemplary narrative.
+              </p>
+              <button
+                type="button"
+                onClick={loadSampleStory}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 transition"
+              >
+                <Sparkles className="w-4 h-4" />
+                Load Sample Story
+              </button>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {starStories.map((story, index) => {
+                const isCopied = copiedId === story.id;
+                const isCurrentEditing = editingId === story.id;
 
-            {/* List of saved STAR Stories */}
-            {starStories.length === 0 ? (
-              <div className="bg-slate-900/60 border border-dashed border-slate-800 rounded-2xl p-12 text-center">
-                <BookOpen className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-                <h3 className="text-base font-semibold text-slate-300">Your Story Vault is Empty</h3>
-                <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1 mb-5">
-                  Use the editor below to draft your first STAR story, or load our battle-tested sample stories to get started.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleLoadSample}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 transition-colors"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Load Sample Story
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-6">
-                {starStories.map((story, index) => {
-                  const isCopied = copiedId === story.id;
-                  const isCurrentEditing = editingId === story.id;
-
-                  return (
-                    <div
-                      key={story.id}
-                      className={`bg-slate-900 border rounded-2xl p-6 md:p-7 shadow-xl transition-all ${
-                        isCurrentEditing
-                          ? 'border-sky-500 ring-2 ring-sky-500/20'
-                          : 'border-slate-800 hover:border-slate-700/80'
-                      }`}
-                    >
-                      {/* Story Card Header */}
-                      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-5 border-b border-slate-800/80">
-                        <div className="flex items-center gap-3">
-                          <span className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs font-bold flex items-center justify-center">
-                            #{index + 1}
-                          </span>
-                          <div>
-                            <h3 className="text-base md:text-lg font-bold text-slate-100 flex items-center gap-2">
-                              {story.theme}
-                            </h3>
-                          </div>
-                        </div>
-
-                        {/* Story Card Actions */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyStory(story)}
-                            title="Copy formatted story"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/80 transition-colors"
-                          >
-                            {isCopied ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                <span className="text-emerald-400 font-semibold">Copied!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5 text-sky-400" />
-                                <span>Copy Story</span>
-                              </>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleEditStory(story)}
-                            title="Edit this story"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/80 transition-colors"
-                          >
-                            <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Edit</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteStory(story.id)}
-                            title="Delete story"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                return (
+                  <div
+                    key={story.id}
+                    className={`rounded-2xl border bg-slate-900/80 p-6 md:p-7 shadow-xl transition-all ${
+                      isCurrentEditing
+                        ? 'border-sky-500 ring-2 ring-sky-500/20'
+                        : 'border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    {/* Story Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-5 border-b border-slate-800">
+                      <div className="flex items-center gap-3">
+                        <span className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs font-bold flex items-center justify-center">
+                          #{index + 1}
+                        </span>
+                        <h3 className="text-base md:text-lg font-bold text-slate-100">
+                          {story.theme}
+                        </h3>
                       </div>
 
-                      {/* STAR Story Breakdown Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* S: Situation */}
-                        <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="bg-sky-500/15 text-sky-400 border border-sky-500/30 font-semibold px-2 py-0.5 rounded text-xs">
-                              S &bull; Situation
-                            </span>
-                          </div>
-                          <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
-                            {story.situation || <span className="text-slate-500 italic">Not specified</span>}
-                          </p>
-                        </div>
+                      {/* Story Actions */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyStory(story)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                        >
+                          {isCopied ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-emerald-400 font-semibold">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-sky-400" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
 
-                        {/* T: Task */}
-                        <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 font-semibold px-2 py-0.5 rounded text-xs">
-                              T &bull; Task
-                            </span>
-                          </div>
-                          <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
-                            {story.task || <span className="text-slate-500 italic">Not specified</span>}
-                          </p>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleEditStory(story)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Edit</span>
+                        </button>
 
-                        {/* A: Action */}
-                        <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="bg-purple-500/15 text-purple-400 border border-purple-500/30 font-semibold px-2 py-0.5 rounded text-xs">
-                              A &bull; Action
-                            </span>
-                          </div>
-                          <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
-                            {story.action || <span className="text-slate-500 italic">Not specified</span>}
-                          </p>
-                        </div>
-
-                        {/* R: Result */}
-                        <div className="bg-slate-950/50 border border-emerald-500/20 rounded-xl p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold px-2 py-0.5 rounded text-xs">
-                              R &bull; Result
-                            </span>
-                          </div>
-                          <p className="text-xs md:text-sm text-emerald-300/90 leading-relaxed font-medium">
-                            {story.result || <span className="text-slate-500 italic font-normal">Not specified</span>}
-                          </p>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteStory(story.id)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
 
-            {/* Exact Requested Form Markup for Add New STAR Story */}
-            <div id="star-editor-form" className="mt-8 rounded-2xl border border-slate-700/60 bg-slate-900/60 p-6 md:p-8 backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-sky-400"/>
-                  {editingId !== null ? 'Edit STAR Story' : 'Add New STAR Story'}
-                </h3>
-                {editingId !== null && (
-                  <button
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    Cancel Edit
-                  </button>
-                )}
-              </div>
+                    {/* STAR Breakdown */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
+                        <span className="inline-block bg-sky-500/15 text-sky-400 border border-sky-500/30 font-semibold px-2 py-0.5 rounded text-xs mb-2">
+                          1. Situation
+                        </span>
+                        <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
+                          {story.situation || <span className="text-slate-500 italic">Not specified</span>}
+                        </p>
+                      </div>
 
-              {/* Full Width Theme/Category Input */}
-              <div className="mb-6">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                  Theme / Category (e.g., Escalation, High-Severity Outage, Automation)
-                </label>
-                <input
-                  type="text"
-                  value={newStory.theme}
-                  onChange={(e) => setNewStory({ ...newStory, theme: e.target.value })}
-                  placeholder="e.g. Automating Device Onboarding & Provisioning"
-                  className="w-full block rounded-xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 transition-all"
-                />
-              </div>
+                      <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
+                        <span className="inline-block bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 font-semibold px-2 py-0.5 rounded text-xs mb-2">
+                          2. Task
+                        </span>
+                        <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
+                          {story.task || <span className="text-slate-500 italic">Not specified</span>}
+                        </p>
+                      </div>
 
-              {/* 2-Column Responsive Grid with Large Textareas */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* 1. Situation */}
-                <div className="flex flex-col">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1.5">
-                    1. Situation (The Context)
-                  </label>
-                  <span className="text-xs text-slate-400 mb-2">What was the challenge, incident, or initial state?</span>
-                  <textarea
-                    rows={4}
-                    value={newStory.situation}
-                    onChange={(e) => setNewStory({ ...newStory, situation: e.target.value })}
-                    placeholder="Describe the context: failure event, urgent customer issue, or legacy environment..."
-                    className="w-full flex-1 min-h-[130px] rounded-xl border border-slate-700/80 bg-slate-950/80 p-3.5 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 resize-y transition-all"
-                  />
-                </div>
+                      <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
+                        <span className="inline-block bg-purple-500/15 text-purple-400 border border-purple-500/30 font-semibold px-2 py-0.5 rounded text-xs mb-2">
+                          3. Action
+                        </span>
+                        <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
+                          {story.action || <span className="text-slate-500 italic">Not specified</span>}
+                        </p>
+                      </div>
 
-                {/* 2. Task */}
-                <div className="flex flex-col">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1.5">
-                    2. Task (Your Responsibility)
-                  </label>
-                  <span className="text-xs text-slate-400 mb-2">What were you personally tasked to deliver or solve?</span>
-                  <textarea
-                    rows={4}
-                    value={newStory.task}
-                    onChange={(e) => setNewStory({ ...newStory, task: e.target.value })}
-                    placeholder="Detail your exact mandate, SLAs, and technical constraints..."
-                    className="w-full flex-1 min-h-[130px] rounded-xl border border-slate-700/80 bg-slate-950/80 p-3.5 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 resize-y transition-all"
-                  />
-                </div>
+                      <div className="bg-slate-950/60 border border-emerald-500/20 rounded-xl p-4">
+                        <span className="inline-block bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold px-2 py-0.5 rounded text-xs mb-2">
+                          4. Result
+                        </span>
+                        <p className="text-xs md:text-sm text-emerald-300/90 leading-relaxed font-medium">
+                          {story.result || <span className="text-slate-500 italic font-normal">Not specified</span>}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-                {/* 3. Action */}
-                <div className="flex flex-col">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1.5">
-                    3. Action (Specific Steps You Took)
-                  </label>
-                  <span className="text-xs text-slate-400 mb-2">What tools, protocols, CLI commands, or actions did you take?</span>
-                  <textarea
-                    rows={4}
-                    value={newStory.action}
-                    onChange={(e) => setNewStory({ ...newStory, action: e.target.value })}
-                    placeholder="What did YOU do? E.g., configured VLANs, isolated loops, deployed scripts..."
-                    className="w-full flex-1 min-h-[130px] rounded-xl border border-slate-700/80 bg-slate-950/80 p-3.5 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 resize-y transition-all"
-                  />
-                </div>
-
-                {/* 4. Result */}
-                <div className="flex flex-col">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1.5">
-                    4. Result (Measurable Outcome)
-                  </label>
-                  <span className="text-xs text-slate-400 mb-2">Quantifiable metrics: time saved, % reduced, SLA recovery</span>
-                  <textarea
-                    rows={4}
-                    value={newStory.result}
-                    onChange={(e) => setNewStory({ ...newStory, result: e.target.value })}
-                    placeholder="Outcome: e.g., restored service in 14 minutes, eliminated recurring tickets by 40%..."
-                    className="w-full flex-1 min-h-[130px] rounded-xl border border-slate-700/80 bg-slate-950/80 p-3.5 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/50 resize-y transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-6 flex flex-wrap gap-3 items-center">
-                <button
-                  onClick={handleAddStory}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 hover:from-sky-400 hover:to-indigo-400 transition-all"
-                >
-                  <Plus className="w-4 h-4"/> {editingId !== null ? 'Update Story in Vault' : 'Add Story to Vault'}
-                </button>
-              </div>
+        {/* Reverse Interview Questions Section */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 md:p-8 backdrop-blur-sm space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <HelpCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg md:text-xl font-bold text-white">
+                Recommended High-Signal Reverse Questions
+              </h2>
+              <p className="text-xs md:text-sm text-slate-400">
+                Ask these during the final 10 minutes to signal seniority, architectural maturity, and operational rigor.
+              </p>
             </div>
           </div>
 
-          {/* Reverse Interview Questions Section */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                <HelpCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg md:text-xl font-bold text-slate-100">
-                  Recommended High-Signal Reverse Questions
-                </h2>
-                <p className="text-xs md:text-sm text-slate-400">
-                  Ask these during the final 10 minutes to signal seniority, architectural maturity, and operational rigor.
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            {[
+              {
+                question: "What does the escalation path look like when Tier 1 encounters an ambiguous cloud identity or network degradation issue?",
+                signal: "Proves familiarity with triage tiering and SLA preservation."
+              },
+              {
+                question: "How does your team measure customer satisfaction and SLA adherence without incentivizing superficial ticket closes?",
+                signal: "Demonstrates balanced focus on quality of resolution over raw metrics."
+              },
+              {
+                question: "What are the top 2 internal tooling or automation initiatives the IT operations team plans to tackle over the next 12 months?",
+                signal: "Shows forward-thinking mindset and interest in contributing to automation."
+              },
+              {
+                question: "How is the organization currently managing endpoint hygiene and compliance across hybrid / remote fleets?",
+                signal: "Demonstrates zero-trust security and modern MDM awareness."
+              }
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between"
+              >
+                <p className="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed mb-3">
+                  &ldquo;{item.question}&rdquo;
                 </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              {[
-                {
-                  question: "What does the escalation path look like when Tier 1 encounters an ambiguous cloud identity or network degradation issue?",
-                  signal: "Proves familiarity with triage tiering and SLA preservation."
-                },
-                {
-                  question: "How does your team measure customer satisfaction and SLA adherence without incentivizing superficial ticket closes?",
-                  signal: "Demonstrates balanced focus on quality of resolution over raw metrics."
-                },
-                {
-                  question: "What are the top 2 internal tooling or automation initiatives the IT operations team plans to tackle over the next 12 months?",
-                  signal: "Shows forward-thinking mindset and interest in contributing to automation."
-                },
-                {
-                  question: "How is the organization currently managing endpoint hygiene and compliance across hybrid / remote fleets?",
-                  signal: "Demonstrates zero-trust security and modern MDM awareness."
-                }
-              ].map((item, i) => (
-                <div
-                  key={i}
-                  className="bg-slate-950/50 border border-slate-800 rounded-xl p-4 flex flex-col justify-between"
-                >
-                  <p className="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed mb-3">
-                    &ldquo;{item.question}&rdquo;
-                  </p>
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                    <span className="text-xs text-slate-400 italic">
-                      Signal: {item.signal}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(item.question);
-                        showToast('Question copied to clipboard!');
-                      }}
-                      className="text-xs text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1"
-                    >
-                      <Copy className="w-3 h-3" />
-                      Copy
-                    </button>
-                  </div>
+                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                  <span className="text-xs text-slate-400 italic">
+                    Signal: {item.signal}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(item.question);
+                      showToast('Question copied to clipboard!');
+                    }}
+                    className="text-xs text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Copy
+                  </button>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
