@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { ShareButton } from '../components/ShareButton';
 
 export const WorkPage: React.FC = () => {
   const location = useLocation();
@@ -25,42 +26,51 @@ export const WorkPage: React.FC = () => {
         )}
       </nav>
 
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        <Link
-          to="/work"
-          className={`button ${subview === 'overview' ? '' : 'button-secondary'}`}
-          style={{ padding: '6px 14px', fontSize: '0.9rem' }}
-        >
-          Overview
-        </Link>
-        <Link
-          to="/work/experience"
-          className={`button ${subview === 'experience' ? '' : 'button-secondary'}`}
-          style={{ padding: '6px 14px', fontSize: '0.9rem' }}
-        >
-          Experience
-        </Link>
-        <Link
-          to="/work/skills"
-          className={`button ${subview === 'skills' ? '' : 'button-secondary'}`}
-          style={{ padding: '6px 14px', fontSize: '0.9rem' }}
-        >
-          Skills
-        </Link>
-        <Link
-          to="/work/certifications"
-          className={`button ${subview === 'certifications' ? '' : 'button-secondary'}`}
-          style={{ padding: '6px 14px', fontSize: '0.9rem' }}
-        >
-          Certifications
-        </Link>
-        <Link
-          to="/work/projects"
-          className={`button ${subview === 'projects' ? '' : 'button-secondary'}`}
-          style={{ padding: '6px 14px', fontSize: '0.9rem' }}
-        >
-          Projects
-        </Link>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <Link
+            to="/work"
+            className={`button ${subview === 'overview' ? '' : 'button-secondary'}`}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            Overview
+          </Link>
+          <Link
+            to="/work/experience"
+            className={`button ${subview === 'experience' ? '' : 'button-secondary'}`}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            Experience
+          </Link>
+          <Link
+            to="/work/skills"
+            className={`button ${subview === 'skills' ? '' : 'button-secondary'}`}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            Skills
+          </Link>
+          <Link
+            to="/work/certifications"
+            className={`button ${subview === 'certifications' ? '' : 'button-secondary'}`}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            Certifications
+          </Link>
+          <Link
+            to="/work/projects"
+            className={`button ${subview === 'projects' ? '' : 'button-secondary'}`}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            Projects
+          </Link>
+        </div>
+        <ShareButton
+          title="Jawed Imtiaz — Professional Work, Experience & Engineering Credentials"
+          text="Enterprise IT career experience at Uber, technical support management, certifications (AZ-900, Jamf, Hardware/Networking), and projects."
+          url="https://jawed.co.in/work"
+          label="Share Work Profile"
+          hashtags={['JawedImtiaz', 'WorkHistory', 'ITFieldTech', 'EnterpriseIT']}
+        />
       </div>
 
       {subview === 'overview' && (

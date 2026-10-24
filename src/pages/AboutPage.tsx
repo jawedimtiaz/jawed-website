@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Image } from '../components/Image';
+import { ShareButton } from '../components/ShareButton';
 
 export const AboutPage: React.FC = () => {
   return (
@@ -14,6 +15,23 @@ export const AboutPage: React.FC = () => {
       <p className="lead">
         Senior IT Field Tech and Workplace Engineering Specialist focused on Service Desk operations, enterprise device lifecycle management, Apple/Jamf infrastructure, and practical diagnostic tools.
       </p>
+
+      {/* Action Bar with Share Profile */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', margin: '14px 0 24px' }}>
+        <Link to="/contact" className="button button-primary" style={{ padding: '7px 16px', fontSize: '0.85rem' }}>
+          Contact Jawed →
+        </Link>
+        <Link to="/work" className="button button-secondary" style={{ padding: '7px 16px', fontSize: '0.85rem' }}>
+          Work Experience
+        </Link>
+        <ShareButton
+          title="About Jawed Imtiaz — Senior IT Field Tech & Workplace Engineering Lead"
+          text="Senior IT Field Tech and Workplace Engineering Specialist focused on Service Desk operations, enterprise device lifecycle management, Apple/Jamf infrastructure, and practical diagnostic tools."
+          url="https://jawed.co.in/about"
+          label="Share Profile"
+          hashtags={['JawedImtiaz', 'ITFieldTech', 'EnterpriseIT', 'Uber', 'Jamf']}
+        />
+      </div>
 
       {/* Profile & Engineering Identity Banner (LCP Optimized with Priority & WebP) */}
       <div

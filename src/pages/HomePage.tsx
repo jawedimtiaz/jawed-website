@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { SeoHead } from '../components/SeoHead';
 import { Image } from '../components/Image';
+import { ShareButton } from '../components/ShareButton';
 
 export const HomePage: React.FC = () => {
   return (
@@ -39,6 +40,13 @@ export const HomePage: React.FC = () => {
             <Link className="button button-secondary" to="/about">
               View Career Profile
             </Link>
+            <ShareButton
+              title="Jawed Imtiaz - Senior IT Field Tech & Workplace Engineering Lead"
+              text="Senior IT Field Tech supporting enterprise workplace infrastructure at Uber. High-SLA workplace technology, macOS/Jamf fleets, network cabling diagnostics, and practical IT utilities."
+              url="https://jawed.co.in"
+              label="Share Profile"
+              hashtags={['ITFieldTech', 'EnterpriseIT', 'JawedImtiaz', 'Uber']}
+            />
           </div>
 
           {/* Secondary Exploration Ribbon (Tools / Guides / AI) */}
