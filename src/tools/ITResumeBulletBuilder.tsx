@@ -380,7 +380,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
       document.execCommand('copy');
       el.remove();
     }
-    showToast('Copied');
+    showToast('Copied!');
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -555,6 +555,8 @@ export const ITResumeBulletBuilder: React.FC = () => {
       {/* Toast */}
       {toastMessage && (
         <div
+          role="status"
+          aria-live="polite"
           style={{
             position: 'fixed',
             bottom: '24px',
@@ -563,14 +565,18 @@ export const ITResumeBulletBuilder: React.FC = () => {
             zIndex: 9999,
             background: 'var(--text)',
             color: 'var(--bg)',
-            padding: '8px 18px',
+            padding: '10px 20px',
             borderRadius: '10px',
-            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
-            fontSize: '0.9rem',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.4)',
+            fontSize: '0.92rem',
             fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
           }}
         >
-          {toastMessage}
+          {toastMessage === 'Copied!' && <Check size={16} color="var(--good, #10b981)" aria-hidden="true" />}
+          <span>{toastMessage}</span>
         </div>
       )}
 
@@ -1051,19 +1057,79 @@ export const ITResumeBulletBuilder: React.FC = () => {
                             );
                           })()}
                         </div>
-                        <p className="bt" style={{ margin: '6px 0 8px', fontFamily: 'monospace', fontSize: '0.95rem' }}>
-                          {x.t}
-                        </p>
-                        <div className="muted" style={{ fontSize: '14px', color: 'var(--muted)' }}>
-                          Quality {singleCheck.score}/100
-                        </div>
-                        <div className="row" style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                          <button type="button" onClick={() => handleCopy(x.t)}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: '8px',
+                            alignItems: 'stretch',
+                            margin: '8px 0',
+                          }}
+                        >
+                          <textarea
+                            readOnly
+                            value={x.t}
+                            className="bt"
+                            rows={2}
+                            aria-label={`${x.n} generated resume bullet`}
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              fontFamily: 'monospace',
+                              fontSize: '0.95rem',
+                              background: 'var(--card)',
+                              border: '1px solid var(--line)',
+                              borderRadius: '8px',
+                              padding: '10px 12px',
+                              color: 'var(--text)',
+                              resize: 'vertical',
+                              lineHeight: '1.5',
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(x.t)}
+                            title="Copy bullet to clipboard"
+                            aria-label={`Copy ${x.n} bullet to clipboard`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              padding: '8px 16px',
+                              background: 'var(--brand)',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontWeight: 600,
+                              fontSize: '0.875rem',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0,
+                              minHeight: '40px',
+                              transition: 'opacity 0.15s ease',
+                            }}
+                          >
+                            <Copy size={16} aria-hidden="true" />
                             Copy
                           </button>
-                          <button type="button" onClick={() => handleSaveBullet(x.t)}>
-                            Save
-                          </button>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                          <div className="muted" style={{ fontSize: '14px', color: 'var(--muted)' }}>
+                            Quality {singleCheck.score}/100
+                          </div>
+                          <div className="row" style={{ display: 'flex', gap: '8px', margin: 0 }}>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(x.t)}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                            >
+                              <Copy size={13} aria-hidden="true" />
+                              Copy
+                            </button>
+                            <button type="button" onClick={() => handleSaveBullet(x.t)}>
+                              Save
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );

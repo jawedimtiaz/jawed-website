@@ -49,7 +49,7 @@ export const ServicesDispatchPage: React.FC = () => {
       setSearchResult({
         id,
         status: 'Technician Assigned',
-        engineer: 'Jawed Imtiaz (IT Field Lead)',
+        engineer: 'Jawed Imtiaz',
         eta: 'Today, 2:30 PM IST',
         location: 'Vizag COE / On-Site Branch',
         notes: 'Pre-dispatch diagnostic completed. Replacement Cisco Meraki AP and Jamf enrolment profile prepared.',

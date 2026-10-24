@@ -24,7 +24,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     readTime: '8 min read',
     publishedDate: 'October 20, 2026',
     updatedDate: 'October 21, 2026',
-    author: 'Jawed Imtiaz (IT Field Lead)',
+    author: 'Jawed Imtiaz',
     keywords: ['RJ45', 'T568B', 'T568A', 'Cat6', 'Ethernet Pinout', 'Cable Tester', 'Wiremap', 'Crimping'],
     toc: [
       { id: 'overview', text: '1. Overview of ANSI/TIA-568 Standards' },
@@ -174,7 +174,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     readTime: '9 min read',
     publishedDate: 'October 20, 2026',
     updatedDate: 'October 21, 2026',
-    author: 'Jawed Imtiaz (IT Field Lead)',
+    author: 'Jawed Imtiaz',
     keywords: ['Server Rack', 'Cable Management', 'Patch Panel', 'Cat6A Bend Radius', 'Velcro vs Zip Ties', 'ANSI/TIA-606-D'],
     toc: [
       { id: 'rack-architecture', text: '1. Modern Rack Cabling Architecture' },
@@ -290,7 +290,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     readTime: '10 min read',
     publishedDate: 'October 20, 2026',
     updatedDate: 'October 21, 2026',
-    author: 'Jawed Imtiaz (IT Field Lead)',
+    author: 'Jawed Imtiaz',
     keywords: ['Port Flapping', 'CLI Commands', 'Duplex Mismatch', 'Cisco IOS', 'Aruba CX', 'CRC Errors', 'SFP DDM'],
     toc: [
       { id: 'link-flapping-causes', text: '1. What Causes Network Port Flapping?' },
@@ -428,7 +428,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     readTime: '9 min read',
     publishedDate: 'October 20, 2026',
     updatedDate: 'October 21, 2026',
-    author: 'Jawed Imtiaz (IT Field Lead)',
+    author: 'Jawed Imtiaz',
     keywords: ['Dell PowerEdge', 'HPE ProLiant', 'iDRAC', 'iLO', 'Amber LED', 'Systems Insight Display', 'RAID Fault'],
     toc: [
       { id: 'overview-leds', text: '1. Understanding Server Health LED Indicators' },
@@ -559,7 +559,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     readTime: '8 min read',
     publishedDate: 'October 23, 2026',
     updatedDate: 'October 23, 2026',
-    author: 'Jawed Imtiaz (IT Field Lead)',
+    author: 'Jawed Imtiaz',
     keywords: ['MacBook', 'macOS', 'DFU Mode', 'Apple Silicon', 'FileVault', 'SecureToken', 'Network Plist', 'Jamf', 'Apple Devices'],
     toc: [
       { id: 'dfu-mode', text: '1. Apple Silicon DFU Revive vs Restore' },
@@ -589,7 +589,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     readTime: '7 min read',
     publishedDate: 'October 23, 2026',
     updatedDate: 'October 23, 2026',
-    author: 'Jawed Imtiaz (IT Field Lead)',
+    author: 'Jawed Imtiaz',
     keywords: ['iPhone', 'iPad', 'iOS', 'MDM', 'Apple Business Manager', 'ADE', 'Captive Portal', 'Activation Lock', 'Apple Devices'],
     toc: [
       { id: 'ade-workflow', text: '1. Automated Device Enrollment (ADE) Workflow' },
@@ -619,7 +619,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     readTime: '8 min read',
     publishedDate: 'October 23, 2026',
     updatedDate: 'October 23, 2026',
-    author: 'Jawed Imtiaz (IT Field Lead)',
+    author: 'Jawed Imtiaz',
     keywords: ['AirDrop', 'AWDL', 'Universal Control', 'Sidecar', 'USB-C Dock', 'DisplayLink', 'Thunderbolt', 'Apple Continuity', 'Apple Devices'],
     toc: [
       { id: 'awdl-airdrop', text: '1. AirDrop & AWDL Wireless Discovery Triage' },
@@ -649,7 +649,7 @@ export const FIELD_GUIDES: FieldGuide[] = [
     readTime: '9 min read',
     publishedDate: 'October 23, 2026',
     updatedDate: 'October 23, 2026',
-    author: 'Jawed Imtiaz (IT Field Lead)',
+    author: 'Jawed Imtiaz',
     keywords: ['macOS Recovery', 'Erase Mac', 'Reinstall macOS', 'Apple Silicon', 'M1 M2 M3 M4', 'Intel Mac', 'Disk Utility', 'APFS Volume Group', 'Activation Lock', 'T2 Security Chip', 'Apple Devices'],
     toc: [
       { id: 'recovery-architecture', text: '1. macOS Recovery Architecture: Apple Silicon vs Intel' },
