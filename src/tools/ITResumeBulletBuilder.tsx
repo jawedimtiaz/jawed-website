@@ -17,6 +17,9 @@ import {
   TrendingUp,
   Zap,
   AlertTriangle,
+  Layers,
+  Download,
+  ListPlus,
 } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
@@ -1045,8 +1048,325 @@ function getSuggestionsForText(text: string): { weakWord: string; suggestions: s
   return null;
 }
 
+export interface BatchGeneratedItem {
+  id: string;
+  originalText: string;
+  isRole: boolean;
+  detectedRole?: string;
+  selectedStyle: 'Standard' | 'Impact-first' | 'ATS-Compact';
+  styles: {
+    Standard: string;
+    'Impact-first': string;
+    'ATS-Compact': string;
+  };
+  currentBullet: string;
+  strength: BulletStrengthResult;
+}
+
+const ROLE_ACCOMPLISHMENTS: Record<string, { verb: string; task: string; tools: string; scale: string; result: string }> = {
+  'Help desk / service desk': {
+    verb: 'Resolved',
+    task: 'tier 1 and tier 2 hardware, desktop, and software service requests in ServiceNow',
+    tools: 'ServiceNow, Microsoft 365, Active Directory',
+    scale: 'for 450+ enterprise users across 2 office sites',
+    result: 'maintaining a 98% customer satisfaction rating and exceeding first-call resolution SLAs by 15%',
+  },
+  'Field technician': {
+    verb: 'Deployed',
+    task: 'and commissioned rack infrastructure, Cisco Meraki access points, and structured Cat6A cabling',
+    tools: 'Cisco Meraki, Fluke CableIQ, Jamf',
+    scale: 'across 8 branch locations for 300+ workstations',
+    result: 'completing multi-branch hardware rollouts on schedule with zero post-dispatch return visits',
+  },
+  'Network engineer': {
+    verb: 'Configured',
+    task: 'VLAN segmentation, BGP/OSPF dynamic routing, and enterprise firewall ACLs',
+    tools: 'Cisco Catalyst, Meraki MX, Wireshark',
+    scale: 'for 600+ network nodes across 4 enterprise sites',
+    result: 'reducing packet loss by 35% and guaranteeing 99.99% high-availability network uptime',
+  },
+  'System administrator': {
+    verb: 'Administered',
+    task: 'Active Directory domain controllers, Group Policy Objects, and nightly Veeam automated backup schedules',
+    tools: 'Windows Server, Active Directory, VMware ESXi, Veeam',
+    scale: 'across 45 virtual servers supporting 800 domain users',
+    result: 'achieving 100% disaster recovery compliance and eliminating unplanned downtime',
+  },
+  'Cloud / DevOps': {
+    verb: 'Orchestrated',
+    task: 'containerized microservices infrastructure and automated CI/CD deployment pipelines',
+    tools: 'AWS EC2/EKS, Docker, Kubernetes, Terraform',
+    scale: 'across 3 multi-region cloud production environments',
+    result: 'reducing monthly cloud compute expenses by 28% while accelerating release velocity by 3x',
+  },
+  'Security': {
+    verb: 'Hardened',
+    task: 'endpoint security baselines and investigated real-time SIEM alerts in Splunk',
+    tools: 'Splunk, Microsoft Intune, CrowdStrike, Wireshark',
+    scale: 'across 750+ enterprise workstations and mobile devices',
+    result: 'isolating compromised endpoints within 15 minutes and maintaining 100% audit compliance',
+  },
+};
+
+const BATCH_PRESETS = [
+  {
+    name: 'Help Desk / Desktop',
+    entries: [
+      'Responsible for Active Directory user onboarding, offboarding, and password resets',
+      'Triaged and resolved ServiceNow tier 1/2 hardware, Outlook, and VPN incidents',
+      'Deployed Windows 11 enterprise laptop images using Microsoft Intune and SCCM',
+      'Configured and supported network multi-function printers and VoIP phones across 2 office floors',
+    ],
+  },
+  {
+    name: 'Network & Infrastructure',
+    entries: [
+      'Configured VLAN segmentation and dynamic routing on Cisco Meraki switches and firewalls',
+      'Monitored enterprise WAN and LAN links, isolating port flapping and duplex mismatches via CLI',
+      'Terminated and certified Cat6A patch panel connections adhering to ANSI/TIA standards',
+      'Hardened firewall ACLs and deployed secure remote-access IPSec VPN tunnels',
+    ],
+  },
+  {
+    name: 'Systems & Cloud',
+    entries: [
+      'Administered 40 virtual servers on VMware ESXi with automated Veeam backup schedules',
+      'Migrated legacy on-prem Windows Server 2012 VMs to AWS EC2 instances with zero downtime',
+      'Automated user provisioning and GPO security hardening baselines across domain controllers',
+      'Containerized internal web microservices using Docker and orchestrated deployments on Kubernetes',
+    ],
+  },
+  {
+    name: 'List of IT Roles',
+    entries: [
+      'Field Technician',
+      'Network Engineer',
+      'System Administrator',
+      'Help Desk Analyst',
+      'Cloud / DevOps Engineer',
+      'Cybersecurity Specialist',
+    ],
+  },
+];
+
+function optimizeBatchEntry(
+  rawLine: string,
+  rolePreference: string,
+  defaultStyle: 'Standard' | 'Impact-first' | 'ATS-Compact' = 'Standard'
+): {
+  isRole: boolean;
+  detectedRole?: string;
+  styles: {
+    Standard: string;
+    'Impact-first': string;
+    'ATS-Compact': string;
+  };
+} {
+  const clean = rawLine.replace(/^[•\-\*\d\.\)\s]+/, '').trim();
+  const lower = clean.toLowerCase();
+
+  // 1. Check if line is a Role Title (e.g. "Network Engineer", "Field Technician", "Help Desk")
+  const roleMatch = Object.entries(ROLE_ACCOMPLISHMENTS).find(([roleKey]) => {
+    const rLower = roleKey.toLowerCase();
+    const parts = rLower.split(/\s*[\/\-]\s*/);
+    return parts.some(p => lower === p || lower.includes(p + ' engineer') || lower.includes(p + ' technician') || lower.includes(p + ' specialist') || lower.includes(p + ' analyst') || lower.includes(p + ' lead') || lower.includes(p + ' administrator') || lower.includes(p + ' admin'));
+  });
+
+  const isShortRoleTitle = clean.split(/\s+/).length <= 4 && /(technician|engineer|administrator|admin|analyst|specialist|architect|desk|support|security)/i.test(clean);
+
+  if (roleMatch || isShortRoleTitle) {
+    let key = roleMatch ? roleMatch[0] : 'Help desk / service desk';
+    if (!roleMatch) {
+      if (/network|cisco|switch|router/i.test(lower)) key = 'Network engineer';
+      else if (/cloud|devops|aws|docker|kubernetes/i.test(lower)) key = 'Cloud / DevOps';
+      else if (/security|cyber|soc|siem/i.test(lower)) key = 'Security';
+      else if (/system|server|linux|windows/i.test(lower)) key = 'System administrator';
+      else if (/field|cabling|hardware|rack/i.test(lower)) key = 'Field technician';
+      else key = 'Help desk / service desk';
+    }
+
+    const tpl = ROLE_ACCOMPLISHMENTS[key];
+    const styles = {
+      Standard: `${tpl.verb} ${tpl.task} using ${tpl.tools} ${tpl.scale}, resulting in ${tpl.result}.`,
+      'Impact-first': `${cap(tpl.result)} — ${tpl.verb.toLowerCase()} ${tpl.task} using ${tpl.tools} ${tpl.scale}.`,
+      'ATS-Compact': `${tpl.verb} ${tpl.task} (${tpl.tools}); ${tpl.scale}; ${tpl.result}.`,
+    };
+
+    return {
+      isRole: true,
+      detectedRole: key,
+      styles,
+    };
+  }
+
+  // 2. It is a Task or Responsibility description
+  let text = clean;
+  // Strip passive / weak prefixes
+  const weakPrefixes = [
+    /^responsible for\s+(managing|handling|overseeing|maintaining|monitoring|provisioning)?\s*/i,
+    /^helped( with| to)?\s*/i,
+    /^assisted( with| in)?\s*/i,
+    /^duties (included|were)\s*/i,
+    /^worked on\s*/i,
+    /^handled\s*/i,
+    /^involved in\s*/i,
+    /^in charge of\s*/i,
+    /^my job was to\s*/i,
+  ];
+
+  for (const wp of weakPrefixes) {
+    if (wp.test(text)) {
+      text = text.replace(wp, '');
+      break;
+    }
+  }
+
+  const words = text.split(/\s+/).filter(Boolean);
+  const firstWord = (words[0] || '').toLowerCase().replace(/[^a-z]/g, '');
+
+  let verb = '';
+  let task = text;
+
+  // Gerund map
+  const gerundMap: Record<string, string> = {
+    managing: 'Managed',
+    configuring: 'Configured',
+    troubleshooting: 'Troubleshot and resolved',
+    deploying: 'Deployed',
+    resolving: 'Resolved',
+    patching: 'Patched',
+    monitoring: 'Monitored and maintained',
+    migrating: 'Migrated',
+    automating: 'Automated',
+    installing: 'Installed',
+    supporting: 'Supported',
+    administering: 'Administered',
+    hardening: 'Hardened',
+    provisioning: 'Provisioned',
+    auditing: 'Audited',
+    upgrading: 'Upgraded',
+    cabling: 'Cabled and certified',
+    testing: 'Tested and verified',
+    segmenting: 'Segmented',
+    orchestrating: 'Orchestrated',
+  };
+
+  if (gerundMap[firstWord]) {
+    verb = gerundMap[firstWord];
+    task = words.slice(1).join(' ');
+  } else if (STRONG_VERBS.has(firstWord)) {
+    verb = cap(firstWord);
+    task = words.slice(1).join(' ');
+  } else if (['did', 'fixed', 'made', 'worked', 'handled'].includes(firstWord)) {
+    if (firstWord === 'fixed') verb = 'Resolved';
+    else if (firstWord === 'did') verb = 'Executed';
+    else if (firstWord === 'made') verb = 'Engineered';
+    else if (firstWord === 'handled') verb = 'Managed';
+    else verb = 'Collaborated on';
+    task = words.slice(1).join(' ');
+  } else {
+    // Infer authoritative verb based on keywords or role preference
+    if (rolePreference !== 'auto' && ROLES[rolePreference]) {
+      verb = ROLES[rolePreference][0];
+    } else if (/active directory|ad|user|account|onboard|password|idrac|intune/i.test(text)) {
+      verb = 'Automated';
+    } else if (/cisco|vlan|switch|router|network|firewall|bgp|ospf|wifi|meraki/i.test(text)) {
+      verb = 'Configured';
+    } else if (/server|linux|windows|backup|veeam|vmware|vm|hyper-v|patch/i.test(text)) {
+      verb = 'Administered';
+    } else if (/ticket|laptop|desktop|hardware|printer|servicenow|jira|desk/i.test(text)) {
+      verb = 'Triaged and resolved';
+    } else if (/cloud|aws|azure|docker|kubernetes|terraform|devops/i.test(text)) {
+      verb = 'Orchestrated';
+    } else if (/security|splunk|siem|compliance|audit|vulnerability/i.test(text)) {
+      verb = 'Hardened';
+    } else {
+      verb = 'Implemented';
+    }
+  }
+
+  // Detect tools
+  const lowerTask = task.toLowerCase();
+  const matchedTools = TOOLS_LIST.filter(t => lowerTask.includes(t.toLowerCase()));
+  let toolsStr = matchedTools.slice(0, 2).map(cap).join(', ');
+
+  // If tools already mentioned in the task body, avoid duplicate "using Active directory"
+  if (toolsStr && lowerTask.includes(toolsStr.toLowerCase())) {
+    toolsStr = '';
+  }
+
+  // Check if text already has numbers
+  const hasNumbers = /\d/.test(task);
+  let scaleStr = '';
+  let resultStr = '';
+
+  if (hasNumbers) {
+    if (!/resulting in|reduced|increased|cutting|improving|achieving|guaranteeing/i.test(task)) {
+      resultStr = 'improving overall system reliability and eliminating repeat incidents';
+    }
+  } else {
+    // Supply realistic verified enterprise scale and result metrics
+    if (/active directory|ad|user|account|onboard|password/i.test(text)) {
+      scaleStr = 'for 250+ enterprise users';
+      resultStr = 'cutting onboarding turnaround time from 4 hours to 15 minutes';
+      if (!toolsStr && !lowerTask.includes('active directory')) toolsStr = 'Active Directory, Microsoft 365';
+    } else if (/cisco|vlan|switch|router|network|firewall|meraki/i.test(text)) {
+      scaleStr = 'across 3 branch offices for 350+ endpoints';
+      resultStr = 'improving network throughput by 35% and achieving 99.99% uptime';
+      if (!toolsStr && !lowerTask.includes('cisco')) toolsStr = 'Cisco Meraki, Wireshark';
+    } else if (/ticket|hardware|laptop|desktop|printer|servicenow|jira/i.test(text)) {
+      scaleStr = 'for 400+ internal staff';
+      resultStr = 'maintaining a 96% first-contact resolution (FCR) rate and reducing ticket backlog by 40%';
+      if (!toolsStr && !lowerTask.includes('servicenow')) toolsStr = 'ServiceNow, Jamf';
+    } else if (/server|vmware|backup|veeam|hyper-v|linux|windows server/i.test(text)) {
+      scaleStr = 'across 35+ virtual servers';
+      resultStr = 'achieving 100% disaster recovery compliance and ensuring zero data loss';
+      if (!toolsStr && !lowerTask.includes('veeam')) toolsStr = 'Windows Server, Veeam';
+    } else if (/cloud|aws|azure|docker|kubernetes|terraform/i.test(text)) {
+      scaleStr = 'across 3 multi-tier production environments';
+      resultStr = 'reducing cloud compute overhead by 28% while accelerating release cycles by 3x';
+      if (!toolsStr && !lowerTask.includes('aws')) toolsStr = 'AWS, Docker';
+    } else if (/security|splunk|siem|vulnerability|audit/i.test(text)) {
+      scaleStr = 'across 600+ network nodes';
+      resultStr = 'isolating critical security threats within 15 minutes of detection';
+      if (!toolsStr && !lowerTask.includes('splunk')) toolsStr = 'Splunk, Microsoft Intune';
+    } else {
+      scaleStr = 'across 200+ systems';
+      resultStr = 'bolstering operational uptime by 30% and optimizing workflow efficiency';
+    }
+  }
+
+  task = task.replace(/[.,;:\s]+$/, '').trim();
+
+  // If task already has "using" or "for", avoid awkward repetition
+  const hasUsingInTask = /\busing\b/i.test(task);
+  const hasForInTask = /\bfor\b/i.test(task);
+
+  const finalTools = hasUsingInTask ? '' : toolsStr;
+  const finalScale = hasForInTask ? '' : scaleStr;
+
+  const tStr = finalTools ? ` using ${finalTools}` : '';
+  const sStr = finalScale ? ` ${finalScale}` : '';
+  const rStr = resultStr ? `, resulting in ${resultStr}` : '';
+
+  const standard = `${verb} ${task}${tStr}${sStr}${rStr}.`.replace(/\s+/g, ' ');
+  const impactFirst = resultStr
+    ? `${cap(resultStr)} — ${verb.toLowerCase()} ${task}${tStr}${sStr}.`.replace(/\s+/g, ' ')
+    : standard;
+  const atsCompact = `${verb} ${task}${finalTools ? ' (' + finalTools + ')' : ''}${finalScale ? '; ' + finalScale : ''}${resultStr ? '; ' + resultStr : ''}.`.replace(/\s+/g, ' ');
+
+  return {
+    isRole: false,
+    styles: {
+      Standard: standard,
+      'Impact-first': impactFirst,
+      'ATS-Compact': atsCompact,
+    },
+  };
+}
+
 export const ITResumeBulletBuilder: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'build' | 'check' | 'saved'>('build');
+  const [activeTab, setActiveTab] = useState<'build' | 'batch' | 'check' | 'saved'>('build');
   const [role, setRole] = useState(Object.keys(ROLES)[0]);
   const [verb, setVerb] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1074,6 +1394,13 @@ export const ITResumeBulletBuilder: React.FC = () => {
   const [scale, setScale] = useState('');
   const [result, setResult] = useState('');
   const [generatedOuts, setGeneratedOuts] = useState<Array<{ n: string; t: string }> | null>(null);
+
+  // Batch Generator state
+  const [batchGenInput, setBatchGenInput] = useState('');
+  const [batchGenRole, setBatchGenRole] = useState('auto');
+  const [batchGenStyle, setBatchGenStyle] = useState<'Standard' | 'Impact-first' | 'ATS-Compact'>('Standard');
+  const [batchGeneratedItems, setBatchGeneratedItems] = useState<BatchGeneratedItem[] | null>(null);
+  const [batchExportDropdownOpen, setBatchExportDropdownOpen] = useState(false);
 
   // Persist 'Action Verb' to localStorage so users don't lose work on page refresh
   useEffect(() => {
@@ -1171,6 +1498,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
         setShowSynonymsModal(false);
         setShowTemplatesModal(false);
         setExportDropdownOpen(false);
+        setBatchExportDropdownOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -1203,6 +1531,179 @@ export const ITResumeBulletBuilder: React.FC = () => {
       el.remove();
     }
     showToast('Copied!');
+  };
+
+  const handleGenerateBatch = () => {
+    const lines = batchGenInput
+      .split('\n')
+      .map(l => l.replace(/^[•\-\*\d\.\)\s]+/, '').trim())
+      .filter(l => l.length > 0);
+
+    if (lines.length === 0) {
+      showToast('Please enter at least one role or task.');
+      return;
+    }
+
+    const items: BatchGeneratedItem[] = lines.map((line, idx) => {
+      const generated = optimizeBatchEntry(line, batchGenRole, batchGenStyle);
+      const current = generated.styles[batchGenStyle];
+      return {
+        id: `batch-${Date.now()}-${idx}`,
+        originalText: line,
+        isRole: generated.isRole,
+        detectedRole: generated.detectedRole,
+        selectedStyle: batchGenStyle,
+        styles: generated.styles,
+        currentBullet: current,
+        strength: analyzeBulletStrength(current),
+      };
+    });
+
+    setBatchGeneratedItems(items);
+    showToast(`Generated ${items.length} optimized bullets`);
+  };
+
+  const handleUpdateBatchItemBullet = (index: number, newText: string) => {
+    if (!batchGeneratedItems) return;
+    const updated = [...batchGeneratedItems];
+    updated[index] = {
+      ...updated[index],
+      currentBullet: newText,
+      strength: analyzeBulletStrength(newText),
+    };
+    setBatchGeneratedItems(updated);
+  };
+
+  const handleSwitchBatchItemStyle = (index: number, style: 'Standard' | 'Impact-first' | 'ATS-Compact') => {
+    if (!batchGeneratedItems) return;
+    const updated = [...batchGeneratedItems];
+    const newBullet = updated[index].styles[style];
+    updated[index] = {
+      ...updated[index],
+      selectedStyle: style,
+      currentBullet: newBullet,
+      strength: analyzeBulletStrength(newBullet),
+    };
+    setBatchGeneratedItems(updated);
+  };
+
+  const handleCopyAllBatch = () => {
+    if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
+    const text = batchGeneratedItems.map(item => '• ' + item.currentBullet).join('\n\n');
+    handleCopy(text);
+    showToast(`Copied all ${batchGeneratedItems.length} bullets!`);
+  };
+
+  const handleSaveAllBatch = () => {
+    if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
+    const newBullets = batchGeneratedItems.map(item => item.currentBullet);
+    const updated = Array.from(new Set([...newBullets, ...savedBullets])).slice(0, 100);
+    persistSaved(updated);
+    showToast(`Saved ${batchGeneratedItems.length} bullets to collection`);
+  };
+
+  const handleExportBatchTxt = () => {
+    if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
+    const content = batchGeneratedItems.map(item => '• ' + item.currentBullet).join('\n\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'batch-resume-bullets.txt';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setBatchExportDropdownOpen(false);
+    showToast('Downloaded batch-resume-bullets.txt');
+  };
+
+  const handleExportBatchPdf = () => {
+    if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
+    const doc = new jsPDF();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('IT Resume Bullets (Batch Generated)', 14, 20);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on ${new Date().toLocaleDateString()} — IT Resume Bullet Builder`, 14, 26);
+
+    doc.setTextColor(0);
+    doc.setFontSize(11);
+
+    let y = 36;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const maxWidth = 182;
+
+    batchGeneratedItems.forEach((item) => {
+      const text = `•  ${item.currentBullet}`;
+      const lines = doc.splitTextToSize(text, maxWidth);
+
+      if (y + (lines.length * 6) > pageHeight - 20) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.text(lines, margin, y);
+      y += (lines.length * 6) + 4;
+    });
+
+    doc.save('batch-resume-bullets.pdf');
+    setBatchExportDropdownOpen(false);
+    showToast('Downloaded batch-resume-bullets.pdf');
+  };
+
+  const handleExportBatchCsv = () => {
+    if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
+    const csvRows = ['"Index","Original Task / Role","Optimized Resume Bullet","Strength Score","Tier"'];
+    batchGeneratedItems.forEach((item, i) => {
+      const orig = item.originalText.replace(/"/g, '""');
+      const b = item.currentBullet.replace(/"/g, '""');
+      csvRows.push(`${i + 1},"${orig}","${b}",${item.strength.score},"${item.strength.tier}"`);
+    });
+    const content = csvRows.join('\n');
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'batch-resume-bullets.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setBatchExportDropdownOpen(false);
+    showToast('Downloaded batch-resume-bullets.csv');
+  };
+
+  const handleExportBatchJson = () => {
+    if (!batchGeneratedItems || batchGeneratedItems.length === 0) return;
+    const data = {
+      app: 'IT Resume Bullet Builder - Batch Generator',
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      bullets: batchGeneratedItems.map(item => ({
+        original: item.originalText,
+        optimized: item.currentBullet,
+        style: item.selectedStyle,
+        score: item.strength.score,
+        tier: item.strength.tier,
+      })),
+    };
+    const content = JSON.stringify(data, null, 2);
+    const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'batch-resume-bullets.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setBatchExportDropdownOpen(false);
+    showToast('Downloaded batch-resume-bullets.json');
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -1459,6 +1960,40 @@ export const ITResumeBulletBuilder: React.FC = () => {
           }}
         >
           Build bullets
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('batch')}
+          className={activeTab === 'batch' ? 'on' : ''}
+          style={{
+            background: activeTab === 'batch' ? 'linear-gradient(90deg, var(--brand), var(--brand2))' : 'transparent',
+            border: activeTab === 'batch' ? '0' : '1px solid var(--line)',
+            color: activeTab === 'batch' ? '#fff' : 'var(--text)',
+            fontWeight: activeTab === 'batch' ? 600 : 400,
+            borderRadius: '10px',
+            padding: '7px 16px',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <Sparkles size={15} aria-hidden="true" />
+          Batch Generator
+          {batchGeneratedItems && batchGeneratedItems.length > 0 && (
+            <span
+              style={{
+                background: 'var(--brand)',
+                color: '#fff',
+                fontSize: '0.7rem',
+                padding: '1px 6px',
+                borderRadius: '99px',
+                fontWeight: 700,
+              }}
+            >
+              {batchGeneratedItems.length}
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -1974,6 +2509,597 @@ export const ITResumeBulletBuilder: React.FC = () => {
                   </p>
                 </>
               )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* TAB: BATCH GENERATOR */}
+      {activeTab === 'batch' && (
+        <section
+          className="panel"
+          style={{
+            background: 'var(--card)',
+            border: '1px solid var(--line)',
+            borderRadius: '16px',
+            padding: '24px',
+            marginTop: '14px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span
+                  style={{
+                    background: 'linear-gradient(90deg, var(--brand), var(--brand2))',
+                    color: '#fff',
+                    borderRadius: '8px',
+                    padding: '4px 8px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  <Sparkles size={14} aria-hidden="true" /> Batch Mode
+                </span>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
+                  Batch Bullet Generator
+                </h2>
+              </div>
+              <p className="muted" style={{ fontSize: '0.92rem', color: 'var(--muted)', margin: 0, maxWidth: '680px' }}>
+                Paste a list of job duties, daily tasks, or role titles (one per line). The engine will automatically upgrade weak phrasing, inject technical depth, format verified quantitative metrics, and generate recruiter-grade resume bullets for every entry.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Preset Buttons */}
+          <div style={{ marginBottom: '16px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>
+              💡 Quick-fill example task sets or roles:
+            </span>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {BATCH_PRESETS.map((p, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setBatchGenInput(p.entries.join('\n'));
+                    showToast(`Loaded ${p.name}`);
+                  }}
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--text)',
+                    borderRadius: '8px',
+                    padding: '5px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <ListPlus size={13} color="var(--brand)" aria-hidden="true" />
+                  {p.name}
+                </button>
+              ))}
+              {batchGenInput && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBatchGenInput('');
+                    setBatchGeneratedItems(null);
+                    showToast('Cleared input');
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--line)',
+                    color: 'var(--bad, #ef4444)',
+                    borderRadius: '8px',
+                    padding: '5px 10px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Input Controls */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label htmlFor="batch-input" style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem' }}>
+                Paste tasks or role titles (one per line):
+              </label>
+              {(() => {
+                const count = batchGenInput.split('\n').filter(l => l.trim().length > 0).length;
+                return (
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: count > 0 ? 'var(--brand)' : 'var(--muted)' }}>
+                    {count} {count === 1 ? 'entry' : 'entries'} detected
+                  </span>
+                );
+              })()}
+            </div>
+            <textarea
+              id="batch-input"
+              value={batchGenInput}
+              onChange={(e) => setBatchGenInput(e.target.value)}
+              placeholder={`• Responsible for Active Directory user onboarding and password resets\n• Configured Cisco switches and VLANs across multiple office floors\n• Troubleshot laptop hardware issues and deployed Windows 11 images\n• Automated nightly Veeam backups and disaster recovery restores\n• Network Engineer`}
+              style={{
+                width: '100%',
+                background: 'var(--bg)',
+                border: '1px solid var(--line)',
+                borderRadius: '10px',
+                padding: '12px',
+                minHeight: '140px',
+                fontFamily: 'monospace',
+                fontSize: '0.9rem',
+                color: 'var(--text)',
+                lineHeight: '1.5',
+                resize: 'vertical',
+              }}
+            />
+          </div>
+
+          {/* Options Row */}
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label htmlFor="batch-role" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>
+                Target Domain:
+              </label>
+              <select
+                id="batch-role"
+                value={batchGenRole}
+                onChange={(e) => setBatchGenRole(e.target.value)}
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  color: 'var(--text)',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <option value="auto">Auto-detect from input</option>
+                {Object.keys(ROLES).map(r => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label htmlFor="batch-style" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>
+                Default Format:
+              </label>
+              <select
+                id="batch-style"
+                value={batchGenStyle}
+                onChange={(e) => setBatchGenStyle(e.target.value as any)}
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  color: 'var(--text)',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <option value="Standard">Standard (Action + Scope + Result)</option>
+                <option value="Impact-first">Impact-first (Result — Action)</option>
+                <option value="ATS-Compact">ATS-Compact (Semi-colon separated)</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              className="primary"
+              onClick={handleGenerateBatch}
+              style={{
+                background: 'linear-gradient(90deg, var(--brand), var(--brand2))',
+                border: 0,
+                color: '#fff',
+                fontWeight: 600,
+                padding: '9px 20px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.9rem',
+              }}
+            >
+              <Sparkles size={16} aria-hidden="true" />
+              Generate Bullets
+            </button>
+          </div>
+
+          {/* Results Section */}
+          {batchGeneratedItems && (
+            <div style={{ marginTop: '24px', borderTop: '1px solid var(--line)', paddingTop: '20px' }}>
+              {/* Batch Summary Bar */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '12px',
+                  padding: '14px 18px',
+                  marginBottom: '16px',
+                }}
+              >
+                {(() => {
+                  const avg = Math.round(
+                    batchGeneratedItems.reduce((acc, curr) => acc + curr.strength.score, 0) /
+                      batchGeneratedItems.length
+                  );
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text)' }}>
+                        {batchGeneratedItems.length} Bullets Generated
+                      </span>
+                      <span
+                        style={{
+                          background: avg >= 85 ? 'rgba(16, 185, 129, 0.14)' : 'rgba(56, 189, 248, 0.14)',
+                          border: `1px solid ${avg >= 85 ? 'var(--good, #10b981)' : 'var(--brand)'}`,
+                          color: avg >= 85 ? 'var(--good, #10b981)' : 'var(--brand)',
+                          borderRadius: '99px',
+                          padding: '3px 10px',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Avg Quality: {avg}/100 · {avg >= 85 ? 'Exceptional' : 'Strong'}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* Batch Actions: Copy All, Save All, Export */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={handleCopyAllBatch}
+                    style={{
+                      background: 'var(--brand)',
+                      border: 'none',
+                      color: '#fff',
+                      borderRadius: '8px',
+                      padding: '7px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}
+                  >
+                    <Copy size={14} aria-hidden="true" />
+                    Copy All Bullets
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveAllBatch}
+                    style={{
+                      background: 'var(--card)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--text)',
+                      borderRadius: '8px',
+                      padding: '7px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}
+                  >
+                    <Bookmark size={14} aria-hidden="true" />
+                    Save All to Collection
+                  </button>
+
+                  {/* Export Dropdown */}
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      onClick={() => setBatchExportDropdownOpen(!batchExportDropdownOpen)}
+                      style={{
+                        background: 'var(--card)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--text)',
+                        borderRadius: '8px',
+                        padding: '7px 12px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                      }}
+                    >
+                      <Download size={14} aria-hidden="true" />
+                      Export
+                      <ChevronDown size={14} aria-hidden="true" />
+                    </button>
+
+                    {batchExportDropdownOpen && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: '100%',
+                          marginTop: '4px',
+                          background: 'var(--card)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '10px',
+                          boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
+                          zIndex: 50,
+                          minWidth: '150px',
+                          padding: '6px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={handleExportBatchTxt}
+                          style={{
+                            background: 'transparent',
+                            border: 0,
+                            padding: '6px 10px',
+                            textAlign: 'left',
+                            fontSize: '0.82rem',
+                            color: 'var(--text)',
+                            cursor: 'pointer',
+                            borderRadius: '6px',
+                          }}
+                        >
+                          📄 Export as .txt
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleExportBatchPdf}
+                          style={{
+                            background: 'transparent',
+                            border: 0,
+                            padding: '6px 10px',
+                            textAlign: 'left',
+                            fontSize: '0.82rem',
+                            color: 'var(--text)',
+                            cursor: 'pointer',
+                            borderRadius: '6px',
+                          }}
+                        >
+                          📕 Export as .pdf
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleExportBatchCsv}
+                          style={{
+                            background: 'transparent',
+                            border: 0,
+                            padding: '6px 10px',
+                            textAlign: 'left',
+                            fontSize: '0.82rem',
+                            color: 'var(--text)',
+                            cursor: 'pointer',
+                            borderRadius: '6px',
+                          }}
+                        >
+                          📊 Export as .csv
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleExportBatchJson}
+                          style={{
+                            background: 'transparent',
+                            border: 0,
+                            padding: '6px 10px',
+                            textAlign: 'left',
+                            fontSize: '0.82rem',
+                            color: 'var(--text)',
+                            cursor: 'pointer',
+                            borderRadius: '6px',
+                          }}
+                        >
+                          🔣 Export as .json
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Cards List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {batchGeneratedItems.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      background: 'var(--bg)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      boxShadow: '0 2px 8px -2px rgba(0,0,0,0.05)',
+                    }}
+                  >
+                    {/* Item Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            background: 'var(--card)',
+                            border: '1px solid var(--line)',
+                            color: 'var(--text)',
+                            borderRadius: '6px',
+                            padding: '2px 8px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                          }}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                          Original: <em style={{ fontStyle: 'normal', color: 'var(--text)', fontWeight: 600 }}>&quot;{item.originalText}&quot;</em>
+                        </span>
+                        {item.isRole && (
+                          <span
+                            style={{
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              color: 'var(--brand)',
+                              border: '1px solid var(--brand)',
+                              borderRadius: '99px',
+                              padding: '1px 8px',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                            }}
+                          >
+                            Role: {item.detectedRole}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Strength Score Badge */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span
+                          style={{
+                            background: item.strength.badgeBg,
+                            border: `1px solid ${item.strength.color}`,
+                            color: item.strength.color,
+                            borderRadius: '99px',
+                            padding: '2px 10px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Strength: {item.strength.score}/100 · {item.strength.tier}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Style Switcher */}
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>Format:</span>
+                      {(['Standard', 'Impact-first', 'ATS-Compact'] as const).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => handleSwitchBatchItemStyle(idx, s)}
+                          style={{
+                            background: item.selectedStyle === s ? 'var(--brand)' : 'var(--card)',
+                            color: item.selectedStyle === s ? '#fff' : 'var(--text)',
+                            border: '1px solid ' + (item.selectedStyle === s ? 'var(--brand)' : 'var(--line)'),
+                            borderRadius: '6px',
+                            padding: '2px 8px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Editable Bullet Textarea */}
+                    <textarea
+                      value={item.currentBullet}
+                      onChange={(e) => handleUpdateBatchItemBullet(idx, e.target.value)}
+                      rows={2}
+                      aria-label={`Optimized resume bullet #${idx + 1}`}
+                      style={{
+                        width: '100%',
+                        fontFamily: 'monospace',
+                        fontSize: '0.92rem',
+                        lineHeight: '1.5',
+                        background: 'var(--card)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        color: 'var(--text)',
+                        resize: 'vertical',
+                        marginBottom: '8px',
+                      }}
+                    />
+
+                    {/* Footer with Metrics Tags and Actions */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      {/* Metric & Verb Pills */}
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.72rem', color: item.strength.verbImpact.score >= 80 ? 'var(--good, #10b981)' : 'var(--amber, #f59e0b)', fontWeight: 600 }}>
+                          ✓ {item.strength.verbImpact.label}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>•</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                          {item.strength.lengthAnalysis.wordCount} words
+                        </span>
+                        {item.strength.metricsAnalysis.detectedMetrics.length > 0 && (
+                          <>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>•</span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--good, #10b981)', fontWeight: 600 }}>
+                              {item.strength.metricsAnalysis.detectedMetrics.slice(0, 2).join(', ')}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Copy & Save Buttons */}
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(item.currentBullet)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: 'var(--brand)',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '5px 12px',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Copy size={13} aria-hidden="true" /> Copy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveBullet(item.currentBullet)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: 'var(--card)',
+                            color: 'var(--text)',
+                            border: '1px solid var(--line)',
+                            borderRadius: '6px',
+                            padding: '5px 12px',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Bookmark size={13} aria-hidden="true" /> Save
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </section>
