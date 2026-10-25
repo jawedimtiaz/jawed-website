@@ -43,7 +43,9 @@ import {
   Tag,
   Layers,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Bell,
+  BellRing
 } from 'lucide-react';
 
 export type StoryStatus = 'To Do' | 'In Progress' | 'Done';
@@ -89,6 +91,7 @@ interface StarStory {
   fileRefs?: TaskFileRef[];
   isArchived?: boolean;
   blockedByTaskIds?: number[];
+  reminderDateTime?: string;
 }
 
 export const getCategoryStyle = (categoryLabel: string = 'Behavioral') => {
@@ -862,6 +865,18 @@ export const InterviewPreparationPlanner: React.FC = () => {
       setModalStory(prev => prev ? { ...prev, categoryLabel: newCategory } : null);
     }
     showToast(`Category updated to "${newCategory}"`);
+  };
+
+  const handleUpdateReminder = (id: number, dateTimeStr: string) => {
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === id ? { ...s, reminderDateTime: dateTimeStr } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    if (modalStory && modalStory.id === id) {
+      setModalStory(prev => prev ? { ...prev, reminderDateTime: dateTimeStr } : null);
+    }
+    showToast(dateTimeStr ? `Reminder set for ${new Date(dateTimeStr).toLocaleString()}` : 'Reminder cleared.');
   };
 
   const handleUpdateStatus = (id: number, newStatus: StoryStatus) => {
@@ -3919,6 +3934,99 @@ ${story.result || 'N/A'}
                 placeholder="Type or click 'Dictate Voice Notes' to speak talking points, metrics, or answers..."
                 style={{ width: '100%', minHeight: '100px', fontSize: '0.88rem', background: 'var(--surface)', border: '1px solid var(--border)', margin: 0 }}
               />
+            </div>
+
+            {/* Task Reminder & Browser Notifications Hub */}
+            <div className="panel" style={{ background: 'var(--bg)', border: '1px solid var(--border)', padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-heading)', fontWeight: 700, fontSize: '0.95rem', margin: 0 }}>
+                  <Bell className="w-4 h-4 text-sky-400" />
+                  Interview Prep Reminder & Push Notification
+                </label>
+
+                {/* Notification Permission Button */}
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={async () => {
+                    if (!('Notification' in window)) {
+                      showToast('Browser Notifications are not supported in this browser.');
+                      return;
+                    }
+                    if (Notification.permission === 'granted') {
+                      showToast('Browser notifications are already enabled!');
+                      return;
+                    }
+                    const perm = await Notification.requestPermission();
+                    if (perm === 'granted') {
+                      showToast('Browser notifications enabled successfully!');
+                    } else {
+                      showToast('Notification permission denied.');
+                    }
+                  }}
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <BellRing className="w-3.5 h-3.5 text-sky-400" />
+                  {('Notification' in window) && Notification.permission === 'granted' ? '🔔 Notifications Active' : 'Enable Notifications'}
+                </button>
+              </div>
+
+              <p className="meta" style={{ fontSize: '0.8rem', marginBottom: '10px' }}>
+                Schedule a reminder date and time for practicing or reviewing this interview prep task.
+              </p>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="datetime-local"
+                  aria-label="Reminder Date and Time"
+                  value={modalStory.reminderDateTime || ''}
+                  onChange={(e) => handleUpdateReminder(modalStory.id, e.target.value)}
+                  style={{ flex: 1, minWidth: '220px', fontSize: '0.85rem', margin: 0 }}
+                />
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => {
+                    if (!modalStory.reminderDateTime) {
+                      showToast('Please select a reminder date and time first.');
+                      return;
+                    }
+                    if (!('Notification' in window)) {
+                      showToast('Notifications not supported.');
+                      return;
+                    }
+                    if (Notification.permission !== 'granted') {
+                      Notification.requestPermission().then(p => {
+                        if (p === 'granted') {
+                          new Notification(`Interview Prep Reminder: ${modalStory.theme}`, {
+                            body: `Scheduled for ${new Date(modalStory.reminderDateTime!).toLocaleString()}`,
+                            icon: '/favicon.ico'
+                          });
+                          showToast('Test notification sent successfully!');
+                        } else {
+                          showToast('Notification permission not granted.');
+                        }
+                      });
+                    } else {
+                      new Notification(`Interview Prep Reminder: ${modalStory.theme}`, {
+                        body: `Scheduled for ${new Date(modalStory.reminderDateTime!).toLocaleString()}`,
+                        icon: '/favicon.ico'
+                      });
+                      showToast('Test notification sent successfully!');
+                    }
+                  }}
+                  style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  Test Push Reminder
+                </button>
+              </div>
             </div>
 
             {/* External Links Hub */}
