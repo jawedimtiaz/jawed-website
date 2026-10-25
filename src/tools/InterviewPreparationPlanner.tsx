@@ -371,7 +371,28 @@ export const InterviewPreparationPlanner: React.FC = () => {
     return (localStorage.getItem('ipp_group_by_mode') as 'status' | 'category') || 'status';
   });
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<{ [key: string]: boolean }>({});
-  const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([]);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('ipp_selected_task_ids');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('ipp_selected_task_ids', JSON.stringify(selectedTaskIds));
+    } catch {
+      // ignore
+    }
+  }, [selectedTaskIds]);
+
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   const [draggedStoryId, setDraggedStoryId] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<StoryStatus | null>(null);
@@ -698,19 +719,24 @@ export const InterviewPreparationPlanner: React.FC = () => {
       return;
     }
 
+    const tasksToUpdate = selectedTaskIds.includes(storyId) && selectedTaskIds.length > 1
+      ? selectedTaskIds
+      : [storyId];
+
     setStarStories(prev => {
-      const { updatedStories, createdRepeatStory, targetStory } = applyStatusUpdate(prev, storyId, targetStatus);
-      if (targetStory) {
-        let repeatNote = '';
-        if (createdRepeatStory) {
-          repeatNote = ` — New ${targetStory.repeatFrequency} review task created in To Do!`;
-        }
-        showToast(`Moved "${targetStory.theme}" to ${targetStatus}${repeatNote}`);
+      let currentStories = [...prev];
+      let updatedCount = 0;
+      for (const id of tasksToUpdate) {
+        const { updatedStories } = applyStatusUpdate(currentStories, id, targetStatus);
+        currentStories = updatedStories;
+        updatedCount++;
       }
-      localStorage.setItem('ipp_stories', JSON.stringify(updatedStories));
-      return updatedStories;
+      localStorage.setItem('ipp_stories', JSON.stringify(currentStories));
+      showToast(`Moved ${updatedCount} task${updatedCount > 1 ? 's' : ''} to ${targetStatus}`);
+      return currentStories;
     });
     setDraggedStoryId(null);
+    setSelectedTaskIds([]);
   };
 
   const handleDropToSwimlane = (e: React.DragEvent, targetCategory: string, targetStatus: StoryStatus) => {
@@ -723,20 +749,24 @@ export const InterviewPreparationPlanner: React.FC = () => {
       return;
     }
 
+    const tasksToUpdate = selectedTaskIds.includes(storyId) && selectedTaskIds.length > 1
+      ? selectedTaskIds
+      : [storyId];
+
     setStarStories(prev => {
-      const { updatedStories, createdRepeatStory, targetStory } = applyStatusUpdate(prev, storyId, targetStatus);
-      const finalStories = updatedStories.map(s => s.id === storyId ? { ...s, categoryLabel: targetCategory } : s);
-      if (targetStory) {
-        let repeatNote = '';
-        if (createdRepeatStory) {
-          repeatNote = ` — New ${targetStory.repeatFrequency} review task created in To Do!`;
-        }
-        showToast(`Updated "${targetStory.theme}" → Category: ${targetCategory}, Status: ${targetStatus}${repeatNote}`);
+      let currentStories = [...prev];
+      let updatedCount = 0;
+      for (const id of tasksToUpdate) {
+        const { updatedStories } = applyStatusUpdate(currentStories, id, targetStatus);
+        currentStories = updatedStories.map(s => s.id === id ? { ...s, categoryLabel: targetCategory } : s);
+        updatedCount++;
       }
-      localStorage.setItem('ipp_stories', JSON.stringify(finalStories));
-      return finalStories;
+      localStorage.setItem('ipp_stories', JSON.stringify(currentStories));
+      showToast(`Updated ${updatedCount} task${updatedCount > 1 ? 's' : ''} → Category: ${targetCategory}, Status: ${targetStatus}`);
+      return currentStories;
     });
     setDraggedStoryId(null);
+    setSelectedTaskIds([]);
   };
 
   // UI Feedback
@@ -1084,6 +1114,19 @@ ${story.result || 'N/A'}
     });
     showToast(`Archived ${selectedTaskIds.length} tasks`);
     setSelectedTaskIds([]);
+  };
+
+  const handleBulkDeleteTasks = () => {
+    if (selectedTaskIds.length === 0) return;
+    const count = selectedTaskIds.length;
+    setStarStories(prev => {
+      const updated = prev.filter(s => !selectedTaskIds.includes(s.id));
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    showToast(`Permanently deleted ${count} selected task${count > 1 ? 's' : ''}`);
+    setSelectedTaskIds([]);
+    setShowBulkDeleteConfirm(false);
   };
 
   const handlePrint = () => {
@@ -3004,11 +3047,81 @@ ${story.result || 'N/A'}
                  >
                    <Archive className="w-4 h-4" /> Bulk Archive
                  </button>
+                 <button
+                   type="button"
+                   className="button button-secondary"
+                   onClick={() => setShowBulkDeleteConfirm(true)}
+                   style={{ fontSize: '0.82rem', padding: '6px 12px', color: 'var(--rose)', borderColor: 'rgba(244, 63, 94, 0.4)' }}
+                   title="Permanently delete selected tasks"
+                 >
+                   <Trash2 className="w-4 h-4 text-rose-400" /> Bulk Delete
+                 </button>
                </div>
              </div>
            )}
          </div>
        )}
+
+        {/* Bulk Delete Confirmation Modal */}
+        {showBulkDeleteConfirm && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.7)',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+              animation: 'fadeIn 0.2s ease'
+            }}
+          >
+            <div
+              className="panel"
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '16px',
+                maxWidth: '460px',
+                width: '100%',
+                padding: '24px',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', color: 'var(--rose)' }}>
+                <AlertTriangle className="w-6 h-6 text-rose-400 flex-shrink-0" />
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
+                  Delete {selectedTaskIds.length} Selected Tasks?
+                </h3>
+              </div>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5', marginBottom: '20px' }}>
+                This action is permanent and cannot be undone. All selected interview preparation stories, STAR dimensions, notes, and file references will be deleted.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                  style={{ padding: '8px 16px', fontSize: '0.9rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="button"
+                  onClick={handleBulkDeleteTasks}
+                  style={{ padding: '8px 16px', fontSize: '0.9rem', background: 'var(--rose)', borderColor: 'var(--rose)', color: '#fff' }}
+                >
+                  Yes, Delete Permanently
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* VIEW 3: ARCHIVED TASKS */}
       {activeTab === 'archive' && (
