@@ -1989,8 +1989,8 @@ ${story.result || 'N/A'}
                 Clear Search Filter
               </button>
             </div>
-          ) : vaultViewMode === 'board' ? (
-            groupByMode === 'category' ? (
+           ) : vaultViewMode === 'board' ? (
+             groupByMode === 'category' ? (
               /* KANBAN BOARD VIEW WITH CATEGORY SWIMLANES */
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
                 {allAvailableCategories.map(cat => {
@@ -2560,6 +2560,7 @@ ${story.result || 'N/A'}
                 );
               })}
             </div>
+            )
           ) : (
             /* DETAILED LIST VIEW */
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
