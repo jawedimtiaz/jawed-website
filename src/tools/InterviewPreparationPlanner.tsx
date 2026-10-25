@@ -46,7 +46,8 @@ import {
   ChevronDown,
   ChevronRight,
   Bell,
-  BellRing
+  BellRing,
+  Share2
 } from 'lucide-react';
 
 export type StoryStatus = 'To Do' | 'In Progress' | 'Done';
@@ -452,8 +453,8 @@ export const InterviewPreparationPlanner: React.FC = () => {
   const [vaultViewMode, setVaultViewMode] = useState<'board' | 'list'>(() => {
     return (localStorage.getItem('ipp_vault_view_mode') as 'board' | 'list') || 'board';
   });
-  const [groupByMode, setGroupByMode] = useState<'status' | 'category'>(() => {
-    return (localStorage.getItem('ipp_group_by_mode') as 'status' | 'category') || 'status';
+  const [groupByMode, setGroupByMode] = useState<'status' | 'category' | 'priority'>(() => {
+    return (localStorage.getItem('ipp_group_by_mode') as 'status' | 'category' | 'priority') || 'status';
   });
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<{ [key: string]: boolean }>({});
   const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>(() => {
@@ -859,6 +860,14 @@ export const InterviewPreparationPlanner: React.FC = () => {
     const targetStory = prevStories.find(s => s.id === storyId);
     if (!targetStory) return { updatedStories: prevStories, createdRepeatStory: null, targetStory: null };
 
+    if (newStatus === 'Done') {
+      const pendingBlockers = getPendingBlockers(targetStory, prevStories);
+      if (pendingBlockers.length > 0) {
+        showToast(`Cannot move "${targetStory.theme}" to Done: ${pendingBlockers.length} prerequisite task(s) still pending!`);
+        return { updatedStories: prevStories, createdRepeatStory: null, targetStory };
+      }
+    }
+
     if (targetStory.status === newStatus) {
       return { updatedStories: prevStories, createdRepeatStory: null, targetStory };
     }
@@ -1103,6 +1112,48 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setTimeout(() => {
       setToastMessage(null);
     }, 3000);
+  };
+
+  const handleShareTask = async (story: StarStory) => {
+    const markdown = `# Interview Prep Task: ${story.theme}
+- **Category**: ${story.categoryLabel || 'Technical'}
+- **Priority**: ${story.priority || 'Medium'}
+- **Status**: ${story.status || 'To Do'}
+- **Est. Effort**: ${story.estimatedHours || 4} hrs
+
+## STAR Breakdown
+- **Situation**: ${story.situation || 'N/A'}
+- **Task**: ${story.task || 'N/A'}
+- **Action**: ${story.action || 'N/A'}
+- **Result**: ${story.result || 'N/A'}
+
+${story.notes ? `## Prep Notes\n${story.notes}\n` : ''}
+---
+*Exported from Interview Preparation Planner*
+`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Interview Prep: ${story.theme}`,
+          text: markdown,
+          url: window.location.href
+        });
+        showToast('Task shared successfully!');
+        return;
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.warn('Web Share API error:', err);
+        }
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(markdown);
+      showToast('Markdown task summary copied to clipboard for sharing!');
+    } catch {
+      showToast('Could not share task.');
+    }
   };
 
   const loadSampleStory = () => {
@@ -2285,12 +2336,21 @@ ${story.result || 'N/A'}
                       </button>
                       <button
                         type="button"
+                        className={groupByMode === 'priority' ? 'button' : 'button button-secondary'}
+                        onClick={() => setGroupByMode('priority')}
+                        style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        title="Group board vertically by priority swimlanes"
+                      >
+                        <Layers className="w-3.5 h-3.5 text-rose-400" /> By Priority
+                      </button>
+                      <button
+                        type="button"
                         className={groupByMode === 'category' ? 'button' : 'button button-secondary'}
                         onClick={() => setGroupByMode('category')}
                         style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        title="Group board into category swimlanes (Technical, System Design, Behavioral, HR, etc.)"
+                        title="Group board vertically by category label swimlanes"
                       >
-                        <Layers className="w-3.5 h-3.5 text-indigo-400" /> By Category Swimlanes
+                        <Layers className="w-3.5 h-3.5 text-indigo-400" /> By Category Label
                       </button>
                     </div>
                   )}
@@ -2621,6 +2681,216 @@ ${story.result || 'N/A'}
                                             ) : null}
                                           </div>
                                         )}
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
+                                          <select
+                                            aria-label={`Status for ${story.theme}`}
+                                            value={story.status || 'To Do'}
+                                            onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
+                                            style={{
+                                              padding: '2px 6px',
+                                              fontSize: '0.72rem',
+                                              fontWeight: 700,
+                                              borderRadius: '99px',
+                                              border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
+                                              background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
+                                              color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
+                                              cursor: 'pointer',
+                                            }}
+                                          >
+                                            <option value="To Do">To Do</option>
+                                            <option value="In Progress">In Progress</option>
+                                            <option value="Done">Done</option>
+                                          </select>
+
+                                          <div style={{ display: 'flex', gap: '4px' }}>
+                                            <button
+                                              type="button"
+                                              className="button button-secondary"
+                                              onClick={() => setModalStory(story)}
+                                              style={{ padding: '2px 6px', fontSize: '0.72rem' }}
+                                              title="View details"
+                                            >
+                                              <Eye className="w-3 h-3 text-sky-400" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : groupByMode === 'priority' ? (
+              /* KANBAN BOARD VIEW WITH PRIORITY SWIMLANES */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
+                {(['High', 'Medium', 'Low'] as const).map(prio => {
+                  const prioStyle = getPriorityStyle(prio);
+                  const prioStories = sortedVault.filter(s => (s.priority || 'Medium') === prio);
+                  const isCollapsed = !!collapsedSwimlanes[prio];
+
+                  const todoCount = prioStories.filter(s => (s.status || 'To Do') === 'To Do').length;
+                  const inProgressCount = prioStories.filter(s => s.status === 'In Progress').length;
+                  const doneCount = prioStories.filter(s => s.status === 'Done').length;
+
+                  return (
+                    <div
+                      key={prio}
+                      className="panel"
+                      style={{
+                        background: 'var(--surface)',
+                        border: `1px solid ${prioStyle.border}`,
+                        borderRadius: '16px',
+                        padding: '16px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                      }}
+                    >
+                      {/* Priority Swimlane Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', paddingBottom: isCollapsed ? 0 : '12px', borderBottom: isCollapsed ? 'none' : '1px solid var(--border)' }}>
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                          onClick={() => setCollapsedSwimlanes(prev => ({ ...prev, [prio]: !prev[prio] }))}
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight className="w-5 h-5 text-slate-400" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-slate-400" />
+                          )}
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '4px 12px',
+                              borderRadius: '8px',
+                              background: prioStyle.bg,
+                              border: `1px solid ${prioStyle.border}`,
+                              color: prioStyle.color,
+                              fontWeight: 800,
+                              fontSize: '0.95rem'
+                            }}
+                          >
+                            <span>{prioStyle.label} Swimlane</span>
+                          </span>
+
+                          <span className="pill" style={{ margin: 0, fontWeight: 700, fontSize: '0.8rem' }}>
+                            {prioStories.length} {prioStories.length === 1 ? 'task' : 'tasks'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem' }}>
+                          <span className="pill" style={{ margin: 0, background: 'var(--surface)', color: 'var(--text-muted)' }}>
+                            ⏳ {todoCount} To Do
+                          </span>
+                          <span className="pill" style={{ margin: 0, background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
+                            🔄 {inProgressCount} In Progress
+                          </span>
+                          <span className="pill" style={{ margin: 0, background: 'rgba(16, 185, 129, 0.12)', color: 'var(--emerald)' }}>
+                            ✅ {doneCount} Done
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Priority Swimlane Columns Matrix */}
+                      {!isCollapsed && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '14px' }}>
+                          {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
+                            const columnStories = prioStories.filter(s => (s.status || 'To Do') === colStatus);
+
+                            return (
+                              <div
+                                key={colStatus}
+                                onDragOver={(e) => handleDragOverColumn(e, colStatus)}
+                                onDragLeave={handleDragLeaveColumn}
+                                onDrop={(e) => handleDropToColumn(e, colStatus)}
+                                style={{
+                                  background: 'var(--bg)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: '12px',
+                                  padding: '12px',
+                                  minHeight: '160px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '10px'
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', borderBottom: '1px solid var(--border)' }}>
+                                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: colStatus === 'Done' ? 'var(--emerald)' : colStatus === 'In Progress' ? '#f59e0b' : 'var(--text-heading)' }}>
+                                    {colStatus === 'To Do' ? '⏳ To Do' : colStatus === 'In Progress' ? '🔄 In Progress' : '✅ Done'}
+                                  </span>
+                                  <span className="pill" style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700 }}>
+                                    {columnStories.length}
+                                  </span>
+                                </div>
+
+                                {columnStories.length === 0 ? (
+                                  <div style={{ padding: '20px 8px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                                    No tasks in {prio} ({colStatus})
+                                  </div>
+                                ) : (
+                                  columnStories.map(story => {
+                                    const priorityStyle = getPriorityStyle(story.priority || 'Medium');
+                                    const pendingBlockers = getPendingBlockers(story, starStories);
+                                    const allBlockers = getAllBlockers(story, starStories);
+                                    const dependentTasks = getDependentTasks(story.id, starStories);
+                                    const isBlocked = pendingBlockers.length > 0;
+
+                                    return (
+                                      <div
+                                        key={story.id}
+                                        draggable={true}
+                                        onDragStart={(e) => handleDragStart(e, story.id)}
+                                        onDragEnd={handleDragEnd}
+                                        className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
+                                        style={{
+                                          padding: '12px',
+                                          borderRadius: '10px',
+                                          cursor: 'grab',
+                                          opacity: draggedStoryId === story.id ? 0.4 : 1,
+                                          transition: 'all 0.15s ease',
+                                        }}
+                                      >
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                                          <div
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
+                                            onClick={() => setModalStory(story)}
+                                          >
+                                            <GripVertical className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                                            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
+                                              {story.theme}
+                                            </h4>
+                                          </div>
+
+                                          <select
+                                            aria-label={`Category label for ${story.theme}`}
+                                            value={story.categoryLabel || 'Technical'}
+                                            onChange={(e) => handleUpdateCategory(story.id, e.target.value)}
+                                            style={{
+                                              padding: '2px 6px',
+                                              fontSize: '0.7rem',
+                                              fontWeight: 700,
+                                              borderRadius: '6px',
+                                              border: `1px solid ${getCategoryStyle(story.categoryLabel).border}`,
+                                              background: getCategoryStyle(story.categoryLabel).bg,
+                                              color: getCategoryStyle(story.categoryLabel).color,
+                                              cursor: 'pointer',
+                                              flexShrink: 0
+                                            }}
+                                          >
+                                            {allAvailableCategories.map(cat => (
+                                              <option key={cat} value={cat}>
+                                                {getCategoryStyle(cat).icon} {cat}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
                                           <select
@@ -4475,14 +4745,25 @@ ${story.result || 'N/A'}
 
             {/* Modal Bottom Actions */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '16px', flexWrap: 'wrap', gap: '10px' }}>
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={() => handleCopyStory(modalStory)}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              >
-                <Copy className="w-4 h-4 text-sky-400" /> Copy Story Text
-              </button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => handleShareTask(modalStory)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                  title="Share markdown summary via Web Share or clipboard"
+                >
+                  <Share2 className="w-4 h-4 text-sky-400" /> Share Task
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => handleCopyStory(modalStory)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                >
+                  <Copy className="w-4 h-4 text-sky-400" /> Copy Story Text
+                </button>
+              </div>
 
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {modalStory.isArchived ? (
