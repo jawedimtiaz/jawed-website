@@ -2680,6 +2680,39 @@ select:focus-visible {
 
 /* Print-Specific Optimization for Resume Bullets, Scorecards & Saved List */
 @media print {
+  @page {
+    size: letter portrait;
+    margin: 0.75in;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  :root,
+  body,
+  html,
+  .dark,
+  [data-theme="dark"],
+  .site-wrapper,
+  main,
+  #root {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: 11pt !important;
+    line-height: 1.5 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide non-printable navigation, footers, toolbars, buttons, widgets, notifications, modals */
   .site-header,
   .site-footer,
   .jawed-ai-widget,
@@ -2691,15 +2724,27 @@ select:focus-visible {
   .header-search-slot,
   .actions,
   .hero-secondary-ribbon,
-  .ios-pwa-bottom-sheet {
+  .ios-pwa-bottom-sheet,
+  .toast,
+  .undo-toolbar,
+  .no-print,
+  [role="dialog"] {
     display: none !important;
   }
 
-  body {
+  .printable-resume-container {
+    display: block !important;
+    visibility: visible !important;
     background: #ffffff !important;
-    color: #000000 !important;
-    font-size: 11pt;
-    line-height: 1.5;
+    color: #0f172a !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .printable-bullet-item {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 8pt !important;
   }
 
   .container {
@@ -2715,17 +2760,17 @@ select:focus-visible {
   .bullet-scorecard,
   .bullet-score {
     background: #ffffff !important;
-    color: #000000 !important;
+    color: #0f172a !important;
     border: 1px solid #cbd5e1 !important;
     box-shadow: none !important;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    color: #000000 !important;
-    page-break-after: avoid;
-    break-after: avoid;
+    color: #0f172a !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   a {

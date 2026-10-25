@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import {
   Check,
@@ -22,6 +22,9 @@ import {
   ListPlus,
   Tag,
   Filter,
+  Undo2,
+  Redo2,
+  Printer,
 } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
@@ -1560,7 +1563,8 @@ function optimizeBatchEntry(
 export const ITResumeBulletBuilder: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'build' | 'batch' | 'check' | 'saved'>('build');
   const [role, setRole] = useState(Object.keys(ROLES)[0]);
-  const [verb, setVerb] = useState(() => {
+  // Undo / Redo Stacks for 'Action Verb' and 'Task/Scope'
+  const initialVerb = useMemo(() => {
     if (typeof window !== 'undefined') {
       try {
         return localStorage.getItem('rb_verb') || '';
@@ -1569,9 +1573,9 @@ export const ITResumeBulletBuilder: React.FC = () => {
       }
     }
     return '';
-  });
+  }, []);
 
-  const [task, setTask] = useState(() => {
+  const initialTask = useMemo(() => {
     if (typeof window !== 'undefined') {
       try {
         return localStorage.getItem('rb_task') || '';
@@ -1580,7 +1584,171 @@ export const ITResumeBulletBuilder: React.FC = () => {
       }
     }
     return '';
-  });
+  }, []);
+
+  const [verb, setVerbState] = useState(initialVerb);
+  const [task, setTaskState] = useState(initialTask);
+
+  // Undo / Redo Stacks (recording snapshots of { verb, task })
+  const pastRef = useRef<Array<{ verb: string; task: string }>>([]);
+  const futureRef = useRef<Array<{ verb: string; task: string }>>([]);
+  const [pastCount, setPastCount] = useState(0);
+  const [futureCount, setFutureCount] = useState(0);
+
+  // Baseline ref tracks the anchor state in history before a burst of user typing
+  const baselineRef = useRef<{ verb: string; task: string }>({ verb: initialVerb, task: initialTask });
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentRef = useRef<{ verb: string; task: string }>({ verb: initialVerb, task: initialTask });
+
+  useEffect(() => {
+    currentRef.current = { verb, task };
+  }, [verb, task]);
+
+  // Synchronize history counts for reactive UI updates
+  const syncHistoryState = useCallback(() => {
+    setPastCount(pastRef.current.length);
+    setFutureCount(futureRef.current.length);
+  }, []);
+
+  // Flush any pending typing changes into the past stack
+  const flushTypingSnapshot = useCallback(() => {
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+    const curr = currentRef.current;
+    const base = baselineRef.current;
+    if (curr.verb !== base.verb || curr.task !== base.task) {
+      pastRef.current = [...pastRef.current.slice(-49), { ...base }];
+      futureRef.current = [];
+      baselineRef.current = { ...curr };
+      syncHistoryState();
+    }
+  }, [syncHistoryState]);
+
+  // Update verb via typing (debounced history snapshot)
+  const setVerbTyping = useCallback((newVerb: string) => {
+    setVerbState(newVerb);
+    currentRef.current.verb = newVerb;
+
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+    }
+    typingTimerRef.current = setTimeout(() => {
+      const curr = currentRef.current;
+      const base = baselineRef.current;
+      if (curr.verb !== base.verb || curr.task !== base.task) {
+        pastRef.current = [...pastRef.current.slice(-49), { ...base }];
+        futureRef.current = [];
+        baselineRef.current = { ...curr };
+        syncHistoryState();
+      }
+    }, 450);
+  }, [syncHistoryState]);
+
+  // Update task via typing (debounced history snapshot)
+  const setTaskTyping = useCallback((newTask: string) => {
+    setTaskState(newTask);
+    currentRef.current.task = newTask;
+
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+    }
+    typingTimerRef.current = setTimeout(() => {
+      const curr = currentRef.current;
+      const base = baselineRef.current;
+      if (curr.verb !== base.verb || curr.task !== base.task) {
+        pastRef.current = [...pastRef.current.slice(-49), { ...base }];
+        futureRef.current = [];
+        baselineRef.current = { ...curr };
+        syncHistoryState();
+      }
+    }, 450);
+  }, [syncHistoryState]);
+
+  // Discrete changes (chips, synonyms, suggestions, etc.) immediately commit to history
+  const setVerb = useCallback((newVerb: string) => {
+    flushTypingSnapshot();
+    const curr = currentRef.current;
+    if (curr.verb !== newVerb) {
+      pastRef.current = [...pastRef.current.slice(-49), { ...curr }];
+      futureRef.current = [];
+      const next = { ...curr, verb: newVerb };
+      baselineRef.current = next;
+      currentRef.current = next;
+      setVerbState(newVerb);
+      syncHistoryState();
+    }
+  }, [flushTypingSnapshot, syncHistoryState]);
+
+  const setTask = useCallback((newTask: string) => {
+    flushTypingSnapshot();
+    const curr = currentRef.current;
+    if (curr.task !== newTask) {
+      pastRef.current = [...pastRef.current.slice(-49), { ...curr }];
+      futureRef.current = [];
+      const next = { ...curr, task: newTask };
+      baselineRef.current = next;
+      currentRef.current = next;
+      setTaskState(newTask);
+      syncHistoryState();
+    }
+  }, [flushTypingSnapshot, syncHistoryState]);
+
+  const setDraft = useCallback((newVerb: string, newTask: string) => {
+    flushTypingSnapshot();
+    const curr = currentRef.current;
+    if (curr.verb !== newVerb || curr.task !== newTask) {
+      pastRef.current = [...pastRef.current.slice(-49), { ...curr }];
+      futureRef.current = [];
+      const next = { verb: newVerb, task: newTask };
+      baselineRef.current = next;
+      currentRef.current = next;
+      setVerbState(newVerb);
+      setTaskState(newTask);
+      syncHistoryState();
+    }
+  }, [flushTypingSnapshot, syncHistoryState]);
+
+  // Undo recent changes to verb or task
+  const handleUndo = useCallback((): boolean => {
+    flushTypingSnapshot();
+    if (pastRef.current.length === 0) return false;
+
+    const targetState = pastRef.current[pastRef.current.length - 1];
+    pastRef.current = pastRef.current.slice(0, -1);
+    futureRef.current = [{ ...currentRef.current }, ...futureRef.current];
+
+    baselineRef.current = targetState;
+    currentRef.current = targetState;
+    setVerbState(targetState.verb);
+    setTaskState(targetState.task);
+    syncHistoryState();
+
+    return true;
+  }, [flushTypingSnapshot, syncHistoryState]);
+
+  // Redo recent changes to verb or task
+  const handleRedo = useCallback((): boolean => {
+    flushTypingSnapshot();
+    if (futureRef.current.length === 0) return false;
+
+    const targetState = futureRef.current[0];
+    futureRef.current = futureRef.current.slice(1);
+    pastRef.current = [...pastRef.current.slice(-49), { ...currentRef.current }];
+
+    baselineRef.current = targetState;
+    currentRef.current = targetState;
+    setVerbState(targetState.verb);
+    setTaskState(targetState.task);
+    syncHistoryState();
+
+    return true;
+  }, [flushTypingSnapshot, syncHistoryState]);
+
+  const hasUnflushedTyping = (verb !== baselineRef.current.verb || task !== baselineRef.current.task);
+  const canUndo = pastCount > 0 || hasUnflushedTyping;
+  const canRedo = futureCount > 0;
 
   const [tools, setTools] = useState('');
   const [scale, setScale] = useState('');
@@ -1706,7 +1874,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
     }
   }, []);
 
-  // Keyboard accessibility: Escape key closes modals/dropdowns
+  // Keyboard accessibility: Escape key closes modals/dropdowns, Ctrl+Z / Ctrl+Y triggers undo/redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -1714,11 +1882,42 @@ export const ITResumeBulletBuilder: React.FC = () => {
         setShowTemplatesModal(false);
         setExportDropdownOpen(false);
         setBatchExportDropdownOpen(false);
+        return;
+      }
+
+      // Undo / Redo keyboard shortcuts when in 'build' tab
+      if (activeTab === 'build' && !showSynonymsModal && !showTemplatesModal) {
+        const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+        const isCmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+        if (isCmdOrCtrl) {
+          if (e.key === 'z' && !e.shiftKey) {
+            const activeEl = document.activeElement;
+            const isVerbOrTask = activeEl && (activeEl.id === 'verb' || activeEl.id === 'task');
+            if (isVerbOrTask || !activeEl || activeEl.tagName === 'BODY' || activeEl.tagName === 'BUTTON') {
+              e.preventDefault();
+              const didUndo = handleUndo();
+              if (didUndo) {
+                showToast('Undid change (Ctrl+Z)');
+              }
+            }
+          } else if (e.key === 'y' || (e.shiftKey && (e.key === 'z' || e.key === 'Z'))) {
+            const activeEl = document.activeElement;
+            const isVerbOrTask = activeEl && (activeEl.id === 'verb' || activeEl.id === 'task');
+            if (isVerbOrTask || !activeEl || activeEl.tagName === 'BODY' || activeEl.tagName === 'BUTTON') {
+              e.preventDefault();
+              const didRedo = handleRedo();
+              if (didRedo) {
+                showToast('Redid change (Ctrl+Y)');
+              }
+            }
+          }
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [activeTab, handleUndo, handleRedo, showSynonymsModal, showTemplatesModal]);
 
   const persistSaved = (items: string[]) => {
     setSavedBullets(items);
@@ -2146,6 +2345,10 @@ export const ITResumeBulletBuilder: React.FC = () => {
     showToast('Downloaded resume-bullets.pdf');
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const handleDownloadGeneratedPdf = () => {
     if (!generatedOuts || generatedOuts.length === 0) return;
     const doc = new jsPDF();
@@ -2200,8 +2403,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
 
   const handleDemo = () => {
     setRole('Network engineer');
-    setVerb('Configured');
-    setTask('VLAN segmentation across three office floors');
+    setDraft('Configured', 'VLAN segmentation across three office floors');
     setTools('Cisco Meraki, Active Directory');
     setScale('250 users across 3 sites');
     setResult('reduced network incidents by 35%');
@@ -2214,7 +2416,7 @@ export const ITResumeBulletBuilder: React.FC = () => {
         result: 'reduced network incidents by 35%',
       })
     );
-    showToast('Loaded example');
+    showToast('Loaded example (undoable)');
   };
 
   const handleSaveBullet = (t: string) => {
@@ -2410,6 +2612,141 @@ export const ITResumeBulletBuilder: React.FC = () => {
             marginTop: '14px',
           }}
         >
+          {/* Action Verb & Task/Scope Undo / Redo Toolbar */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+              paddingBottom: '14px',
+              marginBottom: '16px',
+              borderBottom: '1px solid var(--line)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)' }}>
+                Bullet Construction
+              </span>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  color: 'var(--muted)',
+                  background: 'var(--bg)',
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--line)',
+                  fontWeight: 500,
+                }}
+              >
+                Action Verb &amp; Task/Scope History
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const didUndo = handleUndo();
+                  if (didUndo) showToast('Undid change');
+                }}
+                disabled={!canUndo}
+                title="Undo recent change to Action Verb or Task (Ctrl+Z / ⌘Z)"
+                aria-label="Undo recent change to Action Verb or Task"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 12px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  border: '1px solid var(--line)',
+                  background: canUndo ? 'var(--card)' : 'transparent',
+                  color: canUndo ? 'var(--text)' : 'var(--muted)',
+                  opacity: canUndo ? 1 : 0.45,
+                  cursor: canUndo ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.15s ease',
+                  boxShadow: canUndo ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                }}
+              >
+                <Undo2 size={14} aria-hidden="true" />
+                <span>Undo</span>
+                {pastCount > 0 && (
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      background: 'var(--bg)',
+                      borderRadius: '99px',
+                      padding: '1px 6px',
+                      border: '1px solid var(--line)',
+                      color: 'var(--brand)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {pastCount}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const didRedo = handleRedo();
+                  if (didRedo) showToast('Redid change');
+                }}
+                disabled={!canRedo}
+                title="Redo recent change to Action Verb or Task (Ctrl+Y / ⌘Shift+Z)"
+                aria-label="Redo recent change to Action Verb or Task"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 12px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  border: '1px solid var(--line)',
+                  background: canRedo ? 'var(--card)' : 'transparent',
+                  color: canRedo ? 'var(--text)' : 'var(--muted)',
+                  opacity: canRedo ? 1 : 0.45,
+                  cursor: canRedo ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.15s ease',
+                  boxShadow: canRedo ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                }}
+              >
+                <Redo2 size={14} aria-hidden="true" />
+                <span>Redo</span>
+                {futureCount > 0 && (
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      background: 'var(--bg)',
+                      borderRadius: '99px',
+                      padding: '1px 6px',
+                      border: '1px solid var(--line)',
+                      color: 'var(--brand)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {futureCount}
+                  </span>
+                )}
+              </button>
+
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  color: 'var(--muted)',
+                  marginLeft: '4px',
+                }}
+              >
+                (Ctrl+Z / Ctrl+Y)
+              </span>
+            </div>
+          </div>
+
           <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
             <div>
               <label htmlFor="role" style={{ display: 'block', fontWeight: 600, margin: '12px 0 4px', color: 'var(--text)' }}>
@@ -2545,7 +2882,8 @@ export const ITResumeBulletBuilder: React.FC = () => {
               <input
                 id="verb"
                 value={verb}
-                onChange={e => setVerb(e.target.value)}
+                onChange={e => setVerbTyping(e.target.value)}
+                onBlur={flushTypingSnapshot}
                 placeholder="e.g. Configured"
                 style={{
                   width: "100%",
@@ -2599,13 +2937,19 @@ export const ITResumeBulletBuilder: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="task" style={{ display: 'block', fontWeight: 600, margin: '12px 0 4px', color: 'var(--text)' }}>
-                What did you do? (Task / Scope)
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '12px 0 4px', flexWrap: 'wrap', gap: '6px' }}>
+                <label htmlFor="task" style={{ fontWeight: 600, color: 'var(--text)', margin: 0 }}>
+                  What did you do? (Task / Scope)
+                </label>
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  Core action details
+                </span>
+              </div>
               <textarea
                 id="task"
                 value={task}
-                onChange={e => setTask(e.target.value)}
+                onChange={e => setTaskTyping(e.target.value)}
+                onBlur={flushTypingSnapshot}
                 placeholder="e.g. VLAN segmentation across three office floors"
                 style={{
                   width: '100%',
@@ -3981,13 +4325,34 @@ export const ITResumeBulletBuilder: React.FC = () => {
           >
             📥 Drag and drop any generated resume bullet here to instantly save it to your collection.
           </div>
-          <div className="row" style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          <div className="row" style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               type="button"
               onClick={() => handleCopy(savedBullets.map(t => '• ' + t).join('\n'))}
               disabled={savedBullets.length === 0}
             >
               Copy all
+            </button>
+            <button
+              type="button"
+              className="no-print"
+              onClick={handlePrint}
+              disabled={savedBullets.length === 0}
+              style={{
+                background: 'linear-gradient(90deg, #0284c7, #6366f1)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '8px 16px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                opacity: savedBullets.length === 0 ? 0.5 : 1,
+              }}
+            >
+              <Printer size={16} aria-hidden="true" /> Print / Save as PDF
             </button>
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <button
@@ -4021,12 +4386,26 @@ export const ITResumeBulletBuilder: React.FC = () => {
                     borderRadius: '12px',
                     boxShadow: '0 10px 25px -5px rgba(0,0,0,0.25)',
                     zIndex: 1000,
-                    minWidth: '200px',
+                    minWidth: '220px',
                     display: 'flex',
                     flexDirection: 'column',
                     padding: '8px',
                   }}
                 >
+                  <button
+                    type="button"
+                    onClick={() => { handleDownloadPdf(); setExportDropdownOpen(false); }}
+                    style={{ background: 'transparent', border: 0, textAlign: 'left', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text)', fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    📑 Download as PDF (jsPDF)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { handlePrint(); setExportDropdownOpen(false); }}
+                    style={{ background: 'transparent', border: 0, textAlign: 'left', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    🖨️ Print Resume Document
+                  </button>
                   <button
                     type="button"
                     onClick={() => { handleDownload(); setExportDropdownOpen(false); }}
@@ -4047,13 +4426,6 @@ export const ITResumeBulletBuilder: React.FC = () => {
                     style={{ background: 'transparent', border: 0, textAlign: 'left', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text)', fontSize: '0.9rem' }}
                   >
                     📈 Download as CSV
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { handleDownloadPdf(); setExportDropdownOpen(false); }}
-                    style={{ background: 'transparent', border: 0, textAlign: 'left', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text)', fontSize: '0.9rem' }}
-                  >
-                    📑 Export as PDF
                   </button>
                 </div>
               )}
@@ -4359,6 +4731,41 @@ export const ITResumeBulletBuilder: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* PRINTABLE RESUME DOCUMENT CONTAINER (Hidden on screen, visible during window.print()) */}
+      <div className="printable-resume-container hidden print:block text-slate-900 bg-white p-8">
+        <div style={{ borderBottom: '2px solid #0284c7', paddingBottom: '12px', marginBottom: '20px' }}>
+          <h1 style={{ fontSize: '24pt', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>
+            IT RESUME BULLETS
+          </h1>
+          <p style={{ fontSize: '10pt', color: '#64748b', margin: '4px 0 0 0' }}>
+            Generated via Jawed.co.in IT Resume Bullet Builder — {new Date().toLocaleDateString()}
+          </p>
+        </div>
+
+        {savedBullets.length > 0 ? (
+          <div>
+            <h2 style={{ fontSize: '14pt', fontWeight: 'bold', color: '#0f172a', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Saved Professional Experience Highlights ({savedBullets.length})
+            </h2>
+            <ul style={{ listStyleType: 'disc', paddingLeft: '24px', margin: 0 }}>
+              {savedBullets.map((bullet, idx) => (
+                <li
+                  key={idx}
+                  className="printable-bullet-item"
+                  style={{ fontSize: '11pt', lineHeight: '1.6', color: '#0f172a', marginBottom: '10px' }}
+                >
+                  {bullet}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p style={{ fontSize: '11pt', color: '#64748b' }}>
+            No saved resume bullets to display.
+          </p>
+        )}
+      </div>
     </main>
   );
 };
