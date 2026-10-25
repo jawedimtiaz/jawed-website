@@ -371,6 +371,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     return (localStorage.getItem('ipp_group_by_mode') as 'status' | 'category') || 'status';
   });
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<{ [key: string]: boolean }>({});
+  const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([]);
 
   const [draggedStoryId, setDraggedStoryId] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<StoryStatus | null>(null);
@@ -1044,6 +1045,45 @@ ${story.result || 'N/A'}
       return updated;
     });
     showToast(`Restored all ${count} archived tasks to active board!`);
+  };
+
+  const handleToggleSelectTask = (id: number) => {
+    setSelectedTaskIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkMoveStatus = (newStatus: StoryStatus) => {
+    if (selectedTaskIds.length === 0) return;
+    setStarStories(prev => {
+      const updated = prev.map(s => selectedTaskIds.includes(s.id) ? { ...s, status: newStatus } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    showToast(`Moved ${selectedTaskIds.length} tasks to ${newStatus}`);
+    setSelectedTaskIds([]);
+  };
+
+  const handleBulkChangePriority = (newPriority: TaskPriority) => {
+    if (selectedTaskIds.length === 0) return;
+    setStarStories(prev => {
+      const updated = prev.map(s => selectedTaskIds.includes(s.id) ? { ...s, priority: newPriority } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    showToast(`Updated priority of ${selectedTaskIds.length} tasks to ${newPriority}`);
+    setSelectedTaskIds([]);
+  };
+
+  const handleBulkArchiveTasks = () => {
+    if (selectedTaskIds.length === 0) return;
+    setStarStories(prev => {
+      const updated = prev.map(s => selectedTaskIds.includes(s.id) ? { ...s, isArchived: true } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    showToast(`Archived ${selectedTaskIds.length} tasks`);
+    setSelectedTaskIds([]);
   };
 
   const handlePrint = () => {
@@ -2859,8 +2899,116 @@ ${story.result || 'N/A'}
               })}
             </div>
           )}
-        </div>
-      )}
+
+           {/* Floating Bulk Actions Toolbar */}
+           {selectedTaskIds.length > 0 && (
+             <div
+               style={{
+                 position: 'sticky',
+                 bottom: '20px',
+                 zIndex: 50,
+                 background: 'var(--surface)',
+                 border: '2px solid var(--accent)',
+                 borderRadius: '16px',
+                 padding: '12px 20px',
+                 boxShadow: '0 10px 25px rgba(0, 0, 0, 0.4)',
+                 display: 'flex',
+                 justifyContent: 'space-between',
+                 alignItems: 'center',
+                 flexWrap: 'wrap',
+                 gap: '12px',
+                 marginTop: '20px',
+                 animation: 'fadeIn 0.2s ease'
+               }}
+             >
+               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                 <span className="pill" style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--accent)', fontWeight: 800 }}>
+                   {selectedTaskIds.length} tasks selected
+                 </span>
+                 <button
+                   type="button"
+                   className="button button-secondary"
+                   onClick={() => setSelectedTaskIds(filteredVault.map(s => s.id))}
+                   style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                 >
+                   Select All Visible ({filteredVault.length})
+                 </button>
+                 <button
+                   type="button"
+                   className="button button-secondary"
+                   onClick={() => setSelectedTaskIds([])}
+                   style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                 >
+                   Clear
+                 </button>
+               </div>
+
+               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                 <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)' }}>Batch Actions:</span>
+                 <button
+                   type="button"
+                   className="button button-secondary"
+                   onClick={() => handleBulkMoveStatus('To Do')}
+                   style={{ fontSize: '0.82rem', padding: '6px 12px' }}
+                 >
+                   ⏳ Move to To Do
+                 </button>
+                 <button
+                   type="button"
+                   className="button button-secondary"
+                   onClick={() => handleBulkMoveStatus('In Progress')}
+                   style={{ fontSize: '0.82rem', padding: '6px 12px', color: '#f59e0b', borderColor: '#f59e0b' }}
+                 >
+                   🔄 Move to In Progress
+                 </button>
+                 <button
+                   type="button"
+                   className="button button-secondary"
+                   onClick={() => handleBulkMoveStatus('Done')}
+                   style={{ fontSize: '0.82rem', padding: '6px 12px', color: 'var(--emerald)', borderColor: 'var(--emerald)' }}
+                 >
+                   ✅ Move to Done
+                 </button>
+
+                 <select
+                   aria-label="Batch change priority for selected tasks"
+                   onChange={(e) => {
+                     if (e.target.value) {
+                       handleBulkChangePriority(e.target.value as TaskPriority);
+                       e.target.value = '';
+                     }
+                   }}
+                   defaultValue=""
+                   style={{
+                     padding: '6px 12px',
+                     fontSize: '0.82rem',
+                     fontWeight: 700,
+                     borderRadius: '8px',
+                     background: 'var(--surface)',
+                     border: '1px solid var(--border)',
+                     color: 'var(--text)',
+                     cursor: 'pointer'
+                   }}
+                 >
+                   <option value="" disabled>Change Priority...</option>
+                   <option value="High">🔥 Set High Priority</option>
+                   <option value="Medium">⚡ Set Medium Priority</option>
+                   <option value="Low">🔹 Set Low Priority</option>
+                 </select>
+
+                 <button
+                   type="button"
+                   className="button button-secondary"
+                   onClick={handleBulkArchiveTasks}
+                   style={{ fontSize: '0.82rem', padding: '6px 12px', color: 'var(--rose)', borderColor: 'rgba(244, 63, 94, 0.4)' }}
+                 >
+                   <Archive className="w-4 h-4" /> Bulk Archive
+                 </button>
+               </div>
+             </div>
+           )}
+         </div>
+       )}
 
       {/* VIEW 3: ARCHIVED TASKS */}
       {activeTab === 'archive' && (
