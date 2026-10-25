@@ -2828,3 +2828,36 @@ select:focus-visible {
 .career-match-root .job small, .interview-planner-root .job small{display:block;color:var(--text-muted);overflow-wrap:anywhere}
 @media(max-width:760px){.career-match-root .grid2,.career-match-root .stats-grid, .interview-planner-root .grid2,.interview-planner-root .stats-grid{grid-template-columns:minmax(0,1fr)}.career-match-root .board, .interview-planner-root .board{grid-template-columns:repeat(2,minmax(0,1fr))}.career-match-root .tool-nav, .interview-planner-root .tool-nav{width:100%}.career-match-root .tool-nav button, .interview-planner-root .tool-nav button{flex:1 1 auto}}
 @media(max-width:440px){.career-match-root .board, .interview-planner-root .board{grid-template-columns:minmax(0,1fr)}.career-match-root .panel,.career-match-root .notice, .interview-planner-root .panel,.interview-planner-root .notice{padding:14px}}
+
+/* Dynamic Task Priority Level Card Styling for Interview Preparation Planner */
+.card.task-priority-high, .panel.task-priority-high {
+  border: 1px solid rgba(244, 63, 94, 0.45) !important;
+  border-left: 5px solid #f43f5e !important;
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.1) 0%, var(--bg) 100%) !important;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.08) !important;
+}
+
+.card.task-priority-medium, .panel.task-priority-medium {
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  border-left: 5px solid #f59e0b !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, var(--bg) 100%) !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.06) !important;
+}
+
+.card.task-priority-low, .panel.task-priority-low {
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  border-left: 5px solid #38bdf8 !important;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.06) 0%, var(--bg) 100%) !important;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.05) !important;
+}
+
+/* Override left border with warning indicator if task is also pending blocked */
+.card.task-priority-high.task-is-blocked,
+.card.task-priority-medium.task-is-blocked,
+.card.task-priority-low.task-is-blocked,
+.panel.task-priority-high.task-is-blocked,
+.panel.task-priority-medium.task-is-blocked,
+.panel.task-priority-low.task-is-blocked {
+  border-left: 5px solid #ef4444 !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.22) !important;
+}

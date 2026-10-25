@@ -33,11 +33,18 @@ import {
   Archive,
   ArchiveRestore,
   RotateCcw,
-  FolderArchive
+  FolderArchive,
+  Lock,
+  Unlock,
+  GitFork,
+  AlertTriangle,
+  Repeat,
+  RefreshCw
 } from 'lucide-react';
 
 export type StoryStatus = 'To Do' | 'In Progress' | 'Done';
 export type TaskPriority = 'High' | 'Medium' | 'Low';
+export type RepeatFrequency = 'None' | 'Daily' | 'Weekly' | 'Monthly';
 
 export interface TaskLink {
   id: string;
@@ -61,10 +68,12 @@ interface StarStory {
   result: string;
   status: StoryStatus;
   priority?: TaskPriority;
+  repeatFrequency?: RepeatFrequency;
   notes?: string;
   links?: TaskLink[];
   fileRefs?: TaskFileRef[];
   isArchived?: boolean;
+  blockedByTaskIds?: number[];
 }
 
 const SAMPLE_STORIES: StarStory[] = [
@@ -77,6 +86,7 @@ const SAMPLE_STORIES: StarStory[] = [
     result: 'Restored vital payroll subnet within 14 minutes; zero transaction delays; implemented daily automated VRRP failover health checks.',
     status: 'Done',
     priority: 'High',
+    repeatFrequency: 'Weekly',
     notes: 'Key Talking Point: Emphasize speed of isolation (14 minutes) and zero payroll cut-off delays. Be ready to explain packet collision mechanics and VRRP failover quorum.',
     links: [
       { id: 'l1', title: 'Network Outage Postmortem Doc', url: 'https://notion.so/network-incident-postmortem-2026' },
@@ -85,7 +95,8 @@ const SAMPLE_STORIES: StarStory[] = [
     fileRefs: [
       { id: 'f1', name: 'VRRP_Failover_HealthCheck.sh', fileType: 'Shell Script', notes: 'Automated VRRP health check script deployed to backup chassis' },
       { id: 'f2', name: 'Incident_Timeline_Log.pdf', fileType: 'PDF Document', notes: 'Detailed minute-by-minute incident timeline log' }
-    ]
+    ],
+    blockedByTaskIds: []
   },
   {
     id: 2,
@@ -96,13 +107,34 @@ const SAMPLE_STORIES: StarStory[] = [
     result: 'Reduced provisioning time from 4.5 hours to 18 minutes per device with 99.4% zero-touch success rate, cutting IT onboarding backlog to zero.',
     status: 'In Progress',
     priority: 'Medium',
+    repeatFrequency: 'Daily',
     notes: 'Emphasize cross-functional coordination between Mac SysAdmins, Security (CrowdStrike), and Okta IDP team.',
     links: [
       { id: 'l3', title: 'Jamf Pro Zero-Touch Workflow', url: 'https://jamf.com/docs/zero-touch-apple-business-manager' }
     ],
     fileRefs: [
       { id: 'f3', name: 'PostEnrollment_Bootstrap.zsh', fileType: 'Shell Script', notes: 'Modular post-enrollment installer script' }
-    ]
+    ],
+    blockedByTaskIds: [1]
+  },
+  {
+    id: 3,
+    theme: 'Zero-Trust Identity Federation & IAM Migration',
+    situation: 'Legacy Active Directory domain controller lacked MFA for cloud infrastructure admin consoles, violating enterprise compliance mandates.',
+    task: 'Architect Okta Adaptive MFA with conditional access policies and SAML/OIDC SSO across AWS accounts and internal Kubernetes clusters.',
+    action: 'Enforced FIDO2 WebAuthn keys for root admins, migrated 24 legacy service accounts to short-lived STS tokens, and automated user provisioning via SCIM API.',
+    result: 'Achieved 100% SOC2 / ISO27001 compliance; eliminated static API credentials; reduced password reset tickets by 82%.',
+    status: 'To Do',
+    priority: 'High',
+    repeatFrequency: 'Monthly',
+    notes: 'Prerequisite dependency: Requires Zero-Touch Fleet Provisioning completion to distribute WebAuthn hardware keys to engineers.',
+    links: [
+      { id: 'l4', title: 'Okta SSO Architectural Spec', url: 'https://okta.com/docs/zero-trust-iam-spec' }
+    ],
+    fileRefs: [
+      { id: 'f4', name: 'SCIM_Provisioning_Policy.json', fileType: 'PDF Document', notes: 'Automated SCIM group mapping definition' }
+    ],
+    blockedByTaskIds: [2]
   }
 ];
 
@@ -138,6 +170,30 @@ const getPriorityStyle = (priority: TaskPriority = 'Medium') => {
   }
 };
 
+// Dependency Utility Helpers
+const getPendingBlockers = (story: StarStory, allStories: StarStory[]): StarStory[] => {
+  if (!story.blockedByTaskIds || story.blockedByTaskIds.length === 0) return [];
+  return story.blockedByTaskIds
+    .map(id => allStories.find(s => s.id === id))
+    .filter((s): s is StarStory => !!s && s.status !== 'Done');
+};
+
+const getAllBlockers = (story: StarStory, allStories: StarStory[]): StarStory[] => {
+  if (!story.blockedByTaskIds || story.blockedByTaskIds.length === 0) return [];
+  return story.blockedByTaskIds
+    .map(id => allStories.find(s => s.id === id))
+    .filter((s): s is StarStory => !!s);
+};
+
+const getDependentTasks = (storyId: number, allStories: StarStory[]): StarStory[] => {
+  return allStories.filter(s => s.blockedByTaskIds?.includes(storyId));
+};
+
+const getPriorityClassNames = (priority: TaskPriority = 'Medium', isBlocked: boolean = false): string => {
+  const pClass = priority === 'High' ? 'task-priority-high' : priority === 'Low' ? 'task-priority-low' : 'task-priority-medium';
+  return isBlocked ? `${pClass} task-is-blocked` : pClass;
+};
+
 export const InterviewPreparationPlanner: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'builder' | 'vault' | 'archive' | 'questions' | 'guide'>('builder');
 
@@ -157,7 +213,9 @@ export const InterviewPreparationPlanner: React.FC = () => {
           ...s,
           status: s.status || 'To Do',
           priority: s.priority || 'Medium',
-          isArchived: !!s.isArchived
+          repeatFrequency: s.repeatFrequency || 'None',
+          isArchived: !!s.isArchived,
+          blockedByTaskIds: Array.isArray(s.blockedByTaskIds) ? s.blockedByTaskIds : []
         }));
       }
     } catch {
@@ -190,6 +248,9 @@ export const InterviewPreparationPlanner: React.FC = () => {
   });
   const [storyPriority, setStoryPriority] = useState<TaskPriority>(() => {
     return (localStorage.getItem('ipp_draft_priority') as TaskPriority) || 'Medium';
+  });
+  const [storyRepeat, setStoryRepeat] = useState<RepeatFrequency>(() => {
+    return (localStorage.getItem('ipp_draft_repeat') as RepeatFrequency) || 'None';
   });
   const [editingId, setEditingId] = useState<number | null>(() => {
     const saved = localStorage.getItem('ipp_draft_editing_id');
@@ -396,6 +457,59 @@ export const InterviewPreparationPlanner: React.FC = () => {
     showToast('File reference removed.');
   };
 
+  const handleAddBlocker = (targetStoryId: number, blockerStoryId: number) => {
+    if (targetStoryId === blockerStoryId) return;
+    setStarStories(prev => {
+      const updated = prev.map(s => {
+        if (s.id === targetStoryId) {
+          const current = s.blockedByTaskIds || [];
+          if (current.includes(blockerStoryId)) return s;
+          return { ...s, blockedByTaskIds: [...current, blockerStoryId] };
+        }
+        return s;
+      });
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+
+    if (modalStory && modalStory.id === targetStoryId) {
+      setModalStory(prev => {
+        if (!prev) return null;
+        const current = prev.blockedByTaskIds || [];
+        if (current.includes(blockerStoryId)) return prev;
+        return { ...prev, blockedByTaskIds: [...current, blockerStoryId] };
+      });
+    }
+    showToast('Prerequisite task linked!');
+  };
+
+  const handleRemoveBlocker = (targetStoryId: number, blockerStoryId: number) => {
+    setStarStories(prev => {
+      const updated = prev.map(s => {
+        if (s.id === targetStoryId) {
+          return {
+            ...s,
+            blockedByTaskIds: (s.blockedByTaskIds || []).filter(id => id !== blockerStoryId)
+          };
+        }
+        return s;
+      });
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+
+    if (modalStory && modalStory.id === targetStoryId) {
+      setModalStory(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          blockedByTaskIds: (prev.blockedByTaskIds || []).filter(id => id !== blockerStoryId)
+        };
+      });
+    }
+    showToast('Blocker link removed.');
+  };
+
   useEffect(() => {
     localStorage.setItem('ipp_vault_view_mode', vaultViewMode);
   }, [vaultViewMode]);
@@ -423,6 +537,32 @@ export const InterviewPreparationPlanner: React.FC = () => {
     e.preventDefault();
   };
 
+  const applyStatusUpdate = (prevStories: StarStory[], storyId: number, newStatus: StoryStatus) => {
+    const targetStory = prevStories.find(s => s.id === storyId);
+    if (!targetStory) return { updatedStories: prevStories, createdRepeatStory: null, targetStory: null };
+
+    if (targetStory.status === newStatus) {
+      return { updatedStories: prevStories, createdRepeatStory: null, targetStory };
+    }
+
+    let updatedStories = prevStories.map(s => s.id === storyId ? { ...s, status: newStatus } : s);
+    let createdRepeatStory: StarStory | null = null;
+
+    if (newStatus === 'Done' && targetStory.repeatFrequency && targetStory.repeatFrequency !== 'None') {
+      createdRepeatStory = {
+        ...targetStory,
+        id: Date.now(),
+        status: 'To Do',
+        links: (targetStory.links || []).map(l => ({ ...l, id: String(Date.now() + Math.random()) })),
+        fileRefs: (targetStory.fileRefs || []).map(f => ({ ...f, id: String(Date.now() + Math.random()) })),
+        blockedByTaskIds: []
+      };
+      updatedStories = [createdRepeatStory, ...updatedStories];
+    }
+
+    return { updatedStories, createdRepeatStory, targetStory };
+  };
+
   const handleDropToColumn = (e: React.DragEvent, targetStatus: StoryStatus) => {
     e.preventDefault();
     setDragOverColumn(null);
@@ -434,15 +574,16 @@ export const InterviewPreparationPlanner: React.FC = () => {
     }
 
     setStarStories(prev => {
-      const targetStory = prev.find(s => s.id === storyId);
-      if (!targetStory) return prev;
-
-      if (targetStory.status === targetStatus) return prev;
-
-      const updated = prev.map(s => s.id === storyId ? { ...s, status: targetStatus } : s);
-      localStorage.setItem('ipp_stories', JSON.stringify(updated));
-      showToast(`Moved "${targetStory.theme}" to ${targetStatus}`);
-      return updated;
+      const { updatedStories, createdRepeatStory, targetStory } = applyStatusUpdate(prev, storyId, targetStatus);
+      if (targetStory) {
+        let repeatNote = '';
+        if (createdRepeatStory) {
+          repeatNote = ` — New ${targetStory.repeatFrequency} review task created in To Do!`;
+        }
+        showToast(`Moved "${targetStory.theme}" to ${targetStatus}${repeatNote}`);
+      }
+      localStorage.setItem('ipp_stories', JSON.stringify(updatedStories));
+      return updatedStories;
     });
     setDraggedStoryId(null);
   };
@@ -494,6 +635,10 @@ export const InterviewPreparationPlanner: React.FC = () => {
   }, [storyPriority]);
 
   useEffect(() => {
+    localStorage.setItem('ipp_draft_repeat', storyRepeat);
+  }, [storyRepeat]);
+
+  useEffect(() => {
     if (editingId !== null) {
       localStorage.setItem('ipp_draft_editing_id', String(editingId));
     } else {
@@ -509,6 +654,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setResult('');
     setStoryStatus('To Do');
     setStoryPriority('Medium');
+    setStoryRepeat('None');
     setEditingId(null);
     localStorage.removeItem('ipp_draft_theme');
     localStorage.removeItem('ipp_draft_situation');
@@ -517,16 +663,23 @@ export const InterviewPreparationPlanner: React.FC = () => {
     localStorage.removeItem('ipp_draft_result');
     localStorage.removeItem('ipp_draft_status');
     localStorage.removeItem('ipp_draft_priority');
+    localStorage.removeItem('ipp_draft_repeat');
     localStorage.removeItem('ipp_draft_editing_id');
   };
 
   const handleUpdateStatus = (id: number, newStatus: StoryStatus) => {
     setStarStories(prev => {
-      const updated = prev.map(s => s.id === id ? { ...s, status: newStatus } : s);
-      localStorage.setItem('ipp_stories', JSON.stringify(updated));
-      return updated;
+      const { updatedStories, createdRepeatStory, targetStory } = applyStatusUpdate(prev, id, newStatus);
+      if (targetStory) {
+        let repeatNote = '';
+        if (createdRepeatStory) {
+          repeatNote = ` — New ${targetStory.repeatFrequency} review task created in To Do!`;
+        }
+        showToast(`Status updated to "${newStatus}"${repeatNote}`);
+      }
+      localStorage.setItem('ipp_stories', JSON.stringify(updatedStories));
+      return updatedStories;
     });
-    showToast(`Status updated to "${newStatus}"`);
   };
 
   const handleUpdatePriority = (id: number, newPriority: TaskPriority) => {
@@ -536,6 +689,18 @@ export const InterviewPreparationPlanner: React.FC = () => {
       return updated;
     });
     showToast(`Priority updated to "${newPriority}"`);
+  };
+
+  const handleUpdateRepeatFrequency = (id: number, frequency: RepeatFrequency) => {
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === id ? { ...s, repeatFrequency: frequency } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    if (modalStory && modalStory.id === id) {
+      setModalStory(prev => prev ? { ...prev, repeatFrequency: frequency } : null);
+    }
+    showToast(frequency !== 'None' ? `Repeat schedule set to "${frequency}"` : 'Repeat schedule disabled.');
   };
 
   const showToast = (msg: string) => {
@@ -553,6 +718,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setResult('100% data integrity verified; 0 seconds of unplanned downtime; saved $14,000 monthly in legacy infrastructure overhead.');
     setStoryStatus('In Progress');
     setStoryPriority('High');
+    setStoryRepeat('Weekly');
     showToast('Sample STAR story loaded into editor!');
   };
 
@@ -575,6 +741,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
                 result: result.trim(),
                 status: storyStatus,
                 priority: storyPriority,
+                repeatFrequency: storyRepeat,
               }
             : story
         )
@@ -590,6 +757,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
         result: result.trim(),
         status: storyStatus,
         priority: storyPriority,
+        repeatFrequency: storyRepeat,
       };
       setStarStories(prev => [created, ...prev]);
       showToast('Story added to vault!');
@@ -607,6 +775,8 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setResult(story.result);
     setStoryStatus(story.status || 'To Do');
     setStoryPriority(story.priority || 'Medium');
+    setStoryRepeat(story.repeatFrequency || 'None');
+    setActiveTab('builder');
     setActiveTab('builder');
 
     window.scrollTo({ top: 200, behavior: 'smooth' });
@@ -721,6 +891,7 @@ ${story.result || 'N/A'}
       'Theme / Competency',
       'Priority',
       'Status',
+      'Prerequisites / Blockers',
       'Situation',
       'Task',
       'Action',
@@ -733,12 +904,14 @@ ${story.result || 'N/A'}
     const rows = starStories.map(story => {
       const linksStr = (story.links || []).map(l => `${l.title}: ${l.url}`).join(' | ');
       const fileRefsStr = (story.fileRefs || []).map(f => `${f.name} [${f.fileType}]${f.notes ? ' - ' + f.notes : ''}`).join(' | ');
+      const blockersStr = getAllBlockers(story, starStories).map(b => `${b.theme} [${b.status}]`).join(' | ');
 
       return [
         story.id,
         escapeCsvField(story.theme),
         escapeCsvField(story.priority || 'Medium'),
         escapeCsvField(story.status || 'To Do'),
+        escapeCsvField(blockersStr),
         escapeCsvField(story.situation),
         escapeCsvField(story.task),
         escapeCsvField(story.action),
@@ -1019,8 +1192,8 @@ ${story.result || 'N/A'}
               </div>
             </div>
 
-            {/* Theme, Priority Level & Preparation Status Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginBottom: '20px', marginTop: 0 }}>
+            {/* Theme, Priority Level, Preparation Status & Repeat Schedule Row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4" style={{ marginBottom: '20px', marginTop: 0 }}>
               <div>
                 <label htmlFor="story-theme">Theme / Competency Category</label>
                 <input
@@ -1053,6 +1226,19 @@ ${story.result || 'N/A'}
                   <option value="To Do">⏳ To Do (Drafting)</option>
                   <option value="In Progress">🔄 In Progress (Refining & Practice)</option>
                   <option value="Done">✅ Done (Mastered Answer)</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="story-repeat">Repeat Review Schedule</label>
+                <select
+                  id="story-repeat"
+                  value={storyRepeat}
+                  onChange={(e) => setStoryRepeat(e.target.value as RepeatFrequency)}
+                >
+                  <option value="None">Off (One-off Task)</option>
+                  <option value="Daily">🔁 Daily Review</option>
+                  <option value="Weekly">🔁 Weekly Practice</option>
+                  <option value="Monthly">🔁 Monthly Refresher</option>
                 </select>
               </div>
             </div>
@@ -1323,17 +1509,17 @@ ${story.result || 'N/A'}
                 </div>
               </div>
 
-              {/* Priority Breakdown Row */}
-              <div style={{ display: 'flex', gap: '16px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border)', flexWrap: 'wrap', alignItems: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-heading)' }}>Priority Breakdown:</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  🔥 High: <strong style={{ color: '#f43f5e' }}>{summaryStats.highCount}</strong> ({summaryStats.highPct}%)
+              {/* Priority Breakdown Row with Dynamic Priority Badges */}
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border)', flexWrap: 'wrap', alignItems: 'center', fontSize: '0.82rem' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-heading)' }}>Priority Key &amp; Distribution:</span>
+                <span className="pill task-priority-high" style={{ margin: 0, padding: '3px 10px', fontWeight: 700 }}>
+                  🔥 High Priority: {summaryStats.highCount} ({summaryStats.highPct}%)
                 </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  ⚡ Medium: <strong style={{ color: '#f59e0b' }}>{summaryStats.mediumCount}</strong> ({summaryStats.mediumPct}%)
+                <span className="pill task-priority-medium" style={{ margin: 0, padding: '3px 10px', fontWeight: 700 }}>
+                  ⚡ Medium Priority: {summaryStats.mediumCount} ({summaryStats.mediumPct}%)
                 </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  🔹 Low: <strong style={{ color: '#38bdf8' }}>{summaryStats.lowCount}</strong> ({summaryStats.lowPct}%)
+                <span className="pill task-priority-low" style={{ margin: 0, padding: '3px 10px', fontWeight: 700 }}>
+                  🔹 Low Priority: {summaryStats.lowCount} ({summaryStats.lowPct}%)
                 </span>
               </div>
             </div>
@@ -1564,6 +1750,10 @@ ${story.result || 'N/A'}
                     ) : (
                       columnStories.map((story) => {
                         const priorityStyle = getPriorityStyle(story.priority || 'Medium');
+                        const pendingBlockers = getPendingBlockers(story, starStories);
+                        const allBlockers = getAllBlockers(story, starStories);
+                        const dependentTasks = getDependentTasks(story.id, starStories);
+                        const isBlocked = pendingBlockers.length > 0;
 
                         return (
                           <div
@@ -1571,15 +1761,12 @@ ${story.result || 'N/A'}
                             draggable={true}
                             onDragStart={(e) => handleDragStart(e, story.id)}
                             onDragEnd={handleDragEnd}
-                            className="card"
+                            className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
                             style={{
                               padding: '14px',
-                              background: 'var(--bg)',
-                              border: '1px solid var(--border)',
                               borderRadius: '12px',
                               cursor: 'grab',
                               opacity: draggedStoryId === story.id ? 0.4 : 1,
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                               transition: 'all 0.15s ease',
                             }}
                           >
@@ -1616,6 +1803,101 @@ ${story.result || 'N/A'}
                                 <option value="Low">🔹 Low</option>
                               </select>
                             </div>
+
+                            {/* Dependency, Blocker & Repeat Indicator Badges */}
+                            {(isBlocked || allBlockers.length > 0 || dependentTasks.length > 0 || (story.repeatFrequency && story.repeatFrequency !== 'None')) && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                                {story.repeatFrequency && story.repeatFrequency !== 'None' && (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 600,
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      background: 'rgba(129, 140, 248, 0.15)',
+                                      border: '1px solid rgba(129, 140, 248, 0.35)',
+                                      color: '#a5b4fc',
+                                      cursor: 'pointer',
+                                    }}
+                                    onClick={() => setModalStory(story)}
+                                    title={`Recurring task: auto-creates a new review task in To Do (${story.repeatFrequency}) when completed`}
+                                  >
+                                    <Repeat className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+                                    {story.repeatFrequency}
+                                  </span>
+                                )}
+
+                                {isBlocked ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      background: 'rgba(239, 68, 68, 0.18)',
+                                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                                      color: '#f87171',
+                                      cursor: 'pointer',
+                                    }}
+                                    onClick={() => setModalStory(story)}
+                                    title={`Blocked by ${pendingBlockers.map(b => `"${b.theme}" (${b.status})`).join(', ')}`}
+                                  >
+                                    <Lock className="w-3 h-3 text-rose-400 flex-shrink-0" />
+                                    Blocked ({pendingBlockers.length} pending)
+                                  </span>
+                                ) : allBlockers.length > 0 ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 600,
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      background: 'rgba(16, 185, 129, 0.12)',
+                                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                                      color: 'var(--emerald)',
+                                      cursor: 'pointer',
+                                    }}
+                                    onClick={() => setModalStory(story)}
+                                    title={`All ${allBlockers.length} prerequisite tasks completed`}
+                                  >
+                                    <Unlock className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                                    Unblocked
+                                  </span>
+                                ) : null}
+
+                                {dependentTasks.length > 0 && (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 600,
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      background: 'rgba(56, 189, 248, 0.12)',
+                                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                                      color: '#38bdf8',
+                                      cursor: 'pointer',
+                                    }}
+                                    onClick={() => setModalStory(story)}
+                                    title={`Prerequisite for ${dependentTasks.map(d => `"${d.theme}"`).join(', ')}`}
+                                  >
+                                    <GitFork className="w-3 h-3 text-sky-400 flex-shrink-0" />
+                                    Blocks {dependentTasks.length} task{dependentTasks.length > 1 ? 's' : ''}
+                                  </span>
+                                )}
+                              </div>
+                            )}
 
                             {story.situation && (
                               <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 6px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
@@ -1713,25 +1995,119 @@ ${story.result || 'N/A'}
                 const isCopied = copiedId === story.id;
                 const isCurrentEditing = editingId === story.id;
                 const priorityStyle = getPriorityStyle(story.priority || 'Medium');
+                const pendingBlockers = getPendingBlockers(story, starStories);
+                const allBlockers = getAllBlockers(story, starStories);
+                const dependentTasks = getDependentTasks(story.id, starStories);
+                const isBlocked = pendingBlockers.length > 0;
 
                 return (
                   <div
                     key={story.id}
-                    className="panel"
+                    className={`panel ${getPriorityClassNames(story.priority, isBlocked)}`}
                     style={{
-                      border: isCurrentEditing ? '2px solid var(--accent)' : '1px solid var(--border)',
                       position: 'relative',
+                      ...(isCurrentEditing ? { outline: '2px solid var(--accent)' } : {})
                     }}
                   >
                     {/* Story Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <span className="pill" style={{ fontWeight: 800, margin: 0, background: 'var(--surface-accent)', color: 'var(--accent)' }}>
                           #{index + 1}
                         </span>
                         <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
                           {story.theme}
                         </h3>
+
+                        {story.repeatFrequency && story.repeatFrequency !== 'None' && (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              padding: '3px 10px',
+                              borderRadius: '6px',
+                              background: 'rgba(129, 140, 248, 0.15)',
+                              border: '1px solid rgba(129, 140, 248, 0.35)',
+                              color: '#a5b4fc',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => setModalStory(story)}
+                            title={`Recurring task: auto-creates a new review task in To Do (${story.repeatFrequency}) when completed`}
+                          >
+                            <Repeat className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                            Repeat: {story.repeatFrequency}
+                          </span>
+                        )}
+
+                        {isBlocked ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              padding: '3px 10px',
+                              borderRadius: '6px',
+                              background: 'rgba(239, 68, 68, 0.18)',
+                              border: '1px solid rgba(239, 68, 68, 0.4)',
+                              color: '#f87171',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => setModalStory(story)}
+                            title={`Blocked by ${pendingBlockers.map(b => `"${b.theme}" (${b.status})`).join(', ')}`}
+                          >
+                            <Lock className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+                            Blocked ({pendingBlockers.length} pending)
+                          </span>
+                        ) : allBlockers.length > 0 ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              padding: '3px 10px',
+                              borderRadius: '6px',
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              color: 'var(--emerald)',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => setModalStory(story)}
+                            title={`All ${allBlockers.length} prerequisite tasks completed`}
+                          >
+                            <Unlock className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                            Unblocked
+                          </span>
+                        ) : null}
+
+                        {dependentTasks.length > 0 && (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              padding: '3px 10px',
+                              borderRadius: '6px',
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              color: '#38bdf8',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => setModalStory(story)}
+                            title={`Prerequisite for ${dependentTasks.map(d => `"${d.theme}"`).join(', ')}`}
+                          >
+                            <GitFork className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                            Blocks {dependentTasks.length} task{dependentTasks.length > 1 ? 's' : ''}
+                          </span>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1946,10 +2322,8 @@ ${story.result || 'N/A'}
                 return (
                   <div
                     key={story.id}
-                    className="panel"
+                    className={`panel ${getPriorityClassNames(story.priority, false)}`}
                     style={{
-                      border: '1px solid var(--border)',
-                      background: 'var(--surface)',
                       position: 'relative',
                       opacity: 0.9,
                     }}
@@ -2414,6 +2788,32 @@ ${story.result || 'N/A'}
                   <option value="Done">✅ Done</option>
                 </select>
 
+                {/* Repeat schedule selector */}
+                <select
+                  aria-label="Repeat schedule"
+                  value={modalStory.repeatFrequency || 'None'}
+                  onChange={(e) => {
+                    const newFreq = e.target.value as RepeatFrequency;
+                    handleUpdateRepeatFrequency(modalStory.id, newFreq);
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    borderRadius: '99px',
+                    border: '1px solid rgba(129, 140, 248, 0.4)',
+                    background: 'rgba(129, 140, 248, 0.15)',
+                    color: '#a5b4fc',
+                    cursor: 'pointer'
+                  }}
+                  title="Configure automated review repeat frequency"
+                >
+                  <option value="None">🔁 No Repeat</option>
+                  <option value="Daily">🔁 Repeat Daily</option>
+                  <option value="Weekly">🔁 Repeat Weekly</option>
+                  <option value="Monthly">🔁 Repeat Monthly</option>
+                </select>
+
                 <button
                   type="button"
                   onClick={() => setModalStory(null)}
@@ -2424,6 +2824,15 @@ ${story.result || 'N/A'}
                 </button>
               </div>
             </div>
+
+            {modalStory.repeatFrequency && modalStory.repeatFrequency !== 'None' && (
+              <div style={{ background: 'rgba(129, 140, 248, 0.1)', border: '1px solid rgba(129, 140, 248, 0.3)', borderRadius: '10px', padding: '10px 14px', fontSize: '0.82rem', color: '#c7d2fe', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Repeat className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                <span>
+                  <strong>Recurring Review Task:</strong> Set to repeat <strong>{modalStory.repeatFrequency}</strong>. Moving this story to <b>Done</b> will keep this completed answer and automatically generate a new practice instance in <b>To Do</b>.
+                </span>
+              </div>
+            )}
 
             {/* STAR Story Dimensions Recap */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2449,6 +2858,154 @@ ${story.result || 'N/A'}
                 <div style={{ background: 'var(--bg)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                   <strong style={{ color: 'var(--emerald)', fontSize: '0.82rem', display: 'block', marginBottom: '4px' }}>4. Result</strong>
                   <p style={{ fontSize: '0.85rem', color: 'var(--emerald)', margin: 0, lineHeight: '1.4', fontWeight: 600 }}>{modalStory.result}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Task Dependencies & Blocker Linking Hub */}
+            <div className="panel" style={{ background: 'var(--bg)', border: '1px solid var(--border)', padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-heading)', fontWeight: 700, fontSize: '0.95rem', margin: 0 }}>
+                  <GitFork className="w-4 h-4 text-sky-400" />
+                  Task Dependencies & Blocker Linking
+                </label>
+                {getPendingBlockers(modalStory, starStories).length > 0 ? (
+                  <span className="pill" style={{ margin: 0, fontWeight: 700, background: 'rgba(239, 68, 68, 0.18)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)' }}>
+                    🔒 Blocked ({getPendingBlockers(modalStory, starStories).length} Pending Prerequisite)
+                  </span>
+                ) : getAllBlockers(modalStory, starStories).length > 0 ? (
+                  <span className="pill" style={{ margin: 0, fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', color: 'var(--emerald)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                    ✅ Unblocked (All Prerequisites Done)
+                  </span>
+                ) : (
+                  <span className="pill" style={{ margin: 0, fontWeight: 600, background: 'var(--surface)', color: 'var(--text-muted)' }}>
+                    No Blockers Linked
+                  </span>
+                )}
+              </div>
+
+              {/* List of current prerequisite blocker tasks */}
+              <div style={{ marginBottom: '12px' }}>
+                <span className="meta" style={{ fontWeight: 700, fontSize: '0.82rem', display: 'block', marginBottom: '6px', color: 'var(--text-heading)' }}>
+                  Prerequisites (Tasks that block this story until completed):
+                </span>
+                {getAllBlockers(modalStory, starStories).length === 0 ? (
+                  <p className="meta" style={{ fontSize: '0.82rem', fontStyle: 'italic', margin: '4px 0 10px' }}>
+                    No prerequisite blocker tasks linked. Select a task below to establish a dependency.
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                    {getAllBlockers(modalStory, starStories).map(blocker => {
+                      const isBlockerDone = blocker.status === 'Done';
+                      return (
+                        <div
+                          key={blocker.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 12px',
+                            background: isBlockerDone ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                            border: `1px solid ${isBlockerDone ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                            borderRadius: '8px',
+                            gap: '8px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                            {isBlockerDone ? (
+                              <Unlock className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                            ) : (
+                              <Lock className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                            )}
+                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-heading)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {blocker.theme}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '99px',
+                                border: '1px solid ' + (isBlockerDone ? 'var(--emerald)' : blocker.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
+                                background: isBlockerDone ? 'rgba(16, 185, 129, 0.15)' : blocker.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
+                                color: isBlockerDone ? 'var(--emerald)' : blocker.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
+                                flexShrink: 0
+                              }}
+                            >
+                              {blocker.status}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBlocker(modalStory.id, blocker.id)}
+                            style={{ background: 'none', border: 'none', color: 'var(--rose)', cursor: 'pointer', padding: '2px' }}
+                            title="Remove prerequisite blocker link"
+                          >
+                            <Trash2 className="w-4 h-4 hover:text-red-400" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Dropdown to add a blocker task */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select
+                    aria-label="Add prerequisite task blocker"
+                    onChange={(e) => {
+                      const selectedId = Number(e.target.value);
+                      if (selectedId) {
+                        handleAddBlocker(modalStory.id, selectedId);
+                        e.target.value = '';
+                      }
+                    }}
+                    defaultValue=""
+                    style={{ flex: 1, minWidth: '220px', fontSize: '0.85rem', margin: 0 }}
+                  >
+                    <option value="" disabled>+ Link Prerequisite Task (Blocker)...</option>
+                    {starStories
+                      .filter(s => s.id !== modalStory.id && !(modalStory.blockedByTaskIds || []).includes(s.id))
+                      .map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.theme} [{s.status}]
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Tasks waiting on this story */}
+              {getDependentTasks(modalStory.id, starStories).length > 0 && (
+                <div style={{ paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                  <span className="meta" style={{ fontWeight: 700, fontSize: '0.82rem', display: 'block', marginBottom: '6px', color: '#38bdf8' }}>
+                    Tasks Waiting On This Story ({getDependentTasks(modalStory.id, starStories).length}):
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {getDependentTasks(modalStory.id, starStories).map(dep => (
+                      <div
+                        key={dep.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '6px 10px',
+                          background: 'rgba(56, 189, 248, 0.08)',
+                          border: '1px solid rgba(56, 189, 248, 0.25)',
+                          borderRadius: '6px',
+                          fontSize: '0.82rem',
+                        }}
+                      >
+                        <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>
+                          {dep.theme}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: dep.status === 'Done' ? 'var(--emerald)' : '#f59e0b', fontWeight: 700 }}>
+                          {dep.status === 'Done' ? '✅ Unblocked' : `⏳ Waiting (${dep.status})`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
