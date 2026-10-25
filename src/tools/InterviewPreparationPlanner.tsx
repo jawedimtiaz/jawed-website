@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import {
@@ -20,10 +20,31 @@ import {
   GripVertical,
   Columns,
   List,
-  Search
+  Search,
+  Eye,
+  ExternalLink,
+  FileText,
+  Link2,
+  Paperclip,
+  Mic,
+  MicOff
 } from 'lucide-react';
 
-type StoryStatus = 'To Do' | 'In Progress' | 'Done';
+export type StoryStatus = 'To Do' | 'In Progress' | 'Done';
+export type TaskPriority = 'High' | 'Medium' | 'Low';
+
+export interface TaskLink {
+  id: string;
+  title: string;
+  url: string;
+}
+
+export interface TaskFileRef {
+  id: string;
+  name: string;
+  fileType: string;
+  notes?: string;
+}
 
 interface StarStory {
   id: number;
@@ -33,6 +54,10 @@ interface StarStory {
   action: string;
   result: string;
   status: StoryStatus;
+  priority?: TaskPriority;
+  notes?: string;
+  links?: TaskLink[];
+  fileRefs?: TaskFileRef[];
 }
 
 const SAMPLE_STORIES: StarStory[] = [
@@ -43,7 +68,17 @@ const SAMPLE_STORIES: StarStory[] = [
     task: 'Take immediate operational command, isolate root packet collision, reroute critical traffic trunks, and safeguard transaction deadlines.',
     action: 'Isolated primary core loop, rerouted traffic through backup redundant trunk, and coordinated with network vendor for hot-swap chassis replacement within SLA.',
     result: 'Restored vital payroll subnet within 14 minutes; zero transaction delays; implemented daily automated VRRP failover health checks.',
-    status: 'Done'
+    status: 'Done',
+    priority: 'High',
+    notes: 'Key Talking Point: Emphasize speed of isolation (14 minutes) and zero payroll cut-off delays. Be ready to explain packet collision mechanics and VRRP failover quorum.',
+    links: [
+      { id: 'l1', title: 'Network Outage Postmortem Doc', url: 'https://notion.so/network-incident-postmortem-2026' },
+      { id: 'l2', title: 'Core Switch Topology Diagram', url: 'https://lucid.app/lucidchart/core-switch-vlan-architecture' }
+    ],
+    fileRefs: [
+      { id: 'f1', name: 'VRRP_Failover_HealthCheck.sh', fileType: 'Shell Script', notes: 'Automated VRRP health check script deployed to backup chassis' },
+      { id: 'f2', name: 'Incident_Timeline_Log.pdf', fileType: 'PDF Document', notes: 'Detailed minute-by-minute incident timeline log' }
+    ]
   },
   {
     id: 2,
@@ -52,9 +87,49 @@ const SAMPLE_STORIES: StarStory[] = [
     task: 'Design an automated, zero-touch provisioning pipeline that deploys secure, pre-configured laptops directly from manufacturer to employee.',
     action: 'Integrated Apple Business Manager with Jamf Pro and Okta SSO. Wrote modular bash/zsh post-enrollment scripts to automatically install developer toolchains, CrowdStrike Falcon, and network profiles.',
     result: 'Reduced provisioning time from 4.5 hours to 18 minutes per device with 99.4% zero-touch success rate, cutting IT onboarding backlog to zero.',
-    status: 'In Progress'
+    status: 'In Progress',
+    priority: 'Medium',
+    notes: 'Emphasize cross-functional coordination between Mac SysAdmins, Security (CrowdStrike), and Okta IDP team.',
+    links: [
+      { id: 'l3', title: 'Jamf Pro Zero-Touch Workflow', url: 'https://jamf.com/docs/zero-touch-apple-business-manager' }
+    ],
+    fileRefs: [
+      { id: 'f3', name: 'PostEnrollment_Bootstrap.zsh', fileType: 'Shell Script', notes: 'Modular post-enrollment installer script' }
+    ]
   }
 ];
+
+const getPriorityWeight = (priority?: TaskPriority): number => {
+  if (priority === 'High') return 3;
+  if (priority === 'Low') return 1;
+  return 2;
+};
+
+const getPriorityStyle = (priority: TaskPriority = 'Medium') => {
+  switch (priority) {
+    case 'High':
+      return {
+        bg: 'rgba(244, 63, 94, 0.15)',
+        border: 'rgba(244, 63, 94, 0.4)',
+        color: '#f43f5e',
+        label: '🔥 High',
+      };
+    case 'Medium':
+      return {
+        bg: 'rgba(245, 158, 11, 0.15)',
+        border: 'rgba(245, 158, 11, 0.4)',
+        color: '#f59e0b',
+        label: '⚡ Medium',
+      };
+    case 'Low':
+      return {
+        bg: 'rgba(56, 189, 248, 0.15)',
+        border: 'rgba(56, 189, 248, 0.4)',
+        color: '#38bdf8',
+        label: '🔹 Low',
+      };
+  }
+};
 
 export const InterviewPreparationPlanner: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'builder' | 'vault' | 'questions' | 'guide'>('builder');
@@ -73,7 +148,8 @@ export const InterviewPreparationPlanner: React.FC = () => {
         const parsed = JSON.parse(saved);
         return parsed.map((s: any) => ({
           ...s,
-          status: s.status || 'To Do'
+          status: s.status || 'To Do',
+          priority: s.priority || 'Medium'
         }));
       }
     } catch {
@@ -101,14 +177,18 @@ export const InterviewPreparationPlanner: React.FC = () => {
   const [storyStatus, setStoryStatus] = useState<StoryStatus>(() => {
     return (localStorage.getItem('ipp_draft_status') as StoryStatus) || 'To Do';
   });
+  const [storyPriority, setStoryPriority] = useState<TaskPriority>(() => {
+    return (localStorage.getItem('ipp_draft_priority') as TaskPriority) || 'Medium';
+  });
   const [editingId, setEditingId] = useState<number | null>(() => {
     const saved = localStorage.getItem('ipp_draft_editing_id');
     return saved ? Number(saved) : null;
   });
 
-  // Vault Search & Status Filter State
+  // Vault Search, Filter, and Sort States
   const [searchVault, setSearchVault] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | StoryStatus>('All');
+  const [prioritySort, setPrioritySort] = useState<'none' | 'high-to-low' | 'low-to-high'>('none');
 
   // Vault View Mode (Kanban Board vs Detailed List) & Drag-and-Drop state
   const [vaultViewMode, setVaultViewMode] = useState<'board' | 'list'>(() => {
@@ -116,6 +196,194 @@ export const InterviewPreparationPlanner: React.FC = () => {
   });
   const [draggedStoryId, setDraggedStoryId] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<StoryStatus | null>(null);
+
+  // Task Detail Modal State & Input Handlers
+  const [modalStory, setModalStory] = useState<StarStory | null>(null);
+  const [newLinkTitle, setNewLinkTitle] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [newFileName, setNewFileName] = useState('');
+  const [newFileType, setNewFileType] = useState('Shell Script');
+  const [newFileNotes, setNewFileNotes] = useState('');
+
+  // Web Speech API Voice Dictation State
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, []);
+
+  const toggleListening = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+      setIsListening(false);
+      showToast('Voice dictation stopped.');
+      return;
+    }
+
+    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
+      showToast('Speech Recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognitionClass();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        showToast('Microphone active — start dictating your interview notes now...');
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcriptChunk = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            transcriptChunk += event.results[i][0].transcript;
+          }
+        }
+
+        if (transcriptChunk.trim() && modalStory) {
+          const currentNotes = modalStory.notes || '';
+          const updatedNotes = currentNotes
+            ? `${currentNotes.trim()} ${transcriptChunk.trim()}`
+            : transcriptChunk.trim();
+          handleSaveModalNotes(updatedNotes);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Web Speech API error:', event.error);
+        setIsListening(false);
+        if (event.error !== 'no-speech') {
+          showToast(`Voice dictation note: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error('Speech recognition start failed:', err);
+      setIsListening(false);
+      showToast('Could not activate microphone.');
+    }
+  };
+
+  const handleSaveModalNotes = (notesText: string) => {
+    if (!modalStory) return;
+    const updatedStory = { ...modalStory, notes: notesText };
+    setModalStory(updatedStory);
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === modalStory.id ? updatedStory : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleAddLink = () => {
+    if (!newLinkUrl.trim() || !modalStory) {
+      showToast('Please enter a URL.');
+      return;
+    }
+    const rawUrl = newLinkUrl.trim();
+    const formattedUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
+    const link: TaskLink = {
+      id: String(Date.now()),
+      title: newLinkTitle.trim() || rawUrl,
+      url: formattedUrl
+    };
+    const updatedStory = {
+      ...modalStory,
+      links: [...(modalStory.links || []), link]
+    };
+    setModalStory(updatedStory);
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === modalStory.id ? updatedStory : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    setNewLinkTitle('');
+    setNewLinkUrl('');
+    showToast('Link added to task!');
+  };
+
+  const handleRemoveLink = (linkId: string) => {
+    if (!modalStory) return;
+    const updatedStory = {
+      ...modalStory,
+      links: (modalStory.links || []).filter(l => l.id !== linkId)
+    };
+    setModalStory(updatedStory);
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === modalStory.id ? updatedStory : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    showToast('Link removed.');
+  };
+
+  const handleAddFileRef = () => {
+    if (!newFileName.trim() || !modalStory) {
+      showToast('Please enter a file name.');
+      return;
+    }
+    const fileRef: TaskFileRef = {
+      id: String(Date.now()),
+      name: newFileName.trim(),
+      fileType: newFileType.trim() || 'Document',
+      notes: newFileNotes.trim()
+    };
+    const updatedStory = {
+      ...modalStory,
+      fileRefs: [...(modalStory.fileRefs || []), fileRef]
+    };
+    setModalStory(updatedStory);
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === modalStory.id ? updatedStory : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    setNewFileName('');
+    setNewFileType('Shell Script');
+    setNewFileNotes('');
+    showToast('File reference added!');
+  };
+
+  const handleRemoveFileRef = (fileId: string) => {
+    if (!modalStory) return;
+    const updatedStory = {
+      ...modalStory,
+      fileRefs: (modalStory.fileRefs || []).filter(f => f.id !== fileId)
+    };
+    setModalStory(updatedStory);
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === modalStory.id ? updatedStory : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    showToast('File reference removed.');
+  };
 
   useEffect(() => {
     localStorage.setItem('ipp_vault_view_mode', vaultViewMode);
@@ -211,6 +479,10 @@ export const InterviewPreparationPlanner: React.FC = () => {
   }, [storyStatus]);
 
   useEffect(() => {
+    localStorage.setItem('ipp_draft_priority', storyPriority);
+  }, [storyPriority]);
+
+  useEffect(() => {
     if (editingId !== null) {
       localStorage.setItem('ipp_draft_editing_id', String(editingId));
     } else {
@@ -225,6 +497,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setAction('');
     setResult('');
     setStoryStatus('To Do');
+    setStoryPriority('Medium');
     setEditingId(null);
     localStorage.removeItem('ipp_draft_theme');
     localStorage.removeItem('ipp_draft_situation');
@@ -232,6 +505,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     localStorage.removeItem('ipp_draft_action');
     localStorage.removeItem('ipp_draft_result');
     localStorage.removeItem('ipp_draft_status');
+    localStorage.removeItem('ipp_draft_priority');
     localStorage.removeItem('ipp_draft_editing_id');
   };
 
@@ -242,6 +516,15 @@ export const InterviewPreparationPlanner: React.FC = () => {
       return updated;
     });
     showToast(`Status updated to "${newStatus}"`);
+  };
+
+  const handleUpdatePriority = (id: number, newPriority: TaskPriority) => {
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === id ? { ...s, priority: newPriority } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    showToast(`Priority updated to "${newPriority}"`);
   };
 
   const showToast = (msg: string) => {
@@ -258,6 +541,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setAction('Utilized AWS DMS with Change Data Capture (CDC). Orchestrated double-write verification in staging, wrote custom Python validation checksums, and executed the cutover during a 15-minute maintenance window.');
     setResult('100% data integrity verified; 0 seconds of unplanned downtime; saved $14,000 monthly in legacy infrastructure overhead.');
     setStoryStatus('In Progress');
+    setStoryPriority('High');
     showToast('Sample STAR story loaded into editor!');
   };
 
@@ -279,6 +563,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
                 action: action.trim(),
                 result: result.trim(),
                 status: storyStatus,
+                priority: storyPriority,
               }
             : story
         )
@@ -293,6 +578,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
         action: action.trim(),
         result: result.trim(),
         status: storyStatus,
+        priority: storyPriority,
       };
       setStarStories(prev => [created, ...prev]);
       showToast('Story added to vault!');
@@ -309,6 +595,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setAction(story.action);
     setResult(story.result);
     setStoryStatus(story.status || 'To Do');
+    setStoryPriority(story.priority || 'Medium');
     setActiveTab('builder');
 
     window.scrollTo({ top: 200, behavior: 'smooth' });
@@ -329,6 +616,8 @@ export const InterviewPreparationPlanner: React.FC = () => {
 
   const handleCopyStory = (story: StarStory) => {
     const formatted = `=== STAR STORY: ${story.theme.toUpperCase()} ===
+[PRIORITY]: ${story.priority || 'Medium'}
+[STATUS]: ${story.status || 'To Do'}
 [SITUATION]:
 ${story.situation || 'N/A'}
 
@@ -362,6 +651,74 @@ ${story.result || 'N/A'}
     return counts;
   }, [starStories]);
 
+  const summaryStats = useMemo(() => {
+    const total = starStories.length;
+    if (total === 0) {
+      return {
+        total: 0,
+        todoCount: 0,
+        inProgressCount: 0,
+        doneCount: 0,
+        todoPct: 0,
+        inProgressPct: 0,
+        donePct: 0,
+        highCount: 0,
+        mediumCount: 0,
+        lowCount: 0,
+        highPct: 0,
+        mediumPct: 0,
+        lowPct: 0,
+        overallReadiness: 0,
+      };
+    }
+
+    let todoCount = 0;
+    let inProgressCount = 0;
+    let doneCount = 0;
+    let highCount = 0;
+    let mediumCount = 0;
+    let lowCount = 0;
+
+    starStories.forEach(s => {
+      const st = s.status || 'To Do';
+      if (st === 'Done') doneCount++;
+      else if (st === 'In Progress') inProgressCount++;
+      else todoCount++;
+
+      const p = s.priority || 'Medium';
+      if (p === 'High') highCount++;
+      else if (p === 'Low') lowCount++;
+      else mediumCount++;
+    });
+
+    const todoPct = Math.round((todoCount / total) * 100);
+    const inProgressPct = Math.round((inProgressCount / total) * 100);
+    const donePct = Math.round((doneCount / total) * 100);
+
+    const highPct = Math.round((highCount / total) * 100);
+    const mediumPct = Math.round((mediumCount / total) * 100);
+    const lowPct = Math.round((lowCount / total) * 100);
+
+    const overallReadiness = Math.round(((doneCount * 1.0 + inProgressCount * 0.5) / total) * 100);
+
+    return {
+      total,
+      todoCount,
+      inProgressCount,
+      doneCount,
+      todoPct,
+      inProgressPct,
+      donePct,
+      highCount,
+      mediumCount,
+      lowCount,
+      highPct,
+      mediumPct,
+      lowPct,
+      overallReadiness,
+    };
+  }, [starStories]);
+
   const filteredVault = starStories.filter(story => {
     const q = searchVault.trim().toLowerCase();
     const matchesSearch = !q || (
@@ -374,6 +731,15 @@ ${story.result || 'N/A'}
     const matchesStatus = statusFilter === 'All' || (story.status || 'To Do') === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const sortedVault = useMemo(() => {
+    if (prioritySort === 'none') return filteredVault;
+    return [...filteredVault].sort((a, b) => {
+      const wA = getPriorityWeight(a.priority);
+      const wB = getPriorityWeight(b.priority);
+      return prioritySort === 'high-to-low' ? wB - wA : wA - wB;
+    });
+  }, [filteredVault, prioritySort]);
 
   return (
     <main className="container page interview-planner-root">
@@ -524,8 +890,8 @@ ${story.result || 'N/A'}
               </div>
             </div>
 
-            {/* Theme & Preparation Status Row */}
-            <div className="grid2" style={{ marginBottom: '20px', marginTop: 0 }}>
+            {/* Theme, Priority Level & Preparation Status Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginBottom: '20px', marginTop: 0 }}>
               <div>
                 <label htmlFor="story-theme">Theme / Competency Category</label>
                 <input
@@ -533,8 +899,20 @@ ${story.result || 'N/A'}
                   type="text"
                   value={storyTheme}
                   onChange={(e) => setStoryTheme(e.target.value)}
-                  placeholder="e.g. High-Severity Outage, Automation, Conflict Escalation, Data Migration"
+                  placeholder="e.g. High-Severity Outage, Automation, Incident Response"
                 />
+              </div>
+              <div>
+                <label htmlFor="story-priority">Task Priority Level</label>
+                <select
+                  id="story-priority"
+                  value={storyPriority}
+                  onChange={(e) => setStoryPriority(e.target.value as TaskPriority)}
+                >
+                  <option value="High">🔥 High Priority</option>
+                  <option value="Medium">⚡ Medium Priority</option>
+                  <option value="Low">🔹 Low Priority</option>
+                </select>
               </div>
               <div>
                 <label htmlFor="story-status">Preparation Status</label>
@@ -710,6 +1088,96 @@ ${story.result || 'N/A'}
             )}
           </div>
 
+          {/* Summary & Progress Metrics Panel */}
+          {starStories.length > 0 && (
+            <div className="panel" style={{ marginBottom: '20px', padding: '20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Target className="w-5 h-5 text-sky-400" />
+                  Interview Readiness & Progress Metrics
+                </h3>
+                <span className="pill" style={{ fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', color: 'var(--emerald)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '4px 12px' }}>
+                  {summaryStats.overallReadiness}% Overall Completion
+                </span>
+              </div>
+
+              {/* Stacked Multi-Segment Progress Bar */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
+                  <span>Status Distribution ({summaryStats.total} Total Tasks)</span>
+                  <span>{summaryStats.donePct}% Mastered ({summaryStats.doneCount} / {summaryStats.total})</span>
+                </div>
+                <div style={{ height: '12px', width: '100%', background: 'var(--bg)', borderRadius: '99px', overflow: 'hidden', display: 'flex', border: '1px solid var(--border)' }}>
+                  <div style={{ width: `${summaryStats.todoPct}%`, background: '#64748b', transition: 'width 0.3s ease' }} title={`To Do: ${summaryStats.todoCount} (${summaryStats.todoPct}%)`} />
+                  <div style={{ width: `${summaryStats.inProgressPct}%`, background: '#f59e0b', transition: 'width 0.3s ease' }} title={`In Progress: ${summaryStats.inProgressCount} (${summaryStats.inProgressPct}%)`} />
+                  <div style={{ width: `${summaryStats.donePct}%`, background: '#10b981', transition: 'width 0.3s ease' }} title={`Done: ${summaryStats.doneCount} (${summaryStats.donePct}%)`} />
+                </div>
+              </div>
+
+              {/* Category Cards with Individual Progress Bars */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* To Do */}
+                <div style={{ background: 'var(--bg)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      ⏳ To Do
+                    </span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+                      {summaryStats.todoCount} tasks ({summaryStats.todoPct}%)
+                    </span>
+                  </div>
+                  <div style={{ height: '6px', width: '100%', background: 'var(--surface)', borderRadius: '99px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${summaryStats.todoPct}%`, background: '#64748b', borderRadius: '99px', transition: 'width 0.3s ease' }} />
+                  </div>
+                </div>
+
+                {/* In Progress */}
+                <div style={{ background: 'var(--bg)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      🔄 In Progress
+                    </span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f59e0b' }}>
+                      {summaryStats.inProgressCount} tasks ({summaryStats.inProgressPct}%)
+                    </span>
+                  </div>
+                  <div style={{ height: '6px', width: '100%', background: 'var(--surface)', borderRadius: '99px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${summaryStats.inProgressPct}%`, background: '#f59e0b', borderRadius: '99px', transition: 'width 0.3s ease' }} />
+                  </div>
+                </div>
+
+                {/* Done */}
+                <div style={{ background: 'var(--bg)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--emerald)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      ✅ Done (Mastered)
+                    </span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--emerald)' }}>
+                      {summaryStats.doneCount} tasks ({summaryStats.donePct}%)
+                    </span>
+                  </div>
+                  <div style={{ height: '6px', width: '100%', background: 'var(--surface)', borderRadius: '99px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${summaryStats.donePct}%`, background: '#10b981', borderRadius: '99px', transition: 'width 0.3s ease' }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Priority Breakdown Row */}
+              <div style={{ display: 'flex', gap: '16px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border)', flexWrap: 'wrap', alignItems: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-heading)' }}>Priority Breakdown:</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  🔥 High: <strong style={{ color: '#f43f5e' }}>{summaryStats.highCount}</strong> ({summaryStats.highPct}%)
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  ⚡ Medium: <strong style={{ color: '#f59e0b' }}>{summaryStats.mediumCount}</strong> ({summaryStats.mediumPct}%)
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  🔹 Low: <strong style={{ color: '#38bdf8' }}>{summaryStats.lowCount}</strong> ({summaryStats.lowPct}%)
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Search & Status Filter Panel */}
           {starStories.length > 0 && (
             <div className="panel" style={{ marginBottom: '20px', padding: '16px 20px' }}>
@@ -733,49 +1201,115 @@ ${story.result || 'N/A'}
                   ))}
                 </div>
 
-                {/* View Switcher: Board vs List */}
-                <div style={{ display: 'flex', gap: '4px', background: 'var(--surface-accent)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <button
-                    type="button"
-                    className={vaultViewMode === 'board' ? 'button' : 'button button-secondary'}
-                    onClick={() => setVaultViewMode('board')}
-                    style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <Columns className="w-3.5 h-3.5 text-sky-400" /> Kanban Board
-                  </button>
-                  <button
-                    type="button"
-                    className={vaultViewMode === 'list' ? 'button' : 'button button-secondary'}
-                    onClick={() => setVaultViewMode('list')}
-                    style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <List className="w-3.5 h-3.5 text-sky-400" /> Detailed List
-                  </button>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {/* Priority Sort Selector */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="meta" style={{ fontWeight: 700, fontSize: '0.82rem' }}>Sort Priority:</span>
+                    <select
+                      aria-label="Sort tasks by priority level"
+                      value={prioritySort}
+                      onChange={(e) => setPrioritySort(e.target.value as 'none' | 'high-to-low' | 'low-to-high')}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="none">Default Order</option>
+                      <option value="high-to-low">🔥 High → 🔹 Low</option>
+                      <option value="low-to-high">🔹 Low → 🔥 High</option>
+                    </select>
+                  </div>
+
+                  {/* View Switcher: Board vs List */}
+                  <div style={{ display: 'flex', gap: '4px', background: 'var(--surface-accent)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <button
+                      type="button"
+                      className={vaultViewMode === 'board' ? 'button' : 'button button-secondary'}
+                      onClick={() => setVaultViewMode('board')}
+                      style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Columns className="w-3.5 h-3.5 text-sky-400" /> Kanban Board
+                    </button>
+                    <button
+                      type="button"
+                      className={vaultViewMode === 'list' ? 'button' : 'button button-secondary'}
+                      onClick={() => setVaultViewMode('list')}
+                      style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <List className="w-3.5 h-3.5 text-sky-400" /> Detailed List
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Keyword Search Input */}
+              {/* Local Search Input Field */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Search className="w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchVault}
-                  onChange={e => setSearchVault(e.target.value)}
-                  placeholder="Search saved stories by keyword, theme, or technology (e.g., VLAN, Jamf, AWS, Incident)..."
-                  style={{ flex: 1, margin: 0 }}
-                />
-                {(searchVault || statusFilter !== 'All') && (
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    onClick={() => {
-                      setSearchVault('');
-                      setStatusFilter('All');
+                <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+                  <Search className="w-4 h-4 text-slate-400" style={{ position: 'absolute', left: '12px', pointerEvents: 'none' }} />
+                  <input
+                    type="text"
+                    value={searchVault}
+                    onChange={e => setSearchVault(e.target.value)}
+                    placeholder="Search tasks by title or content (e.g., VLAN, Jamf, AWS, Incident, Payroll)..."
+                    aria-label="Search tasks by title or content"
+                    style={{
+                      width: '100%',
+                      paddingLeft: '38px',
+                      paddingRight: searchVault ? '36px' : '12px',
+                      margin: 0,
+                      background: 'var(--bg)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      fontSize: '0.9rem',
                     }}
-                    style={{ padding: '8px 12px', fontSize: '0.85rem' }}
-                  >
-                    Reset Filters
-                  </button>
+                  />
+                  {searchVault && (
+                    <button
+                      type="button"
+                      aria-label="Clear search input"
+                      onClick={() => setSearchVault('')}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <X className="w-4 h-4 hover:text-slate-200" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Match Counter Badge */}
+                {(searchVault || statusFilter !== 'All') && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="pill" style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, background: 'rgba(56, 189, 248, 0.12)', color: 'var(--accent)', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                      {filteredVault.length} of {starStories.length} tasks
+                    </span>
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={() => {
+                        setSearchVault('');
+                        setStatusFilter('All');
+                      }}
+                      style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -826,7 +1360,7 @@ ${story.result || 'N/A'}
             /* KANBAN BOARD VIEW WITH DRAG AND DROP COLUMNS */
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '16px' }}>
               {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
-                const columnStories = filteredVault.filter(s => (s.status || 'To Do') === colStatus);
+                const columnStories = sortedVault.filter(s => (s.status || 'To Do') === colStatus);
                 const isOver = dragOverColumn === colStatus;
 
                 return (
@@ -867,98 +1401,136 @@ ${story.result || 'N/A'}
                         No stories in {colStatus}
                       </div>
                     ) : (
-                      columnStories.map((story) => (
-                        <div
-                          key={story.id}
-                          draggable={true}
-                          onDragStart={(e) => handleDragStart(e, story.id)}
-                          onDragEnd={handleDragEnd}
-                          className="card"
-                          style={{
-                            padding: '14px',
-                            background: 'var(--bg)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '12px',
-                            cursor: 'grab',
-                            opacity: draggedStoryId === story.id ? 0.4 : 1,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'grab' }}>
-                              <GripVertical className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
-                                {story.theme}
-                              </h4>
+                      columnStories.map((story) => {
+                        const priorityStyle = getPriorityStyle(story.priority || 'Medium');
+
+                        return (
+                          <div
+                            key={story.id}
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, story.id)}
+                            onDragEnd={handleDragEnd}
+                            className="card"
+                            style={{
+                              padding: '14px',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '12px',
+                              cursor: 'grab',
+                              opacity: draggedStoryId === story.id ? 0.4 : 1,
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                              <div
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
+                                onClick={() => setModalStory(story)}
+                              >
+                                <GripVertical className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
+                                  {story.theme}
+                                </h4>
+                              </div>
+
+                              {/* Color-Coded Priority Indicator Badge & Quick Toggle */}
+                              <select
+                                aria-label={`Priority level for ${story.theme}`}
+                                value={story.priority || 'Medium'}
+                                onChange={(e) => handleUpdatePriority(story.id, e.target.value as TaskPriority)}
+                                style={{
+                                  padding: '2px 8px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  borderRadius: '99px',
+                                  border: `1px solid ${priorityStyle.border}`,
+                                  background: priorityStyle.bg,
+                                  color: priorityStyle.color,
+                                  cursor: 'pointer',
+                                  flexShrink: 0
+                                }}
+                              >
+                                <option value="High">🔥 High</option>
+                                <option value="Medium">⚡ Medium</option>
+                                <option value="Low">🔹 Low</option>
+                              </select>
+                            </div>
+
+                            {story.situation && (
+                              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 6px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                                <strong style={{ color: 'var(--text)' }}>S:</strong> {story.situation}
+                              </p>
+                            )}
+
+                            {story.result && (
+                              <p style={{ fontSize: '0.82rem', color: 'var(--emerald)', fontWeight: 600, margin: '0 0 10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                                <strong>R:</strong> {story.result}
+                              </p>
+                            )}
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                              <select
+                                aria-label={`Status for ${story.theme}`}
+                                value={story.status || 'To Do'}
+                                onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
+                                style={{
+                                  padding: '2px 6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  borderRadius: '99px',
+                                  border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
+                                  background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
+                                  color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <option value="To Do">To Do</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Done">Done</option>
+                              </select>
+
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button
+                                  type="button"
+                                  className="button button-secondary"
+                                  onClick={() => setModalStory(story)}
+                                  style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                                  title="View task details, notes & links"
+                                >
+                                  <Eye className="w-3 h-3 text-sky-400" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button button-secondary"
+                                  onClick={() => handleCopyStory(story)}
+                                  style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                                  title="Copy story"
+                                >
+                                  <Copy className="w-3 h-3 text-sky-400" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button button-secondary"
+                                  onClick={() => handleEditStory(story)}
+                                  style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                                  title="Edit story"
+                                >
+                                  <Edit3 className="w-3 h-3 text-amber-400" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button button-secondary"
+                                  onClick={() => handleDeleteStory(story.id)}
+                                  style={{ padding: '3px 8px', fontSize: '0.75rem', color: 'var(--rose)' }}
+                                  title="Delete story"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
                             </div>
                           </div>
-
-                          {story.situation && (
-                            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 6px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
-                              <strong style={{ color: 'var(--text)' }}>S:</strong> {story.situation}
-                            </p>
-                          )}
-
-                          {story.result && (
-                            <p style={{ fontSize: '0.82rem', color: 'var(--emerald)', fontWeight: 600, margin: '0 0 10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
-                              <strong>R:</strong> {story.result}
-                            </p>
-                          )}
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
-                            <select
-                              aria-label={`Status for ${story.theme}`}
-                              value={story.status || 'To Do'}
-                              onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
-                              style={{
-                                padding: '2px 6px',
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                borderRadius: '99px',
-                                border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
-                                background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
-                                color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <option value="To Do">To Do</option>
-                              <option value="In Progress">In Progress</option>
-                              <option value="Done">Done</option>
-                            </select>
-
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              <button
-                                type="button"
-                                className="button button-secondary"
-                                onClick={() => handleCopyStory(story)}
-                                style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                                title="Copy story"
-                              >
-                                <Copy className="w-3 h-3 text-sky-400" />
-                              </button>
-                              <button
-                                type="button"
-                                className="button button-secondary"
-                                onClick={() => handleEditStory(story)}
-                                style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                                title="Edit story"
-                              >
-                                <Edit3 className="w-3 h-3 text-amber-400" />
-                              </button>
-                              <button
-                                type="button"
-                                className="button button-secondary"
-                                onClick={() => handleDeleteStory(story.id)}
-                                style={{ padding: '3px 8px', fontSize: '0.75rem', color: 'var(--rose)' }}
-                                title="Delete story"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 );
@@ -967,9 +1539,10 @@ ${story.result || 'N/A'}
           ) : (
             /* DETAILED LIST VIEW */
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {filteredVault.map((story, index) => {
+              {sortedVault.map((story, index) => {
                 const isCopied = copiedId === story.id;
                 const isCurrentEditing = editingId === story.id;
+                const priorityStyle = getPriorityStyle(story.priority || 'Medium');
 
                 return (
                   <div
@@ -992,6 +1565,28 @@ ${story.result || 'N/A'}
                       </div>
 
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Priority Selector */}
+                        <select
+                          id={`priority-select-${story.id}`}
+                          aria-label={`Priority level for ${story.theme}`}
+                          value={story.priority || 'Medium'}
+                          onChange={(e) => handleUpdatePriority(story.id, e.target.value as TaskPriority)}
+                          style={{
+                            padding: '5px 12px',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            borderRadius: '99px',
+                            border: `1px solid ${priorityStyle.border}`,
+                            background: priorityStyle.bg,
+                            color: priorityStyle.color,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="High">🔥 High Priority</option>
+                          <option value="Medium">⚡ Medium Priority</option>
+                          <option value="Low">🔹 Low Priority</option>
+                        </select>
+
                         {/* Status Toggle Selector */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <select
@@ -1028,6 +1623,16 @@ ${story.result || 'N/A'}
                           </select>
                         </div>
 
+                        <button
+                          type="button"
+                          className="button button-secondary"
+                          onClick={() => setModalStory(story)}
+                          style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                          title="View task details, notes & links"
+                        >
+                          <Eye className="w-4 h-4 text-sky-400" />
+                          Details & Hub
+                        </button>
                         <button
                           type="button"
                           className="button button-secondary"
@@ -1357,6 +1962,374 @@ ${story.result || 'N/A'}
           </table>
         </div>
       </div>
+
+      {/* TASK DETAIL & REFERENCE HUB MODAL */}
+      {modalStory && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => setModalStory(null)}
+        >
+          <div
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '840px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <Eye className="w-5 h-5 text-sky-400" />
+                  <span className="pill" style={{ fontWeight: 800, margin: 0, background: 'var(--surface-accent)', color: 'var(--accent)' }}>
+                    Task Details & Reference Hub
+                  </span>
+                </div>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                  {modalStory.theme}
+                </h2>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {/* Priority selector */}
+                <select
+                  aria-label="Priority level"
+                  value={modalStory.priority || 'Medium'}
+                  onChange={(e) => {
+                    const newP = e.target.value as TaskPriority;
+                    handleUpdatePriority(modalStory.id, newP);
+                    setModalStory(prev => prev ? { ...prev, priority: newP } : null);
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    borderRadius: '99px',
+                    border: `1px solid ${getPriorityStyle(modalStory.priority || 'Medium').border}`,
+                    background: getPriorityStyle(modalStory.priority || 'Medium').bg,
+                    color: getPriorityStyle(modalStory.priority || 'Medium').color,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="High">🔥 High Priority</option>
+                  <option value="Medium">⚡ Medium Priority</option>
+                  <option value="Low">🔹 Low Priority</option>
+                </select>
+
+                {/* Status selector */}
+                <select
+                  aria-label="Status"
+                  value={modalStory.status || 'To Do'}
+                  onChange={(e) => {
+                    const newSt = e.target.value as StoryStatus;
+                    handleUpdateStatus(modalStory.id, newSt);
+                    setModalStory(prev => prev ? { ...prev, status: newSt } : null);
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    borderRadius: '99px',
+                    border: '1px solid ' + (
+                      modalStory.status === 'Done' ? 'var(--emerald)' :
+                      modalStory.status === 'In Progress' ? '#f59e0b' :
+                      'var(--border)'
+                    ),
+                    background: (
+                      modalStory.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' :
+                      modalStory.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' :
+                      'var(--surface)'
+                    ),
+                    color: (
+                      modalStory.status === 'Done' ? 'var(--emerald)' :
+                      modalStory.status === 'In Progress' ? '#f59e0b' :
+                      'var(--text)'
+                    ),
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="To Do">⏳ To Do</option>
+                  <option value="In Progress">🔄 In Progress</option>
+                  <option value="Done">✅ Done</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => setModalStory(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
+                  aria-label="Close modal"
+                >
+                  <X className="w-5 h-5 hover:text-slate-200" />
+                </button>
+              </div>
+            </div>
+
+            {/* STAR Story Dimensions Recap */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {modalStory.situation && (
+                <div style={{ background: 'var(--bg)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <strong style={{ color: 'var(--accent)', fontSize: '0.82rem', display: 'block', marginBottom: '4px' }}>1. Situation</strong>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text)', margin: 0, lineHeight: '1.4' }}>{modalStory.situation}</p>
+                </div>
+              )}
+              {modalStory.task && (
+                <div style={{ background: 'var(--bg)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <strong style={{ color: 'var(--accent)', fontSize: '0.82rem', display: 'block', marginBottom: '4px' }}>2. Task</strong>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text)', margin: 0, lineHeight: '1.4' }}>{modalStory.task}</p>
+                </div>
+              )}
+              {modalStory.action && (
+                <div style={{ background: 'var(--bg)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <strong style={{ color: 'var(--accent)', fontSize: '0.82rem', display: 'block', marginBottom: '4px' }}>3. Action</strong>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text)', margin: 0, lineHeight: '1.4' }}>{modalStory.action}</p>
+                </div>
+              )}
+              {modalStory.result && (
+                <div style={{ background: 'var(--bg)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <strong style={{ color: 'var(--emerald)', fontSize: '0.82rem', display: 'block', marginBottom: '4px' }}>4. Result</strong>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--emerald)', margin: 0, lineHeight: '1.4', fontWeight: 600 }}>{modalStory.result}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Rich Interview Prep Talking Points & Notes with Web Speech Voice Dictation */}
+            <div className="panel" style={{ background: 'var(--bg)', border: '1px solid var(--border)', padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-heading)', fontWeight: 700, fontSize: '0.95rem', margin: 0 }}>
+                  <FileText className="w-4 h-4 text-sky-400" />
+                  Rich Interview Talking Points & Prep Notes
+                </label>
+
+                {/* Voice Dictation Button */}
+                <button
+                  type="button"
+                  className={isListening ? "button button-secondary animate-pulse" : "button button-secondary"}
+                  onClick={toggleListening}
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    color: isListening ? '#f43f5e' : 'var(--text)',
+                    borderColor: isListening ? 'rgba(244, 63, 94, 0.5)' : 'var(--border)',
+                    background: isListening ? 'rgba(244, 63, 94, 0.12)' : 'var(--surface)',
+                    boxShadow: isListening ? '0 0 12px rgba(244, 63, 94, 0.3)' : 'none'
+                  }}
+                  title={isListening ? "Click to stop voice dictation" : "Click to dictate notes using your microphone"}
+                >
+                  {isListening ? (
+                    <>
+                      <MicOff className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+                      <span>🔴 Listening... Click to Stop</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                      <span>Dictate Voice Notes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <p className="meta" style={{ fontSize: '0.8rem', marginBottom: '10px' }}>
+                Type or speak key metrics, technical nuances, mock interviewer questions, or CLI commands to remember.
+              </p>
+              <textarea
+                rows={4}
+                value={modalStory.notes || ''}
+                onChange={(e) => handleSaveModalNotes(e.target.value)}
+                placeholder="Type or click 'Dictate Voice Notes' to speak talking points, metrics, or answers..."
+                style={{ width: '100%', minHeight: '100px', fontSize: '0.88rem', background: 'var(--surface)', border: '1px solid var(--border)', margin: 0 }}
+              />
+            </div>
+
+            {/* External Links Hub */}
+            <div className="panel" style={{ background: 'var(--bg)', border: '1px solid var(--border)', padding: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-heading)', fontWeight: 700, fontSize: '0.95rem', marginBottom: '10px' }}>
+                <Link2 className="w-4 h-4 text-sky-400" />
+                Resource & Documentation Links ({modalStory.links?.length || 0})
+              </label>
+
+              {/* Existing Links List */}
+              {modalStory.links && modalStory.links.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                  {modalStory.links.map(link => (
+                    <div key={link.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        {link.title}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLink(link.id)}
+                        style={{ background: 'none', border: 'none', color: 'var(--rose)', cursor: 'pointer', padding: '2px' }}
+                        title="Remove link"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add New Link Inputs */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Link Title (e.g., Incident Postmortem Doc)"
+                  value={newLinkTitle}
+                  onChange={(e) => setNewLinkTitle(e.target.value)}
+                  style={{ flex: 1, minWidth: '180px', margin: 0, fontSize: '0.85rem' }}
+                />
+                <input
+                  type="url"
+                  placeholder="URL (e.g., https://github.com/...)"
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                  style={{ flex: 1.5, minWidth: '220px', margin: 0, fontSize: '0.85rem' }}
+                />
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={handleAddLink}
+                  style={{ padding: '6px 14px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Link
+                </button>
+              </div>
+            </div>
+
+            {/* File Reference Placeholders Hub */}
+            <div className="panel" style={{ background: 'var(--bg)', border: '1px solid var(--border)', padding: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-heading)', fontWeight: 700, fontSize: '0.95rem', marginBottom: '10px' }}>
+                <Paperclip className="w-4 h-4 text-sky-400" />
+                File & Document Reference Placeholders ({modalStory.fileRefs?.length || 0})
+              </label>
+
+              {/* Existing File Refs */}
+              {modalStory.fileRefs && modalStory.fileRefs.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                  {modalStory.fileRefs.map(f => (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span className="pill" style={{ fontSize: '0.72rem', margin: 0, fontWeight: 700 }}>
+                          {f.fileType}
+                        </span>
+                        <strong style={{ fontSize: '0.85rem', color: 'var(--text-heading)' }}>{f.name}</strong>
+                        {f.notes && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>— {f.notes}</span>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFileRef(f.id)}
+                        style={{ background: 'none', border: 'none', color: 'var(--rose)', cursor: 'pointer', padding: '2px' }}
+                        title="Remove file reference"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add File Ref Inputs */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="File Name (e.g., Failover_Script.sh)"
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  style={{ flex: 1, minWidth: '160px', margin: 0, fontSize: '0.85rem' }}
+                />
+                <select
+                  value={newFileType}
+                  onChange={(e) => setNewFileType(e.target.value)}
+                  style={{ padding: '6px 10px', fontSize: '0.85rem', margin: 0 }}
+                >
+                  <option value="Shell Script">Shell / Code Script</option>
+                  <option value="PDF Document">PDF Document</option>
+                  <option value="Log File">Log File</option>
+                  <option value="Architecture Diagram">Architecture Diagram</option>
+                  <option value="Other Reference">Other Reference</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Notes (optional)"
+                  value={newFileNotes}
+                  onChange={(e) => setNewFileNotes(e.target.value)}
+                  style={{ flex: 1, minWidth: '140px', margin: 0, fontSize: '0.85rem' }}
+                />
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={handleAddFileRef}
+                  style={{ padding: '6px 14px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Ref
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Bottom Actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '16px', flexWrap: 'wrap', gap: '10px' }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => handleCopyStory(modalStory)}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              >
+                <Copy className="w-4 h-4 text-sky-400" /> Copy Story Text
+              </button>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => {
+                    handleEditStory(modalStory);
+                    setModalStory(null);
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                >
+                  <Edit3 className="w-4 h-4 text-amber-400" /> Open in STAR Builder
+                </button>
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => setModalStory(null)}
+                  style={{ padding: '8px 18px', fontSize: '0.88rem' }}
+                >
+                  Done / Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };
