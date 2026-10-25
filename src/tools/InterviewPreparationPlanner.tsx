@@ -39,12 +39,26 @@ import {
   GitFork,
   AlertTriangle,
   Repeat,
-  RefreshCw
+  RefreshCw,
+  Tag,
+  Layers,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 
 export type StoryStatus = 'To Do' | 'In Progress' | 'Done';
 export type TaskPriority = 'High' | 'Medium' | 'Low';
 export type RepeatFrequency = 'None' | 'Daily' | 'Weekly' | 'Monthly';
+
+export const DEFAULT_CATEGORIES = [
+  'Technical',
+  'System Design',
+  'Behavioral',
+  'HR / General',
+  'Coding / Algorithms',
+  'Leadership',
+  'Project Deep Dive'
+] as const;
 
 export interface TaskLink {
   id: string;
@@ -69,12 +83,88 @@ interface StarStory {
   status: StoryStatus;
   priority?: TaskPriority;
   repeatFrequency?: RepeatFrequency;
+  categoryLabel?: string;
   notes?: string;
   links?: TaskLink[];
   fileRefs?: TaskFileRef[];
   isArchived?: boolean;
   blockedByTaskIds?: number[];
 }
+
+export const getCategoryStyle = (categoryLabel: string = 'Behavioral') => {
+  const norm = (categoryLabel || 'Behavioral').trim().toLowerCase();
+  if (norm.includes('tech') || norm.includes('dev') || norm.includes('sysadmin') || norm.includes('net')) {
+    return {
+      bg: 'rgba(56, 189, 248, 0.15)',
+      border: 'rgba(56, 189, 248, 0.4)',
+      color: '#38bdf8',
+      icon: '💻',
+      label: categoryLabel || 'Technical'
+    };
+  }
+  if (norm.includes('system') || norm.includes('design') || norm.includes('arch') || norm.includes('cloud')) {
+    return {
+      bg: 'rgba(168, 85, 247, 0.15)',
+      border: 'rgba(168, 85, 247, 0.4)',
+      color: '#c084fc',
+      icon: '🏛️',
+      label: categoryLabel || 'System Design'
+    };
+  }
+  if (norm.includes('behav') || norm.includes('star') || norm.includes('situation') || norm.includes('crisis')) {
+    return {
+      bg: 'rgba(245, 158, 11, 0.15)',
+      border: 'rgba(245, 158, 11, 0.4)',
+      color: '#fbbf24',
+      icon: '💬',
+      label: categoryLabel || 'Behavioral'
+    };
+  }
+  if (norm.includes('hr') || norm.includes('culture') || norm.includes('people') || norm.includes('general')) {
+    return {
+      bg: 'rgba(16, 185, 129, 0.15)',
+      border: 'rgba(16, 185, 129, 0.4)',
+      color: '#34d399',
+      icon: '🤝',
+      label: categoryLabel || 'HR / General'
+    };
+  }
+  if (norm.includes('code') || norm.includes('algo') || norm.includes('script') || norm.includes('program')) {
+    return {
+      bg: 'rgba(244, 63, 94, 0.15)',
+      border: 'rgba(244, 63, 94, 0.4)',
+      color: '#fb7185',
+      icon: '⚡',
+      label: categoryLabel || 'Coding / Algorithms'
+    };
+  }
+  if (norm.includes('lead') || norm.includes('manage') || norm.includes('executive') || norm.includes('team')) {
+    return {
+      bg: 'rgba(234, 179, 8, 0.15)',
+      border: 'rgba(234, 179, 8, 0.4)',
+      color: '#facc15',
+      icon: '👑',
+      label: categoryLabel || 'Leadership'
+    };
+  }
+  if (norm.includes('project') || norm.includes('deep') || norm.includes('case') || norm.includes('incident')) {
+    return {
+      bg: 'rgba(20, 184, 166, 0.15)',
+      border: 'rgba(20, 184, 166, 0.4)',
+      color: '#2dd4bf',
+      icon: '🚀',
+      label: categoryLabel || 'Project Deep Dive'
+    };
+  }
+
+  return {
+    bg: 'rgba(129, 140, 248, 0.15)',
+    border: 'rgba(129, 140, 248, 0.4)',
+    color: '#a5b4fc',
+    icon: '🏷️',
+    label: categoryLabel || 'Custom'
+  };
+};
 
 const SAMPLE_STORIES: StarStory[] = [
   {
@@ -87,6 +177,7 @@ const SAMPLE_STORIES: StarStory[] = [
     status: 'Done',
     priority: 'High',
     repeatFrequency: 'Weekly',
+    categoryLabel: 'Technical',
     notes: 'Key Talking Point: Emphasize speed of isolation (14 minutes) and zero payroll cut-off delays. Be ready to explain packet collision mechanics and VRRP failover quorum.',
     links: [
       { id: 'l1', title: 'Network Outage Postmortem Doc', url: 'https://notion.so/network-incident-postmortem-2026' },
@@ -108,6 +199,7 @@ const SAMPLE_STORIES: StarStory[] = [
     status: 'In Progress',
     priority: 'Medium',
     repeatFrequency: 'Daily',
+    categoryLabel: 'System Design',
     notes: 'Emphasize cross-functional coordination between Mac SysAdmins, Security (CrowdStrike), and Okta IDP team.',
     links: [
       { id: 'l3', title: 'Jamf Pro Zero-Touch Workflow', url: 'https://jamf.com/docs/zero-touch-apple-business-manager' }
@@ -127,6 +219,7 @@ const SAMPLE_STORIES: StarStory[] = [
     status: 'To Do',
     priority: 'High',
     repeatFrequency: 'Monthly',
+    categoryLabel: 'Behavioral',
     notes: 'Prerequisite dependency: Requires Zero-Touch Fleet Provisioning completion to distribute WebAuthn hardware keys to engineers.',
     links: [
       { id: 'l4', title: 'Okta SSO Architectural Spec', url: 'https://okta.com/docs/zero-trust-iam-spec' }
@@ -214,6 +307,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
           status: s.status || 'To Do',
           priority: s.priority || 'Medium',
           repeatFrequency: s.repeatFrequency || 'None',
+          categoryLabel: s.categoryLabel || 'Technical',
           isArchived: !!s.isArchived,
           blockedByTaskIds: Array.isArray(s.blockedByTaskIds) ? s.blockedByTaskIds : []
         }));
@@ -252,22 +346,35 @@ export const InterviewPreparationPlanner: React.FC = () => {
   const [storyRepeat, setStoryRepeat] = useState<RepeatFrequency>(() => {
     return (localStorage.getItem('ipp_draft_repeat') as RepeatFrequency) || 'None';
   });
+  const [storyCategory, setStoryCategory] = useState<string>(() => {
+    return localStorage.getItem('ipp_draft_category') || 'Technical';
+  });
+  const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
+  const [isCustomCategoryMode, setIsCustomCategoryMode] = useState<boolean>(false);
+
   const [editingId, setEditingId] = useState<number | null>(() => {
     const saved = localStorage.getItem('ipp_draft_editing_id');
     return saved ? Number(saved) : null;
   });
 
-  // Vault Search, Filter, and Sort States
+  // Vault Search, Filter, Sort, and Grouping States
   const [searchVault, setSearchVault] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | StoryStatus>('All');
+  const [categoryFilter, setCategoryFilter] = useState<'All' | string>('All');
   const [prioritySort, setPrioritySort] = useState<'none' | 'high-to-low' | 'low-to-high'>('none');
 
-  // Vault View Mode (Kanban Board vs Detailed List) & Drag-and-Drop state
+  // Vault View Mode (Kanban Board vs Detailed List) & Group By Mode ('status' vs 'category')
   const [vaultViewMode, setVaultViewMode] = useState<'board' | 'list'>(() => {
     return (localStorage.getItem('ipp_vault_view_mode') as 'board' | 'list') || 'board';
   });
+  const [groupByMode, setGroupByMode] = useState<'status' | 'category'>(() => {
+    return (localStorage.getItem('ipp_group_by_mode') as 'status' | 'category') || 'status';
+  });
+  const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<{ [key: string]: boolean }>({});
+
   const [draggedStoryId, setDraggedStoryId] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<StoryStatus | null>(null);
+  const [dragOverSwimlane, setDragOverSwimlane] = useState<{ category: string; status: StoryStatus } | null>(null);
 
   // Task Detail Modal State & Input Handlers
   const [modalStory, setModalStory] = useState<StarStory | null>(null);
@@ -514,6 +621,14 @@ export const InterviewPreparationPlanner: React.FC = () => {
     localStorage.setItem('ipp_vault_view_mode', vaultViewMode);
   }, [vaultViewMode]);
 
+  useEffect(() => {
+    localStorage.setItem('ipp_group_by_mode', groupByMode);
+  }, [groupByMode]);
+
+  useEffect(() => {
+    localStorage.setItem('ipp_draft_category', storyCategory);
+  }, [storyCategory]);
+
   const handleDragStart = (e: React.DragEvent, storyId: number) => {
     e.dataTransfer.setData('text/plain', String(storyId));
     e.dataTransfer.effectAllowed = 'move';
@@ -523,6 +638,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
   const handleDragEnd = () => {
     setDraggedStoryId(null);
     setDragOverColumn(null);
+    setDragOverSwimlane(null);
   };
 
   const handleDragOverColumn = (e: React.DragEvent, status: StoryStatus) => {
@@ -530,6 +646,14 @@ export const InterviewPreparationPlanner: React.FC = () => {
     e.dataTransfer.dropEffect = 'move';
     if (dragOverColumn !== status) {
       setDragOverColumn(status);
+    }
+  };
+
+  const handleDragOverSwimlane = (e: React.DragEvent, category: string, status: StoryStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!dragOverSwimlane || dragOverSwimlane.category !== category || dragOverSwimlane.status !== status) {
+      setDragOverSwimlane({ category, status });
     }
   };
 
@@ -584,6 +708,32 @@ export const InterviewPreparationPlanner: React.FC = () => {
       }
       localStorage.setItem('ipp_stories', JSON.stringify(updatedStories));
       return updatedStories;
+    });
+    setDraggedStoryId(null);
+  };
+
+  const handleDropToSwimlane = (e: React.DragEvent, targetCategory: string, targetStatus: StoryStatus) => {
+    e.preventDefault();
+    setDragOverSwimlane(null);
+    const storyIdStr = e.dataTransfer.getData('text/plain');
+    const storyId = Number(storyIdStr);
+    if (!storyId || isNaN(storyId)) {
+      setDraggedStoryId(null);
+      return;
+    }
+
+    setStarStories(prev => {
+      const { updatedStories, createdRepeatStory, targetStory } = applyStatusUpdate(prev, storyId, targetStatus);
+      const finalStories = updatedStories.map(s => s.id === storyId ? { ...s, categoryLabel: targetCategory } : s);
+      if (targetStory) {
+        let repeatNote = '';
+        if (createdRepeatStory) {
+          repeatNote = ` — New ${targetStory.repeatFrequency} review task created in To Do!`;
+        }
+        showToast(`Updated "${targetStory.theme}" → Category: ${targetCategory}, Status: ${targetStatus}${repeatNote}`);
+      }
+      localStorage.setItem('ipp_stories', JSON.stringify(finalStories));
+      return finalStories;
     });
     setDraggedStoryId(null);
   };
@@ -655,6 +805,9 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setStoryStatus('To Do');
     setStoryPriority('Medium');
     setStoryRepeat('None');
+    setStoryCategory('Technical');
+    setCustomCategoryInput('');
+    setIsCustomCategoryMode(false);
     setEditingId(null);
     localStorage.removeItem('ipp_draft_theme');
     localStorage.removeItem('ipp_draft_situation');
@@ -664,7 +817,20 @@ export const InterviewPreparationPlanner: React.FC = () => {
     localStorage.removeItem('ipp_draft_status');
     localStorage.removeItem('ipp_draft_priority');
     localStorage.removeItem('ipp_draft_repeat');
+    localStorage.removeItem('ipp_draft_category');
     localStorage.removeItem('ipp_draft_editing_id');
+  };
+
+  const handleUpdateCategory = (id: number, newCategory: string) => {
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === id ? { ...s, categoryLabel: newCategory } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    if (modalStory && modalStory.id === id) {
+      setModalStory(prev => prev ? { ...prev, categoryLabel: newCategory } : null);
+    }
+    showToast(`Category updated to "${newCategory}"`);
   };
 
   const handleUpdateStatus = (id: number, newStatus: StoryStatus) => {
@@ -719,6 +885,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setStoryStatus('In Progress');
     setStoryPriority('High');
     setStoryRepeat('Weekly');
+    setStoryCategory('System Design');
     showToast('Sample STAR story loaded into editor!');
   };
 
@@ -727,6 +894,10 @@ export const InterviewPreparationPlanner: React.FC = () => {
       showToast('Please enter at least a theme or one STAR dimension.');
       return;
     }
+
+    const finalCategory = isCustomCategoryMode && customCategoryInput.trim()
+      ? customCategoryInput.trim()
+      : storyCategory.trim() || 'Technical';
 
     if (editingId !== null) {
       setStarStories(prev =>
@@ -742,6 +913,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
                 status: storyStatus,
                 priority: storyPriority,
                 repeatFrequency: storyRepeat,
+                categoryLabel: finalCategory,
               }
             : story
         )
@@ -758,6 +930,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
         status: storyStatus,
         priority: storyPriority,
         repeatFrequency: storyRepeat,
+        categoryLabel: finalCategory,
       };
       setStarStories(prev => [created, ...prev]);
       showToast('Story added to vault!');
@@ -776,7 +949,9 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setStoryStatus(story.status || 'To Do');
     setStoryPriority(story.priority || 'Medium');
     setStoryRepeat(story.repeatFrequency || 'None');
-    setActiveTab('builder');
+    setStoryCategory(story.categoryLabel || 'Technical');
+    setCustomCategoryInput('');
+    setIsCustomCategoryMode(false);
     setActiveTab('builder');
 
     window.scrollTo({ top: 200, behavior: 'smooth' });
@@ -797,6 +972,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
 
   const handleCopyStory = (story: StarStory) => {
     const formatted = `=== STAR STORY: ${story.theme.toUpperCase()} ===
+[CATEGORY]: ${story.categoryLabel || 'Technical'}
 [PRIORITY]: ${story.priority || 'Medium'}
 [STATUS]: ${story.status || 'To Do'}
 [SITUATION]:
@@ -889,6 +1065,7 @@ ${story.result || 'N/A'}
     const headers = [
       'ID',
       'Theme / Competency',
+      'Category Label',
       'Priority',
       'Status',
       'Prerequisites / Blockers',
@@ -909,6 +1086,7 @@ ${story.result || 'N/A'}
       return [
         story.id,
         escapeCsvField(story.theme),
+        escapeCsvField(story.categoryLabel || 'Technical'),
         escapeCsvField(story.priority || 'Medium'),
         escapeCsvField(story.status || 'To Do'),
         escapeCsvField(blockersStr),
@@ -944,6 +1122,16 @@ ${story.result || 'N/A'}
       counts[st] = (counts[st] || 0) + 1;
     });
     return counts;
+  }, [activeStories]);
+
+  const allAvailableCategories = useMemo(() => {
+    const categoriesSet = new Set<string>([...DEFAULT_CATEGORIES]);
+    activeStories.forEach(s => {
+      if (s.categoryLabel && s.categoryLabel.trim()) {
+        categoriesSet.add(s.categoryLabel.trim());
+      }
+    });
+    return Array.from(categoriesSet);
   }, [activeStories]);
 
   const summaryStats = useMemo(() => {
@@ -1021,10 +1209,12 @@ ${story.result || 'N/A'}
       story.situation.toLowerCase().includes(q) ||
       story.task.toLowerCase().includes(q) ||
       story.action.toLowerCase().includes(q) ||
-      story.result.toLowerCase().includes(q)
+      story.result.toLowerCase().includes(q) ||
+      (story.categoryLabel || 'Technical').toLowerCase().includes(q)
     );
     const matchesStatus = statusFilter === 'All' || (story.status || 'To Do') === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesCategory = categoryFilter === 'All' || (story.categoryLabel || 'Technical') === categoryFilter;
+    return matchesSearch && matchesStatus && matchesCategory;
   });
 
   const sortedVault = useMemo(() => {
@@ -1192,17 +1382,62 @@ ${story.result || 'N/A'}
               </div>
             </div>
 
-            {/* Theme, Priority Level, Preparation Status & Repeat Schedule Row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4" style={{ marginBottom: '20px', marginTop: 0 }}>
+            {/* Theme, Category Label, Priority Level, Preparation Status & Repeat Schedule Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3" style={{ marginBottom: '20px', marginTop: 0 }}>
               <div>
-                <label htmlFor="story-theme">Theme / Competency Category</label>
+                <label htmlFor="story-theme">Theme / Answer Title</label>
                 <input
                   id="story-theme"
                   type="text"
                   value={storyTheme}
                   onChange={(e) => setStoryTheme(e.target.value)}
-                  placeholder="e.g. High-Severity Outage, Automation, Incident Response"
+                  placeholder="e.g. High-Severity Outage, Automation"
                 />
+              </div>
+              <div>
+                <label htmlFor="story-category">Category / Domain Tag</label>
+                {!isCustomCategoryMode ? (
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <select
+                      id="story-category"
+                      value={storyCategory}
+                      onChange={(e) => {
+                        if (e.target.value === '__custom__') {
+                          setIsCustomCategoryMode(true);
+                        } else {
+                          setStoryCategory(e.target.value);
+                        }
+                      }}
+                      style={{ flex: 1 }}
+                    >
+                      {DEFAULT_CATEGORIES.map(cat => (
+                        <option key={cat} value={cat}>
+                          {getCategoryStyle(cat).icon} {cat}
+                        </option>
+                      ))}
+                      <option value="__custom__">✏️ + Custom Tag...</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <input
+                      type="text"
+                      value={customCategoryInput}
+                      onChange={(e) => setCustomCategoryInput(e.target.value)}
+                      placeholder="e.g. Security, DevOps"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={() => setIsCustomCategoryMode(false)}
+                      style={{ padding: '0 8px', fontSize: '0.75rem', flexShrink: 0 }}
+                      title="Back to standard preset categories"
+                    >
+                      Presets
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <label htmlFor="story-priority">Task Priority Level</label>
@@ -1224,12 +1459,12 @@ ${story.result || 'N/A'}
                   onChange={(e) => setStoryStatus(e.target.value as StoryStatus)}
                 >
                   <option value="To Do">⏳ To Do (Drafting)</option>
-                  <option value="In Progress">🔄 In Progress (Refining & Practice)</option>
-                  <option value="Done">✅ Done (Mastered Answer)</option>
+                  <option value="In Progress">🔄 In Progress (Practicing)</option>
+                  <option value="Done">✅ Done (Mastered)</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="story-repeat">Repeat Review Schedule</label>
+                <label htmlFor="story-repeat">Repeat Schedule</label>
                 <select
                   id="story-repeat"
                   value={storyRepeat}
@@ -1549,6 +1784,33 @@ ${story.result || 'N/A'}
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {/* Category Filter Selector */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="meta" style={{ fontWeight: 700, fontSize: '0.82rem' }}>Category:</span>
+                    <select
+                      aria-label="Filter tasks by category"
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="All">All Categories ({allAvailableCategories.length})</option>
+                      {allAvailableCategories.map(cat => (
+                        <option key={cat} value={cat}>
+                          {getCategoryStyle(cat).icon} {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Priority Sort Selector */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span className="meta" style={{ fontWeight: 700, fontSize: '0.82rem' }}>Sort Priority:</span>
@@ -1592,6 +1854,30 @@ ${story.result || 'N/A'}
                       <List className="w-3.5 h-3.5 text-sky-400" /> Detailed List
                     </button>
                   </div>
+
+                  {/* Group By Toggle: Status Columns vs Category Swimlanes */}
+                  {vaultViewMode === 'board' && (
+                    <div style={{ display: 'flex', gap: '4px', background: 'var(--surface-accent)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                      <button
+                        type="button"
+                        className={groupByMode === 'status' ? 'button' : 'button button-secondary'}
+                        onClick={() => setGroupByMode('status')}
+                        style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        title="Group board into standard status columns (To Do, In Progress, Done)"
+                      >
+                        <Columns className="w-3.5 h-3.5 text-sky-400" /> By Status
+                      </button>
+                      <button
+                        type="button"
+                        className={groupByMode === 'category' ? 'button' : 'button button-secondary'}
+                        onClick={() => setGroupByMode('category')}
+                        style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        title="Group board into category swimlanes (Technical, System Design, Behavioral, HR, etc.)"
+                      >
+                        <Layers className="w-3.5 h-3.5 text-indigo-400" /> By Category Swimlanes
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1704,8 +1990,271 @@ ${story.result || 'N/A'}
               </button>
             </div>
           ) : vaultViewMode === 'board' ? (
-            /* KANBAN BOARD VIEW WITH DRAG AND DROP COLUMNS */
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '16px' }}>
+            groupByMode === 'category' ? (
+              /* KANBAN BOARD VIEW WITH CATEGORY SWIMLANES */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
+                {allAvailableCategories.map(cat => {
+                  const catStyle = getCategoryStyle(cat);
+                  const catStories = sortedVault.filter(s => (s.categoryLabel || 'Technical') === cat);
+                  if (catStories.length === 0 && categoryFilter !== 'All' && categoryFilter !== cat) {
+                    return null;
+                  }
+                  const isCollapsed = !!collapsedSwimlanes[cat];
+
+                  const todoCount = catStories.filter(s => (s.status || 'To Do') === 'To Do').length;
+                  const inProgressCount = catStories.filter(s => s.status === 'In Progress').length;
+                  const doneCount = catStories.filter(s => s.status === 'Done').length;
+
+                  return (
+                    <div
+                      key={cat}
+                      className="panel"
+                      style={{
+                        background: 'var(--surface)',
+                        border: `1px solid ${catStyle.border}`,
+                        borderRadius: '16px',
+                        padding: '16px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                      }}
+                    >
+                      {/* Swimlane Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', paddingBottom: isCollapsed ? 0 : '12px', borderBottom: isCollapsed ? 'none' : '1px solid var(--border)' }}>
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                          onClick={() => setCollapsedSwimlanes(prev => ({ ...prev, [cat]: !prev[cat] }))}
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight className="w-5 h-5 text-slate-400" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-slate-400" />
+                          )}
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '4px 12px',
+                              borderRadius: '8px',
+                              background: catStyle.bg,
+                              border: `1px solid ${catStyle.border}`,
+                              color: catStyle.color,
+                              fontWeight: 800,
+                              fontSize: '0.95rem'
+                            }}
+                          >
+                            <span>{catStyle.icon}</span>
+                            <span>{cat} Swimlane</span>
+                          </span>
+
+                          <span className="pill" style={{ margin: 0, fontWeight: 700, fontSize: '0.8rem' }}>
+                            {catStories.length} {catStories.length === 1 ? 'task' : 'tasks'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem' }}>
+                          <span className="pill" style={{ margin: 0, background: 'var(--surface)', color: 'var(--text-muted)' }}>
+                            ⏳ {todoCount} To Do
+                          </span>
+                          <span className="pill" style={{ margin: 0, background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
+                            🔄 {inProgressCount} In Progress
+                          </span>
+                          <span className="pill" style={{ margin: 0, background: 'rgba(16, 185, 129, 0.12)', color: 'var(--emerald)' }}>
+                            ✅ {doneCount} Done
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Swimlane Columns Matrix */}
+                      {!isCollapsed && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '14px' }}>
+                          {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
+                            const columnStories = catStories.filter(s => (s.status || 'To Do') === colStatus);
+                            const isOver = dragOverSwimlane?.category === cat && dragOverSwimlane?.status === colStatus;
+
+                            return (
+                              <div
+                                key={colStatus}
+                                onDragOver={(e) => handleDragOverSwimlane(e, cat, colStatus)}
+                                onDragLeave={handleDragLeaveColumn}
+                                onDrop={(e) => handleDropToSwimlane(e, cat, colStatus)}
+                                style={{
+                                  background: 'var(--bg)',
+                                  border: isOver ? '2px dashed var(--accent)' : '1px solid var(--border)',
+                                  borderRadius: '12px',
+                                  padding: '12px',
+                                  minHeight: '160px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '10px',
+                                  transition: 'all 0.15s ease',
+                                  boxShadow: isOver ? '0 0 12px rgba(56, 189, 248, 0.25)' : 'none'
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', borderBottom: '1px solid var(--border)' }}>
+                                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: colStatus === 'Done' ? 'var(--emerald)' : colStatus === 'In Progress' ? '#f59e0b' : 'var(--text-heading)' }}>
+                                    {colStatus === 'To Do' ? '⏳ To Do' : colStatus === 'In Progress' ? '🔄 In Progress' : '✅ Done'}
+                                  </span>
+                                  <span className="pill" style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700 }}>
+                                    {columnStories.length}
+                                  </span>
+                                </div>
+
+                                {columnStories.length === 0 ? (
+                                  <div style={{ padding: '20px 8px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                                    Drag tasks here for {cat} ({colStatus})
+                                  </div>
+                                ) : (
+                                  columnStories.map(story => {
+                                    const priorityStyle = getPriorityStyle(story.priority || 'Medium');
+                                    const pendingBlockers = getPendingBlockers(story, starStories);
+                                    const allBlockers = getAllBlockers(story, starStories);
+                                    const dependentTasks = getDependentTasks(story.id, starStories);
+                                    const isBlocked = pendingBlockers.length > 0;
+
+                                    return (
+                                      <div
+                                        key={story.id}
+                                        draggable={true}
+                                        onDragStart={(e) => handleDragStart(e, story.id)}
+                                        onDragEnd={handleDragEnd}
+                                        className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
+                                        style={{
+                                          padding: '12px',
+                                          borderRadius: '10px',
+                                          cursor: 'grab',
+                                          opacity: draggedStoryId === story.id ? 0.4 : 1,
+                                          transition: 'all 0.15s ease',
+                                        }}
+                                      >
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                                          <div
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
+                                            onClick={() => setModalStory(story)}
+                                          >
+                                            <GripVertical className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                                            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
+                                              {story.theme}
+                                            </h4>
+                                          </div>
+
+                                          <select
+                                            aria-label={`Priority level for ${story.theme}`}
+                                            value={story.priority || 'Medium'}
+                                            onChange={(e) => handleUpdatePriority(story.id, e.target.value as TaskPriority)}
+                                            style={{
+                                              padding: '2px 6px',
+                                              fontSize: '0.7rem',
+                                              fontWeight: 700,
+                                              borderRadius: '99px',
+                                              border: `1px solid ${priorityStyle.border}`,
+                                              background: priorityStyle.bg,
+                                              color: priorityStyle.color,
+                                              cursor: 'pointer',
+                                              flexShrink: 0
+                                            }}
+                                          >
+                                            <option value="High">🔥 High</option>
+                                            <option value="Medium">⚡ Medium</option>
+                                            <option value="Low">🔹 Low</option>
+                                          </select>
+                                        </div>
+
+                                        {/* Dependency & Repeat Badges */}
+                                        {(isBlocked || allBlockers.length > 0 || dependentTasks.length > 0 || (story.repeatFrequency && story.repeatFrequency !== 'None')) && (
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
+                                            {story.repeatFrequency && story.repeatFrequency !== 'None' && (
+                                              <span
+                                                style={{
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  gap: '3px',
+                                                  fontSize: '0.7rem',
+                                                  fontWeight: 600,
+                                                  padding: '1px 6px',
+                                                  borderRadius: '4px',
+                                                  background: 'rgba(129, 140, 248, 0.15)',
+                                                  border: '1px solid rgba(129, 140, 248, 0.35)',
+                                                  color: '#a5b4fc',
+                                                }}
+                                                title={`Repeat frequency: ${story.repeatFrequency}`}
+                                              >
+                                                <Repeat className="w-3 h-3 text-indigo-400" />
+                                                {story.repeatFrequency}
+                                              </span>
+                                            )}
+
+                                            {isBlocked ? (
+                                              <span
+                                                style={{
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  gap: '3px',
+                                                  fontSize: '0.7rem',
+                                                  fontWeight: 700,
+                                                  padding: '1px 6px',
+                                                  borderRadius: '4px',
+                                                  background: 'rgba(239, 68, 68, 0.18)',
+                                                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                  color: '#f87171',
+                                                }}
+                                                title={`Blocked by ${pendingBlockers.length} prerequisite task(s)`}
+                                              >
+                                                <Lock className="w-3 h-3 text-rose-400" />
+                                                Blocked
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                        )}
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
+                                          <select
+                                            aria-label={`Status for ${story.theme}`}
+                                            value={story.status || 'To Do'}
+                                            onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
+                                            style={{
+                                              padding: '2px 6px',
+                                              fontSize: '0.72rem',
+                                              fontWeight: 700,
+                                              borderRadius: '99px',
+                                              border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
+                                              background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
+                                              color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
+                                              cursor: 'pointer',
+                                            }}
+                                          >
+                                            <option value="To Do">To Do</option>
+                                            <option value="In Progress">In Progress</option>
+                                            <option value="Done">Done</option>
+                                          </select>
+
+                                          <div style={{ display: 'flex', gap: '4px' }}>
+                                            <button
+                                              type="button"
+                                              className="button button-secondary"
+                                              onClick={() => setModalStory(story)}
+                                              style={{ padding: '2px 6px', fontSize: '0.72rem' }}
+                                              title="View details"
+                                            >
+                                              <Eye className="w-3 h-3 text-sky-400" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* STANDARD KANBAN STATUS COLUMNS */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '16px' }}>
               {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
                 const columnStories = sortedVault.filter(s => (s.status || 'To Do') === colStatus);
                 const isOver = dragOverColumn === colStatus;
@@ -1781,27 +2330,50 @@ ${story.result || 'N/A'}
                                 </h4>
                               </div>
 
-                              {/* Color-Coded Priority Indicator Badge & Quick Toggle */}
-                              <select
-                                aria-label={`Priority level for ${story.theme}`}
-                                value={story.priority || 'Medium'}
-                                onChange={(e) => handleUpdatePriority(story.id, e.target.value as TaskPriority)}
-                                style={{
-                                  padding: '2px 8px',
-                                  fontSize: '0.72rem',
-                                  fontWeight: 700,
-                                  borderRadius: '99px',
-                                  border: `1px solid ${priorityStyle.border}`,
-                                  background: priorityStyle.bg,
-                                  color: priorityStyle.color,
-                                  cursor: 'pointer',
-                                  flexShrink: 0
-                                }}
-                              >
-                                <option value="High">🔥 High</option>
-                                <option value="Medium">⚡ Medium</option>
-                                <option value="Low">🔹 Low</option>
-                              </select>
+                              {/* Color-Coded Category & Priority Indicators */}
+                              <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                                <select
+                                  aria-label={`Category label for ${story.theme}`}
+                                  value={story.categoryLabel || 'Technical'}
+                                  onChange={(e) => handleUpdateCategory(story.id, e.target.value)}
+                                  style={{
+                                    padding: '2px 6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    borderRadius: '6px',
+                                    border: `1px solid ${getCategoryStyle(story.categoryLabel).border}`,
+                                    background: getCategoryStyle(story.categoryLabel).bg,
+                                    color: getCategoryStyle(story.categoryLabel).color,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {allAvailableCategories.map(cat => (
+                                    <option key={cat} value={cat}>
+                                      {getCategoryStyle(cat).icon} {cat}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  aria-label={`Priority level for ${story.theme}`}
+                                  value={story.priority || 'Medium'}
+                                  onChange={(e) => handleUpdatePriority(story.id, e.target.value as TaskPriority)}
+                                  style={{
+                                    padding: '2px 6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    borderRadius: '99px',
+                                    border: `1px solid ${priorityStyle.border}`,
+                                    background: priorityStyle.bg,
+                                    color: priorityStyle.color,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <option value="High">🔥 High</option>
+                                  <option value="Medium">⚡ Medium</option>
+                                  <option value="Low">🔹 Low</option>
+                                </select>
+                              </div>
                             </div>
 
                             {/* Dependency, Blocker & Repeat Indicator Badges */}
@@ -2111,6 +2683,30 @@ ${story.result || 'N/A'}
                       </div>
 
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Category Selector */}
+                        <select
+                          id={`category-select-${story.id}`}
+                          aria-label={`Category label for ${story.theme}`}
+                          value={story.categoryLabel || 'Technical'}
+                          onChange={(e) => handleUpdateCategory(story.id, e.target.value)}
+                          style={{
+                            padding: '5px 12px',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            borderRadius: '99px',
+                            border: `1px solid ${getCategoryStyle(story.categoryLabel).border}`,
+                            background: getCategoryStyle(story.categoryLabel).bg,
+                            color: getCategoryStyle(story.categoryLabel).color,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {allAvailableCategories.map(cat => (
+                            <option key={cat} value={cat}>
+                              {getCategoryStyle(cat).icon} {cat}
+                            </option>
+                          ))}
+                        </select>
+
                         {/* Priority Selector */}
                         <select
                           id={`priority-select-${story.id}`}
