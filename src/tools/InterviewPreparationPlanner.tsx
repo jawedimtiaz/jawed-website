@@ -6,7 +6,6 @@ import {
   Check,
   Edit3,
   Trash2,
-  Plus,
   Sparkles,
   BookOpen,
   Building2,
@@ -15,7 +14,9 @@ import {
   CheckCircle2,
   HelpCircle,
   X,
-  Target
+  Target,
+  Search,
+  Plus
 } from 'lucide-react';
 
 interface StarStory {
@@ -47,6 +48,8 @@ const SAMPLE_STORIES: StarStory[] = [
 ];
 
 export const InterviewPreparationPlanner: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'builder' | 'vault' | 'questions' | 'guide'>('builder');
+
   const [roleTitle, setRoleTitle] = useState(() => {
     return localStorage.getItem('ipp_role') || 'Senior IT Support Specialist';
   });
@@ -64,13 +67,16 @@ export const InterviewPreparationPlanner: React.FC = () => {
     return SAMPLE_STORIES;
   });
 
-  // Individual Form Field States as per layout specification
+  // Individual Form Field States
   const [storyTheme, setStoryTheme] = useState('');
   const [situation, setSituation] = useState('');
   const [task, setTask] = useState('');
   const [action, setAction] = useState('');
   const [result, setResult] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  // Vault Search State
+  const [searchVault, setSearchVault] = useState('');
 
   // UI Feedback
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -102,7 +108,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setTask('Lead IT systems validation, engineer failover rollback scripts, and conduct pre-flight sync simulations without impacting active API requests.');
     setAction('Utilized AWS DMS with Change Data Capture (CDC). Orchestrated double-write verification in staging, wrote custom Python validation checksums, and executed the cutover during a 15-minute maintenance window.');
     setResult('100% data integrity verified; 0 seconds of unplanned downtime; saved $14,000 monthly in legacy infrastructure overhead.');
-    showToast('Sample STAR story loaded!');
+    showToast('Sample STAR story loaded into editor!');
   };
 
   const handleAddStory = () => {
@@ -155,11 +161,9 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setTask(story.task);
     setAction(story.action);
     setResult(story.result);
+    setActiveTab('builder');
 
-    const builderElement = document.getElementById('star-builder-card');
-    if (builderElement) {
-      builderElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    window.scrollTo({ top: 200, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
@@ -201,354 +205,476 @@ ${story.result || 'N/A'}
     }, 2500);
   };
 
+  const filteredVault = starStories.filter(story => {
+    const q = searchVault.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      story.theme.toLowerCase().includes(q) ||
+      story.situation.toLowerCase().includes(q) ||
+      story.task.toLowerCase().includes(q) ||
+      story.action.toLowerCase().includes(q) ||
+      story.result.toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div className="min-h-screen bg-slate-950 py-10 px-4 sm:px-6 lg:px-8 text-slate-100">
-      <div className="max-w-5xl mx-auto space-y-8">
-        {/* Navigation & Share */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-          <Breadcrumb
-            items={[
-              { label: 'Home', href: '/' },
-              { label: 'Tools', href: '/tools' },
-              { label: 'Interview Preparation Planner' },
-            ]}
-            style={{ marginBottom: 0 }}
-          />
-          <SocialShareBar
-            title="Interview Preparation Planner"
-            text="Structure high-impact behavioral answers with the 4-part STAR methodology."
-          />
-        </div>
+    <main className="container page interview-planner-root">
+      {/* Top Navigation & Breadcrumbs */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Tools', href: '/tools' },
+            { label: 'Interview Preparation Planner' },
+          ]}
+          style={{ marginBottom: 0 }}
+        />
+        <SocialShareBar
+          title="Interview Preparation Planner"
+          text="Structure high-impact behavioral answers with the 4-part STAR methodology."
+        />
+      </div>
 
-        {/* Tool Header */}
+      {/* Header Tool Top Navigation Bar (matching CareerMatchResumeReview) */}
+      <div className="tool-top">
+        <div className="logo flex items-center gap-2">
+          <Target className="w-5 h-5 text-sky-400" />
+          <span>Interview Preparation Planner</span>
+        </div>
+        <nav className="tool-nav" role="tablist">
+          <button
+            type="button"
+            className={activeTab === 'builder' ? 'on' : ''}
+            onClick={() => setActiveTab('builder')}
+          >
+            {editingId !== null ? '✏️ Editing Story' : '📝 STAR Builder'}
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'vault' ? 'on' : ''}
+            onClick={() => setActiveTab('vault')}
+          >
+            🏆 Saved Vault ({starStories.length})
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'questions' ? 'on' : ''}
+            onClick={() => setActiveTab('questions')}
+          >
+            ❓ Reverse Questions
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'guide' ? 'on' : ''}
+            onClick={() => setActiveTab('guide')}
+          >
+            📖 STAR Guide
+          </button>
+        </nav>
+      </div>
+
+      {toastMessage && (
+        <div className="notice" style={{ background: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.4)', color: 'var(--text-heading)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <CheckCircle2 className="w-5 h-5 text-sky-400 flex-shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* VIEW 1: STAR STORY BUILDER */}
+      {activeTab === 'builder' && (
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20 mb-3">
-            <Target className="w-3.5 h-3.5" />
-            <span>Career & Resume</span>
+          <div className="tool-hero">
+            <h1>Structure High-Impact Behavioral Answers</h1>
+            <p className="lead">
+              Use the 4-part STAR methodology (Situation, Task, Action, Result) to craft metric-driven responses for technical, system administration, and engineering interviews.
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-2">
-            Interview Preparation Planner
-          </h1>
-          <p className="text-slate-400 text-sm sm:text-base max-w-3xl leading-relaxed">
-            Structure high-impact behavioral answers with the 4-part STAR methodology. Save, refine, and review your stories locally in your browser.
-          </p>
-        </div>
 
-        {/* Toast Notification */}
-        {toastMessage && (
-          <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-slate-900 border border-sky-500/40 text-sky-300 px-4 py-3 rounded-xl shadow-2xl backdrop-blur-md animate-fade-in">
-            <CheckCircle2 className="w-4 h-4 text-sky-400 flex-shrink-0" />
-            <span className="text-sm font-medium">{toastMessage}</span>
+          <div className="notice" role="note">
+            <strong>Privacy &amp; Local Storage Note:</strong> Target roles and STAR stories are saved exclusively in your browser&apos;s local storage. Zero information is transmitted to external servers.
           </div>
-        )}
 
-        {/* Target Role & Company Card */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                Target Role Title
-              </label>
-              <input
-                type="text"
-                value={roleTitle}
-                onChange={(e) => setRoleTitle(e.target.value)}
-                placeholder="e.g. Senior IT Support Specialist"
-                className="w-full block rounded-xl border border-slate-700/80 bg-slate-950 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                Target Company / Industry
-              </label>
-              <input
-                type="text"
-                value={targetCompany}
-                onChange={(e) => setTargetCompany(e.target.value)}
-                placeholder="e.g. Enterprise Fintech / Cloud Infrastructure"
-                className="w-full block rounded-xl border border-slate-700/80 bg-slate-950 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition"
-              />
+          {/* Target Context Panel */}
+          <div className="panel" style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 14px', color: 'var(--text-heading)' }}>
+              🎯 Target Context &amp; Application Goal
+            </h3>
+            <div className="grid2" style={{ marginTop: 0 }}>
+              <div>
+                <label htmlFor="target-role-title">Target Role Title</label>
+                <input
+                  id="target-role-title"
+                  type="text"
+                  value={roleTitle}
+                  onChange={(e) => setRoleTitle(e.target.value)}
+                  placeholder="e.g. Senior IT Support Specialist / Systems Administrator"
+                />
+              </div>
+              <div>
+                <label htmlFor="target-company">Target Company / Industry</label>
+                <input
+                  id="target-company"
+                  type="text"
+                  value={targetCompany}
+                  onChange={(e) => setTargetCompany(e.target.value)}
+                  placeholder="e.g. Fintech Enterprise / Cloud Infrastructure"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* STAR Story Vault & Builder Card */}
-        <div id="star-builder-card" className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 md:p-8 backdrop-blur-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-            <div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                STAR Method Story Vault
-                {editingId !== null && (
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                    Editing Story
-                  </span>
-                )}
+          {/* STAR Builder Form Panel */}
+          <div className="panel">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles className="w-5 h-5 text-sky-400" />
+                {editingId !== null ? 'Edit STAR Story' : 'Craft New STAR Story'}
               </h2>
-              <p className="text-sm text-slate-400">Craft metric-driven behavioral answers with Situation, Task, Action, and Result.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {editingId !== null && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {editingId !== null && (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={handleCancelEdit}
+                    style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                  >
+                    Cancel Edit
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={handleCancelEdit}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition"
+                  className="button button-secondary"
+                  onClick={loadSampleStory}
+                  style={{ padding: '6px 14px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                  <X className="w-3.5 h-3.5" />
-                  Cancel Edit
+                  <Sparkles className="w-4 h-4 text-sky-400" />
+                  Load Sample Story
                 </button>
-              )}
+              </div>
+            </div>
+
+            {/* Theme Field */}
+            <div style={{ marginBottom: '20px' }}>
+              <label htmlFor="story-theme">Theme / Competency Category</label>
+              <input
+                id="story-theme"
+                type="text"
+                value={storyTheme}
+                onChange={(e) => setStoryTheme(e.target.value)}
+                placeholder="e.g. High-Severity Outage, Automation, Conflict Escalation, Data Migration"
+              />
+            </div>
+
+            {/* 2-Column Spacious Textarea Grid */}
+            <div className="grid2">
+              {/* Situation */}
+              <div className="panel" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <label htmlFor="star-situation" style={{ color: 'var(--accent)', fontSize: '0.95rem' }}>
+                  1. Situation (The Context)
+                </label>
+                <p className="meta" style={{ fontSize: '0.82rem', marginBottom: '10px' }}>
+                  What was the initial state, challenge, failure event, or business urgency?
+                </p>
+                <textarea
+                  id="star-situation"
+                  rows={6}
+                  value={situation}
+                  onChange={(e) => setSituation(e.target.value)}
+                  placeholder="Describe the context: failure event, urgent customer issue, or legacy environment..."
+                  style={{ minHeight: '160px' }}
+                />
+              </div>
+
+              {/* Task */}
+              <div className="panel" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <label htmlFor="star-task" style={{ color: 'var(--accent)', fontSize: '0.95rem' }}>
+                  2. Task (Your Responsibility)
+                </label>
+                <p className="meta" style={{ fontSize: '0.82rem', marginBottom: '10px' }}>
+                  What were you personally tasked to solve, configure, or lead?
+                </p>
+                <textarea
+                  id="star-task"
+                  rows={6}
+                  value={task}
+                  onChange={(e) => setTask(e.target.value)}
+                  placeholder="Detail your mandate, SLAs, and technical constraints..."
+                  style={{ minHeight: '160px' }}
+                />
+              </div>
+
+              {/* Action */}
+              <div className="panel" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <label htmlFor="star-action" style={{ color: 'var(--accent)', fontSize: '0.95rem' }}>
+                  3. Action (Specific Steps You Took)
+                </label>
+                <p className="meta" style={{ fontSize: '0.82rem', marginBottom: '10px' }}>
+                  What tools, protocols, CLI commands, or scripts did you use?
+                </p>
+                <textarea
+                  id="star-action"
+                  rows={6}
+                  value={action}
+                  onChange={(e) => setAction(e.target.value)}
+                  placeholder="Focus on what YOU did: CLI diagnostic steps, hardware swaps, scripts deployed..."
+                  style={{ minHeight: '160px' }}
+                />
+              </div>
+
+              {/* Result */}
+              <div className="panel" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <label htmlFor="star-result" style={{ color: 'var(--accent)', fontSize: '0.95rem' }}>
+                  4. Result (Measurable Outcome)
+                </label>
+                <p className="meta" style={{ fontSize: '0.82rem', marginBottom: '10px' }}>
+                  Quantifiable metrics: time saved, % outage reduced, SLA met, cost cut
+                </p>
+                <textarea
+                  id="star-result"
+                  rows={6}
+                  value={result}
+                  onChange={(e) => setResult(e.target.value)}
+                  placeholder="Outcome: e.g. restored connectivity in 14 minutes with zero downtime..."
+                  style={{ minHeight: '160px' }}
+                />
+              </div>
+            </div>
+
+            <div className="actions" style={{ marginTop: '20px' }}>
               <button
                 type="button"
-                onClick={loadSampleStory}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition"
+                className="button"
+                onClick={handleAddStory}
+                style={{ padding: '12px 24px', fontSize: '1rem' }}
               >
-                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                Load Sample Story
+                {editingId !== null ? 'Update Story in Vault' : 'Add Story to Vault'}
               </button>
+              {starStories.length > 0 && (
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => setActiveTab('vault')}
+                >
+                  View Saved Vault ({starStories.length})
+                </button>
+              )}
             </div>
-          </div>
-
-          {/* Theme Input */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-              Theme / Competency Category
-            </label>
-            <input
-              type="text"
-              value={storyTheme}
-              onChange={(e) => setStoryTheme(e.target.value)}
-              placeholder="e.g. High-Severity Incident, Automation, Conflict Escalation"
-              className="w-full block rounded-xl border border-slate-700/80 bg-slate-950 px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition"
-            />
-          </div>
-
-          {/* 2-Column Wide Textarea Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Situation */}
-            <div className="flex flex-col">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1">
-                1. Situation (The Context)
-              </label>
-              <span className="text-xs text-slate-500 mb-2">What was the initial state, challenge, or urgency?</span>
-              <textarea
-                rows={5}
-                value={situation}
-                onChange={(e) => setSituation(e.target.value)}
-                placeholder="Describe the context: failure event, urgent customer issue, or legacy environment..."
-                className="w-full block flex-1 min-h-[140px] rounded-xl border border-slate-700/80 bg-slate-950 p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition resize-y"
-              />
-            </div>
-
-            {/* Task */}
-            <div className="flex flex-col">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1">
-                2. Task (Your Responsibility)
-              </label>
-              <span className="text-xs text-slate-500 mb-2">What were you personally tasked to solve?</span>
-              <textarea
-                rows={5}
-                value={task}
-                onChange={(e) => setTask(e.target.value)}
-                placeholder="Detail your mandate, SLAs, and technical constraints..."
-                className="w-full block flex-1 min-h-[140px] rounded-xl border border-slate-700/80 bg-slate-950 p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition resize-y"
-              />
-            </div>
-
-            {/* Action */}
-            <div className="flex flex-col">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1">
-                3. Action (Specific Steps You Took)
-              </label>
-              <span className="text-xs text-slate-500 mb-2">What tools, protocols, or commands did you use?</span>
-              <textarea
-                rows={5}
-                value={action}
-                onChange={(e) => setAction(e.target.value)}
-                placeholder="Focus on what YOU did: CLI diagnostic steps, hardware swaps, scripts deployed..."
-                className="w-full block flex-1 min-h-[140px] rounded-xl border border-slate-700/80 bg-slate-950 p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition resize-y"
-              />
-            </div>
-
-            {/* Result */}
-            <div className="flex flex-col">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-sky-400 mb-1">
-                4. Result (Measurable Outcome)
-              </label>
-              <span className="text-xs text-slate-500 mb-2">Quantifiable metrics: time saved, % reduced, SLA hit</span>
-              <textarea
-                rows={5}
-                value={result}
-                onChange={(e) => setResult(e.target.value)}
-                placeholder="Outcome: e.g. restored connectivity in 14 minutes with zero downtime..."
-                className="w-full block flex-1 min-h-[140px] rounded-xl border border-slate-700/80 bg-slate-950 p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 transition resize-y"
-              />
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={handleAddStory}
-              className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-semibold text-sm shadow-lg shadow-sky-500/20 hover:from-sky-400 hover:to-indigo-400 transition"
-            >
-              {editingId !== null ? 'Update Story in Vault' : 'Add Story to Vault'}
-            </button>
           </div>
         </div>
+      )}
 
-        {/* Saved Stories Vault Cards */}
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* VIEW 2: SAVED VAULT */}
+      {activeTab === 'vault' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', margin: '16px 0 20px' }}>
             <div>
-              <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
-                <Award className="w-5 h-5 text-sky-400" />
-                Saved STAR Stories
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-sky-300 border border-slate-700">
-                  {starStories.length} {starStories.length === 1 ? 'Story' : 'Stories'}
+              <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Award className="w-7 h-7 text-sky-400" />
+                STAR Story Vault
+                <span className="pill" style={{ fontSize: '0.85rem', verticalAlign: 'middle' }}>
+                  {starStories.length} Saved
                 </span>
-              </h2>
-              <p className="text-xs md:text-sm text-slate-400 mt-1">
-                Review, refine, or copy your prepared behavioral answers.
+              </h1>
+              <p className="meta" style={{ marginTop: '4px' }}>
+                Review, refine, search, or copy your prepared behavioral answers for target role: <b>{roleTitle}</b> ({targetCompany}).
               </p>
             </div>
 
             {starStories.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  const allText = starStories.map((s, idx) => `STORY #${idx + 1}: ${s.theme}
-[Situation]: ${s.situation}
-[Task]: ${s.task}
-[Action]: ${s.action}
-[Result]: ${s.result}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => {
+                    const allText = starStories.map((s, idx) => `=== STORY #${idx + 1}: ${s.theme.toUpperCase()} ===
+[SITUATION]: ${s.situation}
+[TASK]: ${s.task}
+[ACTION]: ${s.action}
+[RESULT]: ${s.result}
 ----------------------------------------`).join('\n\n');
-                  navigator.clipboard.writeText(allText);
-                  showToast('All STAR stories copied to clipboard!');
-                }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-              >
-                <Copy className="w-4 h-4 text-sky-400" />
-                Copy All Stories
-              </button>
+                    navigator.clipboard.writeText(allText);
+                    showToast('All STAR stories copied to clipboard!');
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Copy className="w-4 h-4 text-sky-400" />
+                  Copy All Stories
+                </button>
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => {
+                    handleCancelEdit();
+                    setActiveTab('builder');
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add New Story
+                </button>
+              </div>
             )}
           </div>
 
+          {/* Search Filter */}
+          {starStories.length > 0 && (
+            <div className="panel" style={{ marginBottom: '20px', padding: '14px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Search className="w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchVault}
+                  onChange={e => setSearchVault(e.target.value)}
+                  placeholder="Search saved stories by keyword, theme, or technology (e.g., VLAN, Jamf, AWS, Incident)..."
+                  style={{ flex: 1, margin: 0 }}
+                />
+                {searchVault && (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => setSearchVault('')}
+                    style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {starStories.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-12 text-center">
-              <BookOpen className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-slate-300">Your Story Vault is Empty</h3>
-              <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1 mb-5">
-                Use the form above to draft your first STAR story, or click "Load Sample Story" to pre-fill an exemplary narrative.
+            <div className="panel" style={{ textAlign: 'center', padding: '48px 24px' }}>
+              <BookOpen className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                Your Story Vault is Empty
+              </h3>
+              <p className="meta" style={{ maxWidth: '480px', margin: '8px auto 20px' }}>
+                Use the STAR Builder tab to draft your first behavioral answer, or load a sample scenario to get started.
               </p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => setActiveTab('builder')}
+                >
+                  Open STAR Builder
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => {
+                    loadSampleStory();
+                    setActiveTab('builder');
+                  }}
+                >
+                  Load Sample Story
+                </button>
+              </div>
+            </div>
+          ) : filteredVault.length === 0 ? (
+            <div className="panel" style={{ textAlign: 'center', padding: '36px 24px' }}>
+              <p className="meta">No saved stories match &quot;{searchVault}&quot;.</p>
               <button
                 type="button"
-                onClick={loadSampleStory}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 transition"
+                className="button button-secondary"
+                onClick={() => setSearchVault('')}
+                style={{ marginTop: '10px' }}
               >
-                <Sparkles className="w-4 h-4" />
-                Load Sample Story
+                Clear Search Filter
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6">
-              {starStories.map((story, index) => {
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {filteredVault.map((story, index) => {
                 const isCopied = copiedId === story.id;
                 const isCurrentEditing = editingId === story.id;
 
                 return (
                   <div
                     key={story.id}
-                    className={`rounded-2xl border bg-slate-900/80 p-6 md:p-7 shadow-xl transition-all ${
-                      isCurrentEditing
-                        ? 'border-sky-500 ring-2 ring-sky-500/20'
-                        : 'border-slate-800 hover:border-slate-700'
-                    }`}
+                    className="panel"
+                    style={{
+                      border: isCurrentEditing ? '2px solid var(--accent)' : '1px solid var(--border)',
+                      position: 'relative',
+                    }}
                   >
                     {/* Story Header */}
-                    <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-5 border-b border-slate-800">
-                      <div className="flex items-center gap-3">
-                        <span className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs font-bold flex items-center justify-center">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className="pill" style={{ fontWeight: 800, margin: 0, background: 'var(--surface-accent)', color: 'var(--accent)' }}>
                           #{index + 1}
                         </span>
-                        <h3 className="text-base md:text-lg font-bold text-slate-100">
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
                           {story.theme}
                         </h3>
                       </div>
 
-                      {/* Story Actions */}
-                      <div className="flex items-center gap-2">
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <button
                           type="button"
+                          className="button button-secondary"
                           onClick={() => handleCopyStory(story)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                          style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}
                         >
-                          {isCopied ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
-                              <span className="text-emerald-400 font-semibold">Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5 text-sky-400" />
-                              <span>Copy</span>
-                            </>
-                          )}
+                          {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-sky-400" />}
+                          {isCopied ? 'Copied!' : 'Copy'}
                         </button>
-
                         <button
                           type="button"
+                          className="button button-secondary"
                           onClick={() => handleEditStory(story)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                          style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}
                         >
-                          <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Edit</span>
+                          <Edit3 className="w-4 h-4 text-amber-400" />
+                          Edit
                         </button>
-
                         <button
                           type="button"
+                          className="button button-secondary"
                           onClick={() => handleDeleteStory(story.id)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition"
+                          style={{ padding: '6px 10px', fontSize: '0.85rem', color: 'var(--rose)' }}
+                          title="Delete Story"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
 
-                    {/* STAR Breakdown */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
-                        <span className="inline-block bg-sky-500/15 text-sky-400 border border-sky-500/30 font-semibold px-2 py-0.5 rounded text-xs mb-2">
+                    {/* STAR 4-Dimension Grid */}
+                    <div className="grid2">
+                      <div className="card" style={{ padding: '14px' }}>
+                        <span className="pill" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', fontWeight: 700 }}>
                           1. Situation
                         </span>
-                        <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
-                          {story.situation || <span className="text-slate-500 italic">Not specified</span>}
+                        <p style={{ margin: '8px 0 0', fontSize: '0.92rem', lineHeight: '1.5', color: 'var(--text)' }}>
+                          {story.situation || <em className="muted">Not specified</em>}
                         </p>
                       </div>
 
-                      <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
-                        <span className="inline-block bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 font-semibold px-2 py-0.5 rounded text-xs mb-2">
+                      <div className="card" style={{ padding: '14px' }}>
+                        <span className="pill" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.3)', fontWeight: 700 }}>
                           2. Task
                         </span>
-                        <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
-                          {story.task || <span className="text-slate-500 italic">Not specified</span>}
+                        <p style={{ margin: '8px 0 0', fontSize: '0.92rem', lineHeight: '1.5', color: 'var(--text)' }}>
+                          {story.task || <em className="muted">Not specified</em>}
                         </p>
                       </div>
 
-                      <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
-                        <span className="inline-block bg-purple-500/15 text-purple-400 border border-purple-500/30 font-semibold px-2 py-0.5 rounded text-xs mb-2">
+                      <div className="card" style={{ padding: '14px' }}>
+                        <span className="pill" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 700 }}>
                           3. Action
                         </span>
-                        <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
-                          {story.action || <span className="text-slate-500 italic">Not specified</span>}
+                        <p style={{ margin: '8px 0 0', fontSize: '0.92rem', lineHeight: '1.5', color: 'var(--text)' }}>
+                          {story.action || <em className="muted">Not specified</em>}
                         </p>
                       </div>
 
-                      <div className="bg-slate-950/60 border border-emerald-500/20 rounded-xl p-4">
-                        <span className="inline-block bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold px-2 py-0.5 rounded text-xs mb-2">
+                      <div className="card" style={{ padding: '14px', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                        <span className="pill g" style={{ fontWeight: 700 }}>
                           4. Result
                         </span>
-                        <p className="text-xs md:text-sm text-emerald-300/90 leading-relaxed font-medium">
-                          {story.result || <span className="text-slate-500 italic font-normal">Not specified</span>}
+                        <p style={{ margin: '8px 0 0', fontSize: '0.92rem', lineHeight: '1.5', color: 'var(--text)', fontWeight: 600 }}>
+                          {story.result || <em className="muted" style={{ fontWeight: 400 }}>Not specified</em>}
                         </p>
                       </div>
                     </div>
@@ -558,24 +684,19 @@ ${story.result || 'N/A'}
             </div>
           )}
         </div>
+      )}
 
-        {/* Reverse Interview Questions Section */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 md:p-8 backdrop-blur-sm space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <HelpCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg md:text-xl font-bold text-white">
-                Recommended High-Signal Reverse Questions
-              </h2>
-              <p className="text-xs md:text-sm text-slate-400">
-                Ask these during the final 10 minutes to signal seniority, architectural maturity, and operational rigor.
-              </p>
-            </div>
+      {/* VIEW 3: REVERSE QUESTIONS */}
+      {activeTab === 'questions' && (
+        <div>
+          <div className="tool-hero">
+            <h1>High-Signal Reverse Interview Questions</h1>
+            <p className="lead">
+              Ask these during the final 10 minutes of your interview to signal operational maturity, technical depth, and forward-thinking leadership.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div className="grid2">
             {[
               {
                 question: "What does the escalation path look like when Tier 1 encounters an ambiguous cloud identity or network degradation issue?",
@@ -592,36 +713,109 @@ ${story.result || 'N/A'}
               {
                 question: "How is the organization currently managing endpoint hygiene and compliance across hybrid / remote fleets?",
                 signal: "Demonstrates zero-trust security and modern MDM awareness."
+              },
+              {
+                question: "When a major outage occurs, what does your post-mortem process look like, and how are lessons learned shared across engineering?",
+                signal: "Demonstrates blameless culture, operational rigor, and continuous improvement."
+              },
+              {
+                question: "What is the biggest friction point your team currently faces with existing service desk or infrastructure tools?",
+                signal: "Shows empathy for the team's daily workflow and desire to solve real pain points."
               }
             ].map((item, i) => (
-              <div
-                key={i}
-                className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between"
-              >
-                <p className="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed mb-3">
+              <div key={i} className="panel" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-heading)', lineHeight: '1.5', marginBottom: '14px' }}>
                   &ldquo;{item.question}&rdquo;
                 </p>
-                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                  <span className="text-xs text-slate-400 italic">
+                <div style={{ paddingTop: '12px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="meta" style={{ fontSize: '0.82rem', fontStyle: 'italic' }}>
                     Signal: {item.signal}
                   </span>
                   <button
                     type="button"
+                    className="button button-secondary"
                     onClick={() => {
                       navigator.clipboard.writeText(item.question);
                       showToast('Question copied to clipboard!');
                     }}
-                    className="text-xs text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1"
+                    style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
-                    <Copy className="w-3 h-3" />
-                    Copy
+                    <Copy className="w-3.5 h-3.5" /> Copy
                   </button>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* VIEW 4: METHODOLOGY GUIDE */}
+      {activeTab === 'guide' && (
+        <div>
+          <div className="tool-hero">
+            <h1>The STAR Method Framework Guide</h1>
+            <p className="lead">
+              The STAR method structures behavioral answers so hiring managers can verify your decision-making, technical execution, and business impact.
+            </p>
+          </div>
+
+          <div className="panel" style={{ marginBottom: '20px' }}>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '12px' }}>
+              The 4 Components of a Winning Answer
+            </h2>
+
+            <div className="grid2" style={{ marginTop: '16px' }}>
+              <div className="card" style={{ padding: '16px' }}>
+                <h3 style={{ color: '#38bdf8', fontSize: '1.05rem', margin: '0 0 6px' }}>1. Situation (15% of time)</h3>
+                <p className="meta" style={{ margin: 0, lineHeight: '1.5' }}>
+                  Set the scene concisely. Describe the specific crisis, legacy limitation, or business goal. Avoid lengthy preamble; establish the problem in 2 sentences.
+                </p>
+              </div>
+
+              <div className="card" style={{ padding: '16px' }}>
+                <h3 style={{ color: '#818cf8', fontSize: '1.05rem', margin: '0 0 6px' }}>2. Task (15% of time)</h3>
+                <p className="meta" style={{ margin: 0, lineHeight: '1.5' }}>
+                  Clarify your specific responsibility or mandate. What were you expected to deliver under what constraints or SLAs?
+                </p>
+              </div>
+
+              <div className="card" style={{ padding: '16px' }}>
+                <h3 style={{ color: '#c084fc', fontSize: '1.05rem', margin: '0 0 6px' }}>3. Action (50% of time)</h3>
+                <p className="meta" style={{ margin: 0, lineHeight: '1.5' }}>
+                  The core of your answer. Focus on what YOU personally did. Mention specific tools (Active Directory, Jamf, Cisco, Terraform, Python), commands, protocols, and cross-team coordination.
+                </p>
+              </div>
+
+              <div className="card" style={{ padding: '16px' }}>
+                <h3 style={{ color: 'var(--emerald)', fontSize: '1.05rem', margin: '0 0 6px' }}>4. Result (20% of time)</h3>
+                <p className="meta" style={{ margin: 0, lineHeight: '1.5' }}>
+                  Conclude with verified, quantitative business metrics: downtime avoided, % ticket reduction, minutes saved, or 100% SLA compliance.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel">
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '12px' }}>
+              Before &amp; After Example
+            </h2>
+
+            <div className="card" style={{ padding: '16px', marginBottom: '14px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+              <span className="pill r" style={{ fontWeight: 700 }}>❌ Weak / Vague Response</span>
+              <p style={{ margin: '8px 0 0', fontSize: '0.95rem', color: 'var(--text)' }}>
+                &ldquo;I worked on fixing laptop deployment issues because users were waiting too long. I helped set up Jamf and made things much faster.&rdquo;
+              </p>
+            </div>
+
+            <div className="card" style={{ padding: '16px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+              <span className="pill g" style={{ fontWeight: 700 }}>✅ Strong STAR Response</span>
+              <p style={{ margin: '8px 0 0', fontSize: '0.95rem', color: 'var(--text)' }}>
+                &ldquo;Manual imaging took 4.5 hours per engineer laptop, causing a 3-week onboarding backlog across 45 new hires. As lead IT engineer, I designed a zero-touch provisioning pipeline linking Apple Business Manager, Jamf Pro, and Okta SSO with post-enrollment zsh scripts. This cut provisioning from 4.5 hours to 18 minutes with a 99.4% success rate and zero backlog.&rdquo;
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
   );
 };
