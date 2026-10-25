@@ -2732,7 +2732,8 @@ select:focus-visible {
     display: none !important;
   }
 
-  .printable-resume-container {
+  .printable-resume-container,
+  .printable-interview-planner {
     display: block !important;
     visibility: visible !important;
     background: #ffffff !important;
@@ -2741,10 +2742,28 @@ select:focus-visible {
     margin: 0 !important;
   }
 
-  .printable-bullet-item {
+  .printable-bullet-item,
+  .printable-star-story,
+  .printable-question-card {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     margin-bottom: 8pt !important;
+  }
+
+  .printable-interview-planner table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 8pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .printable-interview-planner td,
+  .printable-interview-planner th {
+    border: 1px solid #cbd5e1 !important;
+    padding: 6pt 8pt !important;
+    color: #0f172a !important;
+    background-color: #ffffff !important;
   }
 
   .container {

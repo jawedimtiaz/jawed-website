@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import {
@@ -16,8 +16,11 @@ import {
   X,
   Target,
   Search,
-  Plus
+  Plus,
+  Printer
 } from 'lucide-react';
+
+type StoryStatus = 'To Do' | 'In Progress' | 'Done';
 
 interface StarStory {
   id: number;
@@ -26,6 +29,7 @@ interface StarStory {
   task: string;
   action: string;
   result: string;
+  status: StoryStatus;
 }
 
 const SAMPLE_STORIES: StarStory[] = [
@@ -35,7 +39,8 @@ const SAMPLE_STORIES: StarStory[] = [
     situation: 'Main office core switch failed during month-end payroll execution, threatening payroll processing for 120 employees and critical transaction cutoffs.',
     task: 'Take immediate operational command, isolate root packet collision, reroute critical traffic trunks, and safeguard transaction deadlines.',
     action: 'Isolated primary core loop, rerouted traffic through backup redundant trunk, and coordinated with network vendor for hot-swap chassis replacement within SLA.',
-    result: 'Restored vital payroll subnet within 14 minutes; zero transaction delays; implemented daily automated VRRP failover health checks.'
+    result: 'Restored vital payroll subnet within 14 minutes; zero transaction delays; implemented daily automated VRRP failover health checks.',
+    status: 'Done'
   },
   {
     id: 2,
@@ -43,7 +48,8 @@ const SAMPLE_STORIES: StarStory[] = [
     situation: 'Manual imaging and configuration of new hire engineer laptops took 4.5 hours per machine, creating a 3-week onboarding backlog across 45 remote engineers.',
     task: 'Design an automated, zero-touch provisioning pipeline that deploys secure, pre-configured laptops directly from manufacturer to employee.',
     action: 'Integrated Apple Business Manager with Jamf Pro and Okta SSO. Wrote modular bash/zsh post-enrollment scripts to automatically install developer toolchains, CrowdStrike Falcon, and network profiles.',
-    result: 'Reduced provisioning time from 4.5 hours to 18 minutes per device with 99.4% zero-touch success rate, cutting IT onboarding backlog to zero.'
+    result: 'Reduced provisioning time from 4.5 hours to 18 minutes per device with 99.4% zero-touch success rate, cutting IT onboarding backlog to zero.',
+    status: 'In Progress'
   }
 ];
 
@@ -60,29 +66,52 @@ export const InterviewPreparationPlanner: React.FC = () => {
   const [starStories, setStarStories] = useState<StarStory[]>(() => {
     try {
       const saved = localStorage.getItem('ipp_stories');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.map((s: any) => ({
+          ...s,
+          status: s.status || 'To Do'
+        }));
+      }
     } catch {
       // fallback
     }
     return SAMPLE_STORIES;
   });
 
-  // Individual Form Field States
-  const [storyTheme, setStoryTheme] = useState('');
-  const [situation, setSituation] = useState('');
-  const [task, setTask] = useState('');
-  const [action, setAction] = useState('');
-  const [result, setResult] = useState('');
-  const [editingId, setEditingId] = useState<number | null>(null);
+  // Individual Form Field States with LocalStorage Auto-Save
+  const [storyTheme, setStoryTheme] = useState(() => {
+    return localStorage.getItem('ipp_draft_theme') || '';
+  });
+  const [situation, setSituation] = useState(() => {
+    return localStorage.getItem('ipp_draft_situation') || '';
+  });
+  const [task, setTask] = useState(() => {
+    return localStorage.getItem('ipp_draft_task') || '';
+  });
+  const [action, setAction] = useState(() => {
+    return localStorage.getItem('ipp_draft_action') || '';
+  });
+  const [result, setResult] = useState(() => {
+    return localStorage.getItem('ipp_draft_result') || '';
+  });
+  const [storyStatus, setStoryStatus] = useState<StoryStatus>(() => {
+    return (localStorage.getItem('ipp_draft_status') as StoryStatus) || 'To Do';
+  });
+  const [editingId, setEditingId] = useState<number | null>(() => {
+    const saved = localStorage.getItem('ipp_draft_editing_id');
+    return saved ? Number(saved) : null;
+  });
 
-  // Vault Search State
+  // Vault Search & Status Filter State
   const [searchVault, setSearchVault] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | StoryStatus>('All');
 
   // UI Feedback
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Sync to localStorage
+  // Sync core metadata to localStorage
   useEffect(() => {
     localStorage.setItem('ipp_role', roleTitle);
   }, [roleTitle]);
@@ -94,6 +123,65 @@ export const InterviewPreparationPlanner: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('ipp_stories', JSON.stringify(starStories));
   }, [starStories]);
+
+  // Auto-save form draft fields to localStorage
+  useEffect(() => {
+    localStorage.setItem('ipp_draft_theme', storyTheme);
+  }, [storyTheme]);
+
+  useEffect(() => {
+    localStorage.setItem('ipp_draft_situation', situation);
+  }, [situation]);
+
+  useEffect(() => {
+    localStorage.setItem('ipp_draft_task', task);
+  }, [task]);
+
+  useEffect(() => {
+    localStorage.setItem('ipp_draft_action', action);
+  }, [action]);
+
+  useEffect(() => {
+    localStorage.setItem('ipp_draft_result', result);
+  }, [result]);
+
+  useEffect(() => {
+    localStorage.setItem('ipp_draft_status', storyStatus);
+  }, [storyStatus]);
+
+  useEffect(() => {
+    if (editingId !== null) {
+      localStorage.setItem('ipp_draft_editing_id', String(editingId));
+    } else {
+      localStorage.removeItem('ipp_draft_editing_id');
+    }
+  }, [editingId]);
+
+  const clearDraft = () => {
+    setStoryTheme('');
+    setSituation('');
+    setTask('');
+    setAction('');
+    setResult('');
+    setStoryStatus('To Do');
+    setEditingId(null);
+    localStorage.removeItem('ipp_draft_theme');
+    localStorage.removeItem('ipp_draft_situation');
+    localStorage.removeItem('ipp_draft_task');
+    localStorage.removeItem('ipp_draft_action');
+    localStorage.removeItem('ipp_draft_result');
+    localStorage.removeItem('ipp_draft_status');
+    localStorage.removeItem('ipp_draft_editing_id');
+  };
+
+  const handleUpdateStatus = (id: number, newStatus: StoryStatus) => {
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === id ? { ...s, status: newStatus } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    showToast(`Status updated to "${newStatus}"`);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -108,6 +196,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setTask('Lead IT systems validation, engineer failover rollback scripts, and conduct pre-flight sync simulations without impacting active API requests.');
     setAction('Utilized AWS DMS with Change Data Capture (CDC). Orchestrated double-write verification in staging, wrote custom Python validation checksums, and executed the cutover during a 15-minute maintenance window.');
     setResult('100% data integrity verified; 0 seconds of unplanned downtime; saved $14,000 monthly in legacy infrastructure overhead.');
+    setStoryStatus('In Progress');
     showToast('Sample STAR story loaded into editor!');
   };
 
@@ -128,12 +217,12 @@ export const InterviewPreparationPlanner: React.FC = () => {
                 task: task.trim(),
                 action: action.trim(),
                 result: result.trim(),
+                status: storyStatus,
               }
             : story
         )
       );
       showToast('Story updated in vault!');
-      setEditingId(null);
     } else {
       const created: StarStory = {
         id: Date.now(),
@@ -142,16 +231,13 @@ export const InterviewPreparationPlanner: React.FC = () => {
         task: task.trim(),
         action: action.trim(),
         result: result.trim(),
+        status: storyStatus,
       };
       setStarStories(prev => [created, ...prev]);
       showToast('Story added to vault!');
     }
 
-    setStoryTheme('');
-    setSituation('');
-    setTask('');
-    setAction('');
-    setResult('');
+    clearDraft();
   };
 
   const handleEditStory = (story: StarStory) => {
@@ -161,18 +247,15 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setTask(story.task);
     setAction(story.action);
     setResult(story.result);
+    setStoryStatus(story.status || 'To Do');
     setActiveTab('builder');
 
     window.scrollTo({ top: 200, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
-    setEditingId(null);
-    setStoryTheme('');
-    setSituation('');
-    setTask('');
-    setAction('');
-    setResult('');
+    clearDraft();
+    showToast('Form cleared.');
   };
 
   const handleDeleteStory = (id: number) => {
@@ -205,16 +288,30 @@ ${story.result || 'N/A'}
     }, 2500);
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const statusCounts = useMemo(() => {
+    const counts = { 'All': starStories.length, 'To Do': 0, 'In Progress': 0, 'Done': 0 };
+    starStories.forEach(s => {
+      const st = s.status || 'To Do';
+      counts[st] = (counts[st] || 0) + 1;
+    });
+    return counts;
+  }, [starStories]);
+
   const filteredVault = starStories.filter(story => {
     const q = searchVault.trim().toLowerCase();
-    if (!q) return true;
-    return (
+    const matchesSearch = !q || (
       story.theme.toLowerCase().includes(q) ||
       story.situation.toLowerCase().includes(q) ||
       story.task.toLowerCase().includes(q) ||
       story.action.toLowerCase().includes(q) ||
       story.result.toLowerCase().includes(q)
     );
+    const matchesStatus = statusFilter === 'All' || (story.status || 'To Do') === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -330,7 +427,10 @@ ${story.result || 'N/A'}
                 <Sparkles className="w-5 h-5 text-sky-400" />
                 {editingId !== null ? 'Edit STAR Story' : 'Craft New STAR Story'}
               </h2>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span className="meta" style={{ fontSize: '0.78rem', color: 'var(--emerald)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', marginRight: '4px' }}>
+                  ✓ Draft auto-saved
+                </span>
                 {editingId !== null && (
                   <button
                     type="button"
@@ -339,6 +439,16 @@ ${story.result || 'N/A'}
                     style={{ padding: '6px 14px', fontSize: '0.85rem' }}
                   >
                     Cancel Edit
+                  </button>
+                )}
+                {(storyTheme || situation || task || action || result) && editingId === null && (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={clearDraft}
+                    style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                  >
+                    Clear Form
                   </button>
                 )}
                 <button
@@ -353,16 +463,30 @@ ${story.result || 'N/A'}
               </div>
             </div>
 
-            {/* Theme Field */}
-            <div style={{ marginBottom: '20px' }}>
-              <label htmlFor="story-theme">Theme / Competency Category</label>
-              <input
-                id="story-theme"
-                type="text"
-                value={storyTheme}
-                onChange={(e) => setStoryTheme(e.target.value)}
-                placeholder="e.g. High-Severity Outage, Automation, Conflict Escalation, Data Migration"
-              />
+            {/* Theme & Preparation Status Row */}
+            <div className="grid2" style={{ marginBottom: '20px', marginTop: 0 }}>
+              <div>
+                <label htmlFor="story-theme">Theme / Competency Category</label>
+                <input
+                  id="story-theme"
+                  type="text"
+                  value={storyTheme}
+                  onChange={(e) => setStoryTheme(e.target.value)}
+                  placeholder="e.g. High-Severity Outage, Automation, Conflict Escalation, Data Migration"
+                />
+              </div>
+              <div>
+                <label htmlFor="story-status">Preparation Status</label>
+                <select
+                  id="story-status"
+                  value={storyStatus}
+                  onChange={(e) => setStoryStatus(e.target.value as StoryStatus)}
+                >
+                  <option value="To Do">⏳ To Do (Drafting)</option>
+                  <option value="In Progress">🔄 In Progress (Refining & Practice)</option>
+                  <option value="Done">✅ Done (Mastered Answer)</option>
+                </select>
+              </div>
             </div>
 
             {/* 2-Column Spacious Textarea Grid */}
@@ -502,6 +626,15 @@ ${story.result || 'N/A'}
                 </button>
                 <button
                   type="button"
+                  className="button button-secondary no-print"
+                  onClick={handlePrint}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Printer className="w-4 h-4 text-sky-400" />
+                  Print / Export PDF
+                </button>
+                <button
+                  type="button"
                   className="button"
                   onClick={() => {
                     handleCancelEdit();
@@ -516,9 +649,29 @@ ${story.result || 'N/A'}
             )}
           </div>
 
-          {/* Search Filter */}
+          {/* Search & Status Filter Panel */}
           {starStories.length > 0 && (
-            <div className="panel" style={{ marginBottom: '20px', padding: '14px 20px' }}>
+            <div className="panel" style={{ marginBottom: '20px', padding: '16px 20px' }}>
+              {/* Status Filter Tabs */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px', alignItems: 'center' }}>
+                <span className="meta" style={{ fontWeight: 700, marginRight: '4px' }}>Filter Status:</span>
+                {(['All', 'To Do', 'In Progress', 'Done'] as const).map(st => (
+                  <button
+                    key={st}
+                    type="button"
+                    className={statusFilter === st ? 'button' : 'button button-secondary'}
+                    onClick={() => setStatusFilter(st)}
+                    style={{ padding: '5px 12px', fontSize: '0.85rem' }}
+                  >
+                    {st === 'All' ? `All (${statusCounts['All']})` :
+                     st === 'To Do' ? `⏳ To Do (${statusCounts['To Do']})` :
+                     st === 'In Progress' ? `🔄 In Progress (${statusCounts['In Progress']})` :
+                     `✅ Done (${statusCounts['Done']})`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Keyword Search Input */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Search className="w-5 h-5 text-slate-400" />
                 <input
@@ -528,14 +681,17 @@ ${story.result || 'N/A'}
                   placeholder="Search saved stories by keyword, theme, or technology (e.g., VLAN, Jamf, AWS, Incident)..."
                   style={{ flex: 1, margin: 0 }}
                 />
-                {searchVault && (
+                {(searchVault || statusFilter !== 'All') && (
                   <button
                     type="button"
                     className="button button-secondary"
-                    onClick={() => setSearchVault('')}
+                    onClick={() => {
+                      setSearchVault('');
+                      setStatusFilter('All');
+                    }}
                     style={{ padding: '8px 12px', fontSize: '0.85rem' }}
                   >
-                    Clear
+                    Reset Filters
                   </button>
                 )}
               </div>
@@ -609,7 +765,43 @@ ${story.result || 'N/A'}
                         </h3>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Status Toggle Selector */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <select
+                            id={`status-select-${story.id}`}
+                            aria-label={`Preparation status for ${story.theme}`}
+                            value={story.status || 'To Do'}
+                            onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
+                            style={{
+                              padding: '5px 12px',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              borderRadius: '99px',
+                              border: '1px solid ' + (
+                                story.status === 'Done' ? 'var(--emerald)' :
+                                story.status === 'In Progress' ? 'var(--amber, #f59e0b)' :
+                                'var(--border)'
+                              ),
+                              background: (
+                                story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' :
+                                story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' :
+                                'var(--surface)'
+                              ),
+                              color: (
+                                story.status === 'Done' ? 'var(--emerald)' :
+                                story.status === 'In Progress' ? '#f59e0b' :
+                                'var(--text)'
+                              ),
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="To Do">⏳ To Do</option>
+                            <option value="In Progress">🔄 In Progress</option>
+                            <option value="Done">✅ Done</option>
+                          </select>
+                        </div>
+
                         <button
                           type="button"
                           className="button button-secondary"
@@ -816,6 +1008,129 @@ ${story.result || 'N/A'}
           </div>
         </div>
       )}
+
+      {/* PRINT-ONLY INTERVIEW PREPARATION PLANNER CONTAINER */}
+      <div className="printable-interview-planner hidden print:block bg-white text-slate-900 p-8">
+        {/* Document Header */}
+        <div style={{ borderBottom: '2px solid #0284c7', paddingBottom: '12px', marginBottom: '20px' }}>
+          <h1 style={{ fontSize: '22pt', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>
+            INTERVIEW PREPARATION PLANNER
+          </h1>
+          <p style={{ fontSize: '10pt', color: '#64748b', margin: '4px 0 0 0' }}>
+            Target Role: <strong>{roleTitle}</strong> &bull; Target Company: <strong>{targetCompany}</strong> &bull; Date: {new Date().toLocaleDateString()}
+          </p>
+        </div>
+
+        {/* Section 1: STAR Story Vault */}
+        <div style={{ marginBottom: '28px' }}>
+          <h2 style={{ fontSize: '14pt', fontWeight: 'bold', color: '#0f172a', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            STAR Behavioral Answer Vault ({starStories.length} Saved Stories)
+          </h2>
+
+          {starStories.length === 0 ? (
+            <p style={{ fontSize: '11pt', color: '#64748b', fontStyle: 'italic' }}>No saved STAR stories available in vault.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {starStories.map((story, idx) => (
+                <div
+                  key={story.id}
+                  className="printable-star-story"
+                  style={{
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    pageBreakInside: 'avoid',
+                    breakInside: 'avoid',
+                    backgroundColor: '#f8fafc',
+                  }}
+                >
+                  <div style={{ fontSize: '12pt', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Story #{idx + 1}: {story.theme}</span>
+                    <span style={{ fontSize: '9pt', color: story.status === 'Done' ? '#059669' : story.status === 'In Progress' ? '#d97706' : '#64748b', fontWeight: 'bold', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '99px', backgroundColor: '#ffffff' }}>
+                      Status: {story.status || 'To Do'}
+                    </span>
+                  </div>
+
+                  {/* 2x2 Table Layout for STAR breakdown */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '6px', fontSize: '10pt' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ width: '50%', padding: '8px', border: '1px solid #cbd5e1', verticalAlign: 'top', backgroundColor: '#ffffff' }}>
+                          <strong style={{ color: '#0284c7', display: 'block', marginBottom: '4px' }}>1. SITUATION (Context)</strong>
+                          <span style={{ color: '#1e293b' }}>{story.situation || 'N/A'}</span>
+                        </td>
+                        <td style={{ width: '50%', padding: '8px', border: '1px solid #cbd5e1', verticalAlign: 'top', backgroundColor: '#ffffff' }}>
+                          <strong style={{ color: '#4f46e5', display: 'block', marginBottom: '4px' }}>2. TASK (Responsibility)</strong>
+                          <span style={{ color: '#1e293b' }}>{story.task || 'N/A'}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style={{ width: '50%', padding: '8px', border: '1px solid #cbd5e1', verticalAlign: 'top', backgroundColor: '#ffffff' }}>
+                          <strong style={{ color: '#7c3aed', display: 'block', marginBottom: '4px' }}>3. ACTION (Execution)</strong>
+                          <span style={{ color: '#1e293b' }}>{story.action || 'N/A'}</span>
+                        </td>
+                        <td style={{ width: '50%', padding: '8px', border: '1px solid #cbd5e1', verticalAlign: 'top', backgroundColor: '#ffffff' }}>
+                          <strong style={{ color: '#059669', display: 'block', marginBottom: '4px' }}>4. RESULT (Outcome)</strong>
+                          <span style={{ color: '#065f46', fontWeight: '600' }}>{story.result || 'N/A'}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Section 2: Recommended High-Signal Reverse Questions */}
+        <div>
+          <h2 style={{ fontSize: '14pt', fontWeight: 'bold', color: '#0f172a', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Recommended Reverse Interview Questions
+          </h2>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10pt' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f1f5f9', textAlign: 'left' }}>
+                <th style={{ padding: '8px', border: '1px solid #cbd5e1', color: '#0f172a', width: '65%' }}>Question</th>
+                <th style={{ padding: '8px', border: '1px solid #cbd5e1', color: '#0f172a', width: '35%' }}>Seniority Signal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                {
+                  question: "What does the escalation path look like when Tier 1 encounters an ambiguous cloud identity or network degradation issue?",
+                  signal: "Proves familiarity with triage tiering and SLA preservation."
+                },
+                {
+                  question: "How does your team measure customer satisfaction and SLA adherence without incentivizing superficial ticket closes?",
+                  signal: "Demonstrates balanced focus on quality of resolution over raw metrics."
+                },
+                {
+                  question: "What are the top 2 internal tooling or automation initiatives the IT operations team plans to tackle over the next 12 months?",
+                  signal: "Shows forward-thinking mindset and interest in contributing to automation."
+                },
+                {
+                  question: "How is the organization currently managing endpoint hygiene and compliance across hybrid / remote fleets?",
+                  signal: "Demonstrates zero-trust security and modern MDM awareness."
+                },
+                {
+                  question: "When a major outage occurs, what does your post-mortem process look like, and how are lessons learned shared across engineering?",
+                  signal: "Demonstrates blameless culture, operational rigor, and continuous improvement."
+                }
+              ].map((q, idx) => (
+                <tr key={idx} className="printable-question-card" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                  <td style={{ padding: '8px', border: '1px solid #cbd5e1', verticalAlign: 'top', color: '#0f172a', fontWeight: '500' }}>
+                    &ldquo;{q.question}&rdquo;
+                  </td>
+                  <td style={{ padding: '8px', border: '1px solid #cbd5e1', verticalAlign: 'top', color: '#475569', fontStyle: 'italic' }}>
+                    {q.signal}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </main>
   );
 };
