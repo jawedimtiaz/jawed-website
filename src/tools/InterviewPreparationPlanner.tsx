@@ -236,6 +236,78 @@ const SAMPLE_STORIES: StarStory[] = [
   }
 ];
 
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  description: string;
+  stories: Omit<StarStory, 'id'>[];
+}
+
+export const DEFAULT_TEMPLATES: TaskTemplate[] = [
+  {
+    id: 't-fullstack',
+    name: 'Full Stack & Cloud Architecture Prep',
+    description: 'Comprehensive prep covering microservices rate limiting, Redis caching, CI/CD pipelines, and frontend optimization.',
+    stories: [
+      {
+        theme: 'Microservices API Gateway Rate Limiting',
+        situation: 'Sudden traffic spikes caused downstream payment service saturation during promotional sales.',
+        task: 'Implement a distributed Redis token-bucket rate limiter at the API gateway layer.',
+        action: 'Deployed Redis cluster with Lua scripting for atomic rate checks and graceful 429 retries.',
+        result: 'Prevented downstream crashes during 10x traffic bursts with zero data loss.',
+        status: 'To Do',
+        priority: 'High',
+        categoryLabel: 'System Design',
+        estimatedHours: 6,
+        repeatFrequency: 'Weekly'
+      },
+      {
+        theme: 'React Frontend Bundle Size Optimization',
+        situation: 'Initial page load latency exceeded 3.8 seconds due to monolithic JavaScript bundles.',
+        task: 'Implement code splitting, lazy loading, and tree shaking across the React SPA.',
+        action: 'Refactored routes with React.lazy, optimized SVGs, and pruned unused npm dependencies.',
+        result: 'Reduced bundle size by 54% and improved First Contentful Paint (FCP) to 1.1s.',
+        status: 'In Progress',
+        priority: 'Medium',
+        categoryLabel: 'Technical',
+        estimatedHours: 4,
+        repeatFrequency: 'None'
+      }
+    ]
+  },
+  {
+    id: 't-behavioral',
+    name: 'Behavioral & Leadership Deep Dive',
+    description: 'Master leadership, cross-functional conflict resolution, high-severity incident command, and IAM security audits.',
+    stories: [
+      {
+        theme: 'Cross-Departmental Priority Conflict Resolution',
+        situation: 'Engineering and Product managers disagreed on release timeline versus security hardening mandates.',
+        task: 'Facilitate stakeholder alignment meeting and draft a phased risk-mitigated rollout plan.',
+        action: 'Created a weighted scoring matrix balancing feature delivery velocity with SOC2 compliance requirements.',
+        result: 'Achieved unanimous executive buy-in and shipped securely within 2 weeks of schedule.',
+        status: 'To Do',
+        priority: 'High',
+        categoryLabel: 'Behavioral',
+        estimatedHours: 5,
+        repeatFrequency: 'Monthly'
+      },
+      {
+        theme: 'High Severity Incident / Crisis Management',
+        situation: 'Main office core switch failed during month-end payroll execution.',
+        task: 'Take immediate operational command, isolate root packet collision, and reroute critical traffic.',
+        action: 'Isolated primary core loop, rerouted traffic through backup redundant trunk, and coordinated vendor hot-swap.',
+        result: 'Restored vital payroll subnet within 14 minutes; zero transaction delays.',
+        status: 'Done',
+        priority: 'High',
+        categoryLabel: 'Technical',
+        estimatedHours: 4,
+        repeatFrequency: 'Weekly'
+      }
+    ]
+  }
+];
+
 const getPriorityWeight = (priority?: TaskPriority): number => {
   if (priority === 'High') return 3;
   if (priority === 'Low') return 1;
@@ -434,6 +506,93 @@ export const InterviewPreparationPlanner: React.FC = () => {
       }
     };
   }, []);
+
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [customTemplates, setCustomTemplates] = useState<TaskTemplate[]>(() => {
+    try {
+      const saved = localStorage.getItem('ipp_custom_templates');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+  const [templateSaveName, setTemplateSaveName] = useState('');
+  const [templateSaveDesc, setTemplateSaveDesc] = useState('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_custom_templates', JSON.stringify(customTemplates));
+    } catch {
+      // ignore
+    }
+  }, [customTemplates]);
+
+  const handleLoadTemplate = (template: TaskTemplate, mode: 'append' | 'replace' = 'append') => {
+    const newStories: StarStory[] = template.stories.map((st, idx) => ({
+      ...st,
+      id: Date.now() + idx + Math.random(),
+      status: st.status || 'To Do',
+      priority: st.priority || 'Medium',
+      categoryLabel: st.categoryLabel || 'Technical',
+      estimatedHours: st.estimatedHours || 4,
+      repeatFrequency: st.repeatFrequency || 'None',
+      blockedByTaskIds: []
+    }));
+
+    if (mode === 'replace') {
+      setStarStories(newStories);
+      showToast(`Replaced vault with template "${template.name}"!`);
+    } else {
+      setStarStories(prev => [...newStories, ...prev]);
+      showToast(`Loaded template "${template.name}" into vault!`);
+    }
+    setShowTemplateModal(false);
+  };
+
+  const handleSaveCurrentAsTemplate = () => {
+    if (!templateSaveName.trim()) {
+      showToast('Please enter a template name.');
+      return;
+    }
+    if (activeStories.length === 0) {
+      showToast('No active tasks in vault to save as a template.');
+      return;
+    }
+
+    const templateStories = activeStories.map(s => ({
+      theme: s.theme,
+      situation: s.situation,
+      task: s.task,
+      action: s.action,
+      result: s.result,
+      status: s.status,
+      priority: s.priority,
+      categoryLabel: s.categoryLabel,
+      estimatedHours: s.estimatedHours,
+      repeatFrequency: s.repeatFrequency,
+      notes: s.notes,
+      links: s.links,
+      fileRefs: s.fileRefs
+    }));
+
+    const newTemplate: TaskTemplate = {
+      id: `custom-${Date.now()}`,
+      name: templateSaveName.trim(),
+      description: templateSaveDesc.trim() || 'Custom saved task template',
+      stories: templateStories
+    };
+
+    setCustomTemplates(prev => [newTemplate, ...prev]);
+    setTemplateSaveName('');
+    setTemplateSaveDesc('');
+    showToast(`Saved current vault as template "${newTemplate.name}"!`);
+  };
+
+  const handleDeleteCustomTemplate = (id: string) => {
+    setCustomTemplates(prev => prev.filter(t => t.id !== id));
+    showToast('Custom template deleted.');
+  };
 
   const toggleListening = () => {
     if (isListening) {
@@ -1769,6 +1928,16 @@ ${story.result || 'N/A'}
 
             {activeStories.length > 0 && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="button button-secondary no-print"
+                  onClick={() => setShowTemplateModal(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  title="Browse and load pre-defined or custom task templates"
+                >
+                  <FolderArchive className="w-4 h-4 text-sky-400" />
+                  Templates
+                </button>
                 {summaryStats.doneCount > 0 && (
                   <button
                     type="button"
@@ -4355,6 +4524,135 @@ ${story.result || 'N/A'}
                   Done / Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* TASK TEMPLATES MODAL */}
+      {showTemplateModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="panel" style={{ width: '100%', maxWidth: '680px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📋 Task Templates Library
+              </h3>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setShowTemplateModal(false)}
+                style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <p className="meta" style={{ marginBottom: '16px', fontSize: '0.85rem' }}>
+              Load pre-defined interview preparation sets or save your current active vault tasks as a reusable template.
+            </p>
+
+            {/* Save Current Vault as Template Section */}
+            <div style={{ background: 'var(--bg)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '20px' }}>
+              <h4 style={{ fontSize: '0.92rem', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-heading)' }}>
+                💾 Save Current Vault as New Template
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ marginBottom: '10px' }}>
+                <input
+                  type="text"
+                  placeholder="Template Name (e.g. Frontend Engineering Prep)"
+                  value={templateSaveName}
+                  onChange={(e) => setTemplateSaveName(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Short Description (optional)"
+                  value={templateSaveDesc}
+                  onChange={(e) => setTemplateSaveDesc(e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                className="button"
+                onClick={handleSaveCurrentAsTemplate}
+                style={{ fontSize: '0.85rem', padding: '6px 16px' }}
+              >
+                Save Current Vault ({activeStories.length} tasks) as Template
+              </button>
+            </div>
+
+            {/* Built-in & Custom Templates List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
+                🌟 Available Templates ({DEFAULT_TEMPLATES.length + customTemplates.length})
+              </h4>
+
+              {[...DEFAULT_TEMPLATES, ...customTemplates].map((tmpl) => (
+                <div
+                  key={tmpl.id}
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                    <div>
+                      <h5 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 4px', color: 'var(--text-heading)' }}>
+                        {tmpl.name}
+                      </h5>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, lineHeight: '1.4' }}>
+                        {tmpl.description}
+                      </p>
+                    </div>
+                    <span className="pill" style={{ fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 }}>
+                      {tmpl.stories.length} task{tmpl.stories.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => handleLoadTemplate(tmpl, 'append')}
+                      style={{ fontSize: '0.8rem', padding: '5px 12px' }}
+                    >
+                      📥 Load &amp; Append Tasks
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={() => handleLoadTemplate(tmpl, 'replace')}
+                      style={{ fontSize: '0.8rem', padding: '5px 12px' }}
+                    >
+                      ⚡ Replace Current Vault
+                    </button>
+                    {tmpl.id.startsWith('custom-') && (
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={() => handleDeleteCustomTemplate(tmpl.id)}
+                        style={{ fontSize: '0.8rem', padding: '5px 12px', color: 'var(--rose)' }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setShowTemplateModal(false)}
+                style={{ fontSize: '0.85rem' }}
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
