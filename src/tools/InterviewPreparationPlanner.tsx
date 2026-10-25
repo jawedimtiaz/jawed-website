@@ -27,7 +27,9 @@ import {
   Link2,
   Paperclip,
   Mic,
-  MicOff
+  MicOff,
+  FileSpreadsheet,
+  Download
 } from 'lucide-react';
 
 export type StoryStatus = 'To Do' | 'In Progress' | 'Done';
@@ -642,6 +644,66 @@ ${story.result || 'N/A'}
     window.print();
   };
 
+  const escapeCsvField = (field: string | undefined): string => {
+    if (!field) return '""';
+    const escaped = field.replace(/"/g, '""');
+    return `"${escaped}"`;
+  };
+
+  const handleDownloadCsv = () => {
+    if (starStories.length === 0) {
+      showToast('No stories in vault to export.');
+      return;
+    }
+
+    const headers = [
+      'ID',
+      'Theme / Competency',
+      'Priority',
+      'Status',
+      'Situation',
+      'Task',
+      'Action',
+      'Result',
+      'Prep Notes',
+      'Resource Links',
+      'File References'
+    ];
+
+    const rows = starStories.map(story => {
+      const linksStr = (story.links || []).map(l => `${l.title}: ${l.url}`).join(' | ');
+      const fileRefsStr = (story.fileRefs || []).map(f => `${f.name} [${f.fileType}]${f.notes ? ' - ' + f.notes : ''}`).join(' | ');
+
+      return [
+        story.id,
+        escapeCsvField(story.theme),
+        escapeCsvField(story.priority || 'Medium'),
+        escapeCsvField(story.status || 'To Do'),
+        escapeCsvField(story.situation),
+        escapeCsvField(story.task),
+        escapeCsvField(story.action),
+        escapeCsvField(story.result),
+        escapeCsvField(story.notes),
+        escapeCsvField(linksStr),
+        escapeCsvField(fileRefsStr)
+      ].join(',');
+    });
+
+    const csvData = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob(['\uFEFF' + csvData], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const sanitizedRole = roleTitle.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'interview_prep';
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${sanitizedRole}_star_stories_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast('CSV file downloaded successfully!');
+  };
+
   const statusCounts = useMemo(() => {
     const counts = { 'All': starStories.length, 'To Do': 0, 'In Progress': 0, 'Done': 0 };
     starStories.forEach(s => {
@@ -1071,6 +1133,16 @@ ${story.result || 'N/A'}
                 >
                   <Printer className="w-4 h-4 text-sky-400" />
                   Print / Export PDF
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary no-print"
+                  onClick={handleDownloadCsv}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  title="Export all tasks, statuses, priorities, notes, and links to CSV spreadsheet"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  Download CSV
                 </button>
                 <button
                   type="button"
