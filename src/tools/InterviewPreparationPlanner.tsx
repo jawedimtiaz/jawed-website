@@ -29,7 +29,11 @@ import {
   Mic,
   MicOff,
   FileSpreadsheet,
-  Download
+  Download,
+  Archive,
+  ArchiveRestore,
+  RotateCcw,
+  FolderArchive
 } from 'lucide-react';
 
 export type StoryStatus = 'To Do' | 'In Progress' | 'Done';
@@ -60,6 +64,7 @@ interface StarStory {
   notes?: string;
   links?: TaskLink[];
   fileRefs?: TaskFileRef[];
+  isArchived?: boolean;
 }
 
 const SAMPLE_STORIES: StarStory[] = [
@@ -134,7 +139,7 @@ const getPriorityStyle = (priority: TaskPriority = 'Medium') => {
 };
 
 export const InterviewPreparationPlanner: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'builder' | 'vault' | 'questions' | 'guide'>('builder');
+  const [activeTab, setActiveTab] = useState<'builder' | 'vault' | 'archive' | 'questions' | 'guide'>('builder');
 
   const [roleTitle, setRoleTitle] = useState(() => {
     return localStorage.getItem('ipp_role') || 'Senior IT Support Specialist';
@@ -151,7 +156,8 @@ export const InterviewPreparationPlanner: React.FC = () => {
         return parsed.map((s: any) => ({
           ...s,
           status: s.status || 'To Do',
-          priority: s.priority || 'Medium'
+          priority: s.priority || 'Medium',
+          isArchived: !!s.isArchived
         }));
       }
     } catch {
@@ -159,6 +165,9 @@ export const InterviewPreparationPlanner: React.FC = () => {
     }
     return SAMPLE_STORIES;
   });
+
+  const activeStories = useMemo(() => starStories.filter(s => !s.isArchived), [starStories]);
+  const archivedStories = useMemo(() => starStories.filter(s => s.isArchived), [starStories]);
 
   // Individual Form Field States with LocalStorage Auto-Save
   const [storyTheme, setStoryTheme] = useState(() => {
@@ -640,6 +649,57 @@ ${story.result || 'N/A'}
     }, 2500);
   };
 
+  const handleArchiveStory = (id: number) => {
+    setStarStories(prev => {
+      const story = prev.find(s => s.id === id);
+      const updated = prev.map(s => s.id === id ? { ...s, isArchived: true } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      if (story) showToast(`Archived "${story.theme}"`);
+      return updated;
+    });
+    if (modalStory && modalStory.id === id) {
+      setModalStory(prev => prev ? { ...prev, isArchived: true } : null);
+    }
+  };
+
+  const handleRestoreStory = (id: number) => {
+    setStarStories(prev => {
+      const story = prev.find(s => s.id === id);
+      const updated = prev.map(s => s.id === id ? { ...s, isArchived: false } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      if (story) showToast(`Restored "${story.theme}" to active board`);
+      return updated;
+    });
+    if (modalStory && modalStory.id === id) {
+      setModalStory(prev => prev ? { ...prev, isArchived: false } : null);
+    }
+  };
+
+  const handleArchiveAllDone = () => {
+    const doneCount = activeStories.filter(s => s.status === 'Done').length;
+    if (doneCount === 0) {
+      showToast('No completed "Done" tasks to archive.');
+      return;
+    }
+    setStarStories(prev => {
+      const updated = prev.map(s => (!s.isArchived && s.status === 'Done') ? { ...s, isArchived: true } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    showToast(`Archived ${doneCount} completed task${doneCount > 1 ? 's' : ''}!`);
+  };
+
+  const handleRestoreAllArchived = () => {
+    if (archivedStories.length === 0) return;
+    const count = archivedStories.length;
+    setStarStories(prev => {
+      const updated = prev.map(s => s.isArchived ? { ...s, isArchived: false } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    showToast(`Restored all ${count} archived tasks to active board!`);
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -705,16 +765,16 @@ ${story.result || 'N/A'}
   };
 
   const statusCounts = useMemo(() => {
-    const counts = { 'All': starStories.length, 'To Do': 0, 'In Progress': 0, 'Done': 0 };
-    starStories.forEach(s => {
+    const counts = { 'All': activeStories.length, 'To Do': 0, 'In Progress': 0, 'Done': 0 };
+    activeStories.forEach(s => {
       const st = s.status || 'To Do';
       counts[st] = (counts[st] || 0) + 1;
     });
     return counts;
-  }, [starStories]);
+  }, [activeStories]);
 
   const summaryStats = useMemo(() => {
-    const total = starStories.length;
+    const total = activeStories.length;
     if (total === 0) {
       return {
         total: 0,
@@ -741,7 +801,7 @@ ${story.result || 'N/A'}
     let mediumCount = 0;
     let lowCount = 0;
 
-    starStories.forEach(s => {
+    activeStories.forEach(s => {
       const st = s.status || 'To Do';
       if (st === 'Done') doneCount++;
       else if (st === 'In Progress') inProgressCount++;
@@ -779,9 +839,9 @@ ${story.result || 'N/A'}
       lowPct,
       overallReadiness,
     };
-  }, [starStories]);
+  }, [activeStories]);
 
-  const filteredVault = starStories.filter(story => {
+  const filteredVault = activeStories.filter(story => {
     const q = searchVault.trim().toLowerCase();
     const matchesSearch = !q || (
       story.theme.toLowerCase().includes(q) ||
@@ -840,7 +900,14 @@ ${story.result || 'N/A'}
             className={activeTab === 'vault' ? 'on' : ''}
             onClick={() => setActiveTab('vault')}
           >
-            🏆 Saved Vault ({starStories.length})
+            🏆 Saved Vault ({activeStories.length})
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'archive' ? 'on' : ''}
+            onClick={() => setActiveTab('archive')}
+          >
+            📁 Archive ({archivedStories.length})
           </button>
           <button
             type="button"
@@ -1097,33 +1164,55 @@ ${story.result || 'N/A'}
                 <Award className="w-7 h-7 text-sky-400" />
                 STAR Story Vault
                 <span className="pill" style={{ fontSize: '0.85rem', verticalAlign: 'middle' }}>
-                  {starStories.length} Saved
+                  {activeStories.length} Active
                 </span>
+                {archivedStories.length > 0 && (
+                  <span
+                    className="pill"
+                    onClick={() => setActiveTab('archive')}
+                    style={{ fontSize: '0.82rem', verticalAlign: 'middle', cursor: 'pointer', background: 'rgba(100, 116, 139, 0.2)', color: 'var(--text-muted)' }}
+                    title="Click to view archived tasks"
+                  >
+                    📁 {archivedStories.length} Archived
+                  </span>
+                )}
               </h1>
               <p className="meta" style={{ marginTop: '4px' }}>
                 Review, refine, search, or copy your prepared behavioral answers for target role: <b>{roleTitle}</b> ({targetCompany}).
               </p>
             </div>
 
-            {starStories.length > 0 && (
+            {activeStories.length > 0 && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {summaryStats.doneCount > 0 && (
+                  <button
+                    type="button"
+                    className="button button-secondary no-print"
+                    onClick={handleArchiveAllDone}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    title="Archive all completed 'Done' tasks to keep your board clean"
+                  >
+                    <Archive className="w-4 h-4 text-amber-400" />
+                    Archive Completed ({summaryStats.doneCount})
+                  </button>
+                )}
                 <button
                   type="button"
                   className="button button-secondary"
                   onClick={() => {
-                    const allText = starStories.map((s, idx) => `=== STORY #${idx + 1}: ${s.theme.toUpperCase()} ===
+                    const allText = activeStories.map((s, idx) => `=== STORY #${idx + 1}: ${s.theme.toUpperCase()} ===
 [SITUATION]: ${s.situation}
 [TASK]: ${s.task}
 [ACTION]: ${s.action}
 [RESULT]: ${s.result}
 ----------------------------------------`).join('\n\n');
                     navigator.clipboard.writeText(allText);
-                    showToast('All STAR stories copied to clipboard!');
+                    showToast('All active STAR stories copied to clipboard!');
                   }}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
                   <Copy className="w-4 h-4 text-sky-400" />
-                  Copy All Stories
+                  Copy All Active
                 </button>
                 <button
                   type="button"
@@ -1592,6 +1681,15 @@ ${story.result || 'N/A'}
                                 <button
                                   type="button"
                                   className="button button-secondary"
+                                  onClick={() => handleArchiveStory(story.id)}
+                                  style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                                  title="Archive story"
+                                >
+                                  <Archive className="w-3 h-3 text-slate-400" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button button-secondary"
                                   onClick={() => handleDeleteStory(story.id)}
                                   style={{ padding: '3px 8px', fontSize: '0.75rem', color: 'var(--rose)' }}
                                   title="Delete story"
@@ -1726,6 +1824,16 @@ ${story.result || 'N/A'}
                         <button
                           type="button"
                           className="button button-secondary"
+                          onClick={() => handleArchiveStory(story.id)}
+                          style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                          title="Archive story to keep board clean"
+                        >
+                          <Archive className="w-4 h-4 text-slate-400" />
+                          Archive
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-secondary"
                           onClick={() => handleDeleteStory(story.id)}
                           style={{ padding: '6px 10px', fontSize: '0.85rem', color: 'var(--rose)' }}
                           title="Delete Story"
@@ -1781,7 +1889,165 @@ ${story.result || 'N/A'}
         </div>
       )}
 
-      {/* VIEW 3: REVERSE QUESTIONS */}
+      {/* VIEW 3: ARCHIVED TASKS */}
+      {activeTab === 'archive' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', margin: '16px 0 20px' }}>
+            <div>
+              <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FolderArchive className="w-7 h-7 text-sky-400" />
+                Archived Tasks
+                <span className="pill" style={{ fontSize: '0.85rem', verticalAlign: 'middle' }}>
+                  {archivedStories.length} Archived
+                </span>
+              </h1>
+              <p className="meta" style={{ marginTop: '4px' }}>
+                Completed or inactive interview prep tasks moved here to keep your active workspace organized. Restore tasks anytime.
+              </p>
+            </div>
+
+            {archivedStories.length > 0 && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={handleRestoreAllArchived}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <RotateCcw className="w-4 h-4 text-emerald-400" />
+                  Restore All ({archivedStories.length})
+                </button>
+              </div>
+            )}
+          </div>
+
+          {archivedStories.length === 0 ? (
+            <div className="panel" style={{ textAlign: 'center', padding: '48px 24px' }}>
+              <Archive className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                No Archived Tasks
+              </h3>
+              <p className="meta" style={{ maxWidth: '480px', margin: '8px auto 20px' }}>
+                Your archive is clean. You can archive completed or inactive tasks from the Saved Vault board anytime to keep your active workspace clutter-free.
+              </p>
+              <button
+                type="button"
+                className="button"
+                onClick={() => setActiveTab('vault')}
+              >
+                Go to Saved Vault ({activeStories.length})
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {archivedStories.map((story, index) => {
+                const priorityStyle = getPriorityStyle(story.priority || 'Medium');
+
+                return (
+                  <div
+                    key={story.id}
+                    className="panel"
+                    style={{
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
+                      position: 'relative',
+                      opacity: 0.9,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className="pill" style={{ fontWeight: 800, margin: 0, background: 'rgba(100, 116, 139, 0.2)', color: 'var(--text-muted)' }}>
+                          #{index + 1}
+                        </span>
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
+                          {story.theme}
+                        </h3>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            padding: '3px 10px',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            borderRadius: '99px',
+                            border: `1px solid ${priorityStyle.border}`,
+                            background: priorityStyle.bg,
+                            color: priorityStyle.color,
+                          }}
+                        >
+                          {priorityStyle.label}
+                        </span>
+
+                        <span
+                          style={{
+                            padding: '3px 10px',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            borderRadius: '99px',
+                            border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
+                            background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
+                            color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
+                          }}
+                        >
+                          {story.status || 'To Do'}
+                        </span>
+
+                        <button
+                          type="button"
+                          className="button button-secondary"
+                          onClick={() => setModalStory(story)}
+                          style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                          title="View details"
+                        >
+                          <Eye className="w-4 h-4 text-sky-400" />
+                          Details
+                        </button>
+
+                        <button
+                          type="button"
+                          className="button"
+                          onClick={() => handleRestoreStory(story.id)}
+                          style={{ padding: '6px 14px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(16, 185, 129, 0.2)', border: '1px solid var(--emerald)', color: 'var(--emerald)' }}
+                          title="Restore story to active board"
+                        >
+                          <ArchiveRestore className="w-4 h-4" />
+                          Restore
+                        </button>
+
+                        <button
+                          type="button"
+                          className="button button-secondary"
+                          onClick={() => handleDeleteStory(story.id)}
+                          style={{ padding: '6px 10px', fontSize: '0.85rem', color: 'var(--rose)' }}
+                          title="Permanently Delete Story"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                      {story.situation && (
+                        <p style={{ margin: '0 0 6px' }}>
+                          <strong style={{ color: 'var(--text)' }}>Situation:</strong> {story.situation}
+                        </p>
+                      )}
+                      {story.result && (
+                        <p style={{ margin: 0, color: 'var(--emerald)', fontWeight: 600 }}>
+                          <strong>Result:</strong> {story.result}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* VIEW 4: REVERSE QUESTIONS */}
       {activeTab === 'questions' && (
         <div>
           <div className="tool-hero">
@@ -2377,7 +2643,26 @@ ${story.result || 'N/A'}
                 <Copy className="w-4 h-4 text-sky-400" /> Copy Story Text
               </button>
 
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {modalStory.isArchived ? (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => handleRestoreStory(modalStory.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                  >
+                    <ArchiveRestore className="w-4 h-4 text-emerald-400" /> Restore Task
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => handleArchiveStory(modalStory.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                  >
+                    <Archive className="w-4 h-4 text-slate-400" /> Archive Task
+                  </button>
+                )}
                 <button
                   type="button"
                   className="button button-secondary"
