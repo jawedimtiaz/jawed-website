@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   Copy,
   Check,
@@ -92,6 +93,7 @@ interface StarStory {
   isArchived?: boolean;
   blockedByTaskIds?: number[];
   reminderDateTime?: string;
+  estimatedHours?: number;
 }
 
 export const getCategoryStyle = (categoryLabel: string = 'Behavioral') => {
@@ -349,6 +351,14 @@ export const InterviewPreparationPlanner: React.FC = () => {
   const [storyRepeat, setStoryRepeat] = useState<RepeatFrequency>(() => {
     return (localStorage.getItem('ipp_draft_repeat') as RepeatFrequency) || 'None';
   });
+  const [storyEffort, setStoryEffort] = useState<number>(() => {
+    const saved = localStorage.getItem('ipp_draft_effort');
+    return saved ? Number(saved) : 4;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ipp_draft_effort', String(storyEffort));
+  }, [storyEffort]);
   const [storyCategory, setStoryCategory] = useState<string>(() => {
     return localStorage.getItem('ipp_draft_category') || 'Technical';
   });
@@ -840,6 +850,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setStoryPriority('Medium');
     setStoryRepeat('None');
     setStoryCategory('Technical');
+    setStoryEffort(4);
     setCustomCategoryInput('');
     setIsCustomCategoryMode(false);
     setEditingId(null);
@@ -851,6 +862,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
     localStorage.removeItem('ipp_draft_status');
     localStorage.removeItem('ipp_draft_priority');
     localStorage.removeItem('ipp_draft_repeat');
+    localStorage.removeItem('ipp_draft_effort');
     localStorage.removeItem('ipp_draft_category');
     localStorage.removeItem('ipp_draft_editing_id');
   };
@@ -877,6 +889,18 @@ export const InterviewPreparationPlanner: React.FC = () => {
       setModalStory(prev => prev ? { ...prev, reminderDateTime: dateTimeStr } : null);
     }
     showToast(dateTimeStr ? `Reminder set for ${new Date(dateTimeStr).toLocaleString()}` : 'Reminder cleared.');
+  };
+
+  const handleUpdateEffort = (id: number, hours: number) => {
+    setStarStories(prev => {
+      const updated = prev.map(s => s.id === id ? { ...s, estimatedHours: hours } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      return updated;
+    });
+    if (modalStory && modalStory.id === id) {
+      setModalStory(prev => prev ? { ...prev, estimatedHours: hours } : null);
+    }
+    showToast(`Estimated effort updated to ${hours} hrs`);
   };
 
   const handleUpdateStatus = (id: number, newStatus: StoryStatus) => {
@@ -960,6 +984,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
                 priority: storyPriority,
                 repeatFrequency: storyRepeat,
                 categoryLabel: finalCategory,
+                estimatedHours: storyEffort,
               }
             : story
         )
@@ -977,6 +1002,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
         priority: storyPriority,
         repeatFrequency: storyRepeat,
         categoryLabel: finalCategory,
+        estimatedHours: storyEffort,
       };
       setStarStories(prev => [created, ...prev]);
       showToast('Story added to vault!');
@@ -1250,6 +1276,9 @@ ${story.result || 'N/A'}
         mediumPct: 0,
         lowPct: 0,
         overallReadiness: 0,
+        totalEstimatedHours: 0,
+        completedHours: 0,
+        categoryHoursMap: {},
       };
     }
 
@@ -1259,12 +1288,25 @@ ${story.result || 'N/A'}
     let highCount = 0;
     let mediumCount = 0;
     let lowCount = 0;
+    let totalEstimatedHours = 0;
+    let completedHours = 0;
+    const categoryHoursMap: { [cat: string]: { total: number; done: number; count: number } } = {};
 
     activeStories.forEach(s => {
       const st = s.status || 'To Do';
-      if (st === 'Done') doneCount++;
-      else if (st === 'In Progress') inProgressCount++;
+      const hrs = s.estimatedHours && s.estimatedHours > 0 ? s.estimatedHours : 4;
+      totalEstimatedHours += hrs;
+      if (st === 'Done') {
+        doneCount++;
+        completedHours += hrs;
+      } else if (st === 'In Progress') inProgressCount++;
       else todoCount++;
+
+      const cat = s.categoryLabel || 'Technical';
+      if (!categoryHoursMap[cat]) categoryHoursMap[cat] = { total: 0, done: 0, count: 0 };
+      categoryHoursMap[cat].total += hrs;
+      categoryHoursMap[cat].count++;
+      if (st === 'Done') categoryHoursMap[cat].done += hrs;
 
       const p = s.priority || 'Medium';
       if (p === 'High') highCount++;
@@ -1297,8 +1339,20 @@ ${story.result || 'N/A'}
       mediumPct,
       lowPct,
       overallReadiness,
+      totalEstimatedHours,
+      completedHours,
+      categoryHoursMap,
     };
   }, [activeStories]);
+
+  const effortChartData = useMemo(() => {
+    return Object.entries(summaryStats.categoryHoursMap).map(([category, data]: [string, any]) => ({
+      category,
+      TotalHours: data.total,
+      CompletedHours: data.done,
+      TasksCount: data.count,
+    }));
+  }, [summaryStats.categoryHoursMap]);
 
   const filteredVault = activeStories.filter(story => {
     const q = searchVault.trim().toLowerCase();
@@ -1481,7 +1535,7 @@ ${story.result || 'N/A'}
             </div>
 
             {/* Theme, Category Label, Priority Level, Preparation Status & Repeat Schedule Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3" style={{ marginBottom: '20px', marginTop: 0 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3" style={{ marginBottom: '20px', marginTop: 0 }}>
               <div>
                 <label htmlFor="story-theme">Theme / Answer Title</label>
                 <input
@@ -1573,6 +1627,18 @@ ${story.result || 'N/A'}
                   <option value="Weekly">🔁 Weekly Practice</option>
                   <option value="Monthly">🔁 Monthly Refresher</option>
                 </select>
+              </div>
+              <div>
+                <label htmlFor="story-effort">Est. Effort (Hours)</label>
+                <input
+                  id="story-effort"
+                  type="number"
+                  min="1"
+                  max="40"
+                  value={storyEffort}
+                  onChange={(e) => setStoryEffort(Number(e.target.value) || 4)}
+                  placeholder="4"
+                />
               </div>
             </div>
 
@@ -1840,6 +1906,89 @@ ${story.result || 'N/A'}
                     <div style={{ height: '100%', width: `${summaryStats.donePct}%`, background: '#10b981', borderRadius: '99px', transition: 'width 0.3s ease' }} />
                   </div>
                 </div>
+              </div>
+
+              {/* Time & Effort Tracker Section */}
+              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    ⏱️ Time &amp; Effort Tracker (Projected Effort)
+                  </h4>
+                  <span className="pill" style={{ fontWeight: 700, background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '2px 10px', fontSize: '0.8rem' }}>
+                    {summaryStats.completedHours} hrs completed / {summaryStats.totalEstimatedHours} hrs total est.
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3" style={{ marginBottom: '16px' }}>
+                  {Object.entries(summaryStats.categoryHoursMap).map(([cat, data]: [string, any]) => {
+                    const catStyle = getCategoryStyle(cat);
+                    const pct = data.total > 0 ? Math.round((data.done / data.total) * 100) : 0;
+                    return (
+                      <div
+                        key={cat}
+                        style={{
+                          background: 'var(--bg)',
+                          border: `1px solid ${catStyle.border}`,
+                          borderRadius: '10px',
+                          padding: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: catStyle.color, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>{catStyle.icon}</span> {cat}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+                            {data.done}/{data.total} hrs
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          {data.count} task{data.count > 1 ? 's' : ''} • {pct}% completed
+                        </div>
+                        <div style={{ height: '4px', width: '100%', background: 'var(--surface)', borderRadius: '99px', overflow: 'hidden', marginTop: '2px' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: catStyle.color, borderRadius: '99px', transition: 'width 0.3s ease' }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Recharts Time Spent Distribution Chart */}
+                {effortChartData.length > 0 && (
+                  <div style={{ background: 'var(--bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '10px' }}>
+                      📊 Effort Distribution by Category (Total vs Completed Hours)
+                    </div>
+                    <div style={{ width: '100%', height: '220px' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={effortChartData} margin={{ top: 10, right: 20, left: -20, bottom: 25 }}>
+                          <XAxis
+                            dataKey="category"
+                            stroke="var(--text-muted)"
+                            fontSize={11}
+                            angle={-20}
+                            textAnchor="end"
+                            interval={0}
+                          />
+                          <YAxis stroke="var(--text-muted)" fontSize={11} />
+                          <Tooltip
+                            contentStyle={{
+                              background: 'var(--surface)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              color: 'var(--text-heading)',
+                              fontSize: '0.82rem'
+                            }}
+                          />
+                          <Bar dataKey="TotalHours" name="Total Est. Hours" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="CompletedHours" name="Completed Hours" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Priority Breakdown Row with Dynamic Priority Badges */}
