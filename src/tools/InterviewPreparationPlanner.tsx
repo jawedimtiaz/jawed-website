@@ -15,9 +15,12 @@ import {
   HelpCircle,
   X,
   Target,
-  Search,
   Plus,
-  Printer
+  Printer,
+  GripVertical,
+  Columns,
+  List,
+  Search
 } from 'lucide-react';
 
 type StoryStatus = 'To Do' | 'In Progress' | 'Done';
@@ -106,6 +109,64 @@ export const InterviewPreparationPlanner: React.FC = () => {
   // Vault Search & Status Filter State
   const [searchVault, setSearchVault] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | StoryStatus>('All');
+
+  // Vault View Mode (Kanban Board vs Detailed List) & Drag-and-Drop state
+  const [vaultViewMode, setVaultViewMode] = useState<'board' | 'list'>(() => {
+    return (localStorage.getItem('ipp_vault_view_mode') as 'board' | 'list') || 'board';
+  });
+  const [draggedStoryId, setDraggedStoryId] = useState<number | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<StoryStatus | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('ipp_vault_view_mode', vaultViewMode);
+  }, [vaultViewMode]);
+
+  const handleDragStart = (e: React.DragEvent, storyId: number) => {
+    e.dataTransfer.setData('text/plain', String(storyId));
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedStoryId(storyId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedStoryId(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDragOverColumn = (e: React.DragEvent, status: StoryStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverColumn !== status) {
+      setDragOverColumn(status);
+    }
+  };
+
+  const handleDragLeaveColumn = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDropToColumn = (e: React.DragEvent, targetStatus: StoryStatus) => {
+    e.preventDefault();
+    setDragOverColumn(null);
+    const storyIdStr = e.dataTransfer.getData('text/plain');
+    const storyId = Number(storyIdStr);
+    if (!storyId || isNaN(storyId)) {
+      setDraggedStoryId(null);
+      return;
+    }
+
+    setStarStories(prev => {
+      const targetStory = prev.find(s => s.id === storyId);
+      if (!targetStory) return prev;
+
+      if (targetStory.status === targetStatus) return prev;
+
+      const updated = prev.map(s => s.id === storyId ? { ...s, status: targetStatus } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      showToast(`Moved "${targetStory.theme}" to ${targetStatus}`);
+      return updated;
+    });
+    setDraggedStoryId(null);
+  };
 
   // UI Feedback
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -652,23 +713,45 @@ ${story.result || 'N/A'}
           {/* Search & Status Filter Panel */}
           {starStories.length > 0 && (
             <div className="panel" style={{ marginBottom: '20px', padding: '16px 20px' }}>
-              {/* Status Filter Tabs */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px', alignItems: 'center' }}>
-                <span className="meta" style={{ fontWeight: 700, marginRight: '4px' }}>Filter Status:</span>
-                {(['All', 'To Do', 'In Progress', 'Done'] as const).map(st => (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+                {/* Status Filter Tabs */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span className="meta" style={{ fontWeight: 700, marginRight: '4px' }}>Filter Status:</span>
+                  {(['All', 'To Do', 'In Progress', 'Done'] as const).map(st => (
+                    <button
+                      key={st}
+                      type="button"
+                      className={statusFilter === st ? 'button' : 'button button-secondary'}
+                      onClick={() => setStatusFilter(st)}
+                      style={{ padding: '5px 12px', fontSize: '0.85rem' }}
+                    >
+                      {st === 'All' ? `All (${statusCounts['All']})` :
+                       st === 'To Do' ? `⏳ To Do (${statusCounts['To Do']})` :
+                       st === 'In Progress' ? `🔄 In Progress (${statusCounts['In Progress']})` :
+                       `✅ Done (${statusCounts['Done']})`}
+                    </button>
+                  ))}
+                </div>
+
+                {/* View Switcher: Board vs List */}
+                <div style={{ display: 'flex', gap: '4px', background: 'var(--surface-accent)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                   <button
-                    key={st}
                     type="button"
-                    className={statusFilter === st ? 'button' : 'button button-secondary'}
-                    onClick={() => setStatusFilter(st)}
-                    style={{ padding: '5px 12px', fontSize: '0.85rem' }}
+                    className={vaultViewMode === 'board' ? 'button' : 'button button-secondary'}
+                    onClick={() => setVaultViewMode('board')}
+                    style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
-                    {st === 'All' ? `All (${statusCounts['All']})` :
-                     st === 'To Do' ? `⏳ To Do (${statusCounts['To Do']})` :
-                     st === 'In Progress' ? `🔄 In Progress (${statusCounts['In Progress']})` :
-                     `✅ Done (${statusCounts['Done']})`}
+                    <Columns className="w-3.5 h-3.5 text-sky-400" /> Kanban Board
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    className={vaultViewMode === 'list' ? 'button' : 'button button-secondary'}
+                    onClick={() => setVaultViewMode('list')}
+                    style={{ padding: '4px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <List className="w-3.5 h-3.5 text-sky-400" /> Detailed List
+                  </button>
+                </div>
               </div>
 
               {/* Keyword Search Input */}
@@ -739,7 +822,150 @@ ${story.result || 'N/A'}
                 Clear Search Filter
               </button>
             </div>
+          ) : vaultViewMode === 'board' ? (
+            /* KANBAN BOARD VIEW WITH DRAG AND DROP COLUMNS */
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '16px' }}>
+              {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
+                const columnStories = filteredVault.filter(s => (s.status || 'To Do') === colStatus);
+                const isOver = dragOverColumn === colStatus;
+
+                return (
+                  <div
+                    key={colStatus}
+                    className="panel"
+                    onDragOver={(e) => handleDragOverColumn(e, colStatus)}
+                    onDragLeave={handleDragLeaveColumn}
+                    onDrop={(e) => handleDropToColumn(e, colStatus)}
+                    style={{
+                      background: 'var(--surface)',
+                      border: isOver ? '2px dashed var(--accent)' : '1px solid var(--border)',
+                      borderRadius: '16px',
+                      padding: '16px',
+                      minHeight: '380px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      transition: 'all 0.15s ease',
+                      boxShadow: isOver ? '0 0 15px rgba(56, 189, 248, 0.25)' : 'none',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {colStatus === 'To Do' ? '⏳ To Do' : colStatus === 'In Progress' ? '🔄 In Progress' : '✅ Done'}
+                      </h3>
+                      <span className="pill" style={{ margin: 0, fontWeight: 700 }}>
+                        {columnStories.length}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '4px' }}>
+                      📥 Drag cards here to move to {colStatus}
+                    </div>
+
+                    {columnStories.length === 0 ? (
+                      <div style={{ padding: '32px 12px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                        No stories in {colStatus}
+                      </div>
+                    ) : (
+                      columnStories.map((story) => (
+                        <div
+                          key={story.id}
+                          draggable={true}
+                          onDragStart={(e) => handleDragStart(e, story.id)}
+                          onDragEnd={handleDragEnd}
+                          className="card"
+                          style={{
+                            padding: '14px',
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '12px',
+                            cursor: 'grab',
+                            opacity: draggedStoryId === story.id ? 0.4 : 1,
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'grab' }}>
+                              <GripVertical className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
+                                {story.theme}
+                              </h4>
+                            </div>
+                          </div>
+
+                          {story.situation && (
+                            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 6px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                              <strong style={{ color: 'var(--text)' }}>S:</strong> {story.situation}
+                            </p>
+                          )}
+
+                          {story.result && (
+                            <p style={{ fontSize: '0.82rem', color: 'var(--emerald)', fontWeight: 600, margin: '0 0 10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                              <strong>R:</strong> {story.result}
+                            </p>
+                          )}
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                            <select
+                              aria-label={`Status for ${story.theme}`}
+                              value={story.status || 'To Do'}
+                              onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
+                              style={{
+                                padding: '2px 6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                borderRadius: '99px',
+                                border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
+                                background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
+                                color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <option value="To Do">To Do</option>
+                              <option value="In Progress">In Progress</option>
+                              <option value="Done">Done</option>
+                            </select>
+
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button
+                                type="button"
+                                className="button button-secondary"
+                                onClick={() => handleCopyStory(story)}
+                                style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                                title="Copy story"
+                              >
+                                <Copy className="w-3 h-3 text-sky-400" />
+                              </button>
+                              <button
+                                type="button"
+                                className="button button-secondary"
+                                onClick={() => handleEditStory(story)}
+                                style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                                title="Edit story"
+                              >
+                                <Edit3 className="w-3 h-3 text-amber-400" />
+                              </button>
+                              <button
+                                type="button"
+                                className="button button-secondary"
+                                onClick={() => handleDeleteStory(story.id)}
+                                style={{ padding: '3px 8px', fontSize: '0.75rem', color: 'var(--rose)' }}
+                                title="Delete story"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           ) : (
+            /* DETAILED LIST VIEW */
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {filteredVault.map((story, index) => {
                 const isCopied = copiedId === story.id;
