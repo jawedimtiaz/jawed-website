@@ -21,6 +21,12 @@ import {
   Sliders,
   Sun,
   Moon,
+  Activity,
+  Clock,
+  Grid,
+  BarChart3,
+  TrendingUp,
+  Zap,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import {
@@ -558,6 +564,689 @@ const RAID_DEFINITIONS: Record<
 
 const POPULAR_DRIVE_SIZES = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24];
 
+export type ScheduleProfileKey = 'retail' | 'office' | 'warehouse' | 'constant_247' | 'night_shift';
+
+export interface ScheduleProfile {
+  key: ScheduleProfileKey;
+  name: string;
+  description: string;
+  hourlyMultipliers: number[];
+}
+
+export const SCHEDULE_PROFILES: Record<ScheduleProfileKey, ScheduleProfile> = {
+  retail: {
+    key: 'retail',
+    name: 'Retail Store / Shopping Mall',
+    description: 'High foot traffic and constant motion 09:00–21:00; quiet night baseline with VBR compression.',
+    hourlyMultipliers: [
+      0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.40, 0.55,
+      0.85, 1.25, 1.45, 1.50, 1.40, 1.45, 1.50, 1.45,
+      1.35, 1.25, 1.10, 0.90, 0.55, 0.35, 0.35, 0.35,
+    ],
+  },
+  office: {
+    key: 'office',
+    name: 'Commercial Office Building',
+    description: 'Standard 9-to-5 workday motion spikes during arrival, lunch hour, and departure.',
+    hourlyMultipliers: [
+      0.30, 0.30, 0.30, 0.30, 0.30, 0.35, 0.50, 0.80,
+      1.35, 1.40, 1.25, 1.45, 1.50, 1.30, 1.35, 1.40,
+      1.45, 1.20, 0.70, 0.45, 0.35, 0.30, 0.30, 0.30,
+    ],
+  },
+  warehouse: {
+    key: 'warehouse',
+    name: 'Logistics & Warehouse Center',
+    description: 'Two-shift operational heavy loading 06:00–22:00 with security patrols during night hours.',
+    hourlyMultipliers: [
+      0.45, 0.40, 0.40, 0.45, 0.50, 0.75, 1.30, 1.40,
+      1.45, 1.40, 1.35, 1.40, 1.30, 1.40, 1.45, 1.40,
+      1.35, 1.30, 1.25, 1.10, 0.85, 0.65, 0.50, 0.45,
+    ],
+  },
+  constant_247: {
+    key: 'constant_247',
+    name: '24/7 Constant CBR Stream',
+    description: 'Uniform bitrate 100% flat continuous stream (e.g., constant bit rate or high-density traffic).',
+    hourlyMultipliers: Array(24).fill(1.0),
+  },
+  night_shift: {
+    key: 'night_shift',
+    name: 'Night Security & Perimeter Focus',
+    description: 'High activity, floodlights, and movement during night hours (20:00–06:00).',
+    hourlyMultipliers: [
+      1.35, 1.40, 1.40, 1.35, 1.30, 1.20, 0.75, 0.50,
+      0.40, 0.40, 0.45, 0.45, 0.50, 0.45, 0.40, 0.40,
+      0.45, 0.55, 0.80, 1.15, 1.30, 1.35, 1.40, 1.40,
+    ],
+  },
+};
+
+interface CameraGroupSpec {
+  id: string;
+  name: string;
+  weight: number;
+  count: number;
+}
+
+interface StorageHeatmapProps {
+  cameras: number;
+  baseBitrateMbps: number;
+  recordingPct: number;
+  codec: CodecKey;
+  theme: 'dark' | 'light';
+  onApplyDutyCycle?: (pct: number) => void;
+}
+
+export const StorageHeatmap: React.FC<StorageHeatmapProps> = ({
+  cameras,
+  baseBitrateMbps,
+  recordingPct,
+  codec,
+  theme,
+  onApplyDutyCycle,
+}) => {
+  const [profileKey, setProfileKey] = useState<ScheduleProfileKey>('retail');
+  const [metricMode, setMetricMode] = useState<'mbps' | 'gb_hr'>('mbps');
+  const [selectedCell, setSelectedCell] = useState<{ camName: string; hour: number } | null>(null);
+
+  const isDarkMode = theme === 'dark';
+  const profile = SCHEDULE_PROFILES[profileKey];
+
+  const cameraGroups = useMemo<CameraGroupSpec[]>(() => {
+    if (cameras <= 12) {
+      return Array.from({ length: cameras }, (_, i) => ({
+        id: `cam-${i + 1}`,
+        name: `Camera ${i + 1}`,
+        weight: 0.85 + (i % 5) * 0.1,
+        count: 1,
+      }));
+    } else {
+      const basePerZone = Math.floor(cameras / 8);
+      const remainder = cameras % 8;
+
+      const zoneNames = [
+        'Main Entrance & Foyer',
+        'Parking Lot & Driveway',
+        'Cashier / POS Counters',
+        'Interior Corridors',
+        'Perimeter Fence Line',
+        'Loading Dock & Freight',
+        'Server / Data Room',
+        'Outdoor Rooftop & Perimeter',
+      ];
+
+      const weights = [1.3, 1.1, 1.25, 0.9, 1.05, 1.2, 0.8, 0.95];
+
+      return zoneNames.map((name, i) => ({
+        id: `zone-${i + 1}`,
+        name: `${name} (${basePerZone + (i < remainder ? 1 : 0)} Cams)`,
+        weight: weights[i],
+        count: basePerZone + (i < remainder ? 1 : 0),
+      }));
+    }
+  }, [cameras]);
+
+  const heatmapData = useMemo(() => {
+    let globalMaxVal = 0;
+    let globalMinVal = Infinity;
+    const hourlyTotalsMbps = Array(24).fill(0);
+    const hourlyTotalsGb = Array(24).fill(0);
+
+    const rows = cameraGroups.map(group => {
+      const hours = profile.hourlyMultipliers.map((hourMult, hour) => {
+        const dutyRatio = recordingPct / 100;
+        const cellMbps = baseBitrateMbps * group.weight * hourMult;
+        const cellGbHr = (cellMbps * 3600 / 8 / 1000) * dutyRatio * group.count;
+
+        const val = metricMode === 'mbps' ? cellMbps * group.count : cellGbHr;
+        if (val > globalMaxVal) globalMaxVal = val;
+        if (val < globalMinVal) globalMinVal = val;
+
+        hourlyTotalsMbps[hour] += cellMbps * group.count;
+        hourlyTotalsGb[hour] += cellGbHr;
+
+        return {
+          hour,
+          hourLabel: `${hour.toString().padStart(2, '0')}:00`,
+          cellMbps,
+          totalGroupMbps: cellMbps * group.count,
+          cellGbHr,
+          motionPct: Math.round(hourMult * 100),
+          val,
+        };
+      });
+
+      const totalDailyGbGroup = hours.reduce((acc, h) => acc + h.cellGbHr, 0);
+
+      return {
+        group,
+        hours,
+        totalDailyGbGroup,
+      };
+    });
+
+    const totalSystemDailyGb = hourlyTotalsGb.reduce((a, b) => a + b, 0);
+
+    let peakHour = 0;
+    let peakMbps = 0;
+    let minHour = 0;
+    let minMbps = Infinity;
+
+    hourlyTotalsMbps.forEach((mbps, h) => {
+      if (mbps > peakMbps) {
+        peakMbps = mbps;
+        peakHour = h;
+      }
+      if (mbps < minMbps) {
+        minMbps = mbps;
+        minHour = h;
+      }
+    });
+
+    const cbrDailyGb = (baseBitrateMbps * cameras * 86400 / 8 / 1000) * (recordingPct / 100);
+    const vbrSavingsGb = Math.max(0, cbrDailyGb - totalSystemDailyGb);
+    const avgDutyCycleRatio = Math.round((totalSystemDailyGb / (cbrDailyGb || 1)) * 100);
+
+    return {
+      rows,
+      globalMaxVal: globalMaxVal || 1,
+      globalMinVal: globalMinVal === Infinity ? 0 : globalMinVal,
+      hourlyTotalsMbps,
+      hourlyTotalsGb,
+      totalSystemDailyGb,
+      peakHour,
+      peakMbps,
+      minHour,
+      minMbps,
+      cbrDailyGb,
+      vbrSavingsGb,
+      avgDutyCycleRatio,
+    };
+  }, [cameraGroups, profile, baseBitrateMbps, recordingPct, cameras, metricMode]);
+
+  const getCellStyle = (val: number) => {
+    const ratio = val / (heatmapData.globalMaxVal || 1);
+
+    let bg = 'rgba(30, 41, 59, 0.8)';
+    let text = isDarkMode ? '#e2e8f0' : '#1e293b';
+
+    if (ratio < 0.25) {
+      bg = isDarkMode ? 'rgba(30, 41, 59, 0.9)' : 'rgba(241, 245, 249, 1)';
+      text = isDarkMode ? '#94a3b8' : '#475569';
+    } else if (ratio < 0.45) {
+      bg = isDarkMode ? 'rgba(3, 105, 161, 0.65)' : 'rgba(186, 230, 253, 0.85)';
+      text = isDarkMode ? '#e0f2fe' : '#0369a1';
+    } else if (ratio < 0.65) {
+      bg = isDarkMode ? 'rgba(5, 150, 105, 0.7)' : 'rgba(167, 243, 208, 0.9)';
+      text = isDarkMode ? '#ecfdf5' : '#047857';
+    } else if (ratio < 0.85) {
+      bg = isDarkMode ? 'rgba(217, 119, 6, 0.75)' : 'rgba(253, 230, 138, 0.95)';
+      text = isDarkMode ? '#fffbeb' : '#b45309';
+    } else if (ratio < 1.05) {
+      bg = isDarkMode ? 'rgba(225, 29, 72, 0.85)' : 'rgba(254, 202, 202, 1)';
+      text = isDarkMode ? '#fff1f2' : '#be123c';
+    } else {
+      bg = isDarkMode ? 'rgba(192, 38, 211, 0.9)' : 'rgba(245, 208, 254, 1)';
+      text = isDarkMode ? '#fdf4ff' : '#86198f';
+    }
+
+    return {
+      background: bg,
+      color: text,
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+    };
+  };
+
+  return (
+    <div
+      className="panel"
+      style={{
+        padding: '24px',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: '16px',
+        marginBottom: '32px',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '16px',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div>
+          <h3
+            style={{
+              fontSize: '1.2rem',
+              fontWeight: 800,
+              margin: '0 0 4px',
+              color: 'var(--text-heading)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <Grid className="w-5 h-5 text-sky-400" />
+            CCTV Storage &amp; Bandwidth Activity Heatmap
+          </h3>
+          <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+            Visualize 24-hour peak bandwidth spikes and storage density across cameras or surveillance zones based on motion schedules.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              padding: '2px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setMetricMode('mbps')}
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                background: metricMode === 'mbps' ? 'var(--accent)' : 'transparent',
+                color: metricMode === 'mbps' ? '#ffffff' : 'var(--text-muted)',
+              }}
+            >
+              Bandwidth (Mbps)
+            </button>
+            <button
+              type="button"
+              onClick={() => setMetricMode('gb_hr')}
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                background: metricMode === 'gb_hr' ? 'var(--emerald)' : 'transparent',
+                color: metricMode === 'gb_hr' ? '#ffffff' : 'var(--text-muted)',
+              }}
+            >
+              Storage (GB / hr)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: '6px',
+          flexWrap: 'wrap',
+          marginBottom: '16px',
+          padding: '12px',
+          background: 'var(--bg)',
+          borderRadius: '12px',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginRight: '6px' }}>
+          <Clock className="w-4 h-4 text-sky-400" />
+          Time Activity Schedule:
+        </span>
+        {(Object.keys(SCHEDULE_PROFILES) as ScheduleProfileKey[]).map(key => {
+          const item = SCHEDULE_PROFILES[key];
+          const isSelected = profileKey === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setProfileKey(key)}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.78rem',
+                fontWeight: isSelected ? 700 : 500,
+                borderRadius: '6px',
+                background: isSelected ? 'var(--accent)' : 'var(--surface)',
+                color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                border: '1px solid var(--border)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              title={item.description}
+            >
+              {item.name}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+        <div
+          style={{
+            padding: '12px 14px',
+            borderRadius: '10px',
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+          }}
+        >
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            🔥 Peak Bandwidth Hour
+          </div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--rose)', marginTop: '2px' }}>
+            {heatmapData.peakHour.toString().padStart(2, '0')}:00 – {(heatmapData.peakHour + 1).toString().padStart(2, '0')}:00
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            {heatmapData.peakMbps.toFixed(1)} Mbps total stream ingestion
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '12px 14px',
+            borderRadius: '10px',
+            background: 'rgba(56, 189, 248, 0.08)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+          }}
+        >
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            🌙 Quiet Night Window
+          </div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#38bdf8', marginTop: '2px' }}>
+            {heatmapData.minHour.toString().padStart(2, '0')}:00 – {(heatmapData.minHour + 1).toString().padStart(2, '0')}:00
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            {heatmapData.minMbps.toFixed(1)} Mbps baseline VBR
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '12px 14px',
+            borderRadius: '10px',
+            background: 'rgba(245, 158, 11, 0.08)',
+            border: '1px solid rgba(245, 158, 11, 0.25)',
+          }}
+        >
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            ⚡ Peak Fluctuation Ratio
+          </div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--amber)', marginTop: '2px' }}>
+            {(heatmapData.peakMbps / (heatmapData.minMbps || 1)).toFixed(1)}× Swing
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            VBR dynamic bitrate range
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '12px 14px',
+            borderRadius: '10px',
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+          }}
+        >
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            💡 Daily VBR Schedule Duty
+          </div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--emerald)', marginTop: '2px' }}>
+            ~{heatmapData.avgDutyCycleRatio}% Duty Cycle
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            {onApplyDutyCycle && (
+              <button
+                type="button"
+                onClick={() => onApplyDutyCycle(heatmapData.avgDutyCycleRatio)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: 'var(--emerald)',
+                  fontWeight: 700,
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                }}
+              >
+                Apply {heatmapData.avgDutyCycleRatio}% to calculator
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ overflowX: 'auto', marginBottom: '12px' }}>
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontSize: '0.75rem',
+            minWidth: '800px',
+          }}
+        >
+          <thead>
+            <tr>
+              <th
+                style={{
+                  padding: '8px 10px',
+                  textAlign: 'left',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-heading)',
+                  fontWeight: 700,
+                  width: '180px',
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 2,
+                }}
+              >
+                Camera / Zone
+              </th>
+              {Array.from({ length: 24 }).map((_, h) => (
+                <th
+                  key={h}
+                  style={{
+                    padding: '6px 2px',
+                    textAlign: 'center',
+                    background: h === heatmapData.peakHour ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: h === heatmapData.peakHour ? 'var(--rose)' : 'var(--text-muted)',
+                    fontWeight: h === heatmapData.peakHour ? 800 : 600,
+                    fontSize: '0.68rem',
+                  }}
+                >
+                  {h.toString().padStart(2, '0')}h
+                </th>
+              ))}
+              <th
+                style={{
+                  padding: '8px 10px',
+                  textAlign: 'right',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-heading)',
+                  fontWeight: 700,
+                  width: '90px',
+                }}
+              >
+                Daily Total
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {heatmapData.rows.map(row => (
+              <tr key={row.group.id}>
+                <td
+                  style={{
+                    padding: '8px 10px',
+                    fontWeight: 600,
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-heading)',
+                    fontSize: '0.78rem',
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 2,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {row.group.name}
+                </td>
+
+                {row.hours.map(cell => {
+                  const style = getCellStyle(cell.val);
+                  const isHovered = selectedCell?.camName === row.group.name && selectedCell?.hour === cell.hour;
+
+                  return (
+                    <td
+                      key={cell.hour}
+                      onMouseEnter={() => setSelectedCell({ camName: row.group.name, hour: cell.hour })}
+                      onMouseLeave={() => setSelectedCell(null)}
+                      style={{
+                        padding: '8px 2px',
+                        textAlign: 'center',
+                        fontWeight: 700,
+                        fontSize: '0.68rem',
+                        cursor: 'pointer',
+                        transition: 'transform 0.1s ease',
+                        transform: isHovered ? 'scale(1.15)' : 'none',
+                        zIndex: isHovered ? 10 : 1,
+                        position: 'relative',
+                        ...style,
+                      }}
+                      title={`${row.group.name} (${cell.hourLabel}): ${metricMode === 'mbps' ? `${cell.totalGroupMbps.toFixed(1)} Mbps` : `${cell.cellGbHr.toFixed(2)} GB/hr`} [Motion: ${cell.motionPct}%]`}
+                    >
+                      {metricMode === 'mbps'
+                        ? cell.totalGroupMbps < 10
+                          ? cell.totalGroupMbps.toFixed(1)
+                          : Math.round(cell.totalGroupMbps)
+                        : cell.cellGbHr < 10
+                        ? cell.cellGbHr.toFixed(1)
+                        : Math.round(cell.cellGbHr)}
+                    </td>
+                  );
+                })}
+
+                <td
+                  style={{
+                    padding: '8px 10px',
+                    textAlign: 'right',
+                    fontWeight: 700,
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--emerald)',
+                    fontSize: '0.78rem',
+                  }}
+                >
+                  {(row.totalDailyGbGroup / 1000).toFixed(2)} TB/d
+                </td>
+              </tr>
+            ))}
+
+            <tr style={{ borderTop: '2px solid var(--border)', fontWeight: 700 }}>
+              <td
+                style={{
+                  padding: '8px 10px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-heading)',
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 2,
+                }}
+              >
+                System Aggregate Total
+              </td>
+              {Array.from({ length: 24 }).map((_, h) => {
+                const totalMbps = heatmapData.hourlyTotalsMbps[h];
+                const totalGb = heatmapData.hourlyTotalsGb[h];
+                const isPeak = h === heatmapData.peakHour;
+
+                return (
+                  <td
+                    key={h}
+                    style={{
+                      padding: '8px 2px',
+                      textAlign: 'center',
+                      background: isPeak ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg)',
+                      border: '1px solid var(--border)',
+                      color: isPeak ? 'var(--rose)' : 'var(--text-heading)',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                    }}
+                  >
+                    {metricMode === 'mbps' ? totalMbps.toFixed(0) : totalGb.toFixed(0)}
+                  </td>
+                );
+              })}
+              <td
+                style={{
+                  padding: '8px 10px',
+                  textAlign: 'right',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  color: '#38bdf8',
+                  fontSize: '0.82rem',
+                }}
+              >
+                {(heatmapData.totalSystemDailyGb / 1000).toFixed(2)} TB/d
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', fontSize: '0.78rem' }}>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: '600', color: 'var(--text-muted)' }}>Activity Density:</span>
+          <span style={{ padding: '2px 8px', borderRadius: '4px', background: isDarkMode ? '#1e293b' : '#f1f5f9', color: 'var(--text-muted)' }}>
+            Low (0–25%)
+          </span>
+          <span style={{ padding: '2px 8px', borderRadius: '4px', background: isDarkMode ? '#0369a1' : '#bae6fd', color: isDarkMode ? '#fff' : '#0369a1' }}>
+            Moderate (25–50%)
+          </span>
+          <span style={{ padding: '2px 8px', borderRadius: '4px', background: isDarkMode ? '#059669' : '#a7f3d0', color: isDarkMode ? '#fff' : '#047857' }}>
+            Busy (50–75%)
+          </span>
+          <span style={{ padding: '2px 8px', borderRadius: '4px', background: isDarkMode ? '#d97706' : '#fde68a', color: isDarkMode ? '#fff' : '#b45309' }}>
+            Peak (75–100%)
+          </span>
+          <span style={{ padding: '2px 8px', borderRadius: '4px', background: isDarkMode ? '#dc2626' : '#fecaca', color: isDarkMode ? '#fff' : '#be123c' }}>
+            Heavy Surge (&gt;100%)
+          </span>
+        </div>
+
+        {selectedCell ? (
+          <div
+            style={{
+              padding: '4px 10px',
+              borderRadius: '6px',
+              background: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              color: '#38bdf8',
+              fontWeight: 700,
+            }}
+          >
+            📌 {selectedCell.camName} @ {selectedCell.hour.toString().padStart(2, '0')}:00–{(selectedCell.hour + 1).toString().padStart(2, '0')}:00
+          </div>
+        ) : (
+          <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            Hover or tap any matrix cell to inspect hourly stream rates.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const D3StorageGauge: React.FC<{
   neededTb: number;
   usableTb: number;
@@ -829,6 +1518,76 @@ export const CctvStorageCalculator: React.FC = () => {
     }
   });
 
+  const [enableCloudBackup, setEnableCloudBackup] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('cctv_calc_enable_cloud') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [cloudPricePerTbMonth, setCloudPricePerTbMonth] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('cctv_calc_cloud_price');
+      return v !== null ? Math.max(0, parseFloat(v) || 15) : 15;
+    } catch {
+      return 15;
+    }
+  });
+
+  const [cloudBackupScopePct, setCloudBackupScopePct] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('cctv_calc_cloud_scope');
+      return v !== null ? Math.min(100, Math.max(1, parseInt(v, 10) || 100)) : 100;
+    } catch {
+      return 100;
+    }
+  });
+
+  const [enableMultiTier, setEnableMultiTier] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('cctv_calc_enable_tier') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [tier1Days, setTier1Days] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('cctv_calc_tier1_days');
+      return v !== null ? Math.max(1, parseInt(v, 10) || 7) : 7;
+    } catch {
+      return 7;
+    }
+  });
+
+  const [tier2BitratePct, setTier2BitratePct] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('cctv_calc_tier2_bitrate_pct');
+      return v !== null ? Math.min(100, Math.max(10, parseInt(v, 10) || 50)) : 50;
+    } catch {
+      return 50;
+    }
+  });
+
+  const [tier2DriveSizeTb, setTier2DriveSizeTb] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('cctv_calc_tier2_drv');
+      return v !== null ? Math.max(1, parseFloat(v) || 16) : 16;
+    } catch {
+      return 16;
+    }
+  });
+
+  const [tier2Raid, setTier2Raid] = useState<RaidTypeKey>(() => {
+    try {
+      const v = localStorage.getItem('cctv_calc_tier2_raid');
+      return (v as RaidTypeKey) || 'raid6';
+    } catch {
+      return 'raid6';
+    }
+  });
+
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [exportedCsv, setExportedCsv] = useState(false);
   const [exportedPdf, setExportedPdf] = useState(false);
@@ -905,6 +1664,14 @@ export const CctvStorageCalculator: React.FC = () => {
       localStorage.setItem('cctv_calc_brand_preset', selectedBrandPresetId);
       localStorage.setItem('cctv_calc_price_per_tb', String(pricePerTb));
       localStorage.setItem('cctv_calc_tbw_rating', String(driveWorkloadRatingTbYr));
+      localStorage.setItem('cctv_calc_enable_cloud', String(enableCloudBackup));
+      localStorage.setItem('cctv_calc_cloud_price', String(cloudPricePerTbMonth));
+      localStorage.setItem('cctv_calc_cloud_scope', String(cloudBackupScopePct));
+      localStorage.setItem('cctv_calc_enable_tier', String(enableMultiTier));
+      localStorage.setItem('cctv_calc_tier1_days', String(tier1Days));
+      localStorage.setItem('cctv_calc_tier2_bitrate_pct', String(tier2BitratePct));
+      localStorage.setItem('cctv_calc_tier2_drv', String(tier2DriveSizeTb));
+      localStorage.setItem('cctv_calc_tier2_raid', tier2Raid);
     } catch {
       // Ignore quota errors
     }
@@ -921,6 +1688,14 @@ export const CctvStorageCalculator: React.FC = () => {
     selectedBrandPresetId,
     pricePerTb,
     driveWorkloadRatingTbYr,
+    enableCloudBackup,
+    cloudPricePerTbMonth,
+    cloudBackupScopePct,
+    enableMultiTier,
+    tier1Days,
+    tier2BitratePct,
+    tier2DriveSizeTb,
+    tier2Raid,
   ]);
 
   const handleResolutionChange = (newRes: ResolutionPresetKey) => {
@@ -995,6 +1770,14 @@ export const CctvStorageCalculator: React.FC = () => {
     setRaidType('raid5');
     setPricePerTb(25);
     setDriveWorkloadRatingTbYr(180);
+    setEnableCloudBackup(false);
+    setCloudPricePerTbMonth(15);
+    setCloudBackupScopePct(100);
+    setEnableMultiTier(false);
+    setTier1Days(7);
+    setTier2BitratePct(50);
+    setTier2DriveSizeTb(16);
+    setTier2Raid('raid6');
   };
 
   const calculations = useMemo(() => {
@@ -1103,6 +1886,82 @@ export const CctvStorageCalculator: React.FC = () => {
     else if (workloadPct <= 150) workloadStatus = 'Heavy';
     else workloadStatus = 'Overworked';
 
+    // Cloud Backup Calculations
+    const safeCloudPrice = Math.max(0, cloudPricePerTbMonth || 0);
+    const safeCloudScope = Math.min(100, Math.max(1, cloudBackupScopePct || 100));
+    const cloudStorageTb = enableCloudBackup ? totalNeedTb * (safeCloudScope / 100) : 0;
+    const monthlyCloudCost = cloudStorageTb * safeCloudPrice;
+    const annualCloudCost = monthlyCloudCost * 12;
+    const threeYearCloudCost = annualCloudCost * 3;
+    const threeYearHybridTco = totalHardDriveCost + threeYearCloudCost;
+    const requiredUploadBandwidthMbps = enableCloudBackup
+      ? safeMbps * safeCams * (safeRec / 100) * (safeCloudScope / 100)
+      : 0;
+
+    // Multi-Tier Storage Architecture Calculations
+    const safeTier1Days = enableMultiTier ? Math.min(tier1Days, safeDays) : safeDays;
+    const safeTier2Days = enableMultiTier ? Math.max(0, safeDays - safeTier1Days) : 0;
+    const safeTier2BitratePct = Math.min(100, Math.max(10, tier2BitratePct || 50));
+
+    // Tier 1 (Primary Hot Tier) Calculations
+    const tier1NeedTb = enableMultiTier
+      ? (gbPerCameraPerDay * safeTier1Days * safeCams * (1 + safeHead / 100)) / 1000
+      : totalNeedTb;
+
+    let tier1DrivesNeeded = 0;
+    let tier1UsableTb = 0;
+    let tier1RawTb = 0;
+    let tier1ParityTb = 0;
+    let tier1Possible = false;
+
+    for (let n = raidInfo.min; n <= 64; n++) {
+      const u = raidInfo.use(n) * safeDriveTb;
+      if (u >= tier1NeedTb) {
+        tier1DrivesNeeded = n;
+        tier1UsableTb = u;
+        tier1RawTb = n * safeDriveTb;
+        tier1ParityTb = tier1RawTb - tier1UsableTb;
+        tier1Possible = true;
+        break;
+      }
+    }
+    const tier1DriveCost = tier1DrivesNeeded * safeDriveTb * safePricePerTb;
+
+    // Tier 2 (Secondary Cold Archive Tier) Calculations
+    const tier2BitrateMbps = safeMbps * (safeTier2BitratePct / 100);
+    const tier2GbPerCameraPerDay = (tier2BitrateMbps * 86400 / 8 / 1000) * (safeRec / 100);
+    const tier2NeedTb = enableMultiTier && safeTier2Days > 0
+      ? (tier2GbPerCameraPerDay * safeTier2Days * safeCams * (1 + safeHead / 100)) / 1000
+      : 0;
+
+    const tier2RaidInfo = RAID_DEFINITIONS[tier2Raid];
+    let tier2DrivesNeeded = 0;
+    let tier2UsableTb = 0;
+    let tier2RawTb = 0;
+    let tier2ParityTb = 0;
+    let tier2Possible = false;
+
+    if (enableMultiTier && safeTier2Days > 0) {
+      for (let n = tier2RaidInfo.min; n <= 64; n++) {
+        const u = tier2RaidInfo.use(n) * tier2DriveSizeTb;
+        if (u >= tier2NeedTb) {
+          tier2DrivesNeeded = n;
+          tier2UsableTb = u;
+          tier2RawTb = n * tier2DriveSizeTb;
+          tier2ParityTb = tier2RawTb - tier2UsableTb;
+          tier2Possible = true;
+          break;
+        }
+      }
+    }
+    const tier2DriveCost = tier2DrivesNeeded * tier2DriveSizeTb * safePricePerTb;
+
+    const combinedMultiTierStorageTb = tier1NeedTb + tier2NeedTb;
+    const combinedMultiTierDrives = tier1DrivesNeeded + tier2DrivesNeeded;
+    const combinedMultiTierBomCost = tier1DriveCost + tier2DriveCost;
+    const multiTierStorageSavingsTb = Math.max(0, totalNeedTb - combinedMultiTierStorageTb);
+    const multiTierCostSavingsDollar = Math.max(0, totalHardDriveCost - combinedMultiTierBomCost);
+
     return {
       safeMbps,
       safeCams,
@@ -1122,6 +1981,42 @@ export const CctvStorageCalculator: React.FC = () => {
       estimatedLifespanMonths,
       workloadPct,
       workloadStatus,
+      enableCloudBackup,
+      safeCloudPrice,
+      safeCloudScope,
+      cloudStorageTb,
+      monthlyCloudCost,
+      annualCloudCost,
+      threeYearCloudCost,
+      threeYearHybridTco,
+      requiredUploadBandwidthMbps,
+      enableMultiTier,
+      safeTier1Days,
+      safeTier2Days,
+      safeTier2BitratePct,
+      tier1NeedTb,
+      tier1DrivesNeeded,
+      tier1UsableTb,
+      tier1RawTb,
+      tier1ParityTb,
+      tier1Possible,
+      tier1DriveCost,
+      tier2BitrateMbps,
+      tier2GbPerCameraPerDay,
+      tier2NeedTb,
+      tier2DriveSizeTb,
+      tier2Raid,
+      tier2DrivesNeeded,
+      tier2UsableTb,
+      tier2RawTb,
+      tier2ParityTb,
+      tier2Possible,
+      tier2DriveCost,
+      combinedMultiTierStorageTb,
+      combinedMultiTierDrives,
+      combinedMultiTierBomCost,
+      multiTierStorageSavingsTb,
+      multiTierCostSavingsDollar,
       gbPerCamera24h,
       gbPerCameraPerDay,
       gbPerCameraRetention,
@@ -1142,7 +2037,27 @@ export const CctvStorageCalculator: React.FC = () => {
       h264NeedTb,
       tbSavedWithH265,
     };
-  }, [cameras, bitrateMbps, retentionDays, recordingPct, headroomPct, driveSizeTb, raidType, codec, h265SavingsPct, pricePerTb, driveWorkloadRatingTbYr]);
+  }, [
+    cameras,
+    bitrateMbps,
+    retentionDays,
+    recordingPct,
+    headroomPct,
+    driveSizeTb,
+    raidType,
+    codec,
+    h265SavingsPct,
+    pricePerTb,
+    driveWorkloadRatingTbYr,
+    enableCloudBackup,
+    cloudPricePerTbMonth,
+    cloudBackupScopePct,
+    enableMultiTier,
+    tier1Days,
+    tier2BitratePct,
+    tier2DriveSizeTb,
+    tier2Raid,
+  ]);
 
   const optimizationTips = useMemo<OptimizationTip[]>(() => {
     const tips: OptimizationTip[] = [];
@@ -2934,6 +3849,426 @@ DRIVE ARRAY & RAID SPECIFICATION:
               </div>
             )}
           </div>
+
+          {/* Multi-Tier Storage Architecture Module */}
+          <div
+            className="panel"
+            style={{
+              padding: '20px',
+              background: 'var(--surface)',
+              border: enableMultiTier ? '1px solid var(--emerald)' : '1px solid var(--border)',
+              borderRadius: '14px',
+              transition: 'border 0.2s ease',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '8px',
+                marginBottom: enableMultiTier ? '16px' : '0',
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: '1.05rem',
+                  fontWeight: 700,
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: 'var(--text-heading)',
+                }}
+              >
+                <Layers className="w-5 h-5 text-emerald-400" />
+                Multi-Tier Storage Architecture
+              </h3>
+
+              {/* Toggle Switch */}
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  color: enableMultiTier ? 'var(--emerald)' : 'var(--text-muted)',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={enableMultiTier}
+                  onChange={e => setEnableMultiTier(e.target.checked)}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    accentColor: 'var(--emerald)',
+                    cursor: 'pointer',
+                  }}
+                />
+                {enableMultiTier ? 'Multi-Tier Enabled' : 'Enable 2-Tier Storage'}
+              </label>
+            </div>
+
+            {enableMultiTier && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  Define a primary high-performance tier for immediate playback (e.g. 7 days full 4K) and offload remaining days to a secondary cold archive tier at reduced bitrate/sub-stream quality.
+                </p>
+
+                {/* Tier 1 Primary Days */}
+                <div className="form-field">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label htmlFor="tier1-days" style={{ fontWeight: 600, fontSize: '0.88rem' }}>
+                      Tier 1 Primary Retention (Days)
+                    </label>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--emerald)' }}>
+                      First {calculations.safeTier1Days} Days @ 100% Bitrate
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+                    {[3, 7, 14, 30].map(d => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setTier1Days(d)}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: '0.72rem',
+                          borderRadius: '4px',
+                          background: tier1Days === d ? 'var(--emerald)' : 'var(--bg)',
+                          color: tier1Days === d ? '#ffffff' : 'var(--text-muted)',
+                          border: '1px solid var(--border)',
+                          cursor: 'pointer',
+                          fontWeight: tier1Days === d ? 700 : 400,
+                        }}
+                      >
+                        {d} Days
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    id="tier1-days"
+                    type="number"
+                    min="1"
+                    max={retentionDays}
+                    value={tier1Days}
+                    onChange={e => setTier1Days(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  />
+                </div>
+
+                {/* Tier 2 Archive Bitrate % */}
+                <div className="form-field">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label htmlFor="tier2-bitrate" style={{ fontWeight: 600, fontSize: '0.88rem' }}>
+                      Tier 2 Archive Bitrate Scale (%)
+                    </label>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#38bdf8' }}>
+                      {tier2BitratePct}% Quality ({calculations.tier2BitrateMbps.toFixed(2)} Mbps)
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+                    {[
+                      { label: '30% Keyframe / Low FPS', val: 30 },
+                      { label: '50% Sub-Stream', val: 50 },
+                      { label: '75% Moderate VBR', val: 75 },
+                      { label: '100% Full Mirror', val: 100 },
+                    ].map(b => (
+                      <button
+                        key={b.val}
+                        type="button"
+                        onClick={() => setTier2BitratePct(b.val)}
+                        style={{
+                          padding: '2px 6px',
+                          fontSize: '0.7rem',
+                          borderRadius: '4px',
+                          background: tier2BitratePct === b.val ? 'var(--accent)' : 'var(--bg)',
+                          color: tier2BitratePct === b.val ? '#ffffff' : 'var(--text-muted)',
+                          border: '1px solid var(--border)',
+                          cursor: 'pointer',
+                          fontWeight: tier2BitratePct === b.val ? 700 : 400,
+                        }}
+                        title={b.label}
+                      >
+                        {b.val}%
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    id="tier2-bitrate"
+                    type="number"
+                    min="10"
+                    max="100"
+                    value={tier2BitratePct}
+                    onChange={e => setTier2BitratePct(Math.min(100, Math.max(10, parseInt(e.target.value, 10) || 50)))}
+                  />
+                </div>
+
+                {/* Tier 2 Drive Size & RAID */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="tier2-drv" style={{ fontWeight: 600, fontSize: '0.82rem' }}>
+                      Tier 2 Drive Size (TB)
+                    </label>
+                    <select
+                      id="tier2-drv"
+                      value={tier2DriveSizeTb}
+                      onChange={e => setTier2DriveSizeTb(parseFloat(e.target.value) || 16)}
+                      style={{ fontSize: '0.82rem', padding: '6px' }}
+                    >
+                      {[8, 12, 16, 18, 20, 22, 24].map(sz => (
+                        <option key={sz} value={sz}>{sz} TB Archive Disk</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="tier2-raid" style={{ fontWeight: 600, fontSize: '0.82rem' }}>
+                      Tier 2 RAID Array
+                    </label>
+                    <select
+                      id="tier2-raid"
+                      value={tier2Raid}
+                      onChange={e => setTier2Raid(e.target.value as RaidTypeKey)}
+                      style={{ fontSize: '0.82rem', padding: '6px' }}
+                    >
+                      <option value="raid5">RAID 5</option>
+                      <option value="raid6">RAID 6 (Dual Parity)</option>
+                      <option value="none">JBOD Pool</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Multi-Tier Summary Breakdown */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Tier 1 (First {calculations.safeTier1Days}d Hot):</span>
+                    <strong>{calculations.tier1NeedTb.toFixed(1)} TB ({calculations.tier1DrivesNeeded} × {calculations.safeDriveTb}TB drives)</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Tier 2 (Days {calculations.safeTier1Days + 1}–{calculations.safeDays} Cold):</span>
+                    <strong>{calculations.tier2NeedTb.toFixed(1)} TB ({calculations.tier2DrivesNeeded} × {calculations.tier2DriveSizeTb}TB drives)</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
+                    <span style={{ fontWeight: 700 }}>Total Multi-Tier Storage Needed:</span>
+                    <strong style={{ color: 'var(--emerald)' }}>{calculations.combinedMultiTierStorageTb.toFixed(1)} TB ({calculations.combinedMultiTierDrives} Disks)</strong>
+                  </div>
+                  {calculations.multiTierCostSavingsDollar > 0 && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--emerald)', fontWeight: 700, marginTop: '2px' }}>
+                      💡 Multi-Tier architecture saves ~{calculations.multiTierStorageSavingsTb.toFixed(1)} TB of storage (${calculations.multiTierCostSavingsDollar.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} hard drive BOM savings vs single tier)!
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Optional Off-Site Cloud Backup Estimation Module */}
+          <div
+            className="panel"
+            style={{
+              padding: '20px',
+              background: 'var(--surface)',
+              border: enableCloudBackup ? '1px solid var(--accent)' : '1px solid var(--border)',
+              borderRadius: '14px',
+              transition: 'border 0.2s ease',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '8px',
+                marginBottom: enableCloudBackup ? '16px' : '0',
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: '1.05rem',
+                  fontWeight: 700,
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: 'var(--text-heading)',
+                }}
+              >
+                <Sparkles className="w-5 h-5 text-indigo-400" />
+                Optional Cloud Backup Estimation
+              </h3>
+
+              {/* Toggle Switch */}
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  color: enableCloudBackup ? 'var(--brand)' : 'var(--text-muted)',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={enableCloudBackup}
+                  onChange={e => setEnableCloudBackup(e.target.checked)}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    accentColor: 'var(--accent)',
+                    cursor: 'pointer',
+                  }}
+                />
+                {enableCloudBackup ? 'Cloud Backup Enabled' : 'Enable Off-Site Cloud'}
+              </label>
+            </div>
+
+            {enableCloudBackup && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* Cloud Price per TB/month */}
+                <div className="form-field">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '4px' }}>
+                    <label htmlFor="cloud-price" style={{ fontWeight: 600, fontSize: '0.88rem' }}>
+                      Cloud Storage Price ($/TB/month)
+                    </label>
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                      {[
+                        { label: '$6 Wasabi / B2', val: 6 },
+                        { label: '$15 Standard Object', val: 15 },
+                        { label: '$25 AWS S3 / Azure', val: 25 },
+                      ].map(cp => (
+                        <button
+                          key={cp.val}
+                          type="button"
+                          onClick={() => setCloudPricePerTbMonth(cp.val)}
+                          style={{
+                            padding: '2px 6px',
+                            fontSize: '0.7rem',
+                            borderRadius: '4px',
+                            background: cloudPricePerTbMonth === cp.val ? 'var(--accent)' : 'var(--bg)',
+                            color: cloudPricePerTbMonth === cp.val ? '#ffffff' : 'var(--text-muted)',
+                            border: '1px solid var(--border)',
+                            cursor: 'pointer',
+                            fontWeight: cloudPricePerTbMonth === cp.val ? 700 : 400,
+                          }}
+                          title={cp.label}
+                        >
+                          ${cp.val}/mo
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <input
+                    id="cloud-price"
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="200"
+                    value={cloudPricePerTbMonth}
+                    onChange={e => setCloudPricePerTbMonth(Math.max(0, parseFloat(e.target.value) || 0))}
+                  />
+                  <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Wasabi/Backblaze B2 ≈ $6/TB/mo; AWS S3 Standard ≈ $23/TB/mo.
+                  </p>
+                </div>
+
+                {/* Off-Site Scope / Stream Coverage % */}
+                <div className="form-field">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label htmlFor="cloud-scope" style={{ fontWeight: 600, fontSize: '0.88rem' }}>
+                      Cloud Backup Stream Scope (%)
+                    </label>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent)' }}>
+                      {cloudBackupScopePct}% Streams
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+                    {[25, 50, 75, 100].map(sc => (
+                      <button
+                        key={sc}
+                        type="button"
+                        onClick={() => setCloudBackupScopePct(sc)}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: '0.72rem',
+                          borderRadius: '4px',
+                          background: cloudBackupScopePct === sc ? 'var(--accent)' : 'var(--bg)',
+                          color: cloudBackupScopePct === sc ? '#ffffff' : 'var(--text-muted)',
+                          border: '1px solid var(--border)',
+                          cursor: 'pointer',
+                          fontWeight: cloudBackupScopePct === sc ? 700 : 400,
+                        }}
+                      >
+                        {sc}% {sc === 25 ? '(Critical Only)' : sc === 100 ? '(Full Duplicate)' : ''}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    id="cloud-scope"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={cloudBackupScopePct}
+                    onChange={e => setCloudBackupScopePct(Math.min(100, Math.max(1, parseInt(e.target.value, 10) || 100)))}
+                  />
+                </div>
+
+                {/* Off-Site Cloud Cost Projections */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(99, 102, 241, 0.1)',
+                    border: '1px solid rgba(99, 102, 241, 0.25)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Off-Site Cloud Capacity ({calculations.safeDays}d):</span>
+                    <strong style={{ color: 'var(--text-heading)' }}>{calculations.cloudStorageTb.toFixed(1)} TB</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Monthly Cloud Storage Bill:</span>
+                    <strong style={{ color: 'var(--brand)', fontSize: '1.05rem' }}>
+                      ${calculations.monthlyCloudCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / mo
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Annual Cloud Subscription:</span>
+                    <strong style={{ color: 'var(--text-heading)' }}>
+                      ${calculations.annualCloudCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} / yr
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Min. Upload Internet Pipe:</span>
+                    <strong style={{ color: 'var(--emerald)' }}>
+                      {calculations.requiredUploadBandwidthMbps.toFixed(1)} Mbps Continuous
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Results & Visualizations (7 columns on desktop) */}
@@ -3467,6 +4802,16 @@ DRIVE ARRAY & RAID SPECIFICATION:
           </div>
         </div>
       </div>
+
+      {/* Storage & Bandwidth Activity Heatmap Panel */}
+      <StorageHeatmap
+        cameras={calculations.safeCams}
+        baseBitrateMbps={calculations.safeMbps}
+        recordingPct={calculations.safeRec}
+        codec={codec}
+        theme={theme}
+        onApplyDutyCycle={(pct) => setRecordingPct(pct)}
+      />
 
       {/* Dynamic Storage Optimization Tips Panel */}
       <div
