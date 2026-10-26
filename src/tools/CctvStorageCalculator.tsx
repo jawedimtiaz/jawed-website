@@ -27,6 +27,10 @@ import {
   BarChart3,
   TrendingUp,
   Zap,
+  Search,
+  SlidersHorizontal,
+  ArrowRightLeft,
+  Scale,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import {
@@ -1247,6 +1251,479 @@ export const StorageHeatmap: React.FC<StorageHeatmapProps> = ({
   );
 };
 
+export interface ScenarioConfig {
+  name: string;
+  cameras: number;
+  resolutionPreset: ResolutionPresetKey;
+  codec: CodecKey;
+  bitrateMbps: number;
+  retentionDays: number;
+  recordingPct: number;
+  headroomPct: number;
+  driveSizeTb: number;
+  raidType: RaidTypeKey;
+  pricePerTb: number;
+}
+
+export function computeScenarioMetrics(cfg: ScenarioConfig) {
+  const safeMbps = Math.max(0.01, cfg.bitrateMbps || 0.1);
+  const safeCams = Math.max(1, cfg.cameras || 1);
+  const safeDays = Math.max(1, cfg.retentionDays || 1);
+  const safeRec = Math.min(100, Math.max(1, cfg.recordingPct || 100));
+  const safeHead = Math.max(0, cfg.headroomPct || 0);
+  const safeDriveTb = Math.max(0.5, cfg.driveSizeTb || 1);
+  const safePricePerTb = Math.max(0, cfg.pricePerTb || 0);
+
+  const gbPerCameraPerDay = (safeMbps * 86400 / 8 / 1000) * (safeRec / 100);
+  const totalRawGb = gbPerCameraPerDay * safeDays * safeCams;
+  const totalNeedTb = (totalRawGb * (1 + safeHead / 100)) / 1000;
+
+  const raidInfo = RAID_DEFINITIONS[cfg.raidType];
+  let drivesNeeded = 0;
+  let usableStorageTb = 0;
+  let rawStorageTb = 0;
+  let parityStorageTb = 0;
+  let possible = false;
+
+  for (let n = raidInfo.min; n <= 64; n++) {
+    const u = raidInfo.use(n) * safeDriveTb;
+    if (u >= totalNeedTb) {
+      drivesNeeded = n;
+      usableStorageTb = u;
+      rawStorageTb = n * safeDriveTb;
+      parityStorageTb = rawStorageTb - usableStorageTb;
+      possible = true;
+      break;
+    }
+  }
+
+  const totalHardDriveCost = drivesNeeded * safeDriveTb * safePricePerTb;
+
+  return {
+    ...cfg,
+    safeMbps,
+    safeCams,
+    safeDays,
+    safeRec,
+    safeHead,
+    safeDriveTb,
+    totalNeedTb,
+    drivesNeeded,
+    usableStorageTb,
+    rawStorageTb,
+    parityStorageTb,
+    possible,
+    totalHardDriveCost,
+  };
+}
+
+interface CompareScenariosPanelProps {
+  scenarioA: ScenarioConfig;
+  scenarioB: ScenarioConfig;
+  onChangeScenarioB: (updated: Partial<ScenarioConfig>) => void;
+  onCopyAtoB: () => void;
+  onSwapAandB: () => void;
+  onCloseComparison: () => void;
+  onApplyPresetComparison: (preset: 'codec' | 'retention' | 'motion' | 'resolution') => void;
+}
+
+export const CompareScenariosPanel: React.FC<CompareScenariosPanelProps> = ({
+  scenarioA,
+  scenarioB,
+  onChangeScenarioB,
+  onCopyAtoB,
+  onSwapAandB,
+  onCloseComparison,
+  onApplyPresetComparison,
+}) => {
+  const metricsA = computeScenarioMetrics(scenarioA);
+  const metricsB = computeScenarioMetrics(scenarioB);
+
+  const deltaTb = metricsB.totalNeedTb - metricsA.totalNeedTb;
+  const deltaPct = metricsA.totalNeedTb > 0 ? (deltaTb / metricsA.totalNeedTb) * 100 : 0;
+
+  const deltaDrives = metricsB.drivesNeeded - metricsA.drivesNeeded;
+  const deltaCost = metricsB.totalHardDriveCost - metricsA.totalHardDriveCost;
+
+  return (
+    <div
+      className="panel"
+      style={{
+        padding: '24px',
+        background: 'var(--surface)',
+        border: '2px solid var(--accent)',
+        borderRadius: '16px',
+        marginBottom: '32px',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '16px',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div>
+          <h3
+            style={{
+              fontSize: '1.25rem',
+              fontWeight: 800,
+              margin: '0 0 4px',
+              color: 'var(--text-heading)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <SlidersHorizontal className="w-5 h-5 text-indigo-400" />
+            Side-by-Side Scenario Comparison
+          </h3>
+          <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+            Compare storage requirements, drive counts, and hard drive BOM costs between two distinct system configurations.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={onCopyAtoB}
+            style={{ fontSize: '0.78rem', padding: '4px 10px' }}
+            title="Duplicate Scenario A inputs into Scenario B"
+          >
+            Copy A → B
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={onSwapAandB}
+            style={{ fontSize: '0.78rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            title="Swap Scenario A and Scenario B"
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+            Swap A ↔ B
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={onCloseComparison}
+            style={{ fontSize: '0.78rem', padding: '4px 10px', color: 'var(--rose)' }}
+          >
+            Close Comparison
+          </button>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: '6px',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          marginBottom: '20px',
+          padding: '10px 14px',
+          background: 'var(--bg)',
+          borderRadius: '10px',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginRight: '6px' }}>
+          Quick Comparisons:
+        </span>
+        <button
+          type="button"
+          onClick={() => onApplyPresetComparison('codec')}
+          className="button button-secondary"
+          style={{ fontSize: '0.75rem', padding: '3px 8px' }}
+        >
+          H.264 vs H.265 Upgrade
+        </button>
+        <button
+          type="button"
+          onClick={() => onApplyPresetComparison('retention')}
+          className="button button-secondary"
+          style={{ fontSize: '0.75rem', padding: '3px 8px' }}
+        >
+          30 Days vs 60 Days Retention
+        </button>
+        <button
+          type="button"
+          onClick={() => onApplyPresetComparison('motion')}
+          className="button button-secondary"
+          style={{ fontSize: '0.75rem', padding: '3px 8px' }}
+        >
+          24/7 (100%) vs Motion (75%)
+        </button>
+        <button
+          type="button"
+          onClick={() => onApplyPresetComparison('resolution')}
+          className="button button-secondary"
+          style={{ fontSize: '0.75rem', padding: '3px 8px' }}
+        >
+          1080p vs 4K Ultra-HD
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Scenario A (Baseline) */}
+        <div
+          style={{
+            padding: '18px',
+            background: 'var(--bg)',
+            border: '2px solid var(--accent)',
+            borderRadius: '14px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <span
+              style={{
+                fontSize: '0.8rem',
+                fontWeight: 800,
+                padding: '3px 10px',
+                borderRadius: '6px',
+                background: 'var(--accent)',
+                color: '#ffffff',
+                textTransform: 'uppercase',
+              }}
+            >
+              Scenario A (Current Form Baseline)
+            </span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              Form Parameters
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.82rem', marginBottom: '14px' }}>
+            <div><span style={{ color: 'var(--text-muted)' }}>Cameras:</span> <strong>{metricsA.safeCams} Cams</strong></div>
+            <div><span style={{ color: 'var(--text-muted)' }}>Resolution:</span> <strong>{metricsA.resolutionPreset.toUpperCase()}</strong></div>
+            <div><span style={{ color: 'var(--text-muted)' }}>Codec:</span> <strong>{metricsA.codec.toUpperCase()}</strong></div>
+            <div><span style={{ color: 'var(--text-muted)' }}>Bitrate:</span> <strong>{metricsA.safeMbps.toFixed(2)} Mbps</strong></div>
+            <div><span style={{ color: 'var(--text-muted)' }}>Retention:</span> <strong>{metricsA.safeDays} Days</strong></div>
+            <div><span style={{ color: 'var(--text-muted)' }}>Duty Cycle:</span> <strong>{metricsA.safeRec}%</strong></div>
+            <div><span style={{ color: 'var(--text-muted)' }}>Disk Size:</span> <strong>{metricsA.safeDriveTb} TB</strong></div>
+            <div><span style={{ color: 'var(--text-muted)' }}>RAID Level:</span> <strong>{metricsA.raidType.toUpperCase()}</strong></div>
+          </div>
+
+          <div
+            style={{
+              padding: '12px',
+              borderRadius: '10px',
+              background: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Usable Storage Needed:</span>
+              <strong style={{ fontSize: '1.2rem', color: '#38bdf8' }}>{metricsA.totalNeedTb.toFixed(1)} TB</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Required HDDs:</span>
+              <strong style={{ fontSize: '0.95rem', color: 'var(--text-heading)' }}>
+                {metricsA.possible ? `${metricsA.drivesNeeded} × ${metricsA.safeDriveTb}TB drives` : 'Exceeds 64'}
+              </strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Drive BOM Cost:</span>
+              <strong style={{ fontSize: '1.05rem', color: 'var(--emerald)' }}>
+                ${metricsA.totalHardDriveCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Scenario B (Comparison Target) */}
+        <div
+          style={{
+            padding: '18px',
+            background: 'var(--bg)',
+            border: '2px solid var(--emerald)',
+            borderRadius: '14px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <span
+              style={{
+                fontSize: '0.8rem',
+                fontWeight: 800,
+                padding: '3px 10px',
+                borderRadius: '6px',
+                background: 'var(--emerald)',
+                color: '#ffffff',
+                textTransform: 'uppercase',
+              }}
+            >
+              Scenario B (Comparison Target)
+            </span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--emerald)', fontWeight: 700 }}>
+              Editable Controls
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.82rem', marginBottom: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Codec:</label>
+              <select
+                value={scenarioB.codec}
+                onChange={e => onChangeScenarioB({ codec: e.target.value as CodecKey })}
+                style={{ fontSize: '0.78rem', padding: '4px', width: '100%' }}
+              >
+                <option value="h265">H.265 / Smart Codec</option>
+                <option value="h264">H.264 Standard</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Retention (Days):</label>
+              <select
+                value={scenarioB.retentionDays}
+                onChange={e => onChangeScenarioB({ retentionDays: parseInt(e.target.value, 10) || 30 })}
+                style={{ fontSize: '0.78rem', padding: '4px', width: '100%' }}
+              >
+                {[7, 15, 30, 45, 60, 90, 120, 180].map(d => (
+                  <option key={d} value={d}>{d} Days Retention</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Resolution:</label>
+              <select
+                value={scenarioB.resolutionPreset}
+                onChange={e => {
+                  const res = e.target.value as ResolutionPresetKey;
+                  const recMbps = res !== 'custom' ? RESOLUTION_BITRATES[res][scenarioB.codec] : scenarioB.bitrateMbps;
+                  onChangeScenarioB({ resolutionPreset: res, bitrateMbps: recMbps });
+                }}
+                style={{ fontSize: '0.78rem', padding: '4px', width: '100%' }}
+              >
+                <option value="1080p">1080p (2 MP)</option>
+                <option value="4mp">4 MP Super HD</option>
+                <option value="5mp">5 MP Quad HD</option>
+                <option value="4k">4K Ultra HD (8 MP)</option>
+                <option value="720p">720p HD</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Duty Cycle (%):</label>
+              <select
+                value={scenarioB.recordingPct}
+                onChange={e => onChangeScenarioB({ recordingPct: parseInt(e.target.value, 10) || 100 })}
+                style={{ fontSize: '0.78rem', padding: '4px', width: '100%' }}
+              >
+                <option value={100}>100% Continuous 24/7</option>
+                <option value={80}>80% Active Motion</option>
+                <option value={60}>60% Moderate Motion</option>
+                <option value={40}>40% Low Night Motion</option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: '12px',
+              borderRadius: '10px',
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Usable Storage Needed:</span>
+              <strong style={{ fontSize: '1.2rem', color: 'var(--emerald)' }}>{metricsB.totalNeedTb.toFixed(1)} TB</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Required HDDs:</span>
+              <strong style={{ fontSize: '0.95rem', color: 'var(--text-heading)' }}>
+                {metricsB.possible ? `${metricsB.drivesNeeded} × ${metricsB.safeDriveTb}TB drives` : 'Exceeds 64'}
+              </strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Drive BOM Cost:</span>
+              <strong style={{ fontSize: '1.05rem', color: 'var(--emerald)' }}>
+                ${metricsB.totalHardDriveCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          padding: '16px',
+          borderRadius: '12px',
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '12px',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Net Storage Variance (B vs A)
+          </div>
+          <div
+            style={{
+              fontSize: '1.2rem',
+              fontWeight: 800,
+              color: deltaTb > 0 ? 'var(--rose)' : deltaTb < 0 ? 'var(--emerald)' : 'var(--text-heading)',
+              marginTop: '2px',
+            }}
+          >
+            {deltaTb > 0 ? `+${deltaTb.toFixed(1)} TB` : `${deltaTb.toFixed(1)} TB`}{' '}
+            <span style={{ fontSize: '0.85rem' }}>({deltaPct >= 0 ? `+${deltaPct.toFixed(0)}%` : `${deltaPct.toFixed(0)}%`})</span>
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Drive Quantity Change
+          </div>
+          <div
+            style={{
+              fontSize: '1.2rem',
+              fontWeight: 800,
+              color: deltaDrives > 0 ? 'var(--rose)' : deltaDrives < 0 ? 'var(--emerald)' : 'var(--text-heading)',
+              marginTop: '2px',
+            }}
+          >
+            {deltaDrives > 0 ? `+${deltaDrives} Drives` : deltaDrives < 0 ? `${deltaDrives} Drives` : 'No Change'}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Project Hard Drive BOM Savings / Cost
+          </div>
+          <div
+            style={{
+              fontSize: '1.2rem',
+              fontWeight: 800,
+              color: deltaCost > 0 ? 'var(--rose)' : deltaCost < 0 ? 'var(--emerald)' : 'var(--text-heading)',
+              marginTop: '2px',
+            }}
+          >
+            {deltaCost > 0
+              ? `+$${deltaCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+              : deltaCost < 0
+              ? `-$${Math.abs(deltaCost).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Savings`
+              : '$0 Difference'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const D3StorageGauge: React.FC<{
   neededTb: number;
   usableTb: number;
@@ -1387,244 +1864,193 @@ const D3StorageGauge: React.FC<{
   );
 };
 
-export const CctvStorageCalculator: React.FC = () => {
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = window.localStorage.getItem('theme');
-        if (saved === 'light' || saved === 'dark') return saved;
-      } catch {
-        // storage fallback
+/**
+ * Custom hook to manage state synchronized automatically with localStorage.
+ * Ensures persistence across browser refreshes, tab closures, and page navigation.
+ */
+export function useLocalStorageState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [value, setValue] = useState<T>(() => {
+    if (typeof window === 'undefined') return defaultValue;
+    try {
+      const item = window.localStorage.getItem(key);
+      if (item !== null) {
+        return JSON.parse(item) as T;
       }
-      return document.documentElement.getAttribute('data-theme') === 'light' ||
-        (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)
-        ? 'light'
-        : 'dark';
+    } catch (error) {
+      console.warn(`[useLocalStorageState] Error reading key "${key}":`, error);
     }
-    return 'dark';
+    return defaultValue;
   });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.warn(`[useLocalStorageState] Error writing key "${key}":`, error);
+    }
+  }, [key, value]);
+
+  return [value, setValue];
+}
+
+export const CctvStorageCalculator: React.FC = () => {
+  const [theme, setTheme] = useLocalStorageState<'dark' | 'light'>('cctv_calc_theme', 'dark');
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
     document.documentElement.setAttribute('data-theme', nextTheme);
-    try {
-      window.localStorage.setItem('theme', nextTheme);
-    } catch {
-      // Storage blocked
-    }
   };
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  const [cameras, setCameras] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_cams');
-      return v ? Math.max(1, parseInt(v, 10) || 16) : 16;
-    } catch {
-      return 16;
-    }
-  });
-
-  const [resolutionPreset, setResolutionPreset] = useState<ResolutionPresetKey>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_res');
-      return (v as ResolutionPresetKey) || '1080p';
-    } catch {
-      return '1080p';
-    }
-  });
-
-  const [codec, setCodec] = useState<CodecKey>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_codec');
-      return (v as CodecKey) || 'h265';
-    } catch {
-      return 'h265';
-    }
-  });
-
-  const [bitrateMbps, setBitrateMbps] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_mbps');
-      return v ? Math.max(0.1, parseFloat(v) || 2.0) : 2.0;
-    } catch {
-      return 2.0;
-    }
-  });
-
-  const [retentionDays, setRetentionDays] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_days');
-      return v ? Math.max(1, parseInt(v, 10) || 30) : 30;
-    } catch {
-      return 30;
-    }
-  });
-
-  const [recordingPct, setRecordingPct] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_rec');
-      return v ? Math.min(100, Math.max(1, parseInt(v, 10) || 100)) : 100;
-    } catch {
-      return 100;
-    }
-  });
-
-  const [headroomPct, setHeadroomPct] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_head');
-      return v !== null ? Math.max(0, parseInt(v, 10) || 15) : 15;
-    } catch {
-      return 15;
-    }
-  });
-
-  const [driveSizeTb, setDriveSizeTb] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_drv');
-      return v ? Math.max(0.5, parseFloat(v) || 8) : 8;
-    } catch {
-      return 8;
-    }
-  });
-
-  const [raidType, setRaidType] = useState<RaidTypeKey>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_raid');
-      return (v as RaidTypeKey) || 'raid5';
-    } catch {
-      return 'raid5';
-    }
-  });
-
-  const [pricePerTb, setPricePerTb] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_price_per_tb');
-      return v !== null ? Math.max(0, parseFloat(v) || 25) : 25;
-    } catch {
-      return 25;
-    }
-  });
-
-  const [driveWorkloadRatingTbYr, setDriveWorkloadRatingTbYr] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_tbw_rating');
-      return v !== null ? Math.max(10, parseInt(v, 10) || 180) : 180;
-    } catch {
-      return 180;
-    }
-  });
-
-  const [enableCloudBackup, setEnableCloudBackup] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('cctv_calc_enable_cloud') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const [cloudPricePerTbMonth, setCloudPricePerTbMonth] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_cloud_price');
-      return v !== null ? Math.max(0, parseFloat(v) || 15) : 15;
-    } catch {
-      return 15;
-    }
-  });
-
-  const [cloudBackupScopePct, setCloudBackupScopePct] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_cloud_scope');
-      return v !== null ? Math.min(100, Math.max(1, parseInt(v, 10) || 100)) : 100;
-    } catch {
-      return 100;
-    }
-  });
-
-  const [enableMultiTier, setEnableMultiTier] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('cctv_calc_enable_tier') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const [tier1Days, setTier1Days] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_tier1_days');
-      return v !== null ? Math.max(1, parseInt(v, 10) || 7) : 7;
-    } catch {
-      return 7;
-    }
-  });
-
-  const [tier2BitratePct, setTier2BitratePct] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_tier2_bitrate_pct');
-      return v !== null ? Math.min(100, Math.max(10, parseInt(v, 10) || 50)) : 50;
-    } catch {
-      return 50;
-    }
-  });
-
-  const [tier2DriveSizeTb, setTier2DriveSizeTb] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_tier2_drv');
-      return v !== null ? Math.max(1, parseFloat(v) || 16) : 16;
-    } catch {
-      return 16;
-    }
-  });
-
-  const [tier2Raid, setTier2Raid] = useState<RaidTypeKey>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_tier2_raid');
-      return (v as RaidTypeKey) || 'raid6';
-    } catch {
-      return 'raid6';
-    }
+  // Persistent User Input States
+  const [cameras, setCameras] = useLocalStorageState<number>('cctv_calc_cams', 16);
+  const [resolutionPreset, setResolutionPreset] = useLocalStorageState<ResolutionPresetKey>('cctv_calc_res', '1080p');
+  const [codec, setCodec] = useLocalStorageState<CodecKey>('cctv_calc_codec', 'h265');
+  const [bitrateMbps, setBitrateMbps] = useLocalStorageState<number>('cctv_calc_mbps', 2.0);
+  const [retentionDays, setRetentionDays] = useLocalStorageState<number>('cctv_calc_days', 30);
+  const [recordingPct, setRecordingPct] = useLocalStorageState<number>('cctv_calc_rec', 100);
+  const [headroomPct, setHeadroomPct] = useLocalStorageState<number>('cctv_calc_head', 15);
+  const [driveSizeTb, setDriveSizeTb] = useLocalStorageState<number>('cctv_calc_drv', 8);
+  const [raidType, setRaidType] = useLocalStorageState<RaidTypeKey>('cctv_calc_raid', 'raid5');
+  const [pricePerTb, setPricePerTb] = useLocalStorageState<number>('cctv_calc_price_per_tb', 25);
+  const [driveWorkloadRatingTbYr, setDriveWorkloadRatingTbYr] = useLocalStorageState<number>('cctv_calc_tbw_rating', 180);
+  const [enableCloudBackup, setEnableCloudBackup] = useLocalStorageState<boolean>('cctv_calc_enable_cloud', false);
+  const [cloudPricePerTbMonth, setCloudPricePerTbMonth] = useLocalStorageState<number>('cctv_calc_cloud_price', 15);
+  const [cloudBackupScopePct, setCloudBackupScopePct] = useLocalStorageState<number>('cctv_calc_cloud_scope', 100);
+  const [enableMultiTier, setEnableMultiTier] = useLocalStorageState<boolean>('cctv_calc_enable_tier', false);
+  const [tier1Days, setTier1Days] = useLocalStorageState<number>('cctv_calc_tier1_days', 7);
+  const [tier2BitratePct, setTier2BitratePct] = useLocalStorageState<number>('cctv_calc_tier2_bitrate_pct', 50);
+  const [tier2DriveSizeTb, setTier2DriveSizeTb] = useLocalStorageState<number>('cctv_calc_tier2_drv', 16);
+  const [tier2Raid, setTier2Raid] = useLocalStorageState<RaidTypeKey>('cctv_calc_tier2_raid', 'raid6');
+  const [h265SavingsPct, setH265SavingsPct] = useLocalStorageState<number>('cctv_calc_h265_savings', 50);
+  const [selectedBrandPresetId, setSelectedBrandPresetId] = useLocalStorageState<string>('cctv_calc_brand_preset', 'custom');
+  const [brandFilter, setBrandFilter] = useLocalStorageState<string>('cctv_calc_brand_filter', 'All');
+  const [presetSearchQuery, setPresetSearchQuery] = useLocalStorageState<string>('cctv_calc_preset_search', '');
+  const [enableComparisonMode, setEnableComparisonMode] = useLocalStorageState<boolean>('cctv_calc_enable_compare', false);
+  const [scenarioB, setScenarioB] = useLocalStorageState<ScenarioConfig>('cctv_calc_scenario_b', {
+    name: 'Scenario B',
+    cameras: 16,
+    resolutionPreset: '1080p',
+    codec: 'h265',
+    bitrateMbps: 2.0,
+    retentionDays: 60,
+    recordingPct: 100,
+    headroomPct: 15,
+    driveSizeTb: 8,
+    raidType: 'raid5',
+    pricePerTb: 25,
   });
 
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [exportedCsv, setExportedCsv] = useState(false);
   const [exportedPdf, setExportedPdf] = useState(false);
 
-  const [h265SavingsPct, setH265SavingsPct] = useState<number>(() => {
-    try {
-      const v = localStorage.getItem('cctv_calc_h265_savings');
-      return v ? Math.min(80, Math.max(20, parseInt(v, 10) || 50)) : 50;
-    } catch {
-      return 50;
-    }
-  });
+  const currentScenarioA = useMemo<ScenarioConfig>(() => ({
+    name: 'Scenario A',
+    cameras,
+    resolutionPreset,
+    codec,
+    bitrateMbps,
+    retentionDays,
+    recordingPct,
+    headroomPct,
+    driveSizeTb,
+    raidType,
+    pricePerTb,
+  }), [
+    cameras,
+    resolutionPreset,
+    codec,
+    bitrateMbps,
+    retentionDays,
+    recordingPct,
+    headroomPct,
+    driveSizeTb,
+    raidType,
+    pricePerTb,
+  ]);
 
-  const [selectedBrandPresetId, setSelectedBrandPresetId] = useState<string>(() => {
-    try {
-      return localStorage.getItem('cctv_calc_brand_preset') || 'custom';
-    } catch {
-      return 'custom';
-    }
-  });
+  const handleCopyAtoB = () => {
+    setScenarioB({ ...currentScenarioA, name: 'Scenario B' });
+  };
 
-  const [brandFilter, setBrandFilter] = useState<string>('All');
+  const handleSwapAandB = () => {
+    setCameras(scenarioB.cameras);
+    setResolutionPreset(scenarioB.resolutionPreset);
+    setCodec(scenarioB.codec);
+    setBitrateMbps(scenarioB.bitrateMbps);
+    setRetentionDays(scenarioB.retentionDays);
+    setRecordingPct(scenarioB.recordingPct);
+    setHeadroomPct(scenarioB.headroomPct);
+    setDriveSizeTb(scenarioB.driveSizeTb);
+    setRaidType(scenarioB.raidType);
+    setPricePerTb(scenarioB.pricePerTb);
+
+    setScenarioB({ ...currentScenarioA, name: 'Scenario B' });
+  };
+
+  const handleApplyPresetComparison = (presetType: 'codec' | 'retention' | 'motion' | 'resolution') => {
+    if (presetType === 'codec') {
+      const nextCodec: CodecKey = codec === 'h264' ? 'h265' : 'h264';
+      const reductionRatio = nextCodec === 'h265' ? 0.5 : 2.0;
+      setScenarioB({
+        ...currentScenarioA,
+        codec: nextCodec,
+        bitrateMbps: Math.max(0.1, parseFloat((bitrateMbps * reductionRatio).toFixed(2))),
+      });
+    } else if (presetType === 'retention') {
+      setScenarioB({
+        ...currentScenarioA,
+        retentionDays: retentionDays === 30 ? 60 : retentionDays * 2,
+      });
+    } else if (presetType === 'motion') {
+      setScenarioB({
+        ...currentScenarioA,
+        recordingPct: recordingPct === 100 ? 75 : 100,
+      });
+    } else if (presetType === 'resolution') {
+      const nextRes: ResolutionPresetKey = resolutionPreset === '4k' ? '1080p' : '4k';
+      const nextMbps = RESOLUTION_BITRATES[nextRes][codec];
+      setScenarioB({
+        ...currentScenarioA,
+        resolutionPreset: nextRes,
+        bitrateMbps: nextMbps,
+      });
+    }
+  };
 
   const activePreset = useMemo(() => {
     return CAMERA_BRAND_PRESETS.find(p => p.id === selectedBrandPresetId) || null;
   }, [selectedBrandPresetId]);
 
   const filteredPresetsGrouped = useMemo(() => {
+    const q = presetSearchQuery.toLowerCase().trim();
+
     const list = CAMERA_BRAND_PRESETS.filter(p => {
-      if (brandFilter === 'All') return true;
-      if (brandFilter === 'Axis') return p.brand.includes('Axis');
-      if (brandFilter === 'Hikvision') return p.brand.includes('Hikvision');
-      if (brandFilter === 'Dahua') return p.brand.includes('Dahua');
-      if (brandFilter === 'Hanwha') return p.brand.includes('Hanwha');
-      if (brandFilter === 'UNV') return p.brand.includes('Uniview');
-      if (brandFilter === 'Bosch') return p.brand.includes('Bosch');
-      return true;
+      let matchesBrand = true;
+      if (brandFilter === 'Axis') matchesBrand = p.brand.includes('Axis');
+      else if (brandFilter === 'Hikvision') matchesBrand = p.brand.includes('Hikvision');
+      else if (brandFilter === 'Dahua') matchesBrand = p.brand.includes('Dahua');
+      else if (brandFilter === 'Hanwha') matchesBrand = p.brand.includes('Hanwha');
+      else if (brandFilter === 'UNV') matchesBrand = p.brand.includes('Uniview');
+      else if (brandFilter === 'Bosch') matchesBrand = p.brand.includes('Bosch');
+
+      let matchesSearch = true;
+      if (q) {
+        matchesSearch =
+          p.brand.toLowerCase().includes(q) ||
+          p.modelSeries.toLowerCase().includes(q) ||
+          p.resolutionName.toLowerCase().includes(q) ||
+          p.smartCodec.toLowerCase().includes(q) ||
+          p.note.toLowerCase().includes(q);
+      }
+
+      return matchesBrand && matchesSearch;
     });
 
     const groups: { brand: string; presets: CameraBrandPreset[] }[] = [];
@@ -1637,7 +2063,11 @@ export const CctvStorageCalculator: React.FC = () => {
       g.presets.push(p);
     });
     return groups;
-  }, [brandFilter]);
+  }, [brandFilter, presetSearchQuery]);
+
+  const totalMatchingPresets = useMemo(() => {
+    return filteredPresetsGrouped.reduce((acc, g) => acc + g.presets.length, 0);
+  }, [filteredPresetsGrouped]);
 
   const handleSelectBrandPreset = (presetId: string) => {
     setSelectedBrandPresetId(presetId);
@@ -1650,53 +2080,7 @@ export const CctvStorageCalculator: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('cctv_calc_cams', String(cameras));
-      localStorage.setItem('cctv_calc_res', resolutionPreset);
-      localStorage.setItem('cctv_calc_codec', codec);
-      localStorage.setItem('cctv_calc_mbps', String(bitrateMbps));
-      localStorage.setItem('cctv_calc_days', String(retentionDays));
-      localStorage.setItem('cctv_calc_rec', String(recordingPct));
-      localStorage.setItem('cctv_calc_head', String(headroomPct));
-      localStorage.setItem('cctv_calc_drv', String(driveSizeTb));
-      localStorage.setItem('cctv_calc_raid', raidType);
-      localStorage.setItem('cctv_calc_brand_preset', selectedBrandPresetId);
-      localStorage.setItem('cctv_calc_price_per_tb', String(pricePerTb));
-      localStorage.setItem('cctv_calc_tbw_rating', String(driveWorkloadRatingTbYr));
-      localStorage.setItem('cctv_calc_enable_cloud', String(enableCloudBackup));
-      localStorage.setItem('cctv_calc_cloud_price', String(cloudPricePerTbMonth));
-      localStorage.setItem('cctv_calc_cloud_scope', String(cloudBackupScopePct));
-      localStorage.setItem('cctv_calc_enable_tier', String(enableMultiTier));
-      localStorage.setItem('cctv_calc_tier1_days', String(tier1Days));
-      localStorage.setItem('cctv_calc_tier2_bitrate_pct', String(tier2BitratePct));
-      localStorage.setItem('cctv_calc_tier2_drv', String(tier2DriveSizeTb));
-      localStorage.setItem('cctv_calc_tier2_raid', tier2Raid);
-    } catch {
-      // Ignore quota errors
-    }
-  }, [
-    cameras,
-    resolutionPreset,
-    codec,
-    bitrateMbps,
-    retentionDays,
-    recordingPct,
-    headroomPct,
-    driveSizeTb,
-    raidType,
-    selectedBrandPresetId,
-    pricePerTb,
-    driveWorkloadRatingTbYr,
-    enableCloudBackup,
-    cloudPricePerTbMonth,
-    cloudBackupScopePct,
-    enableMultiTier,
-    tier1Days,
-    tier2BitratePct,
-    tier2DriveSizeTb,
-    tier2Raid,
-  ]);
+
 
   const handleResolutionChange = (newRes: ResolutionPresetKey) => {
     setResolutionPreset(newRes);
@@ -2965,6 +3349,24 @@ DRIVE ARRAY & RAID SPECIFICATION:
           <button
             type="button"
             className="button button-secondary"
+            onClick={() => setEnableComparisonMode(prev => !prev)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.82rem',
+              background: enableComparisonMode ? 'rgba(99, 102, 241, 0.2)' : undefined,
+              borderColor: enableComparisonMode ? 'var(--accent)' : undefined,
+              fontWeight: enableComparisonMode ? 700 : 500,
+            }}
+            title="Compare two side-by-side scenarios to evaluate codecs, retention days, or resolution scaling"
+          >
+            <SlidersHorizontal className="w-4 h-4 text-purple-400" />
+            {enableComparisonMode ? 'Hide Comparison' : 'Compare Scenarios'}
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
             onClick={toggleTheme}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
@@ -3025,6 +3427,19 @@ DRIVE ARRAY & RAID SPECIFICATION:
         </div>
       </div>
 
+      {/* Compare Scenarios Side-by-Side Panel */}
+      {enableComparisonMode && (
+        <CompareScenariosPanel
+          scenarioA={currentScenarioA}
+          scenarioB={scenarioB}
+          onChangeScenarioB={updated => setScenarioB(prev => ({ ...prev, ...updated }))}
+          onCopyAtoB={handleCopyAtoB}
+          onSwapAandB={handleSwapAandB}
+          onCloseComparison={() => setEnableComparisonMode(false)}
+          onApplyPresetComparison={handleApplyPresetComparison}
+        />
+      )}
+
       {/* Main Grid: Form Inputs (Left) and Results / Visualizations (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" style={{ marginBottom: '32px' }}>
         {/* Form Inputs (5 columns on desktop) */}
@@ -3038,31 +3453,44 @@ DRIVE ARRAY & RAID SPECIFICATION:
 
             {/* Number of Cameras */}
             <div className="form-field" style={{ marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label htmlFor="cams" style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label htmlFor="cams" style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>
                   Number of cameras
                 </label>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  {[4, 8, 16, 32, 64].map(n => (
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  Quick presets:
+                </span>
+              </div>
+
+              {/* Quick Access Camera Count Preset Buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px', marginBottom: '8px' }}>
+                {[4, 8, 16, 32, 64].map(n => {
+                  const isSelected = cameras === n;
+                  return (
                     <button
                       key={n}
                       type="button"
                       onClick={() => setCameras(n)}
                       style={{
-                        padding: '2px 7px',
-                        fontSize: '0.72rem',
-                        borderRadius: '4px',
-                        background: cameras === n ? 'var(--accent)' : 'var(--bg)',
-                        color: cameras === n ? '#ffffff' : 'var(--text-muted)',
-                        border: '1px solid var(--border)',
+                        padding: '6px 4px',
+                        fontSize: '0.78rem',
+                        fontWeight: isSelected ? 800 : 600,
+                        borderRadius: '6px',
+                        background: isSelected ? 'var(--accent)' : 'var(--bg)',
+                        color: isSelected ? '#ffffff' : 'var(--text-heading)',
+                        border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
                         cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease',
                       }}
+                      title={`Auto-fill ${n} cameras`}
                     >
-                      {n}
+                      {n} Cams
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
+
               <input
                 id="cams"
                 type="number"
@@ -3071,6 +3499,9 @@ DRIVE ARRAY & RAID SPECIFICATION:
                 value={cameras}
                 onChange={e => setCameras(Math.max(1, parseInt(e.target.value, 10) || 1))}
               />
+              <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                Select a quick preset above (4, 8, 16, 32, 64) or enter a custom camera quantity.
+              </p>
             </div>
 
             {/* Camera Manufacturer Presets (Axis, Hikvision, Dahua, etc.) */}
@@ -3113,27 +3544,79 @@ DRIVE ARRAY & RAID SPECIFICATION:
                 </span>
               </div>
 
-              {/* Brand Filter Buttons */}
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                {['All', 'Axis', 'Hikvision', 'Dahua', 'Hanwha', 'UNV', 'Bosch'].map(b => (
-                  <button
-                    key={b}
-                    type="button"
-                    onClick={() => setBrandFilter(b)}
+              {/* Brand Filter Buttons & Real-Time Search Bar */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {['All', 'Axis', 'Hikvision', 'Dahua', 'Hanwha', 'UNV', 'Bosch'].map(b => (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={() => setBrandFilter(b)}
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: '0.72rem',
+                        borderRadius: '4px',
+                        background: brandFilter === b ? 'var(--accent)' : 'var(--bg)',
+                        color: brandFilter === b ? '#ffffff' : 'var(--text-muted)',
+                        border: '1px solid var(--border)',
+                        cursor: 'pointer',
+                        fontWeight: brandFilter === b ? 700 : 400,
+                      }}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Real-time Preset Search Input */}
+                <div style={{ position: 'relative', width: '100%' }}>
+                  <Search
+                    className="w-3.5 h-3.5"
                     style={{
-                      padding: '2px 8px',
-                      fontSize: '0.72rem',
-                      borderRadius: '4px',
-                      background: brandFilter === b ? 'var(--accent)' : 'var(--bg)',
-                      color: brandFilter === b ? '#ffffff' : 'var(--text-muted)',
-                      border: '1px solid var(--border)',
-                      cursor: 'pointer',
-                      fontWeight: brandFilter === b ? 700 : 400,
+                      position: 'absolute',
+                      left: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--text-muted)',
+                      pointerEvents: 'none',
                     }}
-                  >
-                    {b}
-                  </button>
-                ))}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search model, codec, resolution (e.g., AcuSense, Zipstream, 4K)..."
+                    value={presetSearchQuery}
+                    onChange={e => setPresetSearchQuery(e.target.value)}
+                    style={{
+                      fontSize: '0.8rem',
+                      padding: '6px 28px 6px 30px',
+                      background: 'var(--bg)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      width: '100%',
+                    }}
+                  />
+                  {presetSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setPresetSearchQuery('')}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        padding: '2px',
+                      }}
+                      title="Clear search query"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Manufacturer Preset Dropdown */}
@@ -3150,9 +3633,11 @@ DRIVE ARRAY & RAID SPECIFICATION:
                   width: '100%',
                 }}
               >
-                <option value="custom">-- Custom / Generic Bitrate --</option>
+                <option value="custom">
+                  -- Custom / Generic Bitrate ({totalMatchingPresets} preset{totalMatchingPresets !== 1 ? 's' : ''} available) --
+                </option>
                 {filteredPresetsGrouped.map(group => (
-                  <optgroup key={group.brand} label={group.brand}>
+                  <optgroup key={group.brand} label={`${group.brand} (${group.presets.length})`}>
                     {group.presets.map(p => (
                       <option key={p.id} value={p.id}>
                         {p.brand.split(' ')[0]} {p.modelSeries} · {p.resolutionName} ({p.smartCodec}) – {p.bitrateMbps} Mbps
@@ -3161,6 +3646,13 @@ DRIVE ARRAY & RAID SPECIFICATION:
                   </optgroup>
                 ))}
               </select>
+
+              {/* Real-time Search Match Indicator */}
+              {presetSearchQuery.trim() && (
+                <div style={{ fontSize: '0.72rem', color: 'var(--emerald)', fontWeight: 600, marginTop: '4px' }}>
+                  🔍 Found {totalMatchingPresets} matching camera model{totalMatchingPresets !== 1 ? 's' : ''} for &quot;{presetSearchQuery}&quot;
+                </div>
+              )}
 
               {/* Active Preset Detail Info Card */}
               {activePreset ? (
