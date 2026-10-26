@@ -31,6 +31,7 @@ import { AiPromptBuilder } from './tools/AiPromptBuilder';
 import { CareerMatchResumeReview } from './tools/CareerMatchResumeReview';
 import { ResumeBulletStrengthChecker } from './tools/ResumeBulletStrengthChecker';
 import { ITResumeBulletBuilder } from './tools/ITResumeBulletBuilder';
+import { ITCoverLetterBuilder } from './tools/ITCoverLetterBuilder';
 import { InterviewPreparationPlanner } from './tools/InterviewPreparationPlanner';
 import { ItTroubleshootingAssistant } from './tools/ItTroubleshootingAssistant';
 import { ServiceDeskNoteFormatter } from './tools/ServiceDeskNoteFormatter';
@@ -100,6 +101,7 @@ export const App: React.FC = () => {
           <Route path="/tools/career-match-resume-review" element={<CareerMatchResumeReview />} />
           <Route path="/tools/resume-bullet-strength-checker" element={<ResumeBulletStrengthChecker />} />
           <Route path="/tools/it-resume-bullet-builder" element={<ITResumeBulletBuilder />} />
+          <Route path="/tools/it-cover-letter-builder" element={<ITCoverLetterBuilder />} />
           <Route path="/tools/interview-preparation-planner" element={<InterviewPreparationPlanner />} />
           <Route path="/tools/it-troubleshooting-assistant" element={<ItTroubleshootingAssistant />} />
           <Route path="/tools/service-desk-note-formatter" element={<ServiceDeskNoteFormatter />} />

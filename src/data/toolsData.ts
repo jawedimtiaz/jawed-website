@@ -198,6 +198,14 @@ export const TOOLS: ToolItem[] = [
     route: '/tools/interview-preparation-planner',
   },
   {
+    id: 'it-cover-letter-builder',
+    name: 'IT Cover Letter Builder',
+    description: 'Build a short, tailored cover letter from what you really did, with clear placeholders for missing details.',
+    category: 'career',
+    route: '/tools/it-cover-letter-builder',
+    keywords: ['cover letter', 'it cover letter', 'career', 'resume', 'hiring manager', 'job application'],
+  },
+  {
     id: 'it-troubleshooter',
     name: 'IT Troubleshooting Assistant',
     description: 'Follow systematic, layer-by-layer diagnostic checklists for network, Apple, and Windows issues.',

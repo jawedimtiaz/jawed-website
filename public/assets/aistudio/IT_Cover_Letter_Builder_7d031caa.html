@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IT Cover Letter Builder – Free Browser Tool</title><meta name="description" content="Write a clear, honest cover letter for IT jobs. Runs in your browser; nothing is uploaded."><style>
+:root{--bg:#0f172a;--card:#16213a;--text:#e2e8f0;--muted:#94a3b8;--line:#2a3857;--brand:#38bdf8;--brand2:#818cf8;--good:#34d399;--bad:#f87171;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[data-theme=light]{--bg:#f4f7fb;--card:#fff;--text:#0f172a;--muted:#5b6b86;--line:#dbe3ef;--brand:#0284c7;--brand2:#4f46e5;--good:#059669;--bad:#dc2626}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+main{max-width:980px;margin:0 auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{font-size:clamp(26px,5vw,38px);margin:.3em 0 .1em;background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{margin-top:1.6em}.lead,.muted{color:var(--muted)}.muted{font-size:14px}
+button,select,input,textarea{font:inherit;color:var(--text)}
+button{cursor:pointer;background:transparent;border:1px solid var(--line);border-radius:10px;padding:7px 14px}
+button.on,button.primary{background:linear-gradient(90deg,var(--brand),var(--brand2));border:0;color:#fff;font-weight:600}button.primary{padding:11px 22px}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:80px;resize:vertical}label{display:block;font-weight:600;margin:12px 0 4px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px}
+.out{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:var(--bg)}.pre{white-space:pre-wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}.ok{color:var(--good)}.no{color:var(--bad)}
+ul{padding-left:20px}.hidden{display:none!important}.big{font-size:30px;font-weight:800}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none}#toast.on{opacity:1}
+details{border-top:1px solid var(--line);padding:8px 0}summary{cursor:pointer;font-weight:600}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+</style></head>
+<body><main>
+<div class="top"><span class="muted">Free tool · runs in your browser</span><button id="theme" aria-label="Toggle light or dark mode">◐ Theme</button></div>
+<h1>IT Cover Letter Builder</h1><p class="lead">Build a short, tailored cover letter from what you really did. Missing details stay as clear placeholders, never invented.</p>
+<section class="panel"><div class="grid">
+<div><label for="name">Your name</label><input id="name"><label for="role">Job title applying for</label><input id="role" placeholder="e.g. Network Support Engineer"><label for="company">Company</label><input id="company"><label for="manager">Hiring manager (optional)</label><input id="manager" placeholder="Leave blank for Hiring Manager"></div>
+<div><label for="years">Years of IT experience (optional)</label><input id="years" placeholder="e.g. 6 years"><label for="skills">Top skills / tools you truly have</label><input id="skills" placeholder="e.g. Active Directory, Cisco, VMware"><label for="tone">Tone</label><select id="tone"><option value="formal">Formal</option><option value="friendly">Friendly professional</option></select><label for="length">Length</label><select id="length"><option value="standard">Standard (4 paragraphs)</option><option value="short">Short (3 paragraphs)</option></select></div>
+<div><label for="ach">One real achievement (optional)</label><textarea id="ach" placeholder="e.g. I migrated 120 users to Microsoft 365 with zero data loss"></textarea></div>
+<div><label for="why">Why this company? (optional)</label><textarea id="why" placeholder="e.g. it supports healthcare sites and I want to work on critical systems"></textarea></div></div>
+<div class="row"><button class="primary" id="gen">Generate cover letter</button><button id="demo">Fill example</button></div>
+<div id="res" class="hidden"><div class="out"><div id="letter" class="pre" contenteditable="true" aria-label="Editable cover letter"></div></div>
+<div class="muted" id="meta"></div><div class="row"><button id="cp">Copy</button><button id="dlb">Download .txt</button><button id="sv">Save</button></div></div></section>
+<section class="panel"><b>Saved letters</b><div id="saved"></div></section>
+<h2>How to write a cover letter for IT jobs</h2>
+<p>A good IT cover letter is short, specific and honest. It should connect two or three things you have actually done to what the job asks for, in about 150 to 250 words.</p>
+<ul><li><b>Paragraph 1:</b> the role, the company and your strongest matching skills.</li><li><b>Paragraph 2:</b> one real achievement with scale or a number you can verify, such as users supported, sites covered or hours saved.</li><li><b>Paragraph 3:</b> one specific reason you want this employer, taken from their website or posting.</li><li><b>Close:</b> a polite thank-you, with no promises or pressure.</li></ul>
+<p>This tool only uses what you type. Anything you leave blank appears as a bracketed "Not Provided" placeholder so you never send invented claims. Always edit the letter in your own voice before sending.</p>
+<h2>FAQ</h2>
+<details><summary>Is my text sent anywhere?</summary><p>No. Everything runs in your browser. Saved letters stay in your own browser storage.</p></details>
+<details><summary>Do I need a cover letter for IT roles?</summary><p>Many employers do not require one, but a short, tailored letter helps when you are changing fields, have gaps, or the posting asks for it.</p></details>
+<details><summary>Can the tool guarantee a reply?</summary><p>No. It helps you write clearly, but hiring decisions depend on many factors outside any tool.</p></details>
+</main><div id="toast" role="status"></div>
+<script>
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),1500)}
+function setTheme(t){document.documentElement.dataset.theme=t;store.set("tl_theme",t)}
+setTheme(store.get("tl_theme",matchMedia("(prefers-color-scheme:light)").matches?"light":"dark"));
+$("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+const copy=async t=>{try{await navigator.clipboard.writeText(t)}catch{const x=document.createElement("textarea");x.value=t;document.body.append(x);x.select();document.execCommand("copy");x.remove()}toast("Copied")};
+function dl(name,text){const u=URL.createObjectURL(new Blob([text],{type:"text/plain"})),a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
+
+//CORE_START
+
+const low=s=>s.charAt(0).toLowerCase()+s.slice(1);
+function letter(f){const NP=x=>`[${x} — Not Provided]`,v=s=>(s||"").trim();
+  const name=v(f.name),role=v(f.role),co=v(f.company),mgr=v(f.manager),yrs=v(f.years),sk=v(f.skills),ach=v(f.ach).replace(/[.]+$/,""),why=v(f.why).replace(/[.]+$/,"");
+  const fr=f.tone==="friendly";
+  const p1=`${fr?"I'm excited to apply":"I am writing to apply"} for the ${role||NP("job title")} position${co?" at "+co:""}. ${yrs?`With ${yrs} of experience in IT, I`:"I"} bring hands-on experience with ${sk||NP("key skills and tools")}.`;
+  const p2=ach?`${fr?"A recent example":"One example from my recent work"}: ${ach}.`:NP("add one verified achievement with a measurable result");
+  const p3=why?`I am drawn to ${co||"your organisation"} because ${why}.`:NP(`add one specific reason you want to work at ${co||"this company"}`);
+  const close=fr?"Thanks for taking the time to read my application. I'd be glad to talk about how I can help your team.":"Thank you for your time and consideration. I would welcome the opportunity to discuss how my experience fits your team's needs.";
+  const paras=f.length==="short"?[p1,p2,close]:[p1,p2,p3,close];
+  return `Dear ${mgr||"Hiring Manager"},\n\n${paras.join("\n\n")}\n\n${fr?"Best regards":"Sincerely"},\n${name||NP("your name")}`}
+
+//CORE_END
+
+const F=()=>({name:$("#name").value,role:$("#role").value,company:$("#company").value,manager:$("#manager").value,years:$("#years").value,skills:$("#skills").value,ach:$("#ach").value,why:$("#why").value,tone:$("#tone").value,length:$("#length").value});
+$("#gen").onclick=()=>{$("#letter").textContent=letter(F());$("#res").classList.remove("hidden");upd()};
+function upd(){const t=$("#letter").innerText||$("#letter").textContent,n=t.trim().split(/\s+/).length,ph=(t.match(/\[[^\]]*Not Provided\]/g)||[]).length;$("#meta").textContent=`${n} words · ${ph?ph+" placeholder(s) still to fill":"no placeholders left"}`}
+$("#letter").addEventListener("input",upd);
+const txt=()=>$("#letter").innerText||$("#letter").textContent;
+$("#cp").onclick=()=>copy(txt());$("#dlb").onclick=()=>dl("cover-letter.txt",txt());
+$("#demo").onclick=()=>{$("#name").value="Alex Sample";$("#role").value="Network Support Engineer";$("#company").value="Example Corp";$("#years").value="6 years";$("#skills").value="Active Directory, Cisco, VMware";$("#ach").value="I migrated 120 users to Microsoft 365 with zero data loss";$("#why").value="it supports healthcare sites where uptime matters"};
+function rs(){const s=store.get("cl_saved",[]);$("#saved").innerHTML=s.length?s.map((t,i)=>`<div class="out"><div class="pre">${esc(t)}</div><div class="row"><button data-c="${i}">Copy</button><button data-d="${i}">Delete</button></div></div>`).join(""):'<p class="muted">Nothing saved yet.</p>'}
+$("#sv").onclick=()=>{const s=store.get("cl_saved",[]);s.unshift(txt());store.set("cl_saved",s.slice(0,10));rs();toast("Saved")};
+$("#saved").onclick=e=>{const b=e.target.closest("button");if(!b)return;const s=store.get("cl_saved",[]);if(b.dataset.c!=null)copy(s[b.dataset.c]);if(b.dataset.d!=null){s.splice(+b.dataset.d,1);store.set("cl_saved",s);rs()}};
+rs();
+
+</script></body></html>
