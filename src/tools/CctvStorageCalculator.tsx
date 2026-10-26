@@ -31,6 +31,12 @@ import {
   SlidersHorizontal,
   ArrowRightLeft,
   Scale,
+  Building2,
+  Plus,
+  Trash2,
+  Edit3,
+  MapPin,
+  ExternalLink,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import {
@@ -1251,6 +1257,941 @@ export const StorageHeatmap: React.FC<StorageHeatmapProps> = ({
   );
 };
 
+export interface CameraGroup {
+  id: string;
+  name: string;
+  cameras: number;
+  resolutionPreset: ResolutionPresetKey;
+  codec: CodecKey;
+  bitrateMbps: number;
+  recordingPct: number;
+}
+
+export const DEFAULT_CAMERA_GROUPS: CameraGroup[] = [
+  {
+    id: 'grp-entrance',
+    name: 'Entrance & Cash Counters (High Detail 4K)',
+    cameras: 4,
+    resolutionPreset: '4k',
+    codec: 'h265',
+    bitrateMbps: 6.0,
+    recordingPct: 100,
+  },
+  {
+    id: 'grp-corridors',
+    name: 'Hallways & Aisles (Standard 1080p)',
+    cameras: 12,
+    resolutionPreset: '1080p',
+    codec: 'h265',
+    bitrateMbps: 2.0,
+    recordingPct: 75,
+  },
+  {
+    id: 'grp-parking',
+    name: 'Parking Lot & Perimeter (4MP Super HD)',
+    cameras: 8,
+    resolutionPreset: '4mp',
+    codec: 'h265',
+    bitrateMbps: 3.0,
+    recordingPct: 80,
+  },
+];
+
+interface CameraGroupsManagerPanelProps {
+  groups: CameraGroup[];
+  enableGroups: boolean;
+  onToggleEnableGroups: (enabled: boolean) => void;
+  onUpdateGroup: (id: string, updated: Partial<CameraGroup>) => void;
+  onAddGroup: (templateName?: string, template?: Partial<CameraGroup>) => void;
+  onDeleteGroup: (id: string) => void;
+  onDuplicateGroup: (id: string) => void;
+  retentionDays: number;
+}
+
+export const CameraGroupsManagerPanel: React.FC<CameraGroupsManagerPanelProps> = ({
+  groups,
+  enableGroups,
+  onToggleEnableGroups,
+  onUpdateGroup,
+  onAddGroup,
+  onDeleteGroup,
+  onDuplicateGroup,
+  retentionDays,
+}) => {
+  const groupCalculations = useMemo(() => {
+    return groups.map(g => {
+      const safeCams = Math.max(1, g.cameras || 1);
+      const safeMbps = Math.max(0.1, g.bitrateMbps || 0.1);
+      const safeRec = Math.min(100, Math.max(1, g.recordingPct || 100));
+      const dailyGbPerCam = (safeMbps * 86400 / 8 / 1000) * (safeRec / 100);
+      const dailyGbTotal = dailyGbPerCam * safeCams;
+      const retentionTb = (dailyGbTotal * Math.max(1, retentionDays)) / 1000;
+      return {
+        group: g,
+        safeCams,
+        safeMbps,
+        safeRec,
+        dailyGbPerCam,
+        dailyGbTotal,
+        retentionTb,
+      };
+    });
+  }, [groups, retentionDays]);
+
+  const summary = useMemo(() => {
+    const totalCams = groupCalculations.reduce((acc, curr) => acc + curr.safeCams, 0);
+    const totalDailyGb = groupCalculations.reduce((acc, curr) => acc + curr.dailyGbTotal, 0);
+    const totalDailyTb = totalDailyGb / 1000;
+    const totalRetentionTb = groupCalculations.reduce((acc, curr) => acc + curr.retentionTb, 0);
+    return { totalCams, totalDailyGb, totalDailyTb, totalRetentionTb };
+  }, [groupCalculations]);
+
+  return (
+    <div
+      style={{
+        padding: '16px',
+        background: 'rgba(255, 255, 255, 0.02)',
+        borderRadius: '12px',
+        border: enableGroups ? '1px solid var(--accent)' : '1px solid var(--border)',
+        marginBottom: '16px',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '8px',
+          marginBottom: enableGroups ? '14px' : '0',
+        }}
+      >
+        <div>
+          <label
+            style={{
+              fontWeight: 700,
+              fontSize: '0.92rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'var(--text-heading)',
+              margin: 0,
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={enableGroups}
+              onChange={e => onToggleEnableGroups(e.target.checked)}
+              style={{ width: '18px', height: '18px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+            />
+            <Video className="w-4 h-4 text-sky-400" />
+            Enable Heterogeneous Camera Groups ({groups.length} Active Groups)
+          </label>
+          <p style={{ margin: '2px 0 0 24px', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+            Combine different resolutions, bitrates, codecs, and duty cycles in the same site calculation.
+          </p>
+        </div>
+
+        {enableGroups && (
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => onAddGroup('Custom Camera Group', { cameras: 8, resolutionPreset: '1080p', codec: 'h265', bitrateMbps: 2.0, recordingPct: 100 })}
+              style={{ fontSize: '0.74rem', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            >
+              <Plus className="w-3 h-3 text-emerald-400" />
+              Add Group
+            </button>
+          </div>
+        )}
+      </div>
+
+      {enableGroups && (
+        <>
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: '8px',
+              background: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              marginBottom: '14px',
+              fontSize: '0.82rem',
+            }}
+          >
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Combined Camera Count: </span>
+              <strong style={{ color: '#38bdf8' }}>{summary.totalCams} Cams ({groups.length} Groups)</strong>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Aggregate Ingestion: </span>
+              <strong style={{ color: 'var(--amber)' }}>{summary.totalDailyGb.toFixed(0)} GB/day ({summary.totalDailyTb.toFixed(2)} TB/day)</strong>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Raw Footprint ({retentionDays}d): </span>
+              <strong style={{ color: 'var(--emerald)' }}>~{summary.totalRetentionTb.toFixed(1)} TB Raw</strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+              Quick Add Group Presets:
+            </span>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => onAddGroup('Entrance 4K Group', { cameras: 4, resolutionPreset: '4k', codec: 'h265', bitrateMbps: 6.0, recordingPct: 100 })}
+              style={{ fontSize: '0.72rem', padding: '2px 7px' }}
+            >
+              + 4K Entrance (4 Cams, 6M)
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => onAddGroup('Corridor 1080p Group', { cameras: 12, resolutionPreset: '1080p', codec: 'h265', bitrateMbps: 2.0, recordingPct: 75 })}
+              style={{ fontSize: '0.72rem', padding: '2px 7px' }}
+            >
+              + 1080p Corridor (12 Cams, 2M)
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => onAddGroup('Parking 4MP Group', { cameras: 8, resolutionPreset: '4mp', codec: 'h265', bitrateMbps: 3.0, recordingPct: 80 })}
+              style={{ fontSize: '0.72rem', padding: '2px 7px' }}
+            >
+              + 4MP Parking (8 Cams, 3M)
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => onAddGroup('Perimeter 5MP Group', { cameras: 6, resolutionPreset: '5mp', codec: 'h265', bitrateMbps: 4.0, recordingPct: 90 })}
+              style={{ fontSize: '0.72rem', padding: '2px 7px' }}
+            >
+              + 5MP Perimeter (6 Cams, 4M)
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {groupCalculations.map(({ group, safeCams, safeMbps, safeRec, dailyGbTotal, retentionTb }, idx) => (
+              <div
+                key={group.id}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  fontSize: '0.82rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: '180px' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: 'var(--accent)', color: '#fff' }}>
+                      #{idx + 1}
+                    </span>
+                    <input
+                      type="text"
+                      value={group.name}
+                      onChange={e => onUpdateGroup(group.id, { name: e.target.value })}
+                      style={{
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                        padding: '3px 8px',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '6px',
+                        width: '100%',
+                      }}
+                      placeholder="Camera group label..."
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: 'rgba(16, 185, 129, 0.12)',
+                        color: 'var(--emerald)',
+                      }}
+                    >
+                      ~{retentionTb.toFixed(1)} TB ({dailyGbTotal.toFixed(0)} GB/d)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onDuplicateGroup(group.id)}
+                      style={{ padding: '3px 6px', fontSize: '0.72rem', borderRadius: '4px', background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-muted)' }}
+                      title="Duplicate Group"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                    {groups.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteGroup(group.id)}
+                        style={{ padding: '3px 6px', fontSize: '0.72rem', borderRadius: '4px', background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--rose)' }}
+                        title="Delete Group"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Cameras:</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="300"
+                      value={group.cameras}
+                      onChange={e => onUpdateGroup(group.id, { cameras: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                      style={{ padding: '3px 6px', fontSize: '0.78rem', width: '100%' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Resolution:</label>
+                    <select
+                      value={group.resolutionPreset}
+                      onChange={e => {
+                        const res = e.target.value as ResolutionPresetKey;
+                        const recMbps = res !== 'custom' ? RESOLUTION_BITRATES[res][group.codec] : group.bitrateMbps;
+                        onUpdateGroup(group.id, { resolutionPreset: res, bitrateMbps: recMbps });
+                      }}
+                      style={{ padding: '3px 6px', fontSize: '0.78rem', width: '100%' }}
+                    >
+                      <option value="1080p">1080p (2 MP)</option>
+                      <option value="4mp">4 MP Super HD</option>
+                      <option value="5mp">5 MP Quad HD</option>
+                      <option value="4k">4K Ultra HD</option>
+                      <option value="720p">720p HD</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Codec:</label>
+                    <select
+                      value={group.codec}
+                      onChange={e => {
+                        const nextCodec = e.target.value as CodecKey;
+                        const recMbps = group.resolutionPreset !== 'custom' ? RESOLUTION_BITRATES[group.resolutionPreset][nextCodec] : group.bitrateMbps;
+                        onUpdateGroup(group.id, { codec: nextCodec, bitrateMbps: recMbps });
+                      }}
+                      style={{ padding: '3px 6px', fontSize: '0.78rem', width: '100%' }}
+                    >
+                      <option value="h265">H.265 / Smart</option>
+                      <option value="h264">H.264</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Bitrate (Mbps):</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      max="100"
+                      value={group.bitrateMbps}
+                      onChange={e => onUpdateGroup(group.id, { bitrateMbps: Math.max(0.1, parseFloat(e.target.value) || 0.1), resolutionPreset: 'custom' })}
+                      style={{ padding: '3px 6px', fontSize: '0.78rem', width: '100%' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Duty Cycle:</label>
+                    <select
+                      value={group.recordingPct}
+                      onChange={e => onUpdateGroup(group.id, { recordingPct: parseInt(e.target.value, 10) || 100 })}
+                      style={{ padding: '3px 6px', fontSize: '0.78rem', width: '100%' }}
+                    >
+                      <option value={100}>100% 24/7</option>
+                      <option value={80}>80% Active Motion</option>
+                      <option value={60}>60% Moderate</option>
+                      <option value={40}>40% Low Night</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+export interface SiteConfig {
+  id: string;
+  name: string;
+  cameras: number;
+  resolutionPreset: ResolutionPresetKey;
+  codec: CodecKey;
+  bitrateMbps: number;
+  retentionDays: number;
+  recordingPct: number;
+  headroomPct: number;
+  driveSizeTb: number;
+  raidType: RaidTypeKey;
+  pricePerTb: number;
+  selectedBrandPresetId?: string;
+}
+
+export const DEFAULT_SITES: SiteConfig[] = [
+  {
+    id: 'site-office',
+    name: 'Main Office',
+    cameras: 16,
+    resolutionPreset: '1080p',
+    codec: 'h265',
+    bitrateMbps: 2.0,
+    retentionDays: 30,
+    recordingPct: 100,
+    headroomPct: 15,
+    driveSizeTb: 8,
+    raidType: 'raid5',
+    pricePerTb: 25,
+  },
+  {
+    id: 'site-warehouse',
+    name: 'Logistics Warehouse',
+    cameras: 32,
+    resolutionPreset: '4mp',
+    codec: 'h265',
+    bitrateMbps: 3.0,
+    retentionDays: 45,
+    recordingPct: 90,
+    headroomPct: 20,
+    driveSizeTb: 12,
+    raidType: 'raid6',
+    pricePerTb: 25,
+  },
+  {
+    id: 'site-perimeter',
+    name: 'Perimeter Boundary',
+    cameras: 8,
+    resolutionPreset: '4k',
+    codec: 'h265',
+    bitrateMbps: 6.0,
+    retentionDays: 30,
+    recordingPct: 80,
+    headroomPct: 15,
+    driveSizeTb: 8,
+    raidType: 'raid5',
+    pricePerTb: 25,
+  },
+];
+
+interface MultiSiteWorkspacePanelProps {
+  sites: SiteConfig[];
+  activeSiteId: string;
+  onSelectSite: (id: string) => void;
+  onAddSite: (name?: string, preset?: PresetOption) => void;
+  onDeleteSite: (id: string) => void;
+  onDuplicateSite: (id: string) => void;
+  onRenameSite: (id: string, newName: string) => void;
+  onClose: () => void;
+  isDarkMode: boolean;
+}
+
+export const MultiSiteWorkspacePanel: React.FC<MultiSiteWorkspacePanelProps> = ({
+  sites,
+  activeSiteId,
+  onSelectSite,
+  onAddSite,
+  onDeleteSite,
+  onDuplicateSite,
+  onRenameSite,
+  onClose,
+  isDarkMode,
+}) => {
+  const [editingSiteId, setEditingSiteId] = useState<string | null>(null);
+  const [editNameText, setEditNameText] = useState('');
+
+  const siteCalculations = useMemo(() => {
+    return sites.map(s => {
+      const metrics = computeScenarioMetrics(s);
+      const dailyGb = (metrics.safeMbps * 86400 / 8 / 1000) * (metrics.safeRec / 100) * metrics.safeCams;
+      const dailyTb = dailyGb / 1000;
+      return {
+        site: s,
+        metrics,
+        dailyGb,
+        dailyTb,
+      };
+    });
+  }, [sites]);
+
+  const aggregateTotals = useMemo(() => {
+    const totalCams = siteCalculations.reduce((acc, curr) => acc + curr.metrics.safeCams, 0);
+    const totalStorageTb = siteCalculations.reduce((acc, curr) => acc + curr.metrics.totalNeedTb, 0);
+    const totalDailyGb = siteCalculations.reduce((acc, curr) => acc + curr.dailyGb, 0);
+    const totalDailyTb = totalDailyGb / 1000;
+    const totalDrives = siteCalculations.reduce((acc, curr) => acc + curr.metrics.drivesNeeded, 0);
+    const totalBomCost = siteCalculations.reduce((acc, curr) => acc + curr.metrics.totalHardDriveCost, 0);
+
+    return {
+      totalCams,
+      totalStorageTb,
+      totalDailyGb,
+      totalDailyTb,
+      totalDrives,
+      totalBomCost,
+    };
+  }, [siteCalculations]);
+
+  const startRename = (id: string, currentName: string) => {
+    setEditingSiteId(id);
+    setEditNameText(currentName);
+  };
+
+  const saveRename = (id: string) => {
+    if (editNameText.trim()) {
+      onRenameSite(id, editNameText.trim());
+    }
+    setEditingSiteId(null);
+  };
+
+  const siteColors = ['#38bdf8', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+
+  return (
+    <div
+      className="panel"
+      style={{
+        padding: '24px',
+        background: 'var(--surface)',
+        border: '2px solid var(--emerald)',
+        borderRadius: '16px',
+        marginBottom: '32px',
+        boxShadow: '0 8px 32px rgba(16, 185, 129, 0.1)',
+      }}
+    >
+      {/* Header Bar */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '20px',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div>
+          <h3
+            style={{
+              fontSize: '1.25rem',
+              fontWeight: 800,
+              margin: '0 0 4px',
+              color: 'var(--text-heading)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <Building2 className="w-6 h-6 text-emerald-400" />
+            Multi-Site CCTV Storage Calculator Workspace ({sites.length} Physical Sites)
+          </h3>
+          <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+            Manage storage requirements, daily stream rates, and drive BOM costs across multiple physical locations within the same session.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={onClose}
+            style={{ fontSize: '0.78rem', padding: '5px 12px', color: 'var(--rose)' }}
+          >
+            Close Manager
+          </button>
+        </div>
+      </div>
+
+      {/* Aggregate KPI Summary Banner */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div
+          style={{
+            padding: '14px 16px',
+            borderRadius: '12px',
+            background: 'rgba(56, 189, 248, 0.08)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            TOTAL ENTERPRISE CAMERAS
+          </div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#38bdf8', margin: '4px 0 2px' }}>
+            {aggregateTotals.totalCams} Cams
+          </div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+            Across {sites.length} physical sites
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '14px 16px',
+            borderRadius: '12px',
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            AGGREGATE USABLE STORAGE
+          </div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--emerald)', margin: '4px 0 2px' }}>
+            {aggregateTotals.totalStorageTb.toFixed(1)} TB
+          </div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+            Includes safety headroom buffers
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '14px 16px',
+            borderRadius: '12px',
+            background: 'rgba(245, 158, 11, 0.08)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            DAILY ENTERPRISE INGESTION
+          </div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--amber)', margin: '4px 0 2px' }}>
+            {aggregateTotals.totalDailyTb.toFixed(2)} TB/day
+          </div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+            {aggregateTotals.totalDailyGb.toFixed(0)} GB per 24-hour day
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '14px 16px',
+            borderRadius: '12px',
+            background: 'rgba(139, 92, 246, 0.08)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            COMBINED DRIVE BOM COST
+          </div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#a78bfa', margin: '4px 0 2px' }}>
+            ${aggregateTotals.totalBomCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          </div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+            {aggregateTotals.totalDrives} surveillance disks required
+          </div>
+        </div>
+      </div>
+
+      {/* Multi-Site Storage Proportion Bar */}
+      {aggregateTotals.totalStorageTb > 0 && (
+        <div style={{ marginBottom: '20px', padding: '12px 16px', background: 'var(--bg)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', fontSize: '0.78rem' }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-heading)' }}>
+              Storage Share Proportion by Location:
+            </span>
+            <span style={{ color: 'var(--text-muted)' }}>
+              Total: {aggregateTotals.totalStorageTb.toFixed(1)} TB
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', height: '12px', borderRadius: '6px', overflow: 'hidden', background: '#334155', marginBottom: '10px' }}>
+            {siteCalculations.map((sc, idx) => {
+              const pct = (sc.metrics.totalNeedTb / aggregateTotals.totalStorageTb) * 100;
+              const color = siteColors[idx % siteColors.length];
+              return (
+                <div
+                  key={sc.site.id}
+                  style={{
+                    width: `${Math.max(1, pct)}%`,
+                    background: color,
+                    transition: 'width 0.3s ease',
+                  }}
+                  title={`${sc.site.name}: ${sc.metrics.totalNeedTb.toFixed(1)} TB (${pct.toFixed(1)}%)`}
+                />
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '0.75rem' }}>
+            {siteCalculations.map((sc, idx) => {
+              const pct = (sc.metrics.totalNeedTb / aggregateTotals.totalStorageTb) * 100;
+              const color = siteColors[idx % siteColors.length];
+              return (
+                <div key={sc.site.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: color, display: 'inline-block' }} />
+                  <span style={{ fontWeight: sc.site.id === activeSiteId ? 800 : 500, color: sc.site.id === activeSiteId ? 'var(--text-heading)' : 'var(--text-muted)' }}>
+                    {sc.site.name}: <b>{sc.metrics.totalNeedTb.toFixed(1)} TB</b> ({pct.toFixed(0)}%)
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Site Cards Grid */}
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-heading)' }}>
+            Physical Site Selector ({sites.length} Locations) — Click any card to edit parameters:
+          </span>
+
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => onAddSite()}
+              style={{ fontSize: '0.76rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-400" />
+              Add Custom Site
+            </button>
+            {QUICK_PRESETS.map(p => (
+              <button
+                key={p.name}
+                type="button"
+                className="button button-secondary"
+                onClick={() => onAddSite(`${p.name} Site`, p)}
+                style={{ fontSize: '0.74rem', padding: '3px 8px' }}
+                title={`Add new site using ${p.name} preset template`}
+              >
+                + {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {siteCalculations.map(({ site, metrics, dailyTb }, idx) => {
+            const isActive = site.id === activeSiteId;
+            const siteColor = siteColors[idx % siteColors.length];
+
+            return (
+              <div
+                key={site.id}
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  background: isActive ? 'var(--bg)' : 'var(--surface)',
+                  border: isActive ? `2px solid ${siteColor}` : '1px solid var(--border)',
+                  boxShadow: isActive ? `0 4px 16px ${siteColor}25` : 'none',
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer',
+                  position: 'relative',
+                }}
+                onClick={() => onSelectSite(site.id)}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                    <MapPin className="w-4 h-4" style={{ color: siteColor, flexShrink: 0 }} />
+                    {editingSiteId === site.id ? (
+                      <input
+                        type="text"
+                        value={editNameText}
+                        onChange={e => setEditNameText(e.target.value)}
+                        onBlur={() => saveRename(site.id)}
+                        onKeyDown={e => e.key === 'Enter' && saveRename(site.id)}
+                        autoFocus
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          fontSize: '0.88rem',
+                          fontWeight: 800,
+                          padding: '2px 6px',
+                          background: 'var(--surface)',
+                          border: '1px solid var(--accent)',
+                          borderRadius: '4px',
+                          width: '100%',
+                        }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          fontWeight: 800,
+                          fontSize: '0.92rem',
+                          color: 'var(--text-heading)',
+                        }}
+                      >
+                        {site.name}
+                      </span>
+                    )}
+                  </div>
+
+                  {isActive && (
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        background: siteColor,
+                        color: '#ffffff',
+                        textTransform: 'uppercase',
+                        marginLeft: '6px',
+                      }}
+                    >
+                      Active Editing
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '0.78rem', marginBottom: '12px' }}>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Cameras:</span> <strong>{metrics.safeCams} Cams</strong></div>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Resolution:</span> <strong>{site.resolutionPreset.toUpperCase()}</strong></div>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Retention:</span> <strong>{metrics.safeDays} Days</strong></div>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Codec:</span> <strong>{site.codec.toUpperCase()}</strong></div>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Daily Rate:</span> <strong>{dailyTb.toFixed(2)} TB/d</strong></div>
+                  <div><span style={{ color: 'var(--text-muted)' }}>RAID Level:</span> <strong>{site.raidType.toUpperCase()}</strong></div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    background: `${siteColor}12`,
+                    border: `1px solid ${siteColor}30`,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '10px',
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Storage Needed</div>
+                    <strong style={{ color: siteColor, fontSize: '1rem' }}>{metrics.totalNeedTb.toFixed(1)} TB</strong>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Drives &amp; Cost</div>
+                    <strong style={{ color: 'var(--text-heading)' }}>
+                      {metrics.drivesNeeded} × {metrics.safeDriveTb}TB (${metrics.totalHardDriveCost.toLocaleString('en-US', { maximumFractionDigits: 0 })})
+                    </strong>
+                  </div>
+                </div>
+
+                <div
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => onSelectSite(site.id)}
+                    style={{ fontSize: '0.72rem', padding: '3px 8px' }}
+                  >
+                    {isActive ? 'Currently Editing' : 'Select to Edit'}
+                  </button>
+
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={() => startRename(site.id, site.name)}
+                      style={{ padding: '3px 6px', fontSize: '0.72rem', borderRadius: '4px', background: 'var(--bg)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-muted)' }}
+                      title="Rename Site"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDuplicateSite(site.id)}
+                      style={{ padding: '3px 6px', fontSize: '0.72rem', borderRadius: '4px', background: 'var(--bg)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-muted)' }}
+                      title="Duplicate Site"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                    {sites.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteSite(site.id)}
+                        style={{ padding: '3px 6px', fontSize: '0.72rem', borderRadius: '4px', background: 'var(--bg)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--rose)' }}
+                        title="Delete Site"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Multi-Site Summary Table */}
+      <div style={{ background: 'var(--bg)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border)', overflowX: 'auto' }}>
+        <h4 style={{ margin: '0 0 12px', fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-heading)' }}>
+          Consolidated Multi-Site Technical Breakdown Table:
+        </h4>
+
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--text-muted)' }}>
+              <th style={{ padding: '8px 10px' }}>Location Name</th>
+              <th style={{ padding: '8px 10px' }}>Cameras</th>
+              <th style={{ padding: '8px 10px' }}>Resolution &amp; Codec</th>
+              <th style={{ padding: '8px 10px' }}>Retention</th>
+              <th style={{ padding: '8px 10px' }}>Daily Rate (GB/d)</th>
+              <th style={{ padding: '8px 10px' }}>Usable Storage (TB)</th>
+              <th style={{ padding: '8px 10px' }}>Array Disks &amp; RAID</th>
+              <th style={{ padding: '8px 10px', textAlign: 'right' }}>Drive BOM Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {siteCalculations.map(({ site, metrics, dailyGb }, i) => (
+              <tr
+                key={site.id}
+                style={{
+                  borderBottom: '1px solid var(--border)',
+                  background: site.id === activeSiteId ? 'rgba(16, 185, 129, 0.08)' : i % 2 === 1 ? 'rgba(255, 255, 255, 0.02)' : 'transparent',
+                }}
+              >
+                <td style={{ padding: '8px 10px', fontWeight: 700, color: site.id === activeSiteId ? 'var(--emerald)' : 'var(--text-heading)' }}>
+                  {site.name} {site.id === activeSiteId && '📌'}
+                </td>
+                <td style={{ padding: '8px 10px' }}>{metrics.safeCams} Cams</td>
+                <td style={{ padding: '8px 10px' }}>{site.resolutionPreset.toUpperCase()} / {site.codec.toUpperCase()}</td>
+                <td style={{ padding: '8px 10px' }}>{metrics.safeDays} Days</td>
+                <td style={{ padding: '8px 10px' }}>{dailyGb.toFixed(0)} GB/d</td>
+                <td style={{ padding: '8px 10px', fontWeight: 700, color: '#38bdf8' }}>{metrics.totalNeedTb.toFixed(1)} TB</td>
+                <td style={{ padding: '8px 10px' }}>{metrics.drivesNeeded} × {metrics.safeDriveTb}TB ({site.raidType.toUpperCase()})</td>
+                <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>
+                  ${metrics.totalHardDriveCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </td>
+              </tr>
+            ))}
+            <tr style={{ background: 'rgba(56, 189, 248, 0.12)', fontWeight: 800, borderTop: '2px solid var(--accent)' }}>
+              <td style={{ padding: '10px', color: 'var(--text-heading)' }}>ENTERPRISE TOTAL (All {sites.length} Sites)</td>
+              <td style={{ padding: '10px' }}>{aggregateTotals.totalCams} Cams</td>
+              <td style={{ padding: '10px' }}>—</td>
+              <td style={{ padding: '10px' }}>—</td>
+              <td style={{ padding: '10px' }}>{aggregateTotals.totalDailyGb.toFixed(0)} GB/d ({aggregateTotals.totalDailyTb.toFixed(2)} TB/d)</td>
+              <td style={{ padding: '10px', color: 'var(--emerald)', fontSize: '0.95rem' }}>{aggregateTotals.totalStorageTb.toFixed(1)} TB</td>
+              <td style={{ padding: '10px' }}>{aggregateTotals.totalDrives} Disks Total</td>
+              <td style={{ padding: '10px', textAlign: 'right', color: '#a78bfa', fontSize: '0.95rem' }}>
+                ${aggregateTotals.totalBomCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
 export interface ScenarioConfig {
   name: string;
   cameras: number;
@@ -1946,6 +2887,170 @@ export const CctvStorageCalculator: React.FC = () => {
     pricePerTb: 25,
   });
 
+  // Persistent Camera Groups State
+  const [cameraGroups, setCameraGroups] = useLocalStorageState<CameraGroup[]>('cctv_calc_camera_groups', DEFAULT_CAMERA_GROUPS);
+  const [enableCameraGroups, setEnableCameraGroups] = useLocalStorageState<boolean>('cctv_calc_enable_groups', false);
+
+  const handleUpdateCameraGroup = (id: string, updated: Partial<CameraGroup>) => {
+    setCameraGroups(prev => prev.map(g => g.id === id ? { ...g, ...updated } : g));
+  };
+
+  const handleAddCameraGroup = (templateName?: string, template?: Partial<CameraGroup>) => {
+    const newId = `grp-${Date.now()}`;
+    const name = templateName || `Camera Group #${cameraGroups.length + 1}`;
+    const newGrp: CameraGroup = {
+      id: newId,
+      name,
+      cameras: template?.cameras || 8,
+      resolutionPreset: template?.resolutionPreset || '1080p',
+      codec: template?.codec || 'h265',
+      bitrateMbps: template?.bitrateMbps || 2.0,
+      recordingPct: template?.recordingPct || 100,
+    };
+    setCameraGroups(prev => [...prev, newGrp]);
+  };
+
+  const handleDeleteCameraGroup = (id: string) => {
+    if (cameraGroups.length <= 1) return;
+    setCameraGroups(prev => prev.filter(g => g.id !== id));
+  };
+
+  const handleDuplicateCameraGroup = (id: string) => {
+    const source = cameraGroups.find(g => g.id === id);
+    if (!source) return;
+    const newId = `grp-${Date.now()}`;
+    const dup: CameraGroup = {
+      ...source,
+      id: newId,
+      name: `${source.name} (Copy)`,
+    };
+    setCameraGroups(prev => [...prev, dup]);
+  };
+
+  // Persistent Multi-Site State
+  const [sites, setSites] = useLocalStorageState<SiteConfig[]>('cctv_calc_sites', DEFAULT_SITES);
+  const [activeSiteId, setActiveSiteId] = useLocalStorageState<string>('cctv_calc_active_site_id', 'site-office');
+  const [enableMultiSite, setEnableMultiSite] = useLocalStorageState<boolean>('cctv_calc_enable_multisite', false);
+
+  // Sync form inputs to active site
+  useEffect(() => {
+    if (!enableMultiSite || !activeSiteId) return;
+
+    setSites(prevSites => {
+      const idx = prevSites.findIndex(s => s.id === activeSiteId);
+      if (idx === -1) return prevSites;
+      const current = prevSites[idx];
+
+      if (
+        current.cameras === cameras &&
+        current.resolutionPreset === resolutionPreset &&
+        current.codec === codec &&
+        current.bitrateMbps === bitrateMbps &&
+        current.retentionDays === retentionDays &&
+        current.recordingPct === recordingPct &&
+        current.headroomPct === headroomPct &&
+        current.driveSizeTb === driveSizeTb &&
+        current.raidType === raidType &&
+        current.pricePerTb === pricePerTb
+      ) {
+        return prevSites;
+      }
+
+      const updated = [...prevSites];
+      updated[idx] = {
+        ...current,
+        cameras,
+        resolutionPreset,
+        codec,
+        bitrateMbps,
+        retentionDays,
+        recordingPct,
+        headroomPct,
+        driveSizeTb,
+        raidType,
+        pricePerTb,
+      };
+      return updated;
+    });
+  }, [
+    enableMultiSite,
+    activeSiteId,
+    cameras,
+    resolutionPreset,
+    codec,
+    bitrateMbps,
+    retentionDays,
+    recordingPct,
+    headroomPct,
+    driveSizeTb,
+    raidType,
+    pricePerTb,
+  ]);
+
+  const handleSelectActiveSite = (siteId: string) => {
+    const site = sites.find(s => s.id === siteId);
+    if (!site) return;
+    setActiveSiteId(siteId);
+    setCameras(site.cameras);
+    setResolutionPreset(site.resolutionPreset);
+    setCodec(site.codec);
+    setBitrateMbps(site.bitrateMbps);
+    setRetentionDays(site.retentionDays);
+    setRecordingPct(site.recordingPct);
+    setHeadroomPct(site.headroomPct);
+    setDriveSizeTb(site.driveSizeTb);
+    setRaidType(site.raidType);
+    setPricePerTb(site.pricePerTb);
+  };
+
+  const handleAddSite = (siteName?: string, templatePreset?: PresetOption) => {
+    const newId = `site-${Date.now()}`;
+    const name = siteName || `Physical Site #${sites.length + 1}`;
+    const newSite: SiteConfig = {
+      id: newId,
+      name,
+      cameras: templatePreset ? templatePreset.cameras : 16,
+      resolutionPreset: templatePreset ? templatePreset.resKey : '1080p',
+      codec: templatePreset ? templatePreset.codec : 'h265',
+      bitrateMbps: templatePreset && templatePreset.resKey !== 'custom' ? RESOLUTION_BITRATES[templatePreset.resKey][templatePreset.codec] : 2.0,
+      retentionDays: templatePreset ? templatePreset.retentionDays : 30,
+      recordingPct: templatePreset ? templatePreset.recordingPct : 100,
+      headroomPct: templatePreset ? templatePreset.headroomPct : 15,
+      driveSizeTb: templatePreset ? templatePreset.driveSizeTb : 8,
+      raidType: templatePreset ? templatePreset.raidType : 'raid5',
+      pricePerTb: pricePerTb || 25,
+    };
+    setSites(prev => [...prev, newSite]);
+    handleSelectActiveSite(newId);
+  };
+
+  const handleDeleteSite = (siteId: string) => {
+    if (sites.length <= 1) return;
+    const remaining = sites.filter(s => s.id !== siteId);
+    setSites(remaining);
+    if (activeSiteId === siteId) {
+      handleSelectActiveSite(remaining[0].id);
+    }
+  };
+
+  const handleRenameSite = (siteId: string, newName: string) => {
+    if (!newName.trim()) return;
+    setSites(prev => prev.map(s => s.id === siteId ? { ...s, name: newName.trim() } : s));
+  };
+
+  const handleDuplicateSite = (siteId: string) => {
+    const source = sites.find(s => s.id === siteId);
+    if (!source) return;
+    const newId = `site-${Date.now()}`;
+    const dup: SiteConfig = {
+      ...source,
+      id: newId,
+      name: `${source.name} (Copy)`,
+    };
+    setSites(prev => [...prev, dup]);
+    handleSelectActiveSite(newId);
+  };
+
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [exportedCsv, setExportedCsv] = useState(false);
   const [exportedPdf, setExportedPdf] = useState(false);
@@ -2165,21 +3270,40 @@ export const CctvStorageCalculator: React.FC = () => {
   };
 
   const calculations = useMemo(() => {
-    const safeMbps = Math.max(0.01, bitrateMbps || 0.1);
-    const safeCams = Math.max(1, cameras || 1);
     const safeDays = Math.max(1, retentionDays || 1);
-    const safeRec = Math.min(100, Math.max(1, recordingPct || 100));
     const safeHead = Math.max(0, headroomPct || 0);
     const safeDriveTb = Math.max(0.5, driveSizeTb || 1);
     const safePricePerTb = Math.max(0, pricePerTb || 0);
     const safeTbwRating = Math.max(10, driveWorkloadRatingTbYr || 180);
 
-    // GB per camera 24h: mbps * 86400 / 8 / 1000
-    const gbPerCamera24h = (safeMbps * 86400) / 8 / 1000;
-    const gbPerCameraPerDay = gbPerCamera24h * (safeRec / 100);
+    let safeCams = Math.max(1, cameras || 1);
+    let safeMbps = Math.max(0.01, bitrateMbps || 0.1);
+    let safeRec = Math.min(100, Math.max(1, recordingPct || 100));
+
+    let totalDailyGb = 0;
+
+    if (enableCameraGroups && cameraGroups.length > 0) {
+      safeCams = cameraGroups.reduce((acc, g) => acc + Math.max(1, g.cameras || 1), 0);
+      totalDailyGb = cameraGroups.reduce((acc, g) => {
+        const cCams = Math.max(1, g.cameras || 1);
+        const cMbps = Math.max(0.1, g.bitrateMbps || 0.1);
+        const cRec = Math.min(100, Math.max(1, g.recordingPct || 100));
+        return acc + (cMbps * 86400 / 8 / 1000) * (cRec / 100) * cCams;
+      }, 0);
+
+      safeRec = 100;
+      safeMbps = safeCams > 0 ? (totalDailyGb * 1000 * 8 / 86400) / safeCams : 2.0;
+    } else {
+      const gbPerCamera24h = (safeMbps * 86400) / 8 / 1000;
+      const gbPerCameraPerDay = gbPerCamera24h * (safeRec / 100);
+      totalDailyGb = gbPerCameraPerDay * safeCams;
+    }
+
+    const gbPerCameraPerDay = safeCams > 0 ? totalDailyGb / safeCams : 0;
+    const gbPerCamera24h = safeRec > 0 ? gbPerCameraPerDay / (safeRec / 100) : gbPerCameraPerDay;
     const gbPerCameraRetention = gbPerCameraPerDay * safeDays;
 
-    const totalRawGb = gbPerCameraRetention * safeCams;
+    const totalRawGb = totalDailyGb * safeDays;
     const totalRawTb = totalRawGb / 1000;
 
     const totalNeedGb = totalRawGb * (1 + safeHead / 100);
@@ -2189,7 +3313,6 @@ export const CctvStorageCalculator: React.FC = () => {
     // Operating system binary TiB equivalent
     const totalNeedTib = totalNeedGb / 1024 / 1.024;
 
-    const totalDailyGb = gbPerCameraPerDay * safeCams;
     const totalDailyTb = totalDailyGb / 1000;
 
     const raidInfo = RAID_DEFINITIONS[raidType];
@@ -2441,6 +3564,8 @@ export const CctvStorageCalculator: React.FC = () => {
     tier2BitratePct,
     tier2DriveSizeTb,
     tier2Raid,
+    enableCameraGroups,
+    cameraGroups,
   ]);
 
   const optimizationTips = useMemo<OptimizationTip[]>(() => {
@@ -3349,6 +4474,24 @@ DRIVE ARRAY & RAID SPECIFICATION:
           <button
             type="button"
             className="button button-secondary"
+            onClick={() => setEnableMultiSite(prev => !prev)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.82rem',
+              background: enableMultiSite ? 'rgba(16, 185, 129, 0.2)' : undefined,
+              borderColor: enableMultiSite ? 'var(--emerald)' : undefined,
+              fontWeight: enableMultiSite ? 700 : 500,
+            }}
+            title="Manage and calculate storage requirements for multiple physical sites within the same session"
+          >
+            <Building2 className="w-4 h-4 text-emerald-400" />
+            {enableMultiSite ? 'Hide Multi-Site' : `Multi-Site Manager (${sites.length})`}
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
             onClick={() => setEnableComparisonMode(prev => !prev)}
             style={{
               display: 'inline-flex',
@@ -3427,6 +4570,21 @@ DRIVE ARRAY & RAID SPECIFICATION:
         </div>
       </div>
 
+      {/* Multi-Site Workspace Control Panel */}
+      {enableMultiSite && (
+        <MultiSiteWorkspacePanel
+          sites={sites}
+          activeSiteId={activeSiteId}
+          onSelectSite={handleSelectActiveSite}
+          onAddSite={handleAddSite}
+          onDeleteSite={handleDeleteSite}
+          onDuplicateSite={handleDuplicateSite}
+          onRenameSite={handleRenameSite}
+          onClose={() => setEnableMultiSite(false)}
+          isDarkMode={theme === 'dark'}
+        />
+      )}
+
       {/* Compare Scenarios Side-by-Side Panel */}
       {enableComparisonMode && (
         <CompareScenariosPanel
@@ -3450,6 +4608,35 @@ DRIVE ARRAY & RAID SPECIFICATION:
               <Camera className="w-5 h-5 text-sky-400" />
               Camera Stream Settings
             </h3>
+
+            {/* Camera Groups Manager */}
+            <CameraGroupsManagerPanel
+              groups={cameraGroups}
+              enableGroups={enableCameraGroups}
+              onToggleEnableGroups={setEnableCameraGroups}
+              onUpdateGroup={handleUpdateCameraGroup}
+              onAddGroup={handleAddCameraGroup}
+              onDeleteGroup={handleDeleteCameraGroup}
+              onDuplicateGroup={handleDuplicateCameraGroup}
+              retentionDays={retentionDays}
+            />
+
+            {enableCameraGroups && (
+              <div
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  background: 'rgba(56, 189, 248, 0.1)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  fontSize: '0.78rem',
+                  color: '#38bdf8',
+                  fontWeight: 600,
+                  marginBottom: '16px',
+                }}
+              >
+                💡 Stream parameters are dynamically calculated across {cameraGroups.length} Camera Groups ({calculations.safeCams} Total Cams).
+              </div>
+            )}
 
             {/* Number of Cameras */}
             <div className="form-field" style={{ marginBottom: '16px' }}>
