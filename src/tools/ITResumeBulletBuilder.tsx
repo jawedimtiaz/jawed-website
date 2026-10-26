@@ -25,6 +25,7 @@ import {
   Undo2,
   Redo2,
   Printer,
+  ShieldCheck,
 } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
@@ -2477,32 +2478,65 @@ export const ITResumeBulletBuilder: React.FC = () => {
         <SocialShareBar
           title="IT Resume Bullet Builder | Jawed Imtiaz"
           text="Turn what you actually did in IT into clear, measurable, ATS-friendly resume bullets. 100% private in-browser tool."
-          url={typeof window !== 'undefined' ? window.location.href : 'https://jawed.co.in/tools/it-resume-bullet-builder'}
+          url={typeof window !== 'undefined' ? `${window.location.origin}/tools/it-resume-bullet-builder` : 'https://jawed.co.in/tools/it-resume-bullet-builder'}
         />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-        <span className="muted" style={{ fontSize: '14px', color: 'var(--muted)' }}>
-          Free tool · runs in your browser
-        </span>
-      </div>
+      {/* Page Header */}
+      <header style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+          <span
+            style={{
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: 'var(--accent)',
+              background: 'rgba(56, 189, 248, 0.1)',
+              padding: '3px 10px',
+              borderRadius: '999px',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+            }}
+          >
+            Free Tool • Runs 100% In Browser
+          </span>
+          <span
+            style={{
+              fontSize: '0.78rem',
+              color: 'var(--muted)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <ShieldCheck size={14} color="var(--emerald)" aria-hidden="true" /> Zero Data Uploaded
+          </span>
+        </div>
 
-      <h1
-        style={{
-          fontSize: 'clamp(26px, 5vw, 38px)',
-          margin: '.3em 0 .1em',
-          backgroundImage: 'linear-gradient(90deg, var(--brand), var(--brand2))',
-          WebkitBackgroundClip: 'text',
-          backgroundClip: 'text',
-          color: 'transparent',
-          fontWeight: 800,
-        }}
-      >
-        IT Resume Bullet Builder
-      </h1>
-      <p className="lead" style={{ color: 'var(--muted)', fontSize: '1rem', lineHeight: '1.6', marginBottom: '20px' }}>
-        Turn what you actually did in IT into clear, measurable, ATS-friendly resume bullets, or score a bullet you already wrote. Nothing is uploaded or stored on a server.
-      </p>
+        <h1
+          style={{
+            fontSize: 'clamp(1.8rem, 3.5vw, 2.4rem)',
+            fontWeight: 800,
+            letterSpacing: '-0.02em',
+            margin: '0 0 10px',
+            color: 'var(--text-heading)',
+          }}
+        >
+          IT Resume Bullet Builder
+        </h1>
+        <p
+          className="lead"
+          style={{
+            fontSize: '1.05rem',
+            color: 'var(--muted)',
+            maxWidth: '820px',
+            lineHeight: 1.6,
+            margin: 0,
+          }}
+        >
+          Turn what you actually did in IT into clear, measurable, ATS-friendly resume bullets, or score a bullet you already wrote. Nothing is uploaded or stored on a server.
+        </p>
+      </header>
 
       {/* Navigation Tabs */}
       <div className="row" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
@@ -2516,45 +2550,12 @@ export const ITResumeBulletBuilder: React.FC = () => {
             color: activeTab === 'build' ? '#fff' : 'var(--text)',
             fontWeight: activeTab === 'build' ? 600 : 400,
             borderRadius: '10px',
-            padding: '7px 16px',
+            padding: '8px 18px',
             cursor: 'pointer',
+            transition: 'all 0.15s ease',
           }}
         >
           Build bullets
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('batch')}
-          className={activeTab === 'batch' ? 'on' : ''}
-          style={{
-            background: activeTab === 'batch' ? 'linear-gradient(90deg, var(--brand), var(--brand2))' : 'transparent',
-            border: activeTab === 'batch' ? '0' : '1px solid var(--line)',
-            color: activeTab === 'batch' ? '#fff' : 'var(--text)',
-            fontWeight: activeTab === 'batch' ? 600 : 400,
-            borderRadius: '10px',
-            padding: '7px 16px',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <Sparkles size={15} aria-hidden="true" />
-          Batch Generator
-          {batchGeneratedItems && batchGeneratedItems.length > 0 && (
-            <span
-              style={{
-                background: 'var(--brand)',
-                color: '#fff',
-                fontSize: '0.7rem',
-                padding: '1px 6px',
-                borderRadius: '99px',
-                fontWeight: 700,
-              }}
-            >
-              {batchGeneratedItems.length}
-            </span>
-          )}
         </button>
         <button
           type="button"
@@ -2566,8 +2567,9 @@ export const ITResumeBulletBuilder: React.FC = () => {
             color: activeTab === 'check' ? '#fff' : 'var(--text)',
             fontWeight: activeTab === 'check' ? 600 : 400,
             borderRadius: '10px',
-            padding: '7px 16px',
+            padding: '8px 18px',
             cursor: 'pointer',
+            transition: 'all 0.15s ease',
           }}
         >
           Check a bullet
@@ -2592,11 +2594,47 @@ export const ITResumeBulletBuilder: React.FC = () => {
             color: activeTab === 'saved' ? '#fff' : 'var(--text)',
             fontWeight: activeTab === 'saved' ? 600 : 400,
             borderRadius: '10px',
-            padding: '7px 16px',
+            padding: '8px 18px',
             cursor: 'pointer',
+            transition: 'all 0.15s ease',
           }}
         >
-          Saved ({savedBullets.length}) 📥 Drop here
+          Saved ({savedBullets.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('batch')}
+          className={activeTab === 'batch' ? 'on' : ''}
+          style={{
+            background: activeTab === 'batch' ? 'linear-gradient(90deg, var(--brand), var(--brand2))' : 'transparent',
+            border: activeTab === 'batch' ? '0' : '1px solid var(--line)',
+            color: activeTab === 'batch' ? '#fff' : 'var(--text)',
+            fontWeight: activeTab === 'batch' ? 600 : 400,
+            borderRadius: '10px',
+            padding: '8px 18px',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Sparkles size={15} aria-hidden="true" />
+          Batch Generator
+          {batchGeneratedItems && batchGeneratedItems.length > 0 && (
+            <span
+              style={{
+                background: 'var(--brand)',
+                color: '#fff',
+                fontSize: '0.7rem',
+                padding: '1px 6px',
+                borderRadius: '99px',
+                fontWeight: 700,
+              }}
+            >
+              {batchGeneratedItems.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -4554,90 +4592,250 @@ export const ITResumeBulletBuilder: React.FC = () => {
       )}
 
       {/* EDITORIAL CONTENT */}
-      <h2 style={{ marginTop: '1.6em', color: 'var(--text)', fontWeight: 700, fontSize: '1.35rem' }}>
-        How to write strong IT resume bullets
-      </h2>
-      <p style={{ color: 'var(--muted)' }}>
-        Recruiters and applicant tracking systems (ATS) scan IT resumes for three things: <b>what you did</b>, <b>which technology you used</b>, and <b>what changed because of it</b>. A bullet that covers all three is far more useful than a list of duties.
-      </p>
-      <p style={{ color: 'var(--text)' }}>
-        <b>The formula:</b> Action verb + task + tools + scale + result. Example: <i>Configured VLAN segmentation on Cisco Meraki switches for 250 users across 3 sites, reducing network incidents by 35%.</i>
-      </p>
-      <ul style={{ paddingLeft: '20px', color: 'var(--muted)' }}>
-        <li>
-          <b style={{ color: 'var(--text)' }}>Start with a specific past-tense verb.</b> &quot;Deployed&quot;, &quot;Diagnosed&quot; and &quot;Migrated&quot; say more than &quot;Responsible for&quot;.
-        </li>
-        <li>
-          <b style={{ color: 'var(--text)' }}>Name the technology.</b> ATS filters match tools such as Active Directory, VMware, Intune or Cisco exactly, so use the same spelling as the job posting.
-        </li>
-        <li>
-          <b style={{ color: 'var(--text)' }}>Add numbers you can verify.</b> Users supported, devices managed, tickets closed, uptime, minutes saved, sites covered.
-        </li>
-        <li>
-          <b style={{ color: 'var(--text)' }}>Keep it to one or two lines.</b> Aim for 8–28 words.
-        </li>
-        <li>
-          <b style={{ color: 'var(--text)' }}>Never invent results.</b> If you do not have a number, leave it out or write what you can honestly support. This tool marks missing information as &quot;Not Provided&quot; instead of guessing.
-        </li>
-      </ul>
+      <section
+        className="panel"
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--line)',
+          borderRadius: '16px',
+          padding: '28px',
+          marginTop: '32px',
+          marginBottom: '24px',
+        }}
+      >
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 12px', color: 'var(--text-heading)' }}>
+          How to write strong IT resume bullets
+        </h2>
+        <p style={{ color: 'var(--muted)', fontSize: '1rem', lineHeight: 1.6, margin: '0 0 16px' }}>
+          Recruiters and applicant tracking systems (ATS) scan IT resumes for three things: <b>what you did</b>, <b>which technology you used</b>, and <b>what changed because of it</b>. A bullet that covers all three is far more useful than a generic list of duties.
+        </p>
 
-      <h2 style={{ marginTop: '1.6em', color: 'var(--text)', fontWeight: 700, fontSize: '1.35rem' }}>
-        Before and after
-      </h2>
-      <ul style={{ paddingLeft: '20px', color: 'var(--muted)' }}>
-        <li>
-          <span style={{ color: 'var(--bad)', fontWeight: 600 }}>Before:</span> Responsible for fixing printers and helping users with laptops.
-        </li>
-        <li>
-          <span style={{ color: 'var(--good)', fontWeight: 600 }}>After:</span> Diagnosed and repaired laptops and network printers for 120 staff, keeping first-day resolution at [your verified figure].
-        </li>
-        <li>
-          <span style={{ color: 'var(--bad)', fontWeight: 600 }}>Before:</span> Worked on server backups.
-        </li>
-        <li>
-          <span style={{ color: 'var(--good)', fontWeight: 600 }}>After:</span> Automated nightly Veeam backups for 14 Windows Server VMs and tested monthly restores.
-        </li>
-      </ul>
+        <div
+          style={{
+            background: 'var(--bg)',
+            border: '1px solid var(--line)',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '20px',
+          }}
+        >
+          <div style={{ fontWeight: 700, color: 'var(--brand)', marginBottom: '4px', fontSize: '0.95rem' }}>
+            The Proven IT Formula:
+          </div>
+          <p style={{ margin: 0, color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.5 }}>
+            <span style={{ fontWeight: 700, color: 'var(--brand)' }}>Action verb</span> + <span style={{ fontWeight: 700, color: 'var(--text)' }}>task</span> + <span style={{ fontWeight: 700, color: 'var(--accent)' }}>tools</span> + <span style={{ fontWeight: 700, color: 'var(--good)' }}>scale</span> + <span style={{ fontWeight: 700, color: '#f59e0b' }}>result</span>.
+          </p>
+          <p style={{ margin: '8px 0 0 0', color: 'var(--muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>
+            Example: &quot;Configured VLAN segmentation on Cisco Meraki switches for 250 users across 3 sites, reducing network incidents by 35%.&quot;
+          </p>
+        </div>
 
-      <h2 style={{ marginTop: '1.6em', color: 'var(--text)', fontWeight: 700, fontSize: '1.35rem' }}>
-        FAQ
-      </h2>
-      {[
-        {
-          q: 'Does this tool use AI or send my text anywhere?',
-          a: 'No. It runs entirely in your browser using fixed templates and checks. Your text is not uploaded. Saved bullets stay in your own browser storage.',
-        },
-        {
-          q: 'What if I have no numbers?',
-          a: 'Use scale instead: number of users, devices, sites or tickets. If even that is unknown, describe the scope honestly, for example "supported a 40-person office".',
-        },
-        {
-          q: 'How many bullets per job?',
-          a: 'Three to six for recent roles, fewer for older ones. Put the most job-relevant bullet first.',
-        },
-        {
-          q: 'Will this guarantee interviews?',
-          a: 'No. It helps your resume read clearly to people and ATS software, but hiring decisions depend on many factors outside any tool.',
-        },
-      ].map((faq, index) => {
-        const isOpen = openFaq === index;
-        return (
-          <details
-            key={index}
-            open={isOpen}
-            style={{ borderTop: '1px solid var(--line)', padding: '8px 0' }}
-            onClick={e => {
-              e.preventDefault();
-              setOpenFaq(isOpen ? null : index);
-            }}
-          >
-            <summary style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--text)' }}>
-              {faq.q}
-            </summary>
-            {isOpen && <p style={{ color: 'var(--muted)', marginTop: '8px' }}>{faq.a}</p>}
-          </details>
-        );
-      })}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: '14px',
+            margin: '20px 0',
+          }}
+        >
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>
+              1. Start with a specific past-tense verb
+            </div>
+            <p style={{ fontSize: '0.88rem', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+              &quot;Deployed&quot;, &quot;Diagnosed&quot; and &quot;Migrated&quot; show technical ownership. Never open with passive phrases like &quot;Responsible for&quot; or &quot;Worked on&quot;.
+            </p>
+          </div>
+
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>
+              2. Name the exact technology
+            </div>
+            <p style={{ fontSize: '0.88rem', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+              ATS parsers scan for exact keywords (Active Directory, Cisco, VMware ESXi, Microsoft Intune, PowerShell). Use the exact spelling from job postings.
+            </p>
+          </div>
+
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>
+              3. Add verifiable numbers
+            </div>
+            <p style={{ fontSize: '0.88rem', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+              Add counts you can honestly verify: users supported (150+), devices imaged (40 laptops), tickets resolved daily, or servers maintained.
+            </p>
+          </div>
+
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>
+              4. Keep it to one or two lines (8–28 words)
+            </div>
+            <p style={{ fontSize: '0.88rem', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+              Aim for concise high-density statements that respect recruiter attention spans. Bullets under 8 words lack context; over 28 words lose impact.
+            </p>
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: 'rgba(56, 189, 248, 0.08)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: '10px',
+            padding: '14px 18px',
+            color: 'var(--text)',
+            fontSize: '0.92rem',
+            lineHeight: 1.6,
+          }}
+        >
+          <strong>The Anti-Hallucination Guarantee:</strong> Never invent results. If you don&apos;t have an exact metric, describe the verified scope or leave it as <code style={{ color: 'var(--amber)' }}>[... — Not Provided]</code>. This tool never hallucinates numbers for you.
+        </div>
+      </section>
+
+      {/* BEFORE AND AFTER SECTION */}
+      <section
+        className="panel"
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--line)',
+          borderRadius: '16px',
+          padding: '28px',
+          marginBottom: '24px',
+        }}
+      >
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 16px', color: 'var(--text-heading)' }}>
+          Before and After Transformations
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+          {/* Example 1 */}
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ marginBottom: '10px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--bad)', background: 'rgba(248, 113, 113, 0.12)', border: '1px solid rgba(248, 113, 113, 0.3)', padding: '2px 8px', borderRadius: '4px' }}>
+                Before (Weak / Passive)
+              </span>
+              <p style={{ margin: '8px 0 0', color: 'var(--muted)', fontSize: '0.92rem', lineHeight: 1.5 }}>
+                Responsible for fixing printers and helping users with laptops.
+              </p>
+            </div>
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: '10px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--good)', background: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '2px 8px', borderRadius: '4px' }}>
+                After (Metric-Driven)
+              </span>
+              <p style={{ margin: '8px 0 0', color: 'var(--text)', fontSize: '0.92rem', fontWeight: 600, lineHeight: 1.5 }}>
+                Diagnosed and repaired laptops and network printers for 120 staff, keeping first-day resolution at [your verified figure].
+              </p>
+            </div>
+          </div>
+
+          {/* Example 2 */}
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ marginBottom: '10px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--bad)', background: 'rgba(248, 113, 113, 0.12)', border: '1px solid rgba(248, 113, 113, 0.3)', padding: '2px 8px', borderRadius: '4px' }}>
+                Before (Weak / Passive)
+              </span>
+              <p style={{ margin: '8px 0 0', color: 'var(--muted)', fontSize: '0.92rem', lineHeight: 1.5 }}>
+                Worked on server backups.
+              </p>
+            </div>
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: '10px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--good)', background: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '2px 8px', borderRadius: '4px' }}>
+                After (Metric-Driven)
+              </span>
+              <p style={{ margin: '8px 0 0', color: 'var(--text)', fontSize: '0.92rem', fontWeight: 600, lineHeight: 1.5 }}>
+                Automated nightly Veeam backups for 14 Windows Server VMs and tested monthly restores.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ ACCORDION SECTION */}
+      <section
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--line)',
+          borderRadius: '16px',
+          padding: '28px',
+          marginBottom: '40px',
+        }}
+      >
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 16px', color: 'var(--text-heading)' }}>
+          Frequently Asked Questions
+        </h2>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {[
+            {
+              q: 'Does this tool use AI or send my text anywhere?',
+              a: 'No. It runs entirely in your browser using fixed templates and deterministic ATS quality checks. Your text is not uploaded to any server. Saved bullets stay securely in your own browser storage.',
+            },
+            {
+              q: 'What if I have no numbers?',
+              a: 'Use scale instead: number of users, devices, sites, or tickets. If even that is unknown, describe the scope honestly—for example, "supported a 40-person enterprise office".',
+            },
+            {
+              q: 'How many bullets per job?',
+              a: 'Aim for three to six bullets for recent IT roles, and fewer for older ones. Always place your strongest, most job-relevant achievement bullet first.',
+            },
+            {
+              q: 'Will this guarantee interviews?',
+              a: 'No. It helps your resume read clearly to hiring managers and ATS algorithms, but interview decisions depend on many external factors outside any tool.',
+            },
+          ].map((faq, index) => {
+            const isOpen = openFaq === index;
+            return (
+              <div
+                key={index}
+                style={{
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  background: 'var(--bg)',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenFaq(isOpen ? null : index)}
+                  style={{
+                    width: '100%',
+                    padding: '16px 20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: 'transparent',
+                    border: 'none',
+                    textAlign: 'left',
+                    color: 'var(--text)',
+                    fontWeight: 700,
+                    fontSize: '0.98rem',
+                    cursor: 'pointer',
+                    gap: '12px',
+                  }}
+                >
+                  <span>{faq.q}</span>
+                  {isOpen ? (
+                    <ChevronUp size={18} color="var(--brand)" aria-hidden="true" style={{ flexShrink: 0 }} />
+                  ) : (
+                    <ChevronDown size={18} color="var(--muted)" aria-hidden="true" style={{ flexShrink: 0 }} />
+                  )}
+                </button>
+                {isOpen && (
+                  <div
+                    style={{
+                      padding: '0 20px 16px',
+                      color: 'var(--muted)',
+                      fontSize: '0.92rem',
+                      lineHeight: '1.6',
+                      borderTop: '1px solid var(--line)',
+                      paddingTop: '12px',
+                    }}
+                  >
+                    {faq.a}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
       {/* Bullet Templates Modal */}
       {showTemplatesModal && (
         <div

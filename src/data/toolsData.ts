@@ -186,9 +186,10 @@ export const TOOLS: ToolItem[] = [
   {
     id: 'it-resume-bullet-builder',
     name: 'IT Resume Bullet Builder',
-    description: 'Turn enterprise IT field, sysadmin, and support experience into metric-driven, ATS-friendly resume bullets.',
+    description: 'Turn what you actually did in IT into clear, measurable, ATS-friendly resume bullets, or score a bullet you already wrote. Runs 100% in your browser.',
     category: 'career',
     route: '/tools/it-resume-bullet-builder',
+    keywords: ['resume', 'bullet', 'bullet builder', 'it resume', 'ats', 'action verb', 'career', 'metrics', 'cv'],
   },
   {
     id: 'interview-planner',

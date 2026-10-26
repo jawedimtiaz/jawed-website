@@ -47,7 +47,8 @@ import {
   ChevronRight,
   Bell,
   BellRing,
-  Share2
+  Share2,
+  ArrowUpDown
 } from 'lucide-react';
 
 export type StoryStatus = 'To Do' | 'In Progress' | 'Done';
@@ -559,6 +560,11 @@ export const InterviewPreparationPlanner: React.FC = () => {
   const [draggedStoryId, setDraggedStoryId] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<StoryStatus | null>(null);
   const [dragOverSwimlane, setDragOverSwimlane] = useState<{ category: string; status: StoryStatus } | null>(null);
+  const [dragOverPrioritySwimlane, setDragOverPrioritySwimlane] = useState<{ priority: TaskPriority; status: StoryStatus } | null>(null);
+  const [dragOverPriorityHeader, setDragOverPriorityHeader] = useState<TaskPriority | null>(null);
+  const [dragOverCategoryHeader, setDragOverCategoryHeader] = useState<string | null>(null);
+  const [dragOverQuickPriority, setDragOverQuickPriority] = useState<TaskPriority | null>(null);
+  const [dragOverCardInfo, setDragOverCardInfo] = useState<{ targetId: number; position: 'before' | 'after' } | null>(null);
 
   // Task Detail Modal State & Input Handlers
   const [modalStory, setModalStory] = useState<StarStory | null>(null);
@@ -910,6 +916,11 @@ export const InterviewPreparationPlanner: React.FC = () => {
     setDraggedStoryId(null);
     setDragOverColumn(null);
     setDragOverSwimlane(null);
+    setDragOverPrioritySwimlane(null);
+    setDragOverPriorityHeader(null);
+    setDragOverCategoryHeader(null);
+    setDragOverQuickPriority(null);
+    setDragOverCardInfo(null);
   };
 
   const handleDragOverColumn = (e: React.DragEvent, status: StoryStatus) => {
@@ -925,6 +936,14 @@ export const InterviewPreparationPlanner: React.FC = () => {
     e.dataTransfer.dropEffect = 'move';
     if (!dragOverSwimlane || dragOverSwimlane.category !== category || dragOverSwimlane.status !== status) {
       setDragOverSwimlane({ category, status });
+    }
+  };
+
+  const handleDragOverPrioritySwimlane = (e: React.DragEvent, priority: TaskPriority, status: StoryStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!dragOverPrioritySwimlane || dragOverPrioritySwimlane.priority !== priority || dragOverPrioritySwimlane.status !== status) {
+      setDragOverPrioritySwimlane({ priority, status });
     }
   };
 
@@ -970,9 +989,9 @@ export const InterviewPreparationPlanner: React.FC = () => {
     e.preventDefault();
     setDragOverColumn(null);
     const storyIdStr = e.dataTransfer.getData('text/plain');
-    const storyId = Number(storyIdStr);
+    const storyId = Number(storyIdStr) || draggedStoryId;
     if (!storyId || isNaN(storyId)) {
-      setDraggedStoryId(null);
+      handleDragEnd();
       return;
     }
 
@@ -992,7 +1011,7 @@ export const InterviewPreparationPlanner: React.FC = () => {
       showToast(`Moved ${updatedCount} task${updatedCount > 1 ? 's' : ''} to ${targetStatus}`);
       return currentStories;
     });
-    setDraggedStoryId(null);
+    handleDragEnd();
     setSelectedTaskIds([]);
   };
 
@@ -1000,9 +1019,9 @@ export const InterviewPreparationPlanner: React.FC = () => {
     e.preventDefault();
     setDragOverSwimlane(null);
     const storyIdStr = e.dataTransfer.getData('text/plain');
-    const storyId = Number(storyIdStr);
+    const storyId = Number(storyIdStr) || draggedStoryId;
     if (!storyId || isNaN(storyId)) {
-      setDraggedStoryId(null);
+      handleDragEnd();
       return;
     }
 
@@ -1022,8 +1041,245 @@ export const InterviewPreparationPlanner: React.FC = () => {
       showToast(`Updated ${updatedCount} task${updatedCount > 1 ? 's' : ''} → Category: ${targetCategory}, Status: ${targetStatus}`);
       return currentStories;
     });
-    setDraggedStoryId(null);
+    handleDragEnd();
     setSelectedTaskIds([]);
+  };
+
+  const handleDropToPrioritySwimlane = (e: React.DragEvent, targetPriority: TaskPriority, targetStatus: StoryStatus) => {
+    e.preventDefault();
+    setDragOverPrioritySwimlane(null);
+    const storyIdStr = e.dataTransfer.getData('text/plain');
+    const storyId = Number(storyIdStr) || draggedStoryId;
+    if (!storyId || isNaN(storyId)) {
+      handleDragEnd();
+      return;
+    }
+
+    const tasksToUpdate = selectedTaskIds.includes(storyId) && selectedTaskIds.length > 1
+      ? selectedTaskIds
+      : [storyId];
+
+    setStarStories(prev => {
+      let currentStories = [...prev];
+      let updatedCount = 0;
+      for (const id of tasksToUpdate) {
+        const { updatedStories } = applyStatusUpdate(currentStories, id, targetStatus);
+        currentStories = updatedStories.map(s => s.id === id ? { ...s, priority: targetPriority } : s);
+        updatedCount++;
+      }
+      localStorage.setItem('ipp_stories', JSON.stringify(currentStories));
+      showToast(`Updated ${updatedCount} task${updatedCount > 1 ? 's' : ''} → Priority: ${targetPriority}, Status: ${targetStatus}`);
+      return currentStories;
+    });
+    handleDragEnd();
+    setSelectedTaskIds([]);
+  };
+
+  const handleDropToPriorityHeader = (e: React.DragEvent, targetPriority: TaskPriority) => {
+    e.preventDefault();
+    setDragOverPriorityHeader(null);
+    const storyIdStr = e.dataTransfer.getData('text/plain');
+    const storyId = Number(storyIdStr) || draggedStoryId;
+    if (!storyId || isNaN(storyId)) {
+      handleDragEnd();
+      return;
+    }
+
+    const tasksToUpdate = selectedTaskIds.includes(storyId) && selectedTaskIds.length > 1
+      ? selectedTaskIds
+      : [storyId];
+
+    setStarStories(prev => {
+      const updated = prev.map(s => tasksToUpdate.includes(s.id) ? { ...s, priority: targetPriority } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      showToast(`Updated priority of ${tasksToUpdate.length} task${tasksToUpdate.length > 1 ? 's' : ''} to ${targetPriority}`);
+      return updated;
+    });
+    handleDragEnd();
+    setSelectedTaskIds([]);
+  };
+
+  const handleDropToCategoryHeader = (e: React.DragEvent, targetCategory: string) => {
+    e.preventDefault();
+    setDragOverCategoryHeader(null);
+    const storyIdStr = e.dataTransfer.getData('text/plain');
+    const storyId = Number(storyIdStr) || draggedStoryId;
+    if (!storyId || isNaN(storyId)) {
+      handleDragEnd();
+      return;
+    }
+
+    const tasksToUpdate = selectedTaskIds.includes(storyId) && selectedTaskIds.length > 1
+      ? selectedTaskIds
+      : [storyId];
+
+    setStarStories(prev => {
+      const updated = prev.map(s => tasksToUpdate.includes(s.id) ? { ...s, categoryLabel: targetCategory } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      showToast(`Moved ${tasksToUpdate.length} task${tasksToUpdate.length > 1 ? 's' : ''} to category "${targetCategory}"`);
+      return updated;
+    });
+    handleDragEnd();
+    setSelectedTaskIds([]);
+  };
+
+  const handleDropToQuickPriority = (e: React.DragEvent, targetPriority: TaskPriority) => {
+    e.preventDefault();
+    setDragOverQuickPriority(null);
+    const storyIdStr = e.dataTransfer.getData('text/plain');
+    const storyId = Number(storyIdStr) || draggedStoryId;
+    if (!storyId || isNaN(storyId)) {
+      handleDragEnd();
+      return;
+    }
+
+    const tasksToUpdate = selectedTaskIds.includes(storyId) && selectedTaskIds.length > 1
+      ? selectedTaskIds
+      : [storyId];
+
+    setStarStories(prev => {
+      const updated = prev.map(s => tasksToUpdate.includes(s.id) ? { ...s, priority: targetPriority } : s);
+      localStorage.setItem('ipp_stories', JSON.stringify(updated));
+      showToast(`Priority set to ${targetPriority} for ${tasksToUpdate.length} task${tasksToUpdate.length > 1 ? 's' : ''}`);
+      return updated;
+    });
+    handleDragEnd();
+    setSelectedTaskIds([]);
+  };
+
+  const handleDragOverCard = (e: React.DragEvent, targetStoryId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (!draggedStoryId || draggedStoryId === targetStoryId) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const position = (e.clientY - rect.top) < (rect.height / 2) ? 'before' : 'after';
+
+    if (!dragOverCardInfo || dragOverCardInfo.targetId !== targetStoryId || dragOverCardInfo.position !== position) {
+      setDragOverCardInfo({ targetId: targetStoryId, position });
+    }
+  };
+
+  const handleDropOnCard = (
+    e: React.DragEvent,
+    targetStory: StarStory,
+    context?: { priority?: TaskPriority; category?: string; status?: StoryStatus }
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const targetId = targetStory.id;
+    const position = dragOverCardInfo?.targetId === targetId ? dragOverCardInfo.position : 'after';
+
+    const storyIdStr = e.dataTransfer.getData('text/plain');
+    const draggedId = Number(storyIdStr) || draggedStoryId;
+
+    handleDragEnd();
+
+    if (!draggedId || isNaN(draggedId) || draggedId === targetId) {
+      return;
+    }
+
+    const tasksToMove = selectedTaskIds.includes(draggedId) && selectedTaskIds.length > 1
+      ? selectedTaskIds
+      : [draggedId];
+
+    const targetStatus = context?.status || targetStory.status || 'To Do';
+    const targetPriority = context?.priority || targetStory.priority || 'Medium';
+    const targetCategory = context?.category || targetStory.categoryLabel || 'Technical';
+
+    setStarStories(prev => {
+      let storiesToProcess = [...prev];
+
+      // Validate blockers if moving to 'Done'
+      for (const id of tasksToMove) {
+        const story = storiesToProcess.find(s => s.id === id);
+        if (story && (story.status !== targetStatus) && targetStatus === 'Done') {
+          const pendingBlockers = getPendingBlockers(story, storiesToProcess);
+          if (pendingBlockers.length > 0) {
+            showToast(`Cannot move "${story.theme}" to Done: ${pendingBlockers.length} prerequisite task(s) still pending!`);
+            return prev;
+          }
+        }
+      }
+
+      // Update task properties to match target context
+      const movedMap = new Map<number, StarStory>();
+      for (const id of tasksToMove) {
+        const found = storiesToProcess.find(s => s.id === id);
+        if (found) {
+          movedMap.set(id, {
+            ...found,
+            status: targetStatus,
+            priority: targetPriority,
+            categoryLabel: targetCategory
+          });
+        }
+      }
+
+      const movedItems = tasksToMove.map(id => movedMap.get(id)).filter(Boolean) as StarStory[];
+      const remaining = storiesToProcess.filter(s => !tasksToMove.includes(s.id));
+
+      const targetIdx = remaining.findIndex(s => s.id === targetId);
+      let insertIdx = targetIdx;
+      if (targetIdx === -1) {
+        insertIdx = remaining.length;
+      } else if (position === 'after') {
+        insertIdx = targetIdx + 1;
+      }
+
+      remaining.splice(insertIdx, 0, ...movedItems);
+      localStorage.setItem('ipp_stories', JSON.stringify(remaining));
+      return remaining;
+    });
+
+    if (prioritySort !== 'none') {
+      setPrioritySort('none');
+      showToast('Reordered tasks visually (switched to manual order)');
+    } else {
+      showToast(`Reordered ${tasksToMove.length} task${tasksToMove.length > 1 ? 's' : ''}`);
+    }
+    setSelectedTaskIds([]);
+  };
+
+  const renderInsertionIndicator = (storyId: number, position: 'before' | 'after') => {
+    if (dragOverCardInfo?.targetId === storyId && dragOverCardInfo.position === position) {
+      return (
+        <div
+          className="card-insertion-indicator"
+          style={{
+            height: '4px',
+            margin: position === 'before' ? '2px 0 8px 0' : '8px 0 2px 0',
+            borderRadius: '99px',
+            background: 'linear-gradient(90deg, #38bdf8, #818cf8)',
+            boxShadow: '0 0 10px rgba(56, 189, 248, 0.8)',
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10
+          }}
+        >
+          <span
+            style={{
+              position: 'absolute',
+              fontSize: '0.62rem',
+              padding: '1px 8px',
+              borderRadius: '99px',
+              background: 'var(--accent)',
+              color: '#0f172a',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }}
+          >
+            Insert Here
+          </span>
+        </div>
+      );
+    }
+    return null;
   };
 
   // UI Feedback
@@ -2541,8 +2797,75 @@ ${story.result || 'N/A'}
                 Clear Search Filter
               </button>
             </div>
-           ) : vaultViewMode === 'board' ? (
-             groupByMode === 'category' ? (
+           ) : (
+            <>
+              {/* Quick Priority Drop Targets Bar */}
+              {draggedStoryId !== null && (
+                <div
+                  className="quick-priority-drop-bar"
+                  style={{
+                    margin: '16px 0',
+                    padding: '14px 18px',
+                    borderRadius: '14px',
+                    background: 'rgba(15, 23, 42, 0.95)',
+                    border: '2px dashed var(--accent)',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '14px',
+                    flexWrap: 'wrap',
+                    animation: 'fadeIn 0.2s ease-in-out'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-heading)', fontWeight: 700, fontSize: '0.88rem' }}>
+                    <ArrowUpDown className="w-4 h-4 text-sky-400" />
+                    <span>Quick Priority Drop Zone (drop task here to update its priority):</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '320px' }}>
+                    {(['High', 'Medium', 'Low'] as const).map(prio => {
+                      const pStyle = getPriorityStyle(prio);
+                      const isTargetOver = dragOverQuickPriority === prio;
+                      return (
+                        <div
+                          key={prio}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            if (dragOverQuickPriority !== prio) setDragOverQuickPriority(prio);
+                          }}
+                          onDragLeave={() => setDragOverQuickPriority(null)}
+                          onDrop={(e) => handleDropToQuickPriority(e, prio)}
+                          style={{
+                            flex: 1,
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            border: isTargetOver ? `2px solid ${pStyle.border}` : `1px dashed ${pStyle.border}`,
+                            background: isTargetOver ? pStyle.bg : 'var(--surface)',
+                            color: pStyle.color,
+                            fontWeight: 800,
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            cursor: 'copy',
+                            transform: isTargetOver ? 'scale(1.03)' : 'scale(1)',
+                            boxShadow: isTargetOver ? `0 0 16px ${pStyle.border}` : 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <span>{pStyle.label}</span>
+                          <span style={{ opacity: 0.85, fontWeight: 600, fontSize: '0.78rem' }}>(Set Priority)</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {vaultViewMode === 'board' ? (
+              groupByMode === 'category' ? (
               /* KANBAN BOARD VIEW WITH CATEGORY SWIMLANES */
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
                 {allAvailableCategories.map(cat => {
@@ -2552,6 +2875,7 @@ ${story.result || 'N/A'}
                     return null;
                   }
                   const isCollapsed = !!collapsedSwimlanes[cat];
+                  const isHeaderOver = dragOverCategoryHeader === cat;
 
                   const todoCount = catStories.filter(s => (s.status || 'To Do') === 'To Do').length;
                   const inProgressCount = catStories.filter(s => s.status === 'In Progress').length;
@@ -2570,7 +2894,30 @@ ${story.result || 'N/A'}
                       }}
                     >
                       {/* Swimlane Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', paddingBottom: isCollapsed ? 0 : '12px', borderBottom: isCollapsed ? 'none' : '1px solid var(--border)' }}>
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                          if (dragOverCategoryHeader !== cat) setDragOverCategoryHeader(cat);
+                        }}
+                        onDragLeave={() => setDragOverCategoryHeader(null)}
+                        onDrop={(e) => handleDropToCategoryHeader(e, cat)}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '12px',
+                          padding: isHeaderOver ? '8px 12px' : (isCollapsed ? 0 : '0 0 12px 0'),
+                          marginBottom: isHeaderOver ? '8px' : 0,
+                          borderRadius: isHeaderOver ? '10px' : 0,
+                          background: isHeaderOver ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                          border: isHeaderOver ? '2px dashed var(--accent)' : 'none',
+                          borderBottom: isHeaderOver ? '2px dashed var(--accent)' : (isCollapsed ? 'none' : '1px solid var(--border)'),
+                          boxShadow: isHeaderOver ? '0 0 12px rgba(56, 189, 248, 0.25)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
                         <div
                           style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
                           onClick={() => setCollapsedSwimlanes(prev => ({ ...prev, [cat]: !prev[cat] }))}
@@ -2664,138 +3011,143 @@ ${story.result || 'N/A'}
                                     const isBlocked = pendingBlockers.length > 0;
 
                                     return (
-                                      <div
-                                        key={story.id}
-                                        draggable={true}
-                                        onDragStart={(e) => handleDragStart(e, story.id)}
-                                        onDragEnd={handleDragEnd}
-                                        className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
-                                        style={{
-                                          padding: '12px',
-                                          borderRadius: '10px',
-                                          cursor: 'grab',
-                                          opacity: draggedStoryId === story.id ? 0.4 : 1,
-                                          transition: 'all 0.15s ease',
-                                        }}
-                                      >
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
-                                          <div
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
-                                            onClick={() => setModalStory(story)}
-                                          >
-                                            <GripVertical className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                                            {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'sm' })}
-                                            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
-                                              {story.theme}
-                                            </h4>
-                                          </div>
-
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                                            {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
-                                            <select
-                                              aria-label={`Priority level for ${story.theme}`}
-                                              value={story.priority || 'Medium'}
-                                              onChange={(e) => handleUpdatePriority(story.id, e.target.value as TaskPriority)}
-                                              style={{
-                                                padding: '2px 6px',
-                                                fontSize: '0.7rem',
-                                                fontWeight: 700,
-                                                borderRadius: '99px',
-                                                border: `1px solid ${priorityStyle.border}`,
-                                                background: priorityStyle.bg,
-                                                color: priorityStyle.color,
-                                                cursor: 'pointer',
-                                                flexShrink: 0
-                                              }}
+                                      <React.Fragment key={story.id}>
+                                        {renderInsertionIndicator(story.id, 'before')}
+                                        <div
+                                          draggable={true}
+                                          onDragStart={(e) => handleDragStart(e, story.id)}
+                                          onDragEnd={handleDragEnd}
+                                          onDragOver={(e) => handleDragOverCard(e, story.id)}
+                                          onDrop={(e) => handleDropOnCard(e, story, { category: cat, status: colStatus })}
+                                          className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
+                                          style={{
+                                            padding: '12px',
+                                            borderRadius: '10px',
+                                            cursor: 'grab',
+                                            opacity: draggedStoryId === story.id ? 0.4 : 1,
+                                            transition: 'all 0.15s ease',
+                                          }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                                            <div
+                                              style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
+                                              onClick={() => setModalStory(story)}
                                             >
-                                              <option value="High">🔥 High</option>
-                                              <option value="Medium">⚡ Medium</option>
-                                              <option value="Low">🔹 Low</option>
-                                            </select>
-                                          </div>
-                                        </div>
+                                              <GripVertical className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                                              {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'sm' })}
+                                              <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
+                                                {story.theme}
+                                              </h4>
+                                            </div>
 
-                                        {/* Dependency & Repeat Badges */}
-                                        {(isBlocked || allBlockers.length > 0 || dependentTasks.length > 0 || (story.repeatFrequency && story.repeatFrequency !== 'None')) && (
-                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
-                                            {story.repeatFrequency && story.repeatFrequency !== 'None' && (
-                                              <span
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                              {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
+                                              <select
+                                                aria-label={`Priority level for ${story.theme}`}
+                                                value={story.priority || 'Medium'}
+                                                onChange={(e) => handleUpdatePriority(story.id, e.target.value as TaskPriority)}
                                                 style={{
-                                                  display: 'inline-flex',
-                                                  alignItems: 'center',
-                                                  gap: '3px',
-                                                  fontSize: '0.7rem',
-                                                  fontWeight: 600,
-                                                  padding: '1px 6px',
-                                                  borderRadius: '4px',
-                                                  background: 'rgba(129, 140, 248, 0.15)',
-                                                  border: '1px solid rgba(129, 140, 248, 0.35)',
-                                                  color: '#a5b4fc',
-                                                }}
-                                                title={`Repeat frequency: ${story.repeatFrequency}`}
-                                              >
-                                                <Repeat className="w-3 h-3 text-indigo-400" />
-                                                {story.repeatFrequency}
-                                              </span>
-                                            )}
-
-                                            {isBlocked ? (
-                                              <span
-                                                style={{
-                                                  display: 'inline-flex',
-                                                  alignItems: 'center',
-                                                  gap: '3px',
+                                                  padding: '2px 6px',
                                                   fontSize: '0.7rem',
                                                   fontWeight: 700,
-                                                  padding: '1px 6px',
-                                                  borderRadius: '4px',
-                                                  background: 'rgba(239, 68, 68, 0.18)',
-                                                  border: '1px solid rgba(239, 68, 68, 0.4)',
-                                                  color: '#f87171',
+                                                  borderRadius: '99px',
+                                                  border: `1px solid ${priorityStyle.border}`,
+                                                  background: priorityStyle.bg,
+                                                  color: priorityStyle.color,
+                                                  cursor: 'pointer',
+                                                  flexShrink: 0
                                                 }}
-                                                title={`Blocked by ${pendingBlockers.length} prerequisite task(s)`}
                                               >
-                                                <Lock className="w-3 h-3 text-rose-400" />
-                                                Blocked
-                                              </span>
-                                            ) : null}
+                                                <option value="High">🔥 High</option>
+                                                <option value="Medium">⚡ Medium</option>
+                                                <option value="Low">🔹 Low</option>
+                                              </select>
+                                            </div>
                                           </div>
-                                        )}
 
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
-                                          <select
-                                            aria-label={`Status for ${story.theme}`}
-                                            value={story.status || 'To Do'}
-                                            onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
-                                            style={{
-                                              padding: '2px 6px',
-                                              fontSize: '0.72rem',
-                                              fontWeight: 700,
-                                              borderRadius: '99px',
-                                              border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
-                                              background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
-                                              color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
-                                              cursor: 'pointer',
-                                            }}
-                                          >
-                                            <option value="To Do">To Do</option>
-                                            <option value="In Progress">In Progress</option>
-                                            <option value="Done">Done</option>
-                                          </select>
+                                          {/* Dependency & Repeat Badges */}
+                                          {(isBlocked || allBlockers.length > 0 || dependentTasks.length > 0 || (story.repeatFrequency && story.repeatFrequency !== 'None')) && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
+                                              {story.repeatFrequency && story.repeatFrequency !== 'None' && (
+                                                <span
+                                                  style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '3px',
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: 600,
+                                                    padding: '1px 6px',
+                                                    borderRadius: '4px',
+                                                    background: 'rgba(129, 140, 248, 0.15)',
+                                                    border: '1px solid rgba(129, 140, 248, 0.35)',
+                                                    color: '#a5b4fc',
+                                                  }}
+                                                  title={`Repeat frequency: ${story.repeatFrequency}`}
+                                                >
+                                                  <Repeat className="w-3 h-3 text-indigo-400" />
+                                                  {story.repeatFrequency}
+                                                </span>
+                                              )}
 
-                                          <div style={{ display: 'flex', gap: '4px' }}>
-                                            <button
-                                              type="button"
-                                              className="button button-secondary"
-                                              onClick={() => setModalStory(story)}
-                                              style={{ padding: '2px 6px', fontSize: '0.72rem' }}
-                                              title="View details"
+                                              {isBlocked ? (
+                                                <span
+                                                  style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '3px',
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: 700,
+                                                    padding: '1px 6px',
+                                                    borderRadius: '4px',
+                                                    background: 'rgba(239, 68, 68, 0.18)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                    color: '#f87171',
+                                                  }}
+                                                  title={`Blocked by ${pendingBlockers.length} prerequisite task(s)`}
+                                                >
+                                                  <Lock className="w-3 h-3 text-rose-400" />
+                                                  Blocked
+                                                </span>
+                                              ) : null}
+                                            </div>
+                                          )}
+
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
+                                            <select
+                                              aria-label={`Status for ${story.theme}`}
+                                              value={story.status || 'To Do'}
+                                              onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
+                                              style={{
+                                                padding: '2px 6px',
+                                                fontSize: '0.72rem',
+                                                fontWeight: 700,
+                                                borderRadius: '99px',
+                                                border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
+                                                background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
+                                                color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
+                                                cursor: 'pointer',
+                                              }}
                                             >
-                                              <Eye className="w-3 h-3 text-sky-400" />
-                                            </button>
+                                              <option value="To Do">To Do</option>
+                                              <option value="In Progress">In Progress</option>
+                                              <option value="Done">Done</option>
+                                            </select>
+
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                              <button
+                                                type="button"
+                                                className="button button-secondary"
+                                                onClick={() => setModalStory(story)}
+                                                style={{ padding: '2px 6px', fontSize: '0.72rem' }}
+                                                title="View details"
+                                              >
+                                                <Eye className="w-3 h-3 text-sky-400" />
+                                              </button>
+                                            </div>
                                           </div>
                                         </div>
-                                      </div>
+                                        {renderInsertionIndicator(story.id, 'after')}
+                                      </React.Fragment>
                                     );
                                   })
                                 )}
@@ -2833,72 +3185,103 @@ ${story.result || 'N/A'}
                       }}
                     >
                       {/* Priority Swimlane Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', paddingBottom: isCollapsed ? 0 : '12px', borderBottom: isCollapsed ? 'none' : '1px solid var(--border)' }}>
-                        <div
-                          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
-                          onClick={() => setCollapsedSwimlanes(prev => ({ ...prev, [prio]: !prev[prio] }))}
-                        >
-                          {isCollapsed ? (
-                            <ChevronRight className="w-5 h-5 text-slate-400" />
-                          ) : (
-                            <ChevronDown className="w-5 h-5 text-slate-400" />
-                          )}
-                          <span
+                      {(() => {
+                        const isHeaderOver = dragOverPriorityHeader === prio;
+                        return (
+                          <div
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                              if (dragOverPriorityHeader !== prio) setDragOverPriorityHeader(prio);
+                            }}
+                            onDragLeave={() => setDragOverPriorityHeader(null)}
+                            onDrop={(e) => handleDropToPriorityHeader(e, prio)}
                             style={{
-                              display: 'inline-flex',
+                              display: 'flex',
+                              justifyContent: 'space-between',
                               alignItems: 'center',
-                              gap: '6px',
-                              padding: '4px 12px',
-                              borderRadius: '8px',
-                              background: prioStyle.bg,
-                              border: `1px solid ${prioStyle.border}`,
-                              color: prioStyle.color,
-                              fontWeight: 800,
-                              fontSize: '0.95rem'
+                              flexWrap: 'wrap',
+                              gap: '12px',
+                              padding: isHeaderOver ? '8px 12px' : (isCollapsed ? 0 : '0 0 12px 0'),
+                              marginBottom: isHeaderOver ? '8px' : 0,
+                              borderRadius: isHeaderOver ? '10px' : 0,
+                              background: isHeaderOver ? prioStyle.bg : 'transparent',
+                              border: isHeaderOver ? `2px dashed ${prioStyle.border}` : 'none',
+                              borderBottom: isHeaderOver ? `2px dashed ${prioStyle.border}` : (isCollapsed ? 'none' : '1px solid var(--border)'),
+                              boxShadow: isHeaderOver ? `0 0 12px ${prioStyle.border}` : 'none',
+                              transition: 'all 0.15s ease'
                             }}
                           >
-                            <span>{prioStyle.label} Swimlane</span>
-                          </span>
+                            <div
+                              style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                              onClick={() => setCollapsedSwimlanes(prev => ({ ...prev, [prio]: !prev[prio] }))}
+                            >
+                              {isCollapsed ? (
+                                <ChevronRight className="w-5 h-5 text-slate-400" />
+                              ) : (
+                                <ChevronDown className="w-5 h-5 text-slate-400" />
+                              )}
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '4px 12px',
+                                  borderRadius: '8px',
+                                  background: prioStyle.bg,
+                                  border: `1px solid ${prioStyle.border}`,
+                                  color: prioStyle.color,
+                                  fontWeight: 800,
+                                  fontSize: '0.95rem'
+                                }}
+                              >
+                                <span>{prioStyle.label} Swimlane</span>
+                              </span>
 
-                          <span className="pill" style={{ margin: 0, fontWeight: 700, fontSize: '0.8rem' }}>
-                            {prioStories.length} {prioStories.length === 1 ? 'task' : 'tasks'}
-                          </span>
-                        </div>
+                              <span className="pill" style={{ margin: 0, fontWeight: 700, fontSize: '0.8rem' }}>
+                                {prioStories.length} {prioStories.length === 1 ? 'task' : 'tasks'}
+                              </span>
+                            </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem' }}>
-                          <span className="pill" style={{ margin: 0, background: 'var(--surface)', color: 'var(--text-muted)' }}>
-                            ⏳ {todoCount} To Do
-                          </span>
-                          <span className="pill" style={{ margin: 0, background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
-                            🔄 {inProgressCount} In Progress
-                          </span>
-                          <span className="pill" style={{ margin: 0, background: 'rgba(16, 185, 129, 0.12)', color: 'var(--emerald)' }}>
-                            ✅ {doneCount} Done
-                          </span>
-                        </div>
-                      </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem' }}>
+                              <span className="pill" style={{ margin: 0, background: 'var(--surface)', color: 'var(--text-muted)' }}>
+                                ⏳ {todoCount} To Do
+                              </span>
+                              <span className="pill" style={{ margin: 0, background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
+                                🔄 {inProgressCount} In Progress
+                              </span>
+                              <span className="pill" style={{ margin: 0, background: 'rgba(16, 185, 129, 0.12)', color: 'var(--emerald)' }}>
+                                ✅ {doneCount} Done
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Priority Swimlane Columns Matrix */}
                       {!isCollapsed && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '14px' }}>
                           {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
                             const columnStories = prioStories.filter(s => (s.status || 'To Do') === colStatus);
+                            const isOver = dragOverPrioritySwimlane?.priority === prio && dragOverPrioritySwimlane?.status === colStatus;
 
                             return (
                               <div
                                 key={colStatus}
-                                onDragOver={(e) => handleDragOverColumn(e, colStatus)}
+                                onDragOver={(e) => handleDragOverPrioritySwimlane(e, prio, colStatus)}
                                 onDragLeave={handleDragLeaveColumn}
-                                onDrop={(e) => handleDropToColumn(e, colStatus)}
+                                onDrop={(e) => handleDropToPrioritySwimlane(e, prio, colStatus)}
                                 style={{
                                   background: 'var(--bg)',
-                                  border: '1px solid var(--border)',
+                                  border: isOver ? `2px dashed ${prioStyle.border}` : '1px solid var(--border)',
                                   borderRadius: '12px',
                                   padding: '12px',
                                   minHeight: '160px',
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  gap: '10px'
+                                  gap: '10px',
+                                  transition: 'all 0.15s ease',
+                                  boxShadow: isOver ? `0 0 14px ${prioStyle.border}` : 'none'
                                 }}
                               >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', borderBottom: '1px solid var(--border)' }}>
@@ -2923,93 +3306,98 @@ ${story.result || 'N/A'}
                                     const isBlocked = pendingBlockers.length > 0;
 
                                     return (
-                                      <div
-                                        key={story.id}
-                                        draggable={true}
-                                        onDragStart={(e) => handleDragStart(e, story.id)}
-                                        onDragEnd={handleDragEnd}
-                                        className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
-                                        style={{
-                                          padding: '12px',
-                                          borderRadius: '10px',
-                                          cursor: 'grab',
-                                          opacity: draggedStoryId === story.id ? 0.4 : 1,
-                                          transition: 'all 0.15s ease',
-                                        }}
-                                      >
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
-                                          <div
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
-                                            onClick={() => setModalStory(story)}
-                                          >
-                                            <GripVertical className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                                            {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'sm' })}
-                                            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
-                                              {story.theme}
-                                            </h4>
+                                      <React.Fragment key={story.id}>
+                                        {renderInsertionIndicator(story.id, 'before')}
+                                        <div
+                                          draggable={true}
+                                          onDragStart={(e) => handleDragStart(e, story.id)}
+                                          onDragEnd={handleDragEnd}
+                                          onDragOver={(e) => handleDragOverCard(e, story.id)}
+                                          onDrop={(e) => handleDropOnCard(e, story, { priority: prio, status: colStatus })}
+                                          className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
+                                          style={{
+                                            padding: '12px',
+                                            borderRadius: '10px',
+                                            cursor: 'grab',
+                                            opacity: draggedStoryId === story.id ? 0.4 : 1,
+                                            transition: 'all 0.15s ease',
+                                          }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                                            <div
+                                              style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
+                                              onClick={() => setModalStory(story)}
+                                            >
+                                              <GripVertical className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                                              {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'sm' })}
+                                              <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
+                                                {story.theme}
+                                              </h4>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                              {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
+                                              <select
+                                                aria-label={`Category label for ${story.theme}`}
+                                                value={story.categoryLabel || 'Technical'}
+                                                onChange={(e) => handleUpdateCategory(story.id, e.target.value)}
+                                                style={{
+                                                  padding: '2px 6px',
+                                                  fontSize: '0.7rem',
+                                                  fontWeight: 700,
+                                                  borderRadius: '6px',
+                                                  border: `1px solid ${getCategoryStyle(story.categoryLabel).border}`,
+                                                  background: getCategoryStyle(story.categoryLabel).bg,
+                                                  color: getCategoryStyle(story.categoryLabel).color,
+                                                  cursor: 'pointer',
+                                                  flexShrink: 0
+                                                }}
+                                              >
+                                                {allAvailableCategories.map(cat => (
+                                                 <option key={cat} value={cat}>
+                                                   {getCategoryStyle(cat).icon} {cat}
+                                                 </option>
+                                                ))}
+                                              </select>
+                                            </div>
                                           </div>
 
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                                            {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
                                             <select
-                                              aria-label={`Category label for ${story.theme}`}
-                                              value={story.categoryLabel || 'Technical'}
-                                              onChange={(e) => handleUpdateCategory(story.id, e.target.value)}
+                                              aria-label={`Status for ${story.theme}`}
+                                              value={story.status || 'To Do'}
+                                              onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
                                               style={{
                                                 padding: '2px 6px',
-                                                fontSize: '0.7rem',
+                                                fontSize: '0.72rem',
                                                 fontWeight: 700,
-                                                borderRadius: '6px',
-                                                border: `1px solid ${getCategoryStyle(story.categoryLabel).border}`,
-                                                background: getCategoryStyle(story.categoryLabel).bg,
-                                                color: getCategoryStyle(story.categoryLabel).color,
+                                                borderRadius: '99px',
+                                                border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
+                                                background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
+                                                color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
                                                 cursor: 'pointer',
-                                                flexShrink: 0
                                               }}
                                             >
-                                              {allAvailableCategories.map(cat => (
-                                                <option key={cat} value={cat}>
-                                                  {getCategoryStyle(cat).icon} {cat}
-                                                </option>
-                                              ))}
+                                              <option value="To Do">To Do</option>
+                                              <option value="In Progress">In Progress</option>
+                                              <option value="Done">Done</option>
                                             </select>
+
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                              <button
+                                                type="button"
+                                                className="button button-secondary"
+                                                onClick={() => setModalStory(story)}
+                                                style={{ padding: '2px 6px', fontSize: '0.72rem' }}
+                                                title="View details"
+                                              >
+                                                <Eye className="w-3 h-3 text-sky-400" />
+                                              </button>
+                                            </div>
                                           </div>
                                         </div>
-
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
-                                          <select
-                                            aria-label={`Status for ${story.theme}`}
-                                            value={story.status || 'To Do'}
-                                            onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
-                                            style={{
-                                              padding: '2px 6px',
-                                              fontSize: '0.72rem',
-                                              fontWeight: 700,
-                                              borderRadius: '99px',
-                                              border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
-                                              background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
-                                              color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
-                                              cursor: 'pointer',
-                                            }}
-                                          >
-                                            <option value="To Do">To Do</option>
-                                            <option value="In Progress">In Progress</option>
-                                            <option value="Done">Done</option>
-                                          </select>
-
-                                          <div style={{ display: 'flex', gap: '4px' }}>
-                                            <button
-                                              type="button"
-                                              className="button button-secondary"
-                                              onClick={() => setModalStory(story)}
-                                              style={{ padding: '2px 6px', fontSize: '0.72rem' }}
-                                              title="View details"
-                                            >
-                                              <Eye className="w-3 h-3 text-sky-400" />
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </div>
+                                        {renderInsertionIndicator(story.id, 'after')}
+                                      </React.Fragment>
                                     );
                                   })
                                 )}
@@ -3075,20 +3463,23 @@ ${story.result || 'N/A'}
                         const isBlocked = pendingBlockers.length > 0;
 
                         return (
-                          <div
-                            key={story.id}
-                            draggable={true}
-                            onDragStart={(e) => handleDragStart(e, story.id)}
-                            onDragEnd={handleDragEnd}
-                            className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
-                            style={{
-                              padding: '14px',
-                              borderRadius: '12px',
-                              cursor: 'grab',
-                              opacity: draggedStoryId === story.id ? 0.4 : 1,
-                              transition: 'all 0.15s ease',
-                            }}
-                          >
+                          <React.Fragment key={story.id}>
+                            {renderInsertionIndicator(story.id, 'before')}
+                            <div
+                              draggable={true}
+                              onDragStart={(e) => handleDragStart(e, story.id)}
+                              onDragEnd={handleDragEnd}
+                              onDragOver={(e) => handleDragOverCard(e, story.id)}
+                              onDrop={(e) => handleDropOnCard(e, story, { status: colStatus })}
+                              className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
+                              style={{
+                                padding: '14px',
+                                borderRadius: '12px',
+                                cursor: 'grab',
+                                opacity: draggedStoryId === story.id ? 0.4 : 1,
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
                               <div
                                 style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
@@ -3326,6 +3717,8 @@ ${story.result || 'N/A'}
                               </div>
                             </div>
                           </div>
+                          {renderInsertionIndicator(story.id, 'after')}
+                        </React.Fragment>
                         );
                       })
                     )}
@@ -3347,20 +3740,30 @@ ${story.result || 'N/A'}
                 const isBlocked = pendingBlockers.length > 0;
 
                 return (
-                  <div
-                    key={story.id}
-                    className={`panel ${getPriorityClassNames(story.priority, isBlocked)}`}
-                    style={{
-                      position: 'relative',
-                      ...(isCurrentEditing ? { outline: '2px solid var(--accent)' } : {})
-                    }}
-                  >
-                    {/* Story Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <span className="pill" style={{ fontWeight: 800, margin: 0, background: 'var(--surface-accent)', color: 'var(--accent)' }}>
-                          #{index + 1}
-                        </span>
+                  <React.Fragment key={story.id}>
+                    {renderInsertionIndicator(story.id, 'before')}
+                    <div
+                      draggable={true}
+                      onDragStart={(e) => handleDragStart(e, story.id)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => handleDragOverCard(e, story.id)}
+                      onDrop={(e) => handleDropOnCard(e, story)}
+                      className={`panel ${getPriorityClassNames(story.priority, isBlocked)}`}
+                      style={{
+                        position: 'relative',
+                        cursor: 'grab',
+                        opacity: draggedStoryId === story.id ? 0.4 : 1,
+                        transition: 'all 0.15s ease',
+                        ...(isCurrentEditing ? { outline: '2px solid var(--accent)' } : {})
+                      }}
+                    >
+                      {/* Story Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <GripVertical className="w-4 h-4 text-slate-500 cursor-grab flex-shrink-0" />
+                          <span className="pill" style={{ fontWeight: 800, margin: 0, background: 'var(--surface-accent)', color: 'var(--accent)' }}>
+                            #{index + 1}
+                          </span>
                         {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'md' })}
                         <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
                           {story.theme}
@@ -3630,9 +4033,13 @@ ${story.result || 'N/A'}
                       </div>
                     </div>
                   </div>
+                  {renderInsertionIndicator(story.id, 'after')}
+                </React.Fragment>
                 );
               })}
             </div>
+            )}
+           </>
           )}
 
            {/* Floating Bulk Actions Toolbar */}
