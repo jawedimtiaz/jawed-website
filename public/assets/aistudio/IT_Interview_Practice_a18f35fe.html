@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IT Interview Practice – Questions for Help Desk, Network, SysAdmin, Cloud, Security</title><meta name="description" content="Practise IT interview questions with a timer and a checklist of key points for help desk, field tech, network, sysadmin, cloud/DevOps, security and behavioural questions."><style>
+:root{--bg:#0f172a;--card:#16213a;--text:#e2e8f0;--muted:#94a3b8;--line:#2a3857;--brand:#38bdf8;--brand2:#818cf8;--good:#34d399;--bad:#f87171;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[data-theme=light]{--bg:#f4f7fb;--card:#fff;--text:#0f172a;--muted:#5b6b86;--line:#dbe3ef;--brand:#0284c7;--brand2:#4f46e5;--good:#059669;--bad:#dc2626}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+main{max-width:980px;margin:0 auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{font-size:clamp(26px,5vw,38px);margin:.3em 0 .1em;background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{margin-top:1.6em}.lead,.muted{color:var(--muted)}.muted{font-size:14px}
+button,select,input,textarea{font:inherit;color:var(--text)}
+button{cursor:pointer;background:transparent;border:1px solid var(--line);border-radius:10px;padding:7px 14px}
+button.on,button.primary{background:linear-gradient(90deg,var(--brand),var(--brand2));border:0;color:#fff;font-weight:600}button.primary{padding:11px 22px}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:80px;resize:vertical}label{display:block;font-weight:600;margin:12px 0 4px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px}
+.out{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:var(--bg)}.pre{white-space:pre-wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}.ok{color:var(--good)}.no{color:var(--bad)}
+ul{padding-left:20px}.hidden{display:none!important}.big{font-size:30px;font-weight:800}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none}#toast.on{opacity:1}
+details{border-top:1px solid var(--line);padding:8px 0}summary{cursor:pointer;font-weight:600}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+</style></head>
+<body><main>
+<div class="top"><span class="muted">Free tool · runs in your browser</span><button id="theme" aria-label="Toggle light or dark mode">◐ Theme</button></div>
+<h1>IT Interview Practice</h1><p class="lead">Practise real IT interview questions, time yourself, and check which key points your answer covered.</p>
+<section class="panel"><div class="grid"><div><label for="role">Role area</label><select id="role"></select></div><div><label>Timer</label><div class="row" style="margin-top:0"><b id="tm">02:00</b><button id="ts">Start</button></div></div></div>
+<div class="row"><button class="primary" id="next">Next question</button></div>
+<div id="qa" class="hidden"><div class="out"><div class="muted" id="qn"></div><div id="q" style="font-size:18px;font-weight:600"></div></div>
+<label for="ans">Practise your answer (stays on your device, not saved)</label><textarea id="ans" style="min-height:120px"></textarea>
+<div class="row"><button id="rev">Reveal what a strong answer covers</button></div>
+<div id="kp" class="out hidden"><b>Tick the points you covered:</b><div id="kl"></div><div class="row"><b id="cv"></b><button id="save">Save result</button></div></div></div></section>
+<section class="panel"><div class="row" style="margin-top:0;justify-content:space-between"><b>Your progress</b><button id="reset">Reset</button></div><div id="prog"></div></section>
+<h2>How to prepare for an IT interview</h2>
+<p>IT interviews usually mix three things: core technical knowledge, practical troubleshooting, and behavioural questions about how you work. This tool gives you a question, a space to answer out loud or in writing, and a checklist of the points a strong answer usually covers, so you can see which ideas you missed.</p>
+<ul><li><b>Answer troubleshooting questions in order:</b> scope the problem, check the basics, narrow down, fix, verify, document.</li><li><b>Use the STAR method for behavioural questions:</b> Situation, Task, Action, Result. Spend most of your time on what you personally did.</li><li><b>Be honest.</b> Say what you have actually done. It is fine to say "I have not used that, but here is how I would approach it".</li><li><b>Practise out loud</b> with the timer. Two minutes is a good target for most answers.</li></ul>
+<p>The key points shown are common talking points, not scripts or guaranteed answers. Interviewers differ, so adapt to the job description and your own experience.</p>
+<h2>FAQ</h2>
+<details><summary>Is my answer stored or sent anywhere?</summary><p>No. The text box is never saved or uploaded. Only your self-rated coverage scores are kept in your browser.</p></details>
+<details><summary>Will practising here guarantee I pass?</summary><p>No. It helps you rehearse and spot gaps, but results depend on the interview, the role and many other factors.</p></details>
+<details><summary>Can I add my own questions?</summary><p>Not in this version. Use the job description to write your own and practise them the same way.</p></details>
+</main><div id="toast" role="status"></div>
+<script>
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),1500)}
+function setTheme(t){document.documentElement.dataset.theme=t;store.set("tl_theme",t)}
+setTheme(store.get("tl_theme",matchMedia("(prefers-color-scheme:light)").matches?"light":"dark"));
+$("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+const copy=async t=>{try{await navigator.clipboard.writeText(t)}catch{const x=document.createElement("textarea");x.value=t;document.body.append(x);x.select();document.execCommand("copy");x.remove()}toast("Copied")};
+function dl(name,text){const u=URL.createObjectURL(new Blob([text],{type:"text/plain"})),a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
+
+//CORE_START
+
+const BANK={
+"Help desk / service desk":[
+["A user says they cannot log in. How do you troubleshoot?",["Confirm identity and scope: one user or many","Check account status: locked, disabled, expired password","Rule out basics: caps lock, network or VPN, correct domain","Reset or unlock following policy","Document the ticket and confirm the user is working"]],
+["What is the difference between a hub, a switch and a router?",["Hub repeats traffic to every port (Layer 1)","Switch forwards frames using MAC addresses (Layer 2)","Router forwards packets between networks using IP addresses (Layer 3)"]],
+["How do you handle an angry or frustrated user?",["Listen without interrupting","Acknowledge the impact on their work","Set a clear expectation and timeline","Fix it or escalate with full details, then follow up"]],
+["When do you escalate a ticket?",["Beyond your access or skill level","SLA at risk or multiple users affected","Possible security issue","Hand over what you already tried and the evidence"]],
+["Explain DHCP and DNS. What does it mean if you can ping an IP but not a name?",["DHCP automatically assigns IP, mask, gateway and DNS server","DNS translates names to IP addresses","IP works but name fails points to a DNS problem","Check DNS settings and test with nslookup"]]],
+"Field technician":[
+["A device at a remote site is offline. What do you check on site?",["Power and status LEDs","Cable, patch panel and switch port link lights","Swap in a known-good cable or port","Check VLAN or configuration, use console access if needed","Test end to end and document the fix"]],
+["Straight-through versus crossover cable: when is each used?",["Straight-through connects unlike devices, such as PC to switch","Crossover connected like devices, such as switch to switch","Modern ports with auto-MDIX make crossover mostly unnecessary"]],
+["How do you prioritise several tickets across different sites?",["Business impact and urgency first","SLA deadlines","Travel route and available spare parts","Keep users updated with realistic ETAs"]],
+["What safety practices do you follow when handling hardware?",["Anti-static strap and careful handling","Power down and isolate before opening equipment","Safe lifting and tidy, labelled cabling","Follow disposal and site rules"]],
+["How do you verify a new cable run?",["Use a cable tester or certifier for continuity and wiremap","Check length and standard limits","Label both ends and the patch panel port","Record results in documentation"]]],
+"Network engineer":[
+["Where do switches and routers sit in the OSI model?",["Switches mainly Layer 2 (frames, MAC addresses)","Routers Layer 3 (packets, IP addresses)","Layer 3 switches can do both"]],
+["What is a VLAN and why use one?",["Logical separation of broadcast domains on shared hardware","Improves security and reduces broadcast traffic","Trunks carry multiple VLANs using 802.1Q tags","Traffic between VLANs needs Layer 3 routing"]],
+["Describe the DHCP process.",["Discover","Offer","Request","Acknowledge (DORA)"]],
+["A user cannot reach a website. How do you troubleshoot?",["Check local IP configuration and link","Ping the default gateway","Ping an external IP, then test name resolution","Use traceroute to find where it fails","Check firewall or proxy rules"]],
+["Compare TCP and UDP.",["TCP is connection-oriented and reliable: handshake, ordering, retransmission","UDP is connectionless with low overhead","UDP suits DNS, VoIP and streaming; TCP suits web and file transfer"]]],
+"System administrator":[
+["What is Active Directory and what do Group Policy Objects do?",["Directory service for centralised authentication and authorisation","GPOs apply settings to users and computers","Linked to sites, domains or OUs; processed local, site, domain, OU"]],
+["How would you design a backup strategy?",["3-2-1 rule: three copies, two media types, one offsite","Full, incremental and differential backups","Define RPO and RTO with the business","Test restores regularly"]],
+["A server has sustained high CPU. What do you do?",["Identify the responsible process with Task Manager, top or monitoring","Check recent changes, memory and disk activity","Review logs and compare with a baseline","Mitigate first, then find root cause"]],
+["How do you manage patching?",["Maintain an inventory","Test on a pilot or staging group","Schedule maintenance windows with communication","Have a rollback plan and report compliance"]],
+["What is the principle of least privilege?",["Grant only the access needed for the job","Use role-based groups","Separate admin and daily accounts","Review access regularly"]]],
+"Cloud / DevOps":[
+["Explain IaaS, PaaS and SaaS with examples.",["IaaS: virtual machines, networks and storage; you manage the OS and above","PaaS: a managed platform to run your code","SaaS: finished software used as a service","Responsibility shifts toward the provider from IaaS to SaaS"]],
+["What is CI/CD and why does it matter?",["CI: automatically build and test changes when merged","CD: automatically deliver or deploy to environments","Faster feedback, repeatable releases, fewer manual errors"]],
+["Containers versus virtual machines?",["Containers share the host kernel and are lightweight and fast to start","VMs include a full guest OS and give stronger isolation","Choose based on isolation, density and portability needs"]],
+["What is infrastructure as code and what are the benefits?",["Infrastructure defined in version-controlled files, for example Terraform","Repeatable, reviewable and testable changes","Helps detect configuration drift"]],
+["How do you respond to a production outage?",["Acknowledge, triage and communicate status","Mitigate or roll back first","Find root cause using logs and metrics","Write a blameless post-incident review with follow-up actions"]]],
+"Security":[
+["What is the CIA triad?",["Confidentiality: only authorised access","Integrity: data is accurate and unaltered","Availability: systems are accessible when needed"]],
+["A user reports a suspicious phishing email. What do you do?",["Tell them not to click or reply, and report it","Analyse sender, headers and links safely","Block the sender or URL and search for other recipients","Reset credentials and check logs if it was clicked","Use it for user awareness"]],
+["Symmetric versus asymmetric encryption?",["Symmetric uses one shared key and is fast","Asymmetric uses a public and private key pair","TLS uses asymmetric methods to establish a symmetric session key"]],
+["What is multi-factor authentication and why does it help?",["Combines factors: something you know, have or are","Stolen passwords alone are not enough","Prefer app or hardware methods over SMS where possible"]],
+["Outline the incident response phases.",["Preparation","Identification","Containment","Eradication","Recovery and lessons learned"]]],
+"Behavioural (any role)":[
+["Tell me about a hard technical problem you solved.",["Situation and goal","Your specific actions and tools","How you tested the fix","The result, with a number if you truthfully have one"]],
+["Tell me about a mistake you made at work.",["Own it clearly without blaming others","What you did to fix and contain it","What you changed to prevent a repeat"]],
+["Describe working under pressure during an outage or deadline.",["How you prioritised","How you communicated with stakeholders","What you did and what the outcome was"]],
+["How do you explain technical issues to non-technical people?",["Avoid jargon and use plain language","Focus on impact and next steps","Check understanding and follow up in writing"]],
+["Why do you want this role and company?",["Specific research about the company or team","Link your real skills to their needs","Show what you want to learn or contribute"]]]};
+function shuffle(n,rnd=Math.random){const a=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+const coverage=(c,t)=>t?Math.round(100*c/t):0;
+function summary(p){if(!p.length)return{n:0,avg:null};return{n:p.length,avg:Math.round(p.reduce((a,x)=>a+x.pct,0)/p.length)}}
+
+//CORE_END
+
+const KEY="iv_prog";let cur=null,queue={},ptr={},tI=null,sec=120;
+$("#role").innerHTML=Object.keys(BANK).map(r=>`<option>${esc(r)}</option>`).join("");
+const fmt=s=>String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
+function stopT(){clearInterval(tI);tI=null;$("#ts").textContent="Start"}
+$("#ts").onclick=()=>{if(tI){stopT();return}sec=120;$("#tm").textContent=fmt(sec);$("#ts").textContent="Stop";tI=setInterval(()=>{sec--;$("#tm").textContent=fmt(Math.max(sec,0));if(sec<=0){stopT();toast("Time is up")}},1000)};
+function nextQ(){const r=$("#role").value,n=BANK[r].length;if(!queue[r]||ptr[r]>=n){queue[r]=shuffle(n);ptr[r]=0}
+ const i=queue[r][ptr[r]++];cur={role:r,i};const [q,pts]=BANK[r][i];
+ $("#qa").classList.remove("hidden");$("#kp").classList.add("hidden");$("#qn").textContent=r+" · question "+ptr[r]+" of "+n;$("#q").textContent=q;$("#ans").value="";
+ $("#kl").innerHTML=pts.map((p,k)=>`<label style="font-weight:400"><input type="checkbox" data-k="${k}" style="width:auto"> ${esc(p)}</label>`).join("");$("#cv").textContent="";stopT();sec=120;$("#tm").textContent=fmt(sec)}
+$("#next").onclick=nextQ;$("#role").onchange=()=>{$("#qa").classList.add("hidden");stopT()};
+$("#rev").onclick=()=>$("#kp").classList.remove("hidden");
+function upd(){const b=[...document.querySelectorAll("#kl input")];$("#cv").textContent="Covered "+b.filter(x=>x.checked).length+" of "+b.length+" ("+coverage(b.filter(x=>x.checked).length,b.length)+"%)"}
+$("#kl").onchange=upd;
+$("#save").onclick=()=>{if(!cur)return;const b=[...document.querySelectorAll("#kl input")],p=store.get(KEY,[]);p.push({role:cur.role,pct:coverage(b.filter(x=>x.checked).length,b.length),date:new Date().toISOString().slice(0,10)});store.set(KEY,p.slice(-200));rp();toast("Saved")};
+function rp(){const p=store.get(KEY,[]),s=summary(p);if(!s.n){$("#prog").innerHTML='<p class="muted">No saved practice yet.</p>';return}
+ const by={};p.forEach(x=>{(by[x.role]=by[x.role]||[]).push(x)});
+ $("#prog").innerHTML=`<p>${s.n} answers practised · average coverage <b>${s.avg}%</b></p><table><tr><th>Role area</th><th>Answers</th><th>Avg coverage</th></tr>${Object.entries(by).map(([r,a])=>{const m=summary(a);return `<tr><td>${esc(r)}</td><td>${m.n}</td><td>${m.avg}%</td></tr>`}).join("")}</table>`}
+$("#reset").onclick=()=>{store.set(KEY,[]);rp()};rp();
+
+</script></body></html>

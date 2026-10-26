@@ -206,6 +206,14 @@ export const TOOLS: ToolItem[] = [
     keywords: ['cover letter', 'it cover letter', 'career', 'resume', 'hiring manager', 'job application'],
   },
   {
+    id: 'it-interview-practice',
+    name: 'IT Interview Practice',
+    description: 'Practise real IT interview questions with an interactive timer, answer workspace, and key talking points checklist across Help Desk, SysAdmin, Network, Cloud, and Security roles.',
+    category: 'career',
+    route: '/tools/it-interview-practice',
+    keywords: ['interview', 'practice', 'help desk', 'sysadmin', 'interview questions', 'technical interview', 'career', 'service desk'],
+  },
+  {
     id: 'it-troubleshooter',
     name: 'IT Troubleshooting Assistant',
     description: 'Follow systematic, layer-by-layer diagnostic checklists for network, Apple, and Windows issues.',
