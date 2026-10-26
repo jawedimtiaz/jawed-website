@@ -2861,3 +2861,21 @@ select:focus-visible {
   border-left: 5px solid #ef4444 !important;
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.22) !important;
 }
+
+/* Priority Indicator Badge & Dot Enhancements for Instant Visual Recognition */
+.priority-indicator-badge {
+  letter-spacing: 0.02em;
+  transition: all 0.15s ease-in-out;
+}
+.priority-indicator-badge:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+.priority-indicator-badge.priority-high {
+  animation: subtlePriorityPulse 3s infinite ease-in-out;
+}
+@keyframes subtlePriorityPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+  50% { box-shadow: 0 0 8px 1px rgba(244, 63, 94, 0.35); }
+}
+

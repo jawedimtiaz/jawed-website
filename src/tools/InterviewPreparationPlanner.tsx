@@ -365,6 +365,82 @@ const getPriorityClassNames = (priority: TaskPriority = 'Medium', isBlocked: boo
   return isBlocked ? `${pClass} task-is-blocked` : pClass;
 };
 
+export interface PriorityIndicatorOptions {
+  variant?: 'badge' | 'dot' | 'combined';
+  showLabel?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+export const renderPriorityIndicator = (
+  priority: TaskPriority = 'Medium',
+  options: PriorityIndicatorOptions = {}
+) => {
+  const { variant = 'combined', showLabel = true, size = 'sm' } = options;
+  const style = getPriorityStyle(priority);
+  const dotPx = size === 'sm' ? 8 : size === 'md' ? 10 : 12;
+  const fontSize = size === 'sm' ? '0.7rem' : size === 'md' ? '0.78rem' : '0.85rem';
+  const padding = size === 'sm' ? '2px 8px' : size === 'md' ? '3px 10px' : '4px 12px';
+
+  if (variant === 'dot') {
+    return (
+      <span
+        title={`Priority Level: ${priority}`}
+        aria-label={`Priority Level: ${priority}`}
+        style={{
+          display: 'inline-block',
+          width: `${dotPx}px`,
+          height: `${dotPx}px`,
+          borderRadius: '50%',
+          backgroundColor: style.color,
+          boxShadow: `0 0 6px ${style.color}`,
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      className={`priority-indicator-badge priority-${priority.toLowerCase()}`}
+      title={`Priority Level: ${priority}`}
+      aria-label={`Priority Level: ${priority}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '5px',
+        padding,
+        borderRadius: '99px',
+        fontSize,
+        fontWeight: 700,
+        background: style.bg,
+        border: `1px solid ${style.border}`,
+        color: style.color,
+        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
+        flexShrink: 0,
+        userSelect: 'none',
+        lineHeight: 1.2,
+      }}
+    >
+      <span
+        style={{
+          width: `${Math.max(6, dotPx - 2)}px`,
+          height: `${Math.max(6, dotPx - 2)}px`,
+          borderRadius: '50%',
+          backgroundColor: style.color,
+          boxShadow: `0 0 5px ${style.color}`,
+          display: 'inline-block',
+          flexShrink: 0,
+        }}
+      />
+      {showLabel && (
+        <span>
+          {priority === 'High' ? '🔥 High' : priority === 'Medium' ? '⚡ Med' : '🔹 Low'}
+        </span>
+      )}
+    </span>
+  );
+};
+
 export const InterviewPreparationPlanner: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'builder' | 'vault' | 'archive' | 'questions' | 'guide'>('builder');
 
@@ -2608,31 +2684,35 @@ ${story.result || 'N/A'}
                                             onClick={() => setModalStory(story)}
                                           >
                                             <GripVertical className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                                            {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'sm' })}
                                             <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
                                               {story.theme}
                                             </h4>
                                           </div>
 
-                                          <select
-                                            aria-label={`Priority level for ${story.theme}`}
-                                            value={story.priority || 'Medium'}
-                                            onChange={(e) => handleUpdatePriority(story.id, e.target.value as TaskPriority)}
-                                            style={{
-                                              padding: '2px 6px',
-                                              fontSize: '0.7rem',
-                                              fontWeight: 700,
-                                              borderRadius: '99px',
-                                              border: `1px solid ${priorityStyle.border}`,
-                                              background: priorityStyle.bg,
-                                              color: priorityStyle.color,
-                                              cursor: 'pointer',
-                                              flexShrink: 0
-                                            }}
-                                          >
-                                            <option value="High">🔥 High</option>
-                                            <option value="Medium">⚡ Medium</option>
-                                            <option value="Low">🔹 Low</option>
-                                          </select>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                            {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
+                                            <select
+                                              aria-label={`Priority level for ${story.theme}`}
+                                              value={story.priority || 'Medium'}
+                                              onChange={(e) => handleUpdatePriority(story.id, e.target.value as TaskPriority)}
+                                              style={{
+                                                padding: '2px 6px',
+                                                fontSize: '0.7rem',
+                                                fontWeight: 700,
+                                                borderRadius: '99px',
+                                                border: `1px solid ${priorityStyle.border}`,
+                                                background: priorityStyle.bg,
+                                                color: priorityStyle.color,
+                                                cursor: 'pointer',
+                                                flexShrink: 0
+                                              }}
+                                            >
+                                              <option value="High">🔥 High</option>
+                                              <option value="Medium">⚡ Medium</option>
+                                              <option value="Low">🔹 Low</option>
+                                            </select>
+                                          </div>
                                         </div>
 
                                         {/* Dependency & Repeat Badges */}
@@ -2863,33 +2943,37 @@ ${story.result || 'N/A'}
                                             onClick={() => setModalStory(story)}
                                           >
                                             <GripVertical className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                                            {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'sm' })}
                                             <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
                                               {story.theme}
                                             </h4>
                                           </div>
 
-                                          <select
-                                            aria-label={`Category label for ${story.theme}`}
-                                            value={story.categoryLabel || 'Technical'}
-                                            onChange={(e) => handleUpdateCategory(story.id, e.target.value)}
-                                            style={{
-                                              padding: '2px 6px',
-                                              fontSize: '0.7rem',
-                                              fontWeight: 700,
-                                              borderRadius: '6px',
-                                              border: `1px solid ${getCategoryStyle(story.categoryLabel).border}`,
-                                              background: getCategoryStyle(story.categoryLabel).bg,
-                                              color: getCategoryStyle(story.categoryLabel).color,
-                                              cursor: 'pointer',
-                                              flexShrink: 0
-                                            }}
-                                          >
-                                            {allAvailableCategories.map(cat => (
-                                              <option key={cat} value={cat}>
-                                                {getCategoryStyle(cat).icon} {cat}
-                                              </option>
-                                            ))}
-                                          </select>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                            {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
+                                            <select
+                                              aria-label={`Category label for ${story.theme}`}
+                                              value={story.categoryLabel || 'Technical'}
+                                              onChange={(e) => handleUpdateCategory(story.id, e.target.value)}
+                                              style={{
+                                                padding: '2px 6px',
+                                                fontSize: '0.7rem',
+                                                fontWeight: 700,
+                                                borderRadius: '6px',
+                                                border: `1px solid ${getCategoryStyle(story.categoryLabel).border}`,
+                                                background: getCategoryStyle(story.categoryLabel).bg,
+                                                color: getCategoryStyle(story.categoryLabel).color,
+                                                cursor: 'pointer',
+                                                flexShrink: 0
+                                              }}
+                                            >
+                                              {allAvailableCategories.map(cat => (
+                                                <option key={cat} value={cat}>
+                                                  {getCategoryStyle(cat).icon} {cat}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
                                         </div>
 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
@@ -3011,13 +3095,16 @@ ${story.result || 'N/A'}
                                 onClick={() => setModalStory(story)}
                               >
                                 <GripVertical className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                                {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'sm' })}
                                 <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
                                   {story.theme}
                                 </h4>
                               </div>
 
                               {/* Color-Coded Category & Priority Indicators */}
-                              <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
+                                {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
+
                                 <select
                                   aria-label={`Category label for ${story.theme}`}
                                   value={story.categoryLabel || 'Technical'}
@@ -3274,9 +3361,11 @@ ${story.result || 'N/A'}
                         <span className="pill" style={{ fontWeight: 800, margin: 0, background: 'var(--surface-accent)', color: 'var(--accent)' }}>
                           #{index + 1}
                         </span>
+                        {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'md' })}
                         <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
                           {story.theme}
                         </h3>
+                        {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
 
                         {story.repeatFrequency && story.repeatFrequency !== 'None' && (
                           <span
@@ -3794,25 +3883,14 @@ ${story.result || 'N/A'}
                         <span className="pill" style={{ fontWeight: 800, margin: 0, background: 'rgba(100, 116, 139, 0.2)', color: 'var(--text-muted)' }}>
                           #{index + 1}
                         </span>
+                        {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'md' })}
                         <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
                           {story.theme}
                         </h3>
+                        {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
                       </div>
 
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span
-                          style={{
-                            padding: '3px 10px',
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            borderRadius: '99px',
-                            border: `1px solid ${priorityStyle.border}`,
-                            background: priorityStyle.bg,
-                            color: priorityStyle.color,
-                          }}
-                        >
-                          {priorityStyle.label}
-                        </span>
 
                         <span
                           style={{
@@ -4180,10 +4258,14 @@ ${story.result || 'N/A'}
                   <span className="pill" style={{ fontWeight: 800, margin: 0, background: 'var(--surface-accent)', color: 'var(--accent)' }}>
                     Task Details & Reference Hub
                   </span>
+                  {renderPriorityIndicator(modalStory.priority || 'Medium', { variant: 'badge', size: 'sm' })}
                 </div>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
-                  {modalStory.theme}
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {renderPriorityIndicator(modalStory.priority || 'Medium', { variant: 'dot', size: 'md' })}
+                  <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                    {modalStory.theme}
+                  </h2>
+                </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
