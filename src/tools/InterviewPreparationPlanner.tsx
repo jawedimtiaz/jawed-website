@@ -564,7 +564,7 @@ const DroppableStatusColumn: React.FC<DroppableStatusColumnProps> = ({
   return (
     <div
       ref={setNodeRef}
-      className="panel"
+      className="panel col kanban-status-column"
       style={{
         background: highlighted ? 'rgba(56, 189, 248, 0.06)' : 'var(--surface)',
         border: highlighted ? '2px dashed var(--accent)' : '1px solid var(--border)',
@@ -2648,7 +2648,12 @@ ${story.result || 'N/A'}
   };
 
   const handlePrint = () => {
-    window.print();
+    setIsSummaryDashboardCollapsed(false);
+    setCollapsedStatusColumns({});
+    setActiveTab('vault');
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   const escapeCsvField = (field: string | undefined): string => {
@@ -2877,7 +2882,7 @@ ${story.result || 'N/A'}
   return (
     <main className="container page interview-planner-root">
       {/* Top Navigation & Breadcrumbs */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
         <Breadcrumb
           items={[
             { label: 'Home', href: '/' },
@@ -2935,6 +2940,24 @@ ${story.result || 'N/A'}
             📖 STAR Guide
           </button>
         </nav>
+        <button
+          type="button"
+          className="button button-secondary no-print"
+          onClick={handlePrint}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '0.88rem',
+            padding: '7px 14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+          title="Print entire interview planner, dashboard charts, and task board"
+        >
+          <Printer className="w-4 h-4 text-sky-400" />
+          Print Planner
+        </button>
       </div>
 
       {toastMessage && (
@@ -2948,7 +2971,7 @@ ${story.result || 'N/A'}
           SUMMARY ANALYTICS DASHBOARD (RECHARTS BAR & PIE CHARTS)
           ========================================================================= */}
       <section
-        className="panel summary-analytics-dashboard no-print"
+        className="panel summary-analytics-dashboard"
         aria-label="Interview Preparation Analytics Dashboard"
         style={{
           marginBottom: '24px',
@@ -3002,7 +3025,7 @@ ${story.result || 'N/A'}
             {activeTab !== 'vault' && (
               <button
                 type="button"
-                className="button button-secondary"
+                className="button button-secondary no-print"
                 onClick={() => setActiveTab('vault')}
                 style={{ fontSize: '0.78rem', padding: '4px 10px' }}
                 title="View tasks in Kanban Board / Vault"
@@ -3012,7 +3035,17 @@ ${story.result || 'N/A'}
             )}
             <button
               type="button"
-              className="button button-secondary"
+              className="button button-secondary no-print"
+              onClick={handlePrint}
+              style={{ fontSize: '0.78rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              title="Print Interview Preparation Planner with Charts & Task Board"
+            >
+              <Printer className="w-3.5 h-3.5 text-sky-400" />
+              Print Planner
+            </button>
+            <button
+              type="button"
+              className="button button-secondary no-print"
               onClick={() => setIsSummaryDashboardCollapsed(prev => !prev)}
               style={{ fontSize: '0.78rem', padding: '4px 12px' }}
               title={isSummaryDashboardCollapsed ? 'Expand Dashboard' : 'Collapse Dashboard'}
@@ -3022,9 +3055,8 @@ ${story.result || 'N/A'}
           </div>
         </div>
 
-        {/* Dashboard Main Content (When Expanded) */}
-        {!isSummaryDashboardCollapsed && (
-          <div style={{ marginTop: '18px' }}>
+        {/* Dashboard Main Content (Visible when expanded, and always visible during browser print) */}
+        <div className={isSummaryDashboardCollapsed ? 'hidden print:block' : 'block'} style={{ marginTop: '18px' }}>
             {/* Quick KPI Metric Cards Strip */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3" style={{ marginBottom: '20px' }}>
               <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
@@ -3265,7 +3297,6 @@ ${story.result || 'N/A'}
               </div>
             </div>
           </div>
-        )}
       </section>
 
       {/* VIEW 1: STAR STORY BUILDER */}
@@ -3634,9 +3665,10 @@ ${story.result || 'N/A'}
                   className="button button-secondary no-print"
                   onClick={handlePrint}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  title="Print Interview Preparation Planner with Charts & Task Board"
                 >
                   <Printer className="w-4 h-4 text-sky-400" />
-                  Print / Export PDF
+                  Print Planner
                 </button>
                 <button
                   type="button"
@@ -4806,7 +4838,7 @@ ${story.result || 'N/A'}
                 onDragEnd={handleDndDragEnd}
               >
                 <div
-                  className="grid gap-4"
+                  className="grid gap-4 board kanban-board-container"
                   style={{
                     marginTop: '16px',
                     gridTemplateColumns: statusColumnOrder.map(col => collapsedStatusColumns[col] ? '64px' : 'minmax(280px, 1fr)').join(' '),

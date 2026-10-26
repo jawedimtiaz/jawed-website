@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CCTV Storage Calculator – Cameras, Retention, RAID | Free Tool</title><meta name="description" content="Calculate CCTV and IP camera storage from number of cameras, resolution, bitrate, retention days and RAID level. Free, runs in your browser."><style>
+:root{--bg:#0f172a;--card:#16213a;--text:#e2e8f0;--muted:#94a3b8;--line:#2a3857;--brand:#38bdf8;--brand2:#818cf8;--good:#34d399;--bad:#f87171;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[data-theme=light]{--bg:#f4f7fb;--card:#fff;--text:#0f172a;--muted:#5b6b86;--line:#dbe3ef;--brand:#0284c7;--brand2:#4f46e5;--good:#059669;--bad:#dc2626}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+main{max-width:980px;margin:0 auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{font-size:clamp(26px,5vw,38px);margin:.3em 0 .1em;background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{margin-top:1.6em}.lead,.muted{color:var(--muted)}.muted{font-size:14px}
+button,select,input,textarea{font:inherit;color:var(--text)}
+button{cursor:pointer;background:transparent;border:1px solid var(--line);border-radius:10px;padding:7px 14px}
+button.on,button.primary{background:linear-gradient(90deg,var(--brand),var(--brand2));border:0;color:#fff;font-weight:600}button.primary{padding:11px 22px}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:80px;resize:vertical}label{display:block;font-weight:600;margin:12px 0 4px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px}
+.out{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:var(--bg)}.pre{white-space:pre-wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}.ok{color:var(--good)}.no{color:var(--bad)}
+ul{padding-left:20px}.hidden{display:none!important}.big{font-size:30px;font-weight:800}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none}#toast.on{opacity:1}
+details{border-top:1px solid var(--line);padding:8px 0}summary{cursor:pointer;font-weight:600}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+</style></head>
+<body><main>
+<div class="top"><span class="muted">Free tool · runs in your browser</span><button id="theme" aria-label="Toggle light or dark mode">◐ Theme</button></div>
+<h1>CCTV Storage Calculator</h1><p class="lead">Estimate how many terabytes and how many drives your camera system needs. Nothing is uploaded.</p>
+<section class="panel"><div class="grid">
+<div><label for="cams">Number of cameras</label><input id="cams" type="number" min="1" value="16">
+<label for="res">Resolution</label><select id="res"></select>
+<label for="codec">Codec</label><select id="codec"><option value="h265">H.265 / H.265+</option><option value="h264">H.264</option></select>
+<label for="mbps">Bitrate per camera (Mbps), edit to match your camera</label><input id="mbps" type="number" step="0.1" min="0.1"></div>
+<div><label for="days">Retention (days)</label><input id="days" type="number" min="1" value="30">
+<label for="rec">Recording time (% of the day)</label><input id="rec" type="number" min="1" max="100" value="100"><div class="muted">100 = continuous. Use a lower value for motion-only recording.</div>
+<label for="head">Headroom (%)</label><input id="head" type="number" min="0" value="15">
+<label for="drv">Drive size (TB)</label><input id="drv" type="number" step="0.5" min="1" value="8">
+<label for="raid">RAID level</label><select id="raid"></select></div></div>
+<div class="row"><button class="primary" id="go">Calculate</button></div><div id="out" class="out hidden"></div></section>
+<h2>How CCTV storage is calculated</h2>
+<p>Video storage depends on how much data each camera produces every second. The formula is simple:</p>
+<p><b>GB per camera per day = bitrate (Mbps) × 86,400 seconds ÷ 8 ÷ 1,000</b>. For example, a 4 Mbps stream uses 4 × 86,400 ÷ 8 ÷ 1,000 = 43.2 GB per day. Multiply by the number of cameras and days of retention, then add headroom.</p>
+<ul><li><b>Bitrate is the biggest unknown.</b> The presets are typical starting points only. Real bitrate depends on frame rate, scene motion, lighting, bitrate mode and the camera brand. Read the actual figure from your camera's web page or the recorder's status screen and type it in.</li><li><b>Motion recording</b> reduces storage only if the scene is quiet. Busy scenes can record almost all day.</li><li><b>Headroom</b> of 10 to 20% covers bitrate spikes at night, audio, and the recorder's own overhead.</li><li><b>RAID</b> trades capacity for protection. RAID 5 loses one drive's capacity, RAID 6 two, and RAID 1 or 10 half. RAID is not a backup. Surveillance-rated drives are recommended.</li><li>Drive makers use decimal terabytes (1 TB = 1,000 GB), which matches this calculator. Operating systems may show slightly less.</li></ul>
+<p>Results are estimates for planning. Confirm the final design with your recorder's capacity tool and the actual camera settings.</p>
+<h2>FAQ</h2>
+<details><summary>Is anything uploaded?</summary><p>No. Everything is calculated in your browser.</p></details>
+<details><summary>Why is my real usage different?</summary><p>Variable bitrate, scene activity, frame rate, audio and recorder overhead all change the result. Measure a few days of real usage and adjust the bitrate.</p></details>
+<details><summary>Which RAID should I use for CCTV?</summary><p>RAID 5 is common for balance, and RAID 6 is safer with many large drives. Always check your recorder's supported modes.</p></details>
+</main><div id="toast" role="status"></div>
+<script>
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),1500)}
+function setTheme(t){document.documentElement.dataset.theme=t;store.set("tl_theme",t)}
+setTheme(store.get("tl_theme",matchMedia("(prefers-color-scheme:light)").matches?"light":"dark"));
+$("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+const copy=async t=>{try{await navigator.clipboard.writeText(t)}catch{const x=document.createElement("textarea");x.value=t;document.body.append(x);x.select();document.execCommand("copy");x.remove()}toast("Copied")};
+function dl(name,text){const u=URL.createObjectURL(new Blob([text],{type:"text/plain"})),a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
+
+//CORE_START
+
+const PRESETS={"2 MP (1080p)":{h264:4,h265:2},"4 MP":{h264:6,h265:3},"5 MP":{h264:8,h265:4},"8 MP (4K)":{h264:12,h265:6}};
+const gbPerDay=mbps=>mbps*86400/8/1000;
+function storage(o){const day=gbPerDay(o.mbps)*(o.rec/100),perCam=day*o.days,total=perCam*o.cams,need=total*(1+o.head/100);
+  return{gbPerDayCam:day,gbPerCam:perCam,totalTB:total/1000,needTB:need/1000}}
+const RAID={"None (JBOD / single)":{min:1,use:n=>n},"RAID 0":{min:2,use:n=>n},"RAID 1":{min:2,use:n=>n%2?0:n/2},"RAID 5":{min:3,use:n=>n-1},"RAID 6":{min:4,use:n=>n-2},"RAID 10":{min:4,use:n=>n%2?0:n/2}};
+function drives(needTB,driveTB,raid){const r=RAID[raid];if(!r||!(driveTB>0))return null;for(let n=r.min;n<=64;n++){const u=r.use(n)*driveTB;if(u>=needTB)return{n,usableTB:u}}return null}
+
+//CORE_END
+
+$("#res").innerHTML=Object.keys(PRESETS).map(r=>`<option>${esc(r)}</option>`).join("");
+$("#raid").innerHTML=Object.keys(RAID).map(r=>`<option${r==="RAID 5"?" selected":""}>${esc(r)}</option>`).join("");
+const setM=()=>{$("#mbps").value=PRESETS[$("#res").value][$("#codec").value]};$("#res").onchange=setM;$("#codec").onchange=setM;setM();
+const n=id=>parseFloat($(id).value);
+$("#go").onclick=()=>{const o={cams:n("#cams"),mbps:n("#mbps"),days:n("#days"),rec:n("#rec"),head:isNaN(n("#head"))?0:n("#head")},out=$("#out");out.classList.remove("hidden");
+ if(![o.cams,o.mbps,o.days,o.rec].every(x=>x>0)||o.rec>100){out.innerHTML='<span class="no">Enter valid positive numbers (recording time 1–100%).</span>';return}
+ const s=storage(o),d=drives(s.needTB,n("#drv"),$("#raid").value);
+ out.innerHTML=`<div class="big">${s.needTB.toFixed(1)} TB</div><div class="muted">usable capacity needed, including ${o.head}% headroom</div><ul><li>Per camera per day: <b>${s.gbPerDayCam.toFixed(1)} GB</b></li><li>Per camera for ${o.days} days: <b>${s.gbPerCam.toFixed(0)} GB</b></li><li>All ${o.cams} cameras, no headroom: <b>${s.totalTB.toFixed(2)} TB</b></li><li>${esc($("#raid").value)} with ${n("#drv")} TB drives: <b>${d?d.n+" drives ("+d.usableTB.toFixed(1)+" TB usable)":"not possible within 64 drives. Try larger drives."}</b></li></ul>`};
+
+</script></body></html>

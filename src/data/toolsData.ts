@@ -33,6 +33,10 @@ export const IT_KEYWORDS = [
   'sla',
   'itsm',
   'cli',
+  'cctv',
+  'camera',
+  'surveillance',
+  'raid',
 ];
 
 export const CAREER_KEYWORDS = [
@@ -291,5 +295,13 @@ export const TOOLS: ToolItem[] = [
     category: 'career',
     route: '/tools/it-salary-offer-calculator',
     keywords: ['salary', 'hike', 'offer', 'compensation', 'ctc', 'variable pay', 'joining bonus', 'notice buyout', 'career', 'calculator', 'it salary', 'take home', 'tax'],
+  },
+  {
+    id: 'cctv-storage-calculator',
+    name: 'CCTV Storage Calculator',
+    description: 'Estimate how many terabytes and hard drives your IP camera system needs based on resolution, bitrate, retention days, duty cycle, and RAID level.',
+    category: 'it',
+    route: '/tools/cctv-storage-calculator',
+    keywords: ['cctv', 'camera', 'storage', 'retention', 'nvr', 'surveillance', 'raid', 'terabytes', 'bitrate', 'hard drive', 'security'],
   },
 ];

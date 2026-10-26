@@ -2792,9 +2792,106 @@ select:focus-visible {
     break-after: avoid !important;
   }
 
+  /* Interview Preparation Planner Print Optimizations (Dashboard Charts & Kanban Task Board) */
+  .summary-analytics-dashboard {
+    display: block !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 16pt !important;
+    padding: 14pt !important;
+  }
+
+  .summary-analytics-dashboard .recharts-responsive-container {
+    width: 100% !important;
+    min-height: 220px !important;
+  }
+
+  .summary-analytics-dashboard svg.recharts-surface {
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .summary-analytics-dashboard text,
+  .summary-analytics-dashboard .recharts-text {
+    fill: #1e293b !important;
+    font-size: 9pt !important;
+  }
+
+  .summary-analytics-dashboard .recharts-cartesian-axis-line,
+  .summary-analytics-dashboard .recharts-cartesian-axis-tick-line {
+    stroke: #94a3b8 !important;
+  }
+
+  .summary-analytics-dashboard .recharts-legend-wrapper,
+  .summary-analytics-dashboard .recharts-default-legend {
+    color: #1e293b !important;
+  }
+
+  .kanban-board-container {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12pt !important;
+    overflow: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    width: 100% !important;
+  }
+
+  .kanban-status-column {
+    min-width: 0 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
   a {
     color: #0284c7 !important;
     text-decoration: underline !important;
+  }
+
+  /* CCTV Storage Calculator Print Optimizations */
+  .cctv-calculator-root {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .cctv-calculator-root .panel {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .cctv-calculator-root .cctv-result-hero {
+    background: #f8fafc !important;
+    border: 2px solid #0284c7 !important;
+  }
+
+  .cctv-calculator-root input,
+  .cctv-calculator-root select {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #94a3b8 !important;
+  }
+
+  .cctv-calculator-root details {
+    border-color: #cbd5e1 !important;
+  }
+
+  .cctv-calculator-root table th,
+  .cctv-calculator-root table td {
+    color: #0f172a !important;
+    border-bottom: 1px solid #cbd5e1 !important;
   }
 }
 

@@ -171,6 +171,9 @@ const TOOL_METADATA: Record<string, RouteMetadata> = {
   '/tools/calculator': { title: 'Retirement Planning Calculator', description: 'Estimate a retirement corpus, future spending, and a simplified funding gap using editable assumptions.', canonicalPath: '/tools/retirement-planning-calculator', ogType: 'website' },
   '/tools/it-salary-offer-calculator': { title: 'IT Salary & Offer Calculator', description: 'Work out your hike %, compare two job offers realistically with variable pay adjustments, and calculate notice-period buyout costs.', canonicalPath: '/tools/it-salary-offer-calculator', ogType: 'website' },
   '/tools/salary-calculator': { title: 'IT Salary & Offer Calculator', description: 'Work out your hike %, compare two job offers realistically with variable pay adjustments, and calculate notice-period buyout costs.', canonicalPath: '/tools/it-salary-offer-calculator', ogType: 'website' },
+  '/tools/cctv-storage-calculator': { title: 'CCTV Storage Calculator – Cameras, Retention, RAID', description: 'Calculate CCTV and IP camera storage from number of cameras, resolution, bitrate, retention days and RAID level. Free, runs in your browser.', canonicalPath: '/tools/cctv-storage-calculator', ogType: 'website' },
+  '/tools/cctv-calculator': { title: 'CCTV Storage Calculator – Cameras, Retention, RAID', description: 'Calculate CCTV and IP camera storage from number of cameras, resolution, bitrate, retention days and RAID level. Free, runs in your browser.', canonicalPath: '/tools/cctv-storage-calculator', ogType: 'website' },
+  '/cctv-storage-calculator': { title: 'CCTV Storage Calculator – Cameras, Retention, RAID', description: 'Calculate CCTV and IP camera storage from number of cameras, resolution, bitrate, retention days and RAID level. Free, runs in your browser.', canonicalPath: '/tools/cctv-storage-calculator', ogType: 'website' },
 };
 
 function normalizePath(pathname: string): string {
