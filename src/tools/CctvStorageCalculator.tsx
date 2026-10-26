@@ -36,7 +36,7 @@ import {
   Cell,
 } from 'recharts';
 
-export type ResolutionPresetKey = '1080p' | '4mp' | '5mp' | '4k' | 'custom';
+export type ResolutionPresetKey = '720p' | '1080p' | '3mp' | '4mp' | '5mp' | '4k' | '12mp' | 'custom';
 export type CodecKey = 'h265' | 'h264';
 export type RaidTypeKey = 'none' | 'raid0' | 'raid1' | 'raid5' | 'raid6' | 'raid10';
 
@@ -51,6 +51,17 @@ interface PresetOption {
   driveSizeTb: number;
   raidType: RaidTypeKey;
   description: string;
+}
+
+export interface OptimizationTip {
+  id: string;
+  category: 'Codec' | 'FPS' | 'Schedule' | 'Bitrate' | 'RAID' | 'Resolution';
+  title: string;
+  description: string;
+  potentialSavings: string;
+  impactLevel: 'High' | 'Medium' | 'Informational';
+  actionButtonLabel?: string;
+  onApplyAction?: () => void;
 }
 
 const QUICK_PRESETS: PresetOption[] = [
@@ -405,11 +416,83 @@ export const CAMERA_BRAND_PRESETS: CameraBrandPreset[] = [
   },
 ];
 
+export const RESOLUTION_PRESET_DETAILS: Record<
+  Exclude<ResolutionPresetKey, 'custom'>,
+  {
+    label: string;
+    shortLabel: string;
+    megapixels: string;
+    bitrateH264: number;
+    bitrateH265: number;
+    typicalUsage: string;
+  }
+> = {
+  '720p': {
+    label: '1 MP (720p HD)',
+    shortLabel: '720p',
+    megapixels: '1.0 MP (1280×720)',
+    bitrateH264: 2.5,
+    bitrateH265: 1.2,
+    typicalUsage: 'Legacy analog HD or entry-level indoor cameras',
+  },
+  '1080p': {
+    label: '2 MP (1080p Full HD)',
+    shortLabel: '1080p',
+    megapixels: '2.0 MP (1920×1080)',
+    bitrateH264: 4.0,
+    bitrateH265: 2.0,
+    typicalUsage: 'Standard office corridors, indoor retail & cash registers',
+  },
+  '3mp': {
+    label: '3 MP (1536p)',
+    shortLabel: '3 MP',
+    megapixels: '3.0 MP (2048×1536)',
+    bitrateH264: 5.0,
+    bitrateH265: 2.5,
+    typicalUsage: 'Wide 4:3 view indoor halls & building entryways',
+  },
+  '4mp': {
+    label: '4 MP (Super HD)',
+    shortLabel: '4 MP',
+    megapixels: '4.0 MP (2560×1440)',
+    bitrateH264: 6.0,
+    bitrateH265: 3.0,
+    typicalUsage: 'Most popular modern commercial & outdoor surveillance',
+  },
+  '5mp': {
+    label: '5 MP (Quad HD)',
+    shortLabel: '5 MP',
+    megapixels: '5.0 MP (2592×1944)',
+    bitrateH264: 8.0,
+    bitrateH265: 4.0,
+    typicalUsage: 'High-detail parking lots & wide perimeter monitoring',
+  },
+  '4k': {
+    label: '8 MP (4K Ultra HD)',
+    shortLabel: '4K (8MP)',
+    megapixels: '8.0 MP (3840×2160)',
+    bitrateH264: 12.0,
+    bitrateH265: 6.0,
+    typicalUsage: 'Forensic zoom, stadiums, public plazas & license plate recognition',
+  },
+  '12mp': {
+    label: '12 MP (Fisheye / 8K)',
+    shortLabel: '12 MP',
+    megapixels: '12.0 MP (4000×3000)',
+    bitrateH264: 16.0,
+    bitrateH265: 8.0,
+    typicalUsage: '360° fisheye ceiling mounts & ultra wide-area overview',
+  },
+};
+
 const RESOLUTION_BITRATES: Record<Exclude<ResolutionPresetKey, 'custom'>, Record<CodecKey, number>> = {
+  '720p': { h264: 2.5, h265: 1.2 },
   '1080p': { h264: 4.0, h265: 2.0 },
+  '3mp': { h264: 5.0, h265: 2.5 },
   '4mp': { h264: 6.0, h265: 3.0 },
   '5mp': { h264: 8.0, h265: 4.0 },
   '4k': { h264: 12.0, h265: 6.0 },
+  '12mp': { h264: 16.0, h265: 8.0 },
 };
 
 const RAID_DEFINITIONS: Record<
@@ -728,6 +811,24 @@ export const CctvStorageCalculator: React.FC = () => {
     }
   });
 
+  const [pricePerTb, setPricePerTb] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('cctv_calc_price_per_tb');
+      return v !== null ? Math.max(0, parseFloat(v) || 25) : 25;
+    } catch {
+      return 25;
+    }
+  });
+
+  const [driveWorkloadRatingTbYr, setDriveWorkloadRatingTbYr] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('cctv_calc_tbw_rating');
+      return v !== null ? Math.max(10, parseInt(v, 10) || 180) : 180;
+    } catch {
+      return 180;
+    }
+  });
+
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [exportedCsv, setExportedCsv] = useState(false);
   const [exportedPdf, setExportedPdf] = useState(false);
@@ -802,6 +903,8 @@ export const CctvStorageCalculator: React.FC = () => {
       localStorage.setItem('cctv_calc_drv', String(driveSizeTb));
       localStorage.setItem('cctv_calc_raid', raidType);
       localStorage.setItem('cctv_calc_brand_preset', selectedBrandPresetId);
+      localStorage.setItem('cctv_calc_price_per_tb', String(pricePerTb));
+      localStorage.setItem('cctv_calc_tbw_rating', String(driveWorkloadRatingTbYr));
     } catch {
       // Ignore quota errors
     }
@@ -816,6 +919,8 @@ export const CctvStorageCalculator: React.FC = () => {
     driveSizeTb,
     raidType,
     selectedBrandPresetId,
+    pricePerTb,
+    driveWorkloadRatingTbYr,
   ]);
 
   const handleResolutionChange = (newRes: ResolutionPresetKey) => {
@@ -888,6 +993,8 @@ export const CctvStorageCalculator: React.FC = () => {
     setHeadroomPct(15);
     setDriveSizeTb(8);
     setRaidType('raid5');
+    setPricePerTb(25);
+    setDriveWorkloadRatingTbYr(180);
   };
 
   const calculations = useMemo(() => {
@@ -897,6 +1004,8 @@ export const CctvStorageCalculator: React.FC = () => {
     const safeRec = Math.min(100, Math.max(1, recordingPct || 100));
     const safeHead = Math.max(0, headroomPct || 0);
     const safeDriveTb = Math.max(0.5, driveSizeTb || 1);
+    const safePricePerTb = Math.max(0, pricePerTb || 0);
+    const safeTbwRating = Math.max(10, driveWorkloadRatingTbYr || 180);
 
     // GB per camera 24h: mbps * 86400 / 8 / 1000
     const gbPerCamera24h = (safeMbps * 86400) / 8 / 1000;
@@ -951,6 +1060,7 @@ export const CctvStorageCalculator: React.FC = () => {
       }
       const rawTb = nDrives * safeDriveTb;
       const parityTb = rawTb - uTb;
+      const driveCost = nDrives * safeDriveTb * safePricePerTb;
       return {
         key,
         label: def.label,
@@ -960,6 +1070,7 @@ export const CctvStorageCalculator: React.FC = () => {
         usableTb: uTb,
         rawTb,
         parityTb,
+        driveCost,
         possible: ok,
         isCurrent: key === raidType,
       };
@@ -971,6 +1082,27 @@ export const CctvStorageCalculator: React.FC = () => {
     const h264NeedTb = (h264DailyGb * safeDays * safeCams * (1 + safeHead / 100)) / 1000;
     const tbSavedWithH265 = Math.max(0, h264NeedTb - totalNeedTb);
 
+    // Hard drive financial budget metrics
+    const costPerDrive = safeDriveTb * safePricePerTb;
+    const totalHardDriveCost = drivesNeeded * costPerDrive;
+    const rawCostPerUsableTb = usableStorageTb > 0 ? totalHardDriveCost / usableStorageTb : 0;
+
+    // Workload & Lifespan estimation
+    const dailyTbPerDrive = drivesNeeded > 0 ? totalDailyTb / drivesNeeded : totalDailyTb;
+    const annualTbPerDrive = dailyTbPerDrive * 365.25;
+
+    // Expected mechanical lifespan (capped at 5.0 years standard vendor warranty)
+    const rawLifespanYears = annualTbPerDrive > 0 ? safeTbwRating / annualTbPerDrive : 5.0;
+    const estimatedLifespanYears = Math.min(5.0, Math.max(0.2, rawLifespanYears));
+    const estimatedLifespanMonths = Math.round(estimatedLifespanYears * 12);
+
+    const workloadPct = (annualTbPerDrive / safeTbwRating) * 100;
+    let workloadStatus: 'Low' | 'Optimal' | 'Heavy' | 'Overworked' = 'Optimal';
+    if (workloadPct < 50) workloadStatus = 'Low';
+    else if (workloadPct <= 100) workloadStatus = 'Optimal';
+    else if (workloadPct <= 150) workloadStatus = 'Heavy';
+    else workloadStatus = 'Overworked';
+
     return {
       safeMbps,
       safeCams,
@@ -978,6 +1110,18 @@ export const CctvStorageCalculator: React.FC = () => {
       safeRec,
       safeHead,
       safeDriveTb,
+      safePricePerTb,
+      safeTbwRating,
+      costPerDrive,
+      totalHardDriveCost,
+      rawCostPerUsableTb,
+      dailyTbPerDrive,
+      annualTbPerDrive,
+      rawLifespanYears,
+      estimatedLifespanYears,
+      estimatedLifespanMonths,
+      workloadPct,
+      workloadStatus,
       gbPerCamera24h,
       gbPerCameraPerDay,
       gbPerCameraRetention,
@@ -998,7 +1142,132 @@ export const CctvStorageCalculator: React.FC = () => {
       h264NeedTb,
       tbSavedWithH265,
     };
-  }, [cameras, bitrateMbps, retentionDays, recordingPct, headroomPct, driveSizeTb, raidType, codec, h265SavingsPct]);
+  }, [cameras, bitrateMbps, retentionDays, recordingPct, headroomPct, driveSizeTb, raidType, codec, h265SavingsPct, pricePerTb, driveWorkloadRatingTbYr]);
+
+  const optimizationTips = useMemo<OptimizationTip[]>(() => {
+    const tips: OptimizationTip[] = [];
+
+    // 1. CODEC OPTIMIZATION
+    if (codec === 'h264') {
+      const reductionRatio = 1 - (h265SavingsPct || 50) / 100;
+      const currentNeedTb = calculations.totalNeedTb;
+      const projectedNeedTb = currentNeedTb * reductionRatio;
+      const savedTb = Math.max(0, currentNeedTb - projectedNeedTb);
+
+      tips.push({
+        id: 'enable-h265',
+        category: 'Codec',
+        title: 'Upgrade from H.264 to H.265 / Smart Compression',
+        description: `Your system is currently calculating using the legacy H.264 standard. Modern H.265 / Smart Codecs (Axis Zipstream, Hikvision H.265+, Dahua Smart Codec) reduce stream bandwidth by ${h265SavingsPct}%.`,
+        potentialSavings: `Save ~${savedTb.toFixed(1)} TB (${h265SavingsPct}% storage reduction)`,
+        impactLevel: 'High',
+        actionButtonLabel: 'Switch to H.265',
+        onApplyAction: () => handleCodecChange('h265'),
+      });
+    }
+
+    // 2. RECORDING SCHEDULE & MOTION DETECTION
+    if (recordingPct === 100) {
+      const currentNeedTb = calculations.totalNeedTb;
+      const projectedNeedTb = (currentNeedTb * 75) / 100;
+      const savedTb = Math.max(0, currentNeedTb - projectedNeedTb);
+
+      tips.push({
+        id: 'motion-recording',
+        category: 'Schedule',
+        title: 'Enable Motion-Activated Recording Duty Cycle',
+        description: 'Your schedule is currently set to 100% continuous 24/7 recording. Configuring smart motion detection or dual-stream analytics during off-peak hours reduces daily recording duty cycle to ~75%.',
+        potentialSavings: `Save ~${savedTb.toFixed(1)} TB of disk space`,
+        impactLevel: 'High',
+        actionButtonLabel: 'Set to 75% Motion Duty Cycle',
+        onApplyAction: () => setRecordingPct(75),
+      });
+    }
+
+    // 3. FRAME RATE (FPS) TUNING
+    if (bitrateMbps >= 3.5 || resolutionPreset === '4k' || resolutionPreset === '5mp') {
+      const savedTb = calculations.totalNeedTb * 0.30;
+
+      tips.push({
+        id: 'fps-tuning',
+        category: 'FPS',
+        title: 'Optimize Frame Rate (Lower FPS from 30 to 15 FPS)',
+        description: 'CCTV rarely requires 30 fps smooth motion. Standard commercial surveillance at 15 fps provides crisp motion capture for faces and license plates while dropping stream bitrates by ~30%.',
+        potentialSavings: `Potential ~${savedTb.toFixed(1)} TB storage savings`,
+        impactLevel: 'Medium',
+        actionButtonLabel: 'Apply 15 FPS Bitrate Reduction',
+        onApplyAction: () => {
+          setBitrateMbps(prev => Math.max(0.5, parseFloat((prev * 0.7).toFixed(2))));
+          setSelectedBrandPresetId('custom');
+        },
+      });
+    }
+
+    // 4. BITRATE CONTROL MODE (VBR vs CBR)
+    if (bitrateMbps > 4.0 && resolutionPreset !== '4k') {
+      tips.push({
+        id: 'vbr-mode',
+        category: 'Bitrate',
+        title: 'Switch Camera Stream from CBR to VBR (Variable Bitrate)',
+        description: 'CBR (Constant Bitrate) forces maximum stream transmission even during empty scenes at night. VBR allows the camera encoder to automatically drop bitrate during quiet hours.',
+        potentialSavings: 'Reduces overnight storage ingestion spikes by up to 50%',
+        impactLevel: 'Medium',
+      });
+    }
+
+    // 5. RAID RESILIENCE & EFFICIENCY CHECK
+    if (raidType === 'none' || raidType === 'raid0') {
+      tips.push({
+        id: 'raid-protection',
+        category: 'RAID',
+        title: 'Warning: Enable RAID 5 or RAID 6 for Hard Drive Redundancy',
+        description: 'Your current selection (JBOD/RAID 0) offers zero disk fault tolerance. A single drive failure will permanently lose all stored video recordings across the entire system.',
+        potentialSavings: 'Prevents total catastrophic video data loss',
+        impactLevel: 'High',
+        actionButtonLabel: 'Switch to RAID 5 Protection',
+        onApplyAction: () => setRaidType('raid5'),
+      });
+    } else if ((raidType === 'raid1' || raidType === 'raid10') && calculations.drivesNeeded >= 6) {
+      tips.push({
+        id: 'raid-efficiency',
+        category: 'RAID',
+        title: 'Consider RAID 6 for Higher Capacity Storage Efficiency',
+        description: 'RAID 1/10 consumes 50% of raw disk space for mirroring. On chassis with 6+ drives, RAID 6 provides dual-disk parity protection while recovering 66-80% usable capacity.',
+        potentialSavings: 'Gains 15-30% additional usable storage capacity',
+        impactLevel: 'Medium',
+        actionButtonLabel: 'Switch to RAID 6',
+        onApplyAction: () => setRaidType('raid6'),
+      });
+    }
+
+    // 6. HEADROOM BUFFER TUNING
+    if (headroomPct > 20) {
+      const excessPct = headroomPct - 15;
+      const savedTb = calculations.totalNeedTb * (excessPct / 100);
+      tips.push({
+        id: 'headroom-buffer',
+        category: 'Bitrate',
+        title: 'Tune Safety Headroom Buffer to Standard 15%',
+        description: 'Your headroom safety buffer is set above 20%. A 15% headroom buffer is the industry standard for covering night noise spikes and audio without over-allocating hard drive space.',
+        potentialSavings: `Frees ~${savedTb.toFixed(1)} TB array headroom`,
+        impactLevel: 'Informational',
+        actionButtonLabel: 'Set Headroom to 15%',
+        onApplyAction: () => setHeadroomPct(15),
+      });
+    }
+
+    // 7. SURVEILLANCE-GRADE HDD SPECIFICATION
+    tips.push({
+      id: 'surveillance-hdds',
+      category: 'Bitrate',
+      title: 'Deploy Surveillance-Rated Enterprise Hard Drives',
+      description: 'Use dedicated 24/7 surveillance drives (e.g. Western Digital Purple Pro, Seagate SkyHawk AI) designed for 90% write / 10% read duty cycles rather than standard desktop PC HDDs which fail prematurely under heavy multi-camera NVR write loads.',
+      potentialSavings: 'Ensures 24/7 continuous write reliability & full warranty coverage',
+      impactLevel: 'Informational',
+    });
+
+    return tips;
+  }, [codec, bitrateMbps, recordingPct, headroomPct, resolutionPreset, raidType, calculations, h265SavingsPct]);
 
   const handleCopySummary = () => {
     const text = `=====================================================
@@ -2027,22 +2296,165 @@ DRIVE ARRAY & RAID SPECIFICATION:
               )}
             </div>
 
-            {/* Resolution Preset */}
-            <div className="form-field" style={{ marginBottom: '16px' }}>
-              <label htmlFor="res" style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                Camera Resolution
-              </label>
+            {/* Resolution Preset & Bitrate Standards */}
+            <div
+              style={{
+                marginBottom: '16px',
+                padding: '14px',
+                background: 'rgba(255, 255, 255, 0.02)',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '8px',
+                  flexWrap: 'wrap',
+                  gap: '6px',
+                }}
+              >
+                <label
+                  htmlFor="res"
+                  style={{
+                    fontWeight: 700,
+                    fontSize: '0.86rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    color: 'var(--text-heading)',
+                    margin: 0,
+                  }}
+                >
+                  <Sliders className="w-4 h-4 text-sky-400" />
+                  Camera Resolution &amp; Bitrate Presets
+                </label>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  Auto-populates standard bitrates
+                </span>
+              </div>
+
+              {/* Quick Resolution Preset Pill Buttons */}
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                {(Object.keys(RESOLUTION_PRESET_DETAILS) as Array<Exclude<ResolutionPresetKey, 'custom'>>).map(key => {
+                  const details = RESOLUTION_PRESET_DETAILS[key];
+                  const isSelected = resolutionPreset === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleResolutionChange(key)}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '0.72rem',
+                        borderRadius: '4px',
+                        background: isSelected ? 'var(--accent)' : 'var(--bg)',
+                        color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                        border: '1px solid var(--border)',
+                        cursor: 'pointer',
+                        fontWeight: isSelected ? 700 : 400,
+                      }}
+                      title={`${details.label} (${details.megapixels}) - Default bitrate: ${RESOLUTION_BITRATES[key][codec]} Mbps (${codec.toUpperCase()})`}
+                    >
+                      {details.shortLabel}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setResolutionPreset('custom')}
+                  style={{
+                    padding: '3px 8px',
+                    fontSize: '0.72rem',
+                    borderRadius: '4px',
+                    background: resolutionPreset === 'custom' ? 'var(--accent)' : 'var(--bg)',
+                    color: resolutionPreset === 'custom' ? '#ffffff' : 'var(--text-muted)',
+                    border: '1px solid var(--border)',
+                    cursor: 'pointer',
+                    fontWeight: resolutionPreset === 'custom' ? 700 : 400,
+                  }}
+                >
+                  Custom
+                </button>
+              </div>
+
+              {/* Resolution Dropdown */}
               <select
                 id="res"
                 value={resolutionPreset}
                 onChange={e => handleResolutionChange(e.target.value as ResolutionPresetKey)}
+                style={{
+                  fontSize: '0.85rem',
+                  padding: '8px 10px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  width: '100%',
+                }}
               >
-                <option value="1080p">2 MP (1080p Full HD)</option>
-                <option value="4mp">4 MP (Super HD)</option>
-                <option value="5mp">5 MP (Quad HD)</option>
-                <option value="4k">8 MP (4K Ultra HD)</option>
-                <option value="custom">Custom Resolution</option>
+                {(Object.keys(RESOLUTION_PRESET_DETAILS) as Array<Exclude<ResolutionPresetKey, 'custom'>>).map(key => {
+                  const details = RESOLUTION_PRESET_DETAILS[key];
+                  const curMbps = RESOLUTION_BITRATES[key][codec];
+                  const altCodec: CodecKey = codec === 'h265' ? 'h264' : 'h265';
+                  const altMbps = RESOLUTION_BITRATES[key][altCodec];
+                  return (
+                    <option key={key} value={key}>
+                      {details.label} · Preset: {curMbps} Mbps ({codec.toUpperCase()}) / {altMbps} Mbps ({altCodec.toUpperCase()})
+                    </option>
+                  );
+                })}
+                <option value="custom">-- Custom / Manual Bitrate Entry --</option>
               </select>
+
+              {/* Active Resolution Detail Info Card */}
+              {resolutionPreset !== 'custom' && RESOLUTION_PRESET_DETAILS[resolutionPreset] ? (
+                <div
+                  style={{
+                    marginTop: '10px',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    background: 'rgba(56, 189, 248, 0.08)',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                    fontSize: '0.78rem',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '4px',
+                      flexWrap: 'wrap',
+                      gap: '6px',
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: 'var(--text-heading)' }}>
+                      {RESOLUTION_PRESET_DETAILS[resolutionPreset].label} ({RESOLUTION_PRESET_DETAILS[resolutionPreset].megapixels})
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: 'rgba(56, 189, 248, 0.2)',
+                        color: '#38bdf8',
+                      }}
+                    >
+                      Default: {RESOLUTION_BITRATES[resolutionPreset][codec]} Mbps ({codec.toUpperCase()})
+                    </span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    <b>Typical Application:</b> {RESOLUTION_PRESET_DETAILS[resolutionPreset].typicalUsage}
+                  </p>
+                </div>
+              ) : (
+                <p style={{ margin: '6px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  Don&apos;t know your camera&apos;s exact bitrate? Selecting a resolution populates standard industry starting points (e.g. 2 Mbps for 1080p, 3 Mbps for 4MP, 6 Mbps for 4K under H.265).
+                </p>
+              )}
             </div>
 
             {/* Codec Toggle Switch & Efficiency Multiplier */}
@@ -2401,6 +2813,126 @@ DRIVE ARRAY & RAID SPECIFICATION:
                 {RAID_DEFINITIONS[raidType].description}
               </p>
             </div>
+
+            {/* Hard Drive Unit Price ($/TB) for Project Budgeting */}
+            <div className="form-field" style={{ marginTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label htmlFor="price-tb" style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                  Drive Price per TB ($)
+                </label>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {[20, 25, 30, 35].map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPricePerTb(p)}
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.72rem',
+                        borderRadius: '4px',
+                        background: pricePerTb === p ? 'var(--emerald)' : 'var(--bg)',
+                        color: pricePerTb === p ? '#ffffff' : 'var(--text-muted)',
+                        border: '1px solid var(--border)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ${p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input
+                id="price-tb"
+                type="number"
+                step="1"
+                min="0"
+                max="500"
+                value={pricePerTb}
+                onChange={e => setPricePerTb(Math.max(0, parseFloat(e.target.value) || 0))}
+              />
+              <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Surveillance-rated HDDs (WD Purple Pro, Seagate SkyHawk AI) average $20–$35/TB.
+              </p>
+            </div>
+
+            {/* Drive Workload Rating (TB/year) */}
+            <div className="form-field" style={{ marginTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '4px' }}>
+                <label htmlFor="tbw-rating" style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                  Workload Rating (TB/year)
+                </label>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {[
+                    { label: '55 TB/yr (Desktop)', val: 55 },
+                    { label: '180 TB/yr (Standard)', val: 180 },
+                    { label: '300 TB/yr (Commercial)', val: 300 },
+                    { label: '550 TB/yr (Enterprise AI)', val: 550 },
+                  ].map(w => (
+                    <button
+                      key={w.val}
+                      type="button"
+                      onClick={() => setDriveWorkloadRatingTbYr(w.val)}
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.7rem',
+                        borderRadius: '4px',
+                        background: driveWorkloadRatingTbYr === w.val ? 'var(--accent)' : 'var(--bg)',
+                        color: driveWorkloadRatingTbYr === w.val ? '#ffffff' : 'var(--text-muted)',
+                        border: '1px solid var(--border)',
+                        cursor: 'pointer',
+                        fontWeight: driveWorkloadRatingTbYr === w.val ? 700 : 400,
+                      }}
+                      title={w.label}
+                    >
+                      {w.val}TB
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input
+                id="tbw-rating"
+                type="number"
+                step="10"
+                min="10"
+                max="1000"
+                value={driveWorkloadRatingTbYr}
+                onChange={e => setDriveWorkloadRatingTbYr(Math.max(10, parseInt(e.target.value, 10) || 180))}
+              />
+              <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Standard surveillance drives = 180 TB/yr; Enterprise AI drives = 550 TB/yr.
+              </p>
+            </div>
+
+            {/* Hard Drive Budget Callout Box */}
+            {calculations.possible && (
+              <div
+                style={{
+                  marginTop: '16px',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    Hard Drive Project Cost
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--emerald)' }}>
+                    ${calculations.totalHardDriveCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  <div>{calculations.drivesNeeded} drives × ${calculations.costPerDrive.toFixed(0)}/disk</div>
+                  <div>~${calculations.rawCostPerUsableTb.toFixed(1)}/usable TB</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2429,32 +2961,66 @@ DRIVE ARRAY & RAID SPECIFICATION:
                 </div>
               </div>
 
-              {/* Hardware Recommendation Card */}
-              <div
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '12px',
-                  padding: '14px 18px',
-                  textAlign: 'right',
-                }}
-              >
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  RECOMMENDED DISKS
+              {/* Hardware & Budget Summary Cards */}
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {/* Hardware Recommendation Card */}
+                <div
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '14px 18px',
+                    textAlign: 'right',
+                    minWidth: '160px',
+                  }}
+                >
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    RECOMMENDED DISKS
+                  </div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: '4px 0' }}>
+                    {calculations.possible ? (
+                      `${calculations.drivesNeeded} drives (${calculations.usableStorageTb.toFixed(1)} TB usable)`
+                    ) : (
+                      <span style={{ color: 'var(--rose)' }}>Not possible within 64 drives</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--emerald)', fontWeight: 600 }}>
+                    {calculations.possible ? (
+                      `${RAID_DEFINITIONS[raidType].label.split(' ')[0]} with ${calculations.safeDriveTb} TB drives`
+                    ) : (
+                      'Try larger drives'
+                    )}
+                  </div>
                 </div>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: '4px 0' }}>
-                  {calculations.possible ? (
-                    `${calculations.drivesNeeded} drives (${calculations.usableStorageTb.toFixed(1)} TB usable)`
-                  ) : (
-                    <span style={{ color: 'var(--rose)' }}>Not possible within 64 drives</span>
-                  )}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--emerald)', fontWeight: 600 }}>
-                  {calculations.possible ? (
-                    `${RAID_DEFINITIONS[raidType].label.split(' ')[0]} with ${calculations.safeDriveTb} TB drives`
-                  ) : (
-                    'Try larger drives'
-                  )}
+
+                {/* Hard Drive Budget Card */}
+                <div
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '14px 18px',
+                    textAlign: 'right',
+                    minWidth: '160px',
+                  }}
+                >
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    HARD DRIVE BUDGET
+                  </div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--emerald)', margin: '4px 0' }}>
+                    {calculations.possible ? (
+                      `$${calculations.totalHardDriveCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                    ) : (
+                      'N/A'
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {calculations.possible ? (
+                      `@ $${calculations.safePricePerTb}/TB (${calculations.drivesNeeded} × ${calculations.safeDriveTb}TB)`
+                    ) : (
+                      'Adjust drive setup'
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2479,6 +3045,135 @@ DRIVE ARRAY & RAID SPECIFICATION:
                 </b>
               </li>
             </ul>
+          </div>
+
+          {/* Estimated Drive Lifespan & Mechanical Workload Reliability */}
+          <div
+            className="panel"
+            style={{
+              padding: '20px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: '16px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '14px',
+                flexWrap: 'wrap',
+                gap: '8px',
+              }}
+            >
+              <h4
+                style={{
+                  fontSize: '0.98rem',
+                  fontWeight: 700,
+                  margin: 0,
+                  color: 'var(--text-heading)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <HardDrive className="w-4 h-4 text-emerald-400" />
+                Drive Expected Lifespan &amp; Workload Reliability
+              </h4>
+
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  background:
+                    calculations.workloadStatus === 'Overworked'
+                      ? 'rgba(239, 68, 68, 0.15)'
+                      : calculations.workloadStatus === 'Heavy'
+                      ? 'rgba(245, 158, 11, 0.15)'
+                      : 'rgba(16, 185, 129, 0.15)',
+                  color:
+                    calculations.workloadStatus === 'Overworked'
+                      ? 'var(--rose)'
+                      : calculations.workloadStatus === 'Heavy'
+                      ? 'var(--amber)'
+                      : 'var(--emerald)',
+                  border: `1px solid ${
+                    calculations.workloadStatus === 'Overworked'
+                      ? 'var(--rose)'
+                      : calculations.workloadStatus === 'Heavy'
+                      ? 'var(--amber)'
+                      : 'var(--emerald)'
+                  }`,
+                }}
+              >
+                {calculations.workloadStatus} Workload ({calculations.workloadPct.toFixed(0)}% of TBW limit)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center mb-3">
+              {/* Estimated Lifespan Hero Stat */}
+              <div
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Estimated Drive Lifespan
+                </div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--emerald)', lineHeight: 1.1 }}>
+                  {calculations.estimatedLifespanYears.toFixed(1)} Years
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  ~{calculations.estimatedLifespanMonths} Months estimated write operation
+                </div>
+              </div>
+
+              {/* Workload Rates Summary */}
+              <div
+                style={{
+                  padding: '14px',
+                  borderRadius: '12px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  fontSize: '0.82rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Daily System Ingestion:</span>
+                  <strong style={{ color: 'var(--text-heading)' }}>{calculations.totalDailyTb.toFixed(2)} TB/day</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Write Rate per Disk:</span>
+                  <strong style={{ color: '#38bdf8' }}>{calculations.dailyTbPerDrive.toFixed(2)} TB/day/disk</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Annual Disk Workload:</span>
+                  <strong style={{ color: 'var(--text-heading)' }}>{calculations.annualTbPerDrive.toFixed(1)} TB/year</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Drive Rated Limit:</span>
+                  <strong style={{ color: 'var(--emerald)' }}>{calculations.safeTbwRating} TB/year</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Assessment Note */}
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              {calculations.workloadStatus === 'Overworked'
+                ? `⚠️ High Risk: At ${calculations.annualTbPerDrive.toFixed(1)} TB/yr write rate per drive, the workload exceeds the ${calculations.safeTbwRating} TB/yr rated limit. Consider upgrading to Enterprise/AI Surveillance drives (550 TB/yr) or adding more drives to prevent accelerated mechanical wear.`
+                : calculations.workloadStatus === 'Heavy'
+                ? `⚠️ Moderate Risk: Drives operate near their maximum ${calculations.safeTbwRating} TB/yr workload limit. Expected lifespan is ~${calculations.estimatedLifespanYears.toFixed(1)} years.`
+                : `✅ Low Risk: Drives operate well within their ${calculations.safeTbwRating} TB/yr rated limit (${calculations.workloadPct.toFixed(0)}% utilization), ensuring reliable write operation across the standard 3 to 5 year warranty period.`}
+            </p>
           </div>
 
           {/* D3.js Circular Storage Progress Gauge */}
@@ -2770,6 +3465,172 @@ DRIVE ARRAY & RAID SPECIFICATION:
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Dynamic Storage Optimization Tips Panel */}
+      <div
+        className="panel"
+        style={{
+          padding: '24px',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: '16px',
+          marginBottom: '32px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '16px',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div>
+            <h3
+              style={{
+                fontSize: '1.2rem',
+                fontWeight: 800,
+                margin: '0 0 4px',
+                color: 'var(--text-heading)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Sparkles className="w-5 h-5 text-amber-400" />
+              Dynamic Storage Optimization Tips
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+              Tailored engineering recommendations to reduce disk capacity demands and optimize drive array costs based on your current inputs.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span
+              className="pill"
+              style={{
+                fontSize: '0.78rem',
+                padding: '4px 10px',
+                background: 'rgba(245, 158, 11, 0.15)',
+                color: 'var(--amber)',
+                fontWeight: 700,
+                borderRadius: '6px',
+              }}
+            >
+              ⚡ {optimizationTips.length} Active Tips
+            </span>
+          </div>
+        </div>
+
+        {/* Tip Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {optimizationTips.map(tip => {
+            let impactBg = 'rgba(56, 189, 248, 0.12)';
+            let impactColor = 'var(--brand)';
+            let impactBorder = 'rgba(56, 189, 248, 0.3)';
+
+            if (tip.impactLevel === 'High') {
+              impactBg = 'rgba(16, 185, 129, 0.12)';
+              impactColor = 'var(--emerald)';
+              impactBorder = 'rgba(16, 185, 129, 0.3)';
+            } else if (tip.impactLevel === 'Informational') {
+              impactBg = 'rgba(168, 85, 247, 0.12)';
+              impactColor = '#c084fc';
+              impactBorder = 'rgba(168, 85, 247, 0.3)';
+            }
+
+            return (
+              <div
+                key={tip.id}
+                style={{
+                  padding: '16px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: 'var(--text-muted)',
+                        border: '1px solid var(--border)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      {tip.category}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        background: impactBg,
+                        color: impactColor,
+                        border: `1px solid ${impactBorder}`,
+                      }}
+                    >
+                      {tip.impactLevel} Impact
+                    </span>
+                  </div>
+
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 6px', color: 'var(--text-heading)' }}>
+                    {tip.title}
+                  </h4>
+
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
+                    {tip.description}
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    paddingTop: '10px',
+                    borderTop: '1px solid var(--border)',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                  }}
+                >
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--emerald)' }}>
+                    💡 {tip.potentialSavings}
+                  </span>
+
+                  {tip.actionButtonLabel && tip.onApplyAction && (
+                    <button
+                      type="button"
+                      className="button button-primary"
+                      onClick={tip.onApplyAction}
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      {tip.actionButtonLabel}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
