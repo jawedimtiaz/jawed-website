@@ -284,4 +284,12 @@ export const TOOLS: ToolItem[] = [
     category: 'finance',
     route: '/tools/retirement-planning-calculator',
   },
+  {
+    id: 'it-salary-offer-calculator',
+    name: 'IT Salary & Offer Calculator',
+    description: 'Work out your hike %, compare two job offers realistically with variable pay and bonus adjustments, and calculate notice-period buyout costs.',
+    category: 'career',
+    route: '/tools/it-salary-offer-calculator',
+    keywords: ['salary', 'hike', 'offer', 'compensation', 'ctc', 'variable pay', 'joining bonus', 'notice buyout', 'career', 'calculator', 'it salary', 'take home', 'tax'],
+  },
 ];

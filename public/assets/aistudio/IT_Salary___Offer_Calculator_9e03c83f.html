@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IT Salary & Offer Calculator – Hike, Compare Offers, Notice Buyout</title><meta name="description" content="Free calculators for IT professionals: salary hike %, job offer comparison with variable pay and bonus, and notice period buyout. Runs in your browser."><style>
+:root{--bg:#0f172a;--card:#16213a;--text:#e2e8f0;--muted:#94a3b8;--line:#2a3857;--brand:#38bdf8;--brand2:#818cf8;--good:#34d399;--bad:#f87171;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[data-theme=light]{--bg:#f4f7fb;--card:#fff;--text:#0f172a;--muted:#5b6b86;--line:#dbe3ef;--brand:#0284c7;--brand2:#4f46e5;--good:#059669;--bad:#dc2626}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+main{max-width:980px;margin:0 auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{font-size:clamp(26px,5vw,38px);margin:.3em 0 .1em;background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{margin-top:1.6em}.lead,.muted{color:var(--muted)}.muted{font-size:14px}
+button,select,input,textarea{font:inherit;color:var(--text)}
+button{cursor:pointer;background:transparent;border:1px solid var(--line);border-radius:10px;padding:7px 14px}
+button.on,button.primary{background:linear-gradient(90deg,var(--brand),var(--brand2));border:0;color:#fff;font-weight:600}button.primary{padding:11px 22px}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:80px;resize:vertical}label{display:block;font-weight:600;margin:12px 0 4px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px}
+.out{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:var(--bg)}.pre{white-space:pre-wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}.ok{color:var(--good)}.no{color:var(--bad)}
+ul{padding-left:20px}.hidden{display:none!important}.big{font-size:30px;font-weight:800}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none}#toast.on{opacity:1}
+details{border-top:1px solid var(--line);padding:8px 0}summary{cursor:pointer;font-weight:600}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+</style></head>
+<body><main>
+<div class="top"><span class="muted">Free tool · runs in your browser</span><button id="theme" aria-label="Toggle light or dark mode">◐ Theme</button></div>
+<h1>IT Salary & Offer Calculator</h1><p class="lead">Work out your hike, compare two job offers realistically, and estimate a notice-period buyout. Nothing is uploaded.</p>
+<div class="row"><button data-m="hike" class="on">Hike</button><button data-m="cmp">Compare offers</button><button data-m="buy">Notice buyout</button>
+<select id="cur" style="width:auto" aria-label="Currency"><option value="en-IN|₹">₹ INR</option><option value="en-US|$">$ USD</option><option value="en-GB|£">£ GBP</option><option value="de-DE|€">€ EUR</option></select></div>
+<section id="m-hike" class="panel"><div class="grid"><div><label for="h1">Current annual salary / CTC</label><input id="h1" inputmode="decimal"></div>
+<div><label for="h2">New annual offer</label><input id="h2" inputmode="decimal"></div>
+<div><label for="h3">Or: hike % to apply to current</label><input id="h3" inputmode="decimal" placeholder="e.g. 30"></div></div>
+<div class="row"><button class="primary" id="hb">Calculate</button></div><div id="ho" class="out hidden"></div></section>
+<section id="m-cmp" class="panel hidden"><div class="grid" id="cg"></div><div class="row"><button class="primary" id="cb">Compare</button></div><div id="co"></div></section>
+<section id="m-buy" class="panel hidden"><div class="grid"><div><label for="b1">Monthly gross salary</label><input id="b1" inputmode="decimal"></div><div><label for="b2">Notice days you want to buy out</label><input id="b2" inputmode="decimal"></div></div>
+<div class="row"><button class="primary" id="bb">Calculate</button></div><div id="bo" class="out hidden"></div><p class="muted">Employers set their own buyout terms (some use gross, some fixed pay only). Check your contract.</p></section>
+<h2>How to use these calculators</h2>
+<p><b>Hike:</b> enter your current pay and the new offer to see the increase in money and percent, or enter a hike percentage to see what it means in rupees. <b>Compare offers:</b> a higher headline CTC is not always better. Variable pay is usually not guaranteed, so this tool lets you enter the payout you realistically expect (for example 80% of target) and adds joining bonus and other annual benefits. <b>Notice buyout:</b> a quick estimate of the cost of leaving before your notice period ends.</p>
+<ul><li>Tax and provident fund are not looked up for you. Tax rules and slabs change, so enter your own effective tax percentage and monthly deductions from your payslip or a tax professional.</li><li>Results are estimates for comparison, not tax, legal or financial advice.</li><li>Always confirm what is fixed, what is variable and what is a one-time payment before accepting an offer.</li></ul>
+<h2>FAQ</h2>
+<details><summary>Does this send my salary anywhere?</summary><p>No. All calculations run in your browser and nothing is stored or uploaded.</p></details>
+<details><summary>What is a good hike when changing jobs?</summary><p>It depends on role, skills, market and location. Use the calculator to see your number, then compare it with salary surveys for your role and city.</p></details>
+<details><summary>Why does the tool ask for my tax percentage?</summary><p>Because the correct figure depends on your regime, deductions and year. Entering your own keeps the estimate honest instead of guessing.</p></details>
+</main><div id="toast" role="status"></div>
+<script>
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),1500)}
+function setTheme(t){document.documentElement.dataset.theme=t;store.set("tl_theme",t)}
+setTheme(store.get("tl_theme",matchMedia("(prefers-color-scheme:light)").matches?"light":"dark"));
+$("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+const copy=async t=>{try{await navigator.clipboard.writeText(t)}catch{const x=document.createElement("textarea");x.value=t;document.body.append(x);x.select();document.execCommand("copy");x.remove()}toast("Copied")};
+function dl(name,text){const u=URL.createObjectURL(new Blob([text],{type:"text/plain"})),a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
+
+//CORE_START
+
+const num=x=>{const n=parseFloat(String(x).replace(/,/g,"").trim());return isFinite(n)?n:null};
+function hike(cur,nw){if(cur==null||nw==null||cur<=0)return null;return{diff:nw-cur,pct:(nw-cur)/cur*100}}
+function offer(o){const fixed=o.fixed||0,vt=fixed*(o.varPct||0)/100,ve=vt*(o.payout==null?100:o.payout)/100,bonus=o.bonus||0,other=o.other||0,tax=o.tax||0,pf=o.pf||0;
+  const total=fixed+ve+bonus+other,monthly=fixed/12*(1-tax/100)-pf,annualNet=total*(1-tax/100)-pf*12;
+  return{fixed,varTarget:vt,varExpected:ve,total,monthly,annualNet}}
+function buyout(monthly,days){if(monthly==null||days==null||monthly<0||days<0)return null;return monthly/30*days}
+
+//CORE_END
+
+let L="en-IN",S="₹";
+const fm=n=>n==null?"Not Provided":S+Math.round(n).toLocaleString(L);
+const pc=n=>n.toFixed(1)+"%";
+$("#cur").onchange=e=>{[L,S]=e.target.value.split("|")};
+document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-m]").forEach(x=>x.classList.toggle("on",x===b));["hike","cmp","buy"].forEach(m=>$("#m-"+m).classList.toggle("hidden",m!==b.dataset.m))});
+$("#hb").onclick=()=>{const c=num($("#h1").value);let n=num($("#h2").value);const p=num($("#h3").value),o=$("#ho");o.classList.remove("hidden");
+ if(c==null||c<=0){o.innerHTML='<span class="no">Enter your current salary.</span>';return}
+ if(n==null&&p!=null)n=c*(1+p/100);
+ const r=hike(c,n);if(!r){o.innerHTML='<span class="no">Enter a new offer or a hike %.</span>';return}
+ o.innerHTML=`<div class="big ${r.diff>=0?"ok":"no"}">${r.diff>=0?"+":""}${pc(r.pct)}</div><ul><li>New annual: <b>${fm(n)}</b></li><li>Change per year: <b>${fm(r.diff)}</b></li><li>Change per month (gross): <b>${fm(r.diff/12)}</b></li></ul>`};
+const FIELDS=[["fixed","Fixed annual pay"],["varPct","Variable pay (% of fixed)"],["payout","Expected variable payout (%)"],["bonus","Joining / one-time bonus"],["other","Other annual benefits (value)"],["tax","Your effective tax %"],["pf","Monthly PF / other deductions"]];
+$("#cg").innerHTML=["A","B"].map(k=>`<div><b>Offer ${k}</b>${FIELDS.map(([f,l])=>`<label for="${k}${f}">${l}</label><input id="${k}${f}" inputmode="decimal">`).join("")}</div>`).join("");
+const rd=k=>{const g=f=>num($("#"+k+f).value);return{fixed:g("fixed"),varPct:g("varPct"),payout:g("payout"),bonus:g("bonus"),other:g("other"),tax:g("tax"),pf:g("pf")}};
+$("#cb").onclick=()=>{const a=rd("A"),b=rd("B");if(!a.fixed||!b.fixed){$("#co").innerHTML='<p class="no">Enter fixed pay for both offers.</p>';return}
+ const A=offer(a),B=offer(b),w=(x,y)=>x>y?"ok":"";const rows=[["Fixed annual",A.fixed,B.fixed],["Variable (expected)",A.varExpected,B.varExpected],["Expected annual total",A.total,B.total],["Est. monthly in-hand (fixed only)",A.monthly,B.monthly],["Est. annual after tax",A.annualNet,B.annualNet]];
+ $("#co").innerHTML=`<table><tr><th></th><th>Offer A</th><th>Offer B</th></tr>${rows.map(([l,x,y])=>`<tr><td>${l}</td><td class="${w(x,y)}">${fm(x)}</td><td class="${w(y,x)}">${fm(y)}</td></tr>`).join("")}</table><p class="muted">Green marks the higher figure. Tax % and deductions are your own inputs; blank fields count as 0. Variable pay is not guaranteed.</p>`};
+$("#bb").onclick=()=>{const m=num($("#b1").value),d=num($("#b2").value),r=buyout(m,d),o=$("#bo");o.classList.remove("hidden");o.innerHTML=r==null?'<span class="no">Enter monthly salary and days.</span>':`<div class="big">${fm(r)}</div><p class="muted">${fm(m)} ÷ 30 × ${d} days</p>`};
+
+</script></body></html>

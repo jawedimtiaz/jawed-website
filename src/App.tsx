@@ -44,6 +44,7 @@ import { FinancePlanningWorkspace } from './tools/FinancePlanningWorkspace';
 import { CompoundGrowthCalculator } from './tools/CompoundGrowthCalculator';
 import { InflationGoalCalculator } from './tools/InflationGoalCalculator';
 import { RetirementPlanningCalculator } from './tools/RetirementPlanningCalculator';
+import { ItSalaryOfferCalculator } from './tools/ItSalaryOfferCalculator';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -116,6 +117,8 @@ export const App: React.FC = () => {
           <Route path="/tools/inflation-goal-planning-calculator" element={<InflationGoalCalculator />} />
           <Route path="/tools/retirement-planning-calculator" element={<RetirementPlanningCalculator />} />
           <Route path="/tools/calculator" element={<RetirementPlanningCalculator />} />
+          <Route path="/tools/it-salary-offer-calculator" element={<ItSalaryOfferCalculator />} />
+          <Route path="/tools/salary-calculator" element={<ItSalaryOfferCalculator />} />
 
           {/* Services & Dispatch */}
           <Route path="/services" element={<ServicesDispatchPage />} />

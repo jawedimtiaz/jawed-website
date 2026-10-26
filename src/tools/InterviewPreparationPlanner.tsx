@@ -66,6 +66,9 @@ import {
   Layers,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
+  SlidersHorizontal,
+  Save,
   Bell,
   BellRing,
   Share2,
@@ -469,6 +472,12 @@ interface DroppableStatusColumnProps {
   colStatus: StoryStatus;
   count: number;
   isOverCol: boolean;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
   children: React.ReactNode;
 }
 
@@ -476,6 +485,12 @@ const DroppableStatusColumn: React.FC<DroppableStatusColumnProps> = ({
   colStatus,
   count,
   isOverCol,
+  canMoveLeft,
+  canMoveRight,
+  onMoveLeft,
+  onMoveRight,
+  isCollapsed,
+  onToggleCollapse,
   children,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
@@ -487,6 +502,64 @@ const DroppableStatusColumn: React.FC<DroppableStatusColumnProps> = ({
   });
 
   const highlighted = isOverCol || isOver;
+
+  if (isCollapsed) {
+    return (
+      <div
+        ref={setNodeRef}
+        className="panel"
+        style={{
+          background: highlighted ? 'rgba(56, 189, 248, 0.08)' : 'var(--surface)',
+          border: highlighted ? '2px dashed var(--accent)' : '1px solid var(--border)',
+          borderRadius: '16px',
+          padding: '16px 8px',
+          minHeight: '380px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '12px',
+          transition: 'all 0.15s ease',
+          boxShadow: highlighted ? '0 0 16px rgba(56, 189, 248, 0.28)' : 'none',
+          cursor: 'pointer',
+        }}
+        onClick={onToggleCollapse}
+        title={`Click to expand ${colStatus} column (${count} tasks)`}
+      >
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleCollapse?.();
+          }}
+          style={{ padding: '3px 6px', fontSize: '0.7rem' }}
+          title={`Expand ${colStatus} column`}
+          aria-label={`Expand ${colStatus} column`}
+        >
+          <ChevronRight className="w-3.5 h-3.5 text-sky-400" />
+        </button>
+
+        <span className="pill" style={{ margin: 0, fontWeight: 700, fontSize: '0.72rem' }}>
+          {count}
+        </span>
+
+        <div
+          style={{
+            writingMode: 'vertical-rl',
+            transform: 'rotate(180deg)',
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            color: 'var(--text-heading)',
+            letterSpacing: '0.04em',
+            whiteSpace: 'nowrap',
+            marginTop: '8px',
+          }}
+        >
+          {colStatus === 'To Do' ? '⏳ To Do' : colStatus === 'In Progress' ? '🔄 In Progress' : '✅ Done'}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -506,12 +579,55 @@ const DroppableStatusColumn: React.FC<DroppableStatusColumnProps> = ({
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
-        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {colStatus === 'To Do' ? '⏳ To Do' : colStatus === 'In Progress' ? '🔄 In Progress' : '✅ Done'}
-        </h3>
-        <span className="pill" style={{ margin: 0, fontWeight: 700 }}>
-          {count}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {onToggleCollapse && (
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={onToggleCollapse}
+              style={{ padding: '3px 5px', fontSize: '0.7rem' }}
+              title={`Collapse ${colStatus} column`}
+              aria-label={`Collapse ${colStatus} column`}
+            >
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+          )}
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {colStatus === 'To Do' ? '⏳ To Do' : colStatus === 'In Progress' ? '🔄 In Progress' : '✅ Done'}
+          </h3>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className="pill" style={{ margin: 0, fontWeight: 700 }}>
+            {count}
+          </span>
+          <div style={{ display: 'flex', gap: '2px' }}>
+            {canMoveLeft && (
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={onMoveLeft}
+                style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                title="Move column left"
+                aria-label={`Move ${colStatus} column left`}
+              >
+                ◀
+              </button>
+            )}
+            {canMoveRight && (
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={onMoveRight}
+                style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                title="Move column right"
+                aria-label={`Move ${colStatus} column right`}
+              >
+                ▶
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
@@ -924,7 +1040,17 @@ const DragOverlayStatusCard: React.FC<DragOverlayStatusCardProps> = ({
 };
 
 export const InterviewPreparationPlanner: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'builder' | 'vault' | 'archive' | 'questions' | 'guide'>('builder');
+  const [activeTab, setActiveTab] = useState<'builder' | 'vault' | 'archive' | 'questions' | 'guide'>(() => {
+    try {
+      const saved = localStorage.getItem('ipp_active_tab');
+      if (saved && ['builder', 'vault', 'archive', 'questions', 'guide'].includes(saved)) {
+        return saved as 'builder' | 'vault' | 'archive' | 'questions' | 'guide';
+      }
+    } catch {
+      // ignore
+    }
+    return 'builder';
+  });
 
   const [roleTitle, setRoleTitle] = useState(() => {
     return localStorage.getItem('ipp_role') || 'Senior IT Support Specialist';
@@ -1003,9 +1129,45 @@ export const InterviewPreparationPlanner: React.FC = () => {
 
   // Vault Search, Filter, Sort, and Grouping States
   const [searchVault, setSearchVault] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | StoryStatus>('All');
-  const [categoryFilter, setCategoryFilter] = useState<'All' | string>('All');
-  const [prioritySort, setPrioritySort] = useState<'none' | 'high-to-low' | 'low-to-high'>('none');
+  const [statusFilter, setStatusFilter] = useState<'All' | StoryStatus>(() => {
+    try {
+      const saved = localStorage.getItem('ipp_status_filter');
+      if (saved && (saved === 'All' || saved === 'To Do' || saved === 'In Progress' || saved === 'Done')) {
+        return saved as 'All' | StoryStatus;
+      }
+    } catch {
+      // ignore
+    }
+    return 'All';
+  });
+
+  const [categoryFilter, setCategoryFilter] = useState<'All' | string>(() => {
+    return localStorage.getItem('ipp_category_filter') || 'All';
+  });
+
+  const [priorityFilter, setPriorityFilter] = useState<'All' | TaskPriority>(() => {
+    try {
+      const saved = localStorage.getItem('ipp_priority_filter');
+      if (saved && (saved === 'All' || saved === 'High' || saved === 'Medium' || saved === 'Low')) {
+        return saved as 'All' | TaskPriority;
+      }
+    } catch {
+      // ignore
+    }
+    return 'All';
+  });
+
+  const [prioritySort, setPrioritySort] = useState<'none' | 'high-to-low' | 'low-to-high'>(() => {
+    try {
+      const saved = localStorage.getItem('ipp_priority_sort');
+      if (saved === 'high-to-low' || saved === 'low-to-high' || saved === 'none') {
+        return saved;
+      }
+    } catch {
+      // ignore
+    }
+    return 'none';
+  });
 
   // Vault View Mode (Kanban Board vs Detailed List) & Group By Mode ('status' vs 'category')
   const [vaultViewMode, setVaultViewMode] = useState<'board' | 'list'>(() => {
@@ -1014,7 +1176,95 @@ export const InterviewPreparationPlanner: React.FC = () => {
   const [groupByMode, setGroupByMode] = useState<'status' | 'category' | 'priority'>(() => {
     return (localStorage.getItem('ipp_group_by_mode') as 'status' | 'category' | 'priority') || 'status';
   });
-  const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<{ [key: string]: boolean }>({});
+
+  // Persistent Status Column Arrangements (Order & Collapse States)
+  const DEFAULT_STATUS_COLUMNS: StoryStatus[] = ['To Do', 'In Progress', 'Done'];
+  const [statusColumnOrder, setStatusColumnOrder] = useState<StoryStatus[]>(() => {
+    try {
+      const saved = localStorage.getItem('ipp_status_column_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter((s: any) => DEFAULT_STATUS_COLUMNS.includes(s));
+          const missing = DEFAULT_STATUS_COLUMNS.filter(s => !valid.includes(s));
+          return [...valid, ...missing];
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_STATUS_COLUMNS;
+  });
+
+  const [collapsedStatusColumns, setCollapsedStatusColumns] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('ipp_collapsed_status_columns');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Persistent Priority Column Arrangements
+  const DEFAULT_PRIORITY_ORDER: TaskPriority[] = ['High', 'Medium', 'Low'];
+  const [priorityColumnOrder, setPriorityColumnOrder] = useState<TaskPriority[]>(() => {
+    try {
+      const saved = localStorage.getItem('ipp_priority_column_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter((p: any) => DEFAULT_PRIORITY_ORDER.includes(p));
+          const missing = DEFAULT_PRIORITY_ORDER.filter(p => !valid.includes(p));
+          return [...valid, ...missing];
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_PRIORITY_ORDER;
+  });
+
+  const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<{ [key: string]: boolean }>(() => {
+    try {
+      const saved = localStorage.getItem('ipp_collapsed_swimlanes');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const handleMoveStatusColumn = (index: number, direction: 'left' | 'right') => {
+    const newOrder = [...statusColumnOrder];
+    const targetIndex = direction === 'left' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+    const temp = newOrder[index];
+    newOrder[index] = newOrder[targetIndex];
+    newOrder[targetIndex] = temp;
+    setStatusColumnOrder(newOrder);
+    showToast(`Status column arrangement saved: ${newOrder.join(' → ')}`);
+  };
+
+  const handleResetStatusColumnOrder = () => {
+    setStatusColumnOrder(['To Do', 'In Progress', 'Done']);
+    setCollapsedStatusColumns({});
+    showToast('Status column arrangements reset to default order');
+  };
+
+  const handleMovePriorityColumn = (index: number, direction: 'up' | 'down') => {
+    const newOrder = [...priorityColumnOrder];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+    const temp = newOrder[index];
+    newOrder[index] = newOrder[targetIndex];
+    newOrder[targetIndex] = temp;
+    setPriorityColumnOrder(newOrder);
+    showToast(`Priority arrangement saved: ${newOrder.join(' → ')}`);
+  };
+
+  const handleResetPriorityColumnOrder = () => {
+    setPriorityColumnOrder(['High', 'Medium', 'Low']);
+    showToast('Priority arrangement reset to default order');
+  };
   const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>(() => {
     try {
       const saved = sessionStorage.getItem('ipp_selected_task_ids');
@@ -1911,6 +2161,79 @@ export const InterviewPreparationPlanner: React.FC = () => {
     localStorage.setItem('ipp_stories', JSON.stringify(starStories));
   }, [starStories]);
 
+  // Sync session and view arrangement state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_active_tab', activeTab);
+    } catch {
+      // ignore
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_status_column_order', JSON.stringify(statusColumnOrder));
+    } catch {
+      // ignore
+    }
+  }, [statusColumnOrder]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_collapsed_status_columns', JSON.stringify(collapsedStatusColumns));
+    } catch {
+      // ignore
+    }
+  }, [collapsedStatusColumns]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_priority_column_order', JSON.stringify(priorityColumnOrder));
+    } catch {
+      // ignore
+    }
+  }, [priorityColumnOrder]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_collapsed_swimlanes', JSON.stringify(collapsedSwimlanes));
+    } catch {
+      // ignore
+    }
+  }, [collapsedSwimlanes]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_priority_sort', prioritySort);
+    } catch {
+      // ignore
+    }
+  }, [prioritySort]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_priority_filter', priorityFilter);
+    } catch {
+      // ignore
+    }
+  }, [priorityFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_status_filter', statusFilter);
+    } catch {
+      // ignore
+    }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_category_filter', categoryFilter);
+    } catch {
+      // ignore
+    }
+  }, [categoryFilter]);
+
   // Auto-save form draft fields to localStorage
   useEffect(() => {
     localStorage.setItem('ipp_draft_theme', storyTheme);
@@ -2538,7 +2861,8 @@ ${story.result || 'N/A'}
     );
     const matchesStatus = statusFilter === 'All' || (story.status || 'To Do') === statusFilter;
     const matchesCategory = categoryFilter === 'All' || (story.categoryLabel || 'Technical') === categoryFilter;
-    return matchesSearch && matchesStatus && matchesCategory;
+    const matchesPriority = priorityFilter === 'All' || (story.priority || 'Medium') === priorityFilter;
+    return matchesSearch && matchesStatus && matchesCategory && matchesPriority;
   });
 
   const sortedVault = useMemo(() => {
@@ -3564,6 +3888,31 @@ ${story.result || 'N/A'}
                     </select>
                   </div>
 
+                  {/* Priority Filter Selector */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="meta" style={{ fontWeight: 700, fontSize: '0.82rem' }}>Priority:</span>
+                    <select
+                      aria-label="Filter tasks by priority level"
+                      value={priorityFilter}
+                      onChange={(e) => setPriorityFilter(e.target.value as 'All' | TaskPriority)}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="All">All Priorities ({activeStories.length})</option>
+                      <option value="High">🔥 High ({summaryStats.highCount})</option>
+                      <option value="Medium">⚡ Medium ({summaryStats.mediumCount})</option>
+                      <option value="Low">🔹 Low ({summaryStats.lowCount})</option>
+                    </select>
+                  </div>
+
                   {/* Priority Sort Selector */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span className="meta" style={{ fontWeight: 700, fontSize: '0.82rem' }}>Sort Priority:</span>
@@ -3688,7 +4037,7 @@ ${story.result || 'N/A'}
                 </div>
 
                 {/* Filter Match Counter Badge */}
-                {(searchVault || statusFilter !== 'All') && (
+                {(searchVault || statusFilter !== 'All' || categoryFilter !== 'All' || priorityFilter !== 'All' || prioritySort !== 'none') && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="pill" style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, background: 'rgba(56, 189, 248, 0.12)', color: 'var(--accent)', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
                       {filteredVault.length} of {starStories.length} tasks
@@ -3699,6 +4048,9 @@ ${story.result || 'N/A'}
                       onClick={() => {
                         setSearchVault('');
                         setStatusFilter('All');
+                        setCategoryFilter('All');
+                        setPriorityFilter('All');
+                        setPrioritySort('none');
                       }}
                       style={{ padding: '6px 12px', fontSize: '0.8rem' }}
                     >
@@ -3706,6 +4058,52 @@ ${story.result || 'N/A'}
                     </button>
                   </div>
                 )}
+
+                {/* LocalStorage Sync & Column Arrangement Status */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                  <span
+                    className="pill"
+                    style={{
+                      margin: 0,
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      color: '#34d399',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                    title="Tasks, custom column arrangements, and priority levels are automatically saved to localStorage"
+                  >
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    localStorage Persisted
+                  </span>
+
+                  {(statusColumnOrder.join(',') !== 'To Do,In Progress,Done' || Object.values(collapsedStatusColumns).some(Boolean)) && (
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={handleResetStatusColumnOrder}
+                      style={{ padding: '3px 8px', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      title="Reset column arrangement to default (To Do, In Progress, Done)"
+                    >
+                      <RotateCcw className="w-3 h-3 text-amber-400" /> Reset Columns
+                    </button>
+                  )}
+
+                  {priorityColumnOrder.join(',') !== 'High,Medium,Low' && (
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={handleResetPriorityColumnOrder}
+                      style={{ padding: '3px 8px', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      title="Reset priority arrangement to default (High, Medium, Low)"
+                    >
+                      <RotateCcw className="w-3 h-3 text-amber-400" /> Reset Priorities
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -3777,7 +4175,7 @@ ${story.result || 'N/A'}
                     <span>Quick Priority Drop Zone (drop task here to update its priority):</span>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '320px' }}>
-                    {(['High', 'Medium', 'Low'] as const).map(prio => {
+                    {priorityColumnOrder.map(prio => {
                       const pStyle = getPriorityStyle(prio);
                       const isTargetOver = dragOverQuickPriority === prio;
                       return (
@@ -3920,7 +4318,7 @@ ${story.result || 'N/A'}
                       {/* Swimlane Columns Matrix */}
                       {!isCollapsed && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '14px' }}>
-                          {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
+                          {statusColumnOrder.map(colStatus => {
                             const columnStories = catStories.filter(s => (s.status || 'To Do') === colStatus);
                             const isOver = dragOverSwimlane?.category === cat && dragOverSwimlane?.status === colStatus;
 
@@ -4117,7 +4515,7 @@ ${story.result || 'N/A'}
             ) : groupByMode === 'priority' ? (
               /* KANBAN BOARD VIEW WITH PRIORITY SWIMLANES */
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
-                {(['High', 'Medium', 'Low'] as const).map(prio => {
+                {priorityColumnOrder.map((prio, prioIdx) => {
                   const prioStyle = getPriorityStyle(prio);
                   const prioStories = sortedVault.filter(s => (s.priority || 'Medium') === prio);
                   const isCollapsed = !!collapsedSwimlanes[prio];
@@ -4207,6 +4605,40 @@ ${story.result || 'N/A'}
                               <span className="pill" style={{ margin: 0, background: 'rgba(16, 185, 129, 0.12)', color: 'var(--emerald)' }}>
                                 ✅ {doneCount} Done
                               </span>
+
+                              {/* Priority Arrangement Controls */}
+                              <div style={{ display: 'flex', gap: '2px', marginLeft: '4px' }}>
+                                {prioIdx > 0 && (
+                                  <button
+                                    type="button"
+                                    className="button button-secondary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMovePriorityColumn(prioIdx, 'up');
+                                    }}
+                                    style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                                    title="Move priority swimlane up"
+                                    aria-label={`Move ${prio} swimlane up`}
+                                  >
+                                    ▲
+                                  </button>
+                                )}
+                                {prioIdx < priorityColumnOrder.length - 1 && (
+                                  <button
+                                    type="button"
+                                    className="button button-secondary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMovePriorityColumn(prioIdx, 'down');
+                                    }}
+                                    style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                                    title="Move priority swimlane down"
+                                    aria-label={`Move ${prio} swimlane down`}
+                                  >
+                                    ▼
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -4215,7 +4647,7 @@ ${story.result || 'N/A'}
                       {/* Priority Swimlane Columns Matrix */}
                       {!isCollapsed && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '14px' }}>
-                          {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
+                          {statusColumnOrder.map(colStatus => {
                             const columnStories = prioStories.filter(s => (s.status || 'To Do') === colStatus);
                             const isOver = dragOverPrioritySwimlane?.priority === prio && dragOverPrioritySwimlane?.status === colStatus;
 
@@ -4373,9 +4805,18 @@ ${story.result || 'N/A'}
                 onDragOver={handleDndDragOver}
                 onDragEnd={handleDndDragEnd}
               >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '16px' }}>
-                  {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
+                <div
+                  className="grid gap-4"
+                  style={{
+                    marginTop: '16px',
+                    gridTemplateColumns: statusColumnOrder.map(col => collapsedStatusColumns[col] ? '64px' : 'minmax(280px, 1fr)').join(' '),
+                    overflowX: 'auto',
+                    paddingBottom: '8px',
+                  }}
+                >
+                  {statusColumnOrder.map((colStatus, colIndex) => {
                     const columnStories = sortedVault.filter(s => (s.status || 'To Do') === colStatus);
+                    const isCollapsed = !!collapsedStatusColumns[colStatus];
 
                     return (
                       <DroppableStatusColumn
@@ -4383,6 +4824,12 @@ ${story.result || 'N/A'}
                         colStatus={colStatus}
                         count={columnStories.length}
                         isOverCol={dragOverColumn === colStatus}
+                        canMoveLeft={colIndex > 0}
+                        canMoveRight={colIndex < statusColumnOrder.length - 1}
+                        onMoveLeft={() => handleMoveStatusColumn(colIndex, 'left')}
+                        onMoveRight={() => handleMoveStatusColumn(colIndex, 'right')}
+                        isCollapsed={isCollapsed}
+                        onToggleCollapse={() => setCollapsedStatusColumns(prev => ({ ...prev, [colStatus]: !prev[colStatus] }))}
                       >
                         <SortableContext
                           items={columnStories.map(s => s.id)}
