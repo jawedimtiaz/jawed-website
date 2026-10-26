@@ -76,28 +76,28 @@ export interface OptimizationTip {
 
 const QUICK_PRESETS: PresetOption[] = [
   {
-    name: 'Home / SOHO',
+    name: 'Home Office',
     resKey: '1080p',
     codec: 'h265',
     cameras: 4,
-    retentionDays: 15,
+    retentionDays: 30,
     recordingPct: 80,
     headroomPct: 15,
     driveSizeTb: 4,
     raidType: 'raid1',
-    description: '4x 1080p cameras, 15 days retention, motion detection, RAID 1 mirror protection.',
+    description: '4x 1080p cameras, 30 days retention, motion detection, RAID 1 mirror protection.',
   },
   {
     name: 'Retail Store',
     resKey: '4mp',
     codec: 'h265',
     cameras: 16,
-    retentionDays: 30,
+    retentionDays: 15,
     recordingPct: 100,
     headroomPct: 15,
     driveSizeTb: 8,
     raidType: 'raid5',
-    description: '16x 4MP cameras, 30 days continuous recording, balanced RAID 5 single-parity storage.',
+    description: '16x 4MP cameras, 15 days continuous recording, balanced RAID 5 single-parity storage.',
   },
   {
     name: 'Warehouse',
@@ -4160,43 +4160,67 @@ DRIVE ARRAY & RAID SPECIFICATION:
 
             {/* Drive Size (TB) */}
             <div className="form-field" style={{ marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label htmlFor="drv" style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
+                <label htmlFor="drv" style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>
                   Drive size (TB)
                 </label>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                   Decimal TB (1 TB = 1,000 GB)
                 </span>
               </div>
+
+              {/* NVR / DVR Storage Capacity Presets */}
+              <div style={{ marginBottom: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <HardDrive className="w-3.5 h-3.5 text-amber-400" />
+                    Common NVR/DVR Storage Capacity Presets:
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--amber)', fontWeight: 600 }}>
+                    Auto-fills drive size
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                  {[2, 4, 8, 12, 16, 18, 20, 24].map(sz => {
+                    const isSelected = driveSizeTb === sz;
+                    return (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => setDriveSizeTb(sz)}
+                        style={{
+                          padding: '4px 9px',
+                          fontSize: '0.78rem',
+                          fontWeight: isSelected ? 800 : 600,
+                          borderRadius: '6px',
+                          background: isSelected ? 'var(--amber)' : 'var(--bg)',
+                          color: isSelected ? '#ffffff' : 'var(--text-heading)',
+                          border: isSelected ? '1px solid var(--amber)' : '1px solid var(--border)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected ? '0 2px 6px rgba(245, 158, 11, 0.3)' : 'none',
+                        }}
+                        title={`Auto-fill ${sz} TB NVR/DVR hard drive capacity`}
+                      >
+                        {sz} TB
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <input
                 id="drv"
                 type="number"
                 step="0.5"
-                min="1"
-                max="40"
+                min="0.5"
+                max="50"
                 value={driveSizeTb}
                 onChange={e => setDriveSizeTb(Math.max(0.5, parseFloat(e.target.value) || 1))}
               />
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
-                {POPULAR_DRIVE_SIZES.map(sz => (
-                  <button
-                    key={sz}
-                    type="button"
-                    onClick={() => setDriveSizeTb(sz)}
-                    style={{
-                      padding: '2px 7px',
-                      fontSize: '0.72rem',
-                      borderRadius: '4px',
-                      background: driveSizeTb === sz ? 'var(--amber)' : 'var(--bg)',
-                      color: driveSizeTb === sz ? '#ffffff' : 'var(--text-muted)',
-                      border: '1px solid var(--border)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {sz} TB
-                  </button>
-                ))}
-              </div>
+              <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                Click any NVR/DVR capacity preset above (2TB, 4TB, 8TB, 12TB, etc.) or type a custom disk capacity.
+              </p>
             </div>
 
             {/* RAID Level */}
