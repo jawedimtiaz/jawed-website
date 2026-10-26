@@ -1,7 +1,28 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Copy,
   Check,
@@ -442,6 +463,466 @@ export const renderPriorityIndicator = (
   );
 };
 
+// --- DND-KIT STATUS COLUMNS & CARDS SUBCOMPONENTS ---
+
+interface DroppableStatusColumnProps {
+  colStatus: StoryStatus;
+  count: number;
+  isOverCol: boolean;
+  children: React.ReactNode;
+}
+
+const DroppableStatusColumn: React.FC<DroppableStatusColumnProps> = ({
+  colStatus,
+  count,
+  isOverCol,
+  children,
+}) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `status-col-${colStatus}`,
+    data: {
+      type: 'column',
+      status: colStatus,
+    },
+  });
+
+  const highlighted = isOverCol || isOver;
+
+  return (
+    <div
+      ref={setNodeRef}
+      className="panel"
+      style={{
+        background: highlighted ? 'rgba(56, 189, 248, 0.06)' : 'var(--surface)',
+        border: highlighted ? '2px dashed var(--accent)' : '1px solid var(--border)',
+        borderRadius: '16px',
+        padding: '16px',
+        minHeight: '380px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        transition: 'all 0.15s ease',
+        boxShadow: highlighted ? '0 0 16px rgba(56, 189, 248, 0.28)' : 'none',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {colStatus === 'To Do' ? '⏳ To Do' : colStatus === 'In Progress' ? '🔄 In Progress' : '✅ Done'}
+        </h3>
+        <span className="pill" style={{ margin: 0, fontWeight: 700 }}>
+          {count}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+        <span style={{ fontStyle: 'italic' }}>📥 Drag cards here to move to {colStatus}</span>
+        <span className="pill" style={{ margin: 0, fontSize: '0.68rem', padding: '1px 6px', opacity: 0.85 }}>dnd-kit</span>
+      </div>
+
+      {children}
+    </div>
+  );
+};
+
+interface SortableStatusCardProps {
+  story: StarStory;
+  colStatus: StoryStatus;
+  starStories: StarStory[];
+  allAvailableCategories: string[];
+  isStorySelected: boolean;
+  onToggleSelect: (id: number) => void;
+  onOpenModal: (story: StarStory) => void;
+  onUpdateCategory: (id: number, cat: string) => void;
+  onUpdatePriority: (id: number, prio: TaskPriority) => void;
+  onUpdateStatus: (id: number, st: StoryStatus) => void;
+  onCopyStory: (story: StarStory) => void;
+  onEditStory: (story: StarStory) => void;
+  onArchiveStory: (id: number) => void;
+  onDeleteStory: (id: number) => void;
+}
+
+const SortableStatusCard: React.FC<SortableStatusCardProps> = ({
+  story,
+  colStatus,
+  starStories,
+  allAvailableCategories,
+  isStorySelected,
+  onToggleSelect,
+  onOpenModal,
+  onUpdateCategory,
+  onUpdatePriority,
+  onUpdateStatus,
+  onCopyStory,
+  onEditStory,
+  onArchiveStory,
+  onDeleteStory,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: story.id,
+    data: {
+      type: 'story',
+      story,
+      status: colStatus,
+    },
+  });
+
+  const priorityStyle = getPriorityStyle(story.priority || 'Medium');
+  const pendingBlockers = getPendingBlockers(story, starStories);
+  const allBlockers = getAllBlockers(story, starStories);
+  const dependentTasks = getDependentTasks(story.id, starStories);
+  const isBlocked = pendingBlockers.length > 0;
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.35 : 1,
+    padding: '14px',
+    borderRadius: '12px',
+    cursor: isDragging ? 'grabbing' : 'grab',
+    border: isDragging ? '2px dashed var(--accent)' : undefined,
+    touchAction: 'none',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
+      {...attributes}
+      {...listeners}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0 }}>
+          <input
+            type="checkbox"
+            checked={isStorySelected}
+            onChange={() => onToggleSelect(story.id)}
+            onPointerDown={(e) => e.stopPropagation()}
+            aria-label={`Select ${story.theme}`}
+            style={{ cursor: 'pointer', accentColor: 'var(--accent)', width: '15px', height: '15px', flexShrink: 0 }}
+          />
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', overflow: 'hidden' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenModal(story);
+            }}
+          >
+            <GripVertical className="w-4 h-4 text-slate-500 hover:text-sky-400 flex-shrink-0" />
+            {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'sm' })}
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+              {story.theme}
+            </h4>
+          </div>
+        </div>
+
+        {/* Color-Coded Category & Priority Indicators */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }} onPointerDown={(e) => e.stopPropagation()}>
+          {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
+
+          <select
+            aria-label={`Category label for ${story.theme}`}
+            value={story.categoryLabel || 'Technical'}
+            onChange={(e) => onUpdateCategory(story.id, e.target.value)}
+            style={{
+              padding: '2px 6px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              borderRadius: '6px',
+              border: `1px solid ${getCategoryStyle(story.categoryLabel).border}`,
+              background: getCategoryStyle(story.categoryLabel).bg,
+              color: getCategoryStyle(story.categoryLabel).color,
+              cursor: 'pointer',
+            }}
+          >
+            {allAvailableCategories.map(cat => (
+              <option key={cat} value={cat}>
+                {getCategoryStyle(cat).icon} {cat}
+              </option>
+            ))}
+          </select>
+
+          <select
+            aria-label={`Priority level for ${story.theme}`}
+            value={story.priority || 'Medium'}
+            onChange={(e) => onUpdatePriority(story.id, e.target.value as TaskPriority)}
+            style={{
+              padding: '2px 6px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              borderRadius: '99px',
+              border: `1px solid ${priorityStyle.border}`,
+              background: priorityStyle.bg,
+              color: priorityStyle.color,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="High">🔥 High</option>
+            <option value="Medium">⚡ Medium</option>
+            <option value="Low">🔹 Low</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Dependency, Blocker & Repeat Indicator Badges */}
+      {(isBlocked || allBlockers.length > 0 || dependentTasks.length > 0 || (story.repeatFrequency && story.repeatFrequency !== 'None')) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }} onPointerDown={(e) => e.stopPropagation()}>
+          {story.repeatFrequency && story.repeatFrequency !== 'None' && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                background: 'rgba(129, 140, 248, 0.15)',
+                border: '1px solid rgba(129, 140, 248, 0.35)',
+                color: '#a5b4fc',
+                cursor: 'pointer',
+              }}
+              onClick={() => onOpenModal(story)}
+              title={`Recurring task: auto-creates a new review task in To Do (${story.repeatFrequency}) when completed`}
+            >
+              <Repeat className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+              {story.repeatFrequency}
+            </span>
+          )}
+
+          {isBlocked ? (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                background: 'rgba(239, 68, 68, 0.18)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#f87171',
+                cursor: 'pointer',
+              }}
+              onClick={() => onOpenModal(story)}
+              title={`Blocked by ${pendingBlockers.map(b => `"${b.theme}" (${b.status})`).join(', ')}`}
+            >
+              <Lock className="w-3 h-3 text-rose-400 flex-shrink-0" />
+              Blocked ({pendingBlockers.length} pending)
+            </span>
+          ) : allBlockers.length > 0 ? (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                color: 'var(--emerald)',
+                cursor: 'pointer',
+              }}
+              onClick={() => onOpenModal(story)}
+              title={`All ${allBlockers.length} prerequisite tasks completed`}
+            >
+              <Unlock className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+              Unblocked
+            </span>
+          ) : null}
+
+          {dependentTasks.length > 0 && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                color: '#38bdf8',
+                cursor: 'pointer',
+              }}
+              onClick={() => onOpenModal(story)}
+              title={`Prerequisite for ${dependentTasks.map(d => `"${d.theme}"`).join(', ')}`}
+            >
+              <GitFork className="w-3 h-3 text-sky-400 flex-shrink-0" />
+              Blocks {dependentTasks.length} task{dependentTasks.length > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      )}
+
+      {story.situation && (
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 6px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+          <strong style={{ color: 'var(--text)' }}>S:</strong> {story.situation}
+        </p>
+      )}
+
+      {story.result && (
+        <p style={{ fontSize: '0.82rem', color: 'var(--emerald)', fontWeight: 600, margin: '0 0 10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+          <strong>R:</strong> {story.result}
+        </p>
+      )}
+
+      <div
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <select
+          aria-label={`Status for ${story.theme}`}
+          value={story.status || 'To Do'}
+          onChange={(e) => onUpdateStatus(story.id, e.target.value as StoryStatus)}
+          style={{
+            padding: '2px 6px',
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            borderRadius: '99px',
+            border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
+            background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
+            color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
+            cursor: 'pointer',
+          }}
+        >
+          <option value="To Do">To Do</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Done">Done</option>
+        </select>
+
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => onOpenModal(story)}
+            style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+            title="View task details, notes & links"
+          >
+            <Eye className="w-3 h-3 text-sky-400" />
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => onCopyStory(story)}
+            style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+            title="Copy story"
+          >
+            <Copy className="w-3 h-3 text-sky-400" />
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => onEditStory(story)}
+            style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+            title="Edit story"
+          >
+            <Edit3 className="w-3 h-3 text-amber-400" />
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => onArchiveStory(story.id)}
+            style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+            title="Archive story"
+          >
+            <Archive className="w-3 h-3 text-slate-400" />
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => onDeleteStory(story.id)}
+            style={{ padding: '3px 8px', fontSize: '0.75rem', color: 'var(--rose)' }}
+            title="Delete story"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface DragOverlayStatusCardProps {
+  story: StarStory;
+  isBlocked: boolean;
+  isMultiSelected: boolean;
+  selectedCount: number;
+}
+
+const DragOverlayStatusCard: React.FC<DragOverlayStatusCardProps> = ({
+  story,
+  isBlocked,
+  isMultiSelected,
+  selectedCount,
+}) => {
+  return (
+    <div
+      className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
+      style={{
+        padding: '14px',
+        borderRadius: '12px',
+        background: 'var(--surface)',
+        border: '2px solid var(--accent)',
+        boxShadow: '0 20px 30px -5px rgba(0, 0, 0, 0.5), 0 8px 12px -3px rgba(0, 0, 0, 0.4)',
+        transform: 'scale(1.02) rotate(1.2deg)',
+        cursor: 'grabbing',
+        pointerEvents: 'none',
+        width: '320px',
+        maxWidth: '100%',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <GripVertical className="w-4 h-4 text-sky-400 flex-shrink-0" />
+          {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'sm' })}
+          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
+            {story.theme}
+          </h4>
+        </div>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
+          <span
+            className="pill"
+            style={{
+              margin: 0,
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text-muted)',
+            }}
+          >
+            {story.status || 'To Do'}
+          </span>
+        </div>
+      </div>
+
+      {story.situation && (
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 6px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          <strong style={{ color: 'var(--text)' }}>S:</strong> {story.situation}
+        </p>
+      )}
+
+      {isMultiSelected && (
+        <div style={{ marginTop: '8px', padding: '6px 10px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.2)', border: '1px solid rgba(56, 189, 248, 0.4)', color: '#38bdf8', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+          Moving {selectedCount} selected tasks together
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const InterviewPreparationPlanner: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'builder' | 'vault' | 'archive' | 'questions' | 'guide'>('builder');
 
@@ -565,6 +1046,39 @@ export const InterviewPreparationPlanner: React.FC = () => {
   const [dragOverCategoryHeader, setDragOverCategoryHeader] = useState<string | null>(null);
   const [dragOverQuickPriority, setDragOverQuickPriority] = useState<TaskPriority | null>(null);
   const [dragOverCardInfo, setDragOverCardInfo] = useState<{ targetId: number; position: 'before' | 'after' } | null>(null);
+
+  // @dnd-kit Configuration for Status Columns
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+  const [activeDndStoryId, setActiveDndStoryId] = useState<number | null>(null);
+  const activeDndStory = useMemo(() => {
+    return starStories.find(s => s.id === activeDndStoryId) || null;
+  }, [activeDndStoryId, starStories]);
+
+  // Top Summary Analytics Dashboard Collapse State
+  const [isSummaryDashboardCollapsed, setIsSummaryDashboardCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ipp_dashboard_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipp_dashboard_collapsed', String(isSummaryDashboardCollapsed));
+    } catch {
+      // ignore
+    }
+  }, [isSummaryDashboardCollapsed]);
 
   // Task Detail Modal State & Input Handlers
   const [modalStory, setModalStory] = useState<StarStory | null>(null);
@@ -1012,6 +1526,104 @@ export const InterviewPreparationPlanner: React.FC = () => {
       return currentStories;
     });
     handleDragEnd();
+    setSelectedTaskIds([]);
+  };
+
+  const handleDndDragStart = (event: DragStartEvent) => {
+    const id = Number(event.active.id);
+    setActiveDndStoryId(id);
+    setDraggedStoryId(id);
+  };
+
+  const handleDndDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) {
+      setDragOverColumn(null);
+      return;
+    }
+    const overIdStr = String(over.id);
+    if (overIdStr.startsWith('status-col-')) {
+      const colStatus = overIdStr.replace('status-col-', '') as StoryStatus;
+      setDragOverColumn(colStatus);
+    } else {
+      const overNum = Number(over.id);
+      const overStory = starStories.find(s => s.id === overNum);
+      if (overStory) {
+        setDragOverColumn(overStory.status || 'To Do');
+      }
+    }
+  };
+
+  const handleDndDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDndStoryId(null);
+    setDraggedStoryId(null);
+    setDragOverColumn(null);
+
+    if (!over) return;
+
+    const draggedId = Number(active.id);
+    if (!draggedId || isNaN(draggedId)) return;
+
+    let targetStatus: StoryStatus | null = null;
+    let targetStoryId: number | null = null;
+
+    const overIdStr = String(over.id);
+    if (overIdStr.startsWith('status-col-')) {
+      targetStatus = overIdStr.replace('status-col-', '') as StoryStatus;
+    } else {
+      const overNum = Number(over.id);
+      const overStory = starStories.find(s => s.id === overNum);
+      if (overStory) {
+        targetStatus = overStory.status || 'To Do';
+        targetStoryId = overStory.id;
+      } else if (over.data?.current?.status) {
+        targetStatus = over.data.current.status as StoryStatus;
+      }
+    }
+
+    if (!targetStatus) return;
+
+    const tasksToUpdate = selectedTaskIds.includes(draggedId) && selectedTaskIds.length > 1
+      ? selectedTaskIds
+      : [draggedId];
+
+    setStarStories(prev => {
+      let currentStories = [...prev];
+      let updatedCount = 0;
+      let blockedCount = 0;
+
+      for (const id of tasksToUpdate) {
+        const { updatedStories, targetStory } = applyStatusUpdate(currentStories, id, targetStatus!);
+        if (targetStatus === 'Done' && targetStory) {
+          const pending = getPendingBlockers(targetStory, currentStories);
+          if (pending.length > 0) {
+            blockedCount++;
+            continue;
+          }
+        }
+        currentStories = updatedStories;
+        updatedCount++;
+      }
+
+      // If dropped over a specific story card, reorder using arrayMove
+      if (targetStoryId && targetStoryId !== draggedId) {
+        const oldIndex = currentStories.findIndex(s => s.id === draggedId);
+        const newIndex = currentStories.findIndex(s => s.id === targetStoryId);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          currentStories = arrayMove(currentStories, oldIndex, newIndex);
+        }
+      }
+
+      localStorage.setItem('ipp_stories', JSON.stringify(currentStories));
+      if (updatedCount > 0) {
+        showToast(`Moved ${updatedCount} task${updatedCount > 1 ? 's' : ''} to ${targetStatus}`);
+      } else if (blockedCount > 0) {
+        showToast(`Cannot move task(s) to Done: prerequisite tasks are still pending!`);
+      }
+      return currentStories;
+    });
+
     setSelectedTaskIds([]);
   };
 
@@ -1896,6 +2508,24 @@ ${story.result || 'N/A'}
     }));
   }, [summaryStats.categoryHoursMap]);
 
+  // Recharts Status Distribution Bar Chart Dataset
+  const statusChartData = useMemo(() => {
+    return [
+      { status: 'To Do', count: summaryStats.todoCount, percentage: summaryStats.todoPct, fill: '#64748b' },
+      { status: 'In Progress', count: summaryStats.inProgressCount, percentage: summaryStats.inProgressPct, fill: '#f59e0b' },
+      { status: 'Done', count: summaryStats.doneCount, percentage: summaryStats.donePct, fill: '#10b981' },
+    ];
+  }, [summaryStats.todoCount, summaryStats.inProgressCount, summaryStats.doneCount, summaryStats.todoPct, summaryStats.inProgressPct, summaryStats.donePct]);
+
+  // Recharts Task Priority Breakdown Pie Chart Dataset
+  const priorityPieData = useMemo(() => {
+    return [
+      { name: 'High Priority', shortName: 'High', value: summaryStats.highCount, percentage: summaryStats.highPct, fill: '#ef4444' },
+      { name: 'Medium Priority', shortName: 'Medium', value: summaryStats.mediumCount, percentage: summaryStats.mediumPct, fill: '#f59e0b' },
+      { name: 'Low Priority', shortName: 'Low', value: summaryStats.lowCount, percentage: summaryStats.lowPct, fill: '#3b82f6' },
+    ];
+  }, [summaryStats.highCount, summaryStats.mediumCount, summaryStats.lowCount, summaryStats.highPct, summaryStats.mediumPct, summaryStats.lowPct]);
+
   const filteredVault = activeStories.filter(story => {
     const q = searchVault.trim().toLowerCase();
     const matchesSearch = !q || (
@@ -1989,6 +2619,330 @@ ${story.result || 'N/A'}
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* =========================================================================
+          SUMMARY ANALYTICS DASHBOARD (RECHARTS BAR & PIE CHARTS)
+          ========================================================================= */}
+      <section
+        className="panel summary-analytics-dashboard no-print"
+        aria-label="Interview Preparation Analytics Dashboard"
+        style={{
+          marginBottom: '24px',
+          padding: '20px 24px',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: '16px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+          position: 'relative'
+        }}
+      >
+        {/* Dashboard Header Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', paddingBottom: isSummaryDashboardCollapsed ? 0 : '16px', borderBottom: isSummaryDashboardCollapsed ? 'none' : '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
+              onClick={() => setIsSummaryDashboardCollapsed(prev => !prev)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsSummaryDashboardCollapsed(prev => !prev); }}
+              aria-expanded={!isSummaryDashboardCollapsed}
+              aria-label="Toggle Interview Preparation Summary Dashboard"
+            >
+              {isSummaryDashboardCollapsed ? (
+                <ChevronRight className="w-5 h-5 text-sky-400 flex-shrink-0" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-sky-400 flex-shrink-0" />
+              )}
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Target className="w-5 h-5 text-sky-400" />
+                Preparation Summary Dashboard
+              </h2>
+            </div>
+
+            <span className="pill" style={{ margin: 0, fontWeight: 700, background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', fontSize: '0.78rem' }}>
+              {activeStories.length} {activeStories.length === 1 ? 'Task' : 'Tasks'}
+            </span>
+
+            <span className="pill" style={{ margin: 0, fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', color: 'var(--emerald)', border: '1px solid rgba(16, 185, 129, 0.3)', fontSize: '0.78rem' }}>
+              {summaryStats.overallReadiness}% Readiness
+            </span>
+
+            {summaryStats.highCount > 0 && (
+              <span className="pill task-priority-high" style={{ margin: 0, fontWeight: 700, fontSize: '0.75rem' }}>
+                🔥 {summaryStats.highCount} High Priority
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {activeTab !== 'vault' && (
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setActiveTab('vault')}
+                style={{ fontSize: '0.78rem', padding: '4px 10px' }}
+                title="View tasks in Kanban Board / Vault"
+              >
+                Go to Vault &rarr;
+              </button>
+            )}
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setIsSummaryDashboardCollapsed(prev => !prev)}
+              style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+              title={isSummaryDashboardCollapsed ? 'Expand Dashboard' : 'Collapse Dashboard'}
+            >
+              {isSummaryDashboardCollapsed ? '📊 Show Dashboard Charts' : 'Collapse'}
+            </button>
+          </div>
+        </div>
+
+        {/* Dashboard Main Content (When Expanded) */}
+        {!isSummaryDashboardCollapsed && (
+          <div style={{ marginTop: '18px' }}>
+            {/* Quick KPI Metric Cards Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3" style={{ marginBottom: '20px' }}>
+              <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <span className="meta" style={{ fontSize: '0.72rem', fontWeight: 600 }}>Total Stories</span>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', marginTop: '2px' }}>
+                  {activeStories.length}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  {summaryStats.totalEstimatedHours}h projected effort
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <span className="meta" style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94a3b8' }}>⏳ To Do</span>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#94a3b8', marginTop: '2px' }}>
+                  {summaryStats.todoCount}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  {summaryStats.todoPct}% of backlog
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <span className="meta" style={{ fontSize: '0.72rem', fontWeight: 600, color: '#f59e0b' }}>🔄 In Progress</span>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#f59e0b', marginTop: '2px' }}>
+                  {summaryStats.inProgressCount}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  {summaryStats.inProgressPct}% in flight
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <span className="meta" style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--emerald)' }}>✅ Mastered / Done</span>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--emerald)', marginTop: '2px' }}>
+                  {summaryStats.doneCount}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  {summaryStats.donePct}% completed
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <span className="meta" style={{ fontSize: '0.72rem', fontWeight: 600, color: '#ef4444' }}>🔥 High Priority</span>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>
+                  {summaryStats.highCount}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  {summaryStats.highPct}% critical focus
+                </div>
+              </div>
+            </div>
+
+            {/* Recharts Analytics Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* CHART 1: STATUS DISTRIBUTION BAR CHART */}
+              <div
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '14px',
+                  padding: '18px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
+                      📊 Status Column Distribution
+                    </h3>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                      Distribution of tasks across Kanban status columns
+                    </p>
+                  </div>
+                  <span className="pill" style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, background: 'var(--surface)', color: 'var(--text)' }}>
+                    {activeStories.length} total
+                  </span>
+                </div>
+
+                {activeStories.length === 0 ? (
+                  <div style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    No tasks currently in vault. Add stories in STAR Builder to view column metrics.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ width: '100%', height: '230px' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={statusChartData}
+                          margin={{ top: 15, right: 15, left: -20, bottom: 5 }}
+                        >
+                          <XAxis
+                            dataKey="status"
+                            stroke="var(--text-muted)"
+                            fontSize={12}
+                            tickLine={false}
+                            axisLine={{ stroke: 'var(--border)' }}
+                          />
+                          <YAxis
+                            stroke="var(--text-muted)"
+                            fontSize={12}
+                            allowDecimals={false}
+                            tickLine={false}
+                            axisLine={{ stroke: 'var(--border)' }}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              background: '#0f172a',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              color: '#f8fafc',
+                              fontSize: '0.82rem',
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                              padding: '8px 12px'
+                            }}
+                            itemStyle={{ color: '#f8fafc' }}
+                            formatter={(value: any) => [`${value} task(s)`, 'Task Count']}
+                            labelFormatter={(label: any) => `Column: ${label}`}
+                          />
+                          <Bar dataKey="count" name="Tasks" radius={[6, 6, 0, 0]}>
+                            {statusChartData.map((entry, index) => (
+                              <Cell key={`status-cell-${index}`} fill={entry.fill} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Status Column Pill Key */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                      <span className="pill" style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, background: 'rgba(100, 116, 139, 0.15)', color: '#94a3b8', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
+                        ⏳ To Do: {summaryStats.todoCount} ({summaryStats.todoPct}%)
+                      </span>
+                      <span className="pill" style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                        🔄 In Progress: {summaryStats.inProgressCount} ({summaryStats.inProgressPct}%)
+                      </span>
+                      <span className="pill" style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', color: 'var(--emerald)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                        ✅ Done: {summaryStats.doneCount} ({summaryStats.donePct}%)
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* CHART 2: TASK PRIORITY BREAKDOWN PIE CHART */}
+              <div
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '14px',
+                  padding: '18px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
+                      🥧 Task Priority Breakdown
+                    </h3>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                      Proportion of high, medium, and low priority interview topics
+                    </p>
+                  </div>
+                  <span className="pill" style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, background: 'var(--surface)', color: 'var(--text)' }}>
+                    {activeStories.length} categorized
+                  </span>
+                </div>
+
+                {activeStories.length === 0 ? (
+                  <div style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    No tasks currently in vault. Add stories to see priority breakdown.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ width: '100%', height: '230px' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={priorityPieData.filter(d => d.value > 0).length > 0 ? priorityPieData.filter(d => d.value > 0) : priorityPieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={48}
+                            outerRadius={78}
+                            paddingAngle={4}
+                            dataKey="value"
+                            nameKey="name"
+                          >
+                            {priorityPieData.map((entry, index) => (
+                              <Cell key={`prio-cell-${index}`} fill={entry.fill} stroke="var(--bg)" strokeWidth={2} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{
+                              background: '#0f172a',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              color: '#f8fafc',
+                              fontSize: '0.82rem',
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                              padding: '8px 12px'
+                            }}
+                            itemStyle={{ color: '#f8fafc' }}
+                            formatter={(value: any, name: any) => [`${value} task(s)`, name]}
+                          />
+                          <Legend
+                            wrapperStyle={{ fontSize: '0.76rem', paddingTop: '4px' }}
+                            formatter={(value: string) => {
+                              const item = priorityPieData.find(p => p.name === value);
+                              return (
+                                <span style={{ color: 'var(--text)', fontWeight: 600 }}>
+                                  {value}: {item?.value || 0} ({item?.percentage || 0}%)
+                                </span>
+                              );
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Priority Indicator Pill Key */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                      <span className="pill task-priority-high" style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700 }}>
+                        🔥 High: {summaryStats.highCount} ({summaryStats.highPct}%)
+                      </span>
+                      <span className="pill task-priority-medium" style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700 }}>
+                        ⚡ Med: {summaryStats.mediumCount} ({summaryStats.mediumPct}%)
+                      </span>
+                      <span className="pill task-priority-low" style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700 }}>
+                        🔹 Low: {summaryStats.lowCount} ({summaryStats.lowPct}%)
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* VIEW 1: STAR STORY BUILDER */}
       {activeTab === 'builder' && (
@@ -3411,321 +4365,71 @@ ${story.result || 'N/A'}
                 })}
               </div>
             ) : (
-              /* STANDARD KANBAN STATUS COLUMNS */
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '16px' }}>
-              {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
-                const columnStories = sortedVault.filter(s => (s.status || 'To Do') === colStatus);
-                const isOver = dragOverColumn === colStatus;
+              /* STANDARD KANBAN STATUS COLUMNS POWERED BY @DND-KIT */
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCorners}
+                onDragStart={handleDndDragStart}
+                onDragOver={handleDndDragOver}
+                onDragEnd={handleDndDragEnd}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginTop: '16px' }}>
+                  {(['To Do', 'In Progress', 'Done'] as const).map(colStatus => {
+                    const columnStories = sortedVault.filter(s => (s.status || 'To Do') === colStatus);
 
-                return (
-                  <div
-                    key={colStatus}
-                    className="panel"
-                    onDragOver={(e) => handleDragOverColumn(e, colStatus)}
-                    onDragLeave={handleDragLeaveColumn}
-                    onDrop={(e) => handleDropToColumn(e, colStatus)}
-                    style={{
-                      background: 'var(--surface)',
-                      border: isOver ? '2px dashed var(--accent)' : '1px solid var(--border)',
-                      borderRadius: '16px',
-                      padding: '16px',
-                      minHeight: '380px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px',
-                      transition: 'all 0.15s ease',
-                      boxShadow: isOver ? '0 0 15px rgba(56, 189, 248, 0.25)' : 'none',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
-                      <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {colStatus === 'To Do' ? '⏳ To Do' : colStatus === 'In Progress' ? '🔄 In Progress' : '✅ Done'}
-                      </h3>
-                      <span className="pill" style={{ margin: 0, fontWeight: 700 }}>
-                        {columnStories.length}
-                      </span>
-                    </div>
-
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '4px' }}>
-                      📥 Drag cards here to move to {colStatus}
-                    </div>
-
-                    {columnStories.length === 0 ? (
-                      <div style={{ padding: '32px 12px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                        No stories in {colStatus}
-                      </div>
-                    ) : (
-                      columnStories.map((story) => {
-                        const priorityStyle = getPriorityStyle(story.priority || 'Medium');
-                        const pendingBlockers = getPendingBlockers(story, starStories);
-                        const allBlockers = getAllBlockers(story, starStories);
-                        const dependentTasks = getDependentTasks(story.id, starStories);
-                        const isBlocked = pendingBlockers.length > 0;
-
-                        return (
-                          <React.Fragment key={story.id}>
-                            {renderInsertionIndicator(story.id, 'before')}
-                            <div
-                              draggable={true}
-                              onDragStart={(e) => handleDragStart(e, story.id)}
-                              onDragEnd={handleDragEnd}
-                              onDragOver={(e) => handleDragOverCard(e, story.id)}
-                              onDrop={(e) => handleDropOnCard(e, story, { status: colStatus })}
-                              className={`card ${getPriorityClassNames(story.priority, isBlocked)}`}
-                              style={{
-                                padding: '14px',
-                                borderRadius: '12px',
-                                cursor: 'grab',
-                                opacity: draggedStoryId === story.id ? 0.4 : 1,
-                                transition: 'all 0.15s ease',
-                              }}
-                            >
-                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-                              <div
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
-                                onClick={() => setModalStory(story)}
-                              >
-                                <GripVertical className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                                {renderPriorityIndicator(story.priority || 'Medium', { variant: 'dot', size: 'sm' })}
-                                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-heading)', lineHeight: '1.3' }}>
-                                  {story.theme}
-                                </h4>
-                              </div>
-
-                              {/* Color-Coded Category & Priority Indicators */}
-                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
-                                {renderPriorityIndicator(story.priority || 'Medium', { variant: 'badge', size: 'sm' })}
-
-                                <select
-                                  aria-label={`Category label for ${story.theme}`}
-                                  value={story.categoryLabel || 'Technical'}
-                                  onChange={(e) => handleUpdateCategory(story.id, e.target.value)}
-                                  style={{
-                                    padding: '2px 6px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    borderRadius: '6px',
-                                    border: `1px solid ${getCategoryStyle(story.categoryLabel).border}`,
-                                    background: getCategoryStyle(story.categoryLabel).bg,
-                                    color: getCategoryStyle(story.categoryLabel).color,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  {allAvailableCategories.map(cat => (
-                                    <option key={cat} value={cat}>
-                                      {getCategoryStyle(cat).icon} {cat}
-                                    </option>
-                                  ))}
-                                </select>
-
-                                <select
-                                  aria-label={`Priority level for ${story.theme}`}
-                                  value={story.priority || 'Medium'}
-                                  onChange={(e) => handleUpdatePriority(story.id, e.target.value as TaskPriority)}
-                                  style={{
-                                    padding: '2px 6px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    borderRadius: '99px',
-                                    border: `1px solid ${priorityStyle.border}`,
-                                    background: priorityStyle.bg,
-                                    color: priorityStyle.color,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  <option value="High">🔥 High</option>
-                                  <option value="Medium">⚡ Medium</option>
-                                  <option value="Low">🔹 Low</option>
-                                </select>
-                              </div>
+                    return (
+                      <DroppableStatusColumn
+                        key={colStatus}
+                        colStatus={colStatus}
+                        count={columnStories.length}
+                        isOverCol={dragOverColumn === colStatus}
+                      >
+                        <SortableContext
+                          items={columnStories.map(s => s.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {columnStories.length === 0 ? (
+                            <div style={{ padding: '32px 12px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                              No stories in {colStatus}
                             </div>
+                          ) : (
+                            columnStories.map((story) => (
+                              <SortableStatusCard
+                                key={story.id}
+                                story={story}
+                                colStatus={colStatus}
+                                starStories={starStories}
+                                allAvailableCategories={allAvailableCategories}
+                                isStorySelected={selectedTaskIds.includes(story.id)}
+                                onToggleSelect={handleToggleSelectTask}
+                                onOpenModal={setModalStory}
+                                onUpdateCategory={handleUpdateCategory}
+                                onUpdatePriority={handleUpdatePriority}
+                                onUpdateStatus={handleUpdateStatus}
+                                onCopyStory={handleCopyStory}
+                                onEditStory={handleEditStory}
+                                onArchiveStory={handleArchiveStory}
+                                onDeleteStory={handleDeleteStory}
+                              />
+                            ))
+                          )}
+                        </SortableContext>
+                      </DroppableStatusColumn>
+                    );
+                  })}
+                </div>
 
-                            {/* Dependency, Blocker & Repeat Indicator Badges */}
-                            {(isBlocked || allBlockers.length > 0 || dependentTasks.length > 0 || (story.repeatFrequency && story.repeatFrequency !== 'None')) && (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                                {story.repeatFrequency && story.repeatFrequency !== 'None' && (
-                                  <span
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      fontSize: '0.72rem',
-                                      fontWeight: 600,
-                                      padding: '2px 8px',
-                                      borderRadius: '6px',
-                                      background: 'rgba(129, 140, 248, 0.15)',
-                                      border: '1px solid rgba(129, 140, 248, 0.35)',
-                                      color: '#a5b4fc',
-                                      cursor: 'pointer',
-                                    }}
-                                    onClick={() => setModalStory(story)}
-                                    title={`Recurring task: auto-creates a new review task in To Do (${story.repeatFrequency}) when completed`}
-                                  >
-                                    <Repeat className="w-3 h-3 text-indigo-400 flex-shrink-0" />
-                                    {story.repeatFrequency}
-                                  </span>
-                                )}
-
-                                {isBlocked ? (
-                                  <span
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      fontSize: '0.72rem',
-                                      fontWeight: 700,
-                                      padding: '2px 8px',
-                                      borderRadius: '6px',
-                                      background: 'rgba(239, 68, 68, 0.18)',
-                                      border: '1px solid rgba(239, 68, 68, 0.4)',
-                                      color: '#f87171',
-                                      cursor: 'pointer',
-                                    }}
-                                    onClick={() => setModalStory(story)}
-                                    title={`Blocked by ${pendingBlockers.map(b => `"${b.theme}" (${b.status})`).join(', ')}`}
-                                  >
-                                    <Lock className="w-3 h-3 text-rose-400 flex-shrink-0" />
-                                    Blocked ({pendingBlockers.length} pending)
-                                  </span>
-                                ) : allBlockers.length > 0 ? (
-                                  <span
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      fontSize: '0.72rem',
-                                      fontWeight: 600,
-                                      padding: '2px 8px',
-                                      borderRadius: '6px',
-                                      background: 'rgba(16, 185, 129, 0.12)',
-                                      border: '1px solid rgba(16, 185, 129, 0.3)',
-                                      color: 'var(--emerald)',
-                                      cursor: 'pointer',
-                                    }}
-                                    onClick={() => setModalStory(story)}
-                                    title={`All ${allBlockers.length} prerequisite tasks completed`}
-                                  >
-                                    <Unlock className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                                    Unblocked
-                                  </span>
-                                ) : null}
-
-                                {dependentTasks.length > 0 && (
-                                  <span
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      fontSize: '0.72rem',
-                                      fontWeight: 600,
-                                      padding: '2px 8px',
-                                      borderRadius: '6px',
-                                      background: 'rgba(56, 189, 248, 0.12)',
-                                      border: '1px solid rgba(56, 189, 248, 0.3)',
-                                      color: '#38bdf8',
-                                      cursor: 'pointer',
-                                    }}
-                                    onClick={() => setModalStory(story)}
-                                    title={`Prerequisite for ${dependentTasks.map(d => `"${d.theme}"`).join(', ')}`}
-                                  >
-                                    <GitFork className="w-3 h-3 text-sky-400 flex-shrink-0" />
-                                    Blocks {dependentTasks.length} task{dependentTasks.length > 1 ? 's' : ''}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            {story.situation && (
-                              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 6px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
-                                <strong style={{ color: 'var(--text)' }}>S:</strong> {story.situation}
-                              </p>
-                            )}
-
-                            {story.result && (
-                              <p style={{ fontSize: '0.82rem', color: 'var(--emerald)', fontWeight: 600, margin: '0 0 10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
-                                <strong>R:</strong> {story.result}
-                              </p>
-                            )}
-
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
-                              <select
-                                aria-label={`Status for ${story.theme}`}
-                                value={story.status || 'To Do'}
-                                onChange={(e) => handleUpdateStatus(story.id, e.target.value as StoryStatus)}
-                                style={{
-                                  padding: '2px 6px',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 700,
-                                  borderRadius: '99px',
-                                  border: '1px solid ' + (story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--border)'),
-                                  background: story.status === 'Done' ? 'rgba(16, 185, 129, 0.15)' : story.status === 'In Progress' ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface)',
-                                  color: story.status === 'Done' ? 'var(--emerald)' : story.status === 'In Progress' ? '#f59e0b' : 'var(--text)',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                <option value="To Do">To Do</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Done">Done</option>
-                              </select>
-
-                              <div style={{ display: 'flex', gap: '4px' }}>
-                                <button
-                                  type="button"
-                                  className="button button-secondary"
-                                  onClick={() => setModalStory(story)}
-                                  style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                                  title="View task details, notes & links"
-                                >
-                                  <Eye className="w-3 h-3 text-sky-400" />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="button button-secondary"
-                                  onClick={() => handleCopyStory(story)}
-                                  style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                                  title="Copy story"
-                                >
-                                  <Copy className="w-3 h-3 text-sky-400" />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="button button-secondary"
-                                  onClick={() => handleEditStory(story)}
-                                  style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                                  title="Edit story"
-                                >
-                                  <Edit3 className="w-3 h-3 text-amber-400" />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="button button-secondary"
-                                  onClick={() => handleArchiveStory(story.id)}
-                                  style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                                  title="Archive story"
-                                >
-                                  <Archive className="w-3 h-3 text-slate-400" />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="button button-secondary"
-                                  onClick={() => handleDeleteStory(story.id)}
-                                  style={{ padding: '3px 8px', fontSize: '0.75rem', color: 'var(--rose)' }}
-                                  title="Delete story"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                          {renderInsertionIndicator(story.id, 'after')}
-                        </React.Fragment>
-                        );
-                      })
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
+                  {activeDndStory ? (
+                    <DragOverlayStatusCard
+                      story={activeDndStory}
+                      isBlocked={getPendingBlockers(activeDndStory, starStories).length > 0}
+                      isMultiSelected={selectedTaskIds.includes(activeDndStory.id) && selectedTaskIds.length > 1}
+                      selectedCount={selectedTaskIds.length}
+                    />
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
             )
           ) : (
             /* DETAILED LIST VIEW */
