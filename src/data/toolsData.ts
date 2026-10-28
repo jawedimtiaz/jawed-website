@@ -312,4 +312,12 @@ export const TOOLS: ToolItem[] = [
     route: '/tools/hardware-storage-calculator',
     keywords: ['storage', 'raid', 'hard drive', 'drive', 'hdd', 'ssd', 'nas', 'san', 'parity', 'raid 5', 'raid 6', 'raid 10', 'raid 50', 'bay', 'chassis', 'terabytes', 'nvr', 'server'],
   },
+  {
+    id: 'cable-length-poe-checker',
+    name: 'Cable Length & PoE Budget Checker',
+    description: 'Check whether an Ethernet cable run is within limits for your speed (Cat5e/Cat6/Cat6a) and calculate your switch PoE power budget across 802.3af, 802.3at, and 802.3bt devices.',
+    category: 'it',
+    route: '/tools/cable-length-poe-budget-checker',
+    keywords: ['poe', 'cable', 'cat5e', 'cat6', 'cat6a', 'ethernet', 'poe+', 'poe++', '802.3af', '802.3at', '802.3bt', 'switch', 'power', 'budget', 'watts', 'camera', 'access point', 'voip', 'length'],
+  },
 ];

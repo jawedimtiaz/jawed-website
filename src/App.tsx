@@ -47,6 +47,7 @@ import { RetirementPlanningCalculator } from './tools/RetirementPlanningCalculat
 import { ItSalaryOfferCalculator } from './tools/ItSalaryOfferCalculator';
 import { CctvStorageCalculator } from './tools/CctvStorageCalculator';
 import { HardwareStorageCalculator } from './tools/HardwareStorageCalculator';
+import { CableLengthPoeChecker } from './tools/CableLengthPoeChecker';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -129,6 +130,11 @@ export const App: React.FC = () => {
           <Route path="/tools/hardware-storage" element={<HardwareStorageCalculator />} />
           <Route path="/hardware-storage-calculator" element={<HardwareStorageCalculator />} />
           <Route path="/raid-calculator" element={<HardwareStorageCalculator />} />
+          <Route path="/tools/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
+          <Route path="/tools/cable-length-poe-checker" element={<CableLengthPoeChecker />} />
+          <Route path="/tools/poe-budget-calculator" element={<CableLengthPoeChecker />} />
+          <Route path="/tools/cable-length-checker" element={<CableLengthPoeChecker />} />
+          <Route path="/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
 
           {/* Services & Dispatch */}
           <Route path="/services" element={<ServicesDispatchPage />} />

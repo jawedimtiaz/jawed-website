@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ethernet Cable Length & PoE Budget Checker | Free IT Tool</title><meta name="description" content="Check Cat5e, Cat6 and Cat6a cable length limits by speed and calculate PoE power budget for cameras, access points and phones. Free, runs in your browser."><style>
+:root{--bg:#0f172a;--card:#16213a;--text:#e2e8f0;--muted:#94a3b8;--line:#2a3857;--brand:#38bdf8;--brand2:#818cf8;--good:#34d399;--bad:#f87171;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[data-theme=light]{--bg:#f4f7fb;--card:#fff;--text:#0f172a;--muted:#5b6b86;--line:#dbe3ef;--brand:#0284c7;--brand2:#4f46e5;--good:#059669;--bad:#dc2626}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+main{max-width:980px;margin:0 auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{font-size:clamp(26px,5vw,38px);margin:.3em 0 .1em;background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{margin-top:1.6em}.lead,.muted{color:var(--muted)}.muted{font-size:14px}
+button,select,input,textarea{font:inherit;color:var(--text)}
+button{cursor:pointer;background:transparent;border:1px solid var(--line);border-radius:10px;padding:7px 14px}
+button.on,button.primary{background:linear-gradient(90deg,var(--brand),var(--brand2));border:0;color:#fff;font-weight:600}button.primary{padding:11px 22px}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:80px;resize:vertical}label{display:block;font-weight:600;margin:12px 0 4px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px}
+.out{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:var(--bg)}.pre{white-space:pre-wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}.ok{color:var(--good)}.no{color:var(--bad)}
+ul{padding-left:20px}.hidden{display:none!important}.big{font-size:30px;font-weight:800}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none}#toast.on{opacity:1}
+details{border-top:1px solid var(--line);padding:8px 0}summary{cursor:pointer;font-weight:600}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+</style></head>
+<body><main>
+<div class="top"><span class="muted">Free tool · runs in your browser</span><button id="theme" aria-label="Toggle light or dark mode">◐ Theme</button></div>
+<h1>Cable Length & PoE Budget Checker</h1><p class="lead">Check whether a cable run is within limits for your speed, and whether your switch has enough PoE power for your devices.</p>
+<div class="row"><button data-m="cab" class="on">Cable length</button><button data-m="poe">PoE budget</button></div>
+<section id="m-cab" class="panel"><div class="grid"><div><label for="cat">Cable category</label><select id="cat"></select><label for="spd">Link speed</label><select id="spd"><option value="1G">1 Gbps</option><option value="2.5G">2.5 Gbps</option><option value="5G">5 Gbps</option><option value="10G">10 Gbps</option></select></div>
+<div><label for="len">Total channel length</label><input id="len" type="number" min="0" step="0.1" placeholder="e.g. 85"><label for="un">Unit</label><select id="un"><option value="m">metres</option><option value="ft">feet</option></select></div></div>
+<div class="row"><button class="primary" id="cb">Check</button></div><div id="co" class="out hidden"></div></section>
+<section id="m-poe" class="panel hidden"><label for="bud">Switch total PoE budget (watts, from its datasheet)</label><input id="bud" type="number" min="0" placeholder="e.g. 240"><div id="rows"></div>
+<div class="row"><button id="add">+ Add device type</button><button class="primary" id="pb">Check budget</button></div><div id="po" class="out hidden"></div></section>
+<h2>Ethernet cable limits and PoE power, explained</h2>
+<p><b>Cable length.</b> For twisted-pair Ethernet the standard channel limit is 100 metres (328 ft): up to 90 m of permanent cable in the wall plus up to 10 m of patch cords in total. Cat5e and above support 1 Gbps at 100 m. 2.5 Gbps works on Cat5e, 5 Gbps needs Cat6, and 10 Gbps needs Cat6a for the full 100 m. Cat6 can carry 10 Gbps only over shorter runs, commonly up to 55 m and sometimes as little as 37 m in noisy cable bundles. Cat5e is not rated for 10 Gbps.</p>
+<p><b>PoE standards.</b> PoE delivers power over the same cable. The switch (the power source) reserves power by device class, not by what the device actually draws.</p>
+<table><tr><th>Standard</th><th>Max power from switch port</th><th>Class range</th></tr><tr><td>802.3af (PoE)</td><td>15.4 W</td><td>0 to 3</td></tr><tr><td>802.3at (PoE+)</td><td>30 W</td><td>4</td></tr><tr><td>802.3bt Type 3</td><td>60 W</td><td>5 to 6</td></tr><tr><td>802.3bt Type 4</td><td>90 W</td><td>7 to 8</td></tr></table>
+<ul><li>Add up the class watts of every device and compare with the switch's <b>total PoE budget</b>, which is usually lower than ports × port power.</li><li>Many installers keep total load under about 80% of the budget for headroom. This is a planning habit, not a standard.</li><li>Many devices draw less than their class maximum, but plan for the worst case, especially for cameras with heaters or IR and for PTZ units.</li><li>Use solid-copper cable for PoE runs. Copper-clad aluminium (CCA) cable runs hot, loses power and is not standards-compliant.</li></ul>
+<p>Always confirm with the manufacturers' datasheets and local installation rules. These results are planning estimates.</p>
+<h2>FAQ</h2>
+<details><summary>Does this send my data anywhere?</summary><p>No. Everything runs in your browser.</p></details>
+<details><summary>Can I go over 100 m?</summary><p>Not reliably on copper. Use a switch or PoE extender partway, or switch to fibre.</p></details>
+<details><summary>Do all devices use their full class power?</summary><p>No, but the switch may reserve the full class amount, so plan with the class value.</p></details>
+</main><div id="toast" role="status"></div>
+<script>
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),1500)}
+function setTheme(t){document.documentElement.dataset.theme=t;store.set("tl_theme",t)}
+setTheme(store.get("tl_theme",matchMedia("(prefers-color-scheme:light)").matches?"light":"dark"));
+$("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+const copy=async t=>{try{await navigator.clipboard.writeText(t)}catch{const x=document.createElement("textarea");x.value=t;document.body.append(x);x.select();document.execCommand("copy");x.remove()}toast("Copied")};
+function dl(name,text){const u=URL.createObjectURL(new Blob([text],{type:"text/plain"})),a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
+
+//CORE_START
+
+const LIM={"Cat5e":{"1G":100,"2.5G":100,"5G":0,"10G":0},"Cat6":{"1G":100,"2.5G":100,"5G":100,"10G":55},"Cat6a":{"1G":100,"2.5G":100,"5G":100,"10G":100}};
+function cable(cat,spd,m){const lim=LIM[cat]&&LIM[cat][spd];if(!lim)return{ok:false,lim:0,over:0};return{ok:m<=lim,lim,over:Math.max(0,m-lim)}}
+const toM=(v,u)=>u==="ft"?v*0.3048:v;
+const CLASS={"Class 1 (4 W)":4,"Class 2 (7 W)":7,"Class 3 (15.4 W)":15.4,"Class 4 (30 W)":30,"Class 5 (45 W)":45,"Class 6 (60 W)":60,"Class 7 (75 W)":75,"Class 8 (90 W)":90};
+const stdFor=w=>w<=15.4?"802.3af (PoE)":w<=30?"802.3at (PoE+)":w<=60?"802.3bt Type 3 (PoE++)":"802.3bt Type 4 (PoE++)";
+function poe(rows,budget){const total=rows.reduce((a,r)=>a+r.qty*r.w,0),ports=rows.reduce((a,r)=>a+r.qty,0);
+  return{total,ports,left:budget-total,util:budget>0?total/budget*100:null,maxStd:rows.length?stdFor(Math.max(...rows.map(r=>r.w))):null,status:!(budget>0)?"nobudget":total>budget?"over":total>budget*0.8?"tight":"ok"}}
+
+//CORE_END
+
+$("#cat").innerHTML=Object.keys(LIM).map(c=>`<option>${c}</option>`).join("");$("#cat").value="Cat6";
+$("#cb").onclick=()=>{const v=parseFloat($("#len").value),o=$("#co");o.classList.remove("hidden");if(!(v>0)){o.innerHTML='<span class="no">Enter a length greater than 0.</span>';return}
+ const m=toM(v,$("#un").value),r=cable($("#cat").value,$("#spd").value,m);
+ o.innerHTML=!r.lim?`<div class="big no">Not supported</div><p>${esc($("#cat").value)} is not rated for ${esc($("#spd").value)}. Use a higher category.</p>`:`<div class="big ${r.ok?"ok":"no"}">${r.ok?"Within limit":"Too long"}</div><p>${m.toFixed(1)} m of ${r.lim} m allowed${r.ok?"":" ("+r.over.toFixed(1)+" m over)"}.</p>${r.ok&&m>90&&r.lim===100?'<p class="muted">Remember the permanent link should be 90 m or less, with patch cords making up the rest.</p>':""}${r.lim<100?'<p class="muted">This limit depends on cable quality and crosstalk. Test the installed link.</p>':""}`};
+let rid=0;
+function addRow(n="",q=1,c="Class 3 (15.4 W)"){const id=rid++;const d=document.createElement("div");d.className="grid";d.dataset.r=id;
+ d.innerHTML=`<div><label>Device (e.g. IP camera)</label><input class="dn" value="${esc(n)}"></div><div><label>Quantity</label><input class="dq" type="number" min="1" value="${q}"></div><div><label>PoE class</label><select class="dc">${Object.keys(CLASS).map(k=>`<option${k===c?" selected":""}>${k}</option>`).join("")}</select></div><div><label>Watts each (edit if known)</label><input class="dw" type="number" step="0.1" value="${CLASS[c]}"><button class="rm" style="margin-top:6px">Remove</button></div>`;$("#rows").append(d)}
+addRow("IP camera",8,"Class 3 (15.4 W)");addRow("Wi-Fi access point",2,"Class 4 (30 W)");
+$("#add").onclick=()=>addRow();
+$("#rows").addEventListener("change",e=>{if(e.target.classList.contains("dc")){e.target.closest("[data-r]").querySelector(".dw").value=CLASS[e.target.value]}});
+$("#rows").addEventListener("click",e=>{if(e.target.classList.contains("rm"))e.target.closest("[data-r]").remove()});
+$("#pb").onclick=()=>{const rows=[...document.querySelectorAll("#rows [data-r]")].map(d=>({n:d.querySelector(".dn").value,qty:parseInt(d.querySelector(".dq").value),w:parseFloat(d.querySelector(".dw").value)})).filter(r=>r.qty>0&&r.w>0),b=parseFloat($("#bud").value),o=$("#po");o.classList.remove("hidden");
+ if(!rows.length){o.innerHTML='<span class="no">Add at least one device with quantity and watts.</span>';return}
+ const r=poe(rows,b),lab={ok:["Within budget","ok"],tight:["Over 80% of budget: little headroom","no"],over:["Over budget","no"],nobudget:["Enter the switch PoE budget to compare","muted"]}[r.status];
+ o.innerHTML=`<div class="big ${lab[1]}">${lab[0]}</div><ul><li>Total requested: <b>${r.total.toFixed(1)} W</b> across <b>${r.ports}</b> PoE ports</li>${b>0?`<li>Switch budget: <b>${b} W</b> · remaining <b>${r.left.toFixed(1)} W</b> · load <b>${r.util.toFixed(0)}%</b></li>`:""}<li>Ports must support at least: <b>${r.maxStd}</b></li></ul>`};
+
+</script></body></html>

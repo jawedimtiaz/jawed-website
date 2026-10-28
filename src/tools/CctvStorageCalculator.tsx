@@ -42,6 +42,7 @@ import {
   ArrowUpRight,
   Eye,
   EyeOff,
+  ChevronRight,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import {
@@ -7813,6 +7814,48 @@ DRIVE ARRAY & RAID SPECIFICATION:
           </details>
         </div>
       </section>
+
+      {/* Cross-Link Banner to Cable Length & PoE Checker */}
+      <div
+        className="panel no-print"
+        style={{
+          marginTop: '32px',
+          padding: '16px 20px',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: '12px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div>
+          <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-heading)' }}>
+            Planning camera cable runs and PoE switch power budgets?
+          </span>
+          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            Verify Cat5e/Cat6/Cat6a distance limits (100m channel rule) and switch PoE capacity with the Cable Length &amp; PoE Budget Checker.
+          </p>
+        </div>
+
+        <Link
+          to="/tools/cable-length-poe-budget-checker"
+          className="button button-primary"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '0.82rem',
+            padding: '8px 16px',
+            textDecoration: 'none',
+          }}
+        >
+          Open Cable &amp; PoE Checker
+          <ChevronRight className="w-4 h-4" />
+        </Link>
+      </div>
     </main>
   );
 };
