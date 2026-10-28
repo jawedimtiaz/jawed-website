@@ -1792,8 +1792,9 @@ export const PoePortHeatmap: React.FC<{
 }> = ({ switchPortsCount, deviceRows, vendor }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [allocationStrategy, setAllocationStrategy] = useState<'staggered' | 'sequential'>('staggered');
+  const [allocationStrategy, setAllocationStrategy] = useState<'bank-balanced' | 'staggered' | 'isolated' | 'sequential'>('bank-balanced');
   const [hoveredPort, setHoveredPort] = useState<PoePortInfo | null>(null);
+  const [showPortScheduleTable, setShowPortScheduleTable] = useState<boolean>(false);
 
   const ports = useMemo(() => {
     const activeInstances: Array<{ name: string; watts: number; classKey: string }> = [];
@@ -1814,12 +1815,76 @@ export const PoePortHeatmap: React.FC<{
     const assignedMap: Record<number, { name: string; watts: number; classKey: string }> = {};
 
     if (allocationStrategy === 'sequential') {
+      // 1. Sequential Standard IDF
       activeInstances.forEach((inst, idx) => {
         if (idx < totalPorts) {
           assignedMap[idx + 1] = inst;
         }
       });
+    } else if (allocationStrategy === 'bank-balanced') {
+      // 2. Optimal ASIC Bank Load Balancing (Greedy Power Distribution)
+      const totalBanks = Math.ceil(totalPorts / 8);
+      const bankLoads: number[] = new Array(totalBanks).fill(0);
+      const bankPorts: number[][] = Array.from({ length: totalBanks }, (_, b) => {
+        const pArr: number[] = [];
+        for (let p = b * 8 + 1; p <= Math.min((b + 1) * 8, totalPorts); p++) {
+          pArr.push(p);
+        }
+        return pArr;
+      });
+      const bankNextPortIdx: number[] = new Array(totalBanks).fill(0);
+
+      // Sort active instances descending by power requirement
+      const sorted = [...activeInstances].sort((a, b) => b.watts - a.watts);
+
+      sorted.forEach(inst => {
+        let bestBank = -1;
+        let minLoad = Infinity;
+
+        for (let b = 0; b < totalBanks; b++) {
+          if (bankNextPortIdx[b] < bankPorts[b].length) {
+            if (bankLoads[b] < minLoad) {
+              minLoad = bankLoads[b];
+              bestBank = b;
+            }
+          }
+        }
+
+        if (bestBank !== -1) {
+          const pNum = bankPorts[bestBank][bankNextPortIdx[bestBank]];
+          assignedMap[pNum] = inst;
+          bankLoads[bestBank] += inst.watts;
+          bankNextPortIdx[bestBank]++;
+        }
+      });
+    } else if (allocationStrategy === 'isolated') {
+      // 3. High-Power PoE++ Isolation Buffer (>30W separated)
+      const highPower = activeInstances.filter(i => i.watts > 30);
+      const lowPower = activeInstances.filter(i => i.watts <= 30);
+
+      let hpPort = 1;
+      highPower.forEach(inst => {
+        while (hpPort <= totalPorts && assignedMap[hpPort]) {
+          hpPort += 2;
+        }
+        if (hpPort <= totalPorts) {
+          assignedMap[hpPort] = inst;
+          hpPort += 4;
+          if (hpPort > totalPorts && hpPort % 2 !== 0) hpPort = 3;
+        }
+      });
+
+      let lpPort = 1;
+      lowPower.forEach(inst => {
+        while (lpPort <= totalPorts && assignedMap[lpPort]) {
+          lpPort++;
+        }
+        if (lpPort <= totalPorts) {
+          assignedMap[lpPort] = inst;
+        }
+      });
     } else {
+      // 4. Staggered Interleaved Spreading
       let oddPort = 1;
       let evenPort = 2;
       activeInstances.forEach((inst, idx) => {
@@ -1883,6 +1948,35 @@ export const PoePortHeatmap: React.FC<{
 
     return portList;
   }, [switchPortsCount, deviceRows, allocationStrategy]);
+
+  // Bank & Thermal Optimization Metrics
+  const bankMetrics = useMemo(() => {
+    const totalBanks = Math.ceil(switchPortsCount / 8);
+    const loads: number[] = new Array(totalBanks).fill(0);
+
+    ports.forEach(p => {
+      const bIdx = Math.floor((p.portNum - 1) / 8);
+      if (bIdx < totalBanks) {
+        loads[bIdx] += p.watts;
+      }
+    });
+
+    const maxBankLoadWatts = Math.max(...loads, 0);
+    const minBankLoadWatts = Math.min(...loads, 0);
+    const imbalanceDeltaWatts = maxBankLoadWatts - minBankLoadWatts;
+
+    const hotspotsCount = ports.filter(p => p.isHotspot).length;
+    const balanceScore = Math.max(50, Math.min(100, Math.round(100 - (hotspotsCount * 12) - (imbalanceDeltaWatts * 0.35))));
+
+    return {
+      loads,
+      maxBankLoadWatts,
+      minBankLoadWatts,
+      imbalanceDeltaWatts,
+      balanceScore,
+      hotspotsCount,
+    };
+  }, [ports, switchPortsCount]);
 
   const activePortsCount = ports.filter(p => p.watts > 0).length;
   const hotspotPortsCount = ports.filter(p => p.isHotspot).length;
@@ -1951,7 +2045,7 @@ export const PoePortHeatmap: React.FC<{
       .attr('font-size', '11px')
       .attr('font-weight', '900')
       .attr('font-family', 'helvetica, sans-serif')
-      .text(`${vendor.name.toUpperCase()} · ${switchPortsCount}-PORT POE FRONT PANEL`);
+      .text(`${vendor.name.toUpperCase()} · ${switchPortsCount}-PORT POE OPTIMIZED FRONT PANEL`);
 
     const portGroups = svg.selectAll('.port-node')
       .data(ports, (d: any) => d.portNum)
@@ -2042,7 +2136,7 @@ export const PoePortHeatmap: React.FC<{
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
         <div>
-          <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles className="w-5 h-5 text-amber-400" />
             Switch Port PoE Load &amp; Thermal Density Heatmap (D3.js)
           </div>
@@ -2051,69 +2145,119 @@ export const PoePortHeatmap: React.FC<{
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {hotspotPortsCount > 0 && (
-            <span
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 800,
-                color: 'var(--rose)',
-                padding: '3px 10px',
-                borderRadius: '12px',
-                background: 'rgba(244, 63, 94, 0.18)',
-                border: '1px solid rgba(244, 63, 94, 0.4)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
-              <AlertTriangle className="w-3.5 h-3.5" /> {hotspotPortsCount} Hotspot {hotspotPortsCount === 1 ? 'Port' : 'Ports'} Detected
-            </span>
-          )}
+        {/* Strategy Buttons */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setAllocationStrategy('bank-balanced')}
+            style={{
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              borderRadius: '8px',
+              background: allocationStrategy === 'bank-balanced' ? 'var(--emerald)' : 'var(--surface)',
+              color: allocationStrategy === 'bank-balanced' ? '#0f172a' : 'var(--text-heading)',
+              border: `1px solid ${allocationStrategy === 'bank-balanced' ? 'var(--emerald)' : 'var(--border)'}`,
+              cursor: 'pointer',
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            title="Auto-balance load across 8-port switch banks / ASIC power planes to prevent localized overheating"
+          >
+            <Zap className="w-3.5 h-3.5" /> ASIC Bank Balanced (Recommended)
+          </button>
 
-          <div style={{ display: 'flex', gap: '4px', background: 'var(--surface)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-            <button
-              type="button"
-              onClick={() => setAllocationStrategy('staggered')}
-              style={{
-                padding: '4px 10px',
-                fontSize: '0.76rem',
-                borderRadius: '6px',
-                background: allocationStrategy === 'staggered' ? 'var(--accent)' : 'transparent',
-                color: allocationStrategy === 'staggered' ? '#ffffff' : 'var(--text-muted)',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: allocationStrategy === 'staggered' ? 800 : 500,
-              }}
-              title="Spread high-power PoE++ devices across odd/even port banks to eliminate thermal hotspots"
-            >
-              Staggered (Cooling)
-            </button>
-            <button
-              type="button"
-              onClick={() => setAllocationStrategy('sequential')}
-              style={{
-                padding: '4px 10px',
-                fontSize: '0.76rem',
-                borderRadius: '6px',
-                background: allocationStrategy === 'sequential' ? 'var(--accent)' : 'transparent',
-                color: allocationStrategy === 'sequential' ? '#ffffff' : 'var(--text-muted)',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: allocationStrategy === 'sequential' ? 800 : 500,
-              }}
-              title="Fill ports 1..N sequentially"
-            >
-              Sequential
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setAllocationStrategy('staggered')}
+            style={{
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              borderRadius: '8px',
+              background: allocationStrategy === 'staggered' ? 'var(--accent)' : 'var(--surface)',
+              color: allocationStrategy === 'staggered' ? '#ffffff' : 'var(--text-heading)',
+              border: `1px solid ${allocationStrategy === 'staggered' ? 'var(--accent)' : 'var(--border)'}`,
+              cursor: 'pointer',
+              fontWeight: 800,
+            }}
+            title="Alternate high-power devices between top and bottom port rows"
+          >
+            Interleaved Rows
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAllocationStrategy('isolated')}
+            style={{
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              borderRadius: '8px',
+              background: allocationStrategy === 'isolated' ? '#818cf8' : 'var(--surface)',
+              color: allocationStrategy === 'isolated' ? '#0f172a' : 'var(--text-heading)',
+              border: `1px solid ${allocationStrategy === 'isolated' ? '#818cf8' : 'var(--border)'}`,
+              cursor: 'pointer',
+              fontWeight: 800,
+            }}
+            title="Separate 60W/90W PoE++ devices with empty buffer ports"
+          >
+            PoE++ Isolation
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAllocationStrategy('sequential')}
+            style={{
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              borderRadius: '8px',
+              background: allocationStrategy === 'sequential' ? 'var(--surface)' : 'var(--surface)',
+              color: allocationStrategy === 'sequential' ? 'var(--text-heading)' : 'var(--text-muted)',
+              border: `1px solid ${allocationStrategy === 'sequential' ? 'var(--text-heading)' : 'var(--border)'}`,
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+            title="Sequential ports 1..N"
+          >
+            Sequential
+          </button>
         </div>
       </div>
 
+      {/* Optimization Dashboard Metrics Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4" style={{ background: 'var(--surface)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+        <div>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', fontWeight: 700 }}>THERMAL BALANCE SCORE</span>
+          <strong style={{ fontSize: '1.15rem', color: bankMetrics.balanceScore >= 85 ? 'var(--emerald)' : 'var(--amber)' }}>
+            {bankMetrics.balanceScore}% Optimal
+          </strong>
+        </div>
+        <div>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', fontWeight: 700 }}>MAX 8-PORT BANK LOAD</span>
+          <strong style={{ fontSize: '1.15rem', color: 'var(--text-heading)' }}>
+            {bankMetrics.maxBankLoadWatts.toFixed(1)} W
+          </strong>
+        </div>
+        <div>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', fontWeight: 700 }}>BANK LOAD IMBALANCE</span>
+          <strong style={{ fontSize: '1.15rem', color: bankMetrics.imbalanceDeltaWatts <= 20 ? 'var(--emerald)' : 'var(--amber)' }}>
+            Δ {bankMetrics.imbalanceDeltaWatts.toFixed(1)} W
+          </strong>
+        </div>
+        <div>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', fontWeight: 700 }}>THERMAL HOTSPOTS</span>
+          <strong style={{ fontSize: '1.15rem', color: hotspotPortsCount === 0 ? 'var(--emerald)' : 'var(--rose)' }}>
+            {hotspotPortsCount} Hotspots
+          </strong>
+        </div>
+      </div>
+
+      {/* D3 SVG Front Panel */}
       <div ref={containerRef} style={{ width: '100%', overflowX: 'auto' }}>
         <svg ref={svgRef} style={{ width: '100%', height: 'auto', minWidth: '600px' }} />
       </div>
 
+      {/* Hovered Port Telemetry Card */}
       {hoveredPort ? (
         <div
           style={{
@@ -2151,7 +2295,7 @@ export const PoePortHeatmap: React.FC<{
                 {hoveredPort.deviceName ? hoveredPort.deviceName : 'Unused / Inactive Port'}
               </div>
               <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                {hoveredPort.classKey} · Estimated Thermal Temperature: ~{hoveredPort.tempEstC}°C
+                Bank {Math.ceil(hoveredPort.portNum / 8)} · {hoveredPort.classKey} · Estimated Thermal Temp: ~{hoveredPort.tempEstC}°C
               </div>
             </div>
           </div>
@@ -2190,24 +2334,73 @@ export const PoePortHeatmap: React.FC<{
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'center', marginTop: '16px', fontSize: '0.76rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#1e293b', border: '1px solid #334155' }} />
-          <span>Unused (0W)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#10b981' }} />
-          <span>PoE Class 0-3 (&le;15.4W)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#f59e0b' }} />
-          <span>PoE+ Class 4 (&le;30.0W)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#f43f5e' }} />
-          <span>PoE++ Hotspot (&gt;30.0W)</span>
-        </div>
+      {/* Toggle Recommended Port Assignment Schedule Table */}
+      <div style={{ marginTop: '14px', textAlign: 'center' }}>
+        <button
+          type="button"
+          onClick={() => setShowPortScheduleTable(!showPortScheduleTable)}
+          style={{
+            padding: '6px 14px',
+            borderRadius: '8px',
+            fontSize: '0.78rem',
+            fontWeight: 800,
+            background: 'var(--surface)',
+            color: '#38bdf8',
+            border: '1px solid var(--border)',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          {showPortScheduleTable ? 'Hide Optimal Port Patching Schedule' : 'View Recommended Port Patching Schedule'}
+        </button>
       </div>
+
+      {showPortScheduleTable && (
+        <div style={{ marginTop: '14px', background: 'var(--surface)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)', overflowX: 'auto' }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-heading)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            Optimal Switch Port Patching Schedule ({allocationStrategy.toUpperCase()} STRATEGY):
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                <th style={{ padding: '6px 8px' }}>PORT #</th>
+                <th style={{ padding: '6px 8px' }}>ASIC BANK</th>
+                <th style={{ padding: '6px 8px' }}>CONNECTED DEVICE</th>
+                <th style={{ padding: '6px 8px' }}>POE CLASS / WATTAGE</th>
+                <th style={{ padding: '6px 8px' }}>THERMAL STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ports.filter(p => p.watts > 0).map(p => (
+                <tr key={p.portNum} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '6px 8px', fontWeight: 800, color: '#38bdf8' }}>Port {p.portNum}</td>
+                  <td style={{ padding: '6px 8px', color: 'var(--text-muted)' }}>Bank {Math.ceil(p.portNum / 8)}</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 700, color: 'var(--text-heading)' }}>{p.deviceName}</td>
+                  <td style={{ padding: '6px 8px', color: 'var(--emerald)', fontWeight: 700 }}>{p.watts.toFixed(1)} W ({p.classKey})</td>
+                  <td style={{ padding: '6px 8px' }}>
+                    <span
+                      style={{
+                        padding: '2px 6px',
+                        borderRadius: '6px',
+                        fontWeight: 700,
+                        fontSize: '0.72rem',
+                        background: p.isHotspot ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                        color: p.isHotspot ? 'var(--rose)' : 'var(--emerald)',
+                      }}
+                    >
+                      {p.isHotspot ? 'Hotspot' : 'Optimal'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
@@ -2547,6 +2740,10 @@ export const CableLengthPoeChecker: React.FC = () => {
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [exportedPdf, setExportedPdf] = useState(false);
   const [exportedCsv, setExportedCsv] = useState(false);
+  const [exportedJson, setExportedJson] = useState(false);
+  const [importedJson, setImportedJson] = useState(false);
+  const [jsonImportError, setJsonImportError] = useState<string | null>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
 
   // -------------------------------------------------------------
   // CABLE LENGTH CALCULATIONS
@@ -3531,6 +3728,161 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
     }
   };
 
+  // -------------------------------------------------------------
+  // JSON CONFIGURATION BACKUP EXPORT & IMPORT ENGINE
+  // -------------------------------------------------------------
+  const handleExportJson = () => {
+    const timestamp = new Date().toISOString();
+    const dateStamp = timestamp.split('T')[0];
+
+    const backupData = {
+      schemaVersion: '1.0',
+      exportedAt: timestamp,
+      appName: 'Cable Length & PoE Budget Checker',
+      cableConfig: {
+        cableCategory,
+        linkSpeed,
+        channelLength,
+        lengthUnit,
+        isBundledCrosstalk,
+        bundleSize,
+        permanentLinkPct,
+        conductorType,
+        ambientTempC,
+        costPerMeter: typeof costPerMeter === 'number' ? costPerMeter : 0,
+        costCurrency,
+        includeSlackBuffer,
+      },
+      poeConfig: {
+        selectedSwitchSeriesId,
+        selectedVendor,
+        useSecondaryPsu,
+        switchBudgetWatts,
+        switchPortsCount,
+        deviceRows,
+      },
+    };
+
+    const jsonString = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `poe-cable-config-backup-${dateStamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setExportedJson(true);
+    setTimeout(() => setExportedJson(false), 2500);
+  };
+
+  const handleTriggerImportJson = () => {
+    setJsonImportError(null);
+    if (jsonFileInputRef.current) {
+      jsonFileInputRef.current.click();
+    }
+  };
+
+  const handleImportJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+
+        if (!parsed || typeof parsed !== 'object') {
+          throw new Error('Invalid JSON structure. File must be a JSON object.');
+        }
+
+        const cableConfig = parsed.cableConfig || parsed;
+        const poeConfig = parsed.poeConfig || parsed;
+
+        // Restore Cable Config
+        if (cableConfig.cableCategory && CABLE_SPECS[cableConfig.cableCategory as CableCategory]) {
+          setCableCategory(cableConfig.cableCategory as CableCategory);
+        }
+        if (cableConfig.linkSpeed) {
+          setLinkSpeed(cableConfig.linkSpeed as LinkSpeed);
+        }
+        if (typeof cableConfig.channelLength === 'number' && cableConfig.channelLength > 0) {
+          setChannelLength(cableConfig.channelLength);
+        }
+        if (cableConfig.lengthUnit === 'm' || cableConfig.lengthUnit === 'ft') {
+          setLengthUnit(cableConfig.lengthUnit);
+        }
+        if (typeof cableConfig.isBundledCrosstalk === 'boolean') {
+          setIsBundledCrosstalk(cableConfig.isBundledCrosstalk);
+        }
+        if (typeof cableConfig.bundleSize === 'number' && cableConfig.bundleSize > 0) {
+          setBundleSize(cableConfig.bundleSize);
+        }
+        if (typeof cableConfig.permanentLinkPct === 'number') {
+          setPermanentLinkPct(cableConfig.permanentLinkPct);
+        }
+        if (cableConfig.conductorType && CONDUCTOR_SPECS[cableConfig.conductorType as ConductorType]) {
+          setConductorType(cableConfig.conductorType as ConductorType);
+        }
+        if (typeof cableConfig.ambientTempC === 'number') {
+          setAmbientTempC(cableConfig.ambientTempC);
+        }
+        if (typeof cableConfig.costPerMeter === 'number') {
+          setCostPerMeter(cableConfig.costPerMeter);
+        }
+        if (typeof cableConfig.costCurrency === 'string') {
+          setCostCurrency(cableConfig.costCurrency);
+        }
+        if (typeof cableConfig.includeSlackBuffer === 'boolean') {
+          setIncludeSlackBuffer(cableConfig.includeSlackBuffer);
+        }
+
+        // Restore PoE Config
+        if (poeConfig.selectedSwitchSeriesId) {
+          const matchedModel = SWITCH_SERIES_MODELS.find(m => m.id === poeConfig.selectedSwitchSeriesId);
+          if (matchedModel) {
+            setSelectedSwitchSeriesId(poeConfig.selectedSwitchSeriesId);
+            setSelectedVendor(matchedModel.vendorId);
+          }
+        }
+        if (typeof poeConfig.useSecondaryPsu === 'boolean') {
+          setUseSecondaryPsu(poeConfig.useSecondaryPsu);
+        }
+        if (typeof poeConfig.switchBudgetWatts === 'number' && poeConfig.switchBudgetWatts > 0) {
+          setSwitchBudgetWatts(poeConfig.switchBudgetWatts);
+        }
+        if (typeof poeConfig.switchPortsCount === 'number' && poeConfig.switchPortsCount > 0) {
+          setSwitchPortsCount(poeConfig.switchPortsCount);
+        }
+        if (Array.isArray(poeConfig.deviceRows) && poeConfig.deviceRows.length > 0) {
+          setDeviceRows(
+            poeConfig.deviceRows.map((d: any, idx: number) => ({
+              id: d.id || `imported-dev-${idx}-${Date.now()}`,
+              name: d.name || `Device ${idx + 1}`,
+              qty: typeof d.qty === 'number' && d.qty > 0 ? d.qty : 1,
+              classKey: d.classKey || 'Class 3 (15.4 W)',
+              wattsEach: typeof d.wattsEach === 'number' && d.wattsEach >= 0 ? d.wattsEach : 15.4,
+              estCableLengthM: typeof d.estCableLengthM === 'number' && d.estCableLengthM >= 0 ? d.estCableLengthM : 50,
+            }))
+          );
+        }
+
+        setJsonImportError(null);
+        setImportedJson(true);
+        setTimeout(() => setImportedJson(false), 2500);
+      } catch (err: any) {
+        setJsonImportError(err.message || 'Failed to parse JSON backup file.');
+      } finally {
+        e.target.value = '';
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
   return (
     <main className="container page cable-poe-root">
       {/* Top Bar with Breadcrumbs & Social Share */}
@@ -3724,6 +4076,36 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           <button
             type="button"
             className="button button-secondary"
+            onClick={handleExportJson}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
+            title="Export current PoE load configuration and cable analysis to a JSON backup file"
+          >
+            {exportedJson ? <Check className="w-4 h-4 text-emerald-400" /> : <Package className="w-4 h-4 text-amber-400" />}
+            {exportedJson ? 'Exported JSON!' : 'Export JSON'}
+          </button>
+
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={handleTriggerImportJson}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
+            title="Import PoE load configuration and cable settings from a backup JSON file"
+          >
+            {importedJson ? <Check className="w-4 h-4 text-emerald-400" /> : <Download className="w-4 h-4 text-sky-400" />}
+            {importedJson ? 'Imported JSON!' : 'Import JSON'}
+          </button>
+
+          <input
+            ref={jsonFileInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleImportJsonFile}
+            style={{ display: 'none' }}
+          />
+
+          <button
+            type="button"
+            className="button button-secondary"
             onClick={handleCopySummary}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
             title="Copy technical audit summary to clipboard"
@@ -3773,6 +4155,58 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           </button>
         </div>
       </div>
+
+      {/* JSON Import Notification Alerts */}
+      {jsonImportError && (
+        <div
+          className="no-print"
+          style={{
+            padding: '10px 14px',
+            borderRadius: '10px',
+            background: 'rgba(244, 63, 94, 0.15)',
+            border: '1px solid rgba(244, 63, 94, 0.4)',
+            color: 'var(--rose)',
+            fontSize: '0.82rem',
+            marginBottom: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span><strong>JSON Backup Import Error:</strong> {jsonImportError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setJsonImportError(null)}
+            style={{ background: 'none', border: 'none', color: 'var(--rose)', cursor: 'pointer' }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {importedJson && (
+        <div
+          className="no-print"
+          style={{
+            padding: '10px 14px',
+            borderRadius: '10px',
+            background: 'rgba(16, 185, 129, 0.15)',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            color: 'var(--emerald)',
+            fontSize: '0.82rem',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <span><strong>Configuration Successfully Restored:</strong> Imported PoE devices, switch hardware, cable category, and thermal parameters from JSON backup.</span>
+        </div>
+      )}
 
       {/* View Mode Switcher Tabs */}
       <div
