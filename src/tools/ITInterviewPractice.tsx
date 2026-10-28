@@ -868,7 +868,7 @@ export const ITInterviewPractice: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roleSelectId = useId();
   const diffSelectId = useId();
   const answerTextareaId = useId();
@@ -945,7 +945,7 @@ export const ITInterviewPractice: React.FC = () => {
       timerRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
-            clearInterval(timerRef.current as NodeJS.Timeout);
+            clearInterval(timerRef.current as any);
             setIsTimerRunning(false);
             showToast("Time's up! Wrap up your answer.");
             return 0;

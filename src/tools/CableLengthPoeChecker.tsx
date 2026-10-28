@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 import {
   Cable,
   Zap,
@@ -37,6 +39,7 @@ import {
   DollarSign,
   Package,
   Download,
+  X,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import * as d3 from 'd3';
@@ -254,6 +257,242 @@ export const VENDOR_PROFILES: Record<NetworkVendor, VendorProfile> = {
 };
 
 // -------------------------------------------------------------
+// ENTERPRISE NETWORK SWITCH SERIES CATALOG & SPECS
+// -------------------------------------------------------------
+export interface SwitchSeriesModel {
+  id: string;
+  vendorId: NetworkVendor;
+  vendorName: string;
+  seriesName: string;
+  modelCode: string;
+  portsCount: number;
+  poeBudgetWatts: number;
+  hasSecondaryPsuOption?: boolean;
+  poeBudgetWithSecondaryPsuWatts?: number;
+  secondaryPsuNote?: string;
+  maxPortWatts: number;
+  supportedStandards: PoeStandardId[];
+  defaultPoEVoltageV: number;
+  backplaneGbps: number;
+  poePolicy: 'class-max' | 'lldp-dynamic' | 'hybrid';
+  officialDatasheetNote: string;
+}
+
+export const SWITCH_SERIES_MODELS: SwitchSeriesModel[] = [
+  // Cisco Catalyst & Meraki
+  {
+    id: 'cisco-cat-9300-48u',
+    vendorId: 'cisco',
+    vendorName: 'Cisco Catalyst',
+    seriesName: 'Cisco Catalyst 9300 Series (C9300-48U)',
+    modelCode: 'C9300-48U (48-Port UPOE 60W)',
+    portsCount: 48,
+    poeBudgetWatts: 822,
+    hasSecondaryPsuOption: true,
+    poeBudgetWithSecondaryPsuWatts: 1440,
+    secondaryPsuNote: 'Dual 1100W AC PSUs boost available PoE allocation to full 1440W',
+    maxPortWatts: 60,
+    supportedStandards: ['802.3af', '802.3at', '802.3bt-type3'],
+    defaultPoEVoltageV: 54.0,
+    backplaneGbps: 128,
+    poePolicy: 'lldp-dynamic',
+    officialDatasheetNote: 'Cisco UPOE 60W per port with dynamic CDP/LLDP-MED power negotiation and StackPower supply sharing.',
+  },
+  {
+    id: 'cisco-cat-9300x-48h',
+    vendorId: 'cisco',
+    vendorName: 'Cisco Catalyst',
+    seriesName: 'Cisco Catalyst 9300X Series (C9300X-48H)',
+    modelCode: 'C9300X-48H (48-Port UPOE+ 90W)',
+    portsCount: 48,
+    poeBudgetWatts: 900,
+    hasSecondaryPsuOption: true,
+    poeBudgetWithSecondaryPsuWatts: 1440,
+    secondaryPsuNote: 'Dual 1900W AC PSUs deliver 1440W budget across high-density 90W ports',
+    maxPortWatts: 90,
+    supportedStandards: ['802.3af', '802.3at', '802.3bt-type3', '802.3bt-type4'],
+    defaultPoEVoltageV: 54.0,
+    backplaneGbps: 256,
+    poePolicy: 'lldp-dynamic',
+    officialDatasheetNote: 'IEEE 802.3bt Type 4 90W UPOE+ with line-rate multi-gigabit uplinks and perpetual PoE.',
+  },
+  {
+    id: 'cisco-cat-9200-24p',
+    vendorId: 'cisco',
+    vendorName: 'Cisco Catalyst',
+    seriesName: 'Cisco Catalyst 9200 Series (C9200-24P)',
+    modelCode: 'C9200-24P (24-Port PoE+ 30W)',
+    portsCount: 24,
+    poeBudgetWatts: 370,
+    hasSecondaryPsuOption: false,
+    maxPortWatts: 30,
+    supportedStandards: ['802.3af', '802.3at'],
+    defaultPoEVoltageV: 54.0,
+    backplaneGbps: 56,
+    poePolicy: 'lldp-dynamic',
+    officialDatasheetNote: 'Enterprise branch access switch delivering 370W full PoE+ across 24 1G ports.',
+  },
+  {
+    id: 'cisco-meraki-ms225-24p',
+    vendorId: 'cisco',
+    vendorName: 'Cisco Meraki',
+    seriesName: 'Cisco Meraki MS225 Series (MS225-24P)',
+    modelCode: 'MS225-24P (24-Port Cloud PoE+)',
+    portsCount: 24,
+    poeBudgetWatts: 370,
+    hasSecondaryPsuOption: false,
+    maxPortWatts: 30,
+    supportedStandards: ['802.3af', '802.3at'],
+    defaultPoEVoltageV: 54.0,
+    backplaneGbps: 56,
+    poePolicy: 'lldp-dynamic',
+    officialDatasheetNote: 'Cloud-managed 24-port PoE+ access switch with 370W dedicated power budget.',
+  },
+
+  // Aruba / HPE
+  {
+    id: 'aruba-cx-6300m-48p',
+    vendorId: 'aruba',
+    vendorName: 'Aruba / HPE Networking CX',
+    seriesName: 'Aruba CX 6300M Series (JL659A)',
+    modelCode: 'JL659A (48-Port SmartRate Class 8 90W)',
+    portsCount: 48,
+    poeBudgetWatts: 740,
+    hasSecondaryPsuOption: true,
+    poeBudgetWithSecondaryPsuWatts: 1440,
+    secondaryPsuNote: 'Dual 1050W PSUs unlock 1440W Class 8 PoE++ capacity',
+    maxPortWatts: 90,
+    supportedStandards: ['802.3af', '802.3at', '802.3bt-type3', '802.3bt-type4'],
+    defaultPoEVoltageV: 54.0,
+    backplaneGbps: 176,
+    poePolicy: 'lldp-dynamic',
+    officialDatasheetNote: 'SmartRate multi-gigabit (1G/2.5G/5G) with IEEE 802.3bt Class 8 90W PoE allocation.',
+  },
+  {
+    id: 'aruba-cx-6200f-24p',
+    vendorId: 'aruba',
+    vendorName: 'Aruba / HPE Networking CX',
+    seriesName: 'Aruba CX 6200F Series (JL725A)',
+    modelCode: 'JL725A (24-Port Class 4 PoE+ 30W)',
+    portsCount: 24,
+    poeBudgetWatts: 370,
+    hasSecondaryPsuOption: false,
+    maxPortWatts: 30,
+    supportedStandards: ['802.3af', '802.3at'],
+    defaultPoEVoltageV: 54.0,
+    backplaneGbps: 128,
+    poePolicy: 'lldp-dynamic',
+    officialDatasheetNote: 'Fixed configuration 24-port Class 4 PoE+ access switch with 370W total budget.',
+  },
+
+  // Ubiquiti Networks
+  {
+    id: 'ubiquiti-pro-max-48',
+    vendorId: 'ubiquiti',
+    vendorName: 'Ubiquiti UniFi',
+    seriesName: 'Ubiquiti UniFi Pro Max 48 PoE',
+    modelCode: 'USW-Pro-Max-48-PoE (16x PoE++ 60W + 32x PoE+)',
+    portsCount: 48,
+    poeBudgetWatts: 720,
+    hasSecondaryPsuOption: false,
+    maxPortWatts: 60,
+    supportedStandards: ['802.3af', '802.3at', '802.3bt-type3'],
+    defaultPoEVoltageV: 50.0,
+    backplaneGbps: 224,
+    poePolicy: 'class-max',
+    officialDatasheetNote: '48-port switch with 16 2.5G PoE++ 60W ports, Etherlighting visualizers, and 720W total budget.',
+  },
+  {
+    id: 'ubiquiti-ent-24-poe',
+    vendorId: 'ubiquiti',
+    vendorName: 'Ubiquiti UniFi',
+    seriesName: 'Ubiquiti UniFi Enterprise 24 PoE',
+    modelCode: 'SWITCH-ENTERPRISE-24-POE (12x 2.5G PoE+ + 12x 1G PoE+)',
+    portsCount: 24,
+    poeBudgetWatts: 400,
+    hasSecondaryPsuOption: false,
+    maxPortWatts: 30,
+    supportedStandards: ['802.3af', '802.3at'],
+    defaultPoEVoltageV: 50.0,
+    backplaneGbps: 124,
+    poePolicy: 'class-max',
+    officialDatasheetNote: 'Layer 3 switch with 12 2.5G ports, 12 1G ports, and 400W total PoE availability.',
+  },
+
+  // Netgear ProAV / Business
+  {
+    id: 'netgear-m4300-52g',
+    vendorId: 'netgear',
+    vendorName: 'Netgear ProAV',
+    seriesName: 'Netgear ProAV M4300 Series (GSM4352PB)',
+    modelCode: 'GSM4352PB (48-Port PoE+ 30W)',
+    portsCount: 48,
+    poeBudgetWatts: 860,
+    hasSecondaryPsuOption: true,
+    poeBudgetWithSecondaryPsuWatts: 1440,
+    secondaryPsuNote: 'External Power Supply (EPS) expands total PoE budget to 1440W for AV over IP',
+    maxPortWatts: 30,
+    supportedStandards: ['802.3af', '802.3at'],
+    defaultPoEVoltageV: 52.0,
+    backplaneGbps: 104,
+    poePolicy: 'class-max',
+    officialDatasheetNote: 'Full wire-speed stackable switch optimized for Dante, NDI, and SDVoE AV over IP streaming.',
+  },
+  {
+    id: 'netgear-m4250-12m2xf',
+    vendorId: 'netgear',
+    vendorName: 'Netgear ProAV',
+    seriesName: 'Netgear AV Line M4250 Series (GSM4212UX)',
+    modelCode: 'GSM4212UX (8x Ultra90 802.3bt 90W + 2x PoE+)',
+    portsCount: 12,
+    poeBudgetWatts: 720,
+    hasSecondaryPsuOption: false,
+    maxPortWatts: 90,
+    supportedStandards: ['802.3af', '802.3at', '802.3bt-type3', '802.3bt-type4'],
+    defaultPoEVoltageV: 52.0,
+    backplaneGbps: 80,
+    poePolicy: 'class-max',
+    officialDatasheetNote: 'AV Line 8x 2.5G Ultra90 90W PoE++ ports with 720W power budget for high-power PTZ cameras.',
+  },
+
+  // MikroTik
+  {
+    id: 'mikrotik-crs328-24p',
+    vendorId: 'mikrotik',
+    vendorName: 'MikroTik',
+    seriesName: 'MikroTik CRS328 Series (CRS328-24P-4S+RM)',
+    modelCode: 'CRS328-24P-4S+RM (24-Port Active/Passive PoE)',
+    portsCount: 24,
+    poeBudgetWatts: 450,
+    hasSecondaryPsuOption: false,
+    maxPortWatts: 30,
+    supportedStandards: ['802.3af', '802.3at'],
+    defaultPoEVoltageV: 48.0,
+    backplaneGbps: 128,
+    poePolicy: 'hybrid',
+    officialDatasheetNote: '24 Independent 802.3af/at & 24V Passive PoE output ports with 450W power supply.',
+  },
+
+  // Generic / Custom
+  {
+    id: 'generic-custom',
+    vendorId: 'generic',
+    vendorName: 'Custom / Generic',
+    seriesName: 'Custom Enterprise Switch Model',
+    modelCode: 'Custom User Configured',
+    portsCount: 16,
+    poeBudgetWatts: 240,
+    hasSecondaryPsuOption: false,
+    maxPortWatts: 30,
+    supportedStandards: ['802.3af', '802.3at'],
+    defaultPoEVoltageV: 48.0,
+    backplaneGbps: 32,
+    poePolicy: 'class-max',
+    officialDatasheetNote: 'Standard unmanaged or managed switch with manual budget and port inputs.',
+  },
+];
+
+// -------------------------------------------------------------
 // CONDUCTOR MATERIAL & TEMPERATURE DEGRADATION SPECS
 // -------------------------------------------------------------
 export type ConductorType = 'solid-copper' | 'cca' | 'stranded-copper';
@@ -329,6 +568,149 @@ export const TEMP_PRESETS = [
   { label: 'Hot Attic / Conduit', tempC: 50, desc: '122°F · Elevated Thermal' },
   { label: 'Extreme Roof / Boiler', tempC: 65, desc: '149°F · Severe Heat' },
 ];
+
+// -------------------------------------------------------------
+// ETHERNET CABLE STANDARDS COMPARISON GUIDES
+// -------------------------------------------------------------
+export interface CableTypeGuide {
+  category: CableCategory;
+  title: string;
+  classStandard: string;
+  maxFreqMHz: number;
+  max100mSpeed: string;
+  tenGDistanceLimit: string;
+  awgGauge: string;
+  shieldingType: string;
+  internalConstruction: string;
+  alienCrosstalkRating: 'Poor' | 'Moderate' | 'Excellent' | 'Maximum Shielded';
+  poeSuitability: string;
+  recommendedFor: string;
+  avgCostPerMeter: string;
+  keyAdvantages: string[];
+  limitations: string[];
+}
+
+export const CABLE_TYPE_GUIDES: Record<CableCategory, CableTypeGuide> = {
+  Cat5e: {
+    category: 'Cat5e',
+    title: 'Category 5 Enhanced',
+    classStandard: 'ANSI/TIA-568-C.2 Class D',
+    maxFreqMHz: 100,
+    max100mSpeed: '1 Gbps (or 2.5 Gbps NBASE-T)',
+    tenGDistanceLimit: 'Not Supported (0 m)',
+    awgGauge: '24 AWG Solid / Stranded',
+    shieldingType: 'UTP (Unshielded Twisted Pair)',
+    internalConstruction: '4 unshielded twisted pairs without internal spline',
+    alienCrosstalkRating: 'Poor',
+    poeSuitability: 'Suitable for basic PoE (15.4W) & PoE+ (30W) on short runs',
+    recommendedFor: 'Legacy VoIP phones, basic IP dome cameras, desktop PCs',
+    avgCostPerMeter: '$0.25 - $0.35 / m',
+    keyAdvantages: [
+      'Lowest cable material cost & thinnest outer diameter',
+      'Extremely flexible, easy to pull through tight wall conduits',
+      'Supports 1 Gbps up to 100 meters full channel',
+    ],
+    limitations: [
+      'Unrated for 10GBASE-T or 5GBASE-T speeds',
+      'Higher DC resistance causes greater PoE voltage drop on long runs',
+      'No internal separator leads to pair-to-pair crosstalk at higher MHz',
+    ],
+  },
+  Cat6: {
+    category: 'Cat6',
+    title: 'Category 6',
+    classStandard: 'ANSI/TIA-568-C.2 Class E',
+    maxFreqMHz: 250,
+    max100mSpeed: '1 Gbps / 2.5 Gbps / 5 Gbps',
+    tenGDistanceLimit: 'Up to 55 m (37 m in dense bundles)',
+    awgGauge: '23 AWG Solid Copper',
+    shieldingType: 'UTP / F/UTP (Unshielded or Foil)',
+    internalConstruction: '4 twisted pairs separated by internal plastic cross-web (spline)',
+    alienCrosstalkRating: 'Moderate',
+    poeSuitability: 'Optimal for PoE (15.4W) & PoE+ (30W); suitable for 60W PoE++',
+    recommendedFor: 'Commercial offices, 4K CCTV networks, Wi-Fi 6 access points',
+    avgCostPerMeter: '$0.45 - $0.60 / m',
+    keyAdvantages: [
+      '2.5x higher bandwidth (250 MHz) than Cat5e',
+      'Internal plastic spline minimizes pair crosstalk and jitter',
+      'Supports 10 Gbps up to 55 meters in clean installations',
+    ],
+    limitations: [
+      '10 Gbps distance drops to 37 m in tight cable bundles due to Alien Crosstalk',
+      'Slightly stiffer cable jacket due to internal spline',
+    ],
+  },
+  Cat6a: {
+    category: 'Cat6a',
+    title: 'Category 6 Augmented',
+    classStandard: 'ANSI/TIA-568-C.2-10 Class EA',
+    maxFreqMHz: 500,
+    max100mSpeed: '10 Gbps Full 100m Channel',
+    tenGDistanceLimit: '100 m Full Channel',
+    awgGauge: '23 AWG Heavy Solid Copper',
+    shieldingType: 'F/UTP or S/FTP (Shielded)',
+    internalConstruction: 'Thicker jacket with augmented spline & individual/overall foil shield',
+    alienCrosstalkRating: 'Excellent',
+    poeSuitability: 'Excellent for High-Power 60W & 90W PoE++ (IEEE 802.3bt)',
+    recommendedFor: 'Enterprise backbones, Wi-Fi 6E/7 APs, multi-sensor 4K PTZ cameras',
+    avgCostPerMeter: '$0.75 - $1.10 / m',
+    keyAdvantages: [
+      'Guarantees full 10 Gbps throughput up to 100 meters channel length',
+      'Superior Alien Crosstalk (AXT) isolation for dense cable trays & conduits',
+      'Thicker 23 AWG copper reduces I²R heating under high-power 90W PoE++',
+    ],
+    limitations: [
+      'Thicker outer diameter (~7.5mm) increases conduit fill space',
+      'Requires proper grounding if using shielded connectors',
+    ],
+  },
+  Cat7: {
+    category: 'Cat7',
+    title: 'Category 7',
+    classStandard: 'ISO/IEC 11801 Class F',
+    maxFreqMHz: 600,
+    max100mSpeed: '10 Gbps Full Channel',
+    tenGDistanceLimit: '100 m Full Channel',
+    awgGauge: '23 AWG Shielded Solid Copper',
+    shieldingType: 'S/FTP (Individually Foil Shielded Pairs + Braided Mesh)',
+    internalConstruction: 'Individual pair foil shielding plus outer braided mesh',
+    alienCrosstalkRating: 'Maximum Shielded',
+    poeSuitability: 'Very high thermal dissipation for continuous 90W PoE++',
+    recommendedFor: 'Industrial environments, EMI-heavy factories, broadcast AV',
+    avgCostPerMeter: '$1.20 - $1.75 / m',
+    keyAdvantages: [
+      'Individual pair foil shielding eliminates internal & alien crosstalk',
+      'High noise immunity in heavy industrial EMI environments',
+    ],
+    limitations: [
+      'ISO Class F standard is not recognized for 25G/40GBASE-T by ANSI/TIA',
+      'Requires strict grounding at patch panel and shielded RJ45/GG45 connectors',
+    ],
+  },
+  Cat8: {
+    category: 'Cat8',
+    title: 'Category 8',
+    classStandard: 'ANSI/TIA-568-C.2-1 Class I/II',
+    maxFreqMHz: 2000,
+    max100mSpeed: '25 Gbps / 40 Gbps (up to 30m)',
+    tenGDistanceLimit: '100 m (Designed for 25G/40G @ 30m)',
+    awgGauge: '22 AWG Heavy Solid Copper',
+    shieldingType: 'S/FTP Heavy Shielded',
+    internalConstruction: 'Heavy gauge 22 AWG pairs with individual foil & overall braid',
+    alienCrosstalkRating: 'Maximum Shielded',
+    poeSuitability: 'Maximum PoE capacity with lowest copper DC loop resistance',
+    recommendedFor: 'Data center top-of-rack switch-to-server interconnects (≤30m)',
+    avgCostPerMeter: '$2.10 - $3.50 / m',
+    keyAdvantages: [
+      'Massive 2000 MHz bandwidth supporting 25 Gbps and 40 Gbps copper links',
+      'Designed specifically for short data center server interconnects up to 30m',
+    ],
+    limitations: [
+      'Limited to 30 meters total channel length for 25G/40GBASE-T',
+      'Thickest diameter and highest cable material cost',
+    ],
+  },
+};
 
 export type PoeStandardId = '802.3af' | '802.3at' | '802.3bt-type3' | '802.3bt-type4';
 
@@ -553,44 +935,231 @@ export const CableDiagram: React.FC<{
   lengthMeters: number;
   lengthUnit: LengthUnit;
 }> = ({ cableResult, lengthMeters }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const [hoverMeters, setHoverMeters] = useState<number | null>(null);
 
   const activeMeters = hoverMeters !== null ? hoverMeters : lengthMeters;
   const maxAxisM = Math.max(120, Math.ceil((cableResult.maxDistM || 100) * 1.15));
 
-  const svgWidth = 720;
-  const svgHeight = 220;
-  const paddingLeft = 55;
-  const paddingRight = 55;
-  const paddingTop = 25;
-  const paddingBottom = 35;
-  const graphW = svgWidth - paddingLeft - paddingRight;
-  const graphH = svgHeight - paddingTop - paddingBottom;
-
-  const getX = (m: number) => paddingLeft + (m / maxAxisM) * graphW;
-  const getYAtten = (db: number) => paddingTop + (Math.abs(db) / 50) * graphH;
-  const getYVolt = (v: number) => paddingTop + ((56 - Math.max(30, Math.min(56, v))) / (56 - 32)) * graphH;
-
-  const attenPoints: Array<[number, number]> = [];
-  const voltPoints: Array<[number, number]> = [];
-
-  for (let m = 0; m <= maxAxisM; m += 2) {
-    const attenDb = (m / 100) * (cableResult.effectiveAttenDbPer100m || cableResult.attenuationDbPer100m);
-    const currentA = cableResult.avgWattsPerRun / (cableResult.pseVoltageV || 50);
-    const loopR = (m / 100) * (cableResult.effectiveLoopResPer100m || cableResult.spec.loopResistancePer100m);
-    const vAtM = Math.max(30, (cableResult.pseVoltageV || 50) - (currentA * loopR));
-
-    attenPoints.push([getX(m), getYAtten(-attenDb)]);
-    voltPoints.push([getX(m), getYVolt(vAtM)]);
-  }
-
-  const attenPath = attenPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ');
-  const voltPath = voltPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ');
-
   const activeAttenDb = (activeMeters / 100) * (cableResult.effectiveAttenDbPer100m || cableResult.attenuationDbPer100m);
   const currentA = cableResult.avgWattsPerRun / (cableResult.pseVoltageV || 50);
   const activeLoopR = (activeMeters / 100) * (cableResult.effectiveLoopResPer100m || cableResult.spec.loopResistancePer100m);
   const activeVolt = Math.max(30, (cableResult.pseVoltageV || 50) - (currentA * activeLoopR));
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
+
+    const width = 740;
+    const height = 230;
+    const margin = { top: 30, right: 55, bottom: 40, left: 55 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    svg.attr('viewBox', `0 0 ${width} ${height}`);
+
+    // D3 Scales
+    const xScale = d3.scaleLinear()
+      .domain([0, maxAxisM])
+      .range([0, innerWidth]);
+
+    const yScaleAtten = d3.scaleLinear()
+      .domain([0, 50])
+      .range([0, innerHeight]); // Attenuation increases downward
+
+    const yScaleVolt = d3.scaleLinear()
+      .domain([32, 56])
+      .range([innerHeight, 0]); // Voltage decreases downward
+
+    // Defs & Gradients
+    const defs = svg.append('defs');
+
+    // Attenuation Gradient
+    const attenGrad = defs.append('linearGradient')
+      .attr('id', 'atten-gradient')
+      .attr('x1', '0%').attr('y1', '0%')
+      .attr('x2', '0%').attr('y2', '100%');
+    attenGrad.append('stop').attr('offset', '0%').attr('stop-color', '#38bdf8').attr('stop-opacity', 0.25);
+    attenGrad.append('stop').attr('offset', '100%').attr('stop-color', '#38bdf8').attr('stop-opacity', 0.0);
+
+    const g = svg.append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // Gridlines
+    const yGrid = d3.axisLeft(yScaleAtten)
+      .ticks(5)
+      .tickSize(-innerWidth)
+      .tickFormat(() => '');
+
+    g.append('g')
+      .attr('class', 'grid')
+      .call(yGrid)
+      .selectAll('line')
+      .attr('stroke', '#334155')
+      .attr('stroke-dasharray', '3,3')
+      .attr('stroke-opacity', 0.4);
+
+    // Generate Points Data
+    const stepM = 2;
+    const pointsData: Array<{ m: number; attenDb: number; voltV: number }> = [];
+    for (let m = 0; m <= maxAxisM; m += stepM) {
+      const attenDb = (m / 100) * (cableResult.effectiveAttenDbPer100m || cableResult.attenuationDbPer100m);
+      const currentA = cableResult.avgWattsPerRun / (cableResult.pseVoltageV || 50);
+      const loopR = (m / 100) * (cableResult.effectiveLoopResPer100m || cableResult.spec.loopResistancePer100m);
+      const vAtM = Math.max(30, (cableResult.pseVoltageV || 50) - (currentA * loopR));
+      pointsData.push({ m, attenDb, voltV: vAtM });
+    }
+
+    // Line Generators
+    const attenLine = d3.line<{ m: number; attenDb: number; voltV: number }>()
+      .x(d => xScale(d.m))
+      .y(d => yScaleAtten(d.attenDb))
+      .curve(d3.curveMonotoneX);
+
+    const voltLine = d3.line<{ m: number; attenDb: number; voltV: number }>()
+      .x(d => xScale(d.m))
+      .y(d => yScaleVolt(d.voltV))
+      .curve(d3.curveMonotoneX);
+
+    // Area Generators
+    const attenArea = d3.area<{ m: number; attenDb: number; voltV: number }>()
+      .x(d => xScale(d.m))
+      .y0(0)
+      .y1(d => yScaleAtten(d.attenDb))
+      .curve(d3.curveMonotoneX);
+
+    // Render Area Fill
+    g.append('path')
+      .datum(pointsData)
+      .attr('fill', 'url(#atten-gradient)')
+      .attr('d', attenArea);
+
+    // 37V IEEE Minimum Threshold Line
+    g.append('line')
+      .attr('x1', 0)
+      .attr('y1', yScaleVolt(37.0))
+      .attr('x2', innerWidth)
+      .attr('y2', yScaleVolt(37.0))
+      .attr('stroke', '#ef4444')
+      .attr('stroke-dasharray', '4,4')
+      .attr('stroke-width', 1.5);
+
+    g.append('text')
+      .attr('x', innerWidth - 6)
+      .attr('y', yScaleVolt(37.0) - 4)
+      .attr('fill', '#ef4444')
+      .attr('font-size', '9px')
+      .attr('font-weight', 'bold')
+      .attr('text-anchor', 'end')
+      .text('37V IEEE Min Threshold');
+
+    // Certified Max Distance Boundary Line
+    if (cableResult.maxDistM && cableResult.maxDistM <= maxAxisM) {
+      const xBoundary = xScale(cableResult.maxDistM);
+      g.append('line')
+        .attr('x1', xBoundary)
+        .attr('y1', 0)
+        .attr('x2', xBoundary)
+        .attr('y2', innerHeight)
+        .attr('stroke', '#10b981')
+        .attr('stroke-dasharray', '3,3')
+        .attr('stroke-width', 1.5);
+
+      g.append('text')
+        .attr('x', xBoundary)
+        .attr('y', -6)
+        .attr('fill', '#10b981')
+        .attr('font-size', '9px')
+        .attr('font-weight', 'bold')
+        .attr('text-anchor', 'middle')
+        .text(`Max ${cableResult.maxDistM}m Boundary`);
+    }
+
+    // Render Curves
+    g.append('path')
+      .datum(pointsData)
+      .attr('fill', 'none')
+      .attr('stroke', '#38bdf8')
+      .attr('stroke-width', 2.5)
+      .attr('d', attenLine);
+
+    g.append('path')
+      .datum(pointsData)
+      .attr('fill', 'none')
+      .attr('stroke', '#f59e0b')
+      .attr('stroke-width', 2)
+      .attr('stroke-dasharray', '6,2')
+      .attr('d', voltLine);
+
+    // Cursor Line
+    const xPos = xScale(activeMeters);
+    g.append('line')
+      .attr('x1', xPos)
+      .attr('y1', 0)
+      .attr('x2', xPos)
+      .attr('y2', innerHeight)
+      .attr('stroke', cableResult.isWithinLimit ? '#38bdf8' : '#ef4444')
+      .attr('stroke-width', 2);
+
+    // Active Cursor Circles
+    const activeAttenY = yScaleAtten(activeAttenDb);
+    const activeVoltY = yScaleVolt(activeVolt);
+
+    g.append('circle')
+      .attr('cx', xPos)
+      .attr('cy', activeAttenY)
+      .attr('r', 5)
+      .attr('fill', '#38bdf8')
+      .attr('stroke', '#ffffff')
+      .attr('stroke-width', 2);
+
+    g.append('circle')
+      .attr('cx', xPos)
+      .attr('cy', activeVoltY)
+      .attr('r', 5)
+      .attr('fill', '#f59e0b')
+      .attr('stroke', '#ffffff')
+      .attr('stroke-width', 2);
+
+    // X Axis
+    const xAxis = d3.axisBottom(xScale)
+      .tickValues([0, 30, 55, 75, 90, 100, 120].filter(m => m <= maxAxisM))
+      .tickFormat(d => `${d}m`);
+
+    g.append('g')
+      .attr('transform', `translate(0,${innerHeight})`)
+      .call(xAxis)
+      .selectAll('text')
+      .attr('fill', '#94a3b8')
+      .attr('font-size', '9px');
+
+    // Left Y Axis (Attenuation)
+    const yAxisLeft = d3.axisLeft(yScaleAtten)
+      .ticks(5)
+      .tickFormat(d => `-${d}dB`);
+
+    g.append('g')
+      .call(yAxisLeft)
+      .selectAll('text')
+      .attr('fill', '#38bdf8')
+      .attr('font-size', '9px');
+
+    // Right Y Axis (Voltage)
+    const yAxisRight = d3.axisRight(yScaleVolt)
+      .ticks(5)
+      .tickFormat(d => `${d}V`);
+
+    g.append('g')
+      .attr('transform', `translate(${innerWidth},0)`)
+      .call(yAxisRight)
+      .selectAll('text')
+      .attr('fill', '#f59e0b')
+      .attr('font-size', '9px');
+
+  }, [cableResult, activeMeters, maxAxisM, activeAttenDb, activeVolt]);
 
   return (
     <div style={{ padding: '18px', borderRadius: '12px', background: 'var(--bg)', border: '1px solid var(--border)', marginBottom: '20px' }}>
@@ -598,10 +1167,10 @@ export const CableDiagram: React.FC<{
         <div>
           <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Activity className="w-5 h-5 text-sky-400" />
-            Dynamic Signal Attenuation &amp; DC Voltage Drop Diagram
+            Dynamic Signal Attenuation &amp; DC Voltage Drop Diagram (D3.js)
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            Transmission characteristics curve for {cableResult.spec.category} @ {cableResult.nominalFreqMHz} MHz (Move mouse over chart to inspect distance)
+            Transmission characteristics curve for {cableResult.spec.category} ({cableResult.condSpec ? cableResult.condSpec.shortName : 'Solid Copper'} @ {cableResult.ambientTempC !== undefined ? `${cableResult.ambientTempC}°C` : '20°C'}, {cableResult.nominalFreqMHz} MHz)
           </div>
         </div>
 
@@ -623,107 +1192,24 @@ export const CableDiagram: React.FC<{
         </div>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
+      <div ref={containerRef} style={{ overflowX: 'auto' }}>
         <svg
-          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          ref={svgRef}
           style={{ width: '100%', height: 'auto', minWidth: '520px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '8px', cursor: 'crosshair' }}
           onMouseMove={e => {
             const rect = e.currentTarget.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
-            const normalizedX = (mouseX / rect.width) * svgWidth;
-            if (normalizedX >= paddingLeft && normalizedX <= svgWidth - paddingRight) {
-              const m = ((normalizedX - paddingLeft) / graphW) * maxAxisM;
+            const width = 740;
+            const margin = { left: 55, right: 55 };
+            const innerWidth = width - margin.left - margin.right;
+            const normalizedX = (mouseX / rect.width) * width;
+            if (normalizedX >= margin.left && normalizedX <= width - margin.right) {
+              const m = ((normalizedX - margin.left) / innerWidth) * maxAxisM;
               setHoverMeters(Math.max(0, Math.min(maxAxisM, m)));
             }
           }}
           onMouseLeave={() => setHoverMeters(null)}
-        >
-          {/* Attenuation Y Axis Grid */}
-          {[0, 10, 20, 30, 40, 50].map(db => (
-            <g key={db}>
-              <line
-                x1={paddingLeft}
-                y1={getYAtten(-db)}
-                x2={svgWidth - paddingRight}
-                y2={getYAtten(-db)}
-                stroke="var(--border)"
-                strokeDasharray="3,3"
-                strokeWidth="1"
-              />
-              <text x={paddingLeft - 8} y={getYAtten(-db) + 3} fill="var(--text-muted)" fontSize="9" textAnchor="end">
-                -{db}dB
-              </text>
-            </g>
-          ))}
-
-          {/* Voltage Right Axis Scale */}
-          {[54, 48, 42, 36].map(v => (
-            <text key={v} x={svgWidth - paddingRight + 8} y={getYVolt(v) + 3} fill="#f59e0b" fontSize="9" textAnchor="start">
-              {v}V
-            </text>
-          ))}
-
-          {/* 37V IEEE Threshold Line */}
-          <line
-            x1={paddingLeft}
-            y1={getYVolt(37.0)}
-            x2={svgWidth - paddingRight}
-            y2={getYVolt(37.0)}
-            stroke="#ef4444"
-            strokeDasharray="4,4"
-            strokeWidth="1.5"
-          />
-          <text x={svgWidth - paddingRight - 8} y={getYVolt(37.0) - 4} fill="#ef4444" fontSize="8" fontWeight="bold" textAnchor="end">
-            37V IEEE Min Threshold
-          </text>
-
-          {/* Certified Max Distance Line */}
-          {cableResult.maxDistM <= maxAxisM && (
-            <g>
-              <line
-                x1={getX(cableResult.maxDistM)}
-                y1={paddingTop}
-                x2={getX(cableResult.maxDistM)}
-                y2={svgHeight - paddingBottom}
-                stroke="#10b981"
-                strokeDasharray="3,3"
-                strokeWidth="1.5"
-              />
-              <text x={getX(cableResult.maxDistM)} y={paddingTop - 6} fill="#10b981" fontSize="9" fontWeight="bold" textAnchor="middle">
-                Max {cableResult.maxDistM}m Boundary
-              </text>
-            </g>
-          )}
-
-          {/* Signal Attenuation Curve */}
-          <path d={attenPath} fill="none" stroke="#38bdf8" strokeWidth="2.5" />
-
-          {/* Voltage Decay Curve */}
-          <path d={voltPath} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="6,2" />
-
-          {/* Cursor Line */}
-          <line
-            x1={getX(activeMeters)}
-            y1={paddingTop}
-            x2={getX(activeMeters)}
-            y2={svgHeight - paddingBottom}
-            stroke={cableResult.isWithinLimit ? '#38bdf8' : '#ef4444'}
-            strokeWidth="2"
-          />
-
-          <circle cx={getX(activeMeters)} cy={getYAtten(-activeAttenDb)} r="5" fill="#38bdf8" stroke="#ffffff" strokeWidth="1.5" />
-          <circle cx={getX(activeMeters)} cy={getYVolt(activeVolt)} r="5" fill="#f59e0b" stroke="#ffffff" strokeWidth="1.5" />
-
-          {/* X Axis Labels */}
-          {[0, 30, 55, 90, 100, 120].filter(m => m <= maxAxisM).map(m => (
-            <g key={m}>
-              <line x1={getX(m)} y1={svgHeight - paddingBottom} x2={getX(m)} y2={svgHeight - paddingBottom + 5} stroke="var(--border)" strokeWidth="1.5" />
-              <text x={getX(m)} y={svgHeight - paddingBottom + 16} fill="var(--text-muted)" fontSize="9" textAnchor="middle">
-                {m}m
-              </text>
-            </g>
-          ))}
-        </svg>
+        />
       </div>
 
       <div style={{ display: 'flex', gap: '18px', alignItems: 'center', justifyContent: 'center', marginTop: '10px', fontSize: '0.78rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
@@ -749,8 +1235,543 @@ export const CableDiagram: React.FC<{
 };
 
 // -------------------------------------------------------------
-// D3.JS POE LOAD HEATMAP & SWITCH PORT THERMAL DENSITY
+// MULTI-RUN CABLE BUNDLE HEATMAP SIMULATOR (TIA-TSB-184-A)
 // -------------------------------------------------------------
+export interface HoveredBundleCable {
+  id: number;
+  layer: number;
+  rNorm: number;
+  tempC: number;
+  tempRiseC: number;
+  attenuationDeratingPct: number;
+  deratedLengthM: number;
+  x: number;
+  y: number;
+}
+
+export const MultiRunHeatmapSimulator: React.FC<{
+  bundleSize: number;
+  ambientTempC: number;
+  conductorType: ConductorType;
+  cableCategory: CableCategory;
+  avgWattsPerRun: number;
+  onChangeBundleSize: (newSize: number) => void;
+  onChangeAmbientTemp: (newTemp: number) => void;
+}> = ({
+  bundleSize,
+  ambientTempC,
+  conductorType,
+  cableCategory,
+  avgWattsPerRun,
+  onChangeBundleSize,
+  onChangeAmbientTemp,
+}) => {
+  const [selectedPoEWatts, setSelectedPoEWatts] = useState<number>(avgWattsPerRun || 30.0);
+  const [hoveredCable, setHoveredCable] = useState<HoveredBundleCable | null>(null);
+
+  useEffect(() => {
+    if (avgWattsPerRun > 0 && avgWattsPerRun !== selectedPoEWatts) {
+      setSelectedPoEWatts(avgWattsPerRun);
+    }
+  }, [avgWattsPerRun]);
+
+  // 1. Thermal Calculations according to TIA-TSB-184-A / ISO 29125
+  const thermalAnalysis = useMemo(() => {
+    const spec = CABLE_SPECS[cableCategory] || CABLE_SPECS['Cat6'];
+    const condSpec = CONDUCTOR_SPECS[conductorType] || CONDUCTOR_SPECS['solid-copper'];
+
+    // Current in amperes per pair (assuming 4-pair 50V DC)
+    const currentAmps = selectedPoEWatts / 50.0;
+    const baseLoopRes = spec.loopResistancePer100m * condSpec.resistanceMultiplier;
+    const heatLossWattsPer100m = Math.pow(currentAmps, 2) * baseLoopRes;
+
+    // Shielding thermal dissipation multiplier
+    const isShielded = spec.shielding.includes('FTP') || spec.shielding.includes('STP');
+    const shieldCoeff = isShielded ? 0.78 : 1.0;
+
+    // Conductor material thermal multiplier
+    const materialCoeff = condSpec.id === 'cca' ? 1.65 : condSpec.id === 'stranded-copper' ? 1.15 : 1.0;
+
+    // Core temperature rise calculation based on bundle size
+    const baseRise = 12.5; // °C for standard 24-cable bundle at 15.4W
+    const bundleExponent = 0.65;
+    const powerExponent = 0.85;
+
+    const coreTempRiseC = Math.min(
+      45.0,
+      baseRise *
+        shieldCoeff *
+        materialCoeff *
+        Math.pow(bundleSize / 24.0, bundleExponent) *
+        Math.pow(selectedPoEWatts / 15.4, powerExponent)
+    );
+
+    const bundleCoreTempC = ambientTempC + coreTempRiseC;
+
+    // TIA-568 Length Derating Formula based on Core Temperature
+    let deratedLengthM = 100.0;
+    let tempDeratingFactor = 1.0;
+
+    if (bundleCoreTempC > 20) {
+      const excessTemp = bundleCoreTempC - 20;
+      const derateCoeff = isShielded ? 0.003 : 0.005;
+      tempDeratingFactor = 1.0 + excessTemp * derateCoeff;
+      deratedLengthM = Math.max(15.0, Math.round(100.0 / tempDeratingFactor));
+    }
+
+    // TIA Compliance Status
+    let complianceStatus: 'ok' | 'warning' | 'danger' = 'ok';
+    let statusLabel = 'TIA-TSB-184-A Compliant';
+    let statusMessage = 'Bundle thermal dissipation is within normal operating limits (<15°C rise).';
+
+    if (bundleCoreTempC > 60 || coreTempRiseC > 25) {
+      complianceStatus = 'danger';
+      statusLabel = 'NON-COMPLIANT / THERMAL HAZARD';
+      statusMessage = 'Core temperature exceeds 60°C jacket rating! Severe insulation degradation expected.';
+    } else if (bundleCoreTempC > 45 || coreTempRiseC > 15) {
+      complianceStatus = 'warning';
+      statusLabel = 'ELEVATED THERMAL WARNING';
+      statusMessage = 'Elevated bundle heating. Maximum recommended channel length must be derated.';
+    }
+
+    return {
+      heatLossWattsPer100m,
+      coreTempRiseC,
+      bundleCoreTempC,
+      deratedLengthM,
+      tempDeratingFactor,
+      complianceStatus,
+      statusLabel,
+      statusMessage,
+      isShielded,
+    };
+  }, [bundleSize, ambientTempC, conductorType, cableCategory, selectedPoEWatts]);
+
+  // 2. Generate Concentric Geometry Layout
+  const bundleCables = useMemo(() => {
+    const cables: HoveredBundleCable[] = [];
+    const spacing = 25; // SVG spacing
+
+    let cableId = 1;
+    let layer = 0;
+
+    // Center cable (Layer 0)
+    cables.push({
+      id: cableId++,
+      layer: 0,
+      rNorm: 0,
+      tempC: thermalAnalysis.bundleCoreTempC,
+      tempRiseC: thermalAnalysis.coreTempRiseC,
+      attenuationDeratingPct: (thermalAnalysis.tempDeratingFactor - 1) * 100,
+      deratedLengthM: thermalAnalysis.deratedLengthM,
+      x: 0,
+      y: 0,
+    });
+
+    // Fill concentric rings until bundleSize is reached
+    while (cables.length < bundleSize) {
+      layer++;
+      const countInLayer = layer * 6;
+      const layerRadius = layer * spacing;
+
+      for (let i = 0; i < countInLayer; i++) {
+        if (cables.length >= bundleSize) break;
+
+        const angleRad = (i * 2 * Math.PI) / countInLayer;
+        const x = layerRadius * Math.cos(angleRad);
+        const y = layerRadius * Math.sin(angleRad);
+
+        const maxEstimatedLayers = Math.max(1, Math.ceil((Math.sqrt(1 + (4 * (bundleSize - 1)) / 3) - 1) / 2));
+        const rNorm = Math.min(1.0, layer / maxEstimatedLayers);
+
+        const localTempRise = thermalAnalysis.coreTempRiseC * (1 - Math.pow(rNorm, 1.3));
+        const localTemp = ambientTempC + localTempRise;
+        const localDerateCoeff = thermalAnalysis.isShielded ? 0.003 : 0.005;
+        const localFactor = localTemp > 20 ? 1.0 + (localTemp - 20) * localDerateCoeff : 1.0;
+        const localLength = Math.max(15.0, Math.round(100.0 / localFactor));
+
+        cables.push({
+          id: cableId++,
+          layer,
+          rNorm,
+          tempC: localTemp,
+          tempRiseC: localTempRise,
+          attenuationDeratingPct: (localFactor - 1) * 100,
+          deratedLengthM: localLength,
+          x,
+          y,
+        });
+      }
+    }
+
+    return cables;
+  }, [bundleSize, ambientTempC, thermalAnalysis]);
+
+  const getHeatColor = (tempC: number) => {
+    if (tempC <= 25) return '#38bdf8';
+    if (tempC <= 35) return '#10b981';
+    if (tempC <= 45) return '#f59e0b';
+    if (tempC <= 58) return '#f97316';
+    return '#f43f5e';
+  };
+
+  return (
+    <div
+      style={{
+        padding: '20px',
+        borderRadius: '16px',
+        background: 'var(--bg)',
+        border: '1px solid var(--border)',
+        marginTop: '20px',
+        marginBottom: '20px',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <div>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: '0 0 4px', color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sun className="w-5 h-5 text-amber-400" />
+            Multi-Run Cable Bundle Heatmap &amp; Thermal Length Derating Simulator
+          </h3>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Simulates internal thermal gradient ($\Delta T$) across packed cable bundles according to <strong>TIA-TSB-184-A</strong> and <strong>ISO/IEC TR 29125</strong>.
+          </p>
+        </div>
+
+        <span
+          style={{
+            padding: '5px 14px',
+            borderRadius: '20px',
+            fontSize: '0.78rem',
+            fontWeight: 800,
+            background:
+              thermalAnalysis.complianceStatus === 'ok'
+                ? 'rgba(16, 185, 129, 0.15)'
+                : thermalAnalysis.complianceStatus === 'warning'
+                ? 'rgba(245, 158, 11, 0.15)'
+                : 'rgba(244, 63, 94, 0.15)',
+            color:
+              thermalAnalysis.complianceStatus === 'ok'
+                ? '#10b981'
+                : thermalAnalysis.complianceStatus === 'warning'
+                ? '#f59e0b'
+                : 'var(--rose)',
+            border: `1px solid ${
+              thermalAnalysis.complianceStatus === 'ok'
+                ? 'rgba(16, 185, 129, 0.4)'
+                : thermalAnalysis.complianceStatus === 'warning'
+                ? 'rgba(245, 158, 11, 0.4)'
+                : 'rgba(244, 63, 94, 0.4)'
+            }`,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          {thermalAnalysis.complianceStatus === 'ok' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <AlertTriangle className="w-4 h-4" />
+          )}
+          {thermalAnalysis.statusLabel}
+        </span>
+      </div>
+
+      {/* Interactive Controls & Presets */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5" style={{ background: 'var(--surface)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+              Bundle Size (Cable Count):
+            </label>
+            <strong style={{ fontSize: '0.95rem', color: '#38bdf8' }}>{bundleSize} Cables</strong>
+          </div>
+          <input
+            type="range"
+            min="6"
+            max="96"
+            step="6"
+            value={bundleSize}
+            onChange={e => onChangeBundleSize(parseInt(e.target.value, 10) || 24)}
+            style={{ width: '100%', accentColor: '#38bdf8' }}
+          />
+          <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+            {[12, 24, 48, 72, 96].map(sz => (
+              <button
+                key={sz}
+                type="button"
+                onClick={() => onChangeBundleSize(sz)}
+                style={{
+                  padding: '2px 7px',
+                  fontSize: '0.7rem',
+                  borderRadius: '6px',
+                  fontWeight: bundleSize === sz ? 800 : 500,
+                  background: bundleSize === sz ? '#38bdf8' : 'var(--bg)',
+                  color: bundleSize === sz ? '#0f172a' : 'var(--text-muted)',
+                  border: '1px solid var(--border)',
+                  cursor: 'pointer',
+                }}
+              >
+                {sz} Runs
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+              Ambient Temperature:
+            </label>
+            <strong style={{ fontSize: '0.95rem', color: ambientTempC > 30 ? 'var(--amber)' : 'var(--text-heading)' }}>
+              {ambientTempC}°C ({Math.round(ambientTempC * 1.8 + 32)}°F)
+            </strong>
+          </div>
+          <input
+            type="range"
+            min="10"
+            max="65"
+            step="1"
+            value={ambientTempC}
+            onChange={e => onChangeAmbientTemp(parseInt(e.target.value, 10) || 20)}
+            style={{ width: '100%', accentColor: 'var(--amber)' }}
+          />
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+            TIA Reference Ambient is 20°C (68°F)
+          </div>
+        </div>
+
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+              PoE Power Load per Run:
+            </label>
+            <strong style={{ fontSize: '0.95rem', color: 'var(--emerald)' }}>{selectedPoEWatts} W</strong>
+          </div>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {[15.4, 30.0, 60.0, 90.0].map(w => (
+              <button
+                key={w}
+                type="button"
+                onClick={() => setSelectedPoEWatts(w)}
+                style={{
+                  flex: 1,
+                  padding: '6px 4px',
+                  fontSize: '0.74rem',
+                  borderRadius: '6px',
+                  fontWeight: selectedPoEWatts === w ? 800 : 500,
+                  background: selectedPoEWatts === w ? 'var(--emerald)' : 'var(--bg)',
+                  color: selectedPoEWatts === w ? '#0f172a' : 'var(--text-heading)',
+                  border: '1px solid var(--border)',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                }}
+              >
+                {w}W {w === 15.4 ? '(PoE)' : w === 30 ? '(PoE+)' : w === 60 ? '(60W)' : '(90W)'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Thermal Metrics Dashboard */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block' }}>BUNDLE CORE TEMP</span>
+          <strong style={{ fontSize: '1.25rem', color: thermalAnalysis.bundleCoreTempC > 50 ? 'var(--rose)' : thermalAnalysis.bundleCoreTempC > 35 ? 'var(--amber)' : 'var(--text-heading)' }}>
+            {thermalAnalysis.bundleCoreTempC.toFixed(1)}°C
+          </strong>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+            ({Math.round(thermalAnalysis.bundleCoreTempC * 1.8 + 32)}°F)
+          </span>
+        </div>
+
+        <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block' }}>CORE THERMAL RISE (ΔT)</span>
+          <strong style={{ fontSize: '1.25rem', color: 'var(--amber)' }}>
+            +{thermalAnalysis.coreTempRiseC.toFixed(1)}°C
+          </strong>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+            Above {ambientTempC}°C ambient
+          </span>
+        </div>
+
+        <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--surface)', border: '1px solid #10b981' }}>
+          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#10b981', display: 'block' }}>DERATED MAX LENGTH</span>
+          <strong style={{ fontSize: '1.25rem', color: '#10b981' }}>
+            {thermalAnalysis.deratedLengthM} Meters
+          </strong>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+            ({Math.round(thermalAnalysis.deratedLengthM * 3.28084)} ft limit)
+          </span>
+        </div>
+
+        <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block' }}>HEAT LOSS / 100M</span>
+          <strong style={{ fontSize: '1.25rem', color: '#38bdf8' }}>
+            {thermalAnalysis.heatLossWattsPer100m.toFixed(1)} W
+          </strong>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+            $I^2R$ loss per run
+          </span>
+        </div>
+      </div>
+
+      {/* SVG Canvas Visualizer */}
+      <div
+        style={{
+          background: 'var(--surface)',
+          borderRadius: '12px',
+          border: '1px solid var(--border)',
+          padding: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '12px', textAlign: 'center' }}>
+          Bundle Cross-Section Visualizer · Outer Ambient Ring vs. Inner Hot Core
+        </div>
+
+        <div style={{ width: '100%', maxWidth: '380px', aspectRatio: '1 / 1', position: 'relative' }}>
+          <svg viewBox="-160 -160 320 320" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+            <circle
+              cx="0"
+              cy="0"
+              r="145"
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.12)"
+              strokeWidth="2.5"
+              strokeDasharray="4 4"
+            />
+            <text x="0" y="-148" textAnchor="middle" fill="var(--text-muted)" fontSize="9" fontWeight="600">
+              Conduit / Tray Outer Wall ({ambientTempC}°C)
+            </text>
+
+            {bundleCables.map(c => {
+              const isHovered = hoveredCable?.id === c.id;
+              const heatColor = getHeatColor(c.tempC);
+              return (
+                <g
+                  key={c.id}
+                  transform={`translate(${c.x}, ${c.y})`}
+                  onMouseEnter={() => setHoveredCable(c)}
+                  onMouseLeave={() => setHoveredCable(null)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <circle
+                    r="11"
+                    fill={heatColor}
+                    stroke={isHovered ? '#ffffff' : 'rgba(0, 0, 0, 0.4)'}
+                    strokeWidth={isHovered ? 2.5 : 1}
+                    opacity={isHovered ? 1 : 0.9}
+                  />
+                  <circle r="4" fill="#1e293b" opacity="0.8" />
+                  <circle r="2" fill={conductorType === 'cca' ? '#f43f5e' : '#f59e0b'} />
+                  {bundleSize <= 48 && (
+                    <text x="0" y="2.5" textAnchor="middle" fill="#ffffff" fontSize="7" fontWeight="800" pointerEvents="none">
+                      {c.id}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* Hovered Cable Info */}
+        {hoveredCable ? (
+          <div
+            style={{
+              marginTop: '14px',
+              padding: '10px 16px',
+              borderRadius: '10px',
+              background: 'var(--bg)',
+              border: '1px solid #38bdf8',
+              fontSize: '0.8rem',
+              width: '100%',
+              maxWidth: '480px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
+            <div>
+              <strong style={{ color: '#38bdf8' }}>Cable #{hoveredCable.id}</strong> (Layer {hoveredCable.layer})
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Temp Rise: +{hoveredCable.tempRiseC.toFixed(1)}°C · Attenuation Derating: +{hoveredCable.attenuationDeratingPct.toFixed(1)}%
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '1rem', fontWeight: 900, color: getHeatColor(hoveredCable.tempC) }}>
+                {hoveredCable.tempC.toFixed(1)}°C
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--emerald)', fontWeight: 700 }}>
+                Max Length: {hoveredCable.deratedLengthM}m
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginTop: '12px', fontSize: '0.76rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+            💡 Hover over any cable in the bundle cross-section above to inspect localized core temperature and thermal length limits.
+          </div>
+        )}
+
+        {/* Color Legend */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '14px', fontSize: '0.75rem', color: 'var(--text-muted)', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#38bdf8' }} />
+            <span>&le;25°C Cool</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }} />
+            <span>25-35°C Normal</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }} />
+            <span>35-45°C Warm</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f97316' }} />
+            <span>45-58°C Hot</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f43f5e' }} />
+            <span>&gt;58°C Thermal Limit</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Field Recommendation Note */}
+      <div
+        style={{
+          marginTop: '14px',
+          padding: '12px 14px',
+          borderRadius: '10px',
+          background: 'rgba(56, 189, 248, 0.08)',
+          border: '1px solid rgba(56, 189, 248, 0.25)',
+          fontSize: '0.8rem',
+          color: 'var(--text-heading)',
+          lineHeight: 1.5,
+        }}
+      >
+        <div style={{ fontWeight: 800, color: '#38bdf8', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Info className="w-4 h-4" /> TIA-TSB-184-A Field Recommendation:
+        </div>
+        {thermalAnalysis.bundleCoreTempC > 45 ? (
+          <span>
+            To maintain full 100m channel lengths without thermal derating penalties, split large cable bundles of <strong>{bundleSize} cables</strong> into smaller sub-bundles of <strong>24 cables or fewer</strong>, maintain air gaps between conduits, or upgrade to <strong>Cat6a F/UTP / Cat7 S/FTP shielded cabling</strong> for superior radial heat dissipation.
+          </span>
+        ) : (
+          <span>
+            Current bundle size ({bundleSize} cables) under {ambientTempC}°C ambient maintains acceptable thermal dissipation for full {thermalAnalysis.deratedLengthM}m channel runs under {selectedPoEWatts}W PoE load.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 export interface PoePortInfo {
   portNum: number;
   deviceName: string | null;
@@ -1192,6 +2213,13 @@ export const PoePortHeatmap: React.FC<{
 };
 
 export const CableLengthPoeChecker: React.FC = () => {
+  // PWA Offline Status & Install Hooks
+  const isOnline = useOnlineStatus();
+  const { isInstallable, install } = usePWAInstall();
+
+  // Standards comparison modal state
+  const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
+
   // Theme state
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
@@ -1233,14 +2261,47 @@ export const CableLengthPoeChecker: React.FC = () => {
   // -------------------------------------------------------------
   // POE BUDGET CHECKER STATE
   // -------------------------------------------------------------
-  const [switchBudgetWatts, setSwitchBudgetWatts] = useState<number>(240);
-  const [switchPortsCount, setSwitchPortsCount] = useState<number>(16);
+  const [selectedSwitchSeriesId, setSelectedSwitchSeriesId] = useState<string>('cisco-cat-9300-48u');
+  const [useSecondaryPsu, setUseSecondaryPsu] = useState<boolean>(false);
+  const [switchBudgetWatts, setSwitchBudgetWatts] = useState<number>(822);
+  const [switchPortsCount, setSwitchPortsCount] = useState<number>(48);
   const [selectedVendor, setSelectedVendor] = useState<NetworkVendor>('cisco');
   const [deviceRows, setDeviceRows] = useState<DeviceRow[]>([
     { id: 'dev-1', name: 'IP Dome Cameras', qty: 8, classKey: 'Class 3 (15.4 W)', wattsEach: 15.4, estCableLengthM: 50 },
     { id: 'dev-2', name: 'Wi-Fi 6 Access Points', qty: 2, classKey: 'Class 4 (30.0 W)', wattsEach: 30.0, estCableLengthM: 40 },
     { id: 'dev-3', name: 'Outdoor PTZ Camera (Heater)', qty: 1, classKey: 'Class 6 (60.0 W)', wattsEach: 60.0, estCableLengthM: 80 },
   ]);
+
+  const activeSwitchSeries = useMemo(() => {
+    return SWITCH_SERIES_MODELS.find(m => m.id === selectedSwitchSeriesId) || SWITCH_SERIES_MODELS[0];
+  }, [selectedSwitchSeriesId]);
+
+  const handleSelectSwitchSeries = (seriesId: string) => {
+    setSelectedSwitchSeriesId(seriesId);
+    const model = SWITCH_SERIES_MODELS.find(m => m.id === seriesId);
+    if (model) {
+      setSelectedVendor(model.vendorId);
+      setSwitchPortsCount(model.portsCount);
+      setUseSecondaryPsu(false);
+      setSwitchBudgetWatts(model.poeBudgetWatts);
+    }
+  };
+
+  const handleToggleSecondaryPsu = (enabled: boolean) => {
+    setUseSecondaryPsu(enabled);
+    if (activeSwitchSeries) {
+      if (enabled && activeSwitchSeries.hasSecondaryPsuOption && activeSwitchSeries.poeBudgetWithSecondaryPsuWatts) {
+        setSwitchBudgetWatts(activeSwitchSeries.poeBudgetWithSecondaryPsuWatts);
+      } else {
+        setSwitchBudgetWatts(activeSwitchSeries.poeBudgetWatts);
+      }
+    }
+  };
+
+  const overloadedDevicesList = useMemo(() => {
+    if (!activeSwitchSeries) return [];
+    return deviceRows.filter(row => row.wattsEach > activeSwitchSeries.maxPortWatts);
+  }, [deviceRows, activeSwitchSeries]);
 
   // -------------------------------------------------------------
   // CABLE MATERIAL COST ESTIMATION STATE (OPTIONAL)
@@ -2274,37 +3335,119 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
             Free tool · runs in your browser · nothing is uploaded
           </p>
 
-          <button
-            type="button"
-            className="button button-secondary no-print"
-            onClick={toggleTheme}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.8rem',
-              padding: '4px 10px',
-              borderRadius: '8px',
-            }}
-            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-          >
-            {theme === 'dark' ? (
-              <>
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-                Light Mode
-              </>
-            ) : (
-              <>
-                <Moon className="w-3.5 h-3.5 text-indigo-400" />
-                Dark Mode
-              </>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {!isOnline && (
+              <span
+                className="no-print"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  background: 'rgba(245, 158, 11, 0.2)',
+                  color: 'var(--amber)',
+                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                }}
+                title="Operating offline from Service Worker cache"
+              >
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--amber)' }} />
+                Offline Mode Active
+              </span>
             )}
-          </button>
+
+            {isInstallable && (
+              <button
+                type="button"
+                className="no-print"
+                onClick={install}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  padding: '4px 10px',
+                  borderRadius: '8px',
+                  background: 'var(--emerald)',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                }}
+                title="Install app locally for offline data center access"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Install Offline App
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="button button-secondary no-print"
+              onClick={toggleTheme}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                padding: '4px 10px',
+                borderRadius: '8px',
+              }}
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="w-3.5 h-3.5 text-amber-400" />
+                  Light Mode
+                </>
+              ) : (
+                <>
+                  <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                  Dark Mode
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <h1 style={{ margin: '6px 0 10px', fontSize: 'clamp(2rem, 3.5vw, 2.75rem)', fontWeight: 800 }}>
           Cable Length &amp; PoE Budget Checker
         </h1>
+
+        {/* Remote Data Center Offline Banner */}
+        {!isOnline && (
+          <div
+            style={{
+              padding: '12px 16px',
+              borderRadius: '10px',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
+              marginTop: '10px',
+              marginBottom: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px',
+              fontSize: '0.84rem',
+              color: 'var(--amber)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <span>
+                <strong>Remote Data Center Offline Mode Active:</strong> Operating without internet access. All cable calculations, D3.js heatmaps, PDF generation, and CSV exports execute 100% locally from service worker precache.
+              </span>
+            </div>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.2)', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
+              100% Offline Ready
+            </span>
+          </div>
+        )}
+
         <p className="lead" style={{ margin: 0, maxWidth: '820px' }}>
           Check whether a cable run is within certified distance limits for your link speed, and verify whether your network switch has enough PoE power budget for your IP cameras, Wi-Fi APs, and phones.
         </p>
@@ -2499,27 +3642,157 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {/* Cable Category */}
-            <div>
-              <label htmlFor="cable-cat" style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
-                Cable Category
-              </label>
-              <select
-                id="cable-cat"
-                value={cableCategory}
-                onChange={e => setCableCategory(e.target.value as CableCategory)}
-                style={{ fontSize: '0.88rem' }}
-              >
-                <option value="Cat5e">Cat5e (100 MHz, Class D)</option>
-                <option value="Cat6">Cat6 (250 MHz, Class E)</option>
-                <option value="Cat6a">Cat6a (500 MHz, Class EA Augmented)</option>
-                <option value="Cat7">Cat7 (600 MHz, Class F Shielded)</option>
-                <option value="Cat8">Cat8 (2000 MHz, 25G/40G Data Center)</option>
-              </select>
-              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {CABLE_SPECS[cableCategory].standard}
+          {/* Interactive Cable Type Selector Section */}
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '16px',
+              background: 'rgba(255, 255, 255, 0.02)',
+              border: '1px solid var(--border)',
+              borderRadius: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-heading)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Cable className="w-4 h-4 text-sky-400" />
+                  Cable Standard &amp; Category Selector
+                </span>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                  Select Ethernet standard to verify speed &amp; distance limits
+                </span>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowCompareModal(true)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  color: '#38bdf8',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Scale className="w-3.5 h-3.5" /> Compare Standards Matrix (Cat5e - Cat8)
+              </button>
             </div>
+
+            {/* Selector Card Buttons Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 mb-4">
+              {(['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'] as CableCategory[]).map(cat => {
+                const isActive = cableCategory === cat;
+                const spec = CABLE_SPECS[cat];
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCableCategory(cat)}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'var(--bg)',
+                      border: isActive ? '2px solid #38bdf8' : '1px solid var(--border)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: isActive ? '0 0 12px rgba(56, 189, 248, 0.2)' : 'none',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 800, fontSize: '0.92rem', color: isActive ? '#38bdf8' : 'var(--text-heading)' }}>
+                        {cat}
+                      </span>
+                      {isActive && <CheckCircle2 className="w-4 h-4 text-sky-400" />}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
+                      {spec.maxFreqMHz} MHz
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active Cable Guide Tooltip Card */}
+            {CABLE_TYPE_GUIDES[cableCategory] && (
+              <div
+                style={{
+                  padding: '14px',
+                  borderRadius: '10px',
+                  background: 'var(--bg)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  fontSize: '0.8rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, color: '#38bdf8', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Info className="w-4 h-4" />
+                      {CABLE_TYPE_GUIDES[cableCategory].title} ({CABLE_TYPE_GUIDES[cableCategory].classStandard})
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {CABLE_TYPE_GUIDES[cableCategory].internalConstruction}
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                    }}
+                  >
+                    AXT Rating: {CABLE_TYPE_GUIDES[cableCategory].alienCrosstalkRating}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 my-3" style={{ background: 'var(--surface)', padding: '10px', borderRadius: '8px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>100m MAX SPEED</span>
+                    <strong style={{ fontSize: '0.82rem', color: 'var(--text-heading)' }}>
+                      {CABLE_TYPE_GUIDES[cableCategory].max100mSpeed}
+                    </strong>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>10G DISTANCE LIMIT</span>
+                    <strong style={{ fontSize: '0.82rem', color: CABLE_SPECS[cableCategory].speedLimits['10G'] > 0 ? 'var(--emerald)' : 'var(--rose)' }}>
+                      {CABLE_TYPE_GUIDES[cableCategory].tenGDistanceLimit}
+                    </strong>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>AWG GAUGE &amp; SHIELD</span>
+                    <strong style={{ fontSize: '0.82rem', color: 'var(--text-heading)' }}>
+                      {CABLE_TYPE_GUIDES[cableCategory].awgGauge} · {CABLE_TYPE_GUIDES[cableCategory].shieldingType}
+                    </strong>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>EST. MATERIAL COST</span>
+                    <strong style={{ fontSize: '0.82rem', color: 'var(--emerald)' }}>
+                      {CABLE_TYPE_GUIDES[cableCategory].avgCostPerMeter}
+                    </strong>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                  <div>
+                    <strong style={{ color: 'var(--text-heading)' }}>PoE Suitability:</strong> {CABLE_TYPE_GUIDES[cableCategory].poeSuitability}
+                  </div>
+                  <div>
+                    <strong style={{ color: 'var(--text-heading)' }}>Recommended Deployment:</strong> {CABLE_TYPE_GUIDES[cableCategory].recommendedFor}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
             {/* Link Speed */}
             <div>
@@ -3342,6 +4615,21 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
 
           {/* Dynamic Visual Diagram: Signal Attenuation & DC Voltage Drop */}
           <CableDiagram cableResult={cableResult} lengthMeters={lengthMeters} lengthUnit={lengthUnit} />
+
+          {/* Multi-Run Bundle Heatmap & Thermal Length Derating Simulator */}
+          <MultiRunHeatmapSimulator
+            bundleSize={bundleSize}
+            ambientTempC={ambientTempC}
+            conductorType={conductorType}
+            cableCategory={cableCategory}
+            avgWattsPerRun={
+              deviceRows.length > 0
+                ? deviceRows.reduce((acc, r) => acc + (r.wattsEach * r.qty), 0) / Math.max(1, deviceRows.reduce((acc, r) => acc + r.qty, 0))
+                : 30.0
+            }
+            onChangeBundleSize={sz => setBundleSize(sz)}
+            onChangeAmbientTemp={t => setAmbientTempC(t)}
+          />
         </div>
       )}
 
@@ -3395,27 +4683,28 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
             </div>
           </div>
 
-          {/* Vendor Hardware Policy Selector */}
+          {/* Enterprise Network Switch Series Selector Section */}
           <div
             style={{
-              padding: '16px',
-              borderRadius: '12px',
+              padding: '18px',
+              borderRadius: '14px',
               background: 'var(--bg)',
               border: '1px solid var(--border)',
               marginBottom: '20px',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
               <div>
-                <label style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Server className="w-4 h-4 text-sky-400" />
-                  Network Hardware Vendor Profile &amp; Policy
+                <label style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  <Server className="w-4.5 h-4.5 text-sky-400" />
+                  Enterprise Network Switch Series &amp; Manufacturer Selector
                 </label>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Simulates vendor-specific PoE power allocation algorithms (Class-Max vs Dynamic LLDP) and switching fabric backplane capacity.
+                  Dynamically configures total power budget, port count, and per-port IEEE 802.3 standards from official datasheets.
                 </div>
               </div>
 
+              {/* Vendor Quick Filter Pills */}
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {(Object.keys(VENDOR_PROFILES) as NetworkVendor[]).map(vKey => {
                   const v = VENDOR_PROFILES[vKey];
@@ -3424,11 +4713,18 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                     <button
                       key={vKey}
                       type="button"
-                      onClick={() => setSelectedVendor(vKey)}
+                      onClick={() => {
+                        const firstForVendor = SWITCH_SERIES_MODELS.find(m => m.vendorId === vKey);
+                        if (firstForVendor) {
+                          handleSelectSwitchSeries(firstForVendor.id);
+                        } else {
+                          setSelectedVendor(vKey);
+                        }
+                      }}
                       style={{
-                        padding: '5px 12px',
+                        padding: '4px 10px',
                         borderRadius: '8px',
-                        fontSize: '0.8rem',
+                        fontSize: '0.78rem',
                         fontWeight: isSel ? 800 : 600,
                         cursor: 'pointer',
                         border: `1.5px solid ${isSel ? v.badgeColor : 'var(--border)'}`,
@@ -3447,42 +4743,145 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
               </div>
             </div>
 
-            {/* Vendor Profile Detail Card */}
-            <div
-              style={{
-                padding: '10px 14px',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px',
-                fontSize: '0.82rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span
-                  style={{
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    background: 'rgba(56, 189, 248, 0.2)',
-                    color: VENDOR_PROFILES[selectedVendor].badgeColor,
-                    fontWeight: 800,
-                    fontSize: '0.75rem',
-                  }}
-                >
-                  {VENDOR_PROFILES[selectedVendor].poeReservationPolicy === 'lldp-dynamic' ? 'LLDP Dynamic Power Negotiation' : 'Class-Max Worst Case Reservation'}
-                </span>
-                <span style={{ color: 'var(--text-muted)' }}>
-                  Default PoE Voltage: <strong>{VENDOR_PROFILES[selectedVendor].defaultPoeVoltageV}V DC</strong>
-                </span>
-              </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                {VENDOR_PROFILES[selectedVendor].recommendedPolicy}
-              </div>
+            {/* Switch Series Dropdown Select */}
+            <div style={{ marginBottom: '14px' }}>
+              <label htmlFor="switch-series-select" style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '6px', display: 'block' }}>
+                Select Enterprise Switch Series / Datasheet Model:
+              </label>
+              <select
+                id="switch-series-select"
+                value={selectedSwitchSeriesId}
+                onChange={e => handleSelectSwitchSeries(e.target.value)}
+                style={{
+                  width: '100%',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  padding: '10px 12px',
+                  background: 'var(--surface)',
+                  border: '1px solid #38bdf8',
+                  borderRadius: '10px',
+                  color: 'var(--text-heading)',
+                }}
+              >
+                {SWITCH_SERIES_MODELS.map(m => (
+                  <option key={m.id} value={m.id}>
+                    [{m.vendorName}] {m.seriesName} - {m.portsCount} Ports · {m.poeBudgetWatts}W Base Budget (Max {m.maxPortWatts}W/port)
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {/* Active Switch Series Official Datasheet Card */}
+            {activeSwitchSeries && (
+              <div
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  background: 'var(--surface)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Server className="w-4 h-4 text-sky-400" />
+                      {activeSwitchSeries.seriesName}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Datasheet Model: <strong>{activeSwitchSeries.modelCode}</strong> · Switching Fabric: <strong>{activeSwitchSeries.backplaneGbps} Gbps</strong>
+                    </div>
+                  </div>
+
+                  {/* Dual PSU Expansion Module Toggle */}
+                  {activeSwitchSeries.hasSecondaryPsuOption && activeSwitchSeries.poeBudgetWithSecondaryPsuWatts && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSecondaryPsu(!useSecondaryPsu)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        background: useSecondaryPsu ? 'rgba(16, 185, 129, 0.18)' : 'var(--bg)',
+                        color: useSecondaryPsu ? '#10b981' : 'var(--text-muted)',
+                        border: `1.5px solid ${useSecondaryPsu ? '#10b981' : 'var(--border)'}`,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.2s ease',
+                      }}
+                      title={activeSwitchSeries.secondaryPsuNote}
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      {useSecondaryPsu
+                        ? `Dual PSU Active (${activeSwitchSeries.poeBudgetWithSecondaryPsuWatts}W)`
+                        : `Expand PSU (+Secondary Module to ${activeSwitchSeries.poeBudgetWithSecondaryPsuWatts}W)`}
+                    </button>
+                  )}
+                </div>
+
+                {/* Specs Pill Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 my-2" style={{ background: 'var(--bg)', padding: '10px', borderRadius: '8px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>TOTAL POE BUDGET</span>
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--amber)' }}>
+                      {switchBudgetWatts} Watts {useSecondaryPsu ? '(Dual PSU)' : ''}
+                    </strong>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>POE PORT DENSITY</span>
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--text-heading)' }}>
+                      {switchPortsCount} RJ45 Ports
+                    </strong>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>MAX WATT / PORT</span>
+                    <strong style={{ fontSize: '0.95rem', color: activeSwitchSeries.maxPortWatts >= 60 ? 'var(--emerald)' : '#f59e0b' }}>
+                      {activeSwitchSeries.maxPortWatts}W Max ({activeSwitchSeries.maxPortWatts >= 90 ? 'Type 4 UPOE+' : activeSwitchSeries.maxPortWatts >= 60 ? 'Type 3 UPOE' : 'PoE+'})
+                    </strong>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>POE MANAGEMENT POLICY</span>
+                    <strong style={{ fontSize: '0.78rem', color: '#38bdf8' }}>
+                      {activeSwitchSeries.poePolicy === 'lldp-dynamic' ? 'LLDP-MED Dynamic Negotiation' : 'Class-Max Static Reservation'}
+                    </strong>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.4 }}>
+                  💡 <strong>Official Datasheet Spec:</strong> {activeSwitchSeries.officialDatasheetNote}
+                </div>
+              </div>
+            )}
+
+            {/* Overload Warnings if any connected device exceeds maxPortWatts */}
+            {overloadedDevicesList.length > 0 && (
+              <div
+                style={{
+                  marginTop: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: 'var(--rose)',
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <div>
+                  <strong>Switch Model Port Capability Constraint Warning:</strong>
+                  {overloadedDevicesList.map(d => (
+                    <div key={d.id} style={{ marginTop: '2px' }}>
+                      • Device "{d.name}" requires {d.wattsEach}W per port, but {activeSwitchSeries.seriesName} supports a maximum of {activeSwitchSeries.maxPortWatts}W per port!
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Switch Specifications Form */}
@@ -4736,6 +6135,295 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           </Link>
         </div>
       </div>
+
+      {/* Ethernet Standards Comparison Matrix Modal */}
+      {showCompareModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0, 0, 0, 0.82)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            overflowY: 'auto',
+          }}
+          onClick={() => setShowCompareModal(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '1100px',
+              maxHeight: '90vh',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: '20px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid var(--border)',
+                background: 'var(--bg)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '1.2rem',
+                    fontWeight: 800,
+                    color: 'var(--text-heading)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <Scale className="w-5 h-5 text-sky-400" />
+                  Ethernet Cable Standards Comparison Matrix
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  ANSI/TIA-568 &amp; ISO/IEC 11801 Twisted-Pair Cable Category Specifications
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCompareModal(false)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Content - Comparison Table */}
+            <div style={{ padding: '24px', overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '12px 14px', borderBottom: '2px solid var(--border)', minWidth: '160px', color: 'var(--text-muted)', fontWeight: 700 }}>
+                      SPECIFICATION
+                    </th>
+                    {(['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'] as CableCategory[]).map(cat => {
+                      const isSelected = cableCategory === cat;
+                      return (
+                        <th
+                          key={cat}
+                          style={{
+                            padding: '12px 14px',
+                            borderBottom: '2px solid var(--border)',
+                            minWidth: '170px',
+                            background: isSelected ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
+                            textAlign: 'center',
+                          }}
+                        >
+                          <div style={{ fontSize: '1rem', fontWeight: 800, color: isSelected ? '#38bdf8' : 'var(--text-heading)' }}>
+                            {cat}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '8px' }}>
+                            {CABLE_SPECS[cat].maxFreqMHz} MHz
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCableCategory(cat);
+                              setShowCompareModal(false);
+                            }}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              background: isSelected ? '#38bdf8' : 'rgba(255, 255, 255, 0.05)',
+                              color: isSelected ? '#0f172a' : 'var(--text-heading)',
+                              border: isSelected ? 'none' : '1px solid var(--border)',
+                              cursor: 'pointer',
+                              width: '100%',
+                            }}
+                          >
+                            {isSelected ? '✓ Selected' : `Select ${cat}`}
+                          </button>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      TIA / ISO Class
+                    </td>
+                    {(['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'] as CableCategory[]).map(cat => (
+                      <td key={cat} style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        {CABLE_TYPE_GUIDES[cat].classStandard}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Max 100m Speed
+                    </td>
+                    {(['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'] as CableCategory[]).map(cat => (
+                      <td key={cat} style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-heading)', textAlign: 'center' }}>
+                        {CABLE_TYPE_GUIDES[cat].max100mSpeed}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      10GBASE-T Distance
+                    </td>
+                    {(['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'] as CableCategory[]).map(cat => {
+                      const limit = CABLE_SPECS[cat].speedLimits['10G'];
+                      return (
+                        <td
+                          key={cat}
+                          style={{
+                            padding: '12px 14px',
+                            borderBottom: '1px solid var(--border)',
+                            fontWeight: 700,
+                            color: limit === 100 ? 'var(--emerald)' : limit > 0 ? '#f59e0b' : 'var(--rose)',
+                            textAlign: 'center',
+                          }}
+                        >
+                          {CABLE_TYPE_GUIDES[cat].tenGDistanceLimit}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Wire Gauge &amp; Shielding
+                    </td>
+                    {(['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'] as CableCategory[]).map(cat => (
+                      <td key={cat} style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        <div>{CABLE_TYPE_GUIDES[cat].awgGauge}</div>
+                        <div style={{ fontSize: '0.74rem', color: '#38bdf8' }}>{CABLE_TYPE_GUIDES[cat].shieldingType}</div>
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Alien Crosstalk Isolation
+                    </td>
+                    {(['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'] as CableCategory[]).map(cat => (
+                      <td key={cat} style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
+                        <span
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            background:
+                              cat === 'Cat5e'
+                                ? 'rgba(239, 68, 68, 0.15)'
+                                : cat === 'Cat6'
+                                ? 'rgba(245, 158, 11, 0.15)'
+                                : 'rgba(16, 185, 129, 0.15)',
+                            color:
+                              cat === 'Cat5e'
+                                ? 'var(--rose)'
+                                : cat === 'Cat6'
+                                ? '#f59e0b'
+                                : '#10b981',
+                          }}
+                        >
+                          {CABLE_TYPE_GUIDES[cat].alienCrosstalkRating}
+                        </span>
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      PoE Capacity
+                    </td>
+                    {(['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'] as CableCategory[]).map(cat => (
+                      <td key={cat} style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '0.76rem', textAlign: 'center' }}>
+                        {CABLE_TYPE_GUIDES[cat].poeSuitability}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Est. Cable Cost
+                    </td>
+                    {(['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'] as CableCategory[]).map(cat => (
+                      <td key={cat} style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: 'var(--emerald)', textAlign: 'center' }}>
+                        {CABLE_TYPE_GUIDES[cat].avgCostPerMeter}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Primary Scenarios
+                    </td>
+                    {(['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'] as CableCategory[]).map(cat => (
+                      <td key={cat} style={{ padding: '12px 14px', color: 'var(--text-muted)', fontSize: '0.76rem', textAlign: 'center' }}>
+                        {CABLE_TYPE_GUIDES[cat].recommendedFor}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '16px 24px',
+                borderTop: '1px solid var(--border)',
+                background: 'var(--bg)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Info className="w-4 h-4 text-sky-400" />
+                Note: 10GBASE-T distance on Cat6 is bundle-dependent. For dense cable trays, Cat6a or higher is recommended.
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCompareModal(false)}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '8px',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-heading)',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Close Matrix
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };
