@@ -135,8 +135,8 @@ try{
 
  await openPage("/tools/interview-preparation-planner/","#target-role-title");
  await type("#target-role-title","IT Support Engineer");
- await type("#targetCompany","Example Company");
- const interview=await js("return {role:document.querySelector('#target-role-title').value,company:document.querySelector('#targetCompany').value}");
+ await type("#target-company","Example Company");
+ const interview=await js("return {role:document.querySelector('#target-role-title').value,company:document.querySelector('#target-company').value}");
  assert.equal(interview.role,"IT Support Engineer");assert.equal(interview.company,"Example Company");
  console.log("PASS — Interview Preparation Planner accepts role details");
 
