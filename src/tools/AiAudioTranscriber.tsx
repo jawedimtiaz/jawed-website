@@ -63,120 +63,174 @@ export const AiAudioTranscriber: React.FC = () => {
     }
   }, [isRecording]);
 
-  // Start recording strictly on user click with resilient fallback constraints
+  // Initialize MediaRecorder helper
+  const initMediaRecorder = (stream: MediaStream) => {
+    activeStreamRef.current = stream;
+    audioChunksRef.current = [];
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/webm')
+      ? 'audio/webm'
+      : MediaRecorder.isTypeSupported('audio/mp4')
+      ? 'audio/mp4'
+      : 'audio/wav';
+
+    setAudioMimeType(mimeType);
+
+    let mediaRecorder: MediaRecorder;
+    try {
+      mediaRecorder = new MediaRecorder(stream, { mimeType });
+    } catch {
+      mediaRecorder = new MediaRecorder(stream);
+    }
+    mediaRecorderRef.current = mediaRecorder;
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunksRef.current, { type: mimeType });
+      setAudioBlob(blob);
+      const url = URL.createObjectURL(blob);
+      setAudioUrl(url);
+      setFileName(`Voice_Recording_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`);
+      
+      // Clean up tracks
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach((track) => track.stop());
+        activeStreamRef.current = null;
+      }
+    };
+
+    mediaRecorder.start(250); // collecting chunks every 250ms
+    setIsRecording(true);
+    setRecordingTime(0);
+    setTranscriptResult(null);
+  };
+
+  // Detailed error handler with triaging
+  const handleDetailedMicError = (err: any) => {
+    const errorName = err?.name || 'UnknownError';
+    const errorMessage = err?.message || 'Access denied';
+    const errorStack = err?.stack || '';
+
+    setErrorDetails({ name: errorName, message: errorMessage, stack: errorStack });
+
+    console.group(`🎙️ [MediaDevices Debugger] Microphone Access Failure: ${errorName}`);
+    console.error('Error Name:', errorName);
+    console.error('Error Message:', errorMessage);
+    console.error('Error Stack:', errorStack);
+    console.info('Is secure context (HTTPS/localhost):', window.isSecureContext);
+    console.info('Navigator mediaDevices supported:', !!navigator.mediaDevices);
+    console.info('User Agent:', navigator.userAgent);
+    console.groupEnd();
+
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach(track => track.stop());
+      activeStreamRef.current = null;
+    }
+
+    let friendlyReason = 'Microphone access was blocked or is unavailable.';
+    if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError' || errorName === 'SecurityError') {
+      friendlyReason = 'Microphone permission was denied by the browser or system policy.';
+    } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError' || errorMessage === 'NO_AUDIO_INPUT_DEVICES') {
+      friendlyReason = 'No microphone device was detected on your system.';
+    } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
+      friendlyReason = 'Your microphone is currently in use by another application or tab.';
+    } else if (!window.isSecureContext) {
+      friendlyReason = 'Microphone recording requires a secure context (HTTPS or localhost).';
+    }
+
+    setErrorMsg(`${friendlyReason} (${errorName}: ${errorMessage})`);
+  };
+
+  // Multi-stage 3-tier discovery fallback stream acquisition strictly on user click
   const startRecording = async () => {
     try {
       setErrorMsg(null);
       setErrorDetails(null);
 
+      // 1. Permissions Policy & Iframe Embedding Check
+      if (window.self !== window.top) {
+        try {
+          const docAny = document as any;
+          if (docAny.featurePolicy && typeof docAny.featurePolicy.allowsFeature === 'function') {
+            if (!docAny.featurePolicy.allowsFeature('microphone')) {
+              console.warn('iframe featurePolicy blocks microphone access.');
+            }
+          }
+          if (docAny.permissionsPolicy && typeof docAny.permissionsPolicy.allowsFeature === 'function') {
+            if (!docAny.permissionsPolicy.allowsFeature('microphone')) {
+              console.warn('iframe permissionsPolicy blocks microphone access.');
+            }
+          }
+        } catch (iframeErr) {
+          console.warn('Iframe policy check error:', iframeErr);
+        }
+      }
+
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Microphone recording API (navigator.mediaDevices.getUserMedia) is not supported in this browser or context.');
       }
 
+      // Check Permissions API state if available
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          console.log('Current Microphone Permission State:', permissionStatus.state);
+        } catch (e) {
+          // Ignore browsers that do not support microphone query
+        }
+      }
+
       let stream: MediaStream | null = null;
 
+      // Step A: First attempt with simple standard constraints
       try {
-        // Attempt with advanced constraints first
         stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
-            autoGainControl: true,
           }
         });
-      } catch (err: any) {
-        console.warn('Advanced audio constraints failed, attempting basic { audio: true } fallback:', err);
-        if (err?.name === 'OverconstrainedError' || err?.name === 'NotAllowedError' || err?.name === 'SecurityError' || err?.name === 'TypeError') {
-          // Fallback to basic audio stream request
+      } catch (errA: any) {
+        console.warn('Initial mic request failed, attempting basic { audio: true } fallback:', errA);
+
+        // Step B: Pure boolean fallback (bypasses any constraint rejection)
+        try {
           stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } else {
-          throw err;
+        } catch (errB: any) {
+          console.warn('Basic mic request failed, attempting explicit device ID enumeration fallback:', errB);
+
+          // Step C: Explicit device ID enumeration fallback
+          try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioInputs = devices.filter(d => d.kind === 'audioinput');
+            
+            if (audioInputs.length === 0) {
+              throw new Error('NO_AUDIO_INPUT_DEVICES');
+            }
+
+            const validDevice = audioInputs.find(d => d.deviceId !== '') || audioInputs[0];
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: { deviceId: { exact: validDevice.deviceId } }
+            });
+          } catch (errC: any) {
+            handleDetailedMicError(errC);
+            return;
+          }
         }
       }
 
-      if (!stream) {
-        throw new Error('Failed to acquire audio stream.');
+      if (stream) {
+        initMediaRecorder(stream);
       }
-
-      activeStreamRef.current = stream;
-      audioChunksRef.current = [];
-
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : MediaRecorder.isTypeSupported('audio/mp4')
-        ? 'audio/mp4'
-        : 'audio/wav';
-
-      setAudioMimeType(mimeType);
-
-      let mediaRecorder: MediaRecorder;
-      try {
-        mediaRecorder = new MediaRecorder(stream, { mimeType });
-      } catch {
-        mediaRecorder = new MediaRecorder(stream);
-      }
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        setAudioBlob(blob);
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
-        setFileName(`Voice_Recording_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`);
-        
-        // Clean up tracks
-        if (activeStreamRef.current) {
-          activeStreamRef.current.getTracks().forEach((track) => track.stop());
-          activeStreamRef.current = null;
-        }
-      };
-
-      mediaRecorder.start(250); // collecting chunks every 250ms
-      setIsRecording(true);
-      setRecordingTime(0);
-      setTranscriptResult(null);
     } catch (err: any) {
-      const errorName = err?.name || 'UnknownError';
-      const errorMessage = err?.message || 'Access denied';
-      const errorStack = err?.stack || '';
-
-      setErrorDetails({ name: errorName, message: errorMessage, stack: errorStack });
-
-      console.group(`🎙️ [MediaDevices Debugger] Microphone Access Failure: ${errorName}`);
-      console.error('Error Name:', errorName);
-      console.error('Error Message:', errorMessage);
-      console.error('Error Stack:', errorStack);
-      console.info('Is secure context (HTTPS/localhost):', window.isSecureContext);
-      console.info('Navigator mediaDevices supported:', !!navigator.mediaDevices);
-      console.info('User Agent:', navigator.userAgent);
-      console.groupEnd();
-
-      // Ensure tracks are stopped on error
-      if (activeStreamRef.current) {
-        activeStreamRef.current.getTracks().forEach(track => track.stop());
-        activeStreamRef.current = null;
-      }
-
-      let friendlyReason = 'Microphone access was blocked or is unavailable.';
-      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError' || errorName === 'SecurityError') {
-        friendlyReason = 'Microphone permission was denied by the browser or system.';
-      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
-        friendlyReason = 'No microphone device was detected on your system.';
-      } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
-        friendlyReason = 'Your microphone is currently in use by another application or tab.';
-      } else if (!window.isSecureContext) {
-        friendlyReason = 'Microphone recording requires a secure context (HTTPS or localhost).';
-      }
-
-      setErrorMsg(`${friendlyReason} (${errorName}: ${errorMessage})`);
+      handleDetailedMicError(err);
     }
   };
 
@@ -514,7 +568,7 @@ export const AiAudioTranscriber: React.FC = () => {
               <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: '10px', color: '#fca5a5', fontSize: '0.9rem', lineHeight: 1.5 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#f87171' }}>
-                    <AlertCircle size={18} /> Dual-Diagnostic Microphone Error
+                    <AlertCircle size={18} /> Multi-Stage Diagnostic Error
                   </div>
                   <label style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: 'var(--muted)' }}>
                     <input
@@ -539,16 +593,16 @@ export const AiAudioTranscriber: React.FC = () => {
 
                 <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '12px 14px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid rgba(239, 68, 68, 0.25)', display: 'grid', gap: '10px' }}>
                   <div>
-                    <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>a) Browser Permission:</strong>
-                    Ensure microphone is allowed in your browser address bar lock icon (🔒).
+                    <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>a) Browser Address Bar Lock:</strong>
+                    Ensure microphone is allowed in the browser address bar lock icon (🔒).
                   </div>
                   <div>
                     <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>b) macOS / Windows System Permission:</strong>
-                    On Mac, check <strong>System Settings → Privacy &amp; Security → Microphone</strong> and ensure your browser (Edge, Chrome, or Safari) is enabled.
+                    On Mac, check <strong>System Settings → Privacy &amp; Security → Microphone</strong> and ensure your browser (Edge, Chrome, or Safari) is toggled <strong>ON</strong>.
                   </div>
                   <div>
-                    <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>c) Hardware / Device Check:</strong>
-                    Ensure no other app is holding the microphone and a valid audio input device is connected.
+                    <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>c) Permissions Policy &amp; Iframe Check:</strong>
+                    Ensure this page is not rendered inside a restricted iframe without `allow="microphone *"`.
                   </div>
                 </div>
               </div>
