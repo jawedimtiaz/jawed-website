@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import * as d3 from 'd3';
@@ -37,6 +38,10 @@ import {
   Edit3,
   MapPin,
   ExternalLink,
+  CheckCircle2,
+  ArrowUpRight,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import {
@@ -1701,6 +1706,7 @@ interface MultiSiteWorkspacePanelProps {
   onRenameSite: (id: string, newName: string) => void;
   onClose: () => void;
   isDarkMode: boolean;
+  onExportCsv?: () => void;
 }
 
 export const MultiSiteWorkspacePanel: React.FC<MultiSiteWorkspacePanelProps> = ({
@@ -1713,6 +1719,7 @@ export const MultiSiteWorkspacePanel: React.FC<MultiSiteWorkspacePanelProps> = (
   onRenameSite,
   onClose,
   isDarkMode,
+  onExportCsv,
 }) => {
   const [editingSiteId, setEditingSiteId] = useState<string | null>(null);
   const [editNameText, setEditNameText] = useState('');
@@ -1807,6 +1814,18 @@ export const MultiSiteWorkspacePanel: React.FC<MultiSiteWorkspacePanelProps> = (
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {onExportCsv && (
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={onExportCsv}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', padding: '5px 12px' }}
+              title="Download consolidated multi-site calculation inventory as CSV for spreadsheet analysis"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              Download CSV
+            </button>
+          )}
           <button
             type="button"
             className="button button-secondary"
@@ -2193,7 +2212,11 @@ export const MultiSiteWorkspacePanel: React.FC<MultiSiteWorkspacePanelProps> = (
 };
 
 export interface ScenarioConfig {
+  id?: string;
   name: string;
+  description?: string;
+  color?: string;
+  enabled?: boolean;
   cameras: number;
   resolutionPreset: ResolutionPresetKey;
   codec: CodecKey;
@@ -2206,6 +2229,111 @@ export interface ScenarioConfig {
   pricePerTb: number;
 }
 
+export const DEFAULT_SCENARIOS: ScenarioConfig[] = [
+  {
+    id: 'sc-1',
+    name: '1. Baseline 1080p (H.264)',
+    description: '16 Cams · 1080p · H.264 (4.0 Mbps) · 30 Days · 24/7 (100%)',
+    color: '#3b82f6',
+    enabled: true,
+    cameras: 16,
+    resolutionPreset: '1080p',
+    codec: 'h264',
+    bitrateMbps: 4.0,
+    retentionDays: 30,
+    recordingPct: 100,
+    headroomPct: 15,
+    driveSizeTb: 8,
+    raidType: 'raid5',
+    pricePerTb: 25,
+  },
+  {
+    id: 'sc-2',
+    name: '2. Codec Optimization (H.265)',
+    description: '16 Cams · 1080p · H.265 (2.0 Mbps) · 30 Days · 24/7 (100%) — cuts storage in half',
+    color: '#10b981',
+    enabled: true,
+    cameras: 16,
+    resolutionPreset: '1080p',
+    codec: 'h265',
+    bitrateMbps: 2.0,
+    retentionDays: 30,
+    recordingPct: 100,
+    headroomPct: 15,
+    driveSizeTb: 8,
+    raidType: 'raid5',
+    pricePerTb: 25,
+  },
+  {
+    id: 'sc-3',
+    name: '3. 4K Ultra-HD Upgrade',
+    description: '16 Cams · 4K UHD · H.265 (8.0 Mbps) · 30 Days · 24/7 (100%) — forensic-grade detail',
+    color: '#f59e0b',
+    enabled: true,
+    cameras: 16,
+    resolutionPreset: '4k',
+    codec: 'h265',
+    bitrateMbps: 8.0,
+    retentionDays: 30,
+    recordingPct: 100,
+    headroomPct: 15,
+    driveSizeTb: 12,
+    raidType: 'raid6',
+    pricePerTb: 25,
+  },
+  {
+    id: 'sc-4',
+    name: '4. Extended Retention (90 Days)',
+    description: '16 Cams · 4K UHD · H.265 (8.0 Mbps) · 90 Days · 24/7 (100%) — regulatory compliance audit standard',
+    color: '#8b5cf6',
+    enabled: true,
+    cameras: 16,
+    resolutionPreset: '4k',
+    codec: 'h265',
+    bitrateMbps: 8.0,
+    retentionDays: 90,
+    recordingPct: 100,
+    headroomPct: 15,
+    driveSizeTb: 16,
+    raidType: 'raid6',
+    pricePerTb: 25,
+  },
+  {
+    id: 'sc-5',
+    name: '5. Smart Motion Analytics (40% Duty)',
+    description: '16 Cams · 4K UHD · H.265 (8.0 Mbps) · 90 Days · 40% Motion duty cycle',
+    color: '#ec4899',
+    enabled: true,
+    cameras: 16,
+    resolutionPreset: '4k',
+    codec: 'h265',
+    bitrateMbps: 8.0,
+    retentionDays: 90,
+    recordingPct: 40,
+    headroomPct: 15,
+    driveSizeTb: 16,
+    raidType: 'raid6',
+    pricePerTb: 25,
+  },
+  {
+    id: 'sc-6',
+    name: '6. Campus Fleet Expansion (48 Cams)',
+    description: '48 Cams · 4K UHD · H.265 (8.0 Mbps) · 90 Days · 40% Motion — multi-building campus deployment',
+    color: '#06b6d4',
+    enabled: false,
+    cameras: 48,
+    resolutionPreset: '4k',
+    codec: 'h265',
+    bitrateMbps: 8.0,
+    retentionDays: 90,
+    recordingPct: 40,
+    headroomPct: 15,
+    driveSizeTb: 16,
+    raidType: 'raid6',
+    pricePerTb: 25,
+  },
+];
+
 export function computeScenarioMetrics(cfg: ScenarioConfig) {
   const safeMbps = Math.max(0.01, cfg.bitrateMbps || 0.1);
   const safeCams = Math.max(1, cfg.cameras || 1);
@@ -2216,6 +2344,10 @@ export function computeScenarioMetrics(cfg: ScenarioConfig) {
   const safePricePerTb = Math.max(0, cfg.pricePerTb || 0);
 
   const gbPerCameraPerDay = (safeMbps * 86400 / 8 / 1000) * (safeRec / 100);
+  const totalDailyGb = gbPerCameraPerDay * safeCams;
+  const totalDailyTb = totalDailyGb / 1000;
+  const totalBandwidthMbps = safeMbps * safeCams;
+
   const totalRawGb = gbPerCameraPerDay * safeDays * safeCams;
   const totalNeedTb = (totalRawGb * (1 + safeHead / 100)) / 1000;
 
@@ -2248,6 +2380,9 @@ export function computeScenarioMetrics(cfg: ScenarioConfig) {
     safeRec,
     safeHead,
     safeDriveTb,
+    totalDailyGb,
+    totalDailyTb,
+    totalBandwidthMbps,
     totalNeedTb,
     drivesNeeded,
     usableStorageTb,
@@ -2258,33 +2393,208 @@ export function computeScenarioMetrics(cfg: ScenarioConfig) {
   };
 }
 
-interface CompareScenariosPanelProps {
-  scenarioA: ScenarioConfig;
-  scenarioB: ScenarioConfig;
-  onChangeScenarioB: (updated: Partial<ScenarioConfig>) => void;
-  onCopyAtoB: () => void;
-  onSwapAandB: () => void;
-  onCloseComparison: () => void;
-  onApplyPresetComparison: (preset: 'codec' | 'retention' | 'motion' | 'resolution') => void;
+import { CompareScenariosView, type CompareScenariosViewProps } from '../components/CompareScenariosView';
+export { CompareScenariosView, type CompareScenariosViewProps };
+export const CompareScenariosPanel = CompareScenariosView;
+
+import { StorageCostEstimator, DRIVE_MARKET_TIERS, type StorageCostEstimatorProps, type DriveMarketTier } from '../components/StorageCostEstimator';
+export { StorageCostEstimator, DRIVE_MARKET_TIERS, type StorageCostEstimatorProps, type DriveMarketTier };
+
+export interface StorageGrowthForecasterProps {
+  currentCams: number;
+  currentDays: number;
+  currentBitrateMbps: number;
+  currentDutyCyclePct: number;
+  currentHeadroomPct: number;
+  driveSizeTb: number;
+  raidType: RaidTypeKey;
+  pricePerTb: number;
+  currentNeedTb: number;
+  currentDrivesNeeded: number;
+  currentBomCost: number;
+  onApplyForecast: (newCams: number, newDays: number) => void;
+  onClose: () => void;
+  isDarkMode: boolean;
 }
 
-export const CompareScenariosPanel: React.FC<CompareScenariosPanelProps> = ({
-  scenarioA,
-  scenarioB,
-  onChangeScenarioB,
-  onCopyAtoB,
-  onSwapAandB,
-  onCloseComparison,
-  onApplyPresetComparison,
+export const StorageGrowthForecaster: React.FC<StorageGrowthForecasterProps> = ({
+  currentCams,
+  currentDays,
+  currentBitrateMbps,
+  currentDutyCyclePct,
+  currentHeadroomPct,
+  driveSizeTb,
+  raidType,
+  pricePerTb,
+  currentNeedTb,
+  currentDrivesNeeded,
+  currentBomCost,
+  onApplyForecast,
+  onClose,
+  isDarkMode,
 }) => {
-  const metricsA = computeScenarioMetrics(scenarioA);
-  const metricsB = computeScenarioMetrics(scenarioB);
+  const [cameraGrowthPct, setCameraGrowthPct] = useState<number>(25);
+  const [retentionGrowthPct, setRetentionGrowthPct] = useState<number>(50);
+  const [horizonYears, setHorizonYears] = useState<number>(3);
+  const [appliedFeedback, setAppliedFeedback] = useState<boolean>(false);
 
-  const deltaTb = metricsB.totalNeedTb - metricsA.totalNeedTb;
-  const deltaPct = metricsA.totalNeedTb > 0 ? (deltaTb / metricsA.totalNeedTb) * 100 : 0;
+  // Growth Preset Strategies
+  const growthPresets = [
+    {
+      name: 'Conservative',
+      desc: '+15% Cameras, Same Retention, 2 Yrs',
+      camPct: 15,
+      retPct: 0,
+      years: 2,
+    },
+    {
+      name: 'Standard Expansion',
+      desc: '+35% Cameras, +50% Retention, 3 Yrs',
+      camPct: 35,
+      retPct: 50,
+      years: 3,
+    },
+    {
+      name: 'Retention Upgrade',
+      desc: 'Same Cameras, +100% Retention (30d->60d), 1 Yr',
+      camPct: 0,
+      retPct: 100,
+      years: 1,
+    },
+    {
+      name: 'Rapid Business Scale',
+      desc: '+60% Cameras, +100% Retention, 3 Yrs',
+      camPct: 60,
+      retPct: 100,
+      years: 3,
+    },
+    {
+      name: 'Fleet Doubling',
+      desc: '+100% Cameras (2x), +50% Retention, 5 Yrs',
+      camPct: 100,
+      retPct: 50,
+      years: 5,
+    },
+  ];
 
-  const deltaDrives = metricsB.drivesNeeded - metricsA.drivesNeeded;
-  const deltaCost = metricsB.totalHardDriveCost - metricsA.totalHardDriveCost;
+  const applyPreset = (preset: typeof growthPresets[0]) => {
+    setCameraGrowthPct(preset.camPct);
+    setRetentionGrowthPct(preset.retPct);
+    setHorizonYears(preset.years);
+  };
+
+  // Forecasted End Target
+  const targetCams = Math.max(1, Math.round(currentCams * (1 + cameraGrowthPct / 100)));
+  const targetDays = Math.max(1, Math.round(currentDays * (1 + retentionGrowthPct / 100)));
+  const deltaCams = targetCams - currentCams;
+  const deltaDays = targetDays - currentDays;
+
+  const targetConfig: ScenarioConfig = useMemo(() => ({
+    name: `Year ${horizonYears} Target`,
+    cameras: targetCams,
+    resolutionPreset: 'custom',
+    codec: 'h265',
+    bitrateMbps: currentBitrateMbps,
+    retentionDays: targetDays,
+    recordingPct: currentDutyCyclePct,
+    headroomPct: currentHeadroomPct,
+    driveSizeTb,
+    raidType,
+    pricePerTb,
+  }), [
+    horizonYears,
+    targetCams,
+    currentBitrateMbps,
+    targetDays,
+    currentDutyCyclePct,
+    currentHeadroomPct,
+    driveSizeTb,
+    raidType,
+    pricePerTb,
+  ]);
+
+  const targetMetrics = useMemo(() => computeScenarioMetrics(targetConfig), [targetConfig]);
+
+  const deltaTb = targetMetrics.totalNeedTb - currentNeedTb;
+  const deltaTbPct = currentNeedTb > 0 ? (deltaTb / currentNeedTb) * 100 : 0;
+  const deltaDrives = Math.max(0, targetMetrics.drivesNeeded - currentDrivesNeeded);
+  const deltaBomCost = Math.max(0, targetMetrics.totalHardDriveCost - currentBomCost);
+
+  const currentDailyGb = (currentBitrateMbps * 86400 / 8 / 1000) * (currentDutyCyclePct / 100) * currentCams;
+  const targetDailyGb = (currentBitrateMbps * 86400 / 8 / 1000) * (currentDutyCyclePct / 100) * targetCams;
+
+  // Year-by-Year Multi-Year Expansion Progression
+  const multiYearProgression = useMemo(() => {
+    const list = [];
+    const numSteps = Math.max(horizonYears, 1);
+
+    for (let t = 0; t <= numSteps; t++) {
+      const stepCamPct = t === 0 ? 0 : (cameraGrowthPct / numSteps) * t;
+      const stepRetPct = t === 0 ? 0 : (retentionGrowthPct / numSteps) * t;
+
+      const yCams = Math.max(1, Math.round(currentCams * (1 + stepCamPct / 100)));
+      const yDays = Math.max(1, Math.round(currentDays * (1 + stepRetPct / 100)));
+
+      const yCfg: ScenarioConfig = {
+        name: t === 0 ? 'Current Baseline' : `Year ${t}`,
+        cameras: yCams,
+        resolutionPreset: 'custom',
+        codec: 'h265',
+        bitrateMbps: currentBitrateMbps,
+        retentionDays: yDays,
+        recordingPct: currentDutyCyclePct,
+        headroomPct: currentHeadroomPct,
+        driveSizeTb,
+        raidType,
+        pricePerTb,
+      };
+
+      const yMet = computeScenarioMetrics(yCfg);
+      const yDailyGb = (currentBitrateMbps * 86400 / 8 / 1000) * (currentDutyCyclePct / 100) * yCams;
+      const yGrowthTb = Math.max(0, yMet.totalNeedTb - currentNeedTb);
+
+      list.push({
+        yearLabel: t === 0 ? 'Current (Yr 0)' : `Year ${t}`,
+        stepYear: t,
+        cams: yCams,
+        days: yDays,
+        dailyGb: yDailyGb,
+        dailyTb: yDailyGb / 1000,
+        baselineNeedTb: parseFloat(currentNeedTb.toFixed(1)),
+        growthExpansionTb: parseFloat(yGrowthTb.toFixed(1)),
+        totalNeedTb: parseFloat(yMet.totalNeedTb.toFixed(1)),
+        rawStorageTb: parseFloat(yMet.rawStorageTb.toFixed(1)),
+        parityTb: parseFloat(yMet.parityStorageTb.toFixed(1)),
+        drivesNeeded: yMet.drivesNeeded,
+        additionalDrives: Math.max(0, yMet.drivesNeeded - currentDrivesNeeded),
+        bomCost: yMet.totalHardDriveCost,
+        additionalCost: Math.max(0, yMet.totalHardDriveCost - currentBomCost),
+      });
+    }
+
+    return list;
+  }, [
+    horizonYears,
+    cameraGrowthPct,
+    retentionGrowthPct,
+    currentCams,
+    currentDays,
+    currentBitrateMbps,
+    currentDutyCyclePct,
+    currentHeadroomPct,
+    driveSizeTb,
+    raidType,
+    pricePerTb,
+    currentNeedTb,
+    currentDrivesNeeded,
+    currentBomCost,
+  ]);
+
+  const handleApplyClick = () => {
+    onApplyForecast(targetCams, targetDays);
+    setAppliedFeedback(true);
+    setTimeout(() => setAppliedFeedback(false), 2500);
+  };
 
   return (
     <div
@@ -2292,17 +2602,19 @@ export const CompareScenariosPanel: React.FC<CompareScenariosPanelProps> = ({
       style={{
         padding: '24px',
         background: 'var(--surface)',
-        border: '2px solid var(--accent)',
+        border: '2px solid #10b981',
         borderRadius: '16px',
         marginBottom: '32px',
+        boxShadow: '0 8px 32px rgba(16, 185, 129, 0.1)',
       }}
     >
+      {/* Header Bar */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '16px',
+          marginBottom: '20px',
           flexWrap: 'wrap',
           gap: '12px',
         }}
@@ -2319,45 +2631,46 @@ export const CompareScenariosPanel: React.FC<CompareScenariosPanelProps> = ({
               gap: '8px',
             }}
           >
-            <SlidersHorizontal className="w-5 h-5 text-indigo-400" />
-            Side-by-Side Scenario Comparison
+            <TrendingUp className="w-6 h-6 text-emerald-400" />
+            Storage Growth &amp; Capacity Expansion Forecaster
           </h3>
           <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)' }}>
-            Compare storage requirements, drive counts, and hard drive BOM costs between two distinct system configurations.
+            Model how planned camera additions and retention policy increases will impact storage terabytes, disk counts, and hardware budget over a {horizonYears}-year horizon.
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             type="button"
-            className="button button-secondary"
-            onClick={onCopyAtoB}
-            style={{ fontSize: '0.78rem', padding: '4px 10px' }}
-            title="Duplicate Scenario A inputs into Scenario B"
+            className="button button-primary"
+            onClick={handleApplyClick}
+            style={{
+              fontSize: '0.78rem',
+              padding: '6px 14px',
+              background: 'var(--emerald)',
+              borderColor: 'var(--emerald)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontWeight: 700,
+            }}
+            title="Populate main calculator with forecasted cameras and retention days"
           >
-            Copy A → B
+            <Check className="w-4 h-4" />
+            {appliedFeedback ? 'Applied to Form!' : `Apply Sizing to Form (${targetCams} Cams / ${targetDays}d)`}
           </button>
           <button
             type="button"
             className="button button-secondary"
-            onClick={onSwapAandB}
-            style={{ fontSize: '0.78rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-            title="Swap Scenario A and Scenario B"
+            onClick={onClose}
+            style={{ fontSize: '0.78rem', padding: '6px 12px', color: 'var(--rose)' }}
           >
-            <ArrowRightLeft className="w-3.5 h-3.5" />
-            Swap A ↔ B
-          </button>
-          <button
-            type="button"
-            className="button button-secondary"
-            onClick={onCloseComparison}
-            style={{ fontSize: '0.78rem', padding: '4px 10px', color: 'var(--rose)' }}
-          >
-            Close Comparison
+            Close Forecaster
           </button>
         </div>
       </div>
 
+      {/* Quick Growth Scenario Presets */}
       <div
         style={{
           display: 'flex',
@@ -2372,294 +2685,401 @@ export const CompareScenariosPanel: React.FC<CompareScenariosPanelProps> = ({
         }}
       >
         <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginRight: '6px' }}>
-          Quick Comparisons:
+          Quick Growth Presets:
         </span>
-        <button
-          type="button"
-          onClick={() => onApplyPresetComparison('codec')}
-          className="button button-secondary"
-          style={{ fontSize: '0.75rem', padding: '3px 8px' }}
-        >
-          H.264 vs H.265 Upgrade
-        </button>
-        <button
-          type="button"
-          onClick={() => onApplyPresetComparison('retention')}
-          className="button button-secondary"
-          style={{ fontSize: '0.75rem', padding: '3px 8px' }}
-        >
-          30 Days vs 60 Days Retention
-        </button>
-        <button
-          type="button"
-          onClick={() => onApplyPresetComparison('motion')}
-          className="button button-secondary"
-          style={{ fontSize: '0.75rem', padding: '3px 8px' }}
-        >
-          24/7 (100%) vs Motion (75%)
-        </button>
-        <button
-          type="button"
-          onClick={() => onApplyPresetComparison('resolution')}
-          className="button button-secondary"
-          style={{ fontSize: '0.75rem', padding: '3px 8px' }}
-        >
-          1080p vs 4K Ultra-HD
-        </button>
+        {growthPresets.map(preset => {
+          const isSelected =
+            cameraGrowthPct === preset.camPct &&
+            retentionGrowthPct === preset.retPct &&
+            horizonYears === preset.years;
+          return (
+            <button
+              key={preset.name}
+              type="button"
+              onClick={() => applyPreset(preset)}
+              className="button button-secondary"
+              style={{
+                fontSize: '0.75rem',
+                padding: '4px 10px',
+                background: isSelected ? 'rgba(16, 185, 129, 0.2)' : undefined,
+                borderColor: isSelected ? 'var(--emerald)' : undefined,
+                color: isSelected ? 'var(--emerald)' : undefined,
+                fontWeight: isSelected ? 800 : 500,
+              }}
+              title={preset.desc}
+            >
+              {preset.name}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Scenario A (Baseline) */}
-        <div
-          style={{
-            padding: '18px',
-            background: 'var(--bg)',
-            border: '2px solid var(--accent)',
-            borderRadius: '14px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span
-              style={{
-                fontSize: '0.8rem',
-                fontWeight: 800,
-                padding: '3px 10px',
-                borderRadius: '6px',
-                background: 'var(--accent)',
-                color: '#ffffff',
-                textTransform: 'uppercase',
-              }}
-            >
-              Scenario A (Current Form Baseline)
-            </span>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Form Parameters
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.82rem', marginBottom: '14px' }}>
-            <div><span style={{ color: 'var(--text-muted)' }}>Cameras:</span> <strong>{metricsA.safeCams} Cams</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Resolution:</span> <strong>{metricsA.resolutionPreset.toUpperCase()}</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Codec:</span> <strong>{metricsA.codec.toUpperCase()}</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Bitrate:</span> <strong>{metricsA.safeMbps.toFixed(2)} Mbps</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Retention:</span> <strong>{metricsA.safeDays} Days</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Duty Cycle:</span> <strong>{metricsA.safeRec}%</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Disk Size:</span> <strong>{metricsA.safeDriveTb} TB</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>RAID Level:</span> <strong>{metricsA.raidType.toUpperCase()}</strong></div>
-          </div>
-
-          <div
-            style={{
-              padding: '12px',
-              borderRadius: '10px',
-              background: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Usable Storage Needed:</span>
-              <strong style={{ fontSize: '1.2rem', color: '#38bdf8' }}>{metricsA.totalNeedTb.toFixed(1)} TB</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Required HDDs:</span>
-              <strong style={{ fontSize: '0.95rem', color: 'var(--text-heading)' }}>
-                {metricsA.possible ? `${metricsA.drivesNeeded} × ${metricsA.safeDriveTb}TB drives` : 'Exceeds 64'}
-              </strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Drive BOM Cost:</span>
-              <strong style={{ fontSize: '1.05rem', color: 'var(--emerald)' }}>
-                ${metricsA.totalHardDriveCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Scenario B (Comparison Target) */}
-        <div
-          style={{
-            padding: '18px',
-            background: 'var(--bg)',
-            border: '2px solid var(--emerald)',
-            borderRadius: '14px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span
-              style={{
-                fontSize: '0.8rem',
-                fontWeight: 800,
-                padding: '3px 10px',
-                borderRadius: '6px',
-                background: 'var(--emerald)',
-                color: '#ffffff',
-                textTransform: 'uppercase',
-              }}
-            >
-              Scenario B (Comparison Target)
-            </span>
-            <span style={{ fontSize: '0.78rem', color: 'var(--emerald)', fontWeight: 700 }}>
-              Editable Controls
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.82rem', marginBottom: '14px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Codec:</label>
-              <select
-                value={scenarioB.codec}
-                onChange={e => onChangeScenarioB({ codec: e.target.value as CodecKey })}
-                style={{ fontSize: '0.78rem', padding: '4px', width: '100%' }}
-              >
-                <option value="h265">H.265 / Smart Codec</option>
-                <option value="h264">H.264 Standard</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Retention (Days):</label>
-              <select
-                value={scenarioB.retentionDays}
-                onChange={e => onChangeScenarioB({ retentionDays: parseInt(e.target.value, 10) || 30 })}
-                style={{ fontSize: '0.78rem', padding: '4px', width: '100%' }}
-              >
-                {[7, 15, 30, 45, 60, 90, 120, 180].map(d => (
-                  <option key={d} value={d}>{d} Days Retention</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Resolution:</label>
-              <select
-                value={scenarioB.resolutionPreset}
-                onChange={e => {
-                  const res = e.target.value as ResolutionPresetKey;
-                  const recMbps = res !== 'custom' ? RESOLUTION_BITRATES[res][scenarioB.codec] : scenarioB.bitrateMbps;
-                  onChangeScenarioB({ resolutionPreset: res, bitrateMbps: recMbps });
-                }}
-                style={{ fontSize: '0.78rem', padding: '4px', width: '100%' }}
-              >
-                <option value="1080p">1080p (2 MP)</option>
-                <option value="4mp">4 MP Super HD</option>
-                <option value="5mp">5 MP Quad HD</option>
-                <option value="4k">4K Ultra HD (8 MP)</option>
-                <option value="720p">720p HD</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Duty Cycle (%):</label>
-              <select
-                value={scenarioB.recordingPct}
-                onChange={e => onChangeScenarioB({ recordingPct: parseInt(e.target.value, 10) || 100 })}
-                style={{ fontSize: '0.78rem', padding: '4px', width: '100%' }}
-              >
-                <option value={100}>100% Continuous 24/7</option>
-                <option value={80}>80% Active Motion</option>
-                <option value={60}>60% Moderate Motion</option>
-                <option value={40}>40% Low Night Motion</option>
-              </select>
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: '12px',
-              borderRadius: '10px',
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Usable Storage Needed:</span>
-              <strong style={{ fontSize: '1.2rem', color: 'var(--emerald)' }}>{metricsB.totalNeedTb.toFixed(1)} TB</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Required HDDs:</span>
-              <strong style={{ fontSize: '0.95rem', color: 'var(--text-heading)' }}>
-                {metricsB.possible ? `${metricsB.drivesNeeded} × ${metricsB.safeDriveTb}TB drives` : 'Exceeds 64'}
-              </strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Drive BOM Cost:</span>
-              <strong style={{ fontSize: '1.05rem', color: 'var(--emerald)' }}>
-                ${metricsB.totalHardDriveCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      {/* Interactive Growth Sliders & Form Controls */}
       <div
         style={{
-          padding: '16px',
-          borderRadius: '12px',
+          padding: '18px 20px',
           background: 'var(--bg)',
+          borderRadius: '12px',
           border: '1px solid var(--border)',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '12px',
+          marginBottom: '22px',
         }}
       >
-        <div>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            Net Storage Variance (B vs A)
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* 1. Camera Fleet Expansion */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                Camera Fleet Increase
+              </label>
+              <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#38bdf8' }}>
+                +{cameraGrowthPct}% ({targetCams} Cams)
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              {[10, 25, 50, 100, 150].map(pct => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setCameraGrowthPct(pct)}
+                  style={{
+                    padding: '2px 7px',
+                    fontSize: '0.72rem',
+                    borderRadius: '4px',
+                    background: cameraGrowthPct === pct ? 'var(--accent)' : 'var(--surface)',
+                    color: cameraGrowthPct === pct ? '#ffffff' : 'var(--text-muted)',
+                    border: '1px solid var(--border)',
+                    cursor: 'pointer',
+                    fontWeight: cameraGrowthPct === pct ? 800 : 500,
+                  }}
+                >
+                  +{pct}%
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="range"
+              min="0"
+              max="200"
+              step="5"
+              value={cameraGrowthPct}
+              onChange={e => setCameraGrowthPct(parseInt(e.target.value, 10) || 0)}
+              style={{ width: '100%', accentColor: 'var(--accent)' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              <span>Current: {currentCams} Cams</span>
+              <span>Adding: +{deltaCams} Cams</span>
+            </div>
           </div>
-          <div
-            style={{
-              fontSize: '1.2rem',
-              fontWeight: 800,
-              color: deltaTb > 0 ? 'var(--rose)' : deltaTb < 0 ? 'var(--emerald)' : 'var(--text-heading)',
-              marginTop: '2px',
-            }}
-          >
-            {deltaTb > 0 ? `+${deltaTb.toFixed(1)} TB` : `${deltaTb.toFixed(1)} TB`}{' '}
-            <span style={{ fontSize: '0.85rem' }}>({deltaPct >= 0 ? `+${deltaPct.toFixed(0)}%` : `${deltaPct.toFixed(0)}%`})</span>
+
+          {/* 2. Retention Policy Duration Expansion */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                Retention Duration Increase
+              </label>
+              <span style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--emerald)' }}>
+                +{retentionGrowthPct}% ({targetDays} Days)
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              {[0, 25, 50, 100, 200].map(pct => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setRetentionGrowthPct(pct)}
+                  style={{
+                    padding: '2px 7px',
+                    fontSize: '0.72rem',
+                    borderRadius: '4px',
+                    background: retentionGrowthPct === pct ? 'var(--emerald)' : 'var(--surface)',
+                    color: retentionGrowthPct === pct ? '#ffffff' : 'var(--text-muted)',
+                    border: '1px solid var(--border)',
+                    cursor: 'pointer',
+                    fontWeight: retentionGrowthPct === pct ? 800 : 500,
+                  }}
+                >
+                  +{pct}%
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="range"
+              min="0"
+              max="200"
+              step="5"
+              value={retentionGrowthPct}
+              onChange={e => setRetentionGrowthPct(parseInt(e.target.value, 10) || 0)}
+              style={{ width: '100%', accentColor: 'var(--emerald)' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              <span>Current: {currentDays} Days</span>
+              <span>Adding: +{deltaDays} Days</span>
+            </div>
+          </div>
+
+          {/* 3. Planning Horizon / Timeline */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                Planning Horizon
+              </label>
+              <span style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--amber)' }}>
+                {horizonYears} {horizonYears === 1 ? 'Year' : 'Years'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+              {[1, 2, 3, 4, 5].map(yr => (
+                <button
+                  key={yr}
+                  type="button"
+                  onClick={() => setHorizonYears(yr)}
+                  style={{
+                    flex: 1,
+                    padding: '6px 4px',
+                    fontSize: '0.76rem',
+                    borderRadius: '6px',
+                    background: horizonYears === yr ? 'var(--amber)' : 'var(--surface)',
+                    color: horizonYears === yr ? '#ffffff' : 'var(--text-muted)',
+                    border: '1px solid var(--border)',
+                    cursor: 'pointer',
+                    fontWeight: horizonYears === yr ? 800 : 600,
+                    textAlign: 'center',
+                  }}
+                >
+                  {yr} {yr === 1 ? 'Yr' : 'Yrs'}
+                </button>
+              ))}
+            </div>
+
+            <p style={{ margin: '4px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              Projects growth progression from Year 0 Baseline through Year {horizonYears}.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 4 Highlight Forecast Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Card 1: Forecasted Camera Count */}
+        <div
+          style={{
+            padding: '16px',
+            borderRadius: '12px',
+            background: 'rgba(56, 189, 248, 0.08)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+          }}
+        >
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            FORECASTED CAMERAS
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#38bdf8', margin: '4px 0 2px' }}>
+            {targetCams} Cams
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-heading)' }}>
+            +{deltaCams} Cams (+{cameraGrowthPct}%)
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+            From baseline {currentCams} cameras
           </div>
         </div>
 
-        <div>
+        {/* Card 2: Forecasted Retention Duration */}
+        <div
+          style={{
+            padding: '16px',
+            borderRadius: '12px',
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+          }}
+        >
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            Drive Quantity Change
+            FORECASTED RETENTION
           </div>
-          <div
-            style={{
-              fontSize: '1.2rem',
-              fontWeight: 800,
-              color: deltaDrives > 0 ? 'var(--rose)' : deltaDrives < 0 ? 'var(--emerald)' : 'var(--text-heading)',
-              marginTop: '2px',
-            }}
-          >
-            {deltaDrives > 0 ? `+${deltaDrives} Drives` : deltaDrives < 0 ? `${deltaDrives} Drives` : 'No Change'}
+          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: 'var(--emerald)', margin: '4px 0 2px' }}>
+            {targetDays} Days
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-heading)' }}>
+            +{deltaDays} Days (+{retentionGrowthPct}%)
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+            From baseline {currentDays} days
           </div>
         </div>
 
-        <div>
+        {/* Card 3: Forecasted Usable Storage Needed */}
+        <div
+          style={{
+            padding: '16px',
+            borderRadius: '12px',
+            background: 'rgba(245, 158, 11, 0.08)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+          }}
+        >
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            Project Hard Drive BOM Savings / Cost
+            FORECASTED USABLE STORAGE
           </div>
-          <div
-            style={{
-              fontSize: '1.2rem',
-              fontWeight: 800,
-              color: deltaCost > 0 ? 'var(--rose)' : deltaCost < 0 ? 'var(--emerald)' : 'var(--text-heading)',
-              marginTop: '2px',
-            }}
-          >
-            {deltaCost > 0
-              ? `+$${deltaCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-              : deltaCost < 0
-              ? `-$${Math.abs(deltaCost).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Savings`
-              : '$0 Difference'}
+          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: 'var(--amber)', margin: '4px 0 2px' }}>
+            {targetMetrics.totalNeedTb.toFixed(1)} TB
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-heading)' }}>
+            +{deltaTb.toFixed(1)} TB (+{deltaTbPct.toFixed(0)}% Growth)
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Ingestion: {(targetDailyGb / 1000).toFixed(2)} TB/day (vs {(currentDailyGb / 1000).toFixed(2)} TB/d)
           </div>
         </div>
+
+        {/* Card 4: Additional Hard Drives & Budget Required */}
+        <div
+          style={{
+            padding: '16px',
+            borderRadius: '12px',
+            background: 'rgba(139, 92, 246, 0.08)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+          }}
+        >
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            ADDITIONAL HARD DRIVES &amp; BUDGET
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#a78bfa', margin: '4px 0 2px' }}>
+            +{deltaDrives} Disks
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-heading)' }}>
+            +${deltaBomCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Expansion Budget
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Total array: {targetMetrics.drivesNeeded} × {driveSizeTb} TB (${targetMetrics.totalHardDriveCost.toLocaleString('en-US', { maximumFractionDigits: 0 })})
+          </div>
+        </div>
+      </div>
+
+      {/* Multi-Year Progression Bar Chart */}
+      <div
+        style={{
+          background: 'var(--bg)',
+          borderRadius: '12px',
+          padding: '20px',
+          border: '1px solid var(--border)',
+          marginBottom: '20px',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 800, margin: '0 0 2px', color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <BarChart3 className="w-4 h-4 text-emerald-400" />
+              Annual Storage Growth Trajectory (Year 0 Baseline to Year {horizonYears})
+            </h4>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Visualizing usable terabytes expansion and RAID parity allocation over time.
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem', fontWeight: 600 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#38bdf8' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#38bdf8' }} />
+              Baseline Storage
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--emerald)' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#10b981' }} />
+              Expansion Growth
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#f59e0b' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#f59e0b' }} />
+              RAID Parity Overhead
+            </span>
+          </div>
+        </div>
+
+        <div style={{ width: '100%', height: '220px' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={multiYearProgression} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+              <XAxis dataKey="yearLabel" stroke={isDarkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} />
+              <YAxis stroke={isDarkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} unit=" TB" />
+              <Tooltip
+                contentStyle={{
+                  background: isDarkMode ? '#1e293b' : '#ffffff',
+                  borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  color: isDarkMode ? '#f8fafc' : '#0f172a',
+                }}
+              />
+              <Bar dataKey="baselineNeedTb" name="Baseline Usable (TB)" stackId="storage" fill="#38bdf8" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="growthExpansionTb" name="Expansion Growth (TB)" stackId="storage" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="parityTb" name="RAID Parity (TB)" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Multi-Year Progression Technical Breakdown Table */}
+      <div style={{ background: 'var(--bg)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border)', overflowX: 'auto' }}>
+        <h4 style={{ margin: '0 0 12px', fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-heading)' }}>
+          Detailed Year-by-Year Capacity &amp; Procurement Table:
+        </h4>
+
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--text-muted)' }}>
+              <th style={{ padding: '8px 10px' }}>Milestone</th>
+              <th style={{ padding: '8px 10px' }}>Cameras</th>
+              <th style={{ padding: '8px 10px' }}>Retention</th>
+              <th style={{ padding: '8px 10px' }}>Daily Ingestion</th>
+              <th style={{ padding: '8px 10px' }}>Usable Needed (TB)</th>
+              <th style={{ padding: '8px 10px' }}>Raw Storage (TB)</th>
+              <th style={{ padding: '8px 10px' }}>Drives Required</th>
+              <th style={{ padding: '8px 10px' }}>Cumulative Budget</th>
+              <th style={{ padding: '8px 10px', textAlign: 'right' }}>Expansion Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {multiYearProgression.map((item, idx) => (
+              <tr
+                key={item.yearLabel}
+                style={{
+                  borderBottom: '1px solid var(--border)',
+                  background: item.stepYear === horizonYears
+                    ? 'rgba(16, 185, 129, 0.08)'
+                    : item.stepYear === 0
+                    ? 'rgba(56, 189, 248, 0.06)'
+                    : idx % 2 === 1
+                    ? 'rgba(255, 255, 255, 0.02)'
+                    : 'transparent',
+                }}
+              >
+                <td style={{ padding: '8px 10px', fontWeight: 700, color: item.stepYear === horizonYears ? 'var(--emerald)' : 'var(--text-heading)' }}>
+                  {item.yearLabel} {item.stepYear === horizonYears && '🎯 (Target)'} {item.stepYear === 0 && '📌'}
+                </td>
+                <td style={{ padding: '8px 10px' }}>{item.cams} Cams</td>
+                <td style={{ padding: '8px 10px' }}>{item.days} Days</td>
+                <td style={{ padding: '8px 10px' }}>{item.dailyGb.toFixed(0)} GB/d ({item.dailyTb.toFixed(2)} TB/d)</td>
+                <td style={{ padding: '8px 10px', fontWeight: 700, color: '#38bdf8' }}>{item.totalNeedTb.toFixed(1)} TB</td>
+                <td style={{ padding: '8px 10px' }}>{item.rawStorageTb.toFixed(1)} TB</td>
+                <td style={{ padding: '8px 10px', fontWeight: 600 }}>
+                  {item.drivesNeeded} × {driveSizeTb} TB
+                  {item.additionalDrives > 0 && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--emerald)', marginLeft: '4px' }}>
+                      (+{item.additionalDrives})
+                    </span>
+                  )}
+                </td>
+                <td style={{ padding: '8px 10px' }}>
+                  ${item.bomCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </td>
+                <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: item.additionalCost > 0 ? 'var(--emerald)' : 'var(--text-muted)' }}>
+                  {item.additionalCost > 0
+                    ? `+$${item.additionalCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                    : '$0'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -2858,7 +3278,14 @@ export const CctvStorageCalculator: React.FC = () => {
   const [headroomPct, setHeadroomPct] = useLocalStorageState<number>('cctv_calc_head', 15);
   const [driveSizeTb, setDriveSizeTb] = useLocalStorageState<number>('cctv_calc_drv', 8);
   const [raidType, setRaidType] = useLocalStorageState<RaidTypeKey>('cctv_calc_raid', 'raid5');
+  const [costInputMode, setCostInputMode] = useLocalStorageState<'per_tb' | 'per_drive'>('cctv_calc_cost_input_mode', 'per_tb');
   const [pricePerTb, setPricePerTb] = useLocalStorageState<number>('cctv_calc_price_per_tb', 25);
+  const [pricePerDrive, setPricePerDrive] = useLocalStorageState<number>('cctv_calc_price_per_drive', 200);
+  const [includeNvrCost, setIncludeNvrCost] = useLocalStorageState<boolean>('cctv_calc_include_nvr_cost', false);
+  const [nvrCostType, setNvrCostType] = useLocalStorageState<'per_bay' | 'fixed'>('cctv_calc_nvr_cost_type', 'per_bay');
+  const [nvrCostPerBay, setNvrCostPerBay] = useLocalStorageState<number>('cctv_calc_nvr_cost_per_bay', 35);
+  const [nvrFixedCost, setNvrFixedCost] = useLocalStorageState<number>('cctv_calc_nvr_fixed_cost', 450);
+  const [hotSparesCount, setHotSparesCount] = useLocalStorageState<number>('cctv_calc_hot_spares', 0);
   const [driveWorkloadRatingTbYr, setDriveWorkloadRatingTbYr] = useLocalStorageState<number>('cctv_calc_tbw_rating', 180);
   const [enableCloudBackup, setEnableCloudBackup] = useLocalStorageState<boolean>('cctv_calc_enable_cloud', false);
   const [cloudPricePerTbMonth, setCloudPricePerTbMonth] = useLocalStorageState<number>('cctv_calc_cloud_price', 15);
@@ -2873,6 +3300,90 @@ export const CctvStorageCalculator: React.FC = () => {
   const [brandFilter, setBrandFilter] = useLocalStorageState<string>('cctv_calc_brand_filter', 'All');
   const [presetSearchQuery, setPresetSearchQuery] = useLocalStorageState<string>('cctv_calc_preset_search', '');
   const [enableComparisonMode, setEnableComparisonMode] = useLocalStorageState<boolean>('cctv_calc_enable_compare', false);
+  const [activeView, setActiveView] = useLocalStorageState<'calculator' | 'compare'>('cctv_calc_active_view', 'calculator');
+  const [scenarios, setScenarios] = useLocalStorageState<ScenarioConfig[]>('cctv_calc_scenarios_list', DEFAULT_SCENARIOS);
+
+  const handleUpdateScenario = (id: string, updated: Partial<ScenarioConfig>) => {
+    setScenarios(prev => prev.map(s => (s.id === id ? { ...s, ...updated } : s)));
+  };
+
+  const handleToggleScenarioEnabled = (id: string) => {
+    setScenarios(prev => prev.map(s => (s.id === id ? { ...s, enabled: !s.enabled } : s)));
+  };
+
+  const handleAddScenario = (template?: Partial<ScenarioConfig>) => {
+    const newId = `sc-${Date.now()}`;
+    const newSc: ScenarioConfig = {
+      id: newId,
+      name: template?.name || `Custom Scenario #${scenarios.length + 1}`,
+      description: template?.description || 'Custom camera deployment configuration set.',
+      color: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f43f5e'][scenarios.length % 8],
+      enabled: true,
+      cameras: template?.cameras || cameras,
+      resolutionPreset: template?.resolutionPreset || resolutionPreset,
+      codec: template?.codec || codec,
+      bitrateMbps: template?.bitrateMbps || bitrateMbps,
+      retentionDays: template?.retentionDays || retentionDays,
+      recordingPct: template?.recordingPct || recordingPct,
+      headroomPct: template?.headroomPct || headroomPct,
+      driveSizeTb: template?.driveSizeTb || driveSizeTb,
+      raidType: template?.raidType || raidType,
+      pricePerTb: template?.pricePerTb || pricePerTb,
+    };
+    setScenarios(prev => [...prev, newSc]);
+  };
+
+  const handleDeleteScenario = (id: string) => {
+    if (scenarios.length <= 1) return;
+    setScenarios(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleDuplicateScenario = (id: string) => {
+    const source = scenarios.find(s => s.id === id);
+    if (!source) return;
+    const newId = `sc-${Date.now()}`;
+    const dup: ScenarioConfig = {
+      ...source,
+      id: newId,
+      name: `${source.name} (Copy)`,
+    };
+    setScenarios(prev => [...prev, dup]);
+  };
+
+  const handleApplyScenarioToCalculator = (s: ScenarioConfig) => {
+    setCameras(s.cameras);
+    setResolutionPreset(s.resolutionPreset);
+    setCodec(s.codec);
+    setBitrateMbps(s.bitrateMbps);
+    setRetentionDays(s.retentionDays);
+    setRecordingPct(s.recordingPct);
+    setHeadroomPct(s.headroomPct);
+    setDriveSizeTb(s.driveSizeTb);
+    setRaidType(s.raidType);
+    setPricePerTb(s.pricePerTb);
+  };
+
+  const handleSaveCurrentAsScenario = () => {
+    handleAddScenario({
+      name: `Current Setup (${cameras} Cams, ${resolutionPreset.toUpperCase()})`,
+      description: `Snapshot saved from live calculator form`,
+      cameras,
+      resolutionPreset,
+      codec,
+      bitrateMbps,
+      retentionDays,
+      recordingPct,
+      headroomPct,
+      driveSizeTb,
+      raidType,
+      pricePerTb,
+    });
+  };
+
+  const handleResetDefaultScenarios = () => {
+    setScenarios(DEFAULT_SCENARIOS);
+  };
+
   const [scenarioB, setScenarioB] = useLocalStorageState<ScenarioConfig>('cctv_calc_scenario_b', {
     name: 'Scenario B',
     cameras: 16,
@@ -2886,6 +3397,25 @@ export const CctvStorageCalculator: React.FC = () => {
     raidType: 'raid5',
     pricePerTb: 25,
   });
+
+  // Future Storage Growth Forecaster State
+  const [enableForecaster, setEnableForecaster] = useLocalStorageState<boolean>('cctv_calc_enable_forecaster', false);
+
+  const handleApplyForecast = (newCams: number, newDays: number) => {
+    setCameras(newCams);
+    setRetentionDays(newDays);
+    if (enableCameraGroups) {
+      setCameraGroups(prev => {
+        const currentTotal = prev.reduce((acc, g) => acc + Math.max(1, g.cameras || 1), 0);
+        if (currentTotal === 0) return prev;
+        const ratio = newCams / currentTotal;
+        return prev.map(g => ({
+          ...g,
+          cameras: Math.max(1, Math.round(g.cameras * ratio)),
+        }));
+      });
+    }
+  };
 
   // Persistent Camera Groups State
   const [cameraGroups, setCameraGroups] = useLocalStorageState<CameraGroup[]>('cctv_calc_camera_groups', DEFAULT_CAMERA_GROUPS);
@@ -3257,7 +3787,14 @@ export const CctvStorageCalculator: React.FC = () => {
     setHeadroomPct(15);
     setDriveSizeTb(8);
     setRaidType('raid5');
+    setCostInputMode('per_tb');
     setPricePerTb(25);
+    setPricePerDrive(200);
+    setIncludeNvrCost(false);
+    setNvrCostType('per_bay');
+    setNvrCostPerBay(35);
+    setNvrFixedCost(450);
+    setHotSparesCount(0);
     setDriveWorkloadRatingTbYr(180);
     setEnableCloudBackup(false);
     setCloudPricePerTbMonth(15);
@@ -3267,6 +3804,39 @@ export const CctvStorageCalculator: React.FC = () => {
     setTier2BitratePct(50);
     setTier2DriveSizeTb(16);
     setTier2Raid('raid6');
+  };
+
+  const handlePricePerTbChange = (val: number) => {
+    const safeTb = Math.max(0, val);
+    setPricePerTb(safeTb);
+    const derivedDrivePrice = Math.round(safeTb * driveSizeTb * 100) / 100;
+    setPricePerDrive(derivedDrivePrice);
+  };
+
+  const handlePricePerDriveChange = (val: number) => {
+    const safeDrivePrice = Math.max(0, val);
+    setPricePerDrive(safeDrivePrice);
+    const derivedTbPrice = driveSizeTb > 0 ? Math.round((safeDrivePrice / driveSizeTb) * 100) / 100 : 0;
+    setPricePerTb(derivedTbPrice);
+  };
+
+  const handleCostInputModeChange = (mode: 'per_tb' | 'per_drive') => {
+    setCostInputMode(mode);
+    if (mode === 'per_tb') {
+      setPricePerDrive(Math.round(pricePerTb * driveSizeTb * 100) / 100);
+    } else {
+      setPricePerTb(driveSizeTb > 0 ? Math.round((pricePerDrive / driveSizeTb) * 100) / 100 : 0);
+    }
+  };
+
+  const handleDriveSizeChange = (newSize: number) => {
+    const safeSize = Math.max(0.5, newSize);
+    setDriveSizeTb(safeSize);
+    if (costInputMode === 'per_tb') {
+      setPricePerDrive(Math.round(pricePerTb * safeSize * 100) / 100);
+    } else {
+      setPricePerTb(Math.round((pricePerDrive / safeSize) * 100) / 100);
+    }
   };
 
   const calculations = useMemo(() => {
@@ -3373,9 +3943,20 @@ export const CctvStorageCalculator: React.FC = () => {
     const tbSavedWithH265 = Math.max(0, h264NeedTb - totalNeedTb);
 
     // Hard drive financial budget metrics
-    const costPerDrive = safeDriveTb * safePricePerTb;
+    const safeEffectivePricePerDrive = costInputMode === 'per_drive' ? pricePerDrive : safeDriveTb * safePricePerTb;
+    const safeEffectivePricePerTb = costInputMode === 'per_tb' ? safePricePerTb : (safeDriveTb > 0 ? pricePerDrive / safeDriveTb : 0);
+    const costPerDrive = safeEffectivePricePerDrive;
     const totalHardDriveCost = drivesNeeded * costPerDrive;
-    const rawCostPerUsableTb = usableStorageTb > 0 ? totalHardDriveCost / usableStorageTb : 0;
+    const safeSpares = possible ? Math.max(0, hotSparesCount || 0) : 0;
+    const totalDrivesWithSpares = drivesNeeded + safeSpares;
+    const totalDrivesWithSparesCost = totalDrivesWithSpares * costPerDrive;
+    const nvrChassisCost = includeNvrCost && possible
+      ? (nvrCostType === 'per_bay' ? totalDrivesWithSpares * (nvrCostPerBay || 35) : (nvrFixedCost || 450))
+      : 0;
+    const totalHardwareInvestmentCost = totalDrivesWithSparesCost + nvrChassisCost;
+    const costPerCamera = safeCams > 0 ? totalHardwareInvestmentCost / safeCams : 0;
+    const costPerRetentionDay = safeDays > 0 ? totalHardwareInvestmentCost / safeDays : 0;
+    const rawCostPerUsableTb = usableStorageTb > 0 ? totalHardwareInvestmentCost / usableStorageTb : 0;
 
     // Workload & Lifespan estimation
     const dailyTbPerDrive = drivesNeeded > 0 ? totalDailyTb / drivesNeeded : totalDailyTb;
@@ -3478,8 +4059,18 @@ export const CctvStorageCalculator: React.FC = () => {
       safeDriveTb,
       safePricePerTb,
       safeTbwRating,
+      costInputMode,
+      effectivePricePerDrive: safeEffectivePricePerDrive,
+      effectivePricePerTb: safeEffectivePricePerTb,
+      pricePerDrive,
       costPerDrive,
       totalHardDriveCost,
+      totalDrivesWithSpares,
+      totalDrivesWithSparesCost,
+      nvrChassisCost,
+      totalHardwareInvestmentCost,
+      costPerCamera,
+      costPerRetentionDay,
       rawCostPerUsableTb,
       dailyTbPerDrive,
       annualTbPerDrive,
@@ -3555,6 +4146,13 @@ export const CctvStorageCalculator: React.FC = () => {
     codec,
     h265SavingsPct,
     pricePerTb,
+    pricePerDrive,
+    costInputMode,
+    includeNvrCost,
+    nvrCostType,
+    nvrCostPerBay,
+    nvrFixedCost,
+    hotSparesCount,
     driveWorkloadRatingTbYr,
     enableCloudBackup,
     cloudPricePerTbMonth,
@@ -3721,6 +4319,10 @@ DRIVE ARRAY & RAID SPECIFICATION:
 • Raw Array Storage: ${calculations.rawStorageTb.toFixed(1)} TB
 • Redundancy / Parity Reserved: ${calculations.parityStorageTb.toFixed(1)} TB
 • Fault Tolerance: ${RAID_DEFINITIONS[raidType].faultTolerance}
+• Drive Unit Cost: $${calculations.costPerDrive.toFixed(0)} / drive ($${calculations.effectivePricePerTb.toFixed(1)}/TB)
+• Total Projected Hardware Investment: $${calculations.totalHardwareInvestmentCost.toLocaleString()}
+• Cost per Camera: $${calculations.costPerCamera.toFixed(0)} / channel
+• Cost per Retention Day: $${calculations.costPerRetentionDay.toFixed(2)} / day
 =====================================================`;
 
     navigator.clipboard.writeText(text);
@@ -3760,53 +4362,207 @@ DRIVE ARRAY & RAID SPECIFICATION:
       ['Bitrate per Camera', calculations.safeMbps.toFixed(2), 'Mbps (Megabits per second)'],
       ['Target Retention Period', calculations.safeDays, 'Days'],
       ['Recording Duty Cycle', calculations.safeRec, `% (${calculations.safeRec === 100 ? 'Continuous 24/7' : 'Motion detection only'})`],
-      ['Safety Headroom Buffer', calculations.safeHead, '% (Covers night spikes, audio, and recorder overhead)'],
+      ['Safety Headroom Buffer', `${calculations.safeHead}%`, 'Covers night noise spikes, audio, and recorder overhead'],
       ['Target Drive Capacity', calculations.safeDriveTb, 'TB per drive (Decimal 1 TB = 1,000 GB)'],
       ['Selected RAID Array Level', RAID_DEFINITIONS[raidType].label, RAID_DEFINITIONS[raidType].faultTolerance],
       [],
-      ['2. ESTIMATED STORAGE REQUIREMENTS'],
-      ['Requirement Metric', 'Value', 'Unit'],
+      ['2. ESTIMATED STORAGE & INGESTION REQUIREMENTS'],
+      ['Requirement Metric', 'Value', 'Unit / Details'],
       ['Data Generated per Camera (24h continuous)', calculations.gbPerCamera24h.toFixed(2), 'GB/camera/day'],
       ['Data Generated per Camera (with duty cycle)', calculations.gbPerCameraPerDay.toFixed(2), 'GB/camera/day'],
       ['Retention Data per Camera (GB)', calculations.gbPerCameraRetention.toFixed(1), 'GB/camera'],
       ['Retention Data per Camera (TB)', (calculations.gbPerCameraRetention / 1000).toFixed(2), 'TB/camera'],
       ['Total Raw Video Storage (No Headroom)', calculations.totalRawTb.toFixed(2), 'TB'],
       ['Safety Headroom Buffer Storage', calculations.headroomOnlyTb.toFixed(2), 'TB'],
-      ['Total Usable Storage Capacity Needed', calculations.totalNeedTb.toFixed(2), 'TB (Decimal)'],
-      ['OS Binary Storage Equivalent', calculations.totalNeedTib.toFixed(2), 'TiB (Base-2 binary)'],
+      ['Total Usable Storage Capacity Needed', calculations.totalNeedTb.toFixed(2), 'TB (Decimal Base-10)'],
+      ['OS Binary Storage Equivalent', calculations.totalNeedTib.toFixed(2), 'TiB (Base-2 binary Windows/Linux filesystem)'],
       ['Daily Ingestion Rate (All Cameras)', calculations.totalDailyGb.toFixed(1), 'GB/day'],
       ['Daily Ingestion Rate (All Cameras)', calculations.totalDailyTb.toFixed(2), 'TB/day'],
+      ['Aggregate Network Ingestion Bandwidth', `${(calculations.safeMbps * calculations.safeCams).toFixed(1)} Mbps`, 'Continuous throughput'],
       [],
       ['3. HARD DRIVE & RAID ARRAY BILL OF MATERIALS (BOM)'],
       ['Specification Item', 'Value', 'Technical Note'],
       ['Target RAID Level', RAID_DEFINITIONS[raidType].label, RAID_DEFINITIONS[raidType].suitability],
       ['Individual Drive Capacity', `${calculations.safeDriveTb} TB`, 'Surveillance-grade SATA/SAS HDD'],
       ['Minimum Drive Count Required', calculations.possible ? `${calculations.drivesNeeded} Drives` : 'Exceeds 64 drive chassis limit', 'Drives needed to satisfy retention and headroom'],
-      ['Usable Array Capacity Provided', calculations.possible ? `${calculations.usableStorageTb.toFixed(2)} TB` : 'N/A', 'Effective capacity for video footage'],
+      ['Data Drives (Payload Storage)', calculations.possible ? `${calculations.drivesNeeded - Math.round(calculations.parityStorageTb / calculations.safeDriveTb)} Drives` : 'N/A', 'Drives carrying usable video archive'],
+      ['Parity / Redundancy Drives', calculations.possible ? `${Math.round(calculations.parityStorageTb / calculations.safeDriveTb)} Drives` : 'N/A', 'Drives allocated to XOR parity / mirror protection'],
+      ['Dedicated Hot Spares', `${hotSparesCount} Spares`, 'Standby drives for immediate automatic rebuild'],
+      ['Usable Array Capacity Provided', calculations.possible ? `${calculations.usableStorageTb.toFixed(2)} TB` : 'N/A', 'Effective capacity available for video footage'],
       ['Parity / Redundancy Storage Reserved', calculations.possible ? `${calculations.parityStorageTb.toFixed(2)} TB` : 'N/A', 'Dedicated to failure protection and rebuild parity'],
       ['Total Raw Physical Storage', calculations.possible ? `${calculations.rawStorageTb.toFixed(2)} TB` : 'N/A', 'Combined sum of all drive capacities'],
       ['Array Storage Efficiency', calculations.rawStorageTb > 0 ? `${((calculations.usableStorageTb / calculations.rawStorageTb) * 100).toFixed(1)}%` : '0%', 'Usable storage divided by raw disk capacity'],
       ['Hardware Fault Tolerance', RAID_DEFINITIONS[raidType].faultTolerance, 'System survives drive failures without downtime or data loss'],
-      [],
-      ['4. SIDE-BY-SIDE RAID COMPARISON MATRIX'],
-      ['RAID Level', 'Min Drives', 'Drives Needed', `Usable Capacity (${calculations.safeDriveTb}TB drives)`, 'Parity / Mirror Overhead', 'Total Raw Capacity', 'Fault Tolerance', 'Selected Status'],
-      ...calculations.raidMatrix.map(row => [
+      ['Annual Drive Ingestion Workload', `${calculations.annualTbPerDrive.toFixed(1)} TB/yr/drive`, 'Estimated write payload per drive per year'],
+      ['Drive Workload Rating Limit', `${calculations.safeTbwRating} TB/yr`, `${calculations.workloadPct.toFixed(0)}% workload utilization (${calculations.annualTbPerDrive <= calculations.safeTbwRating ? 'Within safe limits' : 'Exceeds rated workload'})`],
+      ['Drive Procurement Unit Rate ($/TB)', `$${calculations.effectivePricePerTb.toFixed(2)}/TB`, 'Pricing input rate per storage terabyte'],
+      ['Drive Unit Price ($/Drive)', `$${calculations.costPerDrive.toFixed(2)}/drive`, `Unit procurement price per individual ${calculations.safeDriveTb} TB drive`],
+      ['Total Hard Drive Cost', calculations.possible ? `$${calculations.totalHardDriveCost.toFixed(2)}` : 'N/A', `${calculations.drivesNeeded} array drives`],
+      ['NVR / Server Chassis Allowance', calculations.nvrChassisCost > 0 ? `$${calculations.nvrChassisCost.toFixed(2)}` : '$0.00', 'Recorder enclosure hardware allocation'],
+      ['Total Projected Hardware Investment', calculations.possible ? `$${calculations.totalHardwareInvestmentCost.toFixed(2)}` : 'N/A', `${calculations.drivesNeeded} array drives${calculations.nvrChassisCost > 0 ? ' + chassis' : ''}`],
+      ['Projected Cost per Camera Channel', calculations.possible ? `$${calculations.costPerCamera.toFixed(2)}` : 'N/A', 'Storage hardware investment allocated per camera stream'],
+      ['Projected Cost per Retention Day', calculations.possible ? `$${calculations.costPerRetentionDay.toFixed(2)}` : 'N/A', 'Storage hardware investment per day of archive'],
+    ];
+
+    // Add Camera Groups Breakdown if enabled
+    if (enableCameraGroups && cameraGroups.length > 0) {
+      rows.push([]);
+      rows.push(['4. CAMERA GROUPS STREAM BREAKDOWN']);
+      rows.push(['Group Name', 'Cameras', 'Resolution', 'Codec', 'Bitrate (Mbps)', 'Duty Cycle (%)', 'Daily Ingestion (GB/day)', 'Daily Ingestion (TB/day)', `Retention (${calculations.safeDays}d TB)`]);
+      cameraGroups.forEach(grp => {
+        const grpDailyGb = (grp.bitrateMbps * 86400 / 8 / 1000) * (grp.recordingPct / 100) * grp.cameras;
+        const grpDailyTb = grpDailyGb / 1000;
+        const grpRetentionTb = (grpDailyGb * calculations.safeDays * (1 + calculations.safeHead / 100)) / 1000;
+        rows.push([
+          grp.name,
+          grp.cameras,
+          grp.resolutionPreset.toUpperCase(),
+          grp.codec.toUpperCase(),
+          grp.bitrateMbps.toFixed(2),
+          `${grp.recordingPct}%`,
+          grpDailyGb.toFixed(1),
+          grpDailyTb.toFixed(2),
+          grpRetentionTb.toFixed(2),
+        ]);
+      });
+      rows.push([
+        'TOTAL ALL CAMERA GROUPS',
+        calculations.safeCams,
+        '—',
+        '—',
+        '—',
+        '—',
+        calculations.totalDailyGb.toFixed(1),
+        calculations.totalDailyTb.toFixed(2),
+        calculations.totalNeedTb.toFixed(2),
+      ]);
+    }
+
+    // Add Multi-Site Breakdown if sites exist
+    if (sites && sites.length > 0) {
+      rows.push([]);
+      rows.push(['5. MULTI-SITE ENTERPRISE STORAGE FLEET BREAKDOWN']);
+      rows.push(['Location Name', 'Cameras', 'Resolution', 'Codec', 'Bitrate (Mbps)', 'Retention (Days)', 'Duty Cycle (%)', 'Daily Ingestion (GB/d)', 'Daily Ingestion (TB/d)', 'Usable Storage (TB)', 'Drive Size (TB)', 'RAID Level', 'Drives Needed', 'Drive BOM Cost ($)']);
+      
+      let enterpriseCams = 0;
+      let enterpriseDailyGb = 0;
+      let enterpriseStorageTb = 0;
+      let enterpriseDrives = 0;
+      let enterpriseCost = 0;
+
+      sites.forEach(s => {
+        const m = computeScenarioMetrics(s);
+        const siteDailyGb = (m.safeMbps * 86400 / 8 / 1000) * (m.safeRec / 100) * m.safeCams;
+        const siteDailyTb = siteDailyGb / 1000;
+        
+        enterpriseCams += m.safeCams;
+        enterpriseDailyGb += siteDailyGb;
+        enterpriseStorageTb += m.totalNeedTb;
+        enterpriseDrives += m.drivesNeeded;
+        enterpriseCost += m.totalHardDriveCost;
+
+        rows.push([
+          s.name,
+          m.safeCams,
+          s.resolutionPreset.toUpperCase(),
+          s.codec.toUpperCase(),
+          m.safeMbps.toFixed(2),
+          m.safeDays,
+          `${m.safeRec}%`,
+          siteDailyGb.toFixed(1),
+          siteDailyTb.toFixed(2),
+          m.totalNeedTb.toFixed(2),
+          `${m.safeDriveTb} TB`,
+          s.raidType.toUpperCase(),
+          m.possible ? `${m.drivesNeeded} Drives` : 'Exceeds 64',
+          `$${m.totalHardDriveCost.toFixed(2)}`,
+        ]);
+      });
+
+      rows.push([
+        `FLEET TOTAL (${sites.length} SITES)`,
+        enterpriseCams,
+        '—',
+        '—',
+        '—',
+        '—',
+        '—',
+        enterpriseDailyGb.toFixed(1),
+        (enterpriseDailyGb / 1000).toFixed(2),
+        enterpriseStorageTb.toFixed(2),
+        '—',
+        '—',
+        `${enterpriseDrives} Drives Total`,
+        `$${enterpriseCost.toFixed(2)}`,
+      ]);
+    }
+
+    // Add Multi-Tier Storage if enabled
+    if (enableMultiTier) {
+      rows.push([]);
+      rows.push(['6. MULTI-TIER STORAGE ARCHITECTURE BREAKDOWN']);
+      rows.push(['Tier Stage', 'Retention Days', 'Quality Bitrate', 'Usable Storage Needed (TB)', 'Drive Size', 'Drives Needed', 'Array Architecture']);
+      rows.push(['Tier 1 (Hot Playback)', calculations.safeTier1Days, '100% Primary Bitrate', calculations.tier1NeedTb.toFixed(2), `${calculations.safeDriveTb} TB`, calculations.tier1DrivesNeeded, RAID_DEFINITIONS[raidType].label]);
+      rows.push(['Tier 2 (Cold Archive)', calculations.safeDays - calculations.safeTier1Days, `${tier2BitratePct}% Sub-stream Bitrate`, calculations.tier2NeedTb.toFixed(2), `${calculations.tier2DriveSizeTb} TB`, calculations.tier2DrivesNeeded, tier2Raid.toUpperCase()]);
+      rows.push(['Combined Multi-Tier', calculations.safeDays, 'Automated Archival Tiering', calculations.combinedMultiTierStorageTb.toFixed(2), 'Mixed', calculations.combinedMultiTierDrives, '2-Tier Hybrid']);
+      if (calculations.multiTierStorageSavingsTb > 0) {
+        rows.push(['Estimated Savings vs Single Tier', '—', '—', `${calculations.multiTierStorageSavingsTb.toFixed(2)} TB Saved`, '—', '—', `~$${calculations.multiTierCostSavingsDollar.toFixed(2)} Saved`]);
+      }
+    }
+
+    // Side-by-side RAID matrix
+    rows.push([]);
+    rows.push(['7. SIDE-BY-SIDE RAID COMPARISON MATRIX']);
+    rows.push(['RAID Level', 'Min Drives', `Drives Needed (${calculations.safeDriveTb}TB Disks)`, 'Usable Capacity (TB)', 'Parity / Mirror Overhead (TB)', 'Total Raw Capacity (TB)', 'Storage Efficiency (%)', 'Fault Tolerance', 'Selected Status']);
+    calculations.raidMatrix.forEach(row => {
+      const efficiency = row.rawTb > 0 ? `${((row.usableTb / row.rawTb) * 100).toFixed(1)}%` : '0%';
+      rows.push([
         row.label,
         row.min,
-        row.possible ? `${row.drives} drives` : 'Exceeds 64',
+        row.possible ? `${row.drives} drives` : 'Exceeds 64 Bays',
         row.possible ? `${row.usableTb.toFixed(1)} TB` : 'N/A',
         row.possible ? `${row.parityTb.toFixed(1)} TB` : 'N/A',
         row.possible ? `${row.rawTb.toFixed(1)} TB` : 'N/A',
+        row.possible ? efficiency : 'N/A',
         row.faultTolerance,
-        row.isCurrent ? 'SELECTED' : ''
-      ]),
-      [],
-      ['5. CALCULATION METHODOLOGY & ASSUMPTIONS'],
-      ['Formula', 'GB per camera per day = bitrate (Mbps) * 86,400 seconds / 8 / 1,000 * (recording_time_pct / 100)'],
-      ['Note 1', 'Bitrates are estimates based on standard surveillance codecs. Variable Bit Rate (VBR) can fluctuate.'],
-      ['Note 2', 'Surveillance-rated hard drives (e.g. WD Purple, Seagate SkyHawk) are recommended for 24/7 write duty.'],
-      ['Note 3', 'Drive manufacturers compute in decimal (1 TB = 1,000 GB = 1,000,000 MB), matching this calculator.']
-    ];
+        row.isCurrent ? 'SELECTED TARGET' : '',
+      ]);
+    });
+
+    // Scenarios Comparison if scenarios exist
+    if (scenarios && scenarios.length > 0) {
+      rows.push([]);
+      rows.push(['8. SCENARIOS COMPARISON MATRIX']);
+      rows.push(['Scenario Name', 'Active in Compare', 'Cameras', 'Resolution', 'Codec', 'Bitrate (Mbps)', 'Retention (Days)', 'Duty Cycle (%)', 'Headroom (%)', 'Drive Size (TB)', 'RAID Level', 'Usable Needed (TB)', 'Drives Needed', 'Hard Drive BOM ($)']);
+      scenarios.forEach(sc => {
+        const scMet = computeScenarioMetrics(sc);
+        rows.push([
+          sc.name,
+          sc.enabled ? 'YES' : 'NO',
+          scMet.safeCams,
+          sc.resolutionPreset.toUpperCase(),
+          sc.codec.toUpperCase(),
+          scMet.safeMbps.toFixed(2),
+          scMet.safeDays,
+          `${scMet.safeRec}%`,
+          `${scMet.safeHead}%`,
+          `${scMet.safeDriveTb} TB`,
+          sc.raidType.toUpperCase(),
+          scMet.totalNeedTb.toFixed(2),
+          scMet.possible ? `${scMet.drivesNeeded} Drives` : 'Exceeds 64',
+          `$${scMet.totalHardDriveCost.toFixed(2)}`,
+        ]);
+      });
+    }
+
+    // Methodology & Engineering Notes
+    rows.push([]);
+    rows.push(['9. CALCULATION METHODOLOGY & ASSUMPTIONS']);
+    rows.push(['Formula', 'GB per camera per day = bitrate (Mbps) * 86,400 seconds / 8 / 1,000 * (recording_time_pct / 100)']);
+    rows.push(['Headroom', 'Total Storage = Sum(Daily GB * Days) * (1 + headroom_pct / 100) / 1,000 TB']);
+    rows.push(['Decimal vs Binary', 'Drive vendors rate capacities in decimal base-10 (1 TB = 1,000 GB). OS filesystems report binary base-2 (1 TiB = 1,024 GiB = ~1.0995 TB). Both are reported.']);
+    rows.push(['Workload Advisory', 'Surveillance-grade HDDs (e.g. WD Purple, Seagate SkyHawk) are rated for 180 TB/yr. Heavy analytics or multi-stream AI arrays recommend 550 TB/yr enterprise disks.']);
+    rows.push(['Network Ingestion', 'Aggregate bandwidth requires continuous dedicated switch backplane throughput and gigabit/10Gb uplink interfaces.']);
 
     const csvContent = '\uFEFF' + rows.map(r => r.map(escapeCsv).join(',')).join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -4080,7 +4836,7 @@ DRIVE ARRAY & RAID SPECIFICATION:
       doc.text('3. HARD DRIVE ARRAY & RAID BILL OF MATERIALS (BOM)', 17, s3Y + 4.2);
 
       const t3Y = s3Y + 6;
-      const t3H = 80;
+      const t3H = 82;
       doc.setFillColor(255, 255, 255);
       doc.setDrawColor(226, 232, 240);
       doc.rect(14, t3Y, 182, t3H, 'FD');
@@ -4089,6 +4845,7 @@ DRIVE ARRAY & RAID SPECIFICATION:
         ['Target Array Configuration', RAID_DEFINITIONS[raidType].label, 'Standard surveillance array profile'],
         ['Drive Model Recommendation', `${calculations.safeDriveTb} TB Surveillance-grade SATA/SAS HDD`, '24/7 continuous write duty (e.g. WD Purple, Seagate SkyHawk)'],
         ['Total Hard Drives Required', calculations.possible ? `${calculations.drivesNeeded} × ${calculations.safeDriveTb} TB Drives` : 'Exceeds 64 drive enclosure limit', 'Calculated disk quantity required to satisfy retention + headroom'],
+        ['Projected Hardware Investment', calculations.possible ? `$${calculations.totalHardwareInvestmentCost.toLocaleString()} ($${calculations.costPerDrive.toFixed(0)}/drive | $${calculations.effectivePricePerTb.toFixed(1)}/TB)` : 'N/A', 'Estimated storage procurement investment budget'],
         ['Usable Storage Capacity Provided', calculations.possible ? `${calculations.usableStorageTb.toFixed(1)} TB (${(calculations.usableStorageTb - calculations.totalNeedTb >= 0 ? '+' : '')}${(calculations.usableStorageTb - calculations.totalNeedTb).toFixed(1)} TB surplus)` : 'N/A', 'Net file storage available for video recordings'],
         ['Parity & Redundancy Overhead', calculations.possible ? `${calculations.parityStorageTb.toFixed(1)} TB` : 'N/A', 'Dedicated capacity used exclusively for parity / disk mirroring'],
         ['Total Raw Physical Storage Capacity', calculations.possible ? `${calculations.rawStorageTb.toFixed(1)} TB` : 'N/A', 'Combined raw unformatted physical disk capacity'],
@@ -4098,13 +4855,14 @@ DRIVE ARRAY & RAID SPECIFICATION:
       ];
 
       s3Items.forEach((item, idx) => {
-        const rowY = t3Y + idx * 8.8;
+        const rowH = 8.1;
+        const rowY = t3Y + idx * rowH;
         if (idx % 2 === 1) {
           doc.setFillColor(248, 250, 252);
-          doc.rect(14, rowY, 182, 8.8, 'F');
+          doc.rect(14, rowY, 182, rowH, 'F');
         }
         doc.setDrawColor(241, 245, 249);
-        doc.line(14, rowY + 8.8, 196, rowY + 8.8);
+        doc.line(14, rowY + rowH, 196, rowY + rowH);
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.2);
@@ -4438,6 +5196,79 @@ DRIVE ARRAY & RAID SPECIFICATION:
         </p>
       </div>
 
+      {/* Primary Workspace View Switcher */}
+      <div
+        className="no-print"
+        style={{
+          display: 'flex',
+          gap: '10px',
+          marginBottom: '18px',
+          borderBottom: '1px solid var(--border)',
+          paddingBottom: '12px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)', marginRight: '4px' }}>
+          Workspace View:
+        </span>
+        <button
+          type="button"
+          onClick={() => setActiveView('calculator')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            borderRadius: '10px',
+            fontSize: '0.85rem',
+            fontWeight: activeView === 'calculator' ? 800 : 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            border: activeView === 'calculator' ? '2px solid var(--accent)' : '1px solid var(--border)',
+            background: activeView === 'calculator' ? 'rgba(99, 102, 241, 0.16)' : 'var(--surface)',
+            color: activeView === 'calculator' ? 'var(--accent)' : 'var(--text-heading)',
+          }}
+        >
+          <Sliders className="w-4 h-4" />
+          Calculator View
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveView('compare')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            borderRadius: '10px',
+            fontSize: '0.85rem',
+            fontWeight: activeView === 'compare' ? 800 : 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            border: activeView === 'compare' ? '2px solid var(--accent)' : '1px solid var(--border)',
+            background: activeView === 'compare' ? 'rgba(99, 102, 241, 0.16)' : 'var(--surface)',
+            color: activeView === 'compare' ? 'var(--accent)' : 'var(--text-heading)',
+          }}
+        >
+          <Scale className="w-4 h-4 text-indigo-400" />
+          Compare Scenarios View
+          <span
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              padding: '2px 8px',
+              borderRadius: '12px',
+              background: 'var(--accent)',
+              color: '#ffffff',
+            }}
+          >
+            {scenarios.filter(s => s.enabled).length} Active Sets
+          </span>
+        </button>
+      </div>
+
       {/* Top Action Bar */}
       <div
         className="no-print"
@@ -4492,20 +5323,46 @@ DRIVE ARRAY & RAID SPECIFICATION:
           <button
             type="button"
             className="button button-secondary"
-            onClick={() => setEnableComparisonMode(prev => !prev)}
+            onClick={() => {
+              if (activeView === 'compare') {
+                setActiveView('calculator');
+                setEnableComparisonMode(false);
+              } else {
+                setActiveView('compare');
+                setEnableComparisonMode(true);
+              }
+            }}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
               fontSize: '0.82rem',
-              background: enableComparisonMode ? 'rgba(99, 102, 241, 0.2)' : undefined,
-              borderColor: enableComparisonMode ? 'var(--accent)' : undefined,
-              fontWeight: enableComparisonMode ? 700 : 500,
+              background: (activeView === 'compare' || enableComparisonMode) ? 'rgba(99, 102, 241, 0.2)' : undefined,
+              borderColor: (activeView === 'compare' || enableComparisonMode) ? 'var(--accent)' : undefined,
+              fontWeight: (activeView === 'compare' || enableComparisonMode) ? 700 : 500,
             }}
-            title="Compare two side-by-side scenarios to evaluate codecs, retention days, or resolution scaling"
+            title="Compare camera configuration sets to analyze how total storage capacity needs evolve"
           >
             <SlidersHorizontal className="w-4 h-4 text-purple-400" />
-            {enableComparisonMode ? 'Hide Comparison' : 'Compare Scenarios'}
+            {(activeView === 'compare' || enableComparisonMode) ? 'Hide Comparison' : `Compare Scenarios (${scenarios.filter(s => s.enabled).length})`}
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => setEnableForecaster(prev => !prev)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.82rem',
+              background: enableForecaster ? 'rgba(56, 189, 248, 0.2)' : undefined,
+              borderColor: enableForecaster ? 'var(--cyan)' : undefined,
+              fontWeight: enableForecaster ? 700 : 500,
+            }}
+            title="Forecast future storage expansion and hard drive BOM requirements over 1-5 years"
+          >
+            <TrendingUp className="w-4 h-4 text-cyan-400" />
+            {enableForecaster ? 'Hide Forecaster' : 'Growth Forecaster'}
           </button>
           <button
             type="button"
@@ -4582,19 +5439,57 @@ DRIVE ARRAY & RAID SPECIFICATION:
           onRenameSite={handleRenameSite}
           onClose={() => setEnableMultiSite(false)}
           isDarkMode={theme === 'dark'}
+          onExportCsv={handleExportCsv}
         />
       )}
 
-      {/* Compare Scenarios Side-by-Side Panel */}
-      {enableComparisonMode && (
-        <CompareScenariosPanel
+      {/* Compare Scenarios View / Panel */}
+      {(activeView === 'compare' || enableComparisonMode) && (
+        <CompareScenariosView
+          scenarios={scenarios}
+          onUpdateScenario={handleUpdateScenario}
+          onToggleScenarioEnabled={handleToggleScenarioEnabled}
+          onAddScenario={handleAddScenario}
+          onDeleteScenario={handleDeleteScenario}
+          onDuplicateScenario={handleDuplicateScenario}
+          onApplyScenarioToCalculator={handleApplyScenarioToCalculator}
+          onSaveCurrentAsScenario={handleSaveCurrentAsScenario}
+          onResetDefaultScenarios={handleResetDefaultScenarios}
+          onClose={() => {
+            setActiveView('calculator');
+            setEnableComparisonMode(false);
+          }}
+          isDarkMode={theme === 'dark'}
           scenarioA={currentScenarioA}
           scenarioB={scenarioB}
           onChangeScenarioB={updated => setScenarioB(prev => ({ ...prev, ...updated }))}
           onCopyAtoB={handleCopyAtoB}
           onSwapAandB={handleSwapAandB}
-          onCloseComparison={() => setEnableComparisonMode(false)}
+          onCloseComparison={() => {
+            setActiveView('calculator');
+            setEnableComparisonMode(false);
+          }}
           onApplyPresetComparison={handleApplyPresetComparison}
+        />
+      )}
+
+      {/* Future Storage Growth & Capacity Expansion Forecaster */}
+      {enableForecaster && (
+        <StorageGrowthForecaster
+          currentCams={calculations.safeCams}
+          currentDays={retentionDays}
+          currentBitrateMbps={calculations.safeMbps}
+          currentDutyCyclePct={recordingPct}
+          currentHeadroomPct={headroomPct}
+          driveSizeTb={driveSizeTb}
+          raidType={raidType}
+          pricePerTb={pricePerTb}
+          currentNeedTb={calculations.totalNeedTb}
+          currentDrivesNeeded={calculations.drivesNeeded}
+          currentBomCost={calculations.totalHardDriveCost}
+          onApplyForecast={handleApplyForecast}
+          onClose={() => setEnableForecaster(false)}
+          isDarkMode={theme === 'dark'}
         />
       )}
 
@@ -5374,7 +6269,7 @@ DRIVE ARRAY & RAID SPECIFICATION:
                       <button
                         key={sz}
                         type="button"
-                        onClick={() => setDriveSizeTb(sz)}
+                        onClick={() => handleDriveSizeChange(sz)}
                         style={{
                           padding: '4px 9px',
                           fontSize: '0.78rem',
@@ -5403,7 +6298,7 @@ DRIVE ARRAY & RAID SPECIFICATION:
                 min="0.5"
                 max="50"
                 value={driveSizeTb}
-                onChange={e => setDriveSizeTb(Math.max(0.5, parseFloat(e.target.value) || 1))}
+                onChange={e => handleDriveSizeChange(parseFloat(e.target.value) || 1)}
               />
               <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
                 Click any NVR/DVR capacity preset above (2TB, 4TB, 8TB, 12TB, etc.) or type a custom disk capacity.
@@ -5430,47 +6325,12 @@ DRIVE ARRAY & RAID SPECIFICATION:
               <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                 {RAID_DEFINITIONS[raidType].description}
               </p>
-            </div>
-
-            {/* Hard Drive Unit Price ($/TB) for Project Budgeting */}
-            <div className="form-field" style={{ marginTop: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <label htmlFor="price-tb" style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                  Drive Price per TB ($)
-                </label>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  {[20, 25, 30, 35].map(p => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPricePerTb(p)}
-                      style={{
-                        padding: '2px 6px',
-                        fontSize: '0.72rem',
-                        borderRadius: '4px',
-                        background: pricePerTb === p ? 'var(--emerald)' : 'var(--bg)',
-                        color: pricePerTb === p ? '#ffffff' : 'var(--text-muted)',
-                        border: '1px solid var(--border)',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ${p}
-                    </button>
-                  ))}
-                </div>
+              <div style={{ marginTop: '8px', padding: '8px 10px', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '6px', fontSize: '0.75rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Need advanced enclosure bay planning, hot spare reserves, or RAID 50/60? </span>
+                <Link to="/tools/hardware-storage-calculator" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'underline' }}>
+                  Open Hardware Storage &amp; RAID Calculator →
+                </Link>
               </div>
-              <input
-                id="price-tb"
-                type="number"
-                step="1"
-                min="0"
-                max="500"
-                value={pricePerTb}
-                onChange={e => setPricePerTb(Math.max(0, parseFloat(e.target.value) || 0))}
-              />
-              <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Surveillance-rated HDDs (WD Purple Pro, Seagate SkyHawk AI) average $20–$35/TB.
-              </p>
             </div>
 
             {/* Drive Workload Rating (TB/year) */}
@@ -5520,38 +6380,37 @@ DRIVE ARRAY & RAID SPECIFICATION:
                 Standard surveillance drives = 180 TB/yr; Enterprise AI drives = 550 TB/yr.
               </p>
             </div>
-
-            {/* Hard Drive Budget Callout Box */}
-            {calculations.possible && (
-              <div
-                style={{
-                  marginTop: '16px',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  background: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.25)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '8px',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                    Hard Drive Project Cost
-                  </div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--emerald)' }}>
-                    ${calculations.totalHardDriveCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  <div>{calculations.drivesNeeded} drives × ${calculations.costPerDrive.toFixed(0)}/disk</div>
-                  <div>~${calculations.rawCostPerUsableTb.toFixed(1)}/usable TB</div>
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Storage Hardware Cost & Investment Estimator */}
+          <StorageCostEstimator
+            costInputMode={costInputMode}
+            onCostInputModeChange={handleCostInputModeChange}
+            pricePerTb={pricePerTb}
+            onPricePerTbChange={handlePricePerTbChange}
+            pricePerDrive={pricePerDrive}
+            onPricePerDriveChange={handlePricePerDriveChange}
+            driveSizeTb={driveSizeTb}
+            drivesNeeded={calculations.drivesNeeded}
+            usableStorageTb={calculations.usableStorageTb}
+            rawStorageTb={calculations.rawStorageTb}
+            parityStorageTb={calculations.parityStorageTb}
+            raidType={raidType}
+            cameras={calculations.safeCams}
+            retentionDays={calculations.safeDays}
+            possible={calculations.possible}
+            includeNvrCost={includeNvrCost}
+            onIncludeNvrCostChange={setIncludeNvrCost}
+            nvrCostType={nvrCostType}
+            onNvrCostTypeChange={setNvrCostType}
+            nvrCostPerBay={nvrCostPerBay}
+            onNvrCostPerBayChange={setNvrCostPerBay}
+            nvrFixedCost={nvrFixedCost}
+            onNvrFixedCostChange={setNvrFixedCost}
+            hotSparesCount={hotSparesCount}
+            onHotSparesCountChange={setHotSparesCount}
+            isDarkMode={theme === 'dark'}
+          />
 
           {/* Multi-Tier Storage Architecture Module */}
           <div
@@ -6031,7 +6890,7 @@ DRIVE ARRAY & RAID SPECIFICATION:
                   </div>
                 </div>
 
-                {/* Hard Drive Budget Card */}
+                {/* Hardware Investment Cost Card */}
                 <div
                   style={{
                     background: 'var(--surface)',
@@ -6039,26 +6898,31 @@ DRIVE ARRAY & RAID SPECIFICATION:
                     borderRadius: '12px',
                     padding: '14px 18px',
                     textAlign: 'right',
-                    minWidth: '160px',
+                    minWidth: '190px',
                   }}
                 >
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    HARD DRIVE BUDGET
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Hardware Investment
                   </div>
                   <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--emerald)', margin: '4px 0' }}>
                     {calculations.possible ? (
-                      `$${calculations.totalHardDriveCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                      `$${calculations.totalHardwareInvestmentCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
                     ) : (
                       'N/A'
                     )}
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                     {calculations.possible ? (
-                      `@ $${calculations.safePricePerTb}/TB (${calculations.drivesNeeded} × ${calculations.safeDriveTb}TB)`
+                      `$${calculations.costPerDrive.toFixed(0)}/drive · $${calculations.effectivePricePerTb.toFixed(1)}/TB`
                     ) : (
                       'Adjust drive setup'
                     )}
                   </div>
+                  {calculations.possible && (
+                    <div style={{ fontSize: '0.7rem', color: 'var(--emerald)', marginTop: '2px', fontWeight: 600 }}>
+                      ${calculations.costPerCamera.toFixed(0)}/cam · ${calculations.costPerRetentionDay.toFixed(2)}/day
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -6083,6 +6947,59 @@ DRIVE ARRAY & RAID SPECIFICATION:
                 </b>
               </li>
             </ul>
+
+            {/* Quick Export Actions Bar */}
+            <div
+              className="no-print"
+              style={{
+                display: 'flex',
+                gap: '10px',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                marginTop: '20px',
+                paddingTop: '16px',
+                borderTop: '1px solid rgba(56, 189, 248, 0.22)',
+              }}
+            >
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleExportCsv}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  borderColor: 'rgba(16, 185, 129, 0.35)',
+                }}
+                title="Download calculation results, system parameters, and RAID matrix as a CSV spreadsheet"
+              >
+                {exportedCsv ? <Check className="w-4 h-4 text-emerald-400" /> : <FileSpreadsheet className="w-4 h-4 text-emerald-400" />}
+                {exportedCsv ? 'Downloaded CSV!' : 'Download CSV'}
+              </button>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleExportPdf}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
+                title="Export clean, professional PDF calculation report for clients or tender documents"
+              >
+                {exportedPdf ? <Check className="w-4 h-4 text-emerald-400" /> : <FileText className="w-4 h-4 text-rose-400" />}
+                {exportedPdf ? 'Exported PDF!' : 'Download PDF'}
+              </button>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleCopySummary}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
+                title="Copy specification summary to clipboard"
+              >
+                {copiedSummary ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-sky-400" />}
+                {copiedSummary ? 'Copied Summary!' : 'Copy Summary'}
+              </button>
+            </div>
           </div>
 
           {/* Estimated Drive Lifespan & Mechanical Workload Reliability */}

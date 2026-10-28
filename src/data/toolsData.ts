@@ -304,4 +304,12 @@ export const TOOLS: ToolItem[] = [
     route: '/tools/cctv-storage-calculator',
     keywords: ['cctv', 'camera', 'storage', 'retention', 'nvr', 'surveillance', 'raid', 'terabytes', 'bitrate', 'hard drive', 'security'],
   },
+  {
+    id: 'hardware-storage-calculator',
+    name: 'Hardware Storage & RAID Calculator',
+    description: 'Determine the exact number of hard drives required for your target usable capacity based on RAID level (RAID 5, 6, 10, 50, 60), individual drive size, hot spares, and server chassis bays.',
+    category: 'it',
+    route: '/tools/hardware-storage-calculator',
+    keywords: ['storage', 'raid', 'hard drive', 'drive', 'hdd', 'ssd', 'nas', 'san', 'parity', 'raid 5', 'raid 6', 'raid 10', 'raid 50', 'bay', 'chassis', 'terabytes', 'nvr', 'server'],
+  },
 ];
