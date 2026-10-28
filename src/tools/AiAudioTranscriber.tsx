@@ -30,11 +30,12 @@ export const AiAudioTranscriber: React.FC = () => {
 
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Clean up audio URL on unmount
+  // Clean up audio URL and media streams on unmount
   useEffect(() => {
     return () => {
       if (audioUrl) {
@@ -42,6 +43,9 @@ export const AiAudioTranscriber: React.FC = () => {
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
+      }
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach(track => track.stop());
       }
     };
   }, [audioUrl]);
@@ -59,23 +63,44 @@ export const AiAudioTranscriber: React.FC = () => {
     }
   }, [isRecording]);
 
+  // Start recording strictly on user click with resilient fallback constraints
   const startRecording = async () => {
     try {
       setErrorMsg(null);
+      setErrorDetails(null);
+
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Microphone recording API (navigator.mediaDevices.getUserMedia) is not supported in this browser or context (requires HTTPS or localhost).');
+        throw new Error('Microphone recording API (navigator.mediaDevices.getUserMedia) is not supported in this browser or context.');
       }
 
-      // Explicit constraints to satisfy all browser security policies
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } 
-      });
+      let stream: MediaStream | null = null;
+
+      try {
+        // Attempt with advanced constraints first
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
+        });
+      } catch (err: any) {
+        console.warn('Advanced audio constraints failed, attempting basic { audio: true } fallback:', err);
+        if (err?.name === 'OverconstrainedError' || err?.name === 'NotAllowedError' || err?.name === 'SecurityError' || err?.name === 'TypeError') {
+          // Fallback to basic audio stream request
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } else {
+          throw err;
+        }
+      }
+
+      if (!stream) {
+        throw new Error('Failed to acquire audio stream.');
+      }
+
+      activeStreamRef.current = stream;
       audioChunksRef.current = [];
-      
+
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm')
@@ -106,11 +131,15 @@ export const AiAudioTranscriber: React.FC = () => {
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
         setFileName(`Voice_Recording_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`);
-        // Stop all tracks
-        stream.getTracks().forEach((track) => track.stop());
+        
+        // Clean up tracks
+        if (activeStreamRef.current) {
+          activeStreamRef.current.getTracks().forEach((track) => track.stop());
+          activeStreamRef.current = null;
+        }
       };
 
-      mediaRecorder.start(250); // collecting data every 250ms
+      mediaRecorder.start(250); // collecting chunks every 250ms
       setIsRecording(true);
       setRecordingTime(0);
       setTranscriptResult(null);
@@ -129,10 +158,16 @@ export const AiAudioTranscriber: React.FC = () => {
       console.info('Navigator mediaDevices supported:', !!navigator.mediaDevices);
       console.info('User Agent:', navigator.userAgent);
       console.groupEnd();
-      
+
+      // Ensure tracks are stopped on error
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach(track => track.stop());
+        activeStreamRef.current = null;
+      }
+
       let friendlyReason = 'Microphone access was blocked or is unavailable.';
-      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
-        friendlyReason = 'Microphone permission was denied by the browser or system. Please check site-specific permissions in your browser settings.';
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError' || errorName === 'SecurityError') {
+        friendlyReason = 'Microphone permission was denied by the browser or system.';
       } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
         friendlyReason = 'No microphone device was detected on your system.';
       } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
@@ -147,8 +182,16 @@ export const AiAudioTranscriber: React.FC = () => {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {
+        console.warn('Error stopping media recorder:', e);
+      }
       setIsRecording(false);
+    }
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach(track => track.stop());
+      activeStreamRef.current = null;
     }
   };
 
@@ -162,8 +205,13 @@ export const AiAudioTranscriber: React.FC = () => {
     setFileName('');
     setTranscriptResult(null);
     setErrorMsg(null);
+    setErrorDetails(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach(track => track.stop());
+      activeStreamRef.current = null;
     }
   };
 
@@ -363,12 +411,12 @@ export const AiAudioTranscriber: React.FC = () => {
 
             <div style={{ textAlign: 'center', margin: '14px 0', position: 'relative' }}>
               <span style={{ background: 'var(--surface)', padding: '0 12px', color: 'var(--muted)', fontSize: '0.85rem', position: 'relative', zIndex: 1 }}>
-                OR UPLOAD AUDIO FILE
+                OR UPLOAD AUDIO FILE (100% INDEPENDENT)
               </span>
               <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'var(--line)', zIndex: 0 }}></div>
             </div>
 
-            {/* File Upload Drop Zone */}
+            {/* File Upload Drop Zone - Always operational regardless of mic state */}
             <div style={{ border: '2px dashed var(--line)', borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: 'var(--surface-elevated, rgba(15, 23, 42, 0.2))' }}>
               <input
                 ref={fileInputRef}
@@ -466,7 +514,7 @@ export const AiAudioTranscriber: React.FC = () => {
               <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: '10px', color: '#fca5a5', fontSize: '0.9rem', lineHeight: 1.5 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#f87171' }}>
-                    <AlertCircle size={18} /> Microphone Access Issue Detected
+                    <AlertCircle size={18} /> Dual-Diagnostic Microphone Error
                   </div>
                   <label style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: 'var(--muted)' }}>
                     <input
@@ -475,11 +523,11 @@ export const AiAudioTranscriber: React.FC = () => {
                       onChange={(e) => setDebugMode(e.target.checked)}
                       style={{ cursor: 'pointer' }}
                     />
-                    Debug Mode
+                    Debug Log
                   </label>
                 </div>
 
-                <p style={{ margin: '0 0 10px' }}>{errorMsg}</p>
+                <p style={{ margin: '0 0 10px', fontWeight: 600 }}>{errorMsg}</p>
 
                 {debugMode && errorDetails && (
                   <div style={{ marginBottom: '10px', padding: '10px', background: 'rgba(2, 6, 23, 0.7)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.78rem', color: '#38bdf8', overflowX: 'auto' }}>
@@ -489,28 +537,19 @@ export const AiAudioTranscriber: React.FC = () => {
                   </div>
                 )}
 
-                <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '10px 12px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                  <strong>💡 How to Fix Browser Microphone Permissions:</strong>
-                  <ol style={{ margin: '6px 0 0', paddingLeft: '18px' }}>
-                    <li>Click the 🔒 lock icon or ⚙️ settings icon in your browser address bar.</li>
-                    <li>Locate <strong>Microphone</strong> permissions and set it to <strong>Allow</strong>.</li>
-                    <li>
-                      Manage site permissions directly in{' '}
-                      <a
-                        href="chrome://settings/content/microphone"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: 'var(--accent)', textDecoration: 'underline' }}
-                        onClick={(e) => {
-                          // Note: chrome:// URLs cannot be directly navigated via anchor in some sandboxed iframes,
-                          // so we provide copy-paste or clear helper guidance
-                        }}
-                      >
-                        Browser Settings (chrome://settings/content/microphone)
-                      </a>.
-                    </li>
-                    <li>Refresh this page and click <strong>Record Voice</strong> again.</li>
-                  </ol>
+                <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '12px 14px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid rgba(239, 68, 68, 0.25)', display: 'grid', gap: '10px' }}>
+                  <div>
+                    <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>a) Browser Permission:</strong>
+                    Ensure microphone is allowed in your browser address bar lock icon (🔒).
+                  </div>
+                  <div>
+                    <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>b) macOS / Windows System Permission:</strong>
+                    On Mac, check <strong>System Settings → Privacy &amp; Security → Microphone</strong> and ensure your browser (Edge, Chrome, or Safari) is enabled.
+                  </div>
+                  <div>
+                    <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>c) Hardware / Device Check:</strong>
+                    Ensure no other app is holding the microphone and a valid audio input device is connected.
+                  </div>
                 </div>
               </div>
             )}
