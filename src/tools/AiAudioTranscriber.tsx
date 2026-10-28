@@ -24,6 +24,8 @@ export const AiAudioTranscriber: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [transcriptResult, setTranscriptResult] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<{ name?: string; message?: string; stack?: string } | null>(null);
+  const [debugMode, setDebugMode] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Refs
@@ -60,7 +62,18 @@ export const AiAudioTranscriber: React.FC = () => {
   const startRecording = async () => {
     try {
       setErrorMsg(null);
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Microphone recording API (navigator.mediaDevices.getUserMedia) is not supported in this browser or context (requires HTTPS or localhost).');
+      }
+
+      // Explicit constraints to satisfy all browser security policies
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
       audioChunksRef.current = [];
       
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -102,9 +115,33 @@ export const AiAudioTranscriber: React.FC = () => {
       setRecordingTime(0);
       setTranscriptResult(null);
     } catch (err: any) {
-      console.error('Error accessing microphone:', err);
-      const detail = err?.message ? ` (${err.message})` : '';
-      setErrorMsg(`Microphone access denied or unavailable${detail}. Please check browser permissions or use Audio File Upload below.`);
+      const errorName = err?.name || 'UnknownError';
+      const errorMessage = err?.message || 'Access denied';
+      const errorStack = err?.stack || '';
+
+      setErrorDetails({ name: errorName, message: errorMessage, stack: errorStack });
+
+      console.group(`🎙️ [MediaDevices Debugger] Microphone Access Failure: ${errorName}`);
+      console.error('Error Name:', errorName);
+      console.error('Error Message:', errorMessage);
+      console.error('Error Stack:', errorStack);
+      console.info('Is secure context (HTTPS/localhost):', window.isSecureContext);
+      console.info('Navigator mediaDevices supported:', !!navigator.mediaDevices);
+      console.info('User Agent:', navigator.userAgent);
+      console.groupEnd();
+      
+      let friendlyReason = 'Microphone access was blocked or is unavailable.';
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+        friendlyReason = 'Microphone permission was denied by the browser or system. Please check site-specific permissions in your browser settings.';
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+        friendlyReason = 'No microphone device was detected on your system.';
+      } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
+        friendlyReason = 'Your microphone is currently in use by another application or tab.';
+      } else if (!window.isSecureContext) {
+        friendlyReason = 'Microphone recording requires a secure context (HTTPS or localhost).';
+      }
+
+      setErrorMsg(`${friendlyReason} (${errorName}: ${errorMessage})`);
     }
   };
 
@@ -426,8 +463,55 @@ export const AiAudioTranscriber: React.FC = () => {
             </div>
 
             {errorMsg && (
-              <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.88rem' }}>
-                {errorMsg}
+              <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: '10px', color: '#fca5a5', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#f87171' }}>
+                    <AlertCircle size={18} /> Microphone Access Issue Detected
+                  </div>
+                  <label style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: 'var(--muted)' }}>
+                    <input
+                      type="checkbox"
+                      checked={debugMode}
+                      onChange={(e) => setDebugMode(e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Debug Mode
+                  </label>
+                </div>
+
+                <p style={{ margin: '0 0 10px' }}>{errorMsg}</p>
+
+                {debugMode && errorDetails && (
+                  <div style={{ marginBottom: '10px', padding: '10px', background: 'rgba(2, 6, 23, 0.7)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.78rem', color: '#38bdf8', overflowX: 'auto' }}>
+                    <div><strong>Error Name:</strong> {errorDetails.name}</div>
+                    <div><strong>Error Message:</strong> {errorDetails.message}</div>
+                    {errorDetails.stack && <div style={{ whiteSpace: 'pre-wrap', marginTop: '4px', opacity: 0.85 }}>{errorDetails.stack}</div>}
+                  </div>
+                )}
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '10px 12px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                  <strong>💡 How to Fix Browser Microphone Permissions:</strong>
+                  <ol style={{ margin: '6px 0 0', paddingLeft: '18px' }}>
+                    <li>Click the 🔒 lock icon or ⚙️ settings icon in your browser address bar.</li>
+                    <li>Locate <strong>Microphone</strong> permissions and set it to <strong>Allow</strong>.</li>
+                    <li>
+                      Manage site permissions directly in{' '}
+                      <a
+                        href="chrome://settings/content/microphone"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--accent)', textDecoration: 'underline' }}
+                        onClick={(e) => {
+                          // Note: chrome:// URLs cannot be directly navigated via anchor in some sandboxed iframes,
+                          // so we provide copy-paste or clear helper guidance
+                        }}
+                      >
+                        Browser Settings (chrome://settings/content/microphone)
+                      </a>.
+                    </li>
+                    <li>Refresh this page and click <strong>Record Voice</strong> again.</li>
+                  </ol>
+                </div>
               </div>
             )}
           </div>
