@@ -38,7 +38,7 @@ async function testReset(path,inputSelector){await openPage(path,inputSelector);
 try{
  driver=spawn(CHROMEDRIVER,["--port=9515"],{stdio:"ignore"});
  let ready=false;for(let i=0;i<60;i++){try{await fetch("http://127.0.0.1:9515/status");ready=true;break}catch{}await sleep(100)}assert.equal(ready,true,"ChromeDriver did not start");
- const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"normal","goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size=1280,900"]}}}};
+ const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"eager","goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size=1280,900"]}}}};
  const session=await http("POST","/session",caps);sessionId=session.sessionId;
 
  const routes=[
@@ -47,8 +47,8 @@ try{
   ["/tools/retirement-planning-calculator/","Retirement Planning Calculator"],
   ["/tools/personal-finance-snapshot/","Personal Finance Snapshot"],
   ["/tools/finance-planning-workspace/","Finance Planning Workspace"],
-  ["/tools/ai-prompt-builder/","AI Prompt Builder"],
-  ["/tools/interview-preparation-planner/","Interview Preparation Planner"],
+  ["/tools/ai-prompt-builder/","Craft Context-Rich AI Prompts That Get Results"],
+  ["/tools/interview-preparation-planner/","Structure High-Impact Behavioral Answers"],
   ["/tools/it-troubleshooting-assistant/","IT Troubleshooting Assistant"],
   ["/tools/resume-bullet-strength-checker/","Resume Bullet Strength Checker"],
   ["/tools/service-desk-note-formatter/","Service Desk Note Formatter"],
@@ -133,10 +133,10 @@ try{
  assert.ok(await js("return document.querySelector('pre.tool-output')?.innerText.includes('VPN sign-in recovery checklist')"),"Knowledge-base draft output did not include title");
  console.log("PASS — Ticket-to-KB Draft accepts structured input");
 
- await openPage("/tools/interview-preparation-planner/","#roleTitle");
- await type("#roleTitle","IT Support Engineer");
- await type("#targetCompany","Example Company");
- const interview=await js("return {role:document.querySelector('#roleTitle').value,company:document.querySelector('#targetCompany').value}");
+ await openPage("/tools/interview-preparation-planner/","#target-role-title");
+ await type("#target-role-title","IT Support Engineer");
+ await type("#target-company","Example Company");
+ const interview=await js("return {role:document.querySelector('#target-role-title').value,company:document.querySelector('#target-company').value}");
  assert.equal(interview.role,"IT Support Engineer");assert.equal(interview.company,"Example Company");
  console.log("PASS — Interview Preparation Planner accepts role details");
 
