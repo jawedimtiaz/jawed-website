@@ -2756,6 +2756,39 @@ export const CableLengthPoeChecker: React.FC = () => {
     return lengthUnit === 'm' ? channelLength * 3.28084 : channelLength;
   }, [channelLength, lengthUnit]);
 
+  // Automatic Two-Way Unit Converter Handler
+  const handleToggleLengthUnit = (newUnit: LengthUnit) => {
+    if (newUnit === lengthUnit) return;
+
+    if (newUnit === 'ft') {
+      // Automatically convert current channel length from meters to feet
+      const convertedFt = parseFloat((channelLength * 3.28084).toFixed(1));
+      setLengthUnit('ft');
+      setChannelLength(convertedFt);
+
+      // Automatically convert device row run lengths from meters to feet
+      setDeviceRows(prev =>
+        prev.map(row => ({
+          ...row,
+          estCableLengthM: Math.round(row.estCableLengthM * 3.28084),
+        }))
+      );
+    } else {
+      // Automatically convert current channel length from feet to meters
+      const convertedM = parseFloat((channelLength * 0.3048).toFixed(1));
+      setLengthUnit('m');
+      setChannelLength(convertedM);
+
+      // Automatically convert device row run lengths from feet to meters
+      setDeviceRows(prev =>
+        prev.map(row => ({
+          ...row,
+          estCableLengthM: Math.round(row.estCableLengthM * 0.3048),
+        }))
+      );
+    }
+  };
+
   const cableResult = useMemo(() => {
     const spec = CABLE_SPECS[cableCategory];
     const baseMaxDist = spec.speedLimits[linkSpeed] || 0;
@@ -2962,14 +2995,15 @@ export const CableLengthPoeChecker: React.FC = () => {
       const tempResistanceFactor = 1 + tempCoeff * tempDeltaC;
       const effectiveLoopResPer100m = spec.loopResistancePer100m * condSpec.resistanceMultiplier * tempResistanceFactor;
 
-      const runResistance = (row.estCableLengthM / 100) * effectiveLoopResPer100m;
+      const rowLengthInMeters = lengthUnit === 'ft' ? row.estCableLengthM * 0.3048 : row.estCableLengthM;
+      const runResistance = (rowLengthInMeters / 100) * effectiveLoopResPer100m;
       const is4Pair = classInfo.standard === '802.3bt-type3' || classInfo.standard === '802.3bt-type4';
       const effectiveResistance = is4Pair ? runResistance / 2 : runResistance;
       const singleCableLossWatts = Math.min(effectiveWattsEach * 0.35, Math.pow(currentAmps, 2) * effectiveResistance);
       const totalRowCableLoss = singleCableLossWatts * row.qty;
       totalCopperCableHeatLossWatts += totalRowCableLoss;
 
-      const rowTotalLengthM = row.estCableLengthM * row.qty;
+      const rowTotalLengthM = rowLengthInMeters * row.qty;
 
       return {
         ...row,
@@ -3034,14 +3068,14 @@ export const CableLengthPoeChecker: React.FC = () => {
       status,
       deviceBreakdowns,
     };
-  }, [deviceRows, switchBudgetWatts, switchPortsCount, cableCategory, selectedVendor, linkSpeed, conductorType, ambientTempC]);
+  }, [deviceRows, switchBudgetWatts, switchPortsCount, cableCategory, selectedVendor, linkSpeed, conductorType, ambientTempC, lengthUnit]);
 
   // -------------------------------------------------------------
   // CABLE MATERIAL COST CALCULATIONS
   // -------------------------------------------------------------
   const materialCostResult = useMemo(() => {
     // Total cable length across all runs in deviceRows
-    const totalCableMeters = deviceRows.reduce((acc, row) => acc + (row.qty * row.estCableLengthM), 0);
+    const totalCableMeters = deviceRows.reduce((acc, row) => acc + (row.qty * (lengthUnit === 'ft' ? row.estCableLengthM * 0.3048 : row.estCableLengthM)), 0);
     const totalCableFeet = totalCableMeters * 3.28084;
     const totalRunsCount = deviceRows.reduce((acc, row) => acc + row.qty, 0);
 
@@ -4054,21 +4088,65 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           borderRadius: '12px',
         }}
       >
-        {/* Preset Scenarios */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)' }}>Presets:</span>
-          {PRESET_SCENARIOS.map(preset => (
+        {/* Global Length Unit Selector & Preset Scenarios */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg)', padding: '3px 6px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-heading)', paddingRight: '4px' }}>
+              Length Unit:
+            </span>
             <button
-              key={preset.id}
               type="button"
-              className="button button-secondary"
-              onClick={() => handleApplyPreset(preset)}
-              style={{ fontSize: '0.78rem', padding: '4px 10px' }}
-              title={preset.desc}
+              onClick={() => handleToggleLengthUnit('m')}
+              style={{
+                padding: '3px 10px',
+                fontSize: '0.78rem',
+                borderRadius: '6px',
+                background: lengthUnit === 'm' ? 'var(--accent)' : 'transparent',
+                color: lengthUnit === 'm' ? '#ffffff' : 'var(--text-muted)',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: lengthUnit === 'm' ? 800 : 500,
+                transition: 'all 0.15s ease',
+              }}
+              title="Toggle all channel length inputs and calculations to Meters (m)"
             >
-              {preset.name.split(' (')[0]}
+              Meters (m)
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => handleToggleLengthUnit('ft')}
+              style={{
+                padding: '3px 10px',
+                fontSize: '0.78rem',
+                borderRadius: '6px',
+                background: lengthUnit === 'ft' ? 'var(--accent)' : 'transparent',
+                color: lengthUnit === 'ft' ? '#ffffff' : 'var(--text-muted)',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: lengthUnit === 'ft' ? 800 : 500,
+                transition: 'all 0.15s ease',
+              }}
+              title="Toggle all channel length inputs and calculations to Feet (ft)"
+            >
+              Feet (ft)
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)' }}>Presets:</span>
+            {PRESET_SCENARIOS.map(preset => (
+              <button
+                key={preset.id}
+                type="button"
+                className="button button-secondary"
+                onClick={() => handleApplyPreset(preset)}
+                style={{ fontSize: '0.78rem', padding: '4px 10px' }}
+                title={preset.desc}
+              >
+                {preset.name.split(' (')[0]}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Global Action Buttons */}
@@ -4502,51 +4580,130 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
               </div>
             </div>
 
-            {/* Total Channel Length */}
+            {/* Total Channel Length & Automatic Unit Converter */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label htmlFor="channel-len" style={{ fontSize: '0.85rem', fontWeight: 700, margin: 0 }}>
-                  Total Channel Length
+                <label htmlFor="channel-len" style={{ fontSize: '0.85rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  Total Channel Length ({lengthUnit === 'm' ? 'Meters' : 'Feet'})
                 </label>
-                <div style={{ display: 'flex', gap: '3px' }}>
-                  {(['m', 'ft'] as LengthUnit[]).map(u => (
-                    <button
-                      key={u}
-                      type="button"
-                      onClick={() => {
-                        if (u !== lengthUnit) {
-                          setLengthUnit(u);
-                          setChannelLength(prev => (u === 'ft' ? parseFloat((prev * 3.28084).toFixed(1)) : parseFloat((prev * 0.3048).toFixed(1))));
-                        }
-                      }}
-                      style={{
-                        padding: '1px 6px',
-                        fontSize: '0.72rem',
-                        borderRadius: '4px',
-                        background: lengthUnit === u ? 'var(--accent)' : 'var(--bg)',
-                        color: lengthUnit === u ? '#ffffff' : 'var(--text-muted)',
-                        border: '1px solid var(--border)',
-                        cursor: 'pointer',
-                        fontWeight: lengthUnit === u ? 700 : 400,
-                      }}
-                    >
-                      {u === 'm' ? 'Meters' : 'Feet'}
-                    </button>
-                  ))}
+                {/* Automatic Unit Toggle */}
+                <div style={{ display: 'flex', gap: '2px', background: 'var(--bg)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleLengthUnit('m')}
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '0.72rem',
+                      borderRadius: '4px',
+                      background: lengthUnit === 'm' ? 'var(--accent)' : 'transparent',
+                      color: lengthUnit === 'm' ? '#ffffff' : 'var(--text-muted)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: lengthUnit === 'm' ? 800 : 500,
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Toggle to Meters (m) - Converts current input automatically"
+                  >
+                    Meters (m)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleLengthUnit('ft')}
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '0.72rem',
+                      borderRadius: '4px',
+                      background: lengthUnit === 'ft' ? 'var(--accent)' : 'transparent',
+                      color: lengthUnit === 'ft' ? '#ffffff' : 'var(--text-muted)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: lengthUnit === 'ft' ? 800 : 500,
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Toggle to Feet (ft) - Converts current input automatically"
+                  >
+                    Feet (ft)
+                  </button>
                 </div>
               </div>
-              <input
-                id="channel-len"
-                type="number"
-                step="0.5"
-                min="1"
-                max="500"
-                value={channelLength}
-                onChange={e => setChannelLength(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
-                style={{ fontSize: '0.88rem' }}
-              />
-              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                ≈ {lengthUnit === 'm' ? `${lengthFeet.toFixed(0)} feet` : `${lengthMeters.toFixed(1)} meters`}
+
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <input
+                  id="channel-len"
+                  type="number"
+                  step={lengthUnit === 'm' ? '0.5' : '1'}
+                  min="1"
+                  max={lengthUnit === 'm' ? '500' : '1640'}
+                  value={channelLength}
+                  onChange={e => setChannelLength(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
+                  style={{ fontSize: '0.88rem', flex: 1 }}
+                />
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--accent)', minWidth: '24px' }}>
+                  {lengthUnit}
+                </span>
+              </div>
+
+              {/* Automatic Unit Conversion Readout */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                <span>
+                  Exact equivalent: <strong style={{ color: 'var(--text-heading)' }}>{lengthUnit === 'm' ? `${lengthFeet.toFixed(1)} ft` : `${lengthMeters.toFixed(1)} m`}</strong>
+                </span>
+                <span style={{ fontSize: '0.68rem', opacity: 0.8 }}>
+                  1 {lengthUnit === 'm' ? 'm = 3.28084 ft' : 'ft = 0.3048 m'}
+                </span>
+              </div>
+
+              {/* Quick Distance Presets for Active Unit */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '3px', marginTop: '6px' }}>
+                {lengthUnit === 'm' ? [
+                  { label: '15m Short', val: 15 },
+                  { label: '55m 10G', val: 55 },
+                  { label: '90m Perm', val: 90 },
+                  { label: '100m Max', val: 100 },
+                ].map(p => (
+                  <button
+                    key={p.val}
+                    type="button"
+                    onClick={() => setChannelLength(p.val)}
+                    style={{
+                      padding: '3px 2px',
+                      fontSize: '0.68rem',
+                      fontWeight: Math.abs(channelLength - p.val) < 0.5 ? 800 : 500,
+                      borderRadius: '4px',
+                      background: Math.abs(channelLength - p.val) < 0.5 ? 'var(--accent)' : 'var(--bg)',
+                      color: Math.abs(channelLength - p.val) < 0.5 ? '#ffffff' : 'var(--text-muted)',
+                      border: '1px solid var(--border)',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                )) : [
+                  { label: '50ft Short', val: 50 },
+                  { label: '180ft 10G', val: 180 },
+                  { label: '295ft Perm', val: 295 },
+                  { label: '328ft Max', val: 328 },
+                ].map(p => (
+                  <button
+                    key={p.val}
+                    type="button"
+                    onClick={() => setChannelLength(p.val)}
+                    style={{
+                      padding: '3px 2px',
+                      fontSize: '0.68rem',
+                      fontWeight: Math.abs(channelLength - p.val) < 1 ? 800 : 500,
+                      borderRadius: '4px',
+                      background: Math.abs(channelLength - p.val) < 1 ? 'var(--accent)' : 'var(--bg)',
+                      color: Math.abs(channelLength - p.val) < 1 ? '#ffffff' : 'var(--text-muted)',
+                      border: '1px solid var(--border)',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -6105,7 +6262,12 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                     <th style={{ padding: '10px 12px', minWidth: '150px' }}>PoE Class Standard</th>
                     <th style={{ padding: '10px 12px', width: '90px' }}>Watts Each</th>
                     <th style={{ padding: '10px 12px', width: '95px' }}>Power (W)</th>
-                    <th style={{ padding: '10px 12px', width: '85px' }}>Run (m)</th>
+                    <th style={{ padding: '10px 12px' }}>Device Description</th>
+                    <th style={{ padding: '10px 12px', width: '80px' }}>Quantity</th>
+                    <th style={{ padding: '10px 12px', minWidth: '150px' }}>PoE Class Standard</th>
+                    <th style={{ padding: '10px 12px', width: '90px' }}>Watts Each</th>
+                    <th style={{ padding: '10px 12px', width: '95px' }}>Power (W)</th>
+                    <th style={{ padding: '10px 12px', width: '95px' }}>Run ({lengthUnit})</th>
                     <th style={{ padding: '10px 12px', width: '95px' }}>Total Cable</th>
                     <th style={{ padding: '10px 12px', width: '95px' }}>Cable Cost</th>
                     <th style={{ padding: '10px 12px', minWidth: '150px' }}>Run Compliance</th>
@@ -6115,8 +6277,10 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                 <tbody>
                   {deviceRows.map((dev, idx) => {
                     const rowMetrics = poeResult.deviceBreakdowns[idx];
-                    const rowLengthM = rowMetrics ? rowMetrics.rowTotalLengthM : dev.qty * dev.estCableLengthM;
+                    const rowLengthM = rowMetrics ? rowMetrics.rowTotalLengthM : (dev.qty * (lengthUnit === 'ft' ? dev.estCableLengthM * 0.3048 : dev.estCableLengthM));
+                    const rowLengthDisplay = lengthUnit === 'ft' ? rowLengthM * 3.28084 : rowLengthM;
                     const rowCost = rowLengthM * materialCostResult.unitCost;
+                    const devLengthM = lengthUnit === 'ft' ? dev.estCableLengthM * 0.3048 : dev.estCableLengthM;
 
                     return (
                       <tr
@@ -6182,23 +6346,23 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                           {rowMetrics ? `${rowMetrics.subtotalWatts.toFixed(1)} W` : `${(dev.qty * dev.wattsEach).toFixed(1)} W`}
                         </td>
 
-                        {/* Run Distance (m) */}
+                        {/* Run Distance (m/ft) */}
                         <td style={{ padding: '8px 12px' }}>
                           <input
                             type="number"
-                            step="5"
+                            step={lengthUnit === 'm' ? '5' : '15'}
                             min="1"
-                            max="150"
+                            max={lengthUnit === 'm' ? '150' : '500'}
                             value={dev.estCableLengthM}
-                            onChange={e => handleUpdateDevice(dev.id, { estCableLengthM: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                            onChange={e => handleUpdateDevice(dev.id, { estCableLengthM: Math.max(1, parseFloat(e.target.value) || 1) })}
                             style={{ padding: '4px 8px', fontSize: '0.82rem', width: '100%' }}
-                            title="Cable run distance for DC loop heat loss calculation"
+                            title={`Cable run distance in ${lengthUnit} for DC loop heat loss calculation`}
                           />
                         </td>
 
                         {/* Total Cable for Device Group */}
                         <td style={{ padding: '8px 12px', fontWeight: 700, color: '#38bdf8' }}>
-                          {rowLengthM.toFixed(0)} m
+                          {rowLengthDisplay.toFixed(0)} {lengthUnit}
                         </td>
 
                         {/* Cable Material Cost for Device Group */}
@@ -6208,7 +6372,7 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
 
                         {/* Run Compliance Status with Visual Indicators */}
                         <td style={{ padding: '8px 12px' }}>
-                          {dev.estCableLengthM <= 90 ? (
+                          {devLengthM <= 90 ? (
                             <span
                               style={{
                                 display: 'inline-flex',
@@ -6222,11 +6386,11 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                                 fontWeight: 700,
                                 whiteSpace: 'nowrap',
                               }}
-                              title="Within 90m solid permanent horizontal link standard"
+                              title="Within solid permanent horizontal link standard"
                             >
-                              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" /> Compliant (&le;90m)
+                              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" /> Compliant (&le;{lengthUnit === 'ft' ? '295ft' : '90m'})
                             </span>
-                          ) : dev.estCableLengthM <= 100 ? (
+                          ) : devLengthM <= 100 ? (
                             <span
                               style={{
                                 display: 'inline-flex',
@@ -6240,9 +6404,9 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                                 fontWeight: 700,
                                 whiteSpace: 'nowrap',
                               }}
-                              title="Exceeds 90m permanent link; near 100m total channel limit"
+                              title="Exceeds permanent link; near total channel limit"
                             >
-                              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> Marginal (90-100m)
+                              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> Marginal ({lengthUnit === 'ft' ? '295-328ft' : '90-100m'})
                             </span>
                           ) : (
                             <span
