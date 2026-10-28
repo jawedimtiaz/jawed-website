@@ -2212,6 +2212,239 @@ export const PoePortHeatmap: React.FC<{
   );
 };
 
+// -------------------------------------------------------------
+// DEDICATED CABLE SELECTION REFERENCE & STANDARDS MATRIX
+// -------------------------------------------------------------
+export const CableSelectionReference: React.FC<{
+  activeCategory: CableCategory;
+  activeLinkSpeed: LinkSpeed;
+  activeChannelLength: number;
+  lengthUnit: LengthUnit;
+  conductorType: ConductorType;
+  ambientTempC: number;
+  bundleSize: number;
+  onSelectCategory: (category: CableCategory) => void;
+}> = ({
+  activeCategory,
+  activeLinkSpeed,
+  activeChannelLength,
+  lengthUnit,
+  conductorType,
+  ambientTempC,
+  bundleSize,
+  onSelectCategory,
+}) => {
+  const activeLengthMeters = lengthUnit === 'ft' ? activeChannelLength * 0.3048 : activeChannelLength;
+  const categoriesToCompare: CableCategory[] = ['Cat5e', 'Cat6', 'Cat6a', 'Cat7', 'Cat8'];
+
+  return (
+    <div
+      style={{
+        padding: '20px',
+        borderRadius: '16px',
+        background: 'var(--bg)',
+        border: '1px solid var(--border)',
+        marginTop: '20px',
+        marginBottom: '20px',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <div>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: '0 0 4px', color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Cable className="w-5 h-5 text-sky-400" />
+            Cable Selection Reference &amp; Performance Matrix
+          </h3>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Real-time maximum supported distances and speed capabilities dynamically adjusted for your environmental conditions ({ambientTempC}°C ambient, {bundleSize} bundled runs, {CONDUCTOR_SPECS[conductorType].shortName}).
+          </p>
+        </div>
+
+        <span
+          style={{
+            padding: '4px 12px',
+            borderRadius: '12px',
+            fontSize: '0.78rem',
+            fontWeight: 800,
+            background: 'rgba(56, 189, 248, 0.12)',
+            color: '#38bdf8',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+          }}
+        >
+          Selected: {activeCategory} ({activeLinkSpeed} @ {activeChannelLength}{lengthUnit})
+        </span>
+      </div>
+
+      {/* Side-by-Side Category Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3.5 mb-5">
+        {categoriesToCompare.map(cat => {
+          const isSelected = activeCategory === cat;
+          const spec = CABLE_SPECS[cat];
+          const guide = CABLE_TYPE_GUIDES[cat];
+
+          // Compute derated 10G limit for this category under current bundle conditions
+          let tenGLimitM = spec.speedLimits['10G'];
+          if (cat === 'Cat6' && tenGLimitM > 0) {
+            tenGLimitM = bundleSize <= 6 ? 55 : bundleSize <= 24 ? 45 : 37;
+          }
+
+          // Compute thermal derated 100m channel limit for this category
+          const isShielded = spec.shielding.includes('FTP') || spec.shielding.includes('STP');
+          const derateCoeff = isShielded ? 0.003 : 0.005;
+          const tempFactor = ambientTempC > 20 ? 1.0 + (ambientTempC - 20) * derateCoeff : 1.0;
+          const derated100mChannelM = Math.max(15, Math.round(100.0 / tempFactor));
+
+          // Check if user's requested activeLinkSpeed is supported by this category
+          const isSpeedSupported = spec.speedLimits[activeLinkSpeed] > 0;
+          const maxDistForSpeed = spec.speedLimits[activeLinkSpeed];
+          const isDistanceFeasible = isSpeedSupported && activeLengthMeters <= Math.min(maxDistForSpeed, derated100mChannelM);
+
+          return (
+            <div
+              key={cat}
+              style={{
+                padding: '14px',
+                borderRadius: '12px',
+                background: isSelected ? 'rgba(56, 189, 248, 0.08)' : 'var(--surface)',
+                border: `2px solid ${isSelected ? '#38bdf8' : 'var(--border)'}`,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                transition: 'all 0.15s ease',
+                boxShadow: isSelected ? '0 0 16px rgba(56, 189, 248, 0.18)' : 'none',
+              }}
+            >
+              <div>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 900, fontSize: '1.05rem', color: isSelected ? '#38bdf8' : 'var(--text-heading)' }}>
+                    {cat}
+                  </span>
+                  {isSelected ? (
+                    <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '2px 6px', borderRadius: '10px', background: '#38bdf8', color: '#0f172a' }}>
+                      Active
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {spec.maxFreqMHz} MHz
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '10px', minHeight: '32px' }}>
+                  {guide ? guide.classStandard : spec.standard}
+                </div>
+
+                {/* Speed & Max Distance Matrix breakdown */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.76rem', marginBottom: '12px' }}>
+                  {/* 1 Gbps */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px', borderRadius: '6px', background: 'var(--bg)' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>1G Speed:</span>
+                    <strong style={{ color: 'var(--emerald)' }}>100 m ({derated100mChannelM}m derated)</strong>
+                  </div>
+
+                  {/* 2.5G NBASE-T */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px', borderRadius: '6px', background: 'var(--bg)' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>2.5G Speed:</span>
+                    <strong style={{ color: spec.speedLimits['2.5G'] > 0 ? 'var(--emerald)' : 'var(--rose)' }}>
+                      {spec.speedLimits['2.5G'] > 0 ? `${Math.min(spec.speedLimits['2.5G'], derated100mChannelM)} m` : 'Unrated'}
+                    </strong>
+                  </div>
+
+                  {/* 5G NBASE-T */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px', borderRadius: '6px', background: 'var(--bg)' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>5G Speed:</span>
+                    <strong style={{ color: spec.speedLimits['5G'] > 0 ? 'var(--emerald)' : 'var(--rose)' }}>
+                      {spec.speedLimits['5G'] > 0 ? `${Math.min(spec.speedLimits['5G'], derated100mChannelM)} m` : 'Unsupported'}
+                    </strong>
+                  </div>
+
+                  {/* 10GBASE-T */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px', borderRadius: '6px', background: 'var(--bg)' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>10G Speed:</span>
+                    <strong style={{ color: tenGLimitM >= 100 ? 'var(--emerald)' : tenGLimitM > 0 ? '#f59e0b' : 'var(--rose)' }}>
+                      {tenGLimitM > 0 ? `${tenGLimitM} m` : 'Unsupported'}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Environmental Feasibility Badge */}
+                <div
+                  style={{
+                    padding: '6px 8px',
+                    borderRadius: '8px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    marginBottom: '10px',
+                    background: isDistanceFeasible
+                      ? 'rgba(16, 185, 129, 0.12)'
+                      : 'rgba(239, 68, 68, 0.12)',
+                    color: isDistanceFeasible ? '#10b981' : 'var(--rose)',
+                    border: `1px solid ${isDistanceFeasible ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  {isDistanceFeasible ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                  <span>
+                    {isDistanceFeasible
+                      ? `Feasible for ${activeLinkSpeed} @ ${activeChannelLength}${lengthUnit}`
+                      : isSpeedSupported
+                      ? `Exceeds max limit for ${activeLinkSpeed}`
+                      : `${cat} unsupported for ${activeLinkSpeed}`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                type="button"
+                onClick={() => onSelectCategory(cat)}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  fontSize: '0.76rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  background: isSelected ? '#38bdf8' : 'var(--surface)',
+                  color: isSelected ? '#0f172a' : 'var(--text-heading)',
+                  border: isSelected ? 'none' : '1px solid var(--border)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {isSelected ? '✓ Currently Selected' : `Select ${cat}`}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Field Engineering Quick Reference Summary */}
+      <div style={{ background: 'var(--surface)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '0.8rem' }}>
+        <div style={{ fontWeight: 800, color: 'var(--text-heading)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Info className="w-4 h-4 text-sky-400" />
+          Field Engineering Standard Guidelines (ANSI/TIA-568.2-D &amp; IEEE 802.3):
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+          <div>
+            <strong style={{ color: 'var(--text-heading)' }}>Category 5e (Cat5e):</strong>
+            <div>Rated up to 100 MHz. Designed for 1 Gbps up to 100m. Unrated for 10GBASE-T. Higher loop resistance causes increased $I^2R$ PoE voltage drop on long runs.</div>
+          </div>
+          <div>
+            <strong style={{ color: 'var(--text-heading)' }}>Category 6 (Cat6):</strong>
+            <div>Rated up to 250 MHz. Includes internal cross-web spline. Supports 10 Gbps up to 55m in clean runs, but Alien Crosstalk drops limit to 37m in tight bundles.</div>
+          </div>
+          <div>
+            <strong style={{ color: 'var(--text-heading)' }}>Category 6a (Cat6a):</strong>
+            <div>Rated up to 500 MHz. Full 10 Gbps support up to 100m full channel length. Superior Alien Crosstalk isolation and thicker copper for 90W PoE++.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const CableLengthPoeChecker: React.FC = () => {
   // PWA Offline Status & Install Hooks
   const isOnline = useOnlineStatus();
@@ -4629,6 +4862,18 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
             }
             onChangeBundleSize={sz => setBundleSize(sz)}
             onChangeAmbientTemp={t => setAmbientTempC(t)}
+          />
+
+          {/* Dedicated Cable Selection Reference & Standards Performance Matrix */}
+          <CableSelectionReference
+            activeCategory={cableCategory}
+            activeLinkSpeed={linkSpeed}
+            activeChannelLength={channelLength}
+            lengthUnit={lengthUnit}
+            conductorType={conductorType}
+            ambientTempC={ambientTempC}
+            bundleSize={bundleSize}
+            onSelectCategory={cat => setCableCategory(cat)}
           />
         </div>
       )}
