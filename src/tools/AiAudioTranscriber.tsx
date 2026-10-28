@@ -148,87 +148,73 @@ export const AiAudioTranscriber: React.FC = () => {
     setErrorMsg(`${friendlyReason} (${errorName}: ${errorMessage})`);
   };
 
-  // Multi-stage 3-tier discovery fallback stream acquisition strictly on user click
+  // Acquire the default microphone on an explicit user click. Keep constraints
+  // optional and avoid exact deviceId constraints, which can turn a permission
+  // or device problem into a misleading OverconstrainedError on Chromium browsers.
   const startRecording = async () => {
     try {
       setErrorMsg(null);
       setErrorDetails(null);
 
-      // 1. Permissions Policy & Iframe Embedding Check
       if (window.self !== window.top) {
         try {
           const docAny = document as any;
-          if (docAny.featurePolicy && typeof docAny.featurePolicy.allowsFeature === 'function') {
-            if (!docAny.featurePolicy.allowsFeature('microphone')) {
-              console.warn('iframe featurePolicy blocks microphone access.');
-            }
+          const policy = docAny.permissionsPolicy || docAny.featurePolicy;
+          if (policy && typeof policy.allowsFeature === 'function' && !policy.allowsFeature('microphone')) {
+            throw new Error('MICROPHONE_BLOCKED_BY_EMBEDDING_POLICY');
           }
-          if (docAny.permissionsPolicy && typeof docAny.permissionsPolicy.allowsFeature === 'function') {
-            if (!docAny.permissionsPolicy.allowsFeature('microphone')) {
-              console.warn('iframe permissionsPolicy blocks microphone access.');
-            }
-          }
-        } catch (iframeErr) {
-          console.warn('Iframe policy check error:', iframeErr);
+        } catch (policyErr: any) {
+          if (policyErr?.message === 'MICROPHONE_BLOCKED_BY_EMBEDDING_POLICY') throw policyErr;
+          console.warn('Could not inspect iframe microphone policy:', policyErr);
         }
       }
 
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Microphone recording API (navigator.mediaDevices.getUserMedia) is not supported in this browser or context.');
+      if (!window.isSecureContext) {
+        throw new Error('Microphone recording requires HTTPS or localhost.');
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Microphone recording is not supported in this browser or context.');
       }
 
-      // Check Permissions API state if available
-      if (navigator.permissions && navigator.permissions.query) {
+      if (navigator.permissions?.query) {
         try {
           const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-          console.log('Current Microphone Permission State:', permissionStatus.state);
-        } catch (e) {
-          // Ignore browsers that do not support microphone query
+          console.info('Current microphone permission state:', permissionStatus.state);
+        } catch {
+          // The Permissions API microphone query is not supported in every browser.
         }
       }
 
-      let stream: MediaStream | null = null;
-
-      // Step A: First attempt with simple standard constraints
+      let stream: MediaStream;
       try {
+        // These are preferences, not mandatory device requirements.
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-          }
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: false,
         });
-      } catch (errA: any) {
-        console.warn('Initial mic request failed, attempting basic { audio: true } fallback:', errA);
-
-        // Step B: Pure boolean fallback (bypasses any constraint rejection)
+      } catch (firstError) {
+        console.warn('Microphone request with audio-processing preferences failed; retrying with basic audio:', firstError);
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (errB: any) {
-          console.warn('Basic mic request failed, attempting explicit device ID enumeration fallback:', errB);
-
-          // Step C: Explicit device ID enumeration fallback
+          // Broadest supported request: let the browser choose an available input.
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        } catch (finalError: any) {
+          // Enumerate only for diagnostics. Do not request a device using
+          // deviceId: { exact: ... }; that can fail with OverconstrainedError.
           try {
             const devices = await navigator.mediaDevices.enumerateDevices();
-            const audioInputs = devices.filter(d => d.kind === 'audioinput');
-            
-            if (audioInputs.length === 0) {
-              throw new Error('NO_AUDIO_INPUT_DEVICES');
+            if (!devices.some((device) => device.kind === 'audioinput')) {
+              handleDetailedMicError(new Error('NO_AUDIO_INPUT_DEVICES'));
+              return;
             }
-
-            const validDevice = audioInputs.find(d => d.deviceId !== '') || audioInputs[0];
-            stream = await navigator.mediaDevices.getUserMedia({
-              audio: { deviceId: { exact: validDevice.deviceId } }
-            });
-          } catch (errC: any) {
-            handleDetailedMicError(errC);
-            return;
+          } catch (enumerationError) {
+            console.warn('Could not enumerate audio inputs for diagnostics:', enumerationError);
           }
+          handleDetailedMicError(finalError || firstError);
+          return;
         }
       }
 
-      if (stream) {
-        initMediaRecorder(stream);
-      }
+      initMediaRecorder(stream);
     } catch (err: any) {
       handleDetailedMicError(err);
     }
