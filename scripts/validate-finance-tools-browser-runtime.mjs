@@ -133,10 +133,10 @@ try{
  assert.ok(await js("return document.querySelector('pre.tool-output')?.innerText.includes('VPN sign-in recovery checklist')"),"Knowledge-base draft output did not include title");
  console.log("PASS — Ticket-to-KB Draft accepts structured input");
 
- await openPage("/tools/interview-preparation-planner/","#roleTitle");
- await type("#roleTitle","IT Support Engineer");
+ await openPage("/tools/interview-preparation-planner/","#target-role-title");
+ await type("#target-role-title","IT Support Engineer");
  await type("#targetCompany","Example Company");
- const interview=await js("return {role:document.querySelector('#roleTitle').value,company:document.querySelector('#targetCompany').value}");
+ const interview=await js("return {role:document.querySelector('#target-role-title').value,company:document.querySelector('#targetCompany').value}");
  assert.equal(interview.role,"IT Support Engineer");assert.equal(interview.company,"Example Company");
  console.log("PASS — Interview Preparation Planner accepts role details");
 
