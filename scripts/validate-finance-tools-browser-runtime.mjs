@@ -38,7 +38,7 @@ async function testReset(path,inputSelector){await openPage(path,inputSelector);
 try{
  driver=spawn(CHROMEDRIVER,["--port=9515"],{stdio:"ignore"});
  let ready=false;for(let i=0;i<60;i++){try{await fetch("http://127.0.0.1:9515/status");ready=true;break}catch{}await sleep(100)}assert.equal(ready,true,"ChromeDriver did not start");
- const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"normal","goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size=1280,900"]}}}};
+ const caps={capabilities:{alwaysMatch:{browserName:"chrome",pageLoadStrategy:"eager","goog:chromeOptions":{args:["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size=1280,900"]}}}};
  const session=await http("POST","/session",caps);sessionId=session.sessionId;
 
  const routes=[
