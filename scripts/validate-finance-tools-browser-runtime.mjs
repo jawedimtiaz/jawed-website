@@ -47,7 +47,7 @@ try{
   ["/tools/retirement-planning-calculator/","Retirement Planning Calculator"],
   ["/tools/personal-finance-snapshot/","Personal Finance Snapshot"],
   ["/tools/finance-planning-workspace/","Finance Planning Workspace"],
-  ["/tools/ai-prompt-builder/","AI Prompt Builder"],
+  ["/tools/ai-prompt-builder/","Craft Context-Rich AI Prompts That Get Results"],
   ["/tools/interview-preparation-planner/","Interview Preparation Planner"],
   ["/tools/it-troubleshooting-assistant/","IT Troubleshooting Assistant"],
   ["/tools/resume-bullet-strength-checker/","Resume Bullet Strength Checker"],
