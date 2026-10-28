@@ -34,6 +34,9 @@ import {
   Phone,
   Sliders,
   Scale,
+  DollarSign,
+  Package,
+  Download,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 
@@ -331,6 +334,39 @@ export const PRESET_SCENARIOS: PresetScenario[] = [
 // Helper to format numbers safely
 const fmt = (n: number, d = 1) => n.toFixed(d);
 
+/**
+ * Returns specific standards guidance when a cable category does not support the chosen link speed.
+ */
+export const getCableStandardRecommendation = (cat: CableCategory, speed: LinkSpeed): string => {
+  if (cat === 'Cat5e') {
+    if (speed === '10G') {
+      return 'Cat5e bandwidth is limited to 100 MHz and is unrated for 10GBASE-T. For 10 Gbps, deploy Cat6 (up to 55 m) or Cat6a (up to 100 m full channel).';
+    }
+    if (speed === '5G') {
+      return 'Cat5e only supports up to 2.5 Gbps under IEEE 802.3bz (NBASE-T). Speeds of 5 Gbps require at least Cat6 (250 MHz) or Cat6a (500 MHz).';
+    }
+    if (speed === '25G' || speed === '40G') {
+      return 'Cat5e cannot support multi-gigabit data center speeds. Speeds of 25 Gbps / 40 Gbps require Cat8 shielded copper (up to 30 m) or fiber optic transceivers.';
+    }
+  }
+  if (cat === 'Cat6') {
+    if (speed === '25G' || speed === '40G') {
+      return 'Cat6 bandwidth (250 MHz) maxes out at 10 Gbps (up to 55 m). Speeds of 25 Gbps or 40 Gbps require Cat8 shielded cabling (up to 30 m) or SFP28/QSFP+ optical fiber.';
+    }
+  }
+  if (cat === 'Cat6a') {
+    if (speed === '25G' || speed === '40G') {
+      return 'Cat6a bandwidth (500 MHz) is certified for 10 Gbps up to 100 m. Speeds of 25 Gbps or 40 Gbps require Cat8 (2000 MHz, up to 30 m) or optical transceivers.';
+    }
+  }
+  if (cat === 'Cat7') {
+    if (speed === '25G' || speed === '40G') {
+      return 'Cat7 (ISO Class F) is not recognized for 25GBASE-T or 40GBASE-T by ANSI/TIA-568. Upgrade to Cat8 (ANSI/TIA-568-C.2-1) or fiber optics.';
+    }
+  }
+  return 'Please select a cable category certified for this throughput under ANSI/TIA-568 and IEEE 802.3 standards.';
+};
+
 export const CableLengthPoeChecker: React.FC = () => {
   // Theme state
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -373,6 +409,13 @@ export const CableLengthPoeChecker: React.FC = () => {
     { id: 'dev-2', name: 'Wi-Fi 6 Access Points', qty: 2, classKey: 'Class 4 (30.0 W)', wattsEach: 30.0, estCableLengthM: 40 },
     { id: 'dev-3', name: 'Outdoor PTZ Camera (Heater)', qty: 1, classKey: 'Class 6 (60.0 W)', wattsEach: 60.0, estCableLengthM: 80 },
   ]);
+
+  // -------------------------------------------------------------
+  // CABLE MATERIAL COST ESTIMATION STATE (OPTIONAL)
+  // -------------------------------------------------------------
+  const [costPerMeter, setCostPerMeter] = useState<number | ''>(0.48); // default $0.48/m for Cat6 solid copper
+  const [costCurrency, setCostCurrency] = useState<string>('$');
+  const [includeSlackBuffer, setIncludeSlackBuffer] = useState<boolean>(true); // 10% pull slack & service loops
 
   // Action status indicators
   const [copiedSummary, setCopiedSummary] = useState(false);
@@ -479,6 +522,8 @@ export const CableLengthPoeChecker: React.FC = () => {
       const totalRowCableLoss = singleCableLossWatts * row.qty;
       totalCopperCableHeatLossWatts += totalRowCableLoss;
 
+      const rowTotalLengthM = row.estCableLengthM * row.qty;
+
       return {
         ...row,
         classInfo,
@@ -486,6 +531,7 @@ export const CableLengthPoeChecker: React.FC = () => {
         subtotalWatts,
         singleCableLossWatts,
         totalRowCableLoss,
+        rowTotalLengthM,
         wattsDeliveredAtDevice: Math.max(0, effectiveWattsEach - singleCableLossWatts),
       };
     });
@@ -530,6 +576,51 @@ export const CableLengthPoeChecker: React.FC = () => {
       deviceBreakdowns,
     };
   }, [deviceRows, switchBudgetWatts, switchPortsCount, cableCategory]);
+
+  // -------------------------------------------------------------
+  // CABLE MATERIAL COST CALCULATIONS
+  // -------------------------------------------------------------
+  const materialCostResult = useMemo(() => {
+    // Total cable length across all runs in deviceRows
+    const totalCableMeters = deviceRows.reduce((acc, row) => acc + (row.qty * row.estCableLengthM), 0);
+    const totalCableFeet = totalCableMeters * 3.28084;
+    const totalRunsCount = deviceRows.reduce((acc, row) => acc + row.qty, 0);
+
+    const unitCost = typeof costPerMeter === 'number' && !isNaN(costPerMeter) && costPerMeter >= 0 ? costPerMeter : 0;
+    const isCostConfigured = typeof costPerMeter === 'number' && !isNaN(costPerMeter) && costPerMeter > 0;
+
+    // Direct run material cost across all runs
+    const baseCost = totalCableMeters * unitCost;
+
+    // 10% standard installation slack (service loops, wall drops, patch panel dressing)
+    const slackMeters = totalCableMeters * 0.10;
+    const totalWithSlackMeters = totalCableMeters * 1.10;
+    const totalWithSlackCost = baseCost * 1.10;
+
+    // Standard commercial pull boxes: 305 meters (1,000 feet) per spool box
+    const effectiveMeters = includeSlackBuffer ? totalWithSlackMeters : totalCableMeters;
+    const standard305mBoxes = Math.ceil(effectiveMeters / 305);
+    const spoolsCost = standard305mBoxes > 0 && isCostConfigured ? standard305mBoxes * 305 * unitCost : 0;
+
+    // Single run material cost (from Module 1 channel length)
+    const singleRunCost = lengthMeters * unitCost;
+
+    return {
+      totalCableMeters,
+      totalCableFeet,
+      totalRunsCount,
+      unitCost,
+      isCostConfigured,
+      baseCost,
+      slackMeters,
+      totalWithSlackMeters,
+      totalWithSlackCost,
+      effectiveMeters,
+      standard305mBoxes,
+      spoolsCost,
+      singleRunCost,
+    };
+  }, [deviceRows, costPerMeter, includeSlackBuffer, lengthMeters]);
 
   // -------------------------------------------------------------
   // DEVICE MANAGEMENT HANDLERS
@@ -597,6 +688,9 @@ export const CableLengthPoeChecker: React.FC = () => {
     setPermanentLinkPct(90);
     setSwitchBudgetWatts(240);
     setSwitchPortsCount(16);
+    setCostPerMeter(0.48);
+    setCostCurrency('$');
+    setIncludeSlackBuffer(true);
     setDeviceRows([
       { id: 'dev-1', name: 'IP Dome Cameras', qty: 8, classKey: 'Class 3 (15.4 W)', wattsEach: 15.4, estCableLengthM: 50 },
       { id: 'dev-2', name: 'Wi-Fi 6 Access Points', qty: 2, classKey: 'Class 4 (30.0 W)', wattsEach: 30.0, estCableLengthM: 40 },
@@ -618,7 +712,7 @@ Generated via Jawed Imtiaz Tools (jawed.co.in/tools)
 • Target Link Speed: ${linkSpeed}
 • Channel Run Length: ${lengthMeters.toFixed(1)} m (${lengthFeet.toFixed(0)} ft)
 • Maximum Certified Distance: ${cableResult.maxDistM > 0 ? `${cableResult.maxDistM} m (${cableResult.maxDistFt.toFixed(0)} ft)` : 'Not Rated'}
-• Compliance Status: ${cableResult.status === 'ok' ? 'PASS (Within certified limits)' : cableResult.status === 'marginal' ? 'MARGINAL (Close to channel limits)' : cableResult.status === 'over' ? `FAIL (Too long by ${cableResult.overMeters.toFixed(1)} m)` : 'FAIL (Speed not supported on this category)'}
+• Compliance Status: ${cableResult.isSupported ? (cableResult.status === 'ok' ? 'PASS (Within certified limits)' : cableResult.status === 'marginal' ? 'MARGINAL (Close to channel limits)' : `FAIL (Too long by ${cableResult.overMeters.toFixed(1)} m)`) : `CHECK CABLE STANDARD (Speed not supported: ${cableCategory} cannot carry ${linkSpeed})`}
 • Channel Architecture: ~${cableResult.estPermanentLinkM.toFixed(1)} m permanent solid link + ~${cableResult.estPatchCordM.toFixed(1)} m stranded patch cords
 • Loop DC Resistance: ~${cableResult.loopResistanceOhms.toFixed(1)} Ω
 
@@ -633,8 +727,15 @@ Generated via Jawed Imtiaz Tools (jawed.co.in/tools)
 • Recommended Switch Sizing (w/ 20% Headroom): ${poeResult.recommendedBudgetWithHeadroomWatts} Watts
 • Estimated Total Copper Cable Heat Dissipation: ~${poeResult.totalCopperCableHeatLossWatts.toFixed(1)} Watts
 
-3. CONNECTED DEVICE INVENTORY:
-${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (${d.classKey}) = ${(d.qty * d.wattsEach).toFixed(1)}W [Avg Run: ${d.estCableLengthM}m]`).join('\n')}
+3. CABLE MATERIAL COST & BULK SPOOL ESTIMATE:
+• Total Horizontal Cable (All Runs): ${materialCostResult.totalCableMeters.toFixed(1)} m (~${materialCostResult.totalCableFeet.toFixed(0)} ft) across ${materialCostResult.totalRunsCount} physical runs
+• Unit Material Rate: ${materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.unitCost.toFixed(2)} / meter` : 'Optional / Not configured'}
+• Base Raw Material Cost: ${materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.baseCost.toFixed(2)}` : 'N/A'}
+• Total Cost (+10% Service Loop Slack): ${materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.totalWithSlackCost.toFixed(2)} (${materialCostResult.totalWithSlackMeters.toFixed(1)} m total)` : 'N/A'}
+• Standard 305m (1,000 ft) Pull Boxes Needed: ${materialCostResult.standard305mBoxes} ${materialCostResult.standard305mBoxes === 1 ? 'Box' : 'Boxes'} (~${materialCostResult.standard305mBoxes * 305} m spool stock)
+
+4. CONNECTED DEVICE INVENTORY:
+${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (${d.classKey}) = ${(d.qty * d.wattsEach).toFixed(1)}W [Run: ${d.estCableLengthM}m | Total: ${d.qty * d.estCableLengthM}m${materialCostResult.isCostConfigured ? ` | Cost: ${costCurrency}${(d.qty * d.estCableLengthM * materialCostResult.unitCost).toFixed(2)}` : ''}]`).join('\n')}
 =====================================================`;
 
     navigator.clipboard.writeText(text);
@@ -679,7 +780,7 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
       ['Estimated One-Way Propagation Delay', `${cableResult.oneWayLatencyNs.toFixed(1)} ns`, 'Nominal velocity of propagation ~0.67c'],
       ['Bundle Alien Crosstalk Warning', isBundledCrosstalk ? 'Active (Derated to 37m for Cat6 10G)' : 'Standard / Low risk', ''],
       [],
-      ['2. SWITCH POE POWER BUDGET AUDIT'],
+      ['2. SWITCH POE POWER BUDGET & MATERIAL EXPENDITURE AUDIT'],
       ['Metric', 'Calculated Value', 'Engineering Details'],
       ['Switch Total PoE Budget', `${switchBudgetWatts} W`, 'Rated power capacity from manufacturer datasheet'],
       ['Switch Total PoE Ports', switchPortsCount, 'Physical switch RJ45 PoE ports'],
@@ -690,9 +791,14 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
       ['Minimum Required Port Standard', POE_STANDARDS[poeResult.highestStandard].name, `${POE_STANDARDS[poeResult.highestStandard].commonName} (${POE_STANDARDS[poeResult.highestStandard].maxPseWatts}W max port output)`],
       ['Recommended Sized Switch Budget', `${poeResult.recommendedBudgetWithHeadroomWatts} W`, 'Includes 20% safety headroom for startup surges'],
       ['Estimated Copper Cable Heat Loss', `${poeResult.totalCopperCableHeatLossWatts.toFixed(1)} W`, 'Dissipated as thermal heating across runs'],
+      ['Total Horizontal Cable (All Runs)', `${materialCostResult.totalCableMeters.toFixed(1)} m`, `~${materialCostResult.totalCableFeet.toFixed(0)} ft across ${materialCostResult.totalRunsCount} physical runs`],
+      ['Cable Material Cost per Meter', materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.unitCost.toFixed(2)} / m` : 'Optional / Not configured', 'Direct unit purchase price'],
+      ['Total Cable Material Cost', materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.baseCost.toFixed(2)}` : 'N/A', 'Base raw length material cost'],
+      ['Total Cost (+10% Slack Buffer)', materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.totalWithSlackCost.toFixed(2)}` : 'N/A', `Includes 10% service loop buffer (${materialCostResult.totalWithSlackMeters.toFixed(1)}m total)`],
+      ['Standard 305m (1000 ft) Pull Boxes', `${materialCostResult.standard305mBoxes} Boxes`, `Commercial 305m pull-box stock (~${materialCostResult.standard305mBoxes * 305}m)`],
       [],
-      ['3. CONNECTED POE DEVICE INVENTORY'],
-      ['Device Description', 'Quantity', 'PoE Class', 'Port Output (W)', 'Total Load (W)', 'Avg Cable Length (m)', 'Est. Cable Heat Loss (W)', 'Power at Device (W)'],
+      ['3. CONNECTED POE DEVICE INVENTORY & CABLE USAGE'],
+      ['Device Description', 'Quantity', 'PoE Class', 'Port Output (W)', 'Total Load (W)', 'Run Dist (m)', 'Total Cable (m)', 'Run Compliance', 'Cable Material Cost', 'Est. Cable Heat Loss (W)', 'Power at Device (W)'],
       ...poeResult.deviceBreakdowns.map(dev => [
         dev.name,
         dev.qty,
@@ -700,6 +806,9 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
         dev.effectiveWattsEach.toFixed(1),
         dev.subtotalWatts.toFixed(1),
         `${dev.estCableLengthM} m`,
+        `${dev.rowTotalLengthM} m`,
+        dev.estCableLengthM <= 90 ? 'Compliant (<=90m)' : dev.estCableLengthM <= 100 ? 'Marginal (90-100m)' : 'Non-Compliant (>100m)',
+        materialCostResult.isCostConfigured ? `${costCurrency}${(dev.rowTotalLengthM * materialCostResult.unitCost).toFixed(2)}` : '—',
         dev.totalRowCableLoss.toFixed(2),
         dev.wattsDeliveredAtDevice.toFixed(1),
       ]),
@@ -710,6 +819,9 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
         '—',
         `${poeResult.totalRequestedWatts.toFixed(1)} W`,
         '—',
+        `${materialCostResult.totalCableMeters.toFixed(1)} m`,
+        deviceRows.some(d => d.estCableLengthM > 100) ? 'NON-COMPLIANT' : deviceRows.some(d => d.estCableLengthM > 90) ? 'MARGINAL' : 'COMPLIANT',
+        materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.baseCost.toFixed(2)}` : '—',
         `${poeResult.totalCopperCableHeatLossWatts.toFixed(1)} W`,
         `${(poeResult.totalRequestedWatts - poeResult.totalCopperCableHeatLossWatts).toFixed(1)} W`,
       ],
@@ -744,6 +856,7 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
   };
 
   // PDF Export Engine
+  // PDF Export Engine - Professional Engineering Specification
   const handleExportPdf = () => {
     try {
       const doc = new jsPDF({
@@ -760,58 +873,75 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
       const dateStamp = new Date().toISOString().split('T')[0];
 
       // ==========================================
-      // PAGE 1: ENGINEERING AUDIT REPORT
+      // PAGE 1: ENGINEERING AUDIT SPECIFICATION
       // ==========================================
 
       // Top Navy Header Banner
       doc.setFillColor(15, 23, 42); // slate-900
-      doc.roundedRect(14, 12, 182, 24, 2.5, 2.5, 'F');
+      doc.roundedRect(14, 10, 182, 22, 2.5, 2.5, 'F');
 
-      // Accent Left Bar
+      // Accent Left Sky Stripe
       doc.setFillColor(56, 189, 248); // sky-400
-      doc.roundedRect(14, 12, 3.5, 24, 1.5, 1.5, 'F');
+      doc.roundedRect(14, 10, 3.5, 22, 1.5, 1.5, 'F');
 
       // Title & Subtitle
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text('ETHERNET CABLE & POE POWER AUDIT SPECIFICATION', 21, 20);
+      doc.setFontSize(12.5);
+      doc.text('ETHERNET CABLE & POE POWER AUDIT SPECIFICATION', 21, 18);
 
       doc.setTextColor(203, 213, 225);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.text('Structured Cabling Certification & PoE Power Budget Engineering Report', 21, 26);
+      doc.setFontSize(8);
+      doc.text('Certified Cabling Distance, PoE Power Budget & Material Expenditure Engineering Report', 21, 24);
 
-      // Meta
-      doc.setFontSize(7.5);
-      doc.text(`Generated: ${dateStr}`, 192, 19, { align: 'right' });
+      // Meta Header
+      doc.setFontSize(7.2);
+      doc.text(`Generated: ${dateStr}`, 192, 17, { align: 'right' });
       doc.setTextColor(56, 189, 248);
-      doc.text('Tools: jawed.co.in/tools', 192, 24, { align: 'right' });
+      doc.text('jawed.co.in/tools', 192, 23, { align: 'right' });
 
-      // Highlight KPI Cards (3 boxes)
-      const cardY = 40;
-      const cardH = 22;
+      // Highlight KPI Cards (3 boxes across)
+      const cardY = 35;
+      const cardH = 20;
       const cardW = 58;
 
       // Card 1: Cable Run Status
       const isCablePass = cableResult.isWithinLimit;
-      doc.setFillColor(isCablePass ? 240 : 254, isCablePass ? 253 : 242, isCablePass ? 244 : 242);
-      doc.setDrawColor(isCablePass ? 187 : 254, isCablePass ? 247 : 202, isCablePass ? 208 : 202);
+      const isCableMarginal = cableResult.status === 'marginal';
+      doc.setFillColor(isCablePass && !isCableMarginal ? 240 : isCableMarginal ? 255 : 254, isCablePass && !isCableMarginal ? 253 : isCableMarginal ? 251 : 242, isCablePass && !isCableMarginal ? 244 : isCableMarginal ? 235 : 242);
+      doc.setDrawColor(isCablePass && !isCableMarginal ? 187 : isCableMarginal ? 253 : 254, isCablePass && !isCableMarginal ? 247 : isCableMarginal ? 230 : 202, isCablePass && !isCableMarginal ? 208 : isCableMarginal ? 138 : 202);
       doc.roundedRect(14, cardY, cardW, cardH, 2, 2, 'FD');
 
       doc.setTextColor(100, 116, 139);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.8);
-      doc.text('CABLE RUN CERTIFICATION', 18, cardY + 5.5);
+      doc.setFontSize(6.5);
+      doc.text('CABLE RUN CERTIFICATION', 18, cardY + 5);
 
-      doc.setTextColor(isCablePass ? 5 : 225, isCablePass ? 150 : 29, isCablePass ? 105 : 72);
-      doc.setFontSize(13);
-      doc.text(cableResult.isSupported ? (cableResult.isWithinLimit ? 'PASS - IN LIMIT' : 'FAIL - TOO LONG') : 'UNSUPPORTED', 18, cardY + 13);
+      doc.setTextColor(isCablePass && !isCableMarginal ? 5 : isCableMarginal ? 217 : 225, isCablePass && !isCableMarginal ? 150 : isCableMarginal ? 119 : 29, isCablePass && !isCableMarginal ? 105 : isCableMarginal ? 6 : 72);
+      doc.setFontSize(11.5);
+      doc.text(
+        cableResult.isSupported
+          ? cableResult.isWithinLimit
+            ? isCableMarginal
+              ? 'MARGINAL RUN'
+              : 'PASS - CERTIFIED'
+            : 'FAIL - TOO LONG'
+          : 'CHECK CABLE STANDARD',
+        18,
+        cardY + 12
+      );
 
       doc.setTextColor(100, 116, 139);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.text(`${lengthMeters.toFixed(1)}m of ${cableResult.maxDistM}m limit (${cableCategory} @ ${linkSpeed})`, 18, cardY + 18.5);
+      doc.setFontSize(6.8);
+      doc.text(
+        cableResult.isSupported
+          ? `${lengthMeters.toFixed(1)}m of ${cableResult.maxDistM}m limit (${cableCategory} @ ${linkSpeed})`
+          : `Speed Unrated (${cableCategory} cannot carry ${linkSpeed})`,
+        18,
+        cardY + 17
+      );
 
       // Card 2: PoE Budget Utilization
       const isPoeOk = poeResult.status === 'ok';
@@ -822,60 +952,61 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
 
       doc.setTextColor(100, 116, 139);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.8);
-      doc.text('SWITCH POE UTILIZATION', 80, cardY + 5.5);
+      doc.setFontSize(6.5);
+      doc.text('SWITCH POE UTILIZATION', 80, cardY + 5);
 
       doc.setTextColor(isPoeOk ? 5 : isPoeTight ? 217 : 225, isPoeOk ? 150 : isPoeTight ? 119 : 29, isPoeOk ? 105 : isPoeTight ? 6 : 72);
-      doc.setFontSize(13);
-      doc.text(`${poeResult.totalRequestedWatts.toFixed(1)} W / ${switchBudgetWatts} W`, 80, cardY + 13);
+      doc.setFontSize(11.5);
+      doc.text(`${poeResult.totalRequestedWatts.toFixed(1)} W / ${switchBudgetWatts} W`, 80, cardY + 12);
 
       doc.setTextColor(100, 116, 139);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.text(`${poeResult.utilizationPct.toFixed(0)}% Budget · ${poeResult.remainingBudgetWatts.toFixed(1)}W Left`, 80, cardY + 18.5);
+      doc.setFontSize(6.8);
+      doc.text(`${poeResult.utilizationPct.toFixed(0)}% Load · ${poeResult.remainingBudgetWatts >= 0 ? `+${poeResult.remainingBudgetWatts.toFixed(1)}W Surplus` : `${poeResult.remainingBudgetWatts.toFixed(1)}W Deficit`}`, 80, cardY + 17);
 
-      // Card 3: Switch Ports Allocation
+      // Card 3: Switch Ports & Material Summary
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(226, 232, 240);
       doc.roundedRect(138, cardY, cardW, cardH, 2, 2, 'FD');
 
       doc.setTextColor(100, 116, 139);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.8);
-      doc.text('POE PORTS CAPACITY', 142, cardY + 5.5);
+      doc.setFontSize(6.5);
+      doc.text('POE PORTS & CABLE RUNS', 142, cardY + 5);
 
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(13);
-      doc.text(`${poeResult.totalPortsUsed} of ${switchPortsCount} Ports`, 142, cardY + 13);
+      doc.setFontSize(11.5);
+      doc.text(`${poeResult.totalPortsUsed} / ${switchPortsCount} Ports`, 142, cardY + 12);
 
       doc.setTextColor(100, 116, 139);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.text(`Min Standard: ${POE_STANDARDS[poeResult.highestStandard].commonName}`, 142, cardY + 18.5);
+      doc.setFontSize(6.8);
+      doc.text(`Total Cable: ${materialCostResult.totalCableMeters.toFixed(0)}m${materialCostResult.isCostConfigured ? ` · ${costCurrency}${materialCostResult.baseCost.toFixed(0)}` : ''}`, 142, cardY + 17);
 
       // SECTION 1: Cable Channel Verification Table
-      let curY = 68;
+      let curY = 59;
+      const rowH = 5.3;
+
       doc.setFillColor(15, 23, 42);
-      doc.rect(14, curY, 182, 6, 'F');
+      doc.rect(14, curY, 182, 5.5, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.text('1. STRUCTURED CABLING & CHANNEL LENGTH SPECIFICATION', 17, curY + 4.2);
+      doc.setFontSize(7.5);
+      doc.text('1. STRUCTURED CABLING & CHANNEL LENGTH SPECIFICATION', 17, curY + 3.8);
 
       const cableItems = [
-        ['Cable Category & Standard', `${cableCategory} (${cableResult.spec.standard})`, `Bandwidth: ${cableResult.spec.maxFreqMHz} MHz · ${cableResult.spec.shielding}`],
+        ['Cable Category & Standard', `${cableCategory} (${cableResult.spec.standard})`, `Bandwidth: ${cableResult.spec.maxFreqMHz} MHz · Shielding: ${cableResult.spec.shielding}`],
         ['Target Ethernet Link Speed', `${linkSpeed}`, 'Physical layer signaling throughput'],
-        ['Total Channel Length Tested', `${lengthMeters.toFixed(1)} m (${lengthFeet.toFixed(1)} ft)`, 'Combined permanent link + all patch cords'],
-        ['Certified Standard Limit', cableResult.maxDistM > 0 ? `${cableResult.maxDistM} m (${cableResult.maxDistFt.toFixed(1)} ft)` : 'Not Supported', cableResult.isSupported ? `${cableResult.headroomPct >= 0 ? `${cableResult.headroomPct.toFixed(1)}% Headroom` : `${cableResult.overMeters.toFixed(1)}m Over Limit`}` : 'Speed unrated on category'],
-        ['Permanent In-Wall Solid Run', `${cableResult.estPermanentLinkM.toFixed(1)} m`, cableResult.isPermanentLinkWarning ? 'EXCEEDS 90m PERMANENT LINK STANDARD' : 'Within 90m solid horizontal run allowance'],
-        ['Patch Cords Allowance (Both Ends)', `${cableResult.estPatchCordM.toFixed(1)} m`, cableResult.isPatchCordWarning ? 'EXCEEDS 10m COMBINED PATCH CORD ALLOWANCE' : 'Within 10m stranded patch cord standard'],
-        ['Loop DC Resistance & Latency', `~${cableResult.loopResistanceOhms.toFixed(1)} Ohms`, `One-way propagation delay: ~${cableResult.oneWayLatencyNs.toFixed(1)} ns`],
+        ['Total Channel Length Tested', `${lengthMeters.toFixed(1)} m (${lengthFeet.toFixed(1)} ft)`, 'Combined permanent horizontal run + patch cords total'],
+        ['Certified Standard Limit', cableResult.maxDistM > 0 ? `${cableResult.maxDistM} m (${cableResult.maxDistFt.toFixed(1)} ft)` : 'Not Supported', cableResult.isSupported ? `${cableResult.headroomPct >= 0 ? `${cableResult.headroomPct.toFixed(1)}% Headroom remaining` : `${cableResult.overMeters.toFixed(1)}m Exceeds standard limit`}` : 'Speed unrated on category'],
+        ['Permanent In-Wall Solid Run', `${cableResult.estPermanentLinkM.toFixed(1)} m`, cableResult.isPermanentLinkWarning ? 'EXCEEDS 90m PERMANENT LINK STANDARD' : 'Complies with 90m solid horizontal run limit'],
+        ['Patch Cords Combined (Both Ends)', `${cableResult.estPatchCordM.toFixed(1)} m`, cableResult.isPatchCordWarning ? 'EXCEEDS 10m COMBINED PATCH CORD ALLOWANCE' : 'Within 10m stranded patch cord allowance'],
+        ['Loop DC Resistance & Delay', `~${cableResult.loopResistanceOhms.toFixed(1)} Ohms`, `One-way latency: ~${cableResult.oneWayLatencyNs.toFixed(1)} ns · Pure copper conductors`],
       ];
 
-      curY += 6;
+      curY += 5.5;
       doc.setFillColor(255, 255, 255);
       doc.setDrawColor(226, 232, 240);
-      const rowH = 6.2;
       doc.rect(14, curY, 182, cableItems.length * rowH, 'FD');
 
       cableItems.forEach((item, idx) => {
@@ -888,38 +1019,38 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
         doc.line(14, itemY + rowH, 196, itemY + rowH);
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7);
+        doc.setFontSize(6.8);
         doc.setTextColor(71, 85, 105);
-        doc.text(item[0], 17, itemY + 4.2);
+        doc.text(item[0], 17, itemY + 3.8);
 
         doc.setTextColor(15, 23, 42);
-        doc.text(item[1], 75, itemY + 4.2);
+        doc.text(item[1], 75, itemY + 3.8);
 
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(100, 116, 139);
-        doc.text(item[2], 125, itemY + 4.2);
+        doc.text(item[2], 122, itemY + 3.8);
       });
 
       // SECTION 2: Switch PoE Power Budget Table
-      curY += cableItems.length * rowH + 6;
+      curY += cableItems.length * rowH + 5;
       doc.setFillColor(15, 23, 42);
-      doc.rect(14, curY, 182, 6, 'F');
+      doc.rect(14, curY, 182, 5.5, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.text('2. SWITCH POE POWER BUDGET & HEADROOM ALLOCATION', 17, curY + 4.2);
+      doc.setFontSize(7.5);
+      doc.text('2. SWITCH POE POWER BUDGET & HEADROOM ALLOCATION', 17, curY + 3.8);
 
       const poeItems = [
         ['Switch Total PoE Budget', `${switchBudgetWatts} Watts`, 'Datasheet rated power supply capacity'],
-        ['Total Requested Device Load', `${poeResult.totalRequestedWatts.toFixed(1)} Watts`, 'Combined class power reserved by devices'],
-        ['Remaining Switch Power Reserve', `${poeResult.remainingBudgetWatts.toFixed(1)} Watts`, poeResult.remainingBudgetWatts >= 0 ? 'Surplus buffer available' : 'CRITICAL DEFICIT - INSUFFICIENT POWER'],
-        ['Power Budget Utilization', `${poeResult.utilizationPct.toFixed(1)}%`, poeResult.utilizationPct <= 80 ? 'Optimal (Maintains 80% safe headroom)' : 'High Load (Exceeds 80% planning habit)'],
-        ['Switch PoE Port Allocation', `${poeResult.totalPortsUsed} of ${switchPortsCount} Ports`, `${poeResult.availablePortsRemaining} unused PoE switch ports remaining`],
-        ['Required Switch Port Standard', POE_STANDARDS[poeResult.highestStandard].name, `Minimum ${POE_STANDARDS[poeResult.highestStandard].commonName} (${POE_STANDARDS[poeResult.highestStandard].maxPseWatts}W port power)`],
-        ['Recommended Sized Switch Capacity', `${poeResult.recommendedBudgetWithHeadroomWatts} Watts`, 'Calculated with 20% safety headroom for device power surges'],
+        ['Total Requested Device Load', `${poeResult.totalRequestedWatts.toFixed(1)} Watts`, 'Sum of class power reserved by all connected devices'],
+        ['Remaining Switch Power Reserve', `${poeResult.remainingBudgetWatts >= 0 ? `+${poeResult.remainingBudgetWatts.toFixed(1)} W` : `${poeResult.remainingBudgetWatts.toFixed(1)} W`}`, poeResult.remainingBudgetWatts >= 0 ? 'Surplus buffer available for future expansion' : 'CRITICAL DEFICIT - EXCEEDS SWITCH POWER CAPACITY'],
+        ['Power Budget Utilization', `${poeResult.utilizationPct.toFixed(1)}%`, poeResult.utilizationPct <= 80 ? 'Optimal (Maintains recommended 80% planning habit)' : 'Warning (Continuous load exceeds 80% threshold)'],
+        ['Switch PoE Port Allocation', `${poeResult.totalPortsUsed} of ${switchPortsCount} Ports`, `${poeResult.availablePortsRemaining >= 0 ? `${poeResult.availablePortsRemaining} unused PoE switch ports remaining` : `Exceeds port capacity by ${Math.abs(poeResult.availablePortsRemaining)} ports`}`],
+        ['Required Switch Port Standard', POE_STANDARDS[poeResult.highestStandard].name, `Minimum ${POE_STANDARDS[poeResult.highestStandard].commonName} (${POE_STANDARDS[poeResult.highestStandard].maxPseWatts}W port power required)`],
+        ['Recommended Sized Switch Budget', `${poeResult.recommendedBudgetWithHeadroomWatts} Watts`, 'Calculated with 20% safety headroom for IR/motor startup spikes'],
       ];
 
-      curY += 6;
+      curY += 5.5;
       doc.setFillColor(255, 255, 255);
       doc.rect(14, curY, 182, poeItems.length * rowH, 'FD');
 
@@ -933,44 +1064,45 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
         doc.line(14, itemY + rowH, 196, itemY + rowH);
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7);
+        doc.setFontSize(6.8);
         doc.setTextColor(71, 85, 105);
-        doc.text(item[0], 17, itemY + 4.2);
+        doc.text(item[0], 17, itemY + 3.8);
 
         doc.setTextColor(15, 23, 42);
-        doc.text(item[1], 75, itemY + 4.2);
+        doc.text(item[1], 75, itemY + 3.8);
 
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(100, 116, 139);
-        doc.text(item[2], 125, itemY + 4.2);
+        doc.text(item[2], 122, itemY + 3.8);
       });
 
       // SECTION 3: Device Inventory Table
-      curY += poeItems.length * rowH + 6;
+      curY += poeItems.length * rowH + 5;
       doc.setFillColor(15, 23, 42);
-      doc.rect(14, curY, 182, 6, 'F');
+      doc.rect(14, curY, 182, 5.5, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.text('3. CONNECTED POE DEVICE INVENTORY & POWER AUDIT', 17, curY + 4.2);
+      doc.setFontSize(7.5);
+      doc.text('3. CONNECTED POE DEVICE INVENTORY & CABLE USAGE AUDIT', 17, curY + 3.8);
 
-      curY += 6;
-      const devH = 6.2;
+      curY += 5.5;
+      const devH = 5.2;
       // Header row
       doc.setFillColor(241, 245, 249);
-      doc.rect(14, curY, 182, 6, 'F');
+      doc.rect(14, curY, 182, 5.5, 'F');
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.8);
+      doc.setFontSize(6.4);
       doc.setTextColor(71, 85, 105);
-      doc.text('DEVICE DESCRIPTION', 17, curY + 4.2);
-      doc.text('QTY', 85, curY + 4.2);
-      doc.text('CLASS', 100, curY + 4.2);
-      doc.text('WATTS EA', 125, curY + 4.2);
-      doc.text('TOTAL W', 145, curY + 4.2);
-      doc.text('AVG RUN', 165, curY + 4.2);
-      doc.text('PD DELIVERED', 182, curY + 4.2);
+      doc.text('DEVICE DESCRIPTION', 17, curY + 3.8);
+      doc.text('QTY', 70, curY + 3.8);
+      doc.text('POE CLASS', 82, curY + 3.8);
+      doc.text('WATTS EA', 105, curY + 3.8);
+      doc.text('TOTAL W', 123, curY + 3.8);
+      doc.text('RUN (M)', 141, curY + 3.8);
+      doc.text('TOTAL RUN', 157, curY + 3.8);
+      doc.text('STATUS', 178, curY + 3.8);
 
-      curY += 6;
+      curY += 5.5;
       poeResult.deviceBreakdowns.forEach((dev, idx) => {
         const itemY = curY + idx * devH;
         if (idx % 2 === 1) {
@@ -981,26 +1113,132 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
         doc.line(14, itemY + devH, 196, itemY + devH);
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.8);
+        doc.setFontSize(6.4);
         doc.setTextColor(15, 23, 42);
-        const nameTrunc = dev.name.length > 35 ? dev.name.substring(0, 32) + '...' : dev.name;
-        doc.text(nameTrunc, 17, itemY + 4.2);
+        const nameTrunc = dev.name.length > 32 ? dev.name.substring(0, 30) + '...' : dev.name;
+        doc.text(nameTrunc, 17, itemY + 3.6);
 
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(71, 85, 105);
-        doc.text(String(dev.qty), 87, itemY + 4.2);
-        doc.text(dev.classKey.split(' ')[0] + ' ' + dev.classKey.split(' ')[1], 100, itemY + 4.2);
-        doc.text(`${dev.effectiveWattsEach.toFixed(1)}W`, 125, itemY + 4.2);
+        doc.text(String(dev.qty), 72, itemY + 3.6);
+        doc.text(dev.classKey.split(' ')[0] + ' ' + dev.classKey.split(' ')[1], 82, itemY + 3.6);
+        doc.text(`${dev.effectiveWattsEach.toFixed(1)}W`, 105, itemY + 3.6);
 
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(2, 132, 199);
-        doc.text(`${dev.subtotalWatts.toFixed(1)}W`, 145, itemY + 4.2);
+        doc.text(`${dev.subtotalWatts.toFixed(1)}W`, 123, itemY + 3.6);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(71, 85, 105);
+        doc.text(`${dev.estCableLengthM}m`, 142, itemY + 3.6);
+        doc.text(`${dev.rowTotalLengthM}m`, 158, itemY + 3.6);
+
+        // Status Tag
+        const isPass = dev.estCableLengthM <= 90;
+        const isMarg = dev.estCableLengthM > 90 && dev.estCableLengthM <= 100;
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(isPass ? 5 : isMarg ? 217 : 225, isPass ? 150 : isMarg ? 119 : 29, isPass ? 105 : isMarg ? 6 : 72);
+        doc.text(isPass ? 'COMPLIANT' : isMarg ? 'MARGINAL' : 'FAIL (>100m)', 178, itemY + 3.6);
+      });
+
+      // Summary Totals Row
+      curY += poeResult.deviceBreakdowns.length * devH;
+      doc.setFillColor(240, 249, 255);
+      doc.rect(14, curY, 182, 5.5, 'F');
+      doc.setDrawColor(56, 189, 248);
+      doc.line(14, curY, 196, curY);
+      doc.line(14, curY + 5.5, 196, curY + 5.5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.4);
+      doc.setTextColor(15, 23, 42);
+      doc.text('TOTAL ALL DEVICES', 17, curY + 3.8);
+      doc.text(`${poeResult.totalPortsUsed}`, 72, curY + 3.8);
+      doc.text(POE_STANDARDS[poeResult.highestStandard].commonName, 82, curY + 3.8);
+      doc.text('—', 105, curY + 3.8);
+      doc.setTextColor(2, 132, 199);
+      doc.text(`${poeResult.totalRequestedWatts.toFixed(1)}W`, 123, curY + 3.8);
+      doc.setTextColor(15, 23, 42);
+      doc.text('—', 142, curY + 3.8);
+      doc.text(`${materialCostResult.totalCableMeters.toFixed(0)}m`, 158, curY + 3.8);
+      const anyOver = deviceRows.some(d => d.estCableLengthM > 100);
+      const anyMarg = deviceRows.some(d => d.estCableLengthM > 90);
+      doc.setTextColor(anyOver ? 225 : anyMarg ? 217 : 5, anyOver ? 29 : anyMarg ? 119 : 150, anyOver ? 72 : anyMarg ? 6 : 105);
+      doc.text(anyOver ? 'FAIL' : anyMarg ? 'MARGINAL' : 'ALL PASS', 178, curY + 3.8);
+
+      // SECTION 4: Project Material Cost & Bulk Spool Sizing
+      curY += 9;
+      doc.setFillColor(15, 23, 42);
+      doc.rect(14, curY, 182, 5.5, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.text('4. PROJECT CABLE MATERIAL ESTIMATE & BULK SPOOL REQUIREMENTS', 17, curY + 3.8);
+
+      const matItems = [
+        ['Total Horizontal Cable Length', `${materialCostResult.totalCableMeters.toFixed(1)} m (${materialCostResult.totalCableFeet.toFixed(0)} ft)`, `Across ${materialCostResult.totalRunsCount} physical camera and equipment runs`],
+        ['Material Cost Rate per Meter', materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.unitCost.toFixed(2)} / meter` : 'Optional / Not configured', 'Direct unit purchase rate for bulk solid copper cable'],
+        ['Total Raw Material Cost', materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.baseCost.toFixed(2)}` : 'N/A', 'Base raw length material expenditure'],
+        ['Total Cost (+10% Slack Buffer)', materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.totalWithSlackCost.toFixed(2)}` : 'N/A', `Includes 10% service loop and termination buffer (${materialCostResult.totalWithSlackMeters.toFixed(0)}m total)`],
+        ['Commercial 305m (1000 ft) Pull Boxes', `${materialCostResult.standard305mBoxes} ${materialCostResult.standard305mBoxes === 1 ? 'Box' : 'Boxes'} (~${materialCostResult.standard305mBoxes * 305} m spool stock)`, 'Standard commercial spool box packaging requirements'],
+      ];
+
+      curY += 5.5;
+      doc.setFillColor(255, 255, 255);
+      doc.rect(14, curY, 182, matItems.length * rowH, 'FD');
+
+      matItems.forEach((item, idx) => {
+        const itemY = curY + idx * rowH;
+        if (idx % 2 === 1) {
+          doc.setFillColor(248, 250, 252);
+          doc.rect(14, itemY, 182, rowH, 'F');
+        }
+        doc.setDrawColor(241, 245, 249);
+        doc.line(14, itemY + rowH, 196, itemY + rowH);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.8);
+        doc.setTextColor(71, 85, 105);
+        doc.text(item[0], 17, itemY + 3.8);
+
+        doc.setTextColor(15, 23, 42);
+        doc.text(item[1], 75, itemY + 3.8);
 
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(100, 116, 139);
-        doc.text(`${dev.estCableLengthM}m`, 165, itemY + 4.2);
-        doc.text(`${dev.wattsDeliveredAtDevice.toFixed(1)}W`, 182, itemY + 4.2);
+        doc.text(item[2], 122, itemY + 3.8);
       });
+
+      // SECTION 5: Engineering Verdict & Installation Best Practices
+      curY += matItems.length * rowH + 5;
+      const isOverallPass = cableResult.isWithinLimit && poeResult.status === 'ok' && !deviceRows.some(d => d.estCableLengthM > 100);
+      const isOverallTight = !isOverallPass && poeResult.status === 'tight' && cableResult.isWithinLimit && !deviceRows.some(d => d.estCableLengthM > 100);
+
+      doc.setFillColor(isOverallPass ? 240 : isOverallTight ? 255 : 254, isOverallPass ? 253 : isOverallTight ? 251 : 242, isOverallPass ? 244 : isOverallTight ? 235 : 242);
+      doc.setDrawColor(isOverallPass ? 16 : isOverallTight ? 245 : 244, isOverallPass ? 185 : isOverallTight ? 158 : 63, isOverallPass ? 129 : isOverallTight ? 11 : 94);
+      doc.roundedRect(14, curY, 182, 22, 2, 2, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.2);
+      doc.setTextColor(isOverallPass ? 5 : isOverallTight ? 217 : 225, isOverallPass ? 150 : isOverallTight ? 119 : 29, isOverallPass ? 105 : isOverallTight ? 6 : 72);
+      doc.text(
+        !cableResult.isSupported
+          ? `SYSTEM ENGINEERING VERDICT: CHECK CABLE STANDARD - ${cableCategory.toUpperCase()} CANNOT CARRY ${linkSpeed}`
+          : isOverallPass
+          ? 'SYSTEM ENGINEERING VERDICT: FULLY COMPLIANT WITH TIA-568-D & IEEE 802.3'
+          : isOverallTight
+          ? 'SYSTEM ENGINEERING VERDICT: MARGINAL / HIGH UTILIZATION NOTICE (>80%)'
+          : 'SYSTEM ENGINEERING VERDICT: NON-COMPLIANT SPECIFICATION (ACTION REQUIRED)',
+        18,
+        curY + 5
+      );
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.4);
+      doc.setTextColor(71, 85, 105);
+      doc.text('• Cable Distance Limit: TIA/ISO channel maximum is 100m total (<=90m permanent solid horizontal + <=10m patch cords).', 18, curY + 9.5);
+      doc.text('• PoE Power Budgeting: Maintain continuous load <=80% of switch capacity to absorb night IR illuminator and PTZ motor spikes.', 18, curY + 13.5);
+      doc.text('• Pure Copper Conductor Standard: Never use Copper-Clad Aluminium (CCA) for PoE; CCA causes severe thermal rise and voltage drop.', 18, curY + 17.5);
 
       // Page 1 Footer
       doc.setDrawColor(226, 232, 240);
@@ -1151,13 +1389,13 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           </button>
           <button
             type="button"
-            className="button button-secondary"
+            className="button button-primary"
             onClick={handleExportPdf}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
-            title="Export clean PDF engineering specification report"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 700 }}
+            title="Generate and download formatted PDF engineering specification report"
           >
-            {exportedPdf ? <Check className="w-4 h-4 text-emerald-400" /> : <FileText className="w-4 h-4 text-rose-400" />}
-            {exportedPdf ? 'Exported PDF!' : 'Download PDF'}
+            {exportedPdf ? <Check className="w-4 h-4 text-emerald-200" /> : <FileText className="w-4 h-4 text-rose-200" />}
+            {exportedPdf ? 'PDF Downloaded!' : 'Download PDF Summary'}
           </button>
           <button
             type="button"
@@ -1307,25 +1545,42 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
 
             {/* Link Speed */}
             <div>
-              <label htmlFor="link-spd" style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
-                Ethernet Link Speed
+              <label htmlFor="link-spd" style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Ethernet Link Speed</span>
+                {!cableResult.isSupported && (
+                  <span style={{ fontSize: '0.72rem', color: 'var(--rose)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <AlertTriangle className="w-3.5 h-3.5" /> Check standard
+                  </span>
+                )}
               </label>
               <select
                 id="link-spd"
                 value={linkSpeed}
                 onChange={e => setLinkSpeed(e.target.value as LinkSpeed)}
-                style={{ fontSize: '0.88rem' }}
+                style={{
+                  fontSize: '0.88rem',
+                  borderColor: !cableResult.isSupported ? 'var(--rose)' : undefined,
+                  background: !cableResult.isSupported ? 'rgba(239, 68, 68, 0.05)' : undefined,
+                }}
               >
                 <option value="100M">100 Mbps (Fast Ethernet)</option>
                 <option value="1G">1 Gbps (1000BASE-T)</option>
                 <option value="2.5G">2.5 Gbps (2.5GBASE-T / 802.3bz)</option>
-                <option value="5G">5 Gbps (5GBASE-T / 802.3bz)</option>
-                <option value="10G">10 Gbps (10GBASE-T)</option>
-                <option value="25G">25 Gbps (25GBASE-T Cat8)</option>
-                <option value="40G">40 Gbps (40GBASE-T Cat8)</option>
+                <option value="5G">
+                  5 Gbps (5GBASE-T / 802.3bz){CABLE_SPECS[cableCategory].speedLimits['5G'] === 0 ? ' [Unsupported]' : ''}
+                </option>
+                <option value="10G">
+                  10 Gbps (10GBASE-T){CABLE_SPECS[cableCategory].speedLimits['10G'] === 0 ? ' [Unsupported]' : ''}
+                </option>
+                <option value="25G">
+                  25 Gbps (25GBASE-T Cat8){CABLE_SPECS[cableCategory].speedLimits['25G'] === 0 ? ' [Unsupported]' : ''}
+                </option>
+                <option value="40G">
+                  40 Gbps (40GBASE-T Cat8){CABLE_SPECS[cableCategory].speedLimits['40G'] === 0 ? ' [Unsupported]' : ''}
+                </option>
               </select>
-              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Target switch-to-device interface throughput
+              <div style={{ fontSize: '0.74rem', color: !cableResult.isSupported ? 'var(--rose)' : 'var(--text-muted)', marginTop: '4px', fontWeight: !cableResult.isSupported ? 600 : 400 }}>
+                {!cableResult.isSupported ? '⚠️ Check cable standard: Speed unsupported' : 'Target switch-to-device interface throughput'}
               </div>
             </div>
 
@@ -1414,6 +1669,64 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
             </div>
           </div>
 
+          {/* Check cable standard warning banner if selected category does not support link speed */}
+          {!cableResult.isSupported && (
+            <div
+              style={{
+                padding: '14px 18px',
+                borderRadius: '12px',
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1.5px solid rgba(239, 68, 68, 0.5)',
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px',
+              }}
+            >
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '8px',
+                  background: 'rgba(239, 68, 68, 0.22)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  border: '1px solid rgba(239, 68, 68, 0.45)',
+                }}
+              >
+                <AlertTriangle className="w-5 h-5 text-rose-400" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--rose)' }}>
+                    Check cable standard
+                  </span>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      background: 'rgba(239, 68, 68, 0.25)',
+                      color: 'var(--rose)',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                    }}
+                  >
+                    Speed Incompatibility
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.86rem', color: 'var(--text-heading)', lineHeight: 1.5 }}>
+                  The selected cable category <strong>{cableCategory}</strong> does not support <strong>{linkSpeed}</strong> under IEEE 802.3 and ANSI/TIA-568 standards. {getCableStandardRecommendation(cableCategory, linkSpeed)}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Environmental Conditions: Alien Crosstalk & Link Breakdown */}
           <div
             style={{
@@ -1450,13 +1763,15 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
               Tight conduit / cable bundle (high alien crosstalk environment)
             </label>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
               <span>Permanent link breakdown:</span>
-              <span style={{ fontWeight: 700, color: cableResult.isPermanentLinkWarning ? 'var(--rose)' : 'var(--text-heading)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 700, color: cableResult.isPermanentLinkWarning ? 'var(--rose)' : 'var(--emerald)' }}>
+                {cableResult.isPermanentLinkWarning ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 ~{cableResult.estPermanentLinkM.toFixed(1)}m in-wall solid
               </span>
               <span>+</span>
-              <span style={{ fontWeight: 700, color: cableResult.isPatchCordWarning ? 'var(--rose)' : 'var(--text-heading)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 700, color: cableResult.isPatchCordWarning ? 'var(--rose)' : 'var(--emerald)' }}>
+                {cableResult.isPatchCordWarning ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 ~{cableResult.estPatchCordM.toFixed(1)}m patch cords
               </span>
             </div>
@@ -1483,11 +1798,11 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
               <div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
                   {cableResult.status === 'ok' && <CheckCircle2 className="w-6 h-6 text-emerald-400" />}
                   {cableResult.status === 'marginal' && <AlertTriangle className="w-6 h-6 text-amber-400" />}
                   {cableResult.status === 'over' && <XCircle className="w-6 h-6 text-rose-400" />}
-                  {cableResult.status === 'unsupported' && <XCircle className="w-6 h-6 text-rose-400" />}
+                  {cableResult.status === 'unsupported' && <AlertTriangle className="w-6 h-6 text-rose-400" />}
 
                   <span
                     style={{
@@ -1499,8 +1814,79 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                     {cableResult.status === 'ok' && 'Within Certified Limit'}
                     {cableResult.status === 'marginal' && 'Warning: Close to Channel Limit'}
                     {cableResult.status === 'over' && 'Too Long: Exceeds Maximum Distance'}
-                    {cableResult.status === 'unsupported' && 'Speed Not Supported on Category'}
+                    {cableResult.status === 'unsupported' && 'Check Cable Standard'}
                   </span>
+
+                  {/* Explicit Visual Status Pill */}
+                  {cableResult.status === 'ok' ? (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 10px',
+                        borderRadius: '20px',
+                        background: 'rgba(16, 185, 129, 0.2)',
+                        color: 'var(--emerald)',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                      }}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Compliant
+                    </span>
+                  ) : cableResult.status === 'marginal' ? (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 10px',
+                        borderRadius: '20px',
+                        background: 'rgba(245, 158, 11, 0.2)',
+                        color: 'var(--amber)',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                      }}
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" /> Marginal
+                    </span>
+                  ) : cableResult.status === 'unsupported' ? (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 10px',
+                        borderRadius: '20px',
+                        background: 'rgba(244, 63, 94, 0.2)',
+                        color: 'var(--rose)',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        border: '1px solid rgba(244, 63, 94, 0.4)',
+                      }}
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" /> Check cable standard
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 10px',
+                        borderRadius: '20px',
+                        background: 'rgba(244, 63, 94, 0.2)',
+                        color: 'var(--rose)',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        border: '1px solid rgba(244, 63, 94, 0.4)',
+                      }}
+                    >
+                      <XCircle className="w-3.5 h-3.5" /> Non-Compliant
+                    </span>
+                  )}
                 </div>
 
                 <p style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-muted)' }}>
@@ -1508,33 +1894,57 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                     <>
                       Testing <strong>{lengthMeters.toFixed(1)} m</strong> ({lengthFeet.toFixed(0)} ft) against the <strong>{cableResult.maxDistM} m</strong> ({cableResult.maxDistFt.toFixed(0)} ft) certified standard limit for <strong>{cableCategory}</strong> at <strong>{linkSpeed}</strong>.
                       {cableResult.isWithinLimit ? (
-                        <span style={{ color: 'var(--emerald)', fontWeight: 700, marginLeft: '6px' }}>
-                          ({cableResult.deltaMeters.toFixed(1)} m headroom remaining)
+                        <span style={{ color: 'var(--emerald)', fontWeight: 700, marginLeft: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <CheckCircle2 className="w-3.5 h-3.5 inline" /> {cableResult.deltaMeters.toFixed(1)} m headroom remaining
                         </span>
                       ) : (
-                        <span style={{ color: 'var(--rose)', fontWeight: 700, marginLeft: '6px' }}>
-                          (Exceeds limit by {cableResult.overMeters.toFixed(1)} m / {cableResult.overFeet.toFixed(0)} ft)
+                        <span style={{ color: 'var(--rose)', fontWeight: 700, marginLeft: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <XCircle className="w-3.5 h-3.5 inline" /> Exceeds limit by {cableResult.overMeters.toFixed(1)} m / {cableResult.overFeet.toFixed(0)} ft
                         </span>
                       )}
                     </>
                   ) : (
                     <>
-                      <strong>{cableCategory}</strong> is not rated or certified for <strong>{linkSpeed}</strong> speeds under TIA/ISO standards. Upgrade to Cat6 or Cat6a.
+                      <strong style={{ color: 'var(--rose)' }}>Check cable standard: </strong>
+                      <strong>{cableCategory}</strong> is not rated or certified for <strong>{linkSpeed}</strong> speeds under ANSI/TIA-568 standards. {getCableStandardRecommendation(cableCategory, linkSpeed)}
                     </>
                   )}
                 </p>
               </div>
 
-              {/* Quick Metrics Badge */}
+              {/* Quick Metrics Badges with Visual Compliance Icons */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <div style={{ background: 'var(--surface)', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)', textAlign: 'right' }}>
+                <div style={{ background: 'var(--surface)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>HEADROOM STATUS</div>
+                  <strong style={{ fontSize: '0.88rem', color: cableResult.isSupported ? (cableResult.isWithinLimit ? 'var(--emerald)' : 'var(--rose)') : 'var(--rose)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    {cableResult.isSupported ? (
+                      cableResult.isWithinLimit ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />
+                    ) : (
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                    )}
+                    {cableResult.isSupported
+                      ? cableResult.isWithinLimit
+                        ? `${cableResult.deltaMeters.toFixed(1)}m Headroom`
+                        : `${cableResult.overMeters.toFixed(1)}m Over`
+                      : 'Check cable standard'}
+                  </strong>
+                </div>
+                <div style={{ background: 'var(--surface)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', textAlign: 'right' }}>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>DC LOOP RESISTANCE</div>
                   <strong style={{ fontSize: '0.95rem', color: 'var(--text-heading)' }}>~{cableResult.loopResistanceOhms.toFixed(1)} Ω</strong>
                 </div>
-                <div style={{ background: 'var(--surface)', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)', textAlign: 'right' }}>
+                <div style={{ background: 'var(--surface)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', textAlign: 'right' }}>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>ONE-WAY LATENCY</div>
                   <strong style={{ fontSize: '0.95rem', color: 'var(--text-heading)' }}>~{cableResult.oneWayLatencyNs.toFixed(0)} ns</strong>
                 </div>
+                {materialCostResult.isCostConfigured && (
+                  <div style={{ background: 'var(--surface)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>RUN MATERIAL COST</div>
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--emerald)' }}>
+                      {costCurrency}{materialCostResult.singleRunCost.toFixed(2)}
+                    </strong>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1604,6 +2014,26 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
 
             {/* Engineering Warnings & Field Recommendations */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem' }}>
+              {!cableResult.isSupported && (
+                <div
+                  style={{
+                    color: 'var(--rose)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '8px',
+                    background: 'rgba(244, 63, 94, 0.08)',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(244, 63, 94, 0.3)',
+                  }}
+                >
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Check cable standard:</strong> {cableCategory} does not support {linkSpeed} Ethernet under IEEE 802.3 standards. {getCableStandardRecommendation(cableCategory, linkSpeed)}
+                  </span>
+                </div>
+              )}
+
               {cableResult.isPermanentLinkWarning && (
                 <div style={{ color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -1630,6 +2060,47 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                   </span>
                 </div>
               )}
+            </div>
+
+            {/* Quick Action Export Buttons for Cable Run Calculation */}
+            <div
+              style={{
+                marginTop: '16px',
+                paddingTop: '14px',
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px',
+              }}
+            >
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FileText className="w-4 h-4 text-sky-400" />
+                <span>Save calculations & specifications:</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={handleExportPdf}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 14px', fontWeight: 700 }}
+                  title="Generate and download formatted PDF engineering specification report"
+                >
+                  {exportedPdf ? <Check className="w-3.5 h-3.5 text-emerald-200" /> : <Download className="w-3.5 h-3.5" />}
+                  {exportedPdf ? 'PDF Downloaded!' : 'Download PDF Summary'}
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={handleExportCsv}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px' }}
+                  title="Download raw data as CSV spreadsheet"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                  Download CSV
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1761,8 +2232,23 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           {/* PoE Budget KPI Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div style={{ padding: '14px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px' }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                TOTAL REQUESTED POWER
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  TOTAL REQUESTED POWER
+                </span>
+                {poeResult.status === 'ok' ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.68rem', fontWeight: 800, color: 'var(--emerald)' }}>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Normal
+                  </span>
+                ) : poeResult.status === 'tight' ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.68rem', fontWeight: 800, color: 'var(--amber)' }}>
+                    <AlertTriangle className="w-3.5 h-3.5" /> High Load
+                  </span>
+                ) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.68rem', fontWeight: 800, color: 'var(--rose)' }}>
+                    <XCircle className="w-3.5 h-3.5" /> Overload
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#38bdf8', margin: '4px 0 2px' }}>
                 {poeResult.totalRequestedWatts.toFixed(1)} W
@@ -1773,8 +2259,43 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
             </div>
 
             <div style={{ padding: '14px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px' }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                REMAINING BUDGET
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  REMAINING BUDGET
+                </span>
+                {poeResult.remainingBudgetWatts >= 0 ? (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      color: 'var(--emerald)',
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Surplus
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      color: 'var(--rose)',
+                      background: 'rgba(244, 63, 94, 0.12)',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <XCircle className="w-3.5 h-3.5" /> Deficit
+                  </span>
+                )}
               </div>
               <div
                 style={{
@@ -1784,7 +2305,7 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                   margin: '4px 0 2px',
                 }}
               >
-                {poeResult.remainingBudgetWatts.toFixed(1)} W
+                {poeResult.remainingBudgetWatts >= 0 ? `+${poeResult.remainingBudgetWatts.toFixed(1)} W` : `${poeResult.remainingBudgetWatts.toFixed(1)} W`}
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                 {poeResult.remainingBudgetWatts >= 0 ? 'Available surplus wattage' : 'Deficit power shortfall'}
@@ -1792,8 +2313,59 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
             </div>
 
             <div style={{ padding: '14px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px' }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                BUDGET LOAD UTILIZATION
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  BUDGET UTILIZATION
+                </span>
+                {poeResult.utilizationPct <= 80 ? (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      color: 'var(--emerald)',
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Compliant
+                  </span>
+                ) : poeResult.utilizationPct <= 100 ? (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      color: 'var(--amber)',
+                      background: 'rgba(245, 158, 11, 0.12)',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" /> Marginal
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      color: 'var(--rose)',
+                      background: 'rgba(244, 63, 94, 0.12)',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <XCircle className="w-3.5 h-3.5" /> Over Budget
+                  </span>
+                )}
               </div>
               <div
                 style={{
@@ -1806,19 +2378,54 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                 {poeResult.utilizationPct.toFixed(0)}%
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                {poeResult.utilizationPct <= 80 ? 'Optimal planning headroom' : poeResult.utilizationPct <= 100 ? 'Warning: Tight headroom' : 'CRITICAL OVER-BUDGET'}
+                {poeResult.utilizationPct <= 80 ? 'Optimal planning headroom (≤80%)' : poeResult.utilizationPct <= 100 ? 'Warning: Tight headroom (>80%)' : 'CRITICAL OVER-BUDGET (>100%)'}
               </div>
             </div>
 
             <div style={{ padding: '14px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px' }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                MINIMUM PORT STANDARD
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  PORT ALLOCATION
+                </span>
+                {!poeResult.isPortExceeded ? (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      color: 'var(--emerald)',
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Pass
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      color: 'var(--rose)',
+                      background: 'rgba(244, 63, 94, 0.12)',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <XCircle className="w-3.5 h-3.5" /> Exceeded
+                  </span>
+                )}
               </div>
-              <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#818cf8', margin: '6px 0 2px' }}>
-                {POE_STANDARDS[poeResult.highestStandard].commonName}
+              <div style={{ fontSize: '1.6rem', fontWeight: 900, color: !poeResult.isPortExceeded ? 'var(--text-heading)' : 'var(--rose)', margin: '4px 0 2px' }}>
+                {poeResult.totalPortsUsed} <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-muted)' }}>/ {switchPortsCount}</span>
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                Switch ports must support {POE_STANDARDS[poeResult.highestStandard].maxPseWatts}W
+                Min standard: <strong>{POE_STANDARDS[poeResult.highestStandard].commonName}</strong> ({POE_STANDARDS[poeResult.highestStandard].maxPseWatts}W)
               </div>
             </div>
           </div>
@@ -1933,6 +2540,240 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
             </div>
           </div>
 
+          {/* Cable Material Cost & Bulk Spool Estimation Panel */}
+          <div
+            style={{
+              padding: '18px 20px',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '12px',
+              marginBottom: '20px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                  <DollarSign className="w-5 h-5 text-emerald-400" />
+                  <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-heading)' }}>
+                    Cable Material Cost &amp; Spool Estimator (Optional):
+                  </h3>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Calculate total physical copper required across all camera/device runs, projected material cost, and 305m (1,000 ft) bulk spool box requirements.
+                </p>
+              </div>
+
+              {/* Currency Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Currency:</span>
+                {['$', '€', '£', '₹'].map(curr => (
+                  <button
+                    key={curr}
+                    type="button"
+                    onClick={() => setCostCurrency(curr)}
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '0.75rem',
+                      borderRadius: '4px',
+                      background: costCurrency === curr ? 'var(--emerald)' : 'var(--surface)',
+                      color: costCurrency === curr ? '#ffffff' : 'var(--text-muted)',
+                      border: '1px solid var(--border)',
+                      cursor: 'pointer',
+                      fontWeight: costCurrency === curr ? 800 : 500,
+                    }}
+                  >
+                    {curr}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Input Controls Row */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '14px',
+                alignItems: 'flex-end',
+                marginBottom: '16px',
+                padding: '12px 14px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '10px',
+              }}
+            >
+              {/* Cost per meter input */}
+              <div>
+                <label htmlFor="cost-per-meter" style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '5px' }}>
+                  Cable Cost per Meter ({costCurrency}/m)
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-heading)' }}>
+                    {costCurrency}
+                  </span>
+                  <input
+                    id="cost-per-meter"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="50"
+                    value={costPerMeter}
+                    onChange={e => {
+                      const val = e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value));
+                      setCostPerMeter(val);
+                    }}
+                    placeholder="e.g. 0.48"
+                    style={{ padding: '6px 10px', fontSize: '0.88rem', width: '130px' }}
+                  />
+                  {costPerMeter !== '' && (
+                    <button
+                      type="button"
+                      onClick={() => setCostPerMeter('')}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '0.72rem',
+                        background: 'transparent',
+                        border: '1px solid var(--border)',
+                        borderRadius: '4px',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                      }}
+                      title="Clear cost per meter"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Category Price Presets */}
+              <div>
+                <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '5px' }}>
+                  Typical Category Presets ({costCurrency}/m):
+                </span>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'Cat5e', price: 0.32 },
+                    { label: 'Cat6', price: 0.48 },
+                    { label: 'Cat6a', price: 0.78 },
+                    { label: 'Cat7/8', price: 1.25 },
+                  ].map(p => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setCostPerMeter(p.price)}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '0.74rem',
+                        borderRadius: '6px',
+                        background: costPerMeter === p.price ? 'rgba(16, 185, 129, 0.2)' : 'var(--bg)',
+                        border: `1px solid ${costPerMeter === p.price ? 'var(--emerald)' : 'var(--border)'}`,
+                        color: costPerMeter === p.price ? 'var(--emerald)' : 'var(--text-heading)',
+                        fontWeight: costPerMeter === p.price ? 800 : 500,
+                        cursor: 'pointer',
+                      }}
+                      title={`Set ${p.label} typical bulk price (${costCurrency}${p.price.toFixed(2)}/m)`}
+                    >
+                      {p.label} ({costCurrency}{p.price.toFixed(2)})
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 10% Service Loop / Pull Slack Option */}
+              <div>
+                <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    color: includeSlackBuffer ? 'var(--text-heading)' : 'var(--text-muted)',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={includeSlackBuffer}
+                    onChange={e => setIncludeSlackBuffer(e.target.checked)}
+                    style={{ width: '16px', height: '16px', accentColor: 'var(--emerald)' }}
+                  />
+                  Include +10% service loop &amp; termination slack
+                </label>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', paddingLeft: '24px' }}>
+                  Recommended industry buffer for vertical risers &amp; drops
+                </div>
+              </div>
+            </div>
+
+            {/* Real-time Material Cost & Spool Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  TOTAL CABLE (ALL RUNS)
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#38bdf8', margin: '3px 0 1px' }}>
+                  {materialCostResult.totalCableMeters.toFixed(1)} m
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  ~{materialCostResult.totalCableFeet.toFixed(0)} ft across {materialCostResult.totalRunsCount} device runs
+                </div>
+              </div>
+
+              <div style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  TOTAL MATERIAL COST
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.4rem',
+                    fontWeight: 900,
+                    color: materialCostResult.isCostConfigured ? 'var(--emerald)' : 'var(--text-muted)',
+                    margin: '3px 0 1px',
+                  }}
+                >
+                  {materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.baseCost.toFixed(2)}` : '—'}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {materialCostResult.isCostConfigured ? `Direct runs @ ${costCurrency}${materialCostResult.unitCost.toFixed(2)}/m` : 'Enter unit cost above'}
+                </div>
+              </div>
+
+              <div style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  WITH 10% SLACK BUFFER
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.4rem',
+                    fontWeight: 900,
+                    color: materialCostResult.isCostConfigured ? 'var(--emerald)' : 'var(--text-muted)',
+                    margin: '3px 0 1px',
+                  }}
+                >
+                  {materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.totalWithSlackCost.toFixed(2)}` : '—'}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {materialCostResult.totalWithSlackMeters.toFixed(0)} m required pull length (+{materialCostResult.slackMeters.toFixed(0)}m)
+                </div>
+              </div>
+
+              <div style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Package className="w-3.5 h-3.5 text-sky-400" />
+                  305m (1000 FT) PULL BOXES
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#818cf8', margin: '3px 0 1px' }}>
+                  {materialCostResult.standard305mBoxes} {materialCostResult.standard305mBoxes === 1 ? 'Box' : 'Boxes'}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  Standard commercial 305m spool stock
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Connected Device Inventory Table */}
           <div style={{ marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
@@ -1955,17 +2796,23 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                 <thead>
                   <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)', color: 'var(--text-muted)' }}>
                     <th style={{ padding: '10px 12px' }}>Device Description</th>
-                    <th style={{ padding: '10px 12px', width: '90px' }}>Quantity</th>
-                    <th style={{ padding: '10px 12px', minWidth: '170px' }}>PoE Class Standard</th>
-                    <th style={{ padding: '10px 12px', width: '110px' }}>Watts Each</th>
-                    <th style={{ padding: '10px 12px', width: '110px' }}>Subtotal (W)</th>
-                    <th style={{ padding: '10px 12px', width: '110px' }}>Run Dist (m)</th>
-                    <th style={{ padding: '10px 12px', width: '90px', textAlign: 'center' }}>Actions</th>
+                    <th style={{ padding: '10px 12px', width: '80px' }}>Quantity</th>
+                    <th style={{ padding: '10px 12px', minWidth: '150px' }}>PoE Class Standard</th>
+                    <th style={{ padding: '10px 12px', width: '90px' }}>Watts Each</th>
+                    <th style={{ padding: '10px 12px', width: '95px' }}>Power (W)</th>
+                    <th style={{ padding: '10px 12px', width: '85px' }}>Run (m)</th>
+                    <th style={{ padding: '10px 12px', width: '95px' }}>Total Cable</th>
+                    <th style={{ padding: '10px 12px', width: '95px' }}>Cable Cost</th>
+                    <th style={{ padding: '10px 12px', minWidth: '150px' }}>Run Compliance</th>
+                    <th style={{ padding: '10px 12px', width: '80px', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {deviceRows.map((dev, idx) => {
                     const rowMetrics = poeResult.deviceBreakdowns[idx];
+                    const rowLengthM = rowMetrics ? rowMetrics.rowTotalLengthM : dev.qty * dev.estCableLengthM;
+                    const rowCost = rowLengthM * materialCostResult.unitCost;
+
                     return (
                       <tr
                         key={dev.id}
@@ -2044,6 +2891,75 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                           />
                         </td>
 
+                        {/* Total Cable for Device Group */}
+                        <td style={{ padding: '8px 12px', fontWeight: 700, color: '#38bdf8' }}>
+                          {rowLengthM.toFixed(0)} m
+                        </td>
+
+                        {/* Cable Material Cost for Device Group */}
+                        <td style={{ padding: '8px 12px', fontWeight: 700, color: materialCostResult.isCostConfigured ? 'var(--emerald)' : 'var(--text-muted)' }}>
+                          {materialCostResult.isCostConfigured ? `${costCurrency}${rowCost.toFixed(2)}` : '—'}
+                        </td>
+
+                        {/* Run Compliance Status with Visual Indicators */}
+                        <td style={{ padding: '8px 12px' }}>
+                          {dev.estCableLengthM <= 90 ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '3px 8px',
+                                borderRadius: '12px',
+                                background: 'rgba(16, 185, 129, 0.14)',
+                                color: 'var(--emerald)',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                              }}
+                              title="Within 90m solid permanent horizontal link standard"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" /> Compliant (&le;90m)
+                            </span>
+                          ) : dev.estCableLengthM <= 100 ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '3px 8px',
+                                borderRadius: '12px',
+                                background: 'rgba(245, 158, 11, 0.14)',
+                                color: 'var(--amber)',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                              }}
+                              title="Exceeds 90m permanent link; near 100m total channel limit"
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> Marginal (90-100m)
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '3px 8px',
+                                borderRadius: '12px',
+                                background: 'rgba(244, 63, 94, 0.14)',
+                                color: 'var(--rose)',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                              }}
+                              title="Exceeds 100m maximum Ethernet channel distance limit"
+                            >
+                              <XCircle className="w-3.5 h-3.5 flex-shrink-0" /> Non-Compliant (&gt;100m)
+                            </span>
+                          )}
+                        </td>
+
                         {/* Actions */}
                         <td style={{ padding: '8px 12px', textAlign: 'center' }}>
                           <div style={{ display: 'inline-flex', gap: '4px' }}>
@@ -2088,6 +3004,66 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                     </td>
                     <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.76rem' }}>
                       ~{poeResult.totalCopperCableHeatLossWatts.toFixed(1)}W Loss
+                    </td>
+                    <td style={{ padding: '10px 12px', color: '#38bdf8', fontSize: '0.92rem' }}>
+                      {materialCostResult.totalCableMeters.toFixed(1)} m
+                    </td>
+                    <td style={{ padding: '10px 12px', color: materialCostResult.isCostConfigured ? 'var(--emerald)' : 'var(--text-muted)', fontSize: '0.92rem' }}>
+                      {materialCostResult.isCostConfigured ? `${costCurrency}${materialCostResult.baseCost.toFixed(2)}` : '—'}
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
+                      {deviceRows.some(d => d.estCableLengthM > 100) ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            background: 'rgba(244, 63, 94, 0.18)',
+                            color: 'var(--rose)',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <XCircle className="w-3.5 h-3.5 flex-shrink-0" /> Non-Compliant Runs
+                        </span>
+                      ) : deviceRows.some(d => d.estCableLengthM > 90) ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            background: 'rgba(245, 158, 11, 0.18)',
+                            color: 'var(--amber)',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> Marginal Runs
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            background: 'rgba(16, 185, 129, 0.18)',
+                            color: 'var(--emerald)',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" /> All Runs Compliant
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '10px 12px' }}>—</td>
                   </tr>
@@ -2140,6 +3116,78 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
                 </span>
               </div>
             )}
+          </div>
+
+          {/* Dedicated Download PDF & CSV Action Banner */}
+          <div
+            style={{
+              marginTop: '18px',
+              padding: '16px 20px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.85) 100%)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '10px',
+                  background: 'rgba(244, 63, 94, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid rgba(244, 63, 94, 0.3)',
+                  flexShrink: 0,
+                }}
+              >
+                <FileText className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-heading)' }}>
+                  Download Professional Engineering Specification PDF
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Formatted specification sheet with cable pass/fail verification, PoE budget breakdown, connected device inventory, and material estimates.
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={handleExportPdf}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '0.86rem',
+                  padding: '9px 18px',
+                  fontWeight: 700,
+                  boxShadow: '0 4px 14px rgba(56, 189, 248, 0.25)',
+                }}
+                title="Generate and download formatted PDF engineering specification report"
+              >
+                {exportedPdf ? <Check className="w-4 h-4 text-emerald-200" /> : <Download className="w-4 h-4" />}
+                {exportedPdf ? 'PDF Downloaded!' : 'Download PDF Summary'}
+              </button>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleExportCsv}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.86rem', padding: '9px 16px' }}
+                title="Download calculations as CSV spreadsheet"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                Download CSV
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2337,6 +3385,22 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
             </summary>
             <p style={{ margin: '8px 0 0', fontSize: '0.86rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
               Cat5e is technically rated for 802.3af (15.4W) and 802.3at (30W). However, for 802.3bt Type 3 (60W) and Type 4 (90W), 24 AWG Cat5e conductors experience significant bundle heating. TIA-TSB-184-A guidelines strongly recommend 23 AWG or 22 AWG Cat6a / Cat6 for high-wattage 4-pair PoE to reduce conductor temperatures and prevent insertion loss degradation.
+            </p>
+          </details>
+
+          <details
+            style={{
+              padding: '12px 16px',
+              background: 'var(--bg)',
+              borderRadius: '10px',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <summary style={{ fontWeight: 700, cursor: 'pointer', color: 'var(--text-heading)', fontSize: '0.92rem' }}>
+              What does the 'Check cable standard' warning mean?
+            </summary>
+            <p style={{ margin: '8px 0 0', fontSize: '0.86rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              This warning appears when the selected cable category is not certified to support the target Ethernet link speed under ANSI/TIA-568 and IEEE 802.3 standards. For example, <strong>Cat5e</strong> is certified up to 100 MHz (supporting 1 Gbps and 2.5 Gbps NBASE-T) but cannot reliably transmit <strong>10 Gbps (10GBASE-T)</strong>. Attempting to run 10 Gbps over Cat5e causes severe packet loss, link flap, or interface down-negotiation to 1 Gbps. To achieve 10 Gbps throughput, upgrade to <strong>Cat6</strong> (up to 55 m) or <strong>Cat6a</strong> (full 100 m channel).
             </p>
           </details>
         </div>
