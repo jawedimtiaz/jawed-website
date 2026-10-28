@@ -48,7 +48,7 @@ try{
   ["/tools/personal-finance-snapshot/","Personal Finance Snapshot"],
   ["/tools/finance-planning-workspace/","Finance Planning Workspace"],
   ["/tools/ai-prompt-builder/","Craft Context-Rich AI Prompts That Get Results"],
-  ["/tools/interview-preparation-planner/","Interview Preparation Planner"],
+  ["/tools/interview-preparation-planner/","Structure High-Impact Behavioral Answers"],
   ["/tools/it-troubleshooting-assistant/","IT Troubleshooting Assistant"],
   ["/tools/resume-bullet-strength-checker/","Resume Bullet Strength Checker"],
   ["/tools/service-desk-note-formatter/","Service Desk Note Formatter"],
