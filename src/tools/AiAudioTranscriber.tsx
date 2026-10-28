@@ -73,7 +73,12 @@ export const AiAudioTranscriber: React.FC = () => {
 
       setAudioMimeType(mimeType);
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      let mediaRecorder: MediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream, { mimeType });
+      } catch {
+        mediaRecorder = new MediaRecorder(stream);
+      }
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {
@@ -98,7 +103,8 @@ export const AiAudioTranscriber: React.FC = () => {
       setTranscriptResult(null);
     } catch (err: any) {
       console.error('Error accessing microphone:', err);
-      setErrorMsg('Microphone access denied or unavailable. Please check browser permissions.');
+      const detail = err?.message ? ` (${err.message})` : '';
+      setErrorMsg(`Microphone access denied or unavailable${detail}. Please check browser permissions or use Audio File Upload below.`);
     }
   };
 
