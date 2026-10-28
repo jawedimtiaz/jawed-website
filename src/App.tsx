@@ -48,6 +48,7 @@ import { ItSalaryOfferCalculator } from './tools/ItSalaryOfferCalculator';
 import { CctvStorageCalculator } from './tools/CctvStorageCalculator';
 import { HardwareStorageCalculator } from './tools/HardwareStorageCalculator';
 import { CableLengthPoeChecker } from './tools/CableLengthPoeChecker';
+import { AiAudioTranscriber } from './tools/AiAudioTranscriber';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -135,6 +136,9 @@ export const App: React.FC = () => {
           <Route path="/tools/poe-budget-calculator" element={<CableLengthPoeChecker />} />
           <Route path="/tools/cable-length-checker" element={<CableLengthPoeChecker />} />
           <Route path="/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
+          <Route path="/tools/ai-audio-transcriber" element={<AiAudioTranscriber />} />
+          <Route path="/tools/audio-transcriber" element={<AiAudioTranscriber />} />
+          <Route path="/tools/transcribe" element={<AiAudioTranscriber />} />
 
           {/* Services & Dispatch */}
           <Route path="/services" element={<ServicesDispatchPage />} />

@@ -1,5 +1,7 @@
 import rawKnowledge from '../data/aiKnowledge.json';
-import { GUIDE_SEARCH_INDEX } from '../pages/NotesListPage';
+import blogData from '../data/blogData.json';
+import { FIELD_GUIDES } from '../data/fieldGuidesData';
+import { TOOLS } from '../data/toolsData';
 
 export interface KnowledgeEntry {
   url: string;
@@ -17,11 +19,9 @@ export interface AiResponse {
 
 // 1. Personal & Privacy Query Categories Guardrail
 const PERSONAL_CATEGORIES = [
-  // Family / relationship questions are never part of the public AI profile.
   "wife", "husband", "spouse", "partner", "married", "marriage", "children",
   "child", "son", "daughter", "kids", "family", "father", "mother", "parents",
   "brother", "sister", "sibling", "relatives",
-  // Direct requests for sensitive personal identifiers or personal facts.
   "home address", "exact address", "personal phone", "mobile number",
   "whatsapp number", "religion", "caste"
 ];
@@ -42,7 +42,7 @@ const PERSONAL_LOCATION_QUESTIONS = [
   /\b(?:jawed|he)(?:'s|\s+is)\s+(?:home|residence|location|address)\b/i
 ];
 
-// 2. Stop-Words List (Common filler words to filter out before scoring technical queries)
+// 2. Stop-Words List
 const STOP_WORDS = new Set([
   "who", "is", "the", "of", "a", "an", "and", "in", "on", "at", "to", "for",
   "he", "she", "it", "his", "him", "where", "what", "how", "can", "tell",
@@ -51,22 +51,85 @@ const STOP_WORDS = new Set([
   "could", "from", "with", "which"
 ]);
 
+// Build index of static knowledge entries, tools, field guides, and blog posts
 const rawEntries: KnowledgeEntry[] = (rawKnowledge as any).entries || [];
 
-// Dynamically convert GUIDE_SEARCH_INDEX from NotesListPage into KnowledgeEntry objects
-const guideKnowledgeEntries: KnowledgeEntry[] = (GUIDE_SEARCH_INDEX.items || []).map(item => ({
-  url: item.url,
-  title: item.title,
-  summary: item.description,
-  keywords: item.keywords
+// Convert FIELD_GUIDES into KnowledgeEntry objects
+const fieldGuideEntries: KnowledgeEntry[] = FIELD_GUIDES.map((g) => ({
+  url: `/guides/${g.slug}`,
+  title: g.title,
+  summary: g.description,
+  keywords: g.keywords || [],
 }));
 
-// Combine static aiKnowledge.json entries with dynamic GUIDE_SEARCH_INDEX items (de-duplicating by URL)
+// Convert TOOLS into KnowledgeEntry objects
+const toolEntries: KnowledgeEntry[] = TOOLS.map((t) => ({
+  url: t.route,
+  title: t.name,
+  summary: t.description,
+  keywords: t.keywords || ['tool', 'utility', 'calculator'],
+}));
+
+// Convert blogData into KnowledgeEntry objects
+const blogEntries: KnowledgeEntry[] = (blogData as any[]).map((b) => ({
+  url: `/blog/${b.slug}`,
+  title: b.title,
+  summary: b.description,
+  keywords: ['blog', 'article', 'case study', ...(b.slug ? b.slug.split('-') : [])],
+}));
+
+// Core Pages
+const corePageEntries: KnowledgeEntry[] = [
+  {
+    url: '/',
+    title: 'Home - Jawed Imtiaz',
+    summary: 'Portfolio, practical technical notes, career tools, and interactive utilities for IT support and workplace technology.',
+    keywords: ['home', 'portfolio', 'jawed', 'imtiaz', 'it field tech'],
+  },
+  {
+    url: '/guides',
+    title: 'Technical Field Guides & IT Notes',
+    summary: 'In-depth IT field notes on networking, macOS, Windows administration, cable verification, and workplace support workflows.',
+    keywords: ['field guides', 'notes', 'documentation', 'cheatsheet', 'sop'],
+  },
+  {
+    url: '/tools',
+    title: 'Interactive IT & Career Tools Directory',
+    summary: 'Browser-based calculators and interactive utilities for cabling, subnetting, power/BTU, resume review, and ticket formatting.',
+    keywords: ['tools', 'calculators', 'interactive', 'utilities'],
+  },
+  {
+    url: '/services',
+    title: 'Services & On-Site IT Support Dispatch',
+    summary: 'On-site workplace technology support, hardware setup, network cabling verification, and service desk dispatch.',
+    keywords: ['services', 'dispatch', 'on site support', 'hardware setup'],
+  },
+  {
+    url: '/about',
+    title: 'About Jawed Imtiaz',
+    summary: 'Professional experience, certifications, hardware lab setup, and approach to workplace technology.',
+    keywords: ['about', 'bio', 'resume', 'experience', 'certifications'],
+  },
+  {
+    url: '/ai',
+    title: 'Ask Jawed AI',
+    summary: 'Interactive AI search and question answering grounded in site documentation and IT troubleshooting frameworks.',
+    keywords: ['ask ai', 'jawed ai', 'knowledge base', 'assistant'],
+  },
+  {
+    url: '/contact',
+    title: 'Contact & Inquiries',
+    summary: 'Direct contact form for IT consulting, workplace tech projects, and job opportunities.',
+    keywords: ['contact', 'email', 'inquiry', 'message'],
+  },
+];
+
+// Deduplicate all entries by normalized URL
 const urlSet = new Set<string>();
 const combinedEntries: KnowledgeEntry[] = [];
 
-[...rawEntries, ...guideKnowledgeEntries].forEach(entry => {
-  const normUrl = entry.url.replace(/\/+$/, '');
+[...toolEntries, ...fieldGuideEntries, ...blogEntries, ...corePageEntries, ...rawEntries].forEach((entry) => {
+  const normUrl = entry.url.replace(/\/+$/, '') || '/';
   if (!urlSet.has(normUrl)) {
     urlSet.add(normUrl);
     combinedEntries.push(entry);
@@ -79,14 +142,12 @@ function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Whole-word regex matching helper
 function containsWholeWord(text: string, term: string): boolean {
   if (!text || !term) return false;
   const regex = new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i');
   return regex.test(text);
 }
 
-// Dedicated Personal / Private Query Detector
 export function isPersonalQuery(query: string): boolean {
   if (!query) return false;
   const lower = query.toLowerCase();
@@ -115,20 +176,15 @@ export function isPersonalQuery(query: string): boolean {
   return false;
 }
 
-// Technical Knowledge Search Engine
 export function searchKnowledge(query: string): KnowledgeEntry[] {
   if (!query || !query.trim()) return [];
   const trimmed = query.trim().toLowerCase();
 
-  // Tokenize alphanumeric words
   const rawTokens = trimmed.split(/[^a-z0-9]+/i).filter(Boolean);
-
-  // Filter out stop words
   const meaningfulTerms = rawTokens.filter(
     (t) => !STOP_WORDS.has(t.toLowerCase()) && t.length >= 2
   );
 
-  // Fall back immediately if no meaningful search terms remain
   if (meaningfulTerms.length === 0) {
     return [];
   }
@@ -140,7 +196,6 @@ export function searchKnowledge(query: string): KnowledgeEntry[] {
     const summary = entry.summary;
     const keywords = entry.keywords || [];
 
-    // Exact full query phrase match
     const isExactTitleMatch = containsWholeWord(title, trimmed);
     const isExactSummaryMatch = containsWholeWord(summary, trimmed);
 
@@ -173,10 +228,6 @@ export function searchKnowledge(query: string): KnowledgeEntry[] {
       }
     }
 
-    // Qualification rules:
-    // 1. Exact phrase match in title or summary, OR
-    // 2. At least 2 distinct meaningful keywords matched, OR
-    // 3. 1 term matched if meaningfulTerms has only 1 non-generic term (e.g. "jamf", "subnet")
     const isGenericSingleWord =
       meaningfulTerms.length === 1 &&
       ["jawed", "imtiaz", "note", "notes", "tool", "tools", "it", "guide", "guides"].includes(
@@ -200,7 +251,6 @@ export function searchKnowledge(query: string): KnowledgeEntry[] {
   return scored.filter((s) => s.score >= 25).slice(0, 4).map((s) => s.entry);
 }
 
-// Main Query Handling with Privacy Guardrails
 export async function askJawedAi(query: string): Promise<AiResponse> {
   const trimmed = query.trim();
   if (!trimmed) {
@@ -211,7 +261,6 @@ export async function askJawedAi(query: string): Promise<AiResponse> {
     };
   }
 
-  // Guardrail 1: Intercept Personal & Private Queries
   if (isPersonalQuery(trimmed)) {
     return {
       reply:
@@ -222,10 +271,8 @@ export async function askJawedAi(query: string): Promise<AiResponse> {
     };
   }
 
-  // Guardrail 2: Execute Knowledge Search
   const matches = searchKnowledge(trimmed);
 
-  // Guardrail 3: Graceful Fallback for missing/unindexed technical topics
   if (matches.length === 0) {
     return {
       reply:
@@ -253,7 +300,7 @@ export async function askJawedAi(query: string): Promise<AiResponse> {
   };
 }
 
-export type SiteCategory = 'guide' | 'tool' | 'page';
+export type SiteCategory = 'tool' | 'guide' | 'blog' | 'page';
 
 export interface SiteSearchResult extends KnowledgeEntry {
   category: SiteCategory;
@@ -263,21 +310,27 @@ export interface SiteSearchResult extends KnowledgeEntry {
 
 export interface CategorizedSearchResults {
   all: SiteSearchResult[];
-  guides: SiteSearchResult[];
   tools: SiteSearchResult[];
+  guides: SiteSearchResult[];
+  blogs: SiteSearchResult[];
   pages: SiteSearchResult[];
   query: string;
   isPersonal?: boolean;
 }
 
-// Helper to categorize site entries into Pages, Tools, and Technical Guides
 export function categorizeEntry(url: string, title: string = ''): { category: SiteCategory; categoryLabel: string } {
   const u = url.toLowerCase().replace(/\/+$/, '');
   const t = title.toLowerCase();
 
-  // Tools detection
+  // Blog posts
+  if (u.startsWith('/blog') && u !== '/blog') {
+    return { category: 'blog', categoryLabel: 'Blog Post' };
+  }
+
+  // Tools
   if (
     u.startsWith('/tools') ||
+    u.startsWith('/diagnostic-tools') ||
     u.includes('calculator') ||
     u.includes('assistant') ||
     u.includes('builder') ||
@@ -292,45 +345,42 @@ export function categorizeEntry(url: string, title: string = ''): { category: Si
     return { category: 'tool', categoryLabel: 'Tool' };
   }
 
-  // Technical Guides detection
+  // Field Guides & Technical Notes
   if (
     u.startsWith('/notes') ||
     u.startsWith('/guides') ||
     u.startsWith('/field-guides') ||
-    u.startsWith('/blog') ||
     t.includes('checklist') ||
     t.includes('guide') ||
     t.includes('workflow') ||
-    t.includes('framework') ||
-    t.includes('documentation')
+    t.includes('framework')
   ) {
-    return { category: 'guide', categoryLabel: 'Technical Guide' };
+    return { category: 'guide', categoryLabel: 'Field Guide' };
   }
 
-  // Otherwise Page
   return { category: 'page', categoryLabel: 'Page' };
 }
 
-// Site-Wide Categorized Search Engine
-export function searchSite(query: string, maxResults: number = 30): CategorizedSearchResults {
+export function searchSite(query: string, maxResults: number = 40): CategorizedSearchResults {
   const trimmed = query.trim().toLowerCase();
 
   if (!trimmed) {
     return {
       all: [],
-      guides: [],
       tools: [],
+      guides: [],
+      blogs: [],
       pages: [],
       query: '',
     };
   }
 
-  // Intercept personal questions with privacy flag
   if (isPersonalQuery(trimmed)) {
     return {
       all: [],
-      guides: [],
       tools: [],
+      guides: [],
+      blogs: [],
       pages: [],
       query: trimmed,
       isPersonal: true,
@@ -351,49 +401,49 @@ export function searchSite(query: string, maxResults: number = 30): CategorizedS
 
     let score = 0;
 
-    // Exact full query matches
+    // Direct title match
     if (titleLower === trimmed) {
-      score += 150;
+      score += 200;
     } else if (titleLower.includes(trimmed)) {
-      score += 80;
+      score += 100;
     }
 
     if (keywordsLower.includes(trimmed)) {
-      score += 70;
+      score += 90;
     }
 
     if (summaryLower.includes(trimmed)) {
-      score += 40;
+      score += 50;
     }
 
-    // Per-term scoring
+    // Term-based scoring
     for (const term of searchTerms) {
       if (term.length < 2 && searchTerms.length > 1) continue;
 
       if (containsWholeWord(entry.title, term)) {
-        score += 45;
+        score += 50;
       } else if (titleLower.includes(term)) {
-        score += 20;
+        score += 25;
       }
 
       for (const kw of keywordsLower) {
         if (kw === term) {
-          score += 35;
+          score += 40;
           break;
         } else if (kw.includes(term)) {
-          score += 18;
+          score += 20;
           break;
         }
       }
 
       if (containsWholeWord(entry.summary, term)) {
-        score += 20;
+        score += 25;
       } else if (summaryLower.includes(term)) {
-        score += 8;
+        score += 10;
       }
 
       if (urlLower.includes(term)) {
-        score += 15;
+        score += 20;
       }
     }
 
@@ -407,34 +457,35 @@ export function searchSite(query: string, maxResults: number = 30): CategorizedS
     }
   }
 
-  // Sort by highest score first
   scoredResults.sort((a, b) => b.score - a.score);
 
   const limited = scoredResults.slice(0, maxResults);
-  const guides = limited.filter((r) => r.category === 'guide');
   const tools = limited.filter((r) => r.category === 'tool');
+  const guides = limited.filter((r) => r.category === 'guide');
+  const blogs = limited.filter((r) => r.category === 'blog');
   const pages = limited.filter((r) => r.category === 'page');
 
   return {
     all: limited,
-    guides,
     tools,
+    guides,
+    blogs,
     pages,
     query: trimmed,
     isPersonal: false,
   };
 }
 
-// Quick Search Recommendations (shown before user types)
 export function getQuickSearchRecommendations(): SiteSearchResult[] {
   const recommendedUrls = [
-    '/notes/apple-macos-first-response-checklist/',
-    '/tools/it-troubleshooting-assistant/',
+    '/tools/ai-audio-transcriber',
+    '/tools/cable-length-poe-budget-checker',
     '/tools/ipv4-subnet-calculator',
-    '/notes/it-service-desk-troubleshooting-workflow/',
-    '/tools/service-desk-note-formatter/',
-    '/about/',
-    '/tools/server-rack-power-btu-calculator',
+    '/tools/ai-prompt-builder',
+    '/guides/rj45-cabling-t568a-vs-t568b-guide',
+    '/blog/rebuilding-jawed-co-in',
+    '/blog/triage-workplace-app-access-issue',
+    '/about',
     '/services',
   ];
 

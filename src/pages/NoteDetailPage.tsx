@@ -7,6 +7,7 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { SeoHead } from '../components/SeoHead';
 import { calculateReadTime } from '../utils/readTimeHelper';
+import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 
 import { COMPONENT_MAPPER, getInteractiveComponentForSlug } from '../utils/componentMapper';
 
@@ -203,6 +204,9 @@ export const NoteDetailPage: React.FC = () => {
           </div>
         )}
       </article>
+
+      {/* Newsletter Subscription Form */}
+      <NewsletterSubscribeForm sourceLocation={`note-${note.slug}`} />
 
       <div style={{ marginTop: '32px', paddingTop: '20px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>

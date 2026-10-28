@@ -2067,6 +2067,19 @@ select:focus-visible {
   border: 1px solid rgba(129, 140, 248, 0.25);
 }
 
+.search-category-pill.badge-blog {
+  background: rgba(168, 85, 247, 0.14);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+[data-theme="light"] .search-category-pill.badge-blog,
+.light .search-category-pill.badge-blog {
+  background: rgba(147, 51, 234, 0.1);
+  color: #7e22ce;
+  border-color: rgba(147, 51, 234, 0.22);
+}
+
 .search-result-title {
   font-weight: 650;
   font-size: 0.95rem;

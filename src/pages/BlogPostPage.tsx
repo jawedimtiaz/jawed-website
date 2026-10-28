@@ -5,6 +5,7 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { SeoHead } from '../components/SeoHead';
 import { calculateReadTime } from '../utils/readTimeHelper';
+import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 
 export const BlogPostPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -53,6 +54,9 @@ export const BlogPostPage: React.FC = () => {
         className="blog-rendered-content"
         dangerouslySetInnerHTML={{ __html: post.content }}
       />
+
+      {/* Newsletter Subscription Form */}
+      <NewsletterSubscribeForm sourceLocation={`blog-${post.slug}`} />
 
       <div style={{ marginTop: '32px', paddingTop: '20px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <Link className="button button-secondary" to="/blog">

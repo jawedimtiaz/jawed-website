@@ -320,4 +320,12 @@ export const TOOLS: ToolItem[] = [
     route: '/tools/cable-length-poe-budget-checker',
     keywords: ['poe', 'cable', 'cat5e', 'cat6', 'cat6a', 'ethernet', 'poe+', 'poe++', '802.3af', '802.3at', '802.3bt', 'switch', 'power', 'budget', 'watts', 'camera', 'access point', 'voip', 'length'],
   },
+  {
+    id: 'ai-audio-transcriber',
+    name: 'AI Audio Transcriber & Voice Notes',
+    description: 'Record or upload audio to generate accurate transcripts, ITSM ticket notes, and technical summaries powered by Gemini 3.5 Transcribe.',
+    category: 'ai',
+    route: '/tools/ai-audio-transcriber',
+    keywords: ['transcribe', 'audio', 'voice', 'recording', 'speech', 'microphone', 'gemini', 'service desk', 'voice note', 'call summary', 'ai'],
+  },
 ];

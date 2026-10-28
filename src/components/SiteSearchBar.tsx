@@ -28,8 +28,9 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
     if (!query.trim()) {
       return {
         all: recommendations,
-        guides: recommendations.filter((r) => r.category === 'guide'),
         tools: recommendations.filter((r) => r.category === 'tool'),
+        guides: recommendations.filter((r) => r.category === 'guide'),
+        blogs: recommendations.filter((r) => r.category === 'blog'),
         pages: recommendations.filter((r) => r.category === 'page'),
         query: '',
         isPersonal: false,
@@ -40,13 +41,14 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
 
   // Filter by category tab
   const displayedItems = useMemo(() => {
-    if (activeCategory === 'guide') return searchResults.guides;
     if (activeCategory === 'tool') return searchResults.tools;
+    if (activeCategory === 'guide') return searchResults.guides;
+    if (activeCategory === 'blog') return searchResults.blogs;
     if (activeCategory === 'page') return searchResults.pages;
     return searchResults.all;
   }, [searchResults, activeCategory]);
 
-  // Keep selectedIndex in bounds
+  // Reset selectedIndex on query or tab change
   useEffect(() => {
     setSelectedIndex(0);
   }, [query, activeCategory]);
@@ -118,39 +120,12 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
   const navigateToResult = useCallback(
     (item: SiteSearchResult) => {
       let targetPath = item.url.replace(/\/+$/, '') || '/';
-      // Map /notes/... to /guides/... if desired, or use directly as router supports both
       handleClose();
       if (onNavigated) onNavigated();
       navigate(targetPath);
     },
     [navigate, handleClose, onNavigated]
   );
-
-  // Keyboard navigation within the results list
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIndex((prev) =>
-        displayedItems.length === 0 ? 0 : (prev + 1) % displayedItems.length
-      );
-      scrollItemIntoView((selectedIndex + 1) % displayedItems.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex((prev) =>
-        displayedItems.length === 0
-          ? 0
-          : (prev - 1 + displayedItems.length) % displayedItems.length
-      );
-      scrollItemIntoView(
-        (selectedIndex - 1 + displayedItems.length) % displayedItems.length
-      );
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (displayedItems[selectedIndex]) {
-        navigateToResult(displayedItems[selectedIndex]);
-      }
-    }
-  };
 
   const scrollItemIntoView = (index: number) => {
     if (!listRef.current) return;
@@ -160,7 +135,34 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
     }
   };
 
-  // Helper to highlight matching terms in text
+  // Keyboard navigation within the results list
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((prev) => {
+        const next = displayedItems.length === 0 ? 0 : (prev + 1) % displayedItems.length;
+        scrollItemIntoView(next);
+        return next;
+      });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((prev) => {
+        const next =
+          displayedItems.length === 0
+            ? 0
+            : (prev - 1 + displayedItems.length) % displayedItems.length;
+        scrollItemIntoView(next);
+        return next;
+      });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (displayedItems[selectedIndex]) {
+        navigateToResult(displayedItems[selectedIndex]);
+      }
+    }
+  };
+
+  // Highlight matching terms in text
   const highlightMatch = (text: string, term: string) => {
     if (!term || !term.trim()) return text;
     const words = term
@@ -186,15 +188,41 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
     }
   };
 
+  const getCategoryBadgeClass = (category: SiteCategory) => {
+    switch (category) {
+      case 'tool':
+        return 'badge-tool';
+      case 'guide':
+        return 'badge-guide';
+      case 'blog':
+        return 'badge-blog';
+      default:
+        return 'badge-page';
+    }
+  };
+
+  const getCategoryLabel = (category: SiteCategory) => {
+    switch (category) {
+      case 'tool':
+        return '🛠️ Tool';
+      case 'guide':
+        return '📘 Field Guide';
+      case 'blog':
+        return '📰 Blog Post';
+      default:
+        return '📄 Page';
+    }
+  };
+
   return (
     <div className="site-search-wrapper">
-      {/* Search Header Trigger Button */}
+      {/* Header Search Trigger Button */}
       <button
         type="button"
         className="header-search-btn"
         onClick={handleOpen}
-        aria-label="Search guides, tools, and pages (Press Ctrl+K or Cmd+K)"
-        title="Search site (Ctrl+K or Cmd+K)"
+        aria-label="Global Search - Press Ctrl+K or Cmd+K"
+        title="Search tools, field guides & blog posts (Ctrl+K or Cmd+K)"
       >
         <svg
           className="header-search-icon"
@@ -209,19 +237,19 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-        <span className="header-search-placeholder">Search site...</span>
+        <span className="header-search-placeholder">Search tools, guides &amp; blog...</span>
         <kbd className="header-search-kbd" aria-hidden="true">
-          <abbr title="Command" style={{ textDecoration: 'none' }}>⌘</abbr>K
+          <abbr title="Control or Command" style={{ textDecoration: 'none' }}>⌘</abbr>K
         </kbd>
       </button>
 
-      {/* Full-Screen Search Modal Overlay */}
+      {/* Global Command Palette Modal Overlay */}
       {isOpen && (
         <div
           className="search-modal-backdrop"
           role="dialog"
           aria-modal="true"
-          aria-label="Site Search Dialog"
+          aria-label="Global Site Search Command Palette"
           onClick={handleClose}
         >
           <div
@@ -248,7 +276,7 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                 ref={inputRef}
                 type="search"
                 className="search-modal-input"
-                placeholder="Search technical guides, interactive tools, pages..."
+                placeholder="Search tools, field guides, blog posts, calculators..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleInputKeyDown}
@@ -291,16 +319,7 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                 className={`search-tab ${activeCategory === 'all' ? 'is-active' : ''}`}
                 onClick={() => setActiveCategory('all')}
               >
-                All Results ({searchResults.all.length})
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeCategory === 'guide'}
-                className={`search-tab ${activeCategory === 'guide' ? 'is-active' : ''}`}
-                onClick={() => setActiveCategory('guide')}
-              >
-                📘 Technical Guides ({searchResults.guides.length})
+                All ({searchResults.all.length})
               </button>
               <button
                 type="button"
@@ -310,6 +329,24 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                 onClick={() => setActiveCategory('tool')}
               >
                 🛠️ Tools ({searchResults.tools.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeCategory === 'guide'}
+                className={`search-tab ${activeCategory === 'guide' ? 'is-active' : ''}`}
+                onClick={() => setActiveCategory('guide')}
+              >
+                📘 Field Guides ({searchResults.guides.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeCategory === 'blog'}
+                className={`search-tab ${activeCategory === 'blog' ? 'is-active' : ''}`}
+                onClick={() => setActiveCategory('blog')}
+              >
+                📰 Blog ({searchResults.blogs.length})
               </button>
               <button
                 type="button"
@@ -324,15 +361,15 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
 
             {/* Results Container */}
             <div className="search-results-viewport">
-              {/* Privacy Guardrail Interception */}
+              {/* Privacy Guardrail */}
               {searchResults.isPersonal ? (
                 <div className="search-guardrail-notice">
                   <div className="search-guardrail-header">
                     <span className="search-guardrail-badge">🔒 Privacy &amp; Support Guardrail</span>
                   </div>
                   <p className="search-guardrail-text">
-                    I only share verified professional background, technical documentation, and interactive IT tools here.
-                    For personal questions or direct inquiries, please reach out to Jawed directly.
+                    I only share verified professional background, technical field guides, and interactive IT tools here.
+                    For personal questions or direct consultation, please contact Jawed directly.
                   </p>
                   <div className="search-guardrail-actions">
                     <button
@@ -348,7 +385,7 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                   </div>
                 </div>
               ) : displayedItems.length === 0 ? (
-                /* Empty State with Quick Suggestion Chips */
+                /* Empty State */
                 <div className="search-empty-state">
                   <p className="search-empty-title">
                     No results found for &ldquo;<span className="text-accent">{query}</span>&rdquo;
@@ -358,14 +395,14 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                   </p>
                   <div className="search-suggestion-chips">
                     {[
-                      'macOS',
-                      'IT Troubleshooting',
+                      'Audio Transcriber',
+                      'Cable Length & PoE',
                       'IPv4 Subnet',
-                      'Jamf Pro',
-                      'Server Rack BTU',
-                      'Service Desk Note',
                       'AI Prompt Builder',
-                      'Work Experience',
+                      'Service Desk Note',
+                      'RJ45 T568B',
+                      'Rebuilding Jawed.co.in',
+                      'IT Troubleshooting',
                     ].map((suggestion) => (
                       <button
                         key={suggestion}
@@ -386,7 +423,7 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                 <div>
                   {!query.trim() && (
                     <div className="search-section-header">
-                      <span>✨ Popular Guides, Tools &amp; Pages</span>
+                      <span>✨ Recommended Tools, Field Guides &amp; Blog Posts</span>
                     </div>
                   )}
 
@@ -399,12 +436,8 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                   >
                     {displayedItems.map((item, index) => {
                       const isSelected = index === selectedIndex;
-                      const badgeClass =
-                        item.category === 'guide'
-                          ? 'badge-guide'
-                          : item.category === 'tool'
-                          ? 'badge-tool'
-                          : 'badge-page';
+                      const badgeClass = getCategoryBadgeClass(item.category);
+                      const badgeLabel = getCategoryLabel(item.category);
 
                       return (
                         <li
@@ -418,11 +451,7 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                           <div className="search-result-main">
                             <div className="search-result-header">
                               <span className={`search-category-pill ${badgeClass}`}>
-                                {item.category === 'guide'
-                                  ? '📘 Guide'
-                                  : item.category === 'tool'
-                                  ? '🛠️ Tool'
-                                  : '📄 Page'}
+                                {badgeLabel}
                               </span>
                               <span className="search-result-title">
                                 {highlightMatch(item.title, query)}
@@ -454,14 +483,14 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                   <kbd className="search-footer-kbd">↓</kbd> Navigate
                 </span>
                 <span className="search-footer-hint">
-                  <kbd className="search-footer-kbd">↵</kbd> Select
+                  <kbd className="search-footer-kbd">↵</kbd> Open
                 </span>
                 <span className="search-footer-hint">
-                  <kbd className="search-footer-kbd">esc</kbd> Close
+                  <kbd className="search-footer-kbd">esc</kbd> Dismiss
                 </span>
               </div>
               <div className="search-footer-powered">
-                <span>Powered by verified on-site AI knowledge index</span>
+                <span>Ctrl + K Command Palette</span>
               </div>
             </div>
           </div>

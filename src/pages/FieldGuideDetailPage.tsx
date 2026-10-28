@@ -7,6 +7,7 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { Image } from '../components/Image';
 import { calculateReadTime } from '../utils/readTimeHelper';
+import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 
 // Reusable Visual Guide Components & Aliases
 import {
@@ -1008,8 +1009,11 @@ export const FieldGuideDetailPage: React.FC = () => {
           </aside>
         </div>
 
+        {/* Newsletter Subscription Form */}
+        <NewsletterSubscribeForm sourceLocation={`field-guide-${guide.slug}`} />
+
         {/* Related Articles Widget */}
-        <section style={{ marginTop: '60px', paddingTop: '40px', borderTop: '2px solid var(--line)' }}>
+        <section style={{ marginTop: '40px', paddingTop: '32px', borderTop: '2px solid var(--line)' }}>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '8px', color: 'var(--text-heading)' }}>
             📚 Related Technical Field Guides
           </h2>
