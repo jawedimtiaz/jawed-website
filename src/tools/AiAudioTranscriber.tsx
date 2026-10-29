@@ -33,9 +33,7 @@ export const AiAudioTranscriber: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   // Refs
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +48,16 @@ export const AiAudioTranscriber: React.FC = () => {
       }
       if (activeStreamRef.current) {
         activeStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (audioProcessorRef.current) {
+        audioProcessorRef.current.onaudioprocess = null;
+        try { audioProcessorRef.current.disconnect(); } catch {}
+      }
+      if (audioSourceRef.current) {
+        try { audioSourceRef.current.disconnect(); } catch {}
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        void audioContextRef.current.close().catch(() => undefined);
       }
     };
   }, [audioUrl]);
@@ -67,85 +75,124 @@ export const AiAudioTranscriber: React.FC = () => {
     }
   }, [isRecording]);
 
-  // Initialize MediaRecorder helper
-  const initMediaRecorder = (stream: MediaStream) => {
-    activeStreamRef.current = stream;
-    audioChunksRef.current = [];
+  // Record raw PCM with Web Audio and wrap it in a WAV container.
+  // This avoids browser-specific MediaRecorder container/fragmentation problems
+  // that can produce a 0:00 player in Safari, Chrome, and Edge.
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const pcmChunksRef = useRef<Float32Array[]>([]);
+  const pcmSampleRateRef = useRef(44100);
 
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-      ? 'audio/webm;codecs=opus'
-      : MediaRecorder.isTypeSupported('audio/webm')
-      ? 'audio/webm'
-      : MediaRecorder.isTypeSupported('audio/mp4')
-      ? 'audio/mp4'
-      : 'audio/wav';
-
-    let mediaRecorder: MediaRecorder;
-    try {
-      mediaRecorder = new MediaRecorder(stream, { mimeType });
-    } catch {
-      mediaRecorder = new MediaRecorder(stream);
+  const encodePcmWav = (chunks: Float32Array[], sampleRate: number): Blob => {
+    const sampleCount = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    if (sampleCount === 0) throw new Error('No microphone samples were captured. Please try recording again.');
+    const bytesPerSample = 2;
+    const dataBytes = sampleCount * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataBytes);
+    const view = new DataView(buffer);
+    const writeText = (offset: number, value: string) => {
+      for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+    };
+    writeText(0, 'RIFF');
+    view.setUint32(4, 36 + dataBytes, true);
+    writeText(8, 'WAVE');
+    writeText(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * bytesPerSample, true);
+    view.setUint16(32, bytesPerSample, true);
+    view.setUint16(34, 16, true);
+    writeText(36, 'data');
+    view.setUint32(40, dataBytes, true);
+    let offset = 44;
+    for (const chunk of chunks) {
+      for (let i = 0; i < chunk.length; i++) {
+        const sample = Math.max(-1, Math.min(1, chunk[i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+        offset += 2;
+      }
     }
-    mediaRecorderRef.current = mediaRecorder;
-    // The browser may choose a different format if the requested MIME type is unsupported.
-    const actualMimeType = mediaRecorder.mimeType || mimeType;
-    setAudioMimeType(actualMimeType);
+    return new Blob([buffer], { type: 'audio/wav' });
+  };
 
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        audioChunksRef.current.push(event.data);
-        console.debug("[Audio Transcriber] Captured audio chunk", {
-          chunkBytes: event.data.size,
-          totalChunks: audioChunksRef.current.length,
-          totalBytes: audioChunksRef.current.reduce((total, chunk) => total + chunk.size, 0),
-          mimeType: event.data.type || mediaRecorder.mimeType || actualMimeType,
-        });
-      }
+  const initPcmRecorder = async (stream: MediaStream) => {
+    activeStreamRef.current = stream;
+    pcmChunksRef.current = [];
+    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextCtor) {
+      stream.getTracks().forEach(track => track.stop());
+      throw new Error('This browser does not support Web Audio recording.');
+    }
+    const context: AudioContext = new AudioContextCtor();
+    audioContextRef.current = context;
+    await context.resume();
+    pcmSampleRateRef.current = context.sampleRate;
+    const source = context.createMediaStreamSource(stream);
+    const processor = context.createScriptProcessor(4096, 1, 1);
+    audioSourceRef.current = source;
+    audioProcessorRef.current = processor;
+    processor.onaudioprocess = (event: AudioProcessingEvent) => {
+      const samples = event.inputBuffer.getChannelData(0);
+      pcmChunksRef.current.push(new Float32Array(samples));
     };
-
-    mediaRecorder.onerror = (event: Event) => {
-      console.error("[Audio Transcriber] MediaRecorder error", event);
-      setErrorMsg("The browser encountered an error while recording. Please try again or upload an audio file.");
-      setIsRecording(false);
-    };
-
-    mediaRecorder.onstop = () => {
-      // MediaRecorder dispatches the final dataavailable event before onstop.
-      // Use its actual MIME type, not only the requested preference.
-      const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || actualMimeType });
-      if (blob.size < 128) {
-        console.error("[Audio Transcriber] Recording produced no usable audio", {
-          blobBytes: blob.size,
-          chunkCount: audioChunksRef.current.length,
-          chunkBytes: audioChunksRef.current.map((chunk) => chunk.size),
-          requestedMimeType: actualMimeType,
-          actualMimeType: mediaRecorder.mimeType,
-        });
-        setAudioBlob(null);
-        setAudioUrl(null);
-        setErrorMsg('The browser returned an empty or incomplete recording. Please record for at least 2 seconds and try again, or upload an audio file.');
-        if (activeStreamRef.current) {
-          activeStreamRef.current.getTracks().forEach((track) => track.stop());
-          activeStreamRef.current = null;
-        }
-        return;
-      }
-      setAudioBlob(blob);
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
-      setFileName(`Voice_Recording_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`);
-      
-      // Clean up tracks
-      if (activeStreamRef.current) {
-        activeStreamRef.current.getTracks().forEach((track) => track.stop());
-        activeStreamRef.current = null;
-      }
-    };
-
-    mediaRecorder.start(250); // collecting chunks every 250ms
-    setIsRecording(true);
+    // Connect through a zero-gain node so processing continues without microphone
+    // monitoring/feedback through the speakers.
+    const silentGain = context.createGain();
+    silentGain.gain.value = 0;
+    source.connect(processor);
+    processor.connect(silentGain);
+    silentGain.connect(context.destination);
+    setAudioMimeType('audio/wav');
+    setAudioBlob(null);
+    setAudioUrl(null);
     setRecordingTime(0);
     setTranscriptResult(null);
+    setIsRecording(true);
+  };
+
+  const finishPcmRecording = async () => {
+    const processor = audioProcessorRef.current;
+    const source = audioSourceRef.current;
+    const context = audioContextRef.current;
+    if (processor) {
+      processor.onaudioprocess = null;
+      try { processor.disconnect(); } catch {}
+    }
+    if (source) {
+      try { source.disconnect(); } catch {}
+    }
+    audioProcessorRef.current = null;
+    audioSourceRef.current = null;
+    const chunks = pcmChunksRef.current;
+    pcmChunksRef.current = [];
+    try {
+      if (!chunks.length) throw new Error('No audio samples were captured. Check microphone input and record again.');
+      const blob = encodePcmWav(chunks, pcmSampleRateRef.current);
+      if (blob.size < 1024) throw new Error('The recording is too short or empty. Please record for at least 2 seconds.');
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      const url = URL.createObjectURL(blob);
+      setAudioBlob(blob);
+      setAudioMimeType('audio/wav');
+      setAudioUrl(url);
+      setFileName(`Voice_Recording_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.wav`);
+      setErrorMsg(null);
+      setErrorDetails(null);
+      console.info('[Audio Transcriber] WAV recording finalized', { bytes: blob.size, sampleRate: pcmSampleRateRef.current, chunks: chunks.length });
+    } catch (err: any) {
+      console.error('[Audio Transcriber] WAV recording failed:', err);
+      setErrorDetails({ name: err?.name || 'RecordingError', message: err?.message || String(err), stack: err?.stack || '' });
+      setErrorMsg(err?.message || 'Recording could not be finalized. Please try again.');
+    } finally {
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach(track => track.stop());
+        activeStreamRef.current = null;
+      }
+      audioContextRef.current = null;
+      if (context && context.state !== 'closed') await context.close().catch(() => undefined);
+    }
   };
 
   // Detailed error handler with triaging
@@ -244,34 +291,16 @@ export const AiAudioTranscriber: React.FC = () => {
         }
       }
 
-      initMediaRecorder(stream);
+      await initPcmRecorder(stream);
     } catch (err: any) {
       handleDetailedMicError(err);
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      try {
-        const recorder = mediaRecorderRef.current;
-        // Ask the browser to flush the last encoded chunk before stop(). This
-        // is important for short recordings and browsers with delayed encoders.
-        if (recorder.state === 'recording') {
-          try {
-            recorder.requestData();
-          } catch (requestDataError) {
-            console.warn('[Audio Transcriber] requestData() could not flush a chunk:', requestDataError);
-          }
-          recorder.stop();
-        }
-      } catch (e) {
-        console.warn('Error stopping media recorder:', e);
-        setErrorMsg('The recording could not be finalized. Please try recording again.');
-      }
-      setIsRecording(false);
-    }
-    // Do not stop tracks here: MediaRecorder still needs to flush its final
-    // dataavailable event. The onstop handler releases the stream after the Blob is built.
+    if (!isRecording) return;
+    setIsRecording(false);
+    void finishPcmRecording();
   };
 
   const clearAudio = () => {
@@ -399,10 +428,11 @@ export const AiAudioTranscriber: React.FC = () => {
     } catch (err: any) {
       console.error('[Audio Transcriber] Local transcription failed:', err);
       const message = String(err?.message || err || 'Unknown error');
+      setErrorDetails({ name: err?.name || 'TranscriptionError', message, stack: err?.stack || '' });
       if (/decode|encoding|supported source/i.test(message)) {
         setErrorMsg('The browser could not decode this audio format. Try exporting it as WAV or MP3, then upload it again.');
-      } else if (/fetch|network|download|failed to load|failed to fetch/i.test(message)) {
-        setErrorMsg('Could not download the free speech model. Check your connection and content blockers, then retry.');
+      } else if (/fetch|network|download|failed to load|failed to fetch|networkerror|load failed/i.test(message)) {
+        setErrorMsg('The free speech model could not be downloaded. Open Debug Log for the underlying browser error. Check network/content blockers and retry.');
       } else {
         setErrorMsg('Local transcription failed: ' + message);
       }
