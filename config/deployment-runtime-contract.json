@@ -17,12 +17,9 @@
     "public/_redirects",
     "public/404.html",
     "public/robots.txt",
-    "public/sitemap.xml",
-    "functions/api/transcribe.ts"
+    "public/sitemap.xml"
   ],
-  "api_routes": [
-    "/api/transcribe"
-  ],
+  "api_routes": [],
   "canonical_origin_must_be_exact": true,
   "package_manifest_required": true,
   "external_deployment_provider": "Cloudflare Pages",
