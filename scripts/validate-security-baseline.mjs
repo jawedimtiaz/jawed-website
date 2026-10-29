@@ -36,9 +36,9 @@ assert.equal(/adsbygoogle|googlesyndication\.com|googleadservices\.com/i.test(cs
 assert.equal(csp.includes("unsafe-eval"),false,"CSP must not permit unsafe-eval");
 assert.equal(csp.includes("frame-ancestors 'none'"),true,"CSP must prevent framing");
 
-assert.equal(fs.existsSync("functions"),false,"Current application uses client-side AI; do not assume a Pages Functions runtime");
+assert.equal(fs.existsSync("functions/api/transcribe.ts"),true,"Audio transcription must be implemented as a reviewed Cloudflare Pages Function");
 assert.equal(fs.existsSync("public/_routes.json"),false,"Obsolete API-only route configuration must not be published");
-assert.equal(Array.isArray(deploymentContract.api_routes)&&deploymentContract.api_routes.length===0,true,"No server-side API routes are declared for the current client-side AI architecture");
+assert.deepEqual(deploymentContract.api_routes,["/api/transcribe"],"Only the reviewed audio transcription API route may be declared");
 
 const redirectLines=redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"));
 const rootRedirectLines=rootRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"));
@@ -54,7 +54,7 @@ assert.equal(fs.readFileSync("sitemap.xml","utf8"),fs.readFileSync("public/sitem
 
 console.log("Security baseline: PASS");
 console.log("Published security headers and CSP: PASS");
-console.log("Client-side AI and no-Functions boundary: PASS");
+console.log("Client-side knowledge AI and reviewed audio transcription Function boundary: PASS");
 console.log("SPA routing and legacy redirect policy: PASS");
 console.log("Pre-activation AdSense boundary: PASS");
 console.log("Published custom 404 and synchronized sitemap: PASS");
