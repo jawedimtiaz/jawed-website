@@ -164,11 +164,17 @@ const decodeAudioBlobToMono16k = async (
 
   const wavCheck = parseAndValidateWav(arrayBuffer);
   if (wavCheck.valid && wavCheck.bitsPerSample === 16 && wavCheck.numChannels === 1) {
-    addLog('info', 'Verified mono 16-bit PCM WAV header prior to transcription.', {
+    addLog('info', 'Verified mono 16-bit PCM WAV header & non-zero payload prior to transcription.', {
       sampleRate: wavCheck.sampleRate,
+      numChannels: wavCheck.numChannels,
+      bitsPerSample: wavCheck.bitsPerSample,
       sampleCount: wavCheck.sampleCount,
-      durationSeconds: Number(wavCheck.durationSeconds.toFixed(2)),
+      nonZeroSampleCount: wavCheck.nonZeroSampleCount,
+      nonZeroRatio: Number(wavCheck.nonZeroRatio.toFixed(4)),
+      hasNonZeroAudio: wavCheck.hasNonZeroAudio,
+      durationSeconds: Number(wavCheck.durationSeconds.toFixed(3)),
       peakAmplitude: Number(wavCheck.peakAmplitude.toFixed(4)),
+      rmsAmplitude: Number(wavCheck.rmsAmplitude.toFixed(4)),
     });
   }
 
@@ -178,11 +184,22 @@ const decodeAudioBlobToMono16k = async (
   const audioContext = new AudioContextCtor();
 
   try {
+    addLog('info', 'Created decoding AudioContext for 16kHz transcription pipeline:', {
+      contextSampleRate: audioContext.sampleRate,
+      contextState: audioContext.state,
+      destinationChannelCount: audioContext.destination.channelCount,
+      destinationMaxChannelCount: audioContext.destination.maxChannelCount,
+      blobByteSize: blob.size,
+      blobMimeType: blob.type,
+    });
+
     const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
     const channels = decoded.numberOfChannels;
     const length = decoded.length;
     const mono = new Float32Array(length);
 
+    let monoNonZeroCount = 0;
+    let monoPeak = 0;
     for (let channel = 0; channel < channels; channel += 1) {
       const channelData = decoded.getChannelData(channel);
       for (let i = 0; i < length; i += 1) {
@@ -190,13 +207,30 @@ const decodeAudioBlobToMono16k = async (
       }
     }
 
+    for (let i = 0; i < length; i += 1) {
+      const abs = Math.abs(mono[i]);
+      if (abs > 0) monoNonZeroCount += 1;
+      if (abs > monoPeak) monoPeak = abs;
+    }
+
     const resampled = resampleMonoAudio(mono, decoded.sampleRate, targetRate);
-    addLog('info', 'Decoded audio for local transcription.', {
-      originalSampleRate: decoded.sampleRate,
+    let resampledNonZeroCount = 0;
+    for (let i = 0; i < resampled.length; i += 1) {
+      if (Math.abs(resampled[i]) > 0) resampledNonZeroCount += 1;
+    }
+
+    addLog('info', 'Decoded & resampled audio buffer for local Whisper transcription:', {
+      audioContextSampleRate: audioContext.sampleRate,
+      decodedBufferSampleRate: decoded.sampleRate,
       targetSampleRate: targetRate,
-      channels,
-      durationSeconds: Math.round(decoded.duration * 100) / 100,
-      samples: resampled.length,
+      decodedChannels: channels,
+      decodedFrameLength: length,
+      decodedDurationSeconds: Number(decoded.duration.toFixed(3)),
+      monoNonZeroSamples: monoNonZeroCount,
+      monoPeakAmplitude: Number(monoPeak.toFixed(5)),
+      resampledSampleCount: resampled.length,
+      resampledNonZeroSamples: resampledNonZeroCount,
+      hasValidNonZeroAudio: resampledNonZeroCount > 0,
     });
     return {
       samples: resampled,
@@ -491,30 +525,53 @@ export const AiAudioTranscriber: React.FC = () => {
     silentGainRef.current = silentGain;
 
     let loggedFirstBuffer = false;
+    let processedChunkCounter = 0;
     processor.onaudioprocess = (event: AudioProcessingEvent) => {
       const inputBuffer = event.inputBuffer;
       const input = inputBuffer.getChannelData(0);
       const copy = new Float32Array(input);
       pcmChunksRef.current.push(copy);
+      processedChunkCounter += 1;
 
       let localPeak = 0;
       let nonZeroCount = 0;
+      let minSample = 0;
+      let maxSample = 0;
       for (let i = 0; i < copy.length; i += 1) {
-        const abs = Math.abs(copy[i]);
+        const val = copy[i];
+        const abs = Math.abs(val);
         if (abs > 0) nonZeroCount += 1;
         if (abs > localPeak) localPeak = abs;
+        if (val < minSample) minSample = val;
+        if (val > maxSample) maxSample = val;
       }
       setInputLevelPeak(localPeak);
 
       if (!loggedFirstBuffer) {
         loggedFirstBuffer = true;
         addLog('info', 'First AudioProcessingEvent buffer captured from AudioContext graph:', {
+          contextSampleRate: context.sampleRate,
           inputBufferSampleRate: inputBuffer.sampleRate,
           inputBufferNumberOfChannels: inputBuffer.numberOfChannels,
+          outputBufferNumberOfChannels: event.outputBuffer.numberOfChannels,
           inputBufferFrameLength: inputBuffer.length,
           inputBufferDurationMs: Number((inputBuffer.duration * 1000).toFixed(2)),
           firstChunkNonZeroSamples: nonZeroCount,
+          firstChunkTotalSamples: copy.length,
+          firstChunkHasNonZeroAudio: nonZeroCount > 0,
+          firstChunkMinSample: Number(minSample.toFixed(6)),
+          firstChunkMaxSample: Number(maxSample.toFixed(6)),
           firstChunkPeakAmplitude: Number(localPeak.toFixed(6)),
+        });
+      } else if (processedChunkCounter % 25 === 0) {
+        addLog('info', `Live PCM capture progress (chunk #${processedChunkCounter}):`, {
+          chunkIndex: processedChunkCounter,
+          contextSampleRate: context.sampleRate,
+          inputBufferSampleRate: inputBuffer.sampleRate,
+          inputBufferChannels: inputBuffer.numberOfChannels,
+          chunkNonZeroSamples: nonZeroCount,
+          chunkFrameLength: copy.length,
+          chunkPeakAmplitude: Number(localPeak.toFixed(5)),
         });
       }
     };
@@ -551,14 +608,21 @@ export const AiAudioTranscriber: React.FC = () => {
       activeContextState: context.state,
       rawSampleRate,
       normalizedWavSampleRate: normalizedSampleRate,
+      sampleRateMatchesTrack:
+        trackSettings.sampleRate !== undefined
+          ? trackSettings.sampleRate === normalizedSampleRate
+          : 'track-rate-unspecified',
       baseLatencySeconds: (context as any).baseLatency ?? 'n/a',
       outputLatencySeconds: (context as any).outputLatency ?? 'n/a',
       trackSampleRate: trackSettings.sampleRate ?? 'default',
       trackChannelCount: trackSettings.channelCount ?? 'default',
       sourceNodeChannelCount: source.channelCount,
       sourceNodeChannelCountMode: source.channelCountMode,
+      sourceNodeChannelInterpretation: source.channelInterpretation,
       processorBufferSize: processor.bufferSize,
       processorChannelCount: processor.channelCount,
+      processorNumberOfInputs: processor.numberOfInputs,
+      processorNumberOfOutputs: processor.numberOfOutputs,
       destinationChannelCount: context.destination.channelCount,
       destinationMaxChannelCount: context.destination.maxChannelCount,
     });
@@ -693,10 +757,93 @@ export const AiAudioTranscriber: React.FC = () => {
     }
 
     try {
-      const blob = encodeWav(chunks, sampleRateRef.current);
+      const targetWavSampleRate = Math.max(8000, Math.min(96000, Math.round(sampleRateRef.current || 44100)));
+      const wavNumChannels = 1;
+      const wavBitsPerSample = 16;
+      const wavBytesPerSample = wavBitsPerSample / 8;
+      const wavBlockAlign = wavNumChannels * wavBytesPerSample;
+      const wavByteRate = targetWavSampleRate * wavBlockAlign;
+      const wavDataByteLength = stats.totalSamples * wavBytesPerSample;
+      const wavTotalByteLength = 44 + wavDataByteLength;
+      const wavRiffChunkSize = 36 + wavDataByteLength;
+      const wavCalculatedDurationSec = wavByteRate > 0 ? wavDataByteLength / wavByteRate : 0;
+
+      addLog('info', 'WAV Header Generation Step 1 — Calculated PCM & RIFF/WAVE layout parameters:', {
+        audioContextSampleRate: sampleRateRef.current,
+        targetWavSampleRate,
+        numChannels: wavNumChannels,
+        bitsPerSample: wavBitsPerSample,
+        bytesPerSample: wavBytesPerSample,
+        blockAlign: wavBlockAlign,
+        byteRate: wavByteRate,
+        totalPcmSamples: stats.totalSamples,
+        dataByteLength: wavDataByteLength,
+        riffChunkSizeField: wavRiffChunkSize,
+        totalWavByteLength: wavTotalByteLength,
+        calculatedDurationSeconds: Number(wavCalculatedDurationSec.toFixed(4)),
+      });
+
+      addLog('info', 'WAV Header Generation Step 2 — Writing 44-byte RIFF/WAVE header fields (little-endian):', {
+        'offset[0..3] ChunkID': '"RIFF" (0x52494646)',
+        'offset[4..7] ChunkSize (36 + Subchunk2Size)': wavRiffChunkSize,
+        'offset[8..11] Format': '"WAVE" (0x57415645)',
+        'offset[12..15] Subchunk1ID': '"fmt " (0x666d7420)',
+        'offset[16..19] Subchunk1Size (PCM)': 16,
+        'offset[20..21] AudioFormat (Linear PCM)': 1,
+        'offset[22..23] NumChannels (Mono)': wavNumChannels,
+        'offset[24..27] SampleRate (Hz)': targetWavSampleRate,
+        'offset[28..31] ByteRate (SampleRate * NumChannels * BitsPerSample/8)': wavByteRate,
+        'offset[32..33] BlockAlign (NumChannels * BitsPerSample/8)': wavBlockAlign,
+        'offset[34..35] BitsPerSample': wavBitsPerSample,
+        'offset[36..39] Subchunk2ID': '"data" (0x64617461)',
+        'offset[40..43] Subchunk2Size (NumSamples * NumChannels * BitsPerSample/8)': wavDataByteLength,
+        'offset[44..end] PCM Payload Range': `44..${wavTotalByteLength - 1} (${wavDataByteLength} bytes)`,
+      });
+
+      const blob = encodeWav(chunks, targetWavSampleRate);
       const buffer = await blob.arrayBuffer();
       const validation = parseAndValidateWav(buffer);
       setWavValidation(validation);
+
+      // Inspect raw Int16 samples inside the encoded WAV buffer to verify non-zero audio data
+      const pcmView = new DataView(buffer);
+      let clampedSampleCount = 0;
+      for (const chunk of chunks) {
+        for (let i = 0; i < chunk.length; i += 1) {
+          if (chunk[i] > 1.0 || chunk[i] < -1.0) {
+            clampedSampleCount += 1;
+          }
+        }
+      }
+      let minInt16Sample = 0;
+      let maxInt16Sample = 0;
+      let lastNonZeroSampleIndex = -1;
+      for (let i = 0; i < validation.sampleCount; i += 1) {
+        const byteOffset = 44 + i * 2;
+        if (byteOffset + 1 >= buffer.byteLength) break;
+        const s16 = pcmView.getInt16(byteOffset, true);
+        if (s16 !== 0) {
+          lastNonZeroSampleIndex = i;
+        }
+        if (s16 < minInt16Sample) minInt16Sample = s16;
+        if (s16 > maxInt16Sample) maxInt16Sample = s16;
+      }
+
+      addLog('info', 'WAV Header Generation Step 3 — Encoded 16-bit signed PCM payload & verified Blob:', {
+        blobSizeBytes: blob.size,
+        expectedTotalBytes: wavTotalByteLength,
+        byteSizeExactMatch: blob.size === wavTotalByteLength,
+        blobMimeType: blob.type,
+        clampedFloatSamplesCount: clampedSampleCount,
+        minInt16Value: minInt16Sample,
+        maxInt16Value: maxInt16Sample,
+        firstNonZeroSampleIndex: validation.firstNonZeroSampleIndex,
+        lastNonZeroSampleIndex,
+        nonZeroSampleCount: validation.nonZeroSampleCount,
+        totalSampleCount: validation.sampleCount,
+        nonZeroPercentage: `${(validation.nonZeroRatio * 100).toFixed(2)}%`,
+        hasValidNonZeroAudioData: validation.valid && validation.hasNonZeroAudio && blob.size > 44,
+      });
 
       addLog('info', 'WAV Header Integrity Check (44-byte RIFF/WAVE inspection):', {
         valid: validation.valid,
@@ -731,6 +878,9 @@ export const AiAudioTranscriber: React.FC = () => {
         int16NonZeroPercentage: `${(validation.nonZeroRatio * 100).toFixed(2)}%`,
         hasNonZeroAudio: validation.hasNonZeroAudio,
         firstNonZeroSampleIndex: validation.firstNonZeroSampleIndex,
+        lastNonZeroSampleIndex,
+        minInt16Sample,
+        maxInt16Sample,
         peakAmplitude: Number(validation.peakAmplitude.toFixed(5)),
         rmsAmplitude: Number(validation.rmsAmplitude.toFixed(5)),
       });
@@ -766,10 +916,16 @@ export const AiAudioTranscriber: React.FC = () => {
         try {
           const decodedProbe = await probeCtx.decodeAudioData(buffer.slice(0));
           addLog('info', 'Web Audio decodeAudioData() verification probe succeeded on WAV Blob:', {
+            probeAudioContextSampleRate: probeCtx.sampleRate,
+            probeDestinationChannelCount: probeCtx.destination.channelCount,
             decodedSampleRate: decodedProbe.sampleRate,
             decodedNumberOfChannels: decodedProbe.numberOfChannels,
             decodedFrameLength: decodedProbe.length,
             decodedDurationSeconds: Number(decodedProbe.duration.toFixed(3)),
+            wavHeaderDurationSeconds: Number(validation.durationSeconds.toFixed(3)),
+            durationDeltaSeconds: Number(
+              Math.abs(decodedProbe.duration - validation.durationSeconds).toFixed(4)
+            ),
           });
         } finally {
           await probeCtx.close().catch(() => {});
@@ -921,30 +1077,101 @@ export const AiAudioTranscriber: React.FC = () => {
     const diag = extractAudioElementDiagnostics(eventName, el);
     setAudioElementDiag(diag);
 
+    const bufferedRanges: string[] = [];
+    try {
+      for (let i = 0; i < el.buffered.length; i += 1) {
+        bufferedRanges.push(
+          `${el.buffered.start(i).toFixed(2)}s-${el.buffered.end(i).toFixed(2)}s`
+        );
+      }
+    } catch {
+      // Ignore buffered range inspection errors
+    }
+
+    const seekableRanges: string[] = [];
+    try {
+      for (let i = 0; i < el.seekable.length; i += 1) {
+        seekableRanges.push(
+          `${el.seekable.start(i).toFixed(2)}s-${el.seekable.end(i).toFixed(2)}s`
+        );
+      }
+    } catch {
+      // Ignore seekable range inspection errors
+    }
+
     if (eventName === 'error') {
       const errText =
         diag.humanError ||
         'Audio player encountered an error loading the audio stream. Use "Play via Web Audio" below or inspect the Debug Log.';
       reportError('playback', errText, {
         ...diag,
+        bufferedRanges,
+        seekableRanges,
         wavHeaderValid: wavValidation?.valid ?? null,
         wavSampleRate: wavValidation?.sampleRate ?? null,
         wavNumChannels: wavValidation?.numChannels ?? null,
+        wavDataByteLength: wavValidation?.dataByteLength ?? null,
+        wavDurationSeconds: wavValidation?.durationSeconds ?? null,
         wavHasNonZeroAudio: wavValidation?.hasNonZeroAudio ?? null,
+        wavNonZeroSampleCount: wavValidation?.nonZeroSampleCount ?? null,
       });
       setShowDebug(true);
+      return;
+    }
+
+    const isZeroOrInvalidDuration =
+      (eventName === 'loadedmetadata' ||
+        eventName === 'durationchange' ||
+        eventName === 'canplay') &&
+      (diag.duration === null || diag.duration <= 0);
+
+    if (isZeroOrInvalidDuration) {
+      addLog(
+        'warn',
+        `<audio> reported '${ diag.rawDuration }' duration on '${eventName}' (diagnosing '0:00 / 0:00' player state):`,
+        {
+          eventName,
+          audioElementRawDuration: diag.rawDuration,
+          audioElementParsedDuration: diag.duration,
+          wavHeaderDurationSeconds: wavValidation?.durationSeconds ?? null,
+          wavHeaderValid: wavValidation?.valid ?? null,
+          wavSampleRate: wavValidation?.sampleRate ?? null,
+          wavNumChannels: wavValidation?.numChannels ?? null,
+          wavBitsPerSample: wavValidation?.bitsPerSample ?? null,
+          wavByteRate: wavValidation?.byteRate ?? null,
+          wavDataByteLength: wavValidation?.dataByteLength ?? null,
+          blobHasNonZeroAudio: wavValidation?.hasNonZeroAudio ?? null,
+          blobNonZeroSampleCount: wavValidation?.nonZeroSampleCount ?? null,
+          readyState: diag.readyStateLabel,
+          networkState: diag.networkStateLabel,
+          bufferedRanges,
+          seekableRanges,
+          currentSrc: diag.src,
+        }
+      );
     } else if (
+      eventName === 'loadstart' ||
       eventName === 'loadedmetadata' ||
+      eventName === 'loadeddata' ||
+      eventName === 'durationchange' ||
       eventName === 'canplay' ||
+      eventName === 'canplaythrough' ||
       eventName === 'play' ||
-      eventName === 'playing'
+      eventName === 'playing' ||
+      eventName === 'ended'
     ) {
       addLog('info', `<audio> element lifecycle event: ${eventName}`, {
         currentSrc: diag.src,
         duration: diag.duration,
         rawDuration: diag.rawDuration,
+        wavHeaderDurationSeconds: wavValidation
+          ? Number(wavValidation.durationSeconds.toFixed(3))
+          : null,
+        blobHasNonZeroAudio: wavValidation?.hasNonZeroAudio ?? null,
         readyState: diag.readyStateLabel,
         networkState: diag.networkStateLabel,
+        bufferedRanges,
+        seekableRanges,
         canPlayWav: diag.canPlayWav,
         paused: diag.paused,
         muted: diag.muted,
@@ -978,15 +1205,34 @@ export const AiAudioTranscriber: React.FC = () => {
       }
 
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+      let playbackNonZeroSamples = 0;
+      let playbackPeak = 0;
+      for (let ch = 0; ch < audioBuffer.numberOfChannels; ch += 1) {
+        const chData = audioBuffer.getChannelData(ch);
+        for (let i = 0; i < chData.length; i += 1) {
+          const abs = Math.abs(chData[i]);
+          if (abs > 0) playbackNonZeroSamples += 1;
+          if (abs > playbackPeak) playbackPeak = abs;
+        }
+      }
+
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(ctx.destination);
 
       setIsWebAudioPlaying(true);
-      addLog('info', 'Playing audio directly via Web Audio API AudioBufferSourceNode.', {
-        durationSeconds: Number(audioBuffer.duration.toFixed(2)),
-        sampleRate: audioBuffer.sampleRate,
-        channels: audioBuffer.numberOfChannels,
+      addLog('info', 'Playing audio directly via Web Audio API AudioBufferSourceNode:', {
+        playbackAudioContextSampleRate: ctx.sampleRate,
+        playbackAudioContextState: ctx.state,
+        destinationChannelCount: ctx.destination.channelCount,
+        destinationMaxChannelCount: ctx.destination.maxChannelCount,
+        decodedBufferSampleRate: audioBuffer.sampleRate,
+        decodedBufferChannels: audioBuffer.numberOfChannels,
+        decodedBufferFrameLength: audioBuffer.length,
+        durationSeconds: Number(audioBuffer.duration.toFixed(3)),
+        nonZeroSamples: playbackNonZeroSamples,
+        hasNonZeroAudio: playbackNonZeroSamples > 0,
+        peakAmplitude: Number(playbackPeak.toFixed(5)),
       });
 
       source.onended = () => {
