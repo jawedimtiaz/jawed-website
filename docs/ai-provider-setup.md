@@ -55,3 +55,8 @@ When configured, a successful response has the shape:
 The same request ID is returned in the `x-request-id` response header.
 
 Workers AI errors are normalized so provider-specific error details are not exposed to visitors.
+
+
+## Audio transcription endpoint
+
+The audio transcriber uses the separate Cloudflare Pages Function `POST /api/transcribe` and the Workers AI binding `AI`, with the fixed model `@cf/openai/whisper`. No provider API key is sent to the browser. This transcription model is priced at **$0.000453 per audio minute** according to Cloudflare's published model pricing; verify current account pricing and billing settings before enabling production traffic. Requests fail closed with a JSON error if the `AI` binding is missing. The endpoint validates payload size, MIME type, and audio data, and returns a request ID for diagnostics.
