@@ -176,15 +176,9 @@ export const AiAudioTranscriber: React.FC = () => {
         throw new Error('Microphone recording is not supported in this browser or context.');
       }
 
-      if (navigator.permissions?.query) {
-        try {
-          const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-          console.info('Current microphone permission state:', permissionStatus.state);
-        } catch {
-          // The Permissions API microphone query is not supported in every browser.
-        }
-      }
-
+      // Call getUserMedia immediately from the explicit button click. Avoid awaiting
+      // the Permissions API first: permission-state queries are diagnostic only,
+      // and must not delay the actual browser permission request.
       let stream: MediaStream;
       try {
         // These are preferences, not mandatory device requirements.
