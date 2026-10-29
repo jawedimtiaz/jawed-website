@@ -10,15 +10,21 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Server-side Gemini API client initialization
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Lazy server-side Gemini API client initialization
+function getGenAiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY environment variable is not configured.');
+  }
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+}
 
 // Server-side audio transcription API endpoint using gemini-3.5-transcribe
 app.post('/api/transcribe', async (req, res) => {
@@ -70,6 +76,7 @@ Format output into:
       },
     };
 
+    const ai = getGenAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3.5-transcribe',
       contents: {
@@ -102,7 +109,7 @@ async function startServer() {
 
     app.use(vite.middlewares);
 
-    app.use('*', async (req, res, next) => {
+    app.use(async (req, res, next) => {
       const url = req.originalUrl;
       try {
         let template = fs.readFileSync(path.resolve('.', 'index.html'), 'utf-8');
@@ -115,7 +122,7 @@ async function startServer() {
     });
   } else {
     app.use(express.static('dist'));
-    app.get('*', (_req, res) => {
+    app.use((_req, res) => {
       res.sendFile(path.resolve('.', 'dist', 'index.html'));
     });
   }

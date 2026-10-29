@@ -9,7 +9,8 @@
     "generate:webp": "node scripts/generate-webp.js",
     "build": "tsc && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
