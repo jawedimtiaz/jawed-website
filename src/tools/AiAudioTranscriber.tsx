@@ -449,6 +449,25 @@ export const AiAudioTranscriber: React.FC = () => {
   }, []);
 
   const stopRecordingGraph = useCallback(async () => {
+    const hasActiveGraph = Boolean(
+      processorRef.current ||
+        sourceNodeRef.current ||
+        silentGainRef.current ||
+        audioContextRef.current ||
+        activeStreamRef.current
+    );
+
+    if (hasActiveGraph) {
+      console.log('[AiAudioTranscriber] AudioContext lifecycle — tearing down recording graph:', {
+        audioContextStateBeforeTeardown: audioContextRef.current?.state ?? 'none',
+        audioContextSampleRate: audioContextRef.current?.sampleRate ?? null,
+        hasProcessorNode: Boolean(processorRef.current),
+        hasSourceNode: Boolean(sourceNodeRef.current),
+        hasSilentGainNode: Boolean(silentGainRef.current),
+        activeStreamTrackCount: activeStreamRef.current?.getTracks().length ?? 0,
+      });
+    }
+
     if (processorRef.current) {
       processorRef.current.onaudioprocess = null;
       try {
@@ -478,8 +497,17 @@ export const AiAudioTranscriber: React.FC = () => {
     }
 
     if (audioContextRef.current) {
+      const ctx = audioContextRef.current;
+      const preCloseState = ctx.state;
+      const closeSampleRate = ctx.sampleRate;
       try {
-        await audioContextRef.current.close();
+        ctx.onstatechange = null;
+        await ctx.close();
+        console.log('[AiAudioTranscriber] AudioContext lifecycle — AudioContext closed:', {
+          previousState: preCloseState,
+          finalState: ctx.state,
+          sampleRate: closeSampleRate,
+        });
       } catch {
         // Ignore already closed AudioContext
       }
@@ -487,7 +515,16 @@ export const AiAudioTranscriber: React.FC = () => {
     }
 
     if (activeStreamRef.current) {
-      activeStreamRef.current.getTracks().forEach((track) => track.stop());
+      const tracks = activeStreamRef.current.getTracks();
+      tracks.forEach((track) => track.stop());
+      console.log('[AiAudioTranscriber] AudioContext lifecycle — stopped MediaStream tracks:', {
+        stoppedTrackCount: tracks.length,
+        trackStates: tracks.map((t) => ({
+          label: t.label || 'Default Microphone',
+          readyState: t.readyState,
+          enabled: t.enabled,
+        })),
+      });
       activeStreamRef.current = null;
     }
   }, []);
@@ -587,6 +624,60 @@ export const AiAudioTranscriber: React.FC = () => {
     }
   }, [isRecording]);
 
+  /**
+   * Verifies whether a single PCM Float32Array buffer or an array of PCM chunks
+   * contains non-zero amplitude samples above the noise floor to diagnose silence.
+   */
+  const verifyPcmBufferNonZeroAmplitude = (
+    bufferOrChunks: Float32Array | Float32Array[],
+    amplitudeThreshold = 1e-5
+  ) => {
+    const chunks = Array.isArray(bufferOrChunks) ? bufferOrChunks : [bufferOrChunks];
+    let totalSamples = 0;
+    let nonZeroSampleCount = 0;
+    let audibleSampleCount = 0;
+    let minSample = 0;
+    let maxSample = 0;
+    let peakAmplitude = 0;
+    let sumSquares = 0;
+
+    for (const chunk of chunks) {
+      totalSamples += chunk.length;
+      for (let i = 0; i < chunk.length; i += 1) {
+        const val = chunk[i];
+        if (!Number.isFinite(val)) continue;
+        const abs = Math.abs(val);
+        if (abs > 0) nonZeroSampleCount += 1;
+        if (abs > amplitudeThreshold) audibleSampleCount += 1;
+        if (abs > peakAmplitude) peakAmplitude = abs;
+        if (val < minSample) minSample = val;
+        if (val > maxSample) maxSample = val;
+        sumSquares += val * val;
+      }
+    }
+
+    const rmsAmplitude = totalSamples > 0 ? Math.sqrt(sumSquares / totalSamples) : 0;
+    const rmsDbFs = rmsAmplitude > 0 ? 20 * Math.log10(rmsAmplitude) : -Infinity;
+    const nonZeroRatio = totalSamples > 0 ? nonZeroSampleCount / totalSamples : 0;
+    const hasNonZeroSamples = nonZeroSampleCount > 0;
+    const hasNonZeroAmplitude = audibleSampleCount > 0 && peakAmplitude > amplitudeThreshold;
+
+    return {
+      totalSamples,
+      nonZeroSampleCount,
+      audibleSampleCount,
+      nonZeroRatio,
+      minSample,
+      maxSample,
+      peakAmplitude,
+      rmsAmplitude,
+      rmsDbFs,
+      hasNonZeroSamples,
+      hasNonZeroAmplitude,
+      isSilent: !hasNonZeroAmplitude,
+    };
+  };
+
   const initPcmRecorder = async (stream: MediaStream) => {
     await stopRecordingGraph();
 
@@ -599,7 +690,7 @@ export const AiAudioTranscriber: React.FC = () => {
     const primaryTrack = audioTracks[0];
     const trackSettings = primaryTrack?.getSettings ? primaryTrack.getSettings() : {};
 
-    addLog('info', 'Microphone stream acquired. Inspecting audio tracks & channel settings...', {
+    const streamTrackDiag = {
       trackCount: audioTracks.length,
       label: primaryTrack?.label || 'Default Microphone',
       readyState: primaryTrack?.readyState || 'unknown',
@@ -611,7 +702,17 @@ export const AiAudioTranscriber: React.FC = () => {
       echoCancellation: trackSettings.echoCancellation,
       noiseSuppression: trackSettings.noiseSuppression,
       autoGainControl: trackSettings.autoGainControl,
-    });
+    };
+
+    console.log(
+      '[AiAudioTranscriber] AudioContext lifecycle — MediaStream acquired (monitoring track sampleRate & channelCount):',
+      streamTrackDiag
+    );
+    addLog(
+      'info',
+      'Microphone stream acquired. Inspecting audio tracks & channel settings...',
+      streamTrackDiag
+    );
 
     const AudioContextCtor =
       window.AudioContext ||
@@ -620,8 +721,28 @@ export const AiAudioTranscriber: React.FC = () => {
     audioContextRef.current = context;
 
     const initialContextState = context.state;
+    console.log('[AiAudioTranscriber] AudioContext lifecycle — AudioContext instantiated:', {
+      initialState: initialContextState,
+      sampleRate: context.sampleRate,
+      destinationChannelCount: context.destination.channelCount,
+      destinationMaxChannelCount: context.destination.maxChannelCount,
+    });
+
+    context.onstatechange = () => {
+      console.log('[AiAudioTranscriber] AudioContext lifecycle — onstatechange transition:', {
+        currentState: context.state,
+        sampleRate: context.sampleRate,
+        currentTimeSeconds: Number((context.currentTime || 0).toFixed(3)),
+      });
+    };
+
     if (context.state === 'suspended') {
+      console.log('[AiAudioTranscriber] AudioContext lifecycle — calling context.resume() from suspended state...');
       await context.resume();
+      console.log('[AiAudioTranscriber] AudioContext lifecycle — context.resume() resolved:', {
+        stateAfterResume: context.state,
+        sampleRate: context.sampleRate,
+      });
     }
 
     const rawSampleRate = Number(context.sampleRate || 44100);
@@ -637,6 +758,25 @@ export const AiAudioTranscriber: React.FC = () => {
     processorRef.current = processor;
     silentGainRef.current = silentGain;
 
+    console.log(
+      '[AiAudioTranscriber] AudioContext lifecycle — Web Audio nodes created (monitoring sample rates & channel counts):',
+      {
+        audioContextState: context.state,
+        contextSampleRate: context.sampleRate,
+        normalizedSampleRate,
+        trackSampleRate: trackSettings.sampleRate ?? 'browser-default',
+        trackChannelCount: trackSettings.channelCount ?? 'browser-default',
+        sourceChannelCount: source.channelCount,
+        sourceChannelCountMode: source.channelCountMode,
+        processorBufferSize: processor.bufferSize,
+        processorChannelCount: processor.channelCount,
+        processorNumberOfInputs: processor.numberOfInputs,
+        processorNumberOfOutputs: processor.numberOfOutputs,
+        silentGainValue: silentGain.gain.value,
+        destinationChannelCount: context.destination.channelCount,
+      }
+    );
+
     let loggedFirstBuffer = false;
     let processedChunkCounter = 0;
     processor.onaudioprocess = (event: AudioProcessingEvent) => {
@@ -646,23 +786,8 @@ export const AiAudioTranscriber: React.FC = () => {
       pcmChunksRef.current.push(copy);
       processedChunkCounter += 1;
 
-      let localPeak = 0;
-      let nonZeroCount = 0;
-      let audibleSampleCount = 0;
-      let minSample = 0;
-      let maxSample = 0;
-      const silenceAmplitudeThreshold = 1e-5;
-      for (let i = 0; i < copy.length; i += 1) {
-        const val = copy[i];
-        const abs = Math.abs(val);
-        if (abs > 0) nonZeroCount += 1;
-        if (abs > silenceAmplitudeThreshold) audibleSampleCount += 1;
-        if (abs > localPeak) localPeak = abs;
-        if (val < minSample) minSample = val;
-        if (val > maxSample) maxSample = val;
-      }
-      const hasNonZeroAmplitude = nonZeroCount > 0 && localPeak > silenceAmplitudeThreshold;
-      setInputLevelPeak(localPeak);
+      const chunkCheck = verifyPcmBufferNonZeroAmplitude(copy);
+      setInputLevelPeak(chunkCheck.peakAmplitude);
 
       if (!loggedFirstBuffer) {
         loggedFirstBuffer = true;
@@ -675,21 +800,24 @@ export const AiAudioTranscriber: React.FC = () => {
           sourceChannelCount: source.channelCount,
           processorChannelCount: processor.channelCount,
           inputBufferFrameLength: inputBuffer.length,
+          inputBufferByteSizeFloat32: copy.byteLength,
           inputBufferDurationMs: Number((inputBuffer.duration * 1000).toFixed(2)),
-          firstChunkNonZeroSamples: nonZeroCount,
-          firstChunkAudibleSamples: audibleSampleCount,
-          firstChunkTotalSamples: copy.length,
-          firstChunkHasNonZeroAudio: nonZeroCount > 0,
-          firstChunkHasNonZeroAmplitude: hasNonZeroAmplitude,
-          firstChunkMinSample: Number(minSample.toFixed(6)),
-          firstChunkMaxSample: Number(maxSample.toFixed(6)),
-          firstChunkPeakAmplitude: Number(localPeak.toFixed(6)),
+          firstChunkNonZeroSamples: chunkCheck.nonZeroSampleCount,
+          firstChunkAudibleSamples: chunkCheck.audibleSampleCount,
+          firstChunkTotalSamples: chunkCheck.totalSamples,
+          firstChunkHasNonZeroAudio: chunkCheck.hasNonZeroSamples,
+          firstChunkHasNonZeroAmplitude: chunkCheck.hasNonZeroAmplitude,
+          firstChunkIsSilent: chunkCheck.isSilent,
+          firstChunkMinSample: Number(chunkCheck.minSample.toFixed(6)),
+          firstChunkMaxSample: Number(chunkCheck.maxSample.toFixed(6)),
+          firstChunkPeakAmplitude: Number(chunkCheck.peakAmplitude.toFixed(6)),
+          firstChunkRmsAmplitude: Number(chunkCheck.rmsAmplitude.toFixed(6)),
         };
         console.log(
           '[AiAudioTranscriber] First PCM buffer captured — AudioContext & non-zero amplitude check:',
           firstBufferDiag
         );
-        if (!hasNonZeroAmplitude) {
+        if (chunkCheck.isSilent) {
           console.warn(
             '[AiAudioTranscriber] Silence detected in initial PCM buffer (all samples are zero or below amplitude threshold 1e-5):',
             firstBufferDiag
@@ -701,17 +829,23 @@ export const AiAudioTranscriber: React.FC = () => {
           firstBufferDiag
         );
       } else if (processedChunkCounter % 25 === 0) {
+        const cumulativeSamples = pcmChunksRef.current.reduce((acc, c) => acc + c.length, 0);
         const progressDiag = {
           chunkIndex: processedChunkCounter,
           audioContextState: context.state,
           contextSampleRate: context.sampleRate,
           inputBufferSampleRate: inputBuffer.sampleRate,
           inputBufferChannels: inputBuffer.numberOfChannels,
-          chunkNonZeroSamples: nonZeroCount,
-          chunkAudibleSamples: audibleSampleCount,
-          chunkHasNonZeroAmplitude: hasNonZeroAmplitude,
-          chunkFrameLength: copy.length,
-          chunkPeakAmplitude: Number(localPeak.toFixed(5)),
+          chunkNonZeroSamples: chunkCheck.nonZeroSampleCount,
+          chunkAudibleSamples: chunkCheck.audibleSampleCount,
+          chunkHasNonZeroAmplitude: chunkCheck.hasNonZeroAmplitude,
+          chunkIsSilent: chunkCheck.isSilent,
+          chunkFrameLength: chunkCheck.totalSamples,
+          chunkByteSizeFloat32: copy.byteLength,
+          cumulativeSamples,
+          cumulativeFloat32Bytes: cumulativeSamples * 4,
+          cumulativePcm16Bytes: cumulativeSamples * 2,
+          chunkPeakAmplitude: Number(chunkCheck.peakAmplitude.toFixed(5)),
         };
         console.log(
           `[AiAudioTranscriber] Live PCM capture progress (chunk #${processedChunkCounter}):`,
@@ -758,8 +892,10 @@ export const AiAudioTranscriber: React.FC = () => {
       sampleRate: context.sampleRate,
       normalizedSampleRate,
       channelCount: source.channelCount,
+      sourceChannelCount: source.channelCount,
       processorChannelCount: processor.channelCount,
       destinationChannelCount: context.destination.channelCount,
+      destinationMaxChannelCount: context.destination.maxChannelCount,
       trackChannelCount: trackSettings.channelCount ?? 'browser-default',
       trackSampleRate: trackSettings.sampleRate ?? 'browser-default',
     });
@@ -974,42 +1110,38 @@ export const AiAudioTranscriber: React.FC = () => {
 
     const chunks = pcmChunksRef.current;
     const stats = computePcmStats(chunks);
-    const silenceAmplitudeThreshold = 1e-5;
-    let audibleSampleCount = 0;
-    for (const chunk of chunks) {
-      for (let i = 0; i < chunk.length; i += 1) {
-        if (Math.abs(chunk[i]) > silenceAmplitudeThreshold) {
-          audibleSampleCount += 1;
-        }
-      }
-    }
-    const hasNonZeroAmplitudeSamples =
-      stats.hasNonZeroAudio && audibleSampleCount > 0 && stats.peakAmplitude > silenceAmplitudeThreshold;
+    const amplitudeCheck = verifyPcmBufferNonZeroAmplitude(chunks);
+    const rawFloat32BufferBytes = stats.totalSamples * 4;
+    const targetPcm16BufferBytes = stats.totalSamples * 2;
 
     const pcmBufferVerification = {
       chunkCount: stats.chunkCount,
       activeChunkCount: stats.activeChunkCount,
       silentChunkCount: stats.silentChunkCount,
       totalSamples: stats.totalSamples,
+      rawFloat32BufferBytes,
+      targetPcm16BufferBytes,
       nonZeroSampleCount: stats.nonZeroSampleCount,
-      audibleSampleCountAbove1e5: audibleSampleCount,
+      audibleSampleCountAbove1e5: amplitudeCheck.audibleSampleCount,
       nonZeroPercentage: `${(stats.nonZeroRatio * 100).toFixed(2)}%`,
       hasNonZeroAudio: stats.hasNonZeroAudio,
-      hasNonZeroAmplitudeSamples,
+      hasNonZeroAmplitudeSamples: amplitudeCheck.hasNonZeroAmplitude,
+      minSample: Number(amplitudeCheck.minSample.toFixed(6)),
+      maxSample: Number(amplitudeCheck.maxSample.toFixed(6)),
       peakAmplitude: Number(stats.peakAmplitude.toFixed(5)),
       rmsAmplitude: Number(stats.rmsAmplitude.toFixed(5)),
       rmsDbFs: Number.isFinite(stats.rmsDbFs) ? `${stats.rmsDbFs.toFixed(2)} dBFS` : '-Inf dBFS',
-      isSilent: stats.isSilent || !hasNonZeroAmplitudeSamples,
+      isSilent: stats.isSilent || amplitudeCheck.isSilent,
       elapsedSeconds,
       sampleRate: sampleRateRef.current,
     };
 
     console.log(
-      '[AiAudioTranscriber] Captured PCM buffer non-zero amplitude check:',
+      '[AiAudioTranscriber] Captured PCM buffer size & non-zero amplitude check:',
       pcmBufferVerification
     );
 
-    if (!hasNonZeroAmplitudeSamples) {
+    if (amplitudeCheck.isSilent) {
       console.warn(
         '[AiAudioTranscriber] Silence diagnosed: PCM buffer contains zero or near-zero amplitude samples across the recording.',
         pcmBufferVerification
@@ -1039,6 +1171,36 @@ export const AiAudioTranscriber: React.FC = () => {
       const wavTotalByteLength = 44 + wavDataByteLength;
       const wavRiffChunkSize = 36 + wavDataByteLength;
       const wavCalculatedDurationSec = wavByteRate > 0 ? wavDataByteLength / wavByteRate : 0;
+
+      const preWavBlobDiagnostic = {
+        audioContextSampleRate: sampleRateRef.current,
+        targetWavSampleRate,
+        numChannels: wavNumChannels,
+        bitsPerSample: wavBitsPerSample,
+        bytesPerSample: wavBytesPerSample,
+        blockAlign: wavBlockAlign,
+        byteRate: wavByteRate,
+        chunkCount: stats.chunkCount,
+        totalPcmSamples: stats.totalSamples,
+        rawFloat32ByteLength: rawFloat32BufferBytes,
+        pcm16DataByteLength: wavDataByteLength,
+        wavHeaderByteLength: 44,
+        riffChunkSizeField: wavRiffChunkSize,
+        totalWavByteLength: wavTotalByteLength,
+        calculatedDurationSeconds: Number(wavCalculatedDurationSec.toFixed(4)),
+        hasNonZeroAudio: stats.hasNonZeroAudio,
+        hasNonZeroAmplitudeSamples: amplitudeCheck.hasNonZeroAmplitude,
+        nonZeroSampleCount: stats.nonZeroSampleCount,
+        audibleSampleCount: amplitudeCheck.audibleSampleCount,
+        peakAmplitude: Number(stats.peakAmplitude.toFixed(6)),
+        rmsAmplitude: Number(stats.rmsAmplitude.toFixed(6)),
+        isSilent: stats.isSilent || amplitudeCheck.isSilent,
+      };
+
+      console.log(
+        '[AiAudioTranscriber] Pre-WAV Blob creation — calculated PCM buffer size, sampleRate, channelCount & amplitude verification:',
+        preWavBlobDiagnostic
+      );
 
       addLog('info', 'WAV Header Generation Step 1 — Calculated PCM & RIFF/WAVE layout parameters:', {
         audioContextSampleRate: sampleRateRef.current,
@@ -1104,11 +1266,16 @@ export const AiAudioTranscriber: React.FC = () => {
         if (s16 > maxInt16Sample) maxInt16Sample = s16;
       }
 
-      addLog('info', 'WAV Header Generation Step 3 — Encoded 16-bit signed PCM payload & verified Blob:', {
+      const finalizedWavBlobDiagnostic = {
         blobSizeBytes: blob.size,
         expectedTotalBytes: wavTotalByteLength,
         byteSizeExactMatch: blob.size === wavTotalByteLength,
         blobMimeType: blob.type,
+        sampleRate: validation.sampleRate,
+        numChannels: validation.numChannels,
+        bitsPerSample: validation.bitsPerSample,
+        dataByteLength: validation.dataByteLength,
+        durationSeconds: Number(validation.durationSeconds.toFixed(4)),
         clampedFloatSamplesCount: clampedSampleCount,
         minInt16Value: minInt16Sample,
         maxInt16Value: maxInt16Sample,
@@ -1118,7 +1285,14 @@ export const AiAudioTranscriber: React.FC = () => {
         totalSampleCount: validation.sampleCount,
         nonZeroPercentage: `${(validation.nonZeroRatio * 100).toFixed(2)}%`,
         hasValidNonZeroAudioData: validation.valid && validation.hasNonZeroAudio && blob.size > 44,
-      });
+      };
+
+      console.log(
+        '[AiAudioTranscriber] WAV Blob finalized & verified (16-bit mono PCM):',
+        finalizedWavBlobDiagnostic
+      );
+
+      addLog('info', 'WAV Header Generation Step 3 — Encoded 16-bit signed PCM payload & verified Blob:', finalizedWavBlobDiagnostic);
 
       addLog('info', 'WAV Header Integrity Check (44-byte RIFF/WAVE inspection):', {
         valid: validation.valid,
