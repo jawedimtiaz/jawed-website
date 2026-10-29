@@ -1,4 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
+
+// Reuse the model during this page session; inference runs locally in the visitor's browser.
+let localWhisperPipeline: any = null;
+let localWhisperPipelinePromise: Promise<any> | null = null;
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
@@ -321,67 +325,88 @@ export const AiAudioTranscriber: React.FC = () => {
   };
 
   const handleTranscribe = async () => {
-    if (!audioBlob) {
-      setErrorMsg('Please record audio or upload an audio file first.');
-      return;
-    }
-
+    if (!audioBlob) { setErrorMsg('Please record audio or upload an audio file first.'); return; }
     if (!isOnline) {
-      setErrorMsg('Audio transcription requires an active internet connection.');
+      setErrorMsg('An internet connection is needed to download the speech model the first time. Audio is processed locally in your browser.');
       return;
     }
+    if (audioBlob.size < 128) { setErrorMsg('This recording contains no usable audio data. Please record again or upload another file.'); return; }
 
     setLoading(true);
     setErrorMsg(null);
     setTranscriptResult(null);
-
     try {
-      const base64Audio = await convertBlobToBase64(audioBlob);
-
-      if (audioBlob.size < 128) {
-        throw new Error('This recording contains no usable audio data. Please record again or upload an audio file.');
-      }
-
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          audio: base64Audio,
-          mimeType: audioMimeType || audioBlob.type || 'audio/webm',
-          contextMode,
-          prompt: contextMode === 'custom' ? customPrompt : undefined,
-        }),
-      });
-
-      // Read the body as text first so a proxy/404/empty server response does
-      // not hide the actual HTTP status behind "Unexpected end of JSON input".
-      const responseText = await response.text();
-      let data: any = null;
-      if (responseText.trim()) {
-        try {
-          data = JSON.parse(responseText);
-        } catch {
-          throw new Error(`Transcription service returned a non-JSON response (HTTP ${response.status}). Please retry shortly.`);
+      // Transformers.js loads a small open-source model; inference stays in this browser tab.
+      if (!localWhisperPipeline) {
+        if (!localWhisperPipelinePromise) {
+          localWhisperPipelinePromise = (async () => {
+            const moduleUrl = 'https://esm.sh/@huggingface/transformers@3.7.2?bundle';
+            // @ts-ignore - runtime-only ESM import, intentionally excluded from Vite bundling.
+            const transformers = await import(/* @vite-ignore */ moduleUrl);
+            return transformers.pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny', {
+              device: 'wasm',
+              dtype: 'q8',
+              progress_callback: (progress: any) => {
+                if (progress?.status === 'progress' && typeof progress.progress === 'number') {
+                  console.info('[Audio Transcriber] Speech model download', Math.round(progress.progress), '%');
+                }
+              },
+            });
+          })();
         }
+        try { localWhisperPipeline = await localWhisperPipelinePromise; }
+        catch (modelError) { localWhisperPipelinePromise = null; throw modelError; }
       }
 
-      if (!response.ok) {
-        throw new Error(data?.error || data?.message || `Transcription failed (HTTP ${response.status}).`);
-      }
-      if (!data || typeof data.transcript !== 'string' || !data.transcript.trim()) {
-        throw new Error('Transcription service returned no transcript. Please try a longer recording or upload an audio file.');
-      }
+      // Decode supported browser audio, downmix to mono, and resample to Whisper's 16 kHz input.
+      const audioContext = new AudioContext();
+      try {
+        const decoded = await audioContext.decodeAudioData(await audioBlob.arrayBuffer());
+        const targetRate = 16000;
+        const targetLength = Math.ceil(decoded.duration * targetRate);
+        if (!Number.isFinite(targetLength) || targetLength < 1 || targetLength > targetRate * 60 * 30) {
+          throw new Error('Audio duration is invalid or exceeds the 30-minute local processing limit.');
+        }
+        const offline = new OfflineAudioContext(1, targetLength, targetRate);
+        const source = offline.createBufferSource();
+        source.buffer = decoded;
+        source.connect(offline.destination);
+        source.start(0);
+        const resampled = await offline.startRendering();
+        const result = await localWhisperPipeline(resampled.getChannelData(0), {
+          sampling_rate: targetRate, chunk_length_s: 30, stride_length_s: 5, return_timestamps: false,
+        });
+        const transcript = typeof result?.text === 'string' ? result.text.trim() : '';
+        if (!transcript) throw new Error('No speech was detected. Try a longer or clearer recording.');
 
-      setTranscriptResult(data.transcript);
+        let output = transcript;
+        if (contextMode === 'service_desk') {
+          output = ['### Issue Description & Symptoms', transcript, '', '### Diagnostics & Troubleshooting Taken',
+            'Not specified in the transcript.', '', '### Resolution / Pending Next Steps',
+            'Review the transcript and confirm any required follow-up.'].join('\n');
+        } else if (contextMode === 'summary_only') {
+          output = '### Transcript\n' + transcript + '\n\n### Note\nThis is a transcript, not an AI-generated summary.';
+        } else if (contextMode === 'custom' && customPrompt.trim()) {
+          output = '### Transcript\n' + transcript + '\n\n### Your note\n' + customPrompt.trim() +
+            '\n\nNote: custom instructions are included as a note; no separate generative model is used.';
+        } else {
+          output = '### Full Transcript\n' + transcript;
+        }
+        setTranscriptResult(output);
+      } finally {
+        await audioContext.close().catch(() => undefined);
+      }
     } catch (err: any) {
-      console.error('Transcription error:', err);
-      setErrorMsg(err.message || 'Error communicating with Gemini transcription service.');
-    } finally {
-      setLoading(false);
-    }
+      console.error('[Audio Transcriber] Local transcription failed:', err);
+      const message = String(err?.message || err || 'Unknown error');
+      if (/decode|encoding|supported source/i.test(message)) {
+        setErrorMsg('The browser could not decode this audio format. Try exporting it as WAV or MP3, then upload it again.');
+      } else if (/fetch|network|download|failed to load|failed to fetch/i.test(message)) {
+        setErrorMsg('Could not download the free speech model. Check your connection and content blockers, then retry.');
+      } else {
+        setErrorMsg('Local transcription failed: ' + message);
+      }
+    } finally { setLoading(false); }
   };
 
   const formatTimer = (seconds: number) => {
@@ -430,11 +455,11 @@ export const AiAudioTranscriber: React.FC = () => {
 
         <header className="page-header">
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '20px', color: '#60a5fa', fontSize: '0.85rem', fontWeight: 600, marginBottom: '12px' }}>
-            <Sparkles size={16} /> Powered by Gemini 3.5 Transcribe
+            <Sparkles size={16} /> Free, local browser transcription
           </div>
           <h1 className="page-title">AI Audio Transcriber &amp; Voice Note Assistant</h1>
           <p className="page-lead">
-            Record support phone calls, spoken troubleshooting notes, or upload voice memos. Get high-precision transcripts, structured ITSM ticket updates, and technical key takeaways in seconds.
+            Record voice notes or upload audio to generate a transcript locally in your browser. No transcription API charges; first use downloads an open-source speech model.
           </p>
         </header>
 
@@ -455,7 +480,7 @@ export const AiAudioTranscriber: React.FC = () => {
             }}
             role="status"
           >
-            <AlertCircle size={20} /> AI Audio Transcription requires an active internet connection.
+            <AlertCircle size={20} /> The free speech model needs an internet connection for its first download. Audio processing runs locally.
           </div>
         )}
 
@@ -560,15 +585,15 @@ export const AiAudioTranscriber: React.FC = () => {
                 style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--surface-elevated)', color: 'var(--text)', fontSize: '0.9rem', marginBottom: '12px' }}
               >
                 <option value="standard">🎙️ Technical Notes &amp; Full Transcript (Default)</option>
-                <option value="service_desk">🎫 Service Desk Ticket Note (ITSM Format)</option>
-                <option value="summary_only">📝 Executive Action Items &amp; Key Decisions</option>
-                <option value="custom">💬 Custom Instructions / Prompt</option>
+                <option value="service_desk">🎫 Service Desk Ticket Note (transcript-based)</option>
+                <option value="summary_only">📝 Transcript Only (no AI summary)</option>
+                <option value="custom">💬 Transcript + Custom Note</option>
               </select>
 
               {contextMode === 'custom' && (
                 <div style={{ marginTop: '10px' }}>
                   <label htmlFor="customPrompt" style={{ fontSize: '0.85rem', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>
-                    Specific Transcription Instructions:
+                    Optional note to include below transcript:
                   </label>
                   <textarea
                     id="customPrompt"
@@ -593,7 +618,7 @@ export const AiAudioTranscriber: React.FC = () => {
               >
                 {loading ? (
                   <>
-                    <RefreshCw size={18} className="spin" /> Transcribing with Gemini 3.5...
+                    <RefreshCw size={18} className="spin" /> Loading model / transcribing locally...
                   </>
                 ) : (
                   <>
@@ -652,7 +677,7 @@ export const AiAudioTranscriber: React.FC = () => {
           <div className="panel" style={{ background: 'var(--surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
               <h2 className="section-title" style={{ margin: 0, fontSize: '1.2rem' }}>
-                AI Output &amp; Transcript
+                Transcript &amp; Notes
               </h2>
               {transcriptResult && (
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -681,8 +706,8 @@ export const AiAudioTranscriber: React.FC = () => {
               {loading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '260px', color: 'var(--muted)', gap: '14px' }}>
                   <Sparkles size={36} className="text-primary spin" style={{ animationDuration: '3s' }} />
-                  <p style={{ margin: 0, fontWeight: 600 }}>Analyzing audio with Gemini 3.5 Transcribe...</p>
-                  <small style={{ color: 'var(--muted)' }}>Processing speech recognition and technical context</small>
+                  <p style={{ margin: 0, fontWeight: 600 }}>Running Whisper locally in your browser...</p>
+                  <small style={{ color: 'var(--muted)' }}>The model is downloaded once and cached by your browser.</small>
                 </div>
               ) : transcriptResult ? (
                 <div className="tool-output" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: '0.95rem', color: 'var(--text)' }}>
