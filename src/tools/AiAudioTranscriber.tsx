@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronUp,
   ShieldAlert,
+  ShieldCheck,
   Globe,
   Cpu,
   Play,
@@ -26,8 +27,14 @@ import {
   Timer,
   ArrowDown,
   ChevronsDown,
+  CheckCircle2,
+  RotateCcw,
+  Info,
+  Lock,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { SocialShareBar } from '../components/SocialShareBar';
 import {
   TranscriberErrorCategory,
   WavValidationResult,
@@ -349,6 +356,7 @@ export const AiAudioTranscriber: React.FC = () => {
   const [liveTranscript, setLiveTranscript] = useState<string>('');
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState<boolean>(true);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState<boolean>(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // Diagnostics & Debug State
   const [debugLogs, setDebugLogs] = useState<DebugEntry[]>([]);
@@ -3910,65 +3918,330 @@ export const AiAudioTranscriber: React.FC = () => {
       : undefined;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <Link
-              to="/tools"
-              className="inline-flex items-center text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
-            >
-              ← Back to All Tools
-            </Link>
+    <div className="page ai-audio-transcriber-page">
+      <main className="container" style={{ maxWidth: '1160px', margin: '0 auto', paddingBottom: '80px' }}>
+        {/* Top Breadcrumb & Social Share Header Bar */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            marginBottom: '16px',
+          }}
+        >
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Tools', href: '/tools' },
+              { label: 'AI Audio Transcriber & Summarizer' },
+            ]}
+            style={{ marginBottom: 0 }}
+          />
+          <SocialShareBar
+            title="AI Audio Transcriber & Summarizer | Jawed Imtiaz"
+            text="Transcribe voice recordings and audio files 100% locally in your browser with private Whisper AI. Zero data uploaded to servers."
+            url={
+              typeof window !== 'undefined'
+                ? `${window.location.origin}/tools/ai-audio-transcriber`
+                : 'https://jawed.co.in/tools/ai-audio-transcriber'
+            }
+          />
+        </div>
+
+        {/* Page Header matching ITCoverLetterBuilder & Site Standard */}
+        <header style={{ marginBottom: '24px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              marginBottom: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'var(--accent)',
+                  background: 'rgba(56, 189, 248, 0.1)',
+                  padding: '3px 10px',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                }}
+              >
+                Free Tool • 100% In Browser
+              </span>
+              <span
+                style={{
+                  fontSize: '0.78rem',
+                  color: 'var(--muted)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <ShieldCheck size={14} color="var(--emerald)" aria-hidden="true" /> Zero Server Uploads • 100% Private
+              </span>
+            </div>
+
             <button
               type="button"
               onClick={() => setShowDebug((prev) => !prev)}
-              className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700 transition-colors"
+              style={{
+                background: showDebug ? 'var(--surface-accent)' : 'var(--surface)',
+                border: showDebug ? '1px solid var(--accent)' : '1px solid var(--line)',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                color: showDebug ? 'var(--accent)' : 'var(--text-muted)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease',
+              }}
+              title="Toggle AudioContext, WAV header and microphone diagnostics"
             >
-              <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-              {showDebug ? 'Hide Diagnostics' : 'Audio & Mic Diagnostics'}
-              {showDebug ? (
-                <ChevronUp className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" />
-              )}
+              <Terminal size={14} color="var(--accent)" aria-hidden="true" />
+              {showDebug ? 'Hide Audio Diagnostics' : 'Audio & Mic Diagnostics'}
+              {showDebug ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-              <Volume2 className="w-7 h-7" />
+
+          <h1
+            style={{
+              fontSize: 'clamp(1.8rem, 3.5vw, 2.4rem)',
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              margin: '0 0 10px',
+              color: 'var(--text-heading)',
+            }}
+          >
+            AI Audio Transcriber &amp; Summarizer
+          </h1>
+          <p
+            className="lead"
+            style={{
+              fontSize: '1.05rem',
+              color: 'var(--muted)',
+              maxWidth: '840px',
+              lineHeight: 1.6,
+              margin: 0,
+            }}
+          >
+            Record live voice notes or upload audio files for 100% local, private multilingual
+            transcription, executive summaries, and action items powered by in-browser Whisper AI.
+          </p>
+        </header>
+
+        {/* Diagnostics Drawer (when enabled) */}
+        {showDebug && (
+          <section
+            className="panel"
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: '16px',
+              padding: '20px',
+              marginBottom: '24px',
+              boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderBottom: '1px solid var(--line)',
+                paddingBottom: '12px',
+                marginBottom: '16px',
+              }}
+            >
+              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-heading)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <Terminal size={16} color="var(--accent)" />
+                Browser Audio, WAV Header &amp; Playback Diagnostics
+              </span>
+              <button
+                type="button"
+                onClick={() => setDebugLogs([])}
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  color: 'var(--muted)',
+                }}
+              >
+                Clear Log
+              </button>
             </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '10px',
+                marginBottom: '16px',
+              }}
+            >
+              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>Secure Context (HTTPS)</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: envInfo.isSecureContext ? 'var(--emerald)' : 'var(--rose)' }}>
+                  {String(envInfo.isSecureContext)}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>getUserMedia API</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: envInfo.hasGetUserMedia ? 'var(--emerald)' : 'var(--rose)' }}>
+                  {envInfo.hasGetUserMedia ? 'Available' : 'Missing'}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>Permission State</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--amber)' }}>{envInfo.permissionState}</div>
+              </div>
+              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>AudioContext Sample Rate</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--accent)' }}>
+                  {audioContextDiag ? `${audioContextDiag.normalizedSampleRate} Hz` : 'Idle'}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>WAV Header Integrity</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: wavValidation?.valid ? 'var(--emerald)' : 'var(--muted)' }}>
+                  {wavValidation ? (wavValidation.valid ? 'VALID HEADER' : 'INVALID') : 'No WAV'}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>Signal Activity</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: wavValidation?.hasNonZeroAudio ? 'var(--emerald)' : 'var(--muted)' }}>
+                  {wavValidation?.hasNonZeroAudio ? 'Non-Zero Signal' : 'Silent / Standby'}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: 'var(--bg)',
+                border: '1px solid var(--line)',
+                borderRadius: '8px',
+                padding: '12px',
+                maxHeight: '180px',
+                overflowY: 'auto',
+                fontFamily: 'monospace',
+                fontSize: '0.78rem',
+              }}
+            >
+              {debugLogs.length === 0 ? (
+                <div style={{ color: 'var(--muted)' }}>No events logged yet.</div>
+              ) : (
+                debugLogs.map((log, idx) => (
+                  <div key={idx} style={{ marginBottom: '6px', lineHeight: 1.5 }}>
+                    <span style={{ color: 'var(--muted)' }}>[{log.timestamp}]</span>{' '}
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color:
+                          log.level === 'error'
+                            ? 'var(--rose)'
+                            : log.level === 'warn'
+                            ? 'var(--amber)'
+                            : 'var(--accent)',
+                      }}
+                    >
+                      [{log.level.toUpperCase()}]
+                    </span>{' '}
+                    <span style={{ color: 'var(--text)' }}>{log.message}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Panel 1: Transcription Model & Spoken Language Settings */}
+        <section
+          className="panel"
+          style={{
+            background: 'var(--card)',
+            border: '1px solid var(--line)',
+            borderRadius: '16px',
+            padding: '24px',
+            marginBottom: '24px',
+            boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderBottom: '1px solid var(--line)',
+              paddingBottom: '14px',
+              marginBottom: '20px',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-white">
-                AI Audio Transcriber & Summarizer
-              </h1>
-              <p className="text-slate-400 text-sm sm:text-base mt-1">
-                Record live voice notes or upload audio files for 100% local, private multilingual
-                transcription, executive summaries, and action items.
-              </p>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                1. Transcription Engine &amp; Language Settings
+              </h2>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                Select spoken language dialect and choose the in-browser Whisper AI model tier.
+              </span>
             </div>
           </div>
-        </div>
 
-        {/* Multilingual & Model Settings Bar */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Spoken Language Selector */}
-            <div className="space-y-1.5">
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '18px',
+              marginBottom: '16px',
+            }}
+          >
+            {/* Spoken Language Dropdown */}
+            <div>
               <label
                 htmlFor="transcription-language"
-                className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-300"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  marginBottom: '6px',
+                  color: 'var(--text)',
+                }}
               >
-                <Globe className="w-4 h-4 text-indigo-400" />
-                Spoken Language (Original Script Output)
+                <Globe size={15} color="var(--accent)" aria-hidden="true" />
+                Spoken Language (Native Script Output)
               </label>
               <select
                 id="transcription-language"
                 value={selectedLanguage}
                 onChange={(e) => setSelectedLanguage(e.target.value)}
                 disabled={isProcessing}
-                className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                style={{
+                  width: '100%',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  color: 'var(--text)',
+                  fontSize: '0.92rem',
+                }}
               >
                 <optgroup label="Automatic Detection">
                   {SUPPORTED_TRANSCRIPTION_LANGUAGES.filter((l) => l.group === 'auto').map(
@@ -4001,12 +4274,20 @@ export const AiAudioTranscriber: React.FC = () => {
             </div>
 
             {/* Whisper Model Selector */}
-            <div className="space-y-1.5">
+            <div>
               <label
                 htmlFor="whisper-model-select"
-                className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-300"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  marginBottom: '6px',
+                  color: 'var(--text)',
+                }}
               >
-                <Cpu className="w-4 h-4 text-indigo-400" />
+                <Cpu size={15} color="var(--accent)" aria-hidden="true" />
                 Local Whisper AI Model
               </label>
               <select
@@ -4014,7 +4295,15 @@ export const AiAudioTranscriber: React.FC = () => {
                 value={selectedModelId}
                 onChange={(e) => setSelectedModelId(e.target.value)}
                 disabled={isProcessing}
-                className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                style={{
+                  width: '100%',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  color: 'var(--text)',
+                  fontSize: '0.92rem',
+                }}
               >
                 {WHISPER_MODELS.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -4025,193 +4314,128 @@ export const AiAudioTranscriber: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-xs text-slate-400">
-            <span>
-              <strong className="text-slate-300">Language Note:</strong>{' '}
-              {selectedLanguageMeta.accuracyNote}
-            </span>
-            <span className="text-emerald-400/90 font-medium">
-              100% Local Browser Inference • Zero Server Uploads
-            </span>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              paddingTop: '12px',
+              borderTop: '1px solid var(--line)',
+              fontSize: '0.82rem',
+              color: 'var(--muted)',
+            }}
+          >
+            <div>
+              <strong style={{ color: 'var(--text)' }}>Language Note:</strong> {selectedLanguageMeta.accuracyNote}
+            </div>
+            <div style={{ color: 'var(--emerald)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <ShieldCheck size={14} /> 100% Client-Side WebAssembly • Zero Audio Stored or Streamed
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* Collapsible Environment & Audio Lifecycle Diagnostics Panel */}
-        {showDebug && (
-          <div className="bg-slate-900/95 border border-slate-700 rounded-2xl p-5 space-y-4 text-xs font-mono">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <span className="font-semibold text-indigo-400 flex items-center gap-2">
-                <Terminal className="w-4 h-4" />
-                Browser Audio, WAV Header & Playback Diagnostics
+        {/* Panel 2: Audio Capture (Record or Upload) */}
+        <section
+          className="panel"
+          style={{
+            background: 'var(--card)',
+            border: '1px solid var(--line)',
+            borderRadius: '16px',
+            padding: '24px',
+            marginBottom: '24px',
+            boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderBottom: '1px solid var(--line)',
+              paddingBottom: '14px',
+              marginBottom: '20px',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                2. Audio Input: Record Microphone or Upload File
+              </h2>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                Capture audio with real-time waveform visualization, pause/resume buffering, and accessible timer tracking.
               </span>
-              <button
-                type="button"
-                onClick={() => setDebugLogs([])}
-                className="text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-800"
-              >
-                Clear Log
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
-                <div className="text-slate-500">Secure Context (HTTPS)</div>
-                <div
-                  className={
-                    envInfo.isSecureContext
-                      ? 'text-emerald-400 font-bold'
-                      : 'text-red-400 font-bold'
-                  }
-                >
-                  {String(envInfo.isSecureContext)}
-                </div>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
-                <div className="text-slate-500">getUserMedia API</div>
-                <div
-                  className={
-                    envInfo.hasGetUserMedia
-                      ? 'text-emerald-400 font-bold'
-                      : 'text-red-400 font-bold'
-                  }
-                >
-                  {envInfo.hasGetUserMedia ? 'Available' : 'Missing'}
-                </div>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
-                <div className="text-slate-500">Permission State</div>
-                <div className="text-amber-300 font-bold">{envInfo.permissionState}</div>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
-                <div className="text-slate-500">AudioContext Rate &amp; Ch</div>
-                <div className="text-indigo-300 font-bold">
-                  {audioContextDiag
-                    ? `${audioContextDiag.normalizedSampleRate}Hz • src:${audioContextDiag.sourceChannelCount}ch → proc:${audioContextDiag.processorChannelCount}ch`
-                    : 'Idle'}
-                </div>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
-                <div className="text-slate-500">WAV Header Integrity</div>
-                <div
-                  className={
-                    wavValidation
-                      ? wavValidation.valid
-                        ? 'text-emerald-400 font-bold'
-                        : 'text-red-400 font-bold'
-                      : 'text-slate-400'
-                  }
-                >
-                  {wavValidation
-                    ? wavValidation.valid
-                      ? `VALID (${wavValidation.sampleRate}Hz, ${wavValidation.numChannels}ch, ${wavValidation.bitsPerSample}b)`
-                      : `INVALID (${wavValidation.error})`
-                    : 'No WAV loaded'}
-                </div>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
-                <div className="text-slate-500">Blob Non-Zero Audio</div>
-                <div
-                  className={
-                    wavValidation
-                      ? wavValidation.hasNonZeroAudio
-                        ? 'text-emerald-400 font-bold'
-                        : 'text-amber-400 font-bold'
-                      : 'text-slate-400'
-                  }
-                >
-                  {wavValidation
-                    ? wavValidation.hasNonZeroAudio
-                      ? `NON-ZERO (${(wavValidation.nonZeroRatio * 100).toFixed(1)}%, peak ${wavValidation.peakAmplitude.toFixed(3)})`
-                      : 'ALL ZERO (SILENT)'
-                    : 'N/A'}
-                </div>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
-                <div className="text-slate-500">&lt;audio&gt; ReadyState</div>
-                <div className="text-slate-300 font-bold">
-                  {audioElementDiag ? audioElementDiag.readyStateLabel : 'Not initialized'}
-                </div>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
-                <div className="text-slate-500">&lt;audio&gt; Duration</div>
-                <div className="text-slate-300 font-bold">
-                  {audioElementDiag
-                    ? `${formatDurationDisplay(audioElementDiag.duration)} (raw: ${audioElementDiag.rawDuration})`
-                    : 'N/A'}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-48 overflow-y-auto space-y-1.5">
-              {debugLogs.length === 0 ? (
-                <div className="text-slate-500">No events logged yet.</div>
-              ) : (
-                debugLogs.map((log, idx) => (
-                  <div key={idx} className="leading-relaxed">
-                    <span className="text-slate-500">[{log.timestamp}]</span>{' '}
-                    <span
-                      className={
-                        log.level === 'error'
-                          ? 'text-red-400 font-semibold'
-                          : log.level === 'warn'
-                          ? 'text-amber-400'
-                          : 'text-indigo-300'
-                      }
-                    >
-                      [{log.level.toUpperCase()}]
-                    </span>{' '}
-                    <span className="text-slate-200">{log.message}</span>
-                    {log.details && (
-                      <pre className="mt-1 p-2 rounded bg-slate-900 text-slate-400 overflow-x-auto text-[11px]">
-                        {log.details}
-                      </pre>
-                    )}
-                  </div>
-                ))
-              )}
             </div>
           </div>
-        )}
 
-        {/* Audio Capture & Upload Card */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Record Voice Box */}
-            <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-slate-950/60 border border-slate-800/80 text-center space-y-4">
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '20px',
+              marginBottom: '20px',
+            }}
+          >
+            {/* Box A: Microphone Recording */}
+            <div
+              style={{
+                background: 'var(--bg)',
+                border: '1px solid var(--line)',
+                borderRadius: '14px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                gap: '14px',
+              }}
+            >
               <div
-                className={`p-4 rounded-full transition-colors ${
-                  isRecording
+                style={{
+                  width: '54px',
+                  height: '54px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: isRecording
                     ? isPaused
-                      ? 'bg-amber-500/20 text-amber-400'
-                      : 'bg-red-500/20 text-red-400 animate-pulse'
-                    : 'bg-indigo-500/10 text-indigo-400'
-                }`}
+                      ? 'rgba(245, 158, 11, 0.15)'
+                      : 'rgba(239, 68, 68, 0.18)'
+                    : 'var(--surface-accent)',
+                  color: isRecording
+                    ? isPaused
+                      ? 'var(--amber)'
+                      : 'var(--rose)'
+                    : 'var(--accent)',
+                  transition: 'all 0.2s ease',
+                }}
               >
-                <Mic className="w-8 h-8" />
+                <Mic size={26} />
               </div>
-              <div className="space-y-1">
-                <h2 className="font-semibold text-white text-lg">
+
+              <div>
+                <h3 style={{ margin: '0 0 4px', fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-heading)' }}>
                   {isRecording
                     ? isPaused
                       ? 'Recording Paused'
                       : 'Recording in Progress...'
                     : isRequestingMic
                     ? 'Requesting Microphone...'
-                    : 'Record Voice Note'}
-                </h2>
-                <p className="text-xs text-slate-400">
+                    : 'Record Live Voice Note'}
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '320px' }}>
                   {isRecording
                     ? isPaused
-                      ? `Paused at ${formatDurationDisplay(recordingTime)} • State: ${mediaRecorderState} • Buffer preserved (${pcmChunksRef.current.length} chunks)`
-                      : `Elapsed: ${formatDurationDisplay(recordingTime)} • Peak level: ${Math.min(
-                          100,
-                          Math.round(inputLevelPeak * 140)
-                        )}%`
-                    : 'Use your microphone to record mono 16-bit PCM WAV directly in the browser'}
+                      ? `Paused at ${formatDurationDisplay(recordingTime)} • Buffer preserved (${pcmChunksRef.current.length} chunks)`
+                      : `Elapsed: ${formatDurationDisplay(recordingTime)} • Peak: ${Math.min(100, Math.round(inputLevelPeak * 140))}%`
+                    : 'Captures clean 16-bit mono PCM audio directly into memory'}
                 </p>
               </div>
 
-              {/* Accessible Real-Time Recording Timer Display */}
+              {/* Accessible Real-Time Recording Timer */}
               <div
                 role="timer"
                 aria-live="polite"
@@ -4225,218 +4449,249 @@ export const AiAudioTranscriber: React.FC = () => {
                     ? `Recording captured duration: ${recordingTimerDisplay.minutes} minutes and ${recordingTimerDisplay.seconds} seconds`
                     : 'Recording timer ready'
                 }
-                className={`w-full max-w-sm flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-xl border transition-all ${
-                  isRecording
+                style={{
+                  width: '100%',
+                  background: 'var(--card)',
+                  border: isRecording
                     ? isPaused
-                      ? 'bg-amber-950/25 border-amber-500/40 shadow-lg shadow-amber-950/30'
-                      : 'bg-red-950/25 border-red-500/40 shadow-lg shadow-red-950/30 animate-in fade-in duration-200'
-                    : recordingTime > 0 && audioBlob
-                    ? 'bg-slate-900/80 border-indigo-500/30 shadow-md'
-                    : 'bg-slate-950/80 border-slate-800/80'
-                }`}
+                      ? '1px solid rgba(245, 158, 11, 0.5)'
+                      : '1px solid rgba(239, 68, 68, 0.5)'
+                    : '1px solid var(--line)',
+                  borderRadius: '12px',
+                  padding: '12px',
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.06)',
+                }}
               >
-                <div className="flex items-center gap-2">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '2px' }}>
                   <span
-                    className={`inline-block w-2.5 h-2.5 rounded-full transition-colors ${
-                      isRecording
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: isRecording
                         ? isPaused
-                          ? 'bg-amber-400'
-                          : 'bg-red-500 animate-pulse'
+                          ? 'var(--amber)'
+                          : 'var(--rose)'
                         : recordingTime > 0 && audioBlob
-                        ? 'bg-emerald-400'
-                        : 'bg-slate-600'
-                    }`}
-                    aria-hidden="true"
+                        ? 'var(--emerald)'
+                        : 'var(--muted)',
+                    }}
                   />
                   <span
-                    className={`text-[11px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 ${
-                      isRecording
+                    style={{
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      color: isRecording
                         ? isPaused
-                          ? 'text-amber-300'
-                          : 'text-red-400'
+                          ? 'var(--amber)'
+                          : 'var(--rose)'
                         : recordingTime > 0 && audioBlob
-                        ? 'text-emerald-400'
-                        : 'text-slate-400'
-                    }`}
+                        ? 'var(--emerald)'
+                        : 'var(--muted)',
+                    }}
                   >
-                    <Timer className="w-3.5 h-3.5" aria-hidden="true" />
+                    <Timer size={12} style={{ display: 'inline', verticalAlign: '-1px', marginRight: '4px' }} />
                     {isRecording
                       ? isPaused
                         ? 'Recording Paused'
                         : 'Recording in Real Time'
                       : recordingTime > 0 && audioBlob
                       ? 'Recorded Audio Duration'
-                      : 'Timer Standby'}
+                      : 'Timer Ready'}
                   </span>
                 </div>
 
-                <div className="flex items-baseline justify-center font-mono tabular-nums mt-1">
-                  <span className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
-                    {recordingTimerDisplay.minutes}:{recordingTimerDisplay.seconds}
-                  </span>
-                  <span className="text-base sm:text-lg font-semibold text-slate-400">
-                    .{recordingTimerDisplay.tenths}
-                  </span>
+                <div style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums', fontSize: '2rem', fontWeight: 800, color: 'var(--text-heading)' }}>
+                  {recordingTimerDisplay.minutes}:{recordingTimerDisplay.seconds}
+                  <span style={{ fontSize: '1.2rem', color: 'var(--muted)', fontWeight: 600 }}>.{recordingTimerDisplay.tenths}</span>
                 </div>
-
-                <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                  {isRecording
-                    ? isPaused
-                      ? 'Timer paused • Audio buffer preserved • Click Resume to continue'
-                      : 'Timer counting up in real time • Persists until recording stops'
-                    : recordingTime > 0 && audioBlob
-                    ? 'Duration captured • Ready for playback & local transcription'
-                    : 'Click Record Voice to start recording timer'}
-                </p>
               </div>
 
-              {/* Real-Time Canvas Audio Waveform Visualizer */}
-              <div className="w-full rounded-xl bg-slate-950 border border-slate-800/90 p-3 space-y-2 shadow-inner">
-                <div className="flex items-center justify-between text-[11px] font-mono">
-                  <span className="flex items-center gap-1.5 text-slate-300">
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        isRecording
-                          ? isPaused
-                            ? 'bg-amber-400'
-                            : inputLevelPeak > 1e-4
-                            ? 'bg-emerald-400 animate-ping'
-                            : 'bg-amber-400 animate-pulse'
-                          : 'bg-slate-600'
-                      }`}
-                    />
+              {/* Real-time Oscilloscope Waveform Canvas */}
+              <div
+                style={{
+                  width: '100%',
+                  background: '#020617',
+                  border: '1px solid var(--line)',
+                  borderRadius: '12px',
+                  padding: '8px',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                <canvas
+                  ref={waveformCanvasRef}
+                  width={520}
+                  height={90}
+                  aria-label="Real-time audio recording waveform visualizer"
+                  style={{ width: '100%', height: '80px', display: 'block', borderRadius: '6px' }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    left: '14px',
+                    pointerEvents: 'none',
+                    background: 'rgba(2, 6, 23, 0.82)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '6px',
+                    padding: '2px 8px',
+                    fontSize: '0.72rem',
+                    fontFamily: 'monospace',
+                    color: isRecording ? (isPaused ? '#fde68a' : '#fecaca') : '#cbd5e1',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: isRecording ? (isPaused ? '#fbbf24' : '#ef4444') : '#38bdf8',
+                    }}
+                  />
+                  <span>
                     {isRecording
                       ? isPaused
-                        ? 'RECORDING PAUSED • CONTINUOUS BUFFER READY'
-                        : inputLevelPeak > 1e-4
-                        ? 'LIVE WAVEFORM • AUDIO CAPTURE ACTIVE'
-                        : 'LIVE WAVEFORM • WAITING FOR VOICE SIGNAL'
-                      : rollingPeakHistoryRef.current.length > 0
-                      ? 'CAPTURED WAVEFORM SNAPSHOT'
-                      : 'WAVEFORM MONITOR STANDBY'}
+                        ? `Paused: ${formatDurationDisplay(recordingTime)}`
+                        : `Duration: ${formatDurationDisplay(recordingTime)}`
+                      : verifiedDurationSeconds !== null && verifiedDurationSeconds > 0
+                      ? `Captured: ${formatDurationDisplay(verifiedDurationSeconds)}`
+                      : 'Duration: 0:00'}
                   </span>
-                  <span
-                    className={
-                      isRecording && !isPaused && inputLevelPeak > 1e-4
-                        ? 'text-emerald-400 font-semibold'
-                        : isRecording && isPaused
-                        ? 'text-amber-300 font-semibold'
-                        : 'text-slate-400'
-                    }
-                  >
-                    {isRecording && isPaused
-                      ? 'Paused'
-                      : `Peak: ${Math.min(100, Math.round(inputLevelPeak * 140))}%`}
-                  </span>
-                </div>
-                <div className="relative">
-                  <canvas
-                    ref={waveformCanvasRef}
-                    width={520}
-                    height={96}
-                    aria-label="Real-time audio recording waveform visualizer"
-                    className="w-full h-24 rounded-lg bg-slate-950 border border-slate-900/90 block"
-                  />
-                  {/* Real-Time Recording Duration Timer Overlay Badge */}
-                  <div
-                    aria-live="polite"
-                    className={`pointer-events-none absolute bottom-2 left-2.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono border backdrop-blur-sm ${
-                      isRecording
-                        ? isPaused
-                          ? 'bg-slate-950/85 border-amber-500/40 text-amber-200'
-                          : 'bg-slate-950/85 border-red-500/40 text-red-200'
-                        : verifiedDurationSeconds !== null && verifiedDurationSeconds > 0
-                        ? 'bg-slate-950/80 border-indigo-500/30 text-indigo-200'
-                        : 'bg-slate-950/75 border-slate-800 text-slate-400'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-1.5 h-1.5 rounded-full ${
-                        isRecording
-                          ? isPaused
-                            ? 'bg-amber-400'
-                            : 'bg-red-400 animate-pulse'
-                          : verifiedDurationSeconds !== null && verifiedDurationSeconds > 0
-                          ? 'bg-indigo-400'
-                          : 'bg-slate-600'
-                      }`}
-                    />
-                    <span>
-                      {isRecording
-                        ? isPaused
-                          ? `Paused: ${formatDurationDisplay(recordingTime)}`
-                          : `Duration: ${formatDurationDisplay(recordingTime)}`
-                        : verifiedDurationSeconds !== null && verifiedDurationSeconds > 0
-                        ? `Captured: ${formatDurationDisplay(verifiedDurationSeconds)}`
-                        : 'Duration: 0:00'}
-                    </span>
-                  </div>
                 </div>
               </div>
 
+              {/* Mic Action Buttons */}
               {!isRecording ? (
                 <button
                   type="button"
                   onClick={handleStartRecording}
                   disabled={isProcessing || isRequestingMic}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
+                  className="button button-primary"
+                  style={{
+                    width: '100%',
+                    padding: '11px 20px',
+                    fontSize: '0.92rem',
+                    fontWeight: 700,
+                    borderRadius: '10px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                  }}
                 >
                   {isRequestingMic ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Waiting for Mic...
+                      <Loader2 size={16} className="animate-spin" />
+                      Requesting Mic Permission...
                     </>
                   ) : (
                     <>
-                      <Mic className="w-4 h-4" />
-                      Record Voice
+                      <Mic size={16} />
+                      Record Voice Note
                     </>
                   )}
                 </button>
               ) : (
-                <div className="flex flex-wrap items-center justify-center gap-2.5 w-full">
+                <div style={{ display: 'flex', gap: '8px', width: '100%', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     onClick={() => void handlePauseResumeRecording()}
-                    className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium transition-all shadow-lg cursor-pointer ${
-                      isPaused
-                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
-                        : 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
-                    }`}
+                    style={{
+                      flex: 1,
+                      background: isPaused ? 'var(--emerald)' : 'var(--amber)',
+                      color: '#ffffff',
+                      border: 0,
+                      borderRadius: '10px',
+                      padding: '10px 14px',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
                   >
                     {isPaused ? (
                       <>
-                        <Play className="w-4 h-4 fill-current" />
-                        Resume Recording
+                        <Play size={15} fill="currentColor" />
+                        Resume
                       </>
                     ) : (
                       <>
-                        <Pause className="w-4 h-4 fill-current" />
-                        Pause Recording
+                        <Pause size={15} fill="currentColor" />
+                        Pause
                       </>
                     )}
                   </button>
                   <button
                     type="button"
                     onClick={() => void stopRecording()}
-                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-all shadow-lg shadow-red-600/20 cursor-pointer"
+                    style={{
+                      flex: 1,
+                      background: 'var(--rose)',
+                      color: '#ffffff',
+                      border: 0,
+                      borderRadius: '10px',
+                      padding: '10px 14px',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
                   >
-                    <Square className="w-4 h-4 fill-current" />
-                    Stop Recording ({formatDurationDisplay(recordingTime)})
+                    <Square size={15} fill="currentColor" />
+                    Stop ({formatDurationDisplay(recordingTime)})
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Upload Audio File Box */}
-            <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-slate-950/60 border border-slate-800/80 text-center space-y-4">
-              <div className="p-4 rounded-full bg-emerald-500/10 text-emerald-400">
-                <Upload className="w-8 h-8" />
+            {/* Box B: File Upload */}
+            <div
+              style={{
+                background: 'var(--bg)',
+                border: '1px solid var(--line)',
+                borderRadius: '14px',
+                padding: '24px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                gap: '14px',
+              }}
+            >
+              <div
+                style={{
+                  width: '54px',
+                  height: '54px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  color: 'var(--emerald)',
+                }}
+              >
+                <Upload size={26} />
               </div>
-              <div className="space-y-1">
-                <h2 className="font-semibold text-white text-lg">Upload Audio File</h2>
-                <p className="text-xs text-slate-400">
-                  Supports WAV, MP3, M4A, WebM, OGG, AAC & FLAC (Max 20 MB)
+
+              <div>
+                <h3 style={{ margin: '0 0 4px', fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                  Upload Audio File
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--muted)', maxWidth: '280px' }}>
+                  Supports WAV, MP3, M4A, WebM, OGG, AAC &amp; FLAC files (Up to 20 MB).
                 </p>
               </div>
 
@@ -4445,180 +4700,246 @@ export const AiAudioTranscriber: React.FC = () => {
                 type="file"
                 accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg,.aac,.flac"
                 onChange={(e) => void handleFileUpload(e)}
-                className="hidden"
+                style={{ display: 'none' }}
                 id="audio-upload-input"
               />
               <label
                 htmlFor="audio-upload-input"
-                className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium transition-all cursor-pointer border border-slate-700 ${
-                  isRecording || isProcessing ? 'opacity-50 pointer-events-none' : ''
-                }`}
+                className="button button-secondary"
+                style={{
+                  padding: '11px 22px',
+                  fontSize: '0.92rem',
+                  fontWeight: 600,
+                  borderRadius: '10px',
+                  cursor: isRecording || isProcessing ? 'not-allowed' : 'pointer',
+                  opacity: isRecording || isProcessing ? 0.5 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
               >
-                <FileAudio className="w-4 h-4 text-emerald-400" />
+                <FileAudio size={16} color="var(--emerald)" />
                 Choose Audio File
               </label>
+              <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>
+                Decoded locally via Web Audio API. Never leaves your device.
+              </span>
             </div>
           </div>
 
-          {/* Active Audio Preview & Action Bar */}
+          {/* Active Audio Preview, Scrubber & Action Bar */}
           {verifiedAudioElementSrc && (
-            <div className="p-4 sm:p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-400 shrink-0">
-                    <FileAudio className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-white truncate">{audioFileName}</p>
+            <div
+              style={{
+                background: 'var(--bg)',
+                border: '1px solid var(--line)',
+                borderRadius: '14px',
+                padding: '20px',
+                marginTop: '16px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  <FileAudio size={22} color="var(--accent)" style={{ flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-heading)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {audioFileName || 'Audio Source'}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginTop: '2px' }}>
                       {verifiedDurationSeconds !== null && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                        <span style={{ fontSize: '0.74rem', color: 'var(--accent)', fontWeight: 600 }}>
                           Duration: {formatDurationDisplay(verifiedDurationSeconds)}
                         </span>
                       )}
                       {wavValidation?.valid && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                          {wavValidation.sampleRate} Hz • {wavValidation.numChannels}ch 16-bit PCM WAV •{' '}
-                          {Math.max(1, Math.round(wavValidation.actualByteLength / 1024))} KB •{' '}
-                          {wavValidation.hasNonZeroAudio ? 'Non-Zero Signal' : 'Silent Signal'}
+                        <span style={{ fontSize: '0.74rem', color: 'var(--emerald)' }}>
+                          · {wavValidation.sampleRate} Hz · {wavValidation.numChannels}ch PCM WAV
                         </span>
                       )}
-                    </div>
-
-                    <audio
-                      ref={audioPlayerRef}
-                      src={verifiedAudioElementSrc}
-                      controls
-                      preload="auto"
-                      onLoadStart={(e) => handleAudioElementEvent('loadstart', e)}
-                      onLoadedMetadata={(e) => handleAudioElementEvent('loadedmetadata', e)}
-                      onLoadedData={(e) => handleAudioElementEvent('loadeddata', e)}
-                      onDurationChange={(e) => handleAudioElementEvent('durationchange', e)}
-                      onCanPlay={(e) => handleAudioElementEvent('canplay', e)}
-                      onCanPlayThrough={(e) => handleAudioElementEvent('canplaythrough', e)}
-                      onTimeUpdate={(e) => handleAudioElementEvent('timeupdate', e)}
-                      onSeeking={(e) => handleAudioElementEvent('seeking', e)}
-                      onSeeked={(e) => handleAudioElementEvent('seeked', e)}
-                      onPlay={(e) => handleAudioElementEvent('play', e)}
-                      onPlaying={(e) => handleAudioElementEvent('playing', e)}
-                      onPause={(e) => handleAudioElementEvent('pause', e)}
-                      onStalled={(e) => handleAudioElementEvent('stalled', e)}
-                      onSuspend={(e) => handleAudioElementEvent('suspend', e)}
-                      onWaiting={(e) => handleAudioElementEvent('waiting', e)}
-                      onEmptied={(e) => handleAudioElementEvent('emptied', e)}
-                      onEnded={(e) => handleAudioElementEvent('ended', e)}
-                      onError={(e) => handleAudioElementEvent('error', e)}
-                      className="h-9 mt-2.5 w-full max-w-md"
-                    />
-
-                    {/* HTML5 Range Scrubber & Playback Speed Control */}
-                    <div className="mt-2.5 flex items-center gap-3 w-full max-w-md bg-slate-900/80 border border-slate-800/90 rounded-lg px-3 py-2">
-                      <span
-                        className="text-[11px] font-mono text-indigo-300 tabular-nums shrink-0"
-                        title="Current playback position"
-                      >
-                        {formatDurationDisplay(playbackCurrentTime)}
-                      </span>
-                      <input
-                        type="range"
-                        aria-label="Seek audio playback position"
-                        min={0}
-                        max={scrubberMaxDuration > 0 ? scrubberMaxDuration : 1}
-                        step={0.05}
-                        value={
-                          scrubberMaxDuration > 0
-                            ? Math.min(playbackCurrentTime, scrubberMaxDuration)
-                            : 0
-                        }
-                        disabled={scrubberMaxDuration <= 0}
-                        onChange={handleAudioScrub}
-                        className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 disabled:opacity-50"
-                      />
-                      <span
-                        className="text-[11px] font-mono text-slate-400 tabular-nums shrink-0"
-                        title="Total audio duration"
-                      >
-                        {formatDurationDisplay(scrubberMaxDuration)}
-                      </span>
-                      <div className="flex items-center gap-1 pl-2 border-l border-slate-800 shrink-0">
-                        <label
-                          htmlFor="audio-playback-rate-select"
-                          className="text-[10px] font-mono uppercase tracking-wider text-slate-400"
-                        >
-                          Speed
-                        </label>
-                        <select
-                          id="audio-playback-rate-select"
-                          aria-label="Playback speed"
-                          value={playbackRate}
-                          onChange={handlePlaybackRateChange}
-                          className="rounded-md bg-slate-950 border border-slate-700 px-1.5 py-0.5 text-[11px] font-mono text-indigo-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                        >
-                          {PLAYBACK_SPEED_OPTIONS.map((rate) => (
-                            <option key={rate} value={rate}>
-                              {rate}x
-                            </option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     onClick={() => void handlePlayViaWebAudio()}
                     disabled={isProcessing}
-                    title="Plays decoded audio directly from memory via Web Audio API"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors cursor-pointer"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid var(--line)',
+                      borderRadius: '8px',
+                      padding: '7px 12px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      color: 'var(--text)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}
+                    title="Play decoded audio directly from buffer"
                   >
-                    <Play className="w-3.5 h-3.5 text-emerald-400" />
-                    {isWebAudioPlaying ? 'Stop Direct Playback' : 'Play via Web Audio'}
+                    <Play size={13} color="var(--emerald)" />
+                    {isWebAudioPlaying ? 'Stop Playback' : 'Play via Web Audio'}
                   </button>
 
                   <button
                     type="button"
                     onClick={clearAudio}
                     disabled={isProcessing}
-                    className="p-2.5 rounded-xl bg-slate-900 hover:bg-red-950/50 text-slate-400 hover:text-red-400 border border-slate-800 transition-colors cursor-pointer"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid var(--line)',
+                      borderRadius: '8px',
+                      padding: '7px 12px',
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      color: 'var(--rose)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}
                     title="Remove Audio"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 size={13} />
+                    Clear
                   </button>
 
                   <button
                     type="button"
                     onClick={() => void handleTranscribe()}
                     disabled={isProcessing}
-                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-white font-semibold transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
+                    style={{
+                      background: 'linear-gradient(90deg, var(--accent), var(--indigo))',
+                      color: '#ffffff',
+                      border: 0,
+                      borderRadius: '8px',
+                      padding: '8px 18px',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      cursor: isProcessing ? 'not-allowed' : 'pointer',
+                      opacity: isProcessing ? 0.7 : 1,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 4px 14px rgba(56, 189, 248, 0.3)',
+                    }}
                   >
                     {isProcessing ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 size={15} className="animate-spin" />
                         {processingStatus}
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-4 h-4" />
-                        Transcribe & Summarize
+                        <Sparkles size={15} />
+                        Transcribe &amp; Summarize
                       </>
                     )}
                   </button>
                 </div>
               </div>
 
+              {/* Native audio element */}
+              <audio
+                ref={audioPlayerRef}
+                src={verifiedAudioElementSrc}
+                controls
+                preload="auto"
+                onLoadStart={(e) => handleAudioElementEvent('loadstart', e)}
+                onLoadedMetadata={(e) => handleAudioElementEvent('loadedmetadata', e)}
+                onLoadedData={(e) => handleAudioElementEvent('loadeddata', e)}
+                onDurationChange={(e) => handleAudioElementEvent('durationchange', e)}
+                onCanPlay={(e) => handleAudioElementEvent('canplay', e)}
+                onCanPlayThrough={(e) => handleAudioElementEvent('canplaythrough', e)}
+                onTimeUpdate={(e) => handleAudioElementEvent('timeupdate', e)}
+                onSeeking={(e) => handleAudioElementEvent('seeking', e)}
+                onSeeked={(e) => handleAudioElementEvent('seeked', e)}
+                onPlay={(e) => handleAudioElementEvent('play', e)}
+                onPlaying={(e) => handleAudioElementEvent('playing', e)}
+                onPause={(e) => handleAudioElementEvent('pause', e)}
+                onStalled={(e) => handleAudioElementEvent('stalled', e)}
+                onSuspend={(e) => handleAudioElementEvent('suspend', e)}
+                onWaiting={(e) => handleAudioElementEvent('waiting', e)}
+                onEmptied={(e) => handleAudioElementEvent('emptied', e)}
+                onEnded={(e) => handleAudioElementEvent('ended', e)}
+                onError={(e) => handleAudioElementEvent('error', e)}
+                style={{ width: '100%', height: '36px', marginBottom: '10px' }}
+              />
+
+              {/* HTML5 Range Scrubber & Speed Selector */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  background: 'var(--card)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '8px 14px',
+                }}
+              >
+                <span style={{ fontSize: '0.8rem', fontFamily: 'monospace', color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatDurationDisplay(playbackCurrentTime)}
+                </span>
+                <input
+                  type="range"
+                  aria-label="Seek audio playback position"
+                  min={0}
+                  max={scrubberMaxDuration > 0 ? scrubberMaxDuration : 1}
+                  step={0.05}
+                  value={scrubberMaxDuration > 0 ? Math.min(playbackCurrentTime, scrubberMaxDuration) : 0}
+                  disabled={scrubberMaxDuration <= 0}
+                  onChange={handleAudioScrub}
+                  style={{ flex: 1, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.8rem', fontFamily: 'monospace', color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatDurationDisplay(scrubberMaxDuration)}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderLeft: '1px solid var(--line)', paddingLeft: '10px' }}>
+                  <label htmlFor="playback-rate-select" style={{ fontSize: '0.74rem', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 600 }}>
+                    Speed
+                  </label>
+                  <select
+                    id="playback-rate-select"
+                    value={playbackRate}
+                    onChange={handlePlaybackRateChange}
+                    style={{
+                      background: 'var(--bg)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      padding: '2px 6px',
+                      fontSize: '0.78rem',
+                      fontFamily: 'monospace',
+                      color: 'var(--accent)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {PLAYBACK_SPEED_OPTIONS.map((rate) => (
+                      <option key={rate} value={rate}>
+                        {rate}x
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* Model Download Progress Bar */}
               {isProcessing && modelLoadProgress !== null && (
-                <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
-                  <div className="flex items-center justify-between text-xs text-slate-300">
-                    <span>{processingStatus}</span>
-                    <span className="font-mono text-indigo-400">{modelLoadProgress}%</span>
+                <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '4px' }}>
+                    <span style={{ color: 'var(--text)' }}>{processingStatus}</span>
+                    <span style={{ fontFamily: 'monospace', color: 'var(--accent)', fontWeight: 700 }}>{modelLoadProgress}%</span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: 'var(--line)', overflow: 'hidden' }}>
                     <div
-                      className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-200"
-                      style={{ width: `${modelLoadProgress}%` }}
+                      style={{
+                        height: '100%',
+                        width: `${modelLoadProgress}%`,
+                        background: 'linear-gradient(90deg, var(--accent), var(--indigo))',
+                        transition: 'width 0.2s ease',
+                      }}
                     />
                   </div>
                 </div>
@@ -4626,314 +4947,441 @@ export const AiAudioTranscriber: React.FC = () => {
             </div>
           )}
 
-          {/* Contextual Error Display (Categorized by Failure Stage) */}
+          {/* Contextual Error Notice */}
           {errorMsg && (
-            <div className="p-5 rounded-xl bg-red-950/40 border border-red-800/80 text-red-200 text-sm space-y-3">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                <div className="space-y-1 flex-1">
-                  <p className="font-semibold text-red-300">
+            <div
+              style={{
+                marginTop: '16px',
+                padding: '16px',
+                borderRadius: '12px',
+                background: 'rgba(244, 63, 94, 0.08)',
+                border: '1px solid var(--rose)',
+                color: 'var(--rose)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ flex: 1, fontSize: '0.88rem' }}>
+                  <strong style={{ display: 'block', marginBottom: '2px' }}>
                     {errorCategory === 'mic'
-                      ? 'Microphone Access Issue Detected'
+                      ? 'Microphone Access Alert'
                       : errorCategory === 'playback'
-                      ? 'Audio Player Playback Issue Detected'
-                      : errorCategory === 'recording'
-                      ? 'Audio Recording Capture Issue'
+                      ? 'Audio Playback Notice'
                       : errorCategory === 'model'
-                      ? 'Local AI Model Download Issue'
-                      : errorCategory === 'upload'
-                      ? 'Audio File Upload Issue'
-                      : 'Audio Transcription Issue'}
-                  </p>
-                  <p className="text-red-200/90 leading-relaxed">{errorMsg}</p>
+                      ? 'AI Model Loading Alert'
+                      : 'Audio Processing Alert'}
+                  </strong>
+                  <p style={{ margin: 0, lineHeight: 1.5 }}>{errorMsg}</p>
                 </div>
-                {errorCategory === 'model' && audioBlob && (
-                  <button
-                    type="button"
-                    onClick={() => void handleTranscribe()}
-                    className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-xs font-semibold text-red-200 shrink-0 cursor-pointer"
-                  >
-                    Retry Model Load
-                  </button>
-                )}
               </div>
-
-              {errorCategory === 'mic' && (
-                <div className="pl-8 space-y-2 text-xs text-slate-300 border-t border-red-900/60 pt-3">
-                  <p className="font-semibold text-amber-300 flex items-center gap-1.5">
-                    <ShieldAlert className="w-4 h-4" />
-                    Why does this happen when site permission is already "Allow"?
-                  </p>
-                  <ul className="list-disc pl-4 space-y-1 text-slate-300">
-                    <li>
-                      <strong>a) Browser Address Bar Lock:</strong> Verify microphone is set to
-                      "Allow" in the lock/tune icon next to the URL, then reload the page.
-                    </li>
-                    <li>
-                      <strong>b) macOS / Windows System Permission:</strong> On macOS, open{' '}
-                      <code>System Settings → Privacy &amp; Security → Microphone</code> and ensure{' '}
-                      <strong>Google Chrome / Microsoft Edge / Safari</strong> is switched{' '}
-                      <strong>ON</strong>.
-                    </li>
-                    <li>
-                      <strong>c) Exclusive Hardware Lock:</strong> Close other apps or tabs holding
-                      exclusive microphone access.
-                    </li>
-                  </ul>
-                </div>
-              )}
-
-              {errorCategory === 'playback' && (
-                <div className="pl-8 space-y-1.5 text-xs text-slate-300 border-t border-red-900/60 pt-3">
-                  <p className="font-semibold text-amber-300">Playback Recovery Options:</p>
-                  <ul className="list-disc pl-4 space-y-1">
-                    <li>
-                      Click <strong>"Play via Web Audio"</strong> above to play the decoded PCM/WAV
-                      audio buffer directly through the browser's Web Audio API.
-                    </li>
-                    <li>
-                      You can still click <strong>"Transcribe &amp; Summarize"</strong> — local
-                      Whisper reads the WAV buffer directly in memory even if native{' '}
-                      <code>&lt;audio&gt;</code> playback is blocked.
-                    </li>
-                  </ul>
-                </div>
-              )}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Real-time Live Transcription Stream with Auto-Scroll */}
+        {/* Panel 3: Live Real-Time Transcription Stream (During Processing) */}
         {isProcessing && (
-          <div className="bg-slate-900/90 border border-indigo-500/40 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500" />
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-white">
-                    Transcribing Speech in Real-Time
-                  </h3>
-                  <p className="text-xs text-indigo-300">
-                    {processingStatus}
-                  </p>
-                </div>
+          <section
+            className="panel"
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--accent)',
+              borderRadius: '16px',
+              padding: '24px',
+              marginBottom: '24px',
+              boxShadow: '0 4px 20px -2px rgba(56, 189, 248, 0.15)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderBottom: '1px solid var(--line)',
+                paddingBottom: '12px',
+                marginBottom: '16px',
+                flexWrap: 'wrap',
+                gap: '10px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Loader2 size={18} className="animate-spin" color="var(--accent)" />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                  Transcribing Speech in Real-Time
+                </h3>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAutoScrollEnabled((prev) => {
-                      const next = !prev;
-                      if (next && transcriptScrollRef.current) {
-                        transcriptScrollRef.current.scrollTo({
-                          top: transcriptScrollRef.current.scrollHeight,
-                          behavior: 'smooth',
-                        });
-                      }
-                      return next;
-                    });
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
-                    isAutoScrollEnabled
-                      ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30'
-                      : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
-                  }`}
-                >
-                  <ChevronsDown className={`w-3.5 h-3.5 ${isAutoScrollEnabled ? 'text-indigo-400' : 'text-slate-500'}`} />
-                  {isAutoScrollEnabled ? 'Auto-Scroll ON' : 'Auto-Scroll OFF'}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAutoScrollEnabled((prev) => {
+                    const next = !prev;
+                    if (next && transcriptScrollRef.current) {
+                      transcriptScrollRef.current.scrollTo({
+                        top: transcriptScrollRef.current.scrollHeight,
+                        behavior: 'smooth',
+                      });
+                    }
+                    return next;
+                  });
+                }}
+                style={{
+                  background: isAutoScrollEnabled ? 'var(--surface-accent)' : 'var(--bg)',
+                  border: isAutoScrollEnabled ? '1px solid var(--accent)' : '1px solid var(--line)',
+                  borderRadius: '6px',
+                  padding: '5px 10px',
+                  fontSize: '0.78rem',
+                  fontFamily: 'monospace',
+                  fontWeight: 600,
+                  color: isAutoScrollEnabled ? 'var(--accent)' : 'var(--muted)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+              >
+                <ChevronsDown size={14} />
+                {isAutoScrollEnabled ? 'Auto-Scroll ON' : 'Auto-Scroll OFF'}
+              </button>
             </div>
 
-            {/* Scrollable Live Text Display */}
-            <div className="relative">
+            <div style={{ position: 'relative' }}>
               <div
                 ref={transcriptScrollRef}
                 onScroll={handleTranscriptScroll}
-                className="max-h-72 sm:max-h-88 overflow-y-auto pr-3 text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-wrap font-sans scroll-smooth rounded-lg bg-slate-950/80 p-4 border border-slate-800/80"
+                style={{
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                  padding: '16px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  fontSize: '0.95rem',
+                  lineHeight: 1.6,
+                  color: 'var(--text)',
+                  whiteSpace: 'pre-wrap',
+                }}
               >
                 {liveTranscript ? (
                   <>
                     {liveTranscript}
-                    <span className="inline-block w-2 h-4 ml-1 bg-indigo-400 animate-pulse align-middle" />
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: '8px',
+                        height: '14px',
+                        marginLeft: '4px',
+                        background: 'var(--accent)',
+                        animation: 'pulse 1s infinite',
+                      }}
+                    />
                   </>
                 ) : (
-                  <div className="flex items-center gap-2 text-slate-500 italic py-6 justify-center">
-                    <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-                    <span>Analyzing audio frames and transcribing speech in real-time...</span>
+                  <div style={{ color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center', padding: '24px 0' }}>
+                    Analyzing audio frames and transcribing speech in real-time...
                   </div>
                 )}
-                <div ref={transcriptBottomRef} className="h-0" />
+                <div ref={transcriptBottomRef} style={{ height: 0 }} />
               </div>
 
-              {/* Floating Jump to Latest Button */}
               {isUserScrolledUp && liveTranscript && (
                 <button
                   type="button"
                   onClick={scrollToBottom}
-                  className="absolute bottom-3 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-900/60 transition-all cursor-pointer border border-indigo-400/40"
+                  style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    right: '16px',
+                    background: 'var(--accent)',
+                    color: '#ffffff',
+                    border: 0,
+                    borderRadius: '20px',
+                    padding: '6px 14px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
                 >
-                  <ArrowDown className="w-3.5 h-3.5" />
+                  <ArrowDown size={13} />
                   Jump to latest lines
                 </button>
               )}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Results Section */}
+        {/* Panel 4: Results & Insights Workspace (when ready) */}
         {result && (
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('all')}
-                    className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      activeTab === 'all'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    All Insights
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('summary')}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      activeTab === 'summary'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    Summary
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('actions')}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      activeTab === 'actions'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    <ListChecks className="w-3.5 h-3.5" />
-                    Action Items ({result.actionItems.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('transcript')}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      activeTab === 'transcript'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    <AlignLeft className="w-3.5 h-3.5" />
-                    Transcript
-                  </button>
-                </div>
-
-                {result.detectedLanguage && (
-                  <p className="text-xs text-slate-400 pt-1">
-                    Language Mode: <span className="text-indigo-300">{result.detectedLanguage}</span>{' '}
-                    • Model: <span className="text-slate-300">{result.modelUsed}</span>
-                  </p>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <section
+            aria-label="Transcription Results"
+            className="panel"
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: '16px',
+              padding: '24px',
+              marginBottom: '24px',
+              boxShadow: '0 6px 24px -4px rgba(0,0,0,0.06)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+                borderBottom: '1px solid var(--line)',
+                paddingBottom: '16px',
+                marginBottom: '20px',
+              }}
+            >
+              {/* Tab Navigation */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  onClick={handleSaveTranscript}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors shadow-lg shadow-indigo-600/20 cursor-pointer"
+                  onClick={() => setActiveTab('all')}
+                  style={{
+                    background: activeTab === 'all' ? 'var(--surface-accent)' : 'var(--bg)',
+                    border: activeTab === 'all' ? '1px solid var(--accent)' : '1px solid var(--line)',
+                    color: activeTab === 'all' ? 'var(--accent)' : 'var(--text)',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: activeTab === 'all' ? 700 : 500,
+                    cursor: 'pointer',
+                  }}
                 >
-                  <Download className="w-4 h-4" />
-                  Save Transcript
+                  All Insights
                 </button>
                 <button
                   type="button"
-                  onClick={handleDownloadTxt}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium border border-slate-700 transition-colors cursor-pointer"
+                  onClick={() => setActiveTab('summary')}
+                  style={{
+                    background: activeTab === 'summary' ? 'var(--surface-accent)' : 'var(--bg)',
+                    border: activeTab === 'summary' ? '1px solid var(--accent)' : '1px solid var(--line)',
+                    color: activeTab === 'summary' ? 'var(--accent)' : 'var(--text)',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: activeTab === 'summary' ? 700 : 500,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
                 >
-                  <FileText className="w-4 h-4 text-indigo-400" />
-                  Export .TXT
+                  <FileText size={14} />
+                  Executive Summary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('actions')}
+                  style={{
+                    background: activeTab === 'actions' ? 'var(--surface-accent)' : 'var(--bg)',
+                    border: activeTab === 'actions' ? '1px solid var(--accent)' : '1px solid var(--line)',
+                    color: activeTab === 'actions' ? 'var(--accent)' : 'var(--text)',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: activeTab === 'actions' ? 700 : 500,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <ListChecks size={14} />
+                  Action Items ({result.actionItems.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('transcript')}
+                  style={{
+                    background: activeTab === 'transcript' ? 'var(--surface-accent)' : 'var(--bg)',
+                    border: activeTab === 'transcript' ? '1px solid var(--accent)' : '1px solid var(--line)',
+                    color: activeTab === 'transcript' ? 'var(--accent)' : 'var(--text)',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: activeTab === 'transcript' ? 700 : 500,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <AlignLeft size={14} />
+                  Verbatim Transcript
+                </button>
+              </div>
+
+              {/* Export Actions */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleSaveTranscript}
+                  style={{
+                    background: 'var(--surface-accent)',
+                    border: '1px solid var(--accent)',
+                    color: 'var(--accent)',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Download size={14} />
+                  Save Transcript (.txt)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadTxt}
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--text)',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <FileText size={14} color="var(--accent)" />
+                  Export Full Summary
                 </button>
               </div>
             </div>
 
-            {/* Executive Summary */}
+            {/* Executive Summary Card */}
             {(activeTab === 'all' || activeTab === 'summary') && (
-              <div className="p-5 rounded-xl bg-slate-950/70 border border-slate-800/90 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold text-indigo-400 flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
+              <div
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '18px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <FileText size={16} />
                     Executive Summary
                   </h3>
                   <button
                     type="button"
                     onClick={() => handleCopy(result.summary, 'summary')}
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      color: 'var(--text)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
                   >
                     {copiedSection === 'summary' ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copied</span>
+                        <Check size={12} color="var(--emerald)" />
+                        <span style={{ color: 'var(--emerald)' }}>Copied</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="w-3.5 h-3.5" />
+                        <Copy size={12} />
                         Copy
                       </>
                     )}
                   </button>
                 </div>
-                <p className="text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-line">
+                <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-line' }}>
                   {result.summary}
                 </p>
               </div>
             )}
 
-            {/* Action Items */}
+            {/* Action Items Card */}
             {(activeTab === 'all' || activeTab === 'actions') && (
-              <div className="p-5 rounded-xl bg-slate-950/70 border border-slate-800/90 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold text-emerald-400 flex items-center gap-2">
-                    <ListChecks className="w-4 h-4" />
-                    Action Items & Key Takeaways
+              <div
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '18px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--emerald)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <ListChecks size={16} />
+                    Action Items &amp; Key Takeaways
                   </h3>
                   <button
                     type="button"
                     onClick={() => handleCopy(result.actionItems.join('\n• '), 'actions')}
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      color: 'var(--text)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
                   >
                     {copiedSection === 'actions' ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copied</span>
+                        <Check size={12} color="var(--emerald)" />
+                        <span style={{ color: 'var(--emerald)' }}>Copied</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="w-3.5 h-3.5" />
+                        <Copy size={12} />
                         Copy
                       </>
                     )}
                   </button>
                 </div>
+
                 {result.actionItems.length > 0 ? (
-                  <ul className="space-y-2">
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {result.actionItems.map((item, index) => (
-                      <li
-                        key={index}
-                        className="flex items-start gap-2.5 text-slate-200 text-sm sm:text-base"
-                      >
-                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold shrink-0 mt-0.5">
+                      <li key={index} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.92rem', color: 'var(--text)', lineHeight: 1.5 }}>
+                        <span
+                          style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: 'var(--emerald)',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            marginTop: '2px',
+                          }}
+                        >
                           {index + 1}
                         </span>
                         <span>{item}</span>
@@ -4941,22 +5389,29 @@ export const AiAudioTranscriber: React.FC = () => {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-slate-400 text-sm">
-                    No specific action items were detected in this recording.
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
+                    No specific action items were detected in this audio recording.
                   </p>
                 )}
               </div>
             )}
 
-            {/* Full Transcript */}
+            {/* Verbatim Transcript Card */}
             {(activeTab === 'all' || activeTab === 'transcript') && (
-              <div className="p-5 rounded-xl bg-slate-950/70 border border-slate-800/90 space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h3 className="text-base font-semibold text-slate-200 flex items-center gap-2">
-                    <AlignLeft className="w-4 h-4 text-indigo-400" />
+              <div
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-heading)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <AlignLeft size={16} color="var(--accent)" />
                     Verbatim Transcript
                   </h3>
-                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       onClick={() => {
@@ -4971,36 +5426,66 @@ export const AiAudioTranscriber: React.FC = () => {
                           return next;
                         });
                       }}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
-                        isAutoScrollEnabled
-                          ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/25'
-                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-                      }`}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        fontSize: '0.76rem',
+                        fontFamily: 'monospace',
+                        color: isAutoScrollEnabled ? 'var(--accent)' : 'var(--muted)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
                     >
-                      <ChevronsDown className={`w-3.5 h-3.5 ${isAutoScrollEnabled ? 'text-indigo-400' : 'text-slate-500'}`} />
+                      <ChevronsDown size={12} />
                       {isAutoScrollEnabled ? 'Auto-Scroll ON' : 'Auto-Scroll OFF'}
                     </button>
                     <button
                       type="button"
                       onClick={handleSaveTranscript}
-                      className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        color: 'var(--accent)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
                     >
-                      <Download className="w-3.5 h-3.5" />
-                      Download .txt
+                      <Download size={12} />
+                      .txt
                     </button>
                     <button
                       type="button"
                       onClick={() => handleCopy(result.transcript, 'transcript')}
-                      className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        color: 'var(--text)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
                     >
                       {copiedSection === 'transcript' ? (
                         <>
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-emerald-400">Copied</span>
+                          <Check size={12} color="var(--emerald)" />
+                          <span style={{ color: 'var(--emerald)' }}>Copied</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3.5 h-3.5" />
+                          <Copy size={12} />
                           Copy
                         </>
                       )}
@@ -5008,32 +5493,198 @@ export const AiAudioTranscriber: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="relative">
+                <div style={{ position: 'relative' }}>
                   <div
                     ref={transcriptScrollRef}
                     onScroll={handleTranscriptScroll}
-                    className="max-h-96 overflow-y-auto pr-2 text-slate-300 text-sm sm:text-base leading-relaxed whitespace-pre-wrap scroll-smooth"
+                    style={{
+                      maxHeight: '360px',
+                      overflowY: 'auto',
+                      padding: '16px',
+                      background: 'var(--card)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '8px',
+                      fontSize: '0.95rem',
+                      lineHeight: 1.6,
+                      color: 'var(--text)',
+                      whiteSpace: 'pre-wrap',
+                    }}
                   >
                     {result.transcript}
-                    <div ref={transcriptBottomRef} className="h-0" />
+                    <div ref={transcriptBottomRef} style={{ height: 0 }} />
                   </div>
 
                   {isUserScrolledUp && (
                     <button
                       type="button"
                       onClick={scrollToBottom}
-                      className="absolute bottom-3 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-900/60 transition-all cursor-pointer border border-indigo-400/40"
+                      style={{
+                        position: 'absolute',
+                        bottom: '12px',
+                        right: '16px',
+                        background: 'var(--accent)',
+                        color: '#ffffff',
+                        border: 0,
+                        borderRadius: '20px',
+                        padding: '6px 14px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
                     >
-                      <ArrowDown className="w-3.5 h-3.5" />
+                      <ArrowDown size={13} />
                       Jump to latest lines
                     </button>
                   )}
                 </div>
               </div>
             )}
-          </div>
+          </section>
         )}
-      </div>
+
+        {/* Educational & Technical Guide Section matching ITCoverLetterBuilder */}
+        <section
+          style={{
+            background: 'var(--card)',
+            border: '1px solid var(--line)',
+            borderRadius: '16px',
+            padding: '28px',
+            marginBottom: '24px',
+          }}
+        >
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 10px', color: 'var(--text-heading)' }}>
+            How In-Browser AI Speech Recognition Works
+          </h2>
+          <p style={{ color: 'var(--muted)', fontSize: '1rem', lineHeight: 1.6, margin: '0 0 20px' }}>
+            Unlike standard voice recording tools that upload confidential audio to remote cloud servers, this tool executes the complete speech-to-text pipeline locally in your web browser using OpenAI Whisper neural network weights running via WebAssembly and WebGPU.
+          </p>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '16px',
+              marginBottom: '28px',
+            }}
+          >
+            <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
+              <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldCheck size={16} /> 1. Zero Server Uploads
+              </div>
+              <p style={{ fontSize: '0.86rem', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+                Your microphone input and uploaded files never leave your computer or smartphone. Audio buffers exist solely in RAM.
+              </p>
+            </div>
+
+            <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
+              <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Globe size={16} /> 2. Multilingual Output
+              </div>
+              <p style={{ fontSize: '0.86rem', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+                Transcribes English, Hindi, Urdu, Bengali, Tamil, Telugu, Spanish, French, German, and 20+ languages in native script.
+              </p>
+            </div>
+
+            <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
+              <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Volume2 size={16} /> 3. 16-Bit Linear PCM WAV
+              </div>
+              <p style={{ fontSize: '0.86rem', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+                Encodes studio-grade 16,000 Hz or 44,100 Hz mono PCM audio with verifiable 44-byte RIFF headers and non-zero amplitude validation.
+              </p>
+            </div>
+
+            <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
+              <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ListChecks size={16} /> 4. Action Items &amp; Summary
+              </div>
+              <p style={{ fontSize: '0.86rem', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+                Automatically extracts key decisions, tasks, and executive summaries from long conversations and meetings.
+              </p>
+            </div>
+          </div>
+
+          {/* Technical FAQ Accordion */}
+          <div style={{ borderTop: '1px solid var(--line)', paddingTop: '20px' }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-heading)', margin: '0 0 16px' }}>
+              Frequently Asked Questions &amp; Technical Notes
+            </h3>
+
+            {[
+              {
+                q: 'Is my voice data or meeting recording sent to any external server or API?',
+                a: 'No. The entire transcription model runs 100% locally on your machine via client-side WebAssembly. No audio bytes, tokens, or transcript texts are ever transmitted over the network.',
+              },
+              {
+                q: 'How can I ensure the best transcription accuracy for Indian accents or technical terminology?',
+                a: 'Select the specific language (e.g. Hindi, Urdu, Tamil) instead of "Auto-detect" if you are speaking in that tongue, and choose the "Whisper Base Multilingual" model tier for improved phonetic vocabulary recognition.',
+              },
+              {
+                q: 'What should I do if the microphone permission is blocked or shows 0:00 duration?',
+                a: 'Ensure you click "Allow" on the browser microphone permission prompt. If you already clicked allow but audio is silent, check your operating system settings (System Settings → Privacy & Security → Microphone) and ensure your browser has access.',
+              },
+              {
+                q: 'Does the AI model need to download again every time I open this page?',
+                a: 'No. Model weights are cached locally in your browser Cache Storage. After the first load, the model initializes instantly even when working offline.',
+              },
+            ].map((faq, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    border: '1px solid var(--line)',
+                    borderRadius: '10px',
+                    marginBottom: '10px',
+                    overflow: 'hidden',
+                    background: 'var(--bg)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(isOpen ? null : idx)}
+                    style={{
+                      width: '100%',
+                      padding: '14px 18px',
+                      background: 'transparent',
+                      border: 0,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontWeight: 600,
+                      fontSize: '0.92rem',
+                      color: 'var(--text-heading)',
+                    }}
+                  >
+                    <span>{faq.q}</span>
+                    {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                  {isOpen && (
+                    <div
+                      style={{
+                        padding: '0 18px 14px',
+                        fontSize: '0.88rem',
+                        lineHeight: 1.6,
+                        color: 'var(--muted)',
+                        borderTop: '1px solid var(--line)',
+                        paddingTop: '10px',
+                      }}
+                    >
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </main>
     </div>
   );
 };

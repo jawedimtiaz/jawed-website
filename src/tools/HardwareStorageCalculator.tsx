@@ -28,6 +28,7 @@ import {
   Moon,
   Clock,
   Zap,
+  Printer,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 
@@ -810,19 +811,44 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
   };
 
   return (
-    <main className="main-content" style={{ maxWidth: '1240px', margin: '0 auto', padding: '24px 16px 80px' }}>
-      <Breadcrumb
-        items={[
-          { label: 'Home', href: '/' },
-          { label: 'Diagnostic Tools', href: '/tools' },
-          { label: 'Hardware Storage & RAID Calculator' },
-        ]}
-      />
+    <main className="main-content hardware-storage-calculator-root" style={{ maxWidth: '1240px', margin: '0 auto', padding: '24px 16px 80px' }}>
+      <div className="no-print">
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Diagnostic Tools', href: '/tools' },
+            { label: 'Hardware Storage & RAID Calculator' },
+          ]}
+        />
 
-      <SocialShareBar
-        title="Hardware Storage & RAID Calculator | Hard Drive Sizing, Parity & Chassis Advisor"
-        text="Calculate how many hard drives are required for your target usable capacity based on RAID 5, RAID 6, RAID 10, RAID 50, drive capacity, parity overhead, hot spares, and server chassis bays."
-      />
+        <SocialShareBar
+          title="Hardware Storage & RAID Calculator | Hard Drive Sizing, Parity & Chassis Advisor"
+          text="Calculate how many hard drives are required for your target usable capacity based on RAID 5, RAID 6, RAID 10, RAID 50, drive capacity, parity overhead, hot spares, and server chassis bays."
+        />
+      </div>
+
+      {/* Print-Only Engineering Specification Header (A4 / Letter Clean Documentation) */}
+      <div className="print-only" style={{ display: 'none', marginBottom: '16pt', borderBottom: '2px solid #0f172a', paddingBottom: '10pt' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '7.5pt', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', fontWeight: 700, marginBottom: '2pt' }}>
+              Storage Infrastructure Engineering Specification
+            </div>
+            <h1 style={{ fontSize: '16pt', fontWeight: 800, margin: '0 0 3pt', color: '#0f172a' }}>
+              Hardware Storage &amp; RAID Array Report
+            </h1>
+            <p style={{ margin: 0, fontSize: '8.5pt', color: '#475569' }}>
+              Drive sizing, parity overhead, binary TiB capacity, chassis enclosure bay layout, and rebuild risk analysis.
+            </p>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '8pt', color: '#64748b', flexShrink: 0 }}>
+            <div><strong>Date:</strong> {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+            <div><strong>Configured Architecture:</strong> {currentSpec.name}</div>
+            <div><strong>Drive Profile:</strong> {calcResults.totalPhysicalDrives}x {driveSizeTb} TB ({calcResults.dataDrives} Data + {calcResults.parityDrives} Parity {calcResults.hotSpares > 0 ? `+ ${calcResults.hotSpares} Spare` : ''})</div>
+            <div><strong>Effective Usable:</strong> {calcResults.usableTb.toFixed(1)} TB (~{calcResults.usableTib.toFixed(1)} TiB)</div>
+          </div>
+        </div>
+      </div>
 
       {/* Header with Title and Mode Actions */}
       <div style={{ margin: '16px 0 24px' }}>
@@ -844,7 +870,24 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }} className="no-print">
+            <button
+              type="button"
+              className="button button-secondary no-print"
+              onClick={() => window.print()}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                padding: '6px 12px',
+                borderRadius: '8px',
+              }}
+              title="Print Hardware Storage Report (A4 / Letter)"
+            >
+              <Printer className="w-4 h-4 text-sky-400" />
+              Print Report
+            </button>
             <button
               type="button"
               className="button button-secondary"
@@ -894,6 +937,7 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
 
       {/* Preset Scenarios Strip */}
       <div
+        className="no-print"
         style={{
           display: 'flex',
           gap: '8px',
@@ -925,6 +969,7 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
 
       {/* Navigation Tabs (Single-Elevation, Functional Filter Controls) */}
       <div
+        className="no-print"
         style={{
           display: 'flex',
           gap: '8px',
@@ -1083,7 +1128,17 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }} className="no-print">
+                <button
+                  type="button"
+                  className="button button-secondary no-print"
+                  onClick={() => window.print()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', padding: '6px 12px' }}
+                  title="Print clean calculation report on A4/Letter paper"
+                >
+                  <Printer className="w-3.5 h-3.5 text-indigo-400" />
+                  Print Report
+                </button>
                 <button
                   type="button"
                   className="button button-secondary"
@@ -2257,6 +2312,7 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
 
       {/* Cross-Tool Navigation Banner: CCTV Storage Link */}
       <div
+        className="no-print"
         style={{
           marginTop: '32px',
           padding: '16px 20px',

@@ -2691,11 +2691,16 @@ select:focus-visible {
   }
 }
 
-/* Print-Specific Optimization for Resume Bullets, Scorecards & Saved List */
+/* Utility class for print-only reports */
+.print-only {
+  display: none !important;
+}
+
+/* Print-Specific Optimization for Resume Bullets, Diagnostic Tools & Engineering Calculators */
 @media print {
   @page {
-    size: letter portrait;
-    margin: 0.75in;
+    size: auto;
+    margin: 12mm 15mm;
   }
 
   *,
@@ -2733,6 +2738,10 @@ select:focus-visible {
   .button,
   .button-secondary,
   button,
+  .cookie-trigger-btn,
+  .social-share-bar,
+  .ad-unit-placeholder,
+  .breadcrumb-nav,
   .menu-toggle,
   .header-search-slot,
   .actions,
@@ -2743,6 +2752,10 @@ select:focus-visible {
   .no-print,
   [role="dialog"] {
     display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
   }
 
   .printable-resume-container,
@@ -2905,6 +2918,336 @@ select:focus-visible {
   .cctv-calculator-root table td {
     color: #0f172a !important;
     border-bottom: 1px solid #cbd5e1 !important;
+  }
+
+  /* IPv4 Subnet & CIDR Calculator Print Optimizations (A4 / Letter) */
+  .ipv4-subnet-calculator-root {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .ipv4-subnet-calculator-root h1 {
+    font-size: 15pt !important;
+    color: #0f172a !important;
+    margin-bottom: 3pt !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .ipv4-subnet-calculator-root .eyebrow,
+  .ipv4-subnet-calculator-root .lead {
+    color: #475569 !important;
+    font-size: 8.5pt !important;
+    margin-bottom: 6pt !important;
+  }
+
+  .ipv4-subnet-calculator-root .card {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    color: #0f172a !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 4 Key Output Cards Grid */
+  .ipv4-subnet-calculator-root [style*="gridTemplateColumns"],
+  .ipv4-subnet-calculator-root [style*="grid-template-columns"] {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8pt !important;
+    margin-bottom: 12pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .ipv4-subnet-calculator-root [style*="gridTemplateColumns"] > .card,
+  .ipv4-subnet-calculator-root [style*="grid-template-columns"] > .card {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 8pt 10pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .ipv4-subnet-calculator-root [style*="gridTemplateColumns"] strong,
+  .ipv4-subnet-calculator-root [style*="grid-template-columns"] strong {
+    font-size: 11pt !important;
+    color: #0284c7 !important;
+    font-family: "Courier New", Courier, monospace !important;
+  }
+
+  .ipv4-subnet-calculator-root [style*="gridTemplateColumns"] span,
+  .ipv4-subnet-calculator-root [style*="grid-template-columns"] span {
+    font-size: 7.5pt !important;
+    color: #475569 !important;
+  }
+
+  .ipv4-subnet-calculator-root .badge {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 7.5pt !important;
+    padding: 2pt 6pt !important;
+  }
+
+  .ipv4-subnet-calculator-root .form-field input,
+  .ipv4-subnet-calculator-root .form-field select {
+    background: #ffffff !important;
+    border: 1px solid #94a3b8 !important;
+    color: #0f172a !important;
+    font-size: 8.5pt !important;
+    padding: 3pt 6pt !important;
+  }
+
+  .ipv4-subnet-calculator-root table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin: 8pt 0 !important;
+  }
+
+  .ipv4-subnet-calculator-root table th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 8pt !important;
+    padding: 4pt 6pt !important;
+    font-weight: 700 !important;
+    text-align: left !important;
+  }
+
+  .ipv4-subnet-calculator-root table td {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 8pt !important;
+    padding: 4pt 6pt !important;
+  }
+
+  .ipv4-subnet-calculator-root [style*="fontFamily: 'monospace'"],
+  .ipv4-subnet-calculator-root [style*="font-family: monospace"] {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    font-family: "Courier New", Courier, monospace !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .ipv4-subnet-calculator-root .content-section {
+    border-top: 1px solid #cbd5e1 !important;
+    padding-top: 10pt !important;
+    margin-top: 10pt !important;
+  }
+
+  .ipv4-subnet-calculator-root .content-section h2 {
+    font-size: 12pt !important;
+    color: #0f172a !important;
+    margin-bottom: 4pt !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .ipv4-subnet-calculator-root .content-section h3 {
+    font-size: 10pt !important;
+    color: #0f172a !important;
+    margin-top: 8pt !important;
+    margin-bottom: 3pt !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .ipv4-subnet-calculator-root .content-section p,
+  .ipv4-subnet-calculator-root .content-section li {
+    font-size: 7.8pt !important;
+    line-height: 1.4 !important;
+    color: #334155 !important;
+  }
+
+  /* Hardware Storage & RAID Calculator Print Optimizations (A4 / Letter) */
+  .hardware-storage-calculator-root {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .hardware-storage-calculator-root h1 {
+    font-size: 15pt !important;
+    color: #0f172a !important;
+    margin-bottom: 3pt !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .hardware-storage-calculator-root h3 {
+    font-size: 10.5pt !important;
+    color: #0f172a !important;
+    margin-bottom: 3pt !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .hardware-storage-calculator-root [style*="maxWidth: '820px'"] {
+    font-size: 8pt !important;
+    color: #475569 !important;
+    line-height: 1.35 !important;
+    margin-bottom: 6pt !important;
+  }
+
+  /* Structural cards and panels */
+  .hardware-storage-calculator-root [style*="background: 'var(--surface)'"],
+  .hardware-storage-calculator-root [style*="background: var(--surface)"],
+  .hardware-storage-calculator-root [style*="borderRadius: '12px'"],
+  .hardware-storage-calculator-root [style*="border-radius: 12px"],
+  .hardware-storage-calculator-root .card {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    color: #0f172a !important;
+    padding: 8pt 10pt !important;
+    margin-bottom: 10pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 4 High-Impact KPI Output Cards */
+  .hardware-storage-calculator-root [style*="gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))'"],
+  .hardware-storage-calculator-root [style*="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))"] {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6pt !important;
+    margin-bottom: 10pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .hardware-storage-calculator-root [style*="gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))'"] > div,
+  .hardware-storage-calculator-root [style*="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))"] > div {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 4px !important;
+    padding: 6pt 8pt !important;
+    color: #0f172a !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .hardware-storage-calculator-root [style*="fontSize: '2.1rem'"],
+  .hardware-storage-calculator-root [style*="fontSize: '1.75rem'"] {
+    font-size: 15pt !important;
+    color: #0284c7 !important;
+    font-weight: 800 !important;
+    margin: 2pt 0 !important;
+  }
+
+  /* Segmented Capacity Bar & Drive Bay Simulation Grid */
+  .hardware-storage-calculator-root [style*="height: '24px'"],
+  .hardware-storage-calculator-root [style*="height: 24px"] {
+    height: 14px !important;
+    border: 1px solid #94a3b8 !important;
+    margin-bottom: 8pt !important;
+  }
+
+  .hardware-storage-calculator-root [style*="gridTemplateColumns: `repeat(auto-fill, minmax(70px, 1fr))`"],
+  .hardware-storage-calculator-root [style*="grid-template-columns: repeat(auto-fill, minmax(70px, 1fr))"] {
+    display: grid !important;
+    grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+    gap: 3pt !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 4pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .hardware-storage-calculator-root [style*="gridTemplateColumns: `repeat(auto-fill, minmax(70px, 1fr))`"] > div,
+  .hardware-storage-calculator-root [style*="grid-template-columns: repeat(auto-fill, minmax(70px, 1fr))"] > div {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    padding: 3pt 2pt !important;
+  }
+
+  /* Form controls in print */
+  .hardware-storage-calculator-root input[type="range"] {
+    display: none !important;
+  }
+
+  .hardware-storage-calculator-root input,
+  .hardware-storage-calculator-root select {
+    background: #ffffff !important;
+    border: 1px solid #94a3b8 !important;
+    color: #0f172a !important;
+    font-size: 8pt !important;
+    padding: 2pt 5pt !important;
+  }
+
+  /* Engineering Specifications Table */
+  .hardware-storage-calculator-root table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-top: 6pt !important;
+  }
+
+  .hardware-storage-calculator-root table th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 7.5pt !important;
+    padding: 3pt 5pt !important;
+    font-weight: 700 !important;
+    text-align: left !important;
+  }
+
+  .hardware-storage-calculator-root table td {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 7.5pt !important;
+    padding: 3pt 5pt !important;
+  }
+
+  /* Cost Breakdown Grid */
+  .hardware-storage-calculator-root [style*="gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))'"],
+  .hardware-storage-calculator-root [style*="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))"] {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6pt !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 6pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Rebuild Risk Advisory Section Cards */
+  .hardware-storage-calculator-root [style*="gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))'"],
+  .hardware-storage-calculator-root [style*="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))"] {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .hardware-storage-calculator-root [style*="gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))'"] > div,
+  .hardware-storage-calculator-root [style*="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))"] > div {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 6pt 8pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
 

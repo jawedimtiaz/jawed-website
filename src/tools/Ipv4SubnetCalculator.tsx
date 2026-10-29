@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { Printer } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
@@ -157,9 +158,9 @@ export const Ipv4SubnetCalculator: React.FC = () => {
   };
 
   return (
-    <main className="container page">
+    <main className="container page ipv4-subnet-calculator-root">
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }} className="no-print">
         <Breadcrumb
           items={[
             { label: 'Home', href: '/' },
@@ -168,20 +169,60 @@ export const Ipv4SubnetCalculator: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <SocialShareBar
-          title="IPv4 Subnet & CIDR Calculator"
-          text="Calculate IPv4 network boundaries, usable host ranges, broadcast addresses, wildcard masks, and 32-bit binary notation."
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            className="button button-secondary no-print"
+            onClick={() => window.print()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '6px 12px' }}
+            title="Print or Save PDF of Subnet Calculation Report"
+          >
+            <Printer className="w-4 h-4 text-sky-400" />
+            Print Report
+          </button>
+          <SocialShareBar
+            title="IPv4 Subnet & CIDR Calculator"
+            text="Calculate IPv4 network boundaries, usable host ranges, broadcast addresses, wildcard masks, and 32-bit binary notation."
+          />
+        </div>
       </div>
 
       {/* Top Leaderboard Ad Unit */}
-      <AdUnitPlaceholder slotType="top-leaderboard" />
+      <div className="no-print">
+        <AdUnitPlaceholder slotType="top-leaderboard" />
+      </div>
 
-      <p className="eyebrow">Diagnostic Tool — Network Engineering</p>
-      <h1>IPv4 Subnet &amp; CIDR Calculator</h1>
-      <p className="lead">
-        Calculate IPv4 network boundaries, usable host ranges, broadcast addresses, wildcard masks, and 32-bit binary octet representations for network engineering, firewall rules, and Cisco ACLs.
-      </p>
+      {/* Print-Only Engineering Report Header (A4 / Letter Clean Documentation) */}
+      <div className="print-only" style={{ display: 'none', marginBottom: '16pt', borderBottom: '2px solid #0f172a', paddingBottom: '10pt' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '7.5pt', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', fontWeight: 700, marginBottom: '2pt' }}>
+              Network Infrastructure Engineering Report
+            </div>
+            <h1 style={{ fontSize: '16pt', fontWeight: 800, margin: '0 0 3pt', color: '#0f172a' }}>
+              IPv4 Subnet &amp; CIDR Allocation Specification
+            </h1>
+            <p style={{ margin: 0, fontSize: '8.5pt', color: '#475569' }}>
+              Network boundary analysis, usable IP range geometry, broadcast domains, and Cisco ACL wildcard masks.
+            </p>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '8pt', color: '#64748b', flexShrink: 0 }}>
+            <div><strong>Date:</strong> {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+            <div><strong>Target CIDR:</strong> {parsed.isValid ? `${parsed.ipAddress}/${cidrPrefix}` : `${ipInput}/${cidrPrefix}`}</div>
+            {parsed.isValid && (
+              <div><strong>Subnet Scope:</strong> {parsed.ipClass} · {parsed.ipScope}</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="no-print">
+        <p className="eyebrow">Diagnostic Tool — Network Engineering</p>
+        <h1>IPv4 Subnet &amp; CIDR Calculator</h1>
+        <p className="lead">
+          Calculate IPv4 network boundaries, usable host ranges, broadcast addresses, wildcard masks, and 32-bit binary octet representations for network engineering, firewall rules, and Cisco ACLs.
+        </p>
+      </div>
 
       {/* Calculator Interface */}
       <div className="card" style={{ padding: '24px', background: 'var(--surface)', border: '1px solid var(--line)', marginBottom: '36px' }}>
@@ -222,7 +263,7 @@ export const Ipv4SubnetCalculator: React.FC = () => {
         </div>
 
         {/* Quick Presets */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--line)' }}>
+        <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--line)' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>Common Field Presets:</span>
           <button type="button" className="button button-secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={() => handlePreset('192.168.1.50', 24)}>
             192.168.1.50/24 (LAN)
@@ -252,7 +293,17 @@ export const Ipv4SubnetCalculator: React.FC = () => {
               <h3 style={{ margin: 0, color: 'var(--text-heading)', fontSize: '1.2rem' }}>
                 📊 Network Calculation Results for {parsed.ipAddress}/{cidrPrefix}
               </h3>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="button button-secondary no-print"
+                  onClick={() => window.print()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', padding: '4px 10px' }}
+                  title="Print Report"
+                >
+                  <Printer className="w-3.5 h-3.5 text-sky-400" />
+                  Print Report
+                </button>
                 <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
                   {parsed.ipClass}
                 </span>
