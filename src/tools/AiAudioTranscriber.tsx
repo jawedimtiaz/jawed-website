@@ -375,13 +375,30 @@ export const AiAudioTranscriber: React.FC = () => {
   }, []);
 
   /**
-   * Explicitly resets the <audio> element's source and revokes any active Object URL
-   * using URL.revokeObjectURL() so that multiple Object URLs are never leaked or left active.
+   * Explicitly resets the <audio> element's source and revokes any active Object URLs
+   * using URL.revokeObjectURL() so that stale Object URLs are never leaked or left active
+   * before setting a new source.
    */
   const resetAudioSource = useCallback(
     (reason: string) => {
       const audioEl = audioPlayerRef.current;
+      const urlsToRevoke = new Set<string>();
+
+      if (activeObjectUrlRef.current && activeObjectUrlRef.current.startsWith('blob:')) {
+        urlsToRevoke.add(activeObjectUrlRef.current);
+      }
+      const managedUrl = urlManagerRef.current.getCurrentUrl();
+      if (managedUrl && managedUrl.startsWith('blob:')) {
+        urlsToRevoke.add(managedUrl);
+      }
       if (audioEl) {
+        const domAttrSrc = audioEl.getAttribute('src');
+        if (domAttrSrc && domAttrSrc.startsWith('blob:')) {
+          urlsToRevoke.add(domAttrSrc);
+        }
+        if (audioEl.currentSrc && audioEl.currentSrc.startsWith('blob:')) {
+          urlsToRevoke.add(audioEl.currentSrc);
+        }
         try {
           audioEl.pause();
           audioEl.removeAttribute('src');
@@ -391,31 +408,34 @@ export const AiAudioTranscriber: React.FC = () => {
         }
       }
 
-      const previousUrl =
-        activeObjectUrlRef.current || urlManagerRef.current.getCurrentUrl();
-      if (previousUrl) {
+      const revokedList: string[] = [];
+      urlsToRevoke.forEach((oldUrl) => {
         try {
-          URL.revokeObjectURL(previousUrl);
+          URL.revokeObjectURL(oldUrl);
+          revokedList.push(oldUrl);
         } catch {
           // Ignore revoke errors if already revoked
         }
-        activeObjectUrlRef.current = null;
-        urlManagerRef.current.clear();
+      });
+
+      activeObjectUrlRef.current = null;
+      urlManagerRef.current.clear();
+
+      if (revokedList.length > 0) {
         const resetDiag = {
           reason,
-          revokedObjectUrl: previousUrl,
+          revokedObjectUrls: revokedList,
           audioElementReset: Boolean(audioEl),
         };
         console.log(
-          '[AiAudioTranscriber] Explicitly reset <audio> source and revoked previous Object URL:',
+          '[AiAudioTranscriber] Explicitly reset <audio> source and revoked old Object URL(s) via URL.revokeObjectURL():',
           resetDiag
         );
-        addLog('info', `Explicitly reset <audio> source and revoked previous Object URL (${reason}):`, {
-          revokedObjectUrl: previousUrl,
-          audioElementReset: Boolean(audioEl),
-        });
-      } else {
-        urlManagerRef.current.clear();
+        addLog(
+          'info',
+          `Explicitly reset <audio> source and revoked old Object URL(s) (${reason}):`,
+          resetDiag
+        );
       }
 
       setAudioUrl(null);
@@ -425,14 +445,128 @@ export const AiAudioTranscriber: React.FC = () => {
   );
 
   /**
-   * Resets any previous Object URL and <audio> source, creates a single new Object URL
-   * for the verified Blob, and binds it to the <audio> element.
+   * Explicitly revokes any old Object URLs using URL.revokeObjectURL() before creating new ones,
+   * and verifies that WAV Blobs have a valid 44-byte RIFF/WAVE header and non-zero PCM data
+   * before updating the <audio> element source.
    */
   const assignAudioSourceFromBlob = useCallback(
-    (blob: Blob, fileName: string, mimeType: string, sourceLabel: string): string => {
+    (
+      blob: Blob,
+      fileName: string,
+      mimeType: string,
+      sourceLabel: string,
+      wavCheck?: WavValidationResult | null
+    ): string | null => {
+      // Step 1: Explicitly revoke all old Object URLs using URL.revokeObjectURL() before creating a new one
+      const previousUrlsToRevoke = new Set<string>();
+      if (audioUrl && audioUrl.startsWith('blob:')) {
+        previousUrlsToRevoke.add(audioUrl);
+      }
+      if (activeObjectUrlRef.current && activeObjectUrlRef.current.startsWith('blob:')) {
+        previousUrlsToRevoke.add(activeObjectUrlRef.current);
+      }
+      const managedUrl = urlManagerRef.current.getCurrentUrl();
+      if (managedUrl && managedUrl.startsWith('blob:')) {
+        previousUrlsToRevoke.add(managedUrl);
+      }
+
+      const audioEl = audioPlayerRef.current;
+      if (audioEl) {
+        const attrSrc = audioEl.getAttribute('src');
+        if (attrSrc && attrSrc.startsWith('blob:')) {
+          previousUrlsToRevoke.add(attrSrc);
+        }
+        if (audioEl.currentSrc && audioEl.currentSrc.startsWith('blob:')) {
+          previousUrlsToRevoke.add(audioEl.currentSrc);
+        }
+      }
+
+      previousUrlsToRevoke.forEach((oldUrl) => {
+        try {
+          URL.revokeObjectURL(oldUrl);
+          console.log(
+            '[AiAudioTranscriber] Explicitly revoked old Object URL via URL.revokeObjectURL() before creating new one:',
+            oldUrl
+          );
+        } catch {
+          // Ignore if already revoked
+        }
+      });
+
+      activeObjectUrlRef.current = null;
       resetAudioSource(`replacing audio source with ${sourceLabel}`);
 
-      const nextUrl = urlManagerRef.current.replaceWithBlob(blob);
+      // Step 2: Check that the WAV Blob has a valid header and non-zero PCM data before updating the <audio> element source
+      const isWavSource =
+        mimeType.includes('wav') ||
+        blob.type.includes('wav') ||
+        /\.wav$/i.test(fileName) ||
+        Boolean(wavCheck);
+
+      let hasValidWavHeader = true;
+      let hasNonZeroPcmData = true;
+
+      if (isWavSource) {
+        hasValidWavHeader = Boolean(
+          wavCheck &&
+            wavCheck.valid &&
+            wavCheck.riffHeader === 'RIFF' &&
+            wavCheck.waveHeader === 'WAVE' &&
+            wavCheck.fmtHeader === 'fmt ' &&
+            wavCheck.dataHeader === 'data' &&
+            blob.size > 44 &&
+            wavCheck.dataByteLength > 0
+        );
+        hasNonZeroPcmData = Boolean(
+          wavCheck &&
+            wavCheck.hasNonZeroAudio &&
+            wavCheck.nonZeroSampleCount > 0 &&
+            wavCheck.peakAmplitude > 0
+        );
+
+        const preUpdateVerification = {
+          sourceLabel,
+          fileName,
+          blobSizeBytes: blob.size,
+          hasValidWavHeader,
+          hasNonZeroPcmData,
+          canUpdateAudioElementSource: hasValidWavHeader && hasNonZeroPcmData,
+          riffHeader: wavCheck?.riffHeader ?? null,
+          waveHeader: wavCheck?.waveHeader ?? null,
+          fmtHeader: wavCheck?.fmtHeader ?? null,
+          dataHeader: wavCheck?.dataHeader ?? null,
+          sampleRate: wavCheck?.sampleRate ?? null,
+          numChannels: wavCheck?.numChannels ?? null,
+          bitsPerSample: wavCheck?.bitsPerSample ?? null,
+          dataByteLength: wavCheck?.dataByteLength ?? 0,
+          sampleCount: wavCheck?.sampleCount ?? 0,
+          nonZeroSampleCount: wavCheck?.nonZeroSampleCount ?? 0,
+          peakAmplitude: wavCheck ? Number(wavCheck.peakAmplitude.toFixed(5)) : 0,
+          rmsAmplitude: wavCheck ? Number(wavCheck.rmsAmplitude.toFixed(5)) : 0,
+          durationSeconds: wavCheck ? Number(wavCheck.durationSeconds.toFixed(4)) : 0,
+        };
+
+        console.log(
+          '[AiAudioTranscriber] Pre-source-update WAV Blob verification (valid header & non-zero PCM data check):',
+          preUpdateVerification
+        );
+        addLog(
+          hasValidWavHeader && hasNonZeroPcmData ? 'info' : 'warn',
+          `WAV header & non-zero PCM check before updating <audio> source (${sourceLabel}):`,
+          preUpdateVerification
+        );
+
+        if (!hasValidWavHeader || !hasNonZeroPcmData) {
+          console.error(
+            '[AiAudioTranscriber] Aborting Object URL creation and <audio> source update: WAV Blob failed valid header or non-zero PCM data check.',
+            preUpdateVerification
+          );
+          return null;
+        }
+      }
+
+      // Step 3: Create the new Object URL only after revoking old ones and passing WAV header + non-zero PCM checks
+      const nextUrl = URL.createObjectURL(blob);
       activeObjectUrlRef.current = nextUrl;
 
       setAudioBlob(blob);
@@ -440,7 +574,6 @@ export const AiAudioTranscriber: React.FC = () => {
       setAudioMimeType(mimeType);
       setAudioUrl(nextUrl);
 
-      const audioEl = audioPlayerRef.current;
       if (audioEl) {
         try {
           audioEl.src = nextUrl;
@@ -456,23 +589,21 @@ export const AiAudioTranscriber: React.FC = () => {
         mimeType,
         blobSizeBytes: blob.size,
         hasPayloadBeyondWavHeader: blob.size > 44,
+        wavHeaderValid: isWavSource ? hasValidWavHeader : null,
+        wavHasNonZeroPcmData: isWavSource ? hasNonZeroPcmData : null,
+        wavNonZeroSampleCount: wavCheck ? wavCheck.nonZeroSampleCount : null,
         objectUrl: nextUrl,
         boundToAudioElement: Boolean(audioEl),
       };
       console.log(
-        '[AiAudioTranscriber] Assigning verified audio Blob Object URL to <audio> element for playback:',
+        '[AiAudioTranscriber] Created new Object URL and updated <audio> element source:',
         assignDiag
       );
-      addLog('info', `Assigned single active Object URL for ${sourceLabel}:`, {
-        fileName,
-        mimeType,
-        blobSizeBytes: blob.size,
-        objectUrl: nextUrl,
-      });
+      addLog('info', `Assigned verified Object URL to <audio> source for ${sourceLabel}:`, assignDiag);
 
       return nextUrl;
     },
-    [addLog, resetAudioSource]
+    [addLog, audioUrl, resetAudioSource]
   );
 
   const stopWebAudioFallbackPlayback = useCallback(async () => {
@@ -645,6 +776,45 @@ export const AiAudioTranscriber: React.FC = () => {
       const audioEl = audioPlayerRef.current;
       try {
         const attrSrc = audioEl.getAttribute('src');
+        if (attrSrc && attrSrc.startsWith('blob:') && attrSrc !== audioUrl) {
+          try {
+            URL.revokeObjectURL(attrSrc);
+            console.log(
+              '[AiAudioTranscriber] Explicitly revoked stale <audio> src Object URL before setting new source:',
+              { revokedUrl: attrSrc, nextUrl: audioUrl }
+            );
+          } catch {
+            // Ignore if already revoked
+          }
+        }
+
+        // Check that any WAV Blob has a valid header and non-zero PCM data before updating the <audio> element source
+        if (wavValidation) {
+          const hasValidWavHeader =
+            wavValidation.valid &&
+            wavValidation.riffHeader === 'RIFF' &&
+            wavValidation.waveHeader === 'WAVE' &&
+            wavValidation.fmtHeader === 'fmt ' &&
+            wavValidation.dataHeader === 'data' &&
+            wavValidation.dataByteLength > 0;
+          const hasNonZeroPcmData =
+            wavValidation.hasNonZeroAudio &&
+            wavValidation.nonZeroSampleCount > 0 &&
+            wavValidation.peakAmplitude > 0;
+
+          if (!hasValidWavHeader || !hasNonZeroPcmData) {
+            console.warn(
+              '[AiAudioTranscriber] Skipping <audio> element source update: WAV Blob failed valid header or non-zero PCM data check:',
+              {
+                hasValidWavHeader,
+                hasNonZeroPcmData,
+                wavValidation,
+              }
+            );
+            return;
+          }
+        }
+
         const needsExplicitLoad =
           attrSrc !== audioUrl || audioEl.networkState === HTMLMediaElement.NETWORK_EMPTY;
         if (attrSrc !== audioUrl) {
@@ -667,6 +837,7 @@ export const AiAudioTranscriber: React.FC = () => {
             trackChannelCount: audioContextDiag?.trackChannelCount ?? null,
             sourceChannelCount: audioContextDiag?.sourceChannelCount ?? null,
             processorChannelCount: audioContextDiag?.processorChannelCount ?? null,
+            wavHeaderValid: wavValidation?.valid ?? null,
             wavSampleRate: wavValidation?.sampleRate ?? null,
             wavNumChannels: wavValidation?.numChannels ?? null,
             wavDurationSeconds: wavValidation?.durationSeconds ?? null,
@@ -1208,10 +1379,17 @@ export const AiAudioTranscriber: React.FC = () => {
         blob.size === expectedTotalBytes && buffer.byteLength === expectedTotalBytes,
     };
 
+    const hasNonZeroPcmPayload =
+      validation.hasNonZeroAudio &&
+      validation.nonZeroSampleCount > 0 &&
+      validation.peakAmplitude > 0;
+
     const allHeaderChecksPassed = Object.values(headerChecks).every(Boolean);
 
     const wavBlobInspection = {
       allHeaderChecksPassed,
+      hasNonZeroPcmPayload,
+      readyForAudioElementPlayback: allHeaderChecksPassed && validation.valid && hasNonZeroPcmPayload,
       valid: validation.valid,
       ...headerChecks,
       blobSizeBytes: blob.size,
@@ -1241,7 +1419,7 @@ export const AiAudioTranscriber: React.FC = () => {
 
     addLog(
       allHeaderChecksPassed && validation.valid ? 'info' : 'error',
-      'Pre-ObjectURL Mono 16-bit PCM WAV Byte Header Verification:',
+      'Pre-ObjectURL Mono 16-bit PCM WAV Byte Header & Non-Zero Payload Verification:',
       wavBlobInspection
     );
 
@@ -1520,7 +1698,7 @@ export const AiAudioTranscriber: React.FC = () => {
         rmsAmplitude: Number(validation.rmsAmplitude.toFixed(5)),
       });
 
-      if (!validation.hasNonZeroAudio || stats.isSilent) {
+      if (!validation.hasNonZeroAudio || validation.nonZeroSampleCount === 0 || stats.isSilent) {
         addLog(
           'warn',
           'Captured WAV blob contains all-zero or near-zero audio samples (silence). Check if your microphone hardware mute switch or OS input volume is muted.',
@@ -1580,8 +1758,19 @@ export const AiAudioTranscriber: React.FC = () => {
         blob,
         fileName,
         'audio/wav',
-        'recorded mono 16-bit PCM WAV'
+        'recorded mono 16-bit PCM WAV',
+        validation
       );
+
+      if (!nextUrl) {
+        const failureReason = !validation.valid
+          ? 'Recorded WAV Blob failed RIFF/WAVE header verification and was not bound to the audio player.'
+          : 'Recorded WAV Blob contains only zero-amplitude PCM samples (silence) and was not bound to the audio player.';
+        reportError('recording', failureReason, validation);
+        setShowDebug(true);
+        return;
+      }
+
       setRecordingTime(Math.max(1, Math.round(validation.durationSeconds)));
 
       const completionDiag = {
@@ -1661,10 +1850,12 @@ export const AiAudioTranscriber: React.FC = () => {
     pcmChunksRef.current = [];
     setRecordingTime(0);
 
+    let uploadedWavValidation: WavValidationResult | null = null;
     if (file.type.includes('wav') || /\.wav$/i.test(file.name)) {
       try {
         const buf = await file.arrayBuffer();
         const wavCheck = parseAndValidateWav(buf);
+        uploadedWavValidation = wavCheck;
         setWavValidation(wavCheck);
         const uploadedWavDiag = {
           fileName: file.name,
@@ -1699,8 +1890,19 @@ export const AiAudioTranscriber: React.FC = () => {
       file,
       file.name,
       file.type || 'audio/mp3',
-      `uploaded file (${file.name})`
+      `uploaded file (${file.name})`,
+      uploadedWavValidation
     );
+
+    if (!nextUrl) {
+      const uploadFailureMessage =
+        uploadedWavValidation && !uploadedWavValidation.valid
+          ? `Uploaded WAV file (${file.name}) has an invalid or corrupted RIFF/WAVE header and was not bound to the audio player.`
+          : `Uploaded WAV file (${file.name}) contains only zero-amplitude PCM samples (silence) and was not bound to the audio player.`;
+      reportError('upload', uploadFailureMessage, uploadedWavValidation);
+      setShowDebug(true);
+      return;
+    }
 
     addLog('info', `Loaded uploaded file: ${file.name} (${Math.round(file.size / 1024)} KB)`, {
       name: file.name,
@@ -1826,6 +2028,56 @@ export const AiAudioTranscriber: React.FC = () => {
         el.addEventListener('timeupdate', resetToZero);
       } catch {
         // Ignore seek errors
+      }
+    }
+
+    if (eventName === 'play') {
+      if (wavValidation) {
+        const hasValidHeader =
+          wavValidation.valid &&
+          wavValidation.riffHeader === 'RIFF' &&
+          wavValidation.waveHeader === 'WAVE' &&
+          wavValidation.dataByteLength > 0;
+        const hasNonZeroPcm =
+          wavValidation.hasNonZeroAudio &&
+          wavValidation.nonZeroSampleCount > 0 &&
+          wavValidation.peakAmplitude > 0;
+
+        console.log(
+          '[AiAudioTranscriber] Verifying WAV header & non-zero PCM data before <audio> playback:',
+          {
+            hasValidHeader,
+            hasNonZeroPcm,
+            sampleRate: wavValidation.sampleRate,
+            numChannels: wavValidation.numChannels,
+            bitsPerSample: wavValidation.bitsPerSample,
+            dataByteLength: wavValidation.dataByteLength,
+            nonZeroSampleCount: wavValidation.nonZeroSampleCount,
+            peakAmplitude: Number(wavValidation.peakAmplitude.toFixed(5)),
+          }
+        );
+
+        if (!hasValidHeader) {
+          el.pause();
+          reportError(
+            'playback',
+            `Cannot play WAV audio: invalid RIFF/WAVE header (${wavValidation.error || 'corrupted header'}).`,
+            wavValidation
+          );
+          return;
+        }
+
+        if (!hasNonZeroPcm) {
+          console.warn(
+            '[AiAudioTranscriber] <audio> playback triggered on a WAV Blob with 0 non-zero PCM samples (all-zero silence).',
+            audioContextAndPcmSummary
+          );
+          addLog(
+            'warn',
+            '<audio> playback started, but WAV PCM verification indicates all-zero samples (silence). Check microphone mute state.',
+            audioContextAndPcmSummary
+          );
+        }
       }
     }
 
