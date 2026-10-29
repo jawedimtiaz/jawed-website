@@ -33,7 +33,7 @@ assert.equal(csp.includes("https://www.googletagmanager.com"),true,"CSP must ret
 assert.equal(csp.includes("https://www.google-analytics.com"),true,"CSP must retain the analytics collection origin");
 assert.equal(csp.includes("https://cdnjs.cloudflare.com"),true,"CSP must retain the approved PDF reader resource origin");
 assert.equal(/adsbygoogle|googlesyndication\.com|googleadservices\.com/i.test(csp),false,"Ad-serving hosts must remain absent before activation");
-assert.equal(csp.includes("unsafe-eval"),false,"CSP must not permit unsafe-eval");
+assert.equal(/(^|\\s)'unsafe-eval'(\\s|$)/.test(csp),false,"CSP must not permit unrestricted unsafe-eval; wasm-unsafe-eval is allowed for local ONNX inference");
 assert.equal(csp.includes("frame-ancestors 'none'"),true,"CSP must prevent framing");
 
 assert.equal(fs.existsSync("functions/api/transcribe.ts"),false,"Audio transcription must remain local-first and must not add a billable server endpoint");
