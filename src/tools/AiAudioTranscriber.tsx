@@ -33,9 +33,7 @@ export const AiAudioTranscriber: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   // Refs
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +48,16 @@ export const AiAudioTranscriber: React.FC = () => {
       }
       if (activeStreamRef.current) {
         activeStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (audioProcessorRef.current) {
+        audioProcessorRef.current.onaudioprocess = null;
+        try { audioProcessorRef.current.disconnect(); } catch {}
+      }
+      if (audioSourceRef.current) {
+        try { audioSourceRef.current.disconnect(); } catch {}
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        void audioContextRef.current.close().catch(() => undefined);
       }
     };
   }, [audioUrl]);
