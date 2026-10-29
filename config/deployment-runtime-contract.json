@@ -21,7 +21,6 @@
     "functions/api/transcribe.ts"
   ],
   "api_routes": [
-    "/api/ai",
     "/api/transcribe"
   ],
   "canonical_origin_must_be_exact": true,
@@ -77,5 +76,5 @@
     "/ai / 200",
     "/ai/* / 200"
   ],
-  "ai_runtime": "client-side-knowledge-search"
+  "ai_runtime": "client-side-knowledge-search-with-cloudflare-pages-audio-transcription"
 }
