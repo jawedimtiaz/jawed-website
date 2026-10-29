@@ -85,13 +85,21 @@
     <script type="module" src="/src/main.tsx"></script>
     <script type="module">
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).then(function(reg) {
-            console.log('[PWA] Service Worker registered:', reg.scope);
-          }).catch(function(err) {
-            console.warn('[PWA] Service Worker registration failed:', err);
+        if (import.meta.env.PROD) {
+          window.addEventListener('load', function() {
+            navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).then(function(reg) {
+              console.log('[PWA] Service Worker registered:', reg.scope);
+            }).catch(function(err) {
+              console.warn('[PWA] Service Worker registration failed:', err);
+            });
           });
-        });
+        } else {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            registrations.forEach(function(reg) {
+              reg.unregister();
+            });
+          });
+        }
       }
     </script>
   </body>

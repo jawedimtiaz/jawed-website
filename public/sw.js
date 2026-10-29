@@ -1,6 +1,6 @@
 /* Jawed.co.in Service Worker (PWA Offline Fallback & Cache-First Strategy) */
 
-const CACHE_NAME = 'jawed-pwa-v3';
+const CACHE_NAME = 'jawed-pwa-v4';
 
 const CORE_ASSETS = [
   '/',
@@ -215,6 +215,19 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+
+  // Never intercept blob:/data: URLs, audio/video media elements, byte-range requests, or Vite dev modules
+  if (
+    (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+    request.destination === 'audio' ||
+    request.destination === 'video' ||
+    request.headers.has('range') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/node_modules/')
+  ) {
+    return;
+  }
 
   // Skip browser extensions and cross-origin non-CDN requests
   if (url.origin !== self.location.origin && !url.hostname.includes('fonts.googleapis.com') && !url.hostname.includes('fonts.gstatic.com')) {
