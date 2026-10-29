@@ -65,11 +65,13 @@ const app=read("src/App.tsx");
 const ai=read("src/services/aiKnowledgeEngine.ts");
 if(contract.ai_runtime!=="client-side-knowledge-search")fail.push("AI runtime contract must explicitly describe the client-side architecture");
 if(!app.includes('path="/ai/*"')||!ai.includes("export async function askJawedAi"))fail.push("client-side AI route or knowledge-search entry point is missing");
-if((contract.api_routes||[]).length)fail.push("current client-side AI architecture must not declare server API routes without a reviewed Functions implementation");
-if(exists("functions")&&(contract.api_routes||[]).length===0)fail.push("unexpected Functions directory requires an explicit reviewed API contract");
+const declaredApiRoutes=contract.api_routes||[];
+if(JSON.stringify(declaredApiRoutes)!==JSON.stringify(["/api/transcribe"]))fail.push("only the reviewed /api/transcribe route should be declared");
+if(!exists("functions/api/transcribe.ts"))fail.push("reviewed /api/transcribe Cloudflare Pages Function is missing");
+
 
 if(fail.length){console.error("Deployment Runtime Reliability Gate FAILED");for(const item of fail)console.error("- "+item);process.exit(1);}
 console.log("Deployment Runtime Reliability Gate PASSED");
 console.log("Build: "+contract.build_command+" -> "+contract.build_output_directory);
 console.log("Runtime: Vite/React Router SPA");
-console.log("Pages headers, legacy redirects, SPA rewrites, sitemap, robots, and client-side AI contracts: validated");
+console.log("Pages headers, legacy redirects, SPA rewrites, sitemap, robots, client-side knowledge AI, and audio transcription Function contracts: validated");
