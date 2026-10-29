@@ -22,6 +22,7 @@ import {
   Globe,
   Cpu,
   Play,
+  Pause,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -276,6 +277,10 @@ const decodeAudioBlobToMono16k = async (
 export const AiAudioTranscriber: React.FC = () => {
   // Recording & Audio State
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [mediaRecorderState, setMediaRecorderState] = useState<
+    'inactive' | 'recording' | 'paused'
+  >('inactive');
   const [isRequestingMic, setIsRequestingMic] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -336,8 +341,12 @@ export const AiAudioTranscriber: React.FC = () => {
     userAgent: '',
   });
 
-  // Refs for Web Audio Recording & Safe Object URL Management
+  // Refs for Web Audio Recording, MediaRecorder State & Safe Object URL Management
   const activeStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaRecorderChunksRef = useRef<Blob[]>([]);
+  const isPausedRef = useRef<boolean>(false);
+  const accumulatedRecordingMsRef = useRef<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -793,6 +802,25 @@ export const AiAudioTranscriber: React.FC = () => {
       waveformRafRef.current = null;
     }
 
+    if (mediaRecorderRef.current) {
+      const mr = mediaRecorderRef.current;
+      try {
+        mr.ondataavailable = null;
+        mr.onpause = null;
+        mr.onresume = null;
+        mr.onstop = null;
+        if (mr.state !== 'inactive') {
+          mr.stop();
+        }
+      } catch {
+        // Ignore already stopped MediaRecorder
+      }
+      mediaRecorderRef.current = null;
+    }
+    isPausedRef.current = false;
+    setIsPaused(false);
+    setMediaRecorderState('inactive');
+
     const hasActiveGraph = Boolean(
       processorRef.current ||
         analyserRef.current ||
@@ -1137,11 +1165,15 @@ export const AiAudioTranscriber: React.FC = () => {
       let lastLoggedSecond = -1;
       let fallbackTicks = 0;
       timerRef.current = window.setInterval(() => {
+        if (isPausedRef.current) {
+          return;
+        }
         fallbackTicks += 1;
-        const elapsedMs =
+        const activeSegmentMs =
           recordingStartTimestampRef.current > 0
-            ? Date.now() - recordingStartTimestampRef.current
+            ? Math.max(0, Date.now() - recordingStartTimestampRef.current)
             : fallbackTicks * 250;
+        const elapsedMs = accumulatedRecordingMsRef.current + activeSegmentMs;
         const elapsed = Math.floor(elapsedMs / 1000);
         setRecordingTime(elapsed);
 
@@ -1160,6 +1192,7 @@ export const AiAudioTranscriber: React.FC = () => {
 
           const recordingHeartbeatDiag = {
             elapsedRecordingSeconds: elapsed,
+            mediaRecorderState: mediaRecorderRef.current?.state ?? 'recording',
             audioContextState: ctx?.state ?? 'none',
             sampleRates: {
               audioContextSampleRate: ctx?.sampleRate ?? null,
@@ -1175,6 +1208,7 @@ export const AiAudioTranscriber: React.FC = () => {
             },
             bufferAmplitude: {
               capturedChunkCount: liveChunks.length,
+              mediaRecorderChunkCount: mediaRecorderChunksRef.current.length,
               totalSamples: liveAmplitude.totalSamples,
               nonZeroSampleCount: liveAmplitude.nonZeroSampleCount,
               audibleSampleCount: liveAmplitude.audibleSampleCount,
@@ -1383,9 +1417,15 @@ export const AiAudioTranscriber: React.FC = () => {
 
       // 3. Draw real-time recording duration timer overlay directly on the visualizer canvas
       let liveElapsedSeconds = recordingTime;
+      const pausedNow = isPausedRef.current || isPaused;
       if (activeRecording) {
-        if (recordingStartTimestampRef.current > 0) {
-          liveElapsedSeconds = Math.max(0, (Date.now() - recordingStartTimestampRef.current) / 1000);
+        const activeSegmentMs =
+          !pausedNow && recordingStartTimestampRef.current > 0
+            ? Math.max(0, Date.now() - recordingStartTimestampRef.current)
+            : 0;
+        const totalMs = accumulatedRecordingMsRef.current + activeSegmentMs;
+        if (totalMs > 0) {
+          liveElapsedSeconds = totalMs / 1000;
         } else if (pcmChunksRef.current.length > 0 && sampleRateRef.current > 0) {
           let totalCapturedSamples = 0;
           for (let i = 0; i < pcmChunksRef.current.length; i += 1) {
@@ -1398,7 +1438,9 @@ export const AiAudioTranscriber: React.FC = () => {
       }
 
       const timerLabel = activeRecording
-        ? `REC ${formatRecordingTimerOverlay(liveElapsedSeconds)}`
+        ? pausedNow
+          ? `PAUSED ${formatRecordingTimerOverlay(liveElapsedSeconds)}`
+          : `REC ${formatRecordingTimerOverlay(liveElapsedSeconds)}`
         : liveElapsedSeconds > 0
         ? `DUR ${formatRecordingTimerOverlay(liveElapsedSeconds)}`
         : '00:00.0';
@@ -1417,7 +1459,9 @@ export const AiAudioTranscriber: React.FC = () => {
         ? 'rgba(15, 23, 42, 0.86)'
         : 'rgba(15, 23, 42, 0.78)';
       ctx2d.strokeStyle = activeRecording
-        ? 'rgba(248, 113, 113, 0.55)'
+        ? pausedNow
+          ? 'rgba(251, 191, 36, 0.55)'
+          : 'rgba(248, 113, 113, 0.55)'
         : 'rgba(71, 85, 105, 0.55)';
       ctx2d.lineWidth = 1;
       ctx2d.beginPath();
@@ -1430,20 +1474,22 @@ export const AiAudioTranscriber: React.FC = () => {
       ctx2d.stroke();
 
       if (activeRecording) {
-        const pulseAlpha = 0.55 + 0.45 * Math.sin(Date.now() / 180);
-        ctx2d.fillStyle = `rgba(248, 113, 113, ${pulseAlpha.toFixed(2)})`;
+        const pulseAlpha = pausedNow ? 0.9 : 0.55 + 0.45 * Math.sin(Date.now() / 180);
+        ctx2d.fillStyle = pausedNow
+          ? `rgba(251, 191, 36, ${pulseAlpha.toFixed(2)})`
+          : `rgba(248, 113, 113, ${pulseAlpha.toFixed(2)})`;
         ctx2d.beginPath();
         ctx2d.arc(badgeX + padX + 3.5, badgeY + badgeHeight / 2, 3.5, 0, Math.PI * 2);
         ctx2d.fill();
       }
 
-      ctx2d.fillStyle = activeRecording ? '#fecaca' : '#cbd5e1';
+      ctx2d.fillStyle = activeRecording ? (pausedNow ? '#fde68a' : '#fecaca') : '#cbd5e1';
       ctx2d.textBaseline = 'middle';
       ctx2d.fillText(timerLabel, badgeX + padX + dotSpace, badgeY + badgeHeight / 2 + 0.5);
       ctx2d.restore();
     };
 
-    if (isRecording) {
+    if (isRecording && !isPaused) {
       const renderLoop = () => {
         drawFrame(true);
         waveformRafRef.current = requestAnimationFrame(renderLoop);
@@ -1454,7 +1500,7 @@ export const AiAudioTranscriber: React.FC = () => {
         cancelAnimationFrame(waveformRafRef.current);
         waveformRafRef.current = null;
       }
-      drawFrame(false);
+      drawFrame(isRecording);
     }
 
     return () => {
@@ -1463,7 +1509,7 @@ export const AiAudioTranscriber: React.FC = () => {
         waveformRafRef.current = null;
       }
     };
-  }, [isRecording, audioUrl, recordingTime, wavValidation]);
+  }, [isRecording, isPaused, audioUrl, recordingTime, wavValidation]);
 
   /**
    * Verifies whether a single PCM Float32Array buffer or an array of PCM chunks
@@ -1524,8 +1570,40 @@ export const AiAudioTranscriber: React.FC = () => {
 
     activeStreamRef.current = stream;
     pcmChunksRef.current = [];
+    mediaRecorderChunksRef.current = [];
+    accumulatedRecordingMsRef.current = 0;
     recordingStartTimestampRef.current = Date.now();
+    isPausedRef.current = false;
+    setIsPaused(false);
     setInputLevelPeak(0);
+
+    // Initialize MediaRecorder to manage 'recording' / 'paused' state and append chunks to a continuous buffer
+    if (typeof window !== 'undefined' && typeof window.MediaRecorder !== 'undefined') {
+      try {
+        const recorder = new window.MediaRecorder(stream);
+        recorder.ondataavailable = (ev: BlobEvent) => {
+          if (ev.data && ev.data.size > 0) {
+            mediaRecorderChunksRef.current.push(ev.data);
+          }
+        };
+        recorder.onpause = () => {
+          setMediaRecorderState('paused');
+        };
+        recorder.onresume = () => {
+          setMediaRecorderState('recording');
+        };
+        recorder.onstop = () => {
+          setMediaRecorderState('inactive');
+        };
+        recorder.start(250);
+        mediaRecorderRef.current = recorder;
+        setMediaRecorderState(recorder.state);
+      } catch {
+        setMediaRecorderState('recording');
+      }
+    } else {
+      setMediaRecorderState('recording');
+    }
 
     const audioTracks = stream.getAudioTracks();
     const primaryTrack = audioTracks[0];
@@ -1658,6 +1736,9 @@ export const AiAudioTranscriber: React.FC = () => {
     let loggedFirstBuffer = false;
     let processedChunkCounter = 0;
     processor.onaudioprocess = (event: AudioProcessingEvent) => {
+      if (isPausedRef.current || mediaRecorderRef.current?.state === 'paused') {
+        return;
+      }
       const inputBuffer = event.inputBuffer;
       const numChannels = Math.max(1, inputBuffer.numberOfChannels);
       const frameLength = inputBuffer.length;
@@ -2365,11 +2446,107 @@ export const AiAudioTranscriber: React.FC = () => {
     };
   };
 
+  /**
+   * Toggles between 'recording' and 'paused' states during an active recording session,
+   * managing the MediaRecorder state and AudioContext suspension so that subsequent audio
+   * chunks are appended to the continuous buffer instead of restarting from scratch.
+   */
+  const handlePauseResumeRecording = async () => {
+    if (!isRecording) return;
+
+    const mr = mediaRecorderRef.current;
+    const ctx = audioContextRef.current;
+
+    if (!isPausedRef.current) {
+      // Transition from 'recording' -> 'paused'
+      if (recordingStartTimestampRef.current > 0) {
+        accumulatedRecordingMsRef.current += Math.max(
+          0,
+          Date.now() - recordingStartTimestampRef.current
+        );
+        recordingStartTimestampRef.current = 0;
+      }
+
+      isPausedRef.current = true;
+      setIsPaused(true);
+      setInputLevelPeak(0);
+
+      if (mr && mr.state === 'recording') {
+        try {
+          mr.pause();
+        } catch {
+          // Ignore MediaRecorder pause errors if unsupported
+        }
+      }
+      setMediaRecorderState(mr?.state === 'paused' ? 'paused' : 'paused');
+
+      if (ctx && ctx.state === 'running') {
+        try {
+          await ctx.suspend();
+        } catch {
+          // Ignore AudioContext suspend errors
+        }
+      }
+
+      const pauseDiag = {
+        mediaRecorderState: mr?.state ?? 'paused',
+        audioContextState: ctx?.state ?? 'suspended',
+        accumulatedRecordingSeconds: Number((accumulatedRecordingMsRef.current / 1000).toFixed(2)),
+        continuousPcmChunkCount: pcmChunksRef.current.length,
+        continuousMediaRecorderChunkCount: mediaRecorderChunksRef.current.length,
+      };
+      console.log('[AiAudioTranscriber] Recording paused — preserving continuous audio buffer:', pauseDiag);
+      addLog('info', 'Recording paused. Continuous audio buffer preserved.', pauseDiag);
+    } else {
+      // Transition from 'paused' -> 'recording' (appending subsequent chunks to continuous buffer)
+      if (mr && mr.state === 'paused') {
+        try {
+          mr.resume();
+        } catch {
+          // Ignore MediaRecorder resume errors if unsupported
+        }
+      }
+      setMediaRecorderState(mr?.state === 'recording' ? 'recording' : 'recording');
+
+      if (ctx && ctx.state === 'suspended') {
+        try {
+          await ctx.resume();
+        } catch {
+          // Ignore AudioContext resume errors
+        }
+      }
+
+      recordingStartTimestampRef.current = Date.now();
+      isPausedRef.current = false;
+      setIsPaused(false);
+
+      const resumeDiag = {
+        mediaRecorderState: mr?.state ?? 'recording',
+        audioContextState: ctx?.state ?? 'running',
+        accumulatedRecordingSeconds: Number((accumulatedRecordingMsRef.current / 1000).toFixed(2)),
+        existingPcmChunkCount: pcmChunksRef.current.length,
+        existingMediaRecorderChunkCount: mediaRecorderChunksRef.current.length,
+      };
+      console.log(
+        '[AiAudioTranscriber] Recording resumed — appending subsequent chunks to continuous buffer:',
+        resumeDiag
+      );
+      addLog(
+        'info',
+        'Recording resumed. Appending subsequent audio chunks to continuous buffer.',
+        resumeDiag
+      );
+    }
+  };
+
   const stopRecording = async () => {
     if (!isRecording) return;
 
     addLog('info', 'Stopping PCM/WAV recording...');
     setIsRecording(false);
+    isPausedRef.current = false;
+    setIsPaused(false);
+    setMediaRecorderState('inactive');
     setInputLevelPeak(0);
 
     // Freeze ScriptProcessorNode callback immediately so chunk buffer is stable during WAV generation
@@ -2377,10 +2554,14 @@ export const AiAudioTranscriber: React.FC = () => {
       processorRef.current.onaudioprocess = null;
     }
 
-    const elapsedMs =
+    const activeSegmentMs =
       recordingStartTimestampRef.current > 0
-        ? Date.now() - recordingStartTimestampRef.current
-        : recordingTime * 1000;
+        ? Math.max(0, Date.now() - recordingStartTimestampRef.current)
+        : 0;
+    const totalAccumulatedMs = accumulatedRecordingMsRef.current + activeSegmentMs;
+    const elapsedMs = totalAccumulatedMs > 0 ? totalAccumulatedMs : recordingTime * 1000;
+    accumulatedRecordingMsRef.current = 0;
+    recordingStartTimestampRef.current = 0;
     const elapsedSeconds = Math.max(0.1, Math.round(elapsedMs / 100) / 10);
 
     const preStopContext = audioContextRef.current;
@@ -3489,6 +3670,48 @@ export const AiAudioTranscriber: React.FC = () => {
     setTimeout(() => setCopiedSection(null), 2000);
   };
 
+  const handleSaveTranscript = () => {
+    if (!result || !result.transcript) return;
+
+    if (activeDownloadUrlRef.current) {
+      try {
+        URL.revokeObjectURL(activeDownloadUrlRef.current);
+      } catch {
+        // Ignore if already revoked
+      }
+      activeDownloadUrlRef.current = null;
+    }
+
+    const baseName = audioFileName
+      ? audioFileName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]+/g, '-')
+      : `audio-${new Date().toISOString().slice(0, 10)}`;
+    const downloadFileName = `${baseName}-transcript.txt`;
+
+    const blob = new Blob([result.transcript], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    activeDownloadUrlRef.current = url;
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = downloadFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    addLog('info', `Saved transcript as .txt file (${downloadFileName}, ${blob.size} bytes).`);
+
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // Ignore if already revoked
+      }
+      if (activeDownloadUrlRef.current === url) {
+        activeDownloadUrlRef.current = null;
+      }
+    }, 1000);
+  };
+
   const handleDownloadTxt = () => {
     if (!result) return;
     const content = [
@@ -3525,7 +3748,9 @@ export const AiAudioTranscriber: React.FC = () => {
     const a = document.createElement('a');
     a.href = url;
     a.download = `transcript-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     setTimeout(() => {
       try {
         URL.revokeObjectURL(url);
@@ -3839,7 +4064,9 @@ export const AiAudioTranscriber: React.FC = () => {
               <div
                 className={`p-4 rounded-full transition-colors ${
                   isRecording
-                    ? 'bg-red-500/20 text-red-400 animate-pulse'
+                    ? isPaused
+                      ? 'bg-amber-500/20 text-amber-400'
+                      : 'bg-red-500/20 text-red-400 animate-pulse'
                     : 'bg-indigo-500/10 text-indigo-400'
                 }`}
               >
@@ -3848,17 +4075,21 @@ export const AiAudioTranscriber: React.FC = () => {
               <div className="space-y-1">
                 <h2 className="font-semibold text-white text-lg">
                   {isRecording
-                    ? 'Recording in Progress...'
+                    ? isPaused
+                      ? 'Recording Paused'
+                      : 'Recording in Progress...'
                     : isRequestingMic
                     ? 'Requesting Microphone...'
                     : 'Record Voice Note'}
                 </h2>
                 <p className="text-xs text-slate-400">
                   {isRecording
-                    ? `Elapsed: ${formatDurationDisplay(recordingTime)} • Peak level: ${Math.min(
-                        100,
-                        Math.round(inputLevelPeak * 140)
-                      )}%`
+                    ? isPaused
+                      ? `Paused at ${formatDurationDisplay(recordingTime)} • State: ${mediaRecorderState} • Buffer preserved (${pcmChunksRef.current.length} chunks)`
+                      : `Elapsed: ${formatDurationDisplay(recordingTime)} • Peak level: ${Math.min(
+                          100,
+                          Math.round(inputLevelPeak * 140)
+                        )}%`
                     : 'Use your microphone to record mono 16-bit PCM WAV directly in the browser'}
                 </p>
               </div>
@@ -3870,14 +4101,18 @@ export const AiAudioTranscriber: React.FC = () => {
                     <span
                       className={`inline-block w-2 h-2 rounded-full ${
                         isRecording
-                          ? inputLevelPeak > 1e-4
+                          ? isPaused
+                            ? 'bg-amber-400'
+                            : inputLevelPeak > 1e-4
                             ? 'bg-emerald-400 animate-ping'
                             : 'bg-amber-400 animate-pulse'
                           : 'bg-slate-600'
                       }`}
                     />
                     {isRecording
-                      ? inputLevelPeak > 1e-4
+                      ? isPaused
+                        ? 'RECORDING PAUSED • CONTINUOUS BUFFER READY'
+                        : inputLevelPeak > 1e-4
                         ? 'LIVE WAVEFORM • AUDIO CAPTURE ACTIVE'
                         : 'LIVE WAVEFORM • WAITING FOR VOICE SIGNAL'
                       : rollingPeakHistoryRef.current.length > 0
@@ -3886,12 +4121,16 @@ export const AiAudioTranscriber: React.FC = () => {
                   </span>
                   <span
                     className={
-                      isRecording && inputLevelPeak > 1e-4
+                      isRecording && !isPaused && inputLevelPeak > 1e-4
                         ? 'text-emerald-400 font-semibold'
+                        : isRecording && isPaused
+                        ? 'text-amber-300 font-semibold'
                         : 'text-slate-400'
                     }
                   >
-                    Peak: {Math.min(100, Math.round(inputLevelPeak * 140))}%
+                    {isRecording && isPaused
+                      ? 'Paused'
+                      : `Peak: ${Math.min(100, Math.round(inputLevelPeak * 140))}%`}
                   </span>
                 </div>
                 <div className="relative">
@@ -3907,7 +4146,9 @@ export const AiAudioTranscriber: React.FC = () => {
                     aria-live="polite"
                     className={`pointer-events-none absolute bottom-2 left-2.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono border backdrop-blur-sm ${
                       isRecording
-                        ? 'bg-slate-950/85 border-red-500/40 text-red-200'
+                        ? isPaused
+                          ? 'bg-slate-950/85 border-amber-500/40 text-amber-200'
+                          : 'bg-slate-950/85 border-red-500/40 text-red-200'
                         : verifiedDurationSeconds !== null && verifiedDurationSeconds > 0
                         ? 'bg-slate-950/80 border-indigo-500/30 text-indigo-200'
                         : 'bg-slate-950/75 border-slate-800 text-slate-400'
@@ -3916,7 +4157,9 @@ export const AiAudioTranscriber: React.FC = () => {
                     <span
                       className={`inline-block w-1.5 h-1.5 rounded-full ${
                         isRecording
-                          ? 'bg-red-400 animate-pulse'
+                          ? isPaused
+                            ? 'bg-amber-400'
+                            : 'bg-red-400 animate-pulse'
                           : verifiedDurationSeconds !== null && verifiedDurationSeconds > 0
                           ? 'bg-indigo-400'
                           : 'bg-slate-600'
@@ -3924,7 +4167,9 @@ export const AiAudioTranscriber: React.FC = () => {
                     />
                     <span>
                       {isRecording
-                        ? `Duration: ${formatDurationDisplay(recordingTime)}`
+                        ? isPaused
+                          ? `Paused: ${formatDurationDisplay(recordingTime)}`
+                          : `Duration: ${formatDurationDisplay(recordingTime)}`
                         : verifiedDurationSeconds !== null && verifiedDurationSeconds > 0
                         ? `Captured: ${formatDurationDisplay(verifiedDurationSeconds)}`
                         : 'Duration: 0:00'}
@@ -3953,14 +4198,37 @@ export const AiAudioTranscriber: React.FC = () => {
                   )}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => void stopRecording()}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-all shadow-lg shadow-red-600/20 cursor-pointer"
-                >
-                  <Square className="w-4 h-4 fill-current" />
-                  Stop Recording ({formatDurationDisplay(recordingTime)})
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-2.5 w-full">
+                  <button
+                    type="button"
+                    onClick={() => void handlePauseResumeRecording()}
+                    className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium transition-all shadow-lg cursor-pointer ${
+                      isPaused
+                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                        : 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
+                    }`}
+                  >
+                    {isPaused ? (
+                      <>
+                        <Play className="w-4 h-4 fill-current" />
+                        Resume Recording
+                      </>
+                    ) : (
+                      <>
+                        <Pause className="w-4 h-4 fill-current" />
+                        Pause Recording
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void stopRecording()}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-all shadow-lg shadow-red-600/20 cursor-pointer"
+                  >
+                    <Square className="w-4 h-4 fill-current" />
+                    Stop Recording ({formatDurationDisplay(recordingTime)})
+                  </button>
+                </div>
               )}
             </div>
 
@@ -4302,14 +4570,24 @@ export const AiAudioTranscriber: React.FC = () => {
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={handleDownloadTxt}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium border border-slate-700 transition-colors self-start sm:self-auto cursor-pointer"
-              >
-                <Download className="w-4 h-4 text-indigo-400" />
-                Export .TXT
-              </button>
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={handleSaveTranscript}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors shadow-lg shadow-indigo-600/20 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  Save Transcript
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadTxt}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium border border-slate-700 transition-colors cursor-pointer"
+                >
+                  <FileText className="w-4 h-4 text-indigo-400" />
+                  Export .TXT
+                </button>
+              </div>
             </div>
 
             {/* Executive Summary */}
@@ -4395,28 +4673,38 @@ export const AiAudioTranscriber: React.FC = () => {
             {/* Full Transcript */}
             {(activeTab === 'all' || activeTab === 'transcript') && (
               <div className="p-5 rounded-xl bg-slate-950/70 border border-slate-800/90 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h3 className="text-base font-semibold text-slate-200 flex items-center gap-2">
                     <AlignLeft className="w-4 h-4 text-indigo-400" />
                     Verbatim Transcript
                   </h3>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(result.transcript, 'transcript')}
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
-                  >
-                    {copiedSection === 'transcript' ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        Copy
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSaveTranscript}
+                      className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download .txt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(result.transcript, 'transcript')}
+                      className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {copiedSection === 'transcript' ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="max-h-96 overflow-y-auto pr-2 text-slate-300 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
                   {result.transcript}
