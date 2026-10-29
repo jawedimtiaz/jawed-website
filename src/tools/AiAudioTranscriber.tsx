@@ -63,7 +63,7 @@ export const AiAudioTranscriber: React.FC = () => {
         void audioContextRef.current.close().catch(() => undefined);
       }
     };
-  }, [audioUrl]);
+  }, []);
 
   // Handle Recording Timer
   useEffect(() => {
