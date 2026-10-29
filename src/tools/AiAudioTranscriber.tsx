@@ -1,799 +1,1909 @@
-import React, { useState, useRef, useEffect } from 'react';
-
-// Reuse the model during this page session; inference runs locally in the visitor's browser.
-let localWhisperPipeline: any = null;
-let localWhisperPipelinePromise: Promise<any> | null = null;
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Mic,
+  Square,
+  Upload,
+  FileAudio,
+  Sparkles,
+  Copy,
+  Check,
+  Download,
+  Trash2,
+  AlertCircle,
+  Loader2,
+  Volume2,
+  FileText,
+  ListChecks,
+  AlignLeft,
+  Terminal,
+  ChevronDown,
+  ChevronUp,
+  ShieldAlert,
+  Globe,
+  Cpu,
+  Play,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Breadcrumb } from '../components/Breadcrumb';
-import { SocialShareBar } from '../components/SocialShareBar';
-import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { Mic, Square, Play, Pause, Trash2, Upload, FileAudio, Copy, Check, Download, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  TranscriberErrorCategory,
+  WavValidationResult,
+  AudioElementDiagnostics,
+  WHISPER_MODELS,
+  DEFAULT_WHISPER_MODEL_ID,
+  FALLBACK_WHISPER_MODEL_ID,
+  SUPPORTED_TRANSCRIPTION_LANGUAGES,
+  buildWhisperTranscriptionOptions,
+  computePcmStats,
+  encodeWav,
+  parseAndValidateWav,
+  resampleMonoAudio,
+  extractAudioElementDiagnostics,
+  SafeObjectUrlManager,
+} from '../hooks/useAudioRecorder';
+
+const cachedWhisperPipelines = new Map<string, any>();
+
+interface TranscriptionResult {
+  transcript: string;
+  summary: string;
+  actionItems: string[];
+  detectedLanguage?: string;
+  modelUsed?: string;
+}
+
+interface DebugEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  details?: string;
+}
+
+const formatDurationDisplay = (seconds: number | null | undefined): string => {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) {
+    return '0:00';
+  }
+  const totalSecs = Math.max(0, Math.round(seconds));
+  const mins = Math.floor(totalSecs / 60);
+  const secs = totalSecs % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+const summarizeTranscript = (text: string): { summary: string; actionItems: string[] } => {
+  const cleaned = text.replace(/\s+/g, ' ').trim();
+  if (!cleaned) {
+    return {
+      summary: 'No clear speech was detected in the audio.',
+      actionItems: [],
+    };
+  }
+
+  // Support Latin, Devanagari (।), Arabic/Urdu (۔), and CJK (。) sentence boundaries
+  const sentences = cleaned
+    .split(/(?<=[.!?।۔。])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  const summary =
+    sentences.slice(0, 3).join(' ') ||
+    cleaned.slice(0, 280) + (cleaned.length > 280 ? '...' : '');
+
+  const actionPattern =
+    /\b(need to|should|must|todo|to-do|action|follow up|schedule|send|review|fix|update|call|email|verify|check|create|prepare|complete|submit)\b/i;
+  const actionItems = sentences.filter((sentence) => actionPattern.test(sentence)).slice(0, 6);
+
+  return {
+    summary,
+    actionItems:
+      actionItems.length > 0
+        ? actionItems
+        : sentences.length > 1
+        ? sentences.slice(0, 3)
+        : [`Review transcript: "${cleaned.slice(0, 120)}${cleaned.length > 120 ? '...' : ''}"`],
+  };
+};
+
+const loadWhisperPipeline = async (
+  modelId: string,
+  addLog: (level: 'info' | 'warn' | 'error', message: string, details?: any) => void,
+  onStatus: (status: string, progressPct?: number | null) => void
+) => {
+  if (cachedWhisperPipelines.has(modelId)) {
+    return cachedWhisperPipelines.get(modelId);
+  }
+
+  const modelMeta = WHISPER_MODELS.find((m) => m.id === modelId);
+  onStatus(
+    `Downloading local AI speech model (${modelMeta?.approxDownloadSize || '~75 MB'} on first use)...`,
+    0
+  );
+  addLog(
+    'info',
+    `Loading local Whisper model (${modelId}) in browser via Transformers.js...`
+  );
+
+  // Dynamic runtime import keeps the main Vite bundle small and avoids paid server APIs.
+  const transformersUrl = 'https://esm.sh/@huggingface/transformers@3.3.3';
+  const { pipeline, env } = await import(/* @vite-ignore */ transformersUrl);
+  env.allowLocalModels = false;
+  env.useBrowserCache = true;
+
+  let lastLoggedBucket = -1;
+  const instance = await pipeline('automatic-speech-recognition', modelId, {
+    dtype: 'q8',
+    device: 'wasm',
+    progress_callback: (progress: any) => {
+      if (typeof progress?.progress === 'number') {
+        const pct = Math.max(0, Math.min(100, Math.round(progress.progress)));
+        const fileLabel = progress.file ? ` (${progress.file})` : '';
+        onStatus(`Downloading local AI speech model... ${pct}%${fileLabel}`, pct);
+        const bucket = Math.floor(pct / 25);
+        if (bucket > lastLoggedBucket) {
+          lastLoggedBucket = bucket;
+          addLog('info', `Model download progress: ${pct}%`, {
+            file: progress.file,
+            status: progress.status,
+          });
+        }
+      } else if (progress?.status === 'ready') {
+        onStatus('Local AI speech model ready.', 100);
+      }
+    },
+  });
+
+  cachedWhisperPipelines.set(modelId, instance);
+  addLog('info', `Local Whisper model (${modelId}) loaded and cached in browser.`);
+  return instance;
+};
+
+const decodeAudioBlobToMono16k = async (
+  blob: Blob,
+  addLog: (level: 'info' | 'warn' | 'error', message: string, details?: any) => void
+): Promise<{ samples: Float32Array; durationSeconds: number; sampleRate: number }> => {
+  const targetRate = 16000;
+  const arrayBuffer = await blob.arrayBuffer();
+
+  const wavCheck = parseAndValidateWav(arrayBuffer);
+  if (wavCheck.valid && wavCheck.bitsPerSample === 16 && wavCheck.numChannels === 1) {
+    addLog('info', 'Verified mono 16-bit PCM WAV header prior to transcription.', {
+      sampleRate: wavCheck.sampleRate,
+      sampleCount: wavCheck.sampleCount,
+      durationSeconds: Number(wavCheck.durationSeconds.toFixed(2)),
+      peakAmplitude: Number(wavCheck.peakAmplitude.toFixed(4)),
+    });
+  }
+
+  const AudioContextCtor =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const audioContext = new AudioContextCtor();
+
+  try {
+    const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    const channels = decoded.numberOfChannels;
+    const length = decoded.length;
+    const mono = new Float32Array(length);
+
+    for (let channel = 0; channel < channels; channel += 1) {
+      const channelData = decoded.getChannelData(channel);
+      for (let i = 0; i < length; i += 1) {
+        mono[i] += channelData[i] / channels;
+      }
+    }
+
+    const resampled = resampleMonoAudio(mono, decoded.sampleRate, targetRate);
+    addLog('info', 'Decoded audio for local transcription.', {
+      originalSampleRate: decoded.sampleRate,
+      targetSampleRate: targetRate,
+      channels,
+      durationSeconds: Math.round(decoded.duration * 100) / 100,
+      samples: resampled.length,
+    });
+    return {
+      samples: resampled,
+      durationSeconds: decoded.duration,
+      sampleRate: decoded.sampleRate,
+    };
+  } finally {
+    await audioContext.close().catch(() => {});
+  }
+};
 
 export const AiAudioTranscriber: React.FC = () => {
-  const isOnline = useOnlineStatus();
-  
-  // Recording state
+  // Recording & Audio State
   const [isRecording, setIsRecording] = useState(false);
+  const [isRequestingMic, setIsRequestingMic] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [audioMimeType, setAudioMimeType] = useState<string>('audio/webm');
-  const [fileName, setFileName] = useState<string>('');
+  const [audioFileName, setAudioFileName] = useState<string>('');
+  const [audioMimeType, setAudioMimeType] = useState<string>('audio/wav');
+  const [wavValidation, setWavValidation] = useState<WavValidationResult | null>(null);
+  const [audioElementDiag, setAudioElementDiag] = useState<AudioElementDiagnostics | null>(null);
+  const [audioContextDiag, setAudioContextDiag] = useState<{
+    rawSampleRate: number;
+    normalizedSampleRate: number;
+    state: string;
+    baseLatency?: number;
+    outputLatency?: number;
+    trackSampleRate?: number;
+    trackChannelCount?: number;
+    sourceChannelCount: number;
+    processorChannelCount: number;
+    destinationChannelCount: number;
+    destinationMaxChannelCount: number;
+  } | null>(null);
+  const [inputLevelPeak, setInputLevelPeak] = useState<number>(0);
+  const [isWebAudioPlaying, setIsWebAudioPlaying] = useState(false);
 
-  // Custom prompt & mode state
-  const [contextMode, setContextMode] = useState<'standard' | 'service_desk' | 'summary_only' | 'custom'>('standard');
-  const [customPrompt, setCustomPrompt] = useState('');
+  // Multilingual & Model State
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('auto');
+  const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_WHISPER_MODEL_ID);
+  const [modelLoadProgress, setModelLoadProgress] = useState<number | null>(null);
 
-  // Result & Loading states
-  const [loading, setLoading] = useState(false);
-  const [transcriptResult, setTranscriptResult] = useState<string | null>(null);
+  // Transcription & Analysis State
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<string>('Transcribing & Analyzing...');
+  const [result, setResult] = useState<TranscriptionResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [errorDetails, setErrorDetails] = useState<{ name?: string; message?: string; stack?: string } | null>(null);
-  const [debugMode, setDebugMode] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [errorCategory, setErrorCategory] = useState<TranscriberErrorCategory | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'transcript' | 'summary' | 'actions'>('all');
+  const [copiedSection, setCopiedSection] = useState<string | null>(null);
 
-  // Refs
+  // Diagnostics & Debug State
+  const [debugLogs, setDebugLogs] = useState<DebugEntry[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
+  const [envInfo, setEnvInfo] = useState<{
+    isSecureContext: boolean;
+    hasMediaDevices: boolean;
+    hasGetUserMedia: boolean;
+    isIframe: boolean;
+    permissionState: string;
+    userAgent: string;
+  }>({
+    isSecureContext: true,
+    hasMediaDevices: true,
+    hasGetUserMedia: true,
+    isIframe: false,
+    permissionState: 'unknown',
+    userAgent: '',
+  });
+
+  // Refs for Web Audio Recording & Safe Object URL Management
   const activeStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const silentGainRef = useRef<GainNode | null>(null);
+  const pcmChunksRef = useRef<Float32Array[]>([]);
+  const sampleRateRef = useRef<number>(44100);
+  const recordingStartTimestampRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const audioUrlRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const urlManagerRef = useRef<SafeObjectUrlManager>(new SafeObjectUrlManager());
+  const webAudioPlaybackContextRef = useRef<AudioContext | null>(null);
 
-  // Keep the current object URL stable for the lifetime of the audio element.
-  // Revoke it only when replacing/clearing the source or unmounting the page.
-  useEffect(() => {
-    return () => {
-      if (audioUrlRef.current) {
-        URL.revokeObjectURL(audioUrlRef.current);
-        audioUrlRef.current = null;
+  const addLog = useCallback(
+    (level: 'info' | 'warn' | 'error', message: string, details?: any) => {
+      const entry: DebugEntry = {
+        timestamp: new Date().toISOString().split('T')[1].slice(0, 12),
+        level,
+        message,
+        details: details
+          ? typeof details === 'string'
+            ? details
+            : JSON.stringify(details, null, 2)
+          : undefined,
+      };
+      setDebugLogs((prev) => [...prev, entry]);
+      if (level === 'error') {
+        console.error(`[AudioTranscriber] ${message}`, details || '');
+      } else if (level === 'warn') {
+        console.warn(`[AudioTranscriber] ${message}`, details || '');
+      } else {
+        console.log(`[AudioTranscriber] ${message}`, details || '');
       }
+    },
+    []
+  );
+
+  const reportError = useCallback(
+    (category: TranscriberErrorCategory, message: string, details?: any) => {
+      setErrorCategory(category);
+      setErrorMsg(message);
+      addLog('error', `[${category.toUpperCase()}] ${message}`, details);
+    },
+    [addLog]
+  );
+
+  const clearError = useCallback(() => {
+    setErrorMsg(null);
+    setErrorCategory(null);
+  }, []);
+
+  const stopWebAudioFallbackPlayback = useCallback(async () => {
+    if (webAudioPlaybackContextRef.current) {
+      try {
+        await webAudioPlaybackContextRef.current.close();
+      } catch {
+        // Ignore already closed AudioContext
+      }
+      webAudioPlaybackContextRef.current = null;
+    }
+    setIsWebAudioPlaying(false);
+  }, []);
+
+  const stopRecordingGraph = useCallback(async () => {
+    if (processorRef.current) {
+      processorRef.current.onaudioprocess = null;
+      try {
+        processorRef.current.disconnect();
+      } catch {
+        // Ignore already disconnected processor
+      }
+      processorRef.current = null;
+    }
+
+    if (sourceNodeRef.current) {
+      try {
+        sourceNodeRef.current.disconnect();
+      } catch {
+        // Ignore already disconnected source
+      }
+      sourceNodeRef.current = null;
+    }
+
+    if (silentGainRef.current) {
+      try {
+        silentGainRef.current.disconnect();
+      } catch {
+        // Ignore already disconnected gain node
+      }
+      silentGainRef.current = null;
+    }
+
+    if (audioContextRef.current) {
+      try {
+        await audioContextRef.current.close();
+      } catch {
+        // Ignore already closed AudioContext
+      }
+      audioContextRef.current = null;
+    }
+
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach((track) => track.stop());
+      activeStreamRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const checkEnvironment = async () => {
+      const isSecure = window.isSecureContext;
+      const hasMD = typeof navigator !== 'undefined' && !!navigator.mediaDevices;
+      const hasGUM = hasMD && typeof navigator.mediaDevices.getUserMedia === 'function';
+      const isFramed = window.self !== window.top;
+      let permState = 'unsupported';
+
+      if (typeof navigator !== 'undefined' && navigator.permissions?.query) {
+        try {
+          const status = await navigator.permissions.query({
+            name: 'microphone' as PermissionName,
+          });
+          permState = status.state;
+          status.onchange = () => {
+            setEnvInfo((prev) => ({ ...prev, permissionState: status.state }));
+            addLog('info', `Microphone permission state changed to: ${status.state}`);
+          };
+        } catch (err: any) {
+          permState = `query-error (${err?.message || 'unknown'})`;
+        }
+      }
+
+      const info = {
+        isSecureContext: isSecure,
+        hasMediaDevices: hasMD,
+        hasGetUserMedia: hasGUM,
+        isIframe: isFramed,
+        permissionState: permState,
+        userAgent: navigator.userAgent,
+      };
+      setEnvInfo(info);
+      addLog('info', 'Environment diagnostic initialized (no mic requested on mount)', info);
+    };
+
+    void checkEnvironment();
+
+    return () => {
+      urlManagerRef.current.clear();
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      if (activeStreamRef.current) {
-        activeStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-      if (audioProcessorRef.current) {
-        audioProcessorRef.current.onaudioprocess = null;
-        try { audioProcessorRef.current.disconnect(); } catch {}
-      }
-      if (audioSourceRef.current) {
-        try { audioSourceRef.current.disconnect(); } catch {}
-      }
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        void audioContextRef.current.close().catch(() => undefined);
-      }
+      void stopRecordingGraph();
+      void stopWebAudioFallbackPlayback();
     };
-  }, []);
+  }, [addLog, stopRecordingGraph, stopWebAudioFallbackPlayback]);
 
-  // Handle Recording Timer
   useEffect(() => {
     if (isRecording) {
       timerRef.current = window.setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+        if (recordingStartTimestampRef.current > 0) {
+          const elapsed = Math.floor((Date.now() - recordingStartTimestampRef.current) / 1000);
+          setRecordingTime(elapsed);
+        } else {
+          setRecordingTime((prev) => prev + 1);
+        }
+      }, 250);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
   }, [isRecording]);
 
-  // Record raw PCM with Web Audio and wrap it in a WAV container.
-  // This avoids browser-specific MediaRecorder container/fragmentation problems
-  // that can produce a 0:00 player in Safari, Chrome, and Edge.
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
-  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const pcmChunksRef = useRef<Float32Array[]>([]);
-  const pcmSampleRateRef = useRef(44100);
-
-  const encodePcmWav = (chunks: Float32Array[], sampleRate: number): Blob => {
-    const sampleCount = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    if (sampleCount === 0) throw new Error('No microphone samples were captured. Please try recording again.');
-    const bytesPerSample = 2;
-    const dataBytes = sampleCount * bytesPerSample;
-    const buffer = new ArrayBuffer(44 + dataBytes);
-    const view = new DataView(buffer);
-    const writeText = (offset: number, value: string) => {
-      for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
-    };
-    writeText(0, 'RIFF');
-    view.setUint32(4, 36 + dataBytes, true);
-    writeText(8, 'WAVE');
-    writeText(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * bytesPerSample, true);
-    view.setUint16(32, bytesPerSample, true);
-    view.setUint16(34, 16, true);
-    writeText(36, 'data');
-    view.setUint32(40, dataBytes, true);
-    let offset = 44;
-    for (const chunk of chunks) {
-      for (let i = 0; i < chunk.length; i++) {
-        const sample = Math.max(-1, Math.min(1, chunk[i]));
-        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-        offset += 2;
-      }
-    }
-    return new Blob([buffer], { type: 'audio/wav' });
-  };
-
   const initPcmRecorder = async (stream: MediaStream) => {
+    await stopRecordingGraph();
+
     activeStreamRef.current = stream;
     pcmChunksRef.current = [];
-    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextCtor) {
-      stream.getTracks().forEach(track => track.stop());
-      throw new Error('This browser does not support Web Audio recording.');
-    }
-    const context: AudioContext = new AudioContextCtor();
+    recordingStartTimestampRef.current = Date.now();
+    setInputLevelPeak(0);
+
+    const audioTracks = stream.getAudioTracks();
+    const primaryTrack = audioTracks[0];
+    const trackSettings = primaryTrack?.getSettings ? primaryTrack.getSettings() : {};
+
+    addLog('info', 'Microphone stream acquired. Inspecting audio tracks & channel settings...', {
+      trackCount: audioTracks.length,
+      label: primaryTrack?.label || 'Default Microphone',
+      readyState: primaryTrack?.readyState || 'unknown',
+      enabled: primaryTrack?.enabled ?? true,
+      muted: primaryTrack?.muted ?? false,
+      trackSampleRate: trackSettings.sampleRate ?? 'browser-default',
+      trackChannelCount: trackSettings.channelCount ?? 'browser-default',
+      trackSampleSize: trackSettings.sampleSize ?? 'browser-default',
+      echoCancellation: trackSettings.echoCancellation,
+      noiseSuppression: trackSettings.noiseSuppression,
+      autoGainControl: trackSettings.autoGainControl,
+    });
+
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const context = new AudioContextCtor();
     audioContextRef.current = context;
-    await context.resume();
-    pcmSampleRateRef.current = context.sampleRate;
+
+    const initialContextState = context.state;
+    if (context.state === 'suspended') {
+      await context.resume();
+    }
+
+    const rawSampleRate = Number(context.sampleRate || 44100);
+    const normalizedSampleRate = Math.round(rawSampleRate);
+    sampleRateRef.current = normalizedSampleRate;
+
     const source = context.createMediaStreamSource(stream);
-    const processor = context.createScriptProcessor(4096, 1, 1);
-    audioSourceRef.current = source;
-    audioProcessorRef.current = processor;
-    processor.onaudioprocess = (event: AudioProcessingEvent) => {
-      const samples = event.inputBuffer.getChannelData(0);
-      pcmChunksRef.current.push(new Float32Array(samples));
-    };
-    // Connect through a zero-gain node so processing continues without microphone
-    // monitoring/feedback through the speakers.
+    const processor = context.createScriptProcessor(2048, 1, 1);
     const silentGain = context.createGain();
     silentGain.gain.value = 0;
+
+    sourceNodeRef.current = source;
+    processorRef.current = processor;
+    silentGainRef.current = silentGain;
+
+    let loggedFirstBuffer = false;
+    processor.onaudioprocess = (event: AudioProcessingEvent) => {
+      const inputBuffer = event.inputBuffer;
+      const input = inputBuffer.getChannelData(0);
+      const copy = new Float32Array(input);
+      pcmChunksRef.current.push(copy);
+
+      let localPeak = 0;
+      let nonZeroCount = 0;
+      for (let i = 0; i < copy.length; i += 1) {
+        const abs = Math.abs(copy[i]);
+        if (abs > 0) nonZeroCount += 1;
+        if (abs > localPeak) localPeak = abs;
+      }
+      setInputLevelPeak(localPeak);
+
+      if (!loggedFirstBuffer) {
+        loggedFirstBuffer = true;
+        addLog('info', 'First AudioProcessingEvent buffer captured from AudioContext graph:', {
+          inputBufferSampleRate: inputBuffer.sampleRate,
+          inputBufferNumberOfChannels: inputBuffer.numberOfChannels,
+          inputBufferFrameLength: inputBuffer.length,
+          inputBufferDurationMs: Number((inputBuffer.duration * 1000).toFixed(2)),
+          firstChunkNonZeroSamples: nonZeroCount,
+          firstChunkPeakAmplitude: Number(localPeak.toFixed(6)),
+        });
+      }
+    };
+
     source.connect(processor);
     processor.connect(silentGain);
     silentGain.connect(context.destination);
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
+
+    if (context.state === 'suspended') {
+      await context.resume();
     }
+
+    const ctxDiag = {
+      rawSampleRate,
+      normalizedSampleRate,
+      state: context.state,
+      baseLatency: (context as any).baseLatency,
+      outputLatency: (context as any).outputLatency,
+      trackSampleRate: trackSettings.sampleRate,
+      trackChannelCount: trackSettings.channelCount,
+      sourceChannelCount: source.channelCount,
+      processorChannelCount: processor.channelCount,
+      destinationChannelCount: context.destination.channelCount,
+      destinationMaxChannelCount: context.destination.maxChannelCount,
+    };
+    setAudioContextDiag(ctxDiag);
+
     setAudioMimeType('audio/wav');
-    setAudioBlob(null);
-    setAudioUrl(null);
-    setRecordingTime(0);
-    setTranscriptResult(null);
     setIsRecording(true);
-  };
-
-  const finishPcmRecording = async () => {
-    const processor = audioProcessorRef.current;
-    const source = audioSourceRef.current;
-    const context = audioContextRef.current;
-    if (processor) {
-      processor.onaudioprocess = null;
-      try { processor.disconnect(); } catch {}
-    }
-    if (source) {
-      try { source.disconnect(); } catch {}
-    }
-    audioProcessorRef.current = null;
-    audioSourceRef.current = null;
-    const chunks = pcmChunksRef.current;
-    pcmChunksRef.current = [];
-    try {
-      if (!chunks.length) throw new Error('No audio samples were captured. Check microphone input and record again.');
-      const blob = encodePcmWav(chunks, pcmSampleRateRef.current);
-      if (blob.size < 1024) throw new Error('The recording is too short or empty. Please record for at least 2 seconds.');
-      const url = URL.createObjectURL(blob);
-      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = url;
-      setAudioBlob(blob);
-      setAudioMimeType('audio/wav');
-      setAudioUrl(url);
-      setFileName(`Voice_Recording_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.wav`);
-      setErrorMsg(null);
-      setErrorDetails(null);
-      console.info('[Audio Transcriber] WAV recording finalized', { bytes: blob.size, sampleRate: pcmSampleRateRef.current, chunks: chunks.length });
-    } catch (err: any) {
-      console.error('[Audio Transcriber] WAV recording failed:', err);
-      setErrorDetails({ name: err?.name || 'RecordingError', message: err?.message || String(err), stack: err?.stack || '' });
-      setErrorMsg(err?.message || 'Recording could not be finalized. Please try again.');
-    } finally {
-      if (activeStreamRef.current) {
-        activeStreamRef.current.getTracks().forEach(track => track.stop());
-        activeStreamRef.current = null;
-      }
-      audioContextRef.current = null;
-      if (context && context.state !== 'closed') await context.close().catch(() => undefined);
-    }
-  };
-
-  // Detailed error handler with triaging
-  const handleDetailedMicError = (err: any) => {
-    const errorName = err?.name || 'UnknownError';
-    const errorMessage = err?.message || 'Access denied';
-    const errorStack = err?.stack || '';
-
-    setErrorDetails({ name: errorName, message: errorMessage, stack: errorStack });
-
-    console.group(`🎙️ [MediaDevices Debugger] Microphone Access Failure: ${errorName}`);
-    console.error('Error Name:', errorName);
-    console.error('Error Message:', errorMessage);
-    console.error('Error Stack:', errorStack);
-    console.info('Is secure context (HTTPS/localhost):', window.isSecureContext);
-    console.info('Navigator mediaDevices supported:', !!navigator.mediaDevices);
-    console.info('User Agent:', navigator.userAgent);
-    console.groupEnd();
-
-    if (activeStreamRef.current) {
-      activeStreamRef.current.getTracks().forEach(track => track.stop());
-      activeStreamRef.current = null;
-    }
-
-    let friendlyReason = 'Microphone access was blocked or is unavailable.';
-    if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError' || errorName === 'SecurityError') {
-      friendlyReason = 'Microphone permission was denied by the browser or system policy.';
-    } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError' || errorMessage === 'NO_AUDIO_INPUT_DEVICES') {
-      friendlyReason = 'No microphone device was detected on your system.';
-    } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
-      friendlyReason = 'Your microphone is currently in use by another application or tab.';
-    } else if (!window.isSecureContext) {
-      friendlyReason = 'Microphone recording requires a secure context (HTTPS or localhost).';
-    }
-
-    setErrorMsg(`${friendlyReason} (${errorName}: ${errorMessage})`);
-  };
-
-  // Acquire the default microphone on an explicit user click. Keep constraints
-  // optional and avoid exact deviceId constraints, which can turn a permission
-  // or device problem into a misleading OverconstrainedError on Chromium browsers.
-  const startRecording = async () => {
-    try {
-      setErrorMsg(null);
-      setErrorDetails(null);
-
-      if (window.self !== window.top) {
-        try {
-          const docAny = document as any;
-          const policy = docAny.permissionsPolicy || docAny.featurePolicy;
-          if (policy && typeof policy.allowsFeature === 'function' && !policy.allowsFeature('microphone')) {
-            throw new Error('MICROPHONE_BLOCKED_BY_EMBEDDING_POLICY');
-          }
-        } catch (policyErr: any) {
-          if (policyErr?.message === 'MICROPHONE_BLOCKED_BY_EMBEDDING_POLICY') throw policyErr;
-          console.warn('Could not inspect iframe microphone policy:', policyErr);
-        }
-      }
-
-      if (!window.isSecureContext) {
-        throw new Error('Microphone recording requires HTTPS or localhost.');
-      }
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Microphone recording is not supported in this browser or context.');
-      }
-
-      // Call getUserMedia immediately from the explicit button click. Avoid awaiting
-      // the Permissions API first: permission-state queries are diagnostic only,
-      // and must not delay the actual browser permission request.
-      let stream: MediaStream;
-      try {
-        // These are preferences, not mandatory device requirements.
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: false,
-        });
-      } catch (firstError) {
-        console.warn('Microphone request with audio-processing preferences failed; retrying with basic audio:', firstError);
-        try {
-          // Broadest supported request: let the browser choose an available input.
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        } catch (finalError: any) {
-          // Enumerate only for diagnostics. Do not request a device using
-          // deviceId: { exact: ... }; that can fail with OverconstrainedError.
-          try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            if (!devices.some((device) => device.kind === 'audioinput')) {
-              handleDetailedMicError(new Error('NO_AUDIO_INPUT_DEVICES'));
-              return;
-            }
-          } catch (enumerationError) {
-            console.warn('Could not enumerate audio inputs for diagnostics:', enumerationError);
-          }
-          handleDetailedMicError(finalError || firstError);
-          return;
-        }
-      }
-
-      await initPcmRecorder(stream);
-    } catch (err: any) {
-      handleDetailedMicError(err);
-    }
-  };
-
-  const stopRecording = () => {
-    if (!isRecording) return;
-    setIsRecording(false);
-    void finishPcmRecording();
-  };
-
-  const clearAudio = () => {
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
-    setAudioBlob(null);
-    setAudioUrl(null);
     setRecordingTime(0);
-    setFileName('');
-    setTranscriptResult(null);
-    setErrorMsg(null);
-    setErrorDetails(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-    if (activeStreamRef.current) {
-      activeStreamRef.current.getTracks().forEach(track => track.stop());
-      activeStreamRef.current = null;
-    }
-  };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 25 * 1024 * 1024) {
-      setErrorMsg('File size exceeds 25MB limit. Please upload a smaller audio clip.');
-      return;
-    }
-
-    clearAudio();
-    setErrorMsg(null);
-    setFileName(file.name);
-    setAudioBlob(file);
-    setAudioMimeType(file.type || 'audio/mp3');
-    const url = URL.createObjectURL(file);
-    audioUrlRef.current = url;
-    setAudioUrl(url);
-  };
-
-  const convertBlobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        resolve(base64String);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+    addLog('info', 'AudioContext & Web Audio graph initialized for mono 16-bit PCM WAV capture:', {
+      initialContextState,
+      activeContextState: context.state,
+      rawSampleRate,
+      normalizedWavSampleRate: normalizedSampleRate,
+      baseLatencySeconds: (context as any).baseLatency ?? 'n/a',
+      outputLatencySeconds: (context as any).outputLatency ?? 'n/a',
+      trackSampleRate: trackSettings.sampleRate ?? 'default',
+      trackChannelCount: trackSettings.channelCount ?? 'default',
+      sourceNodeChannelCount: source.channelCount,
+      sourceNodeChannelCountMode: source.channelCountMode,
+      processorBufferSize: processor.bufferSize,
+      processorChannelCount: processor.channelCount,
+      destinationChannelCount: context.destination.channelCount,
+      destinationMaxChannelCount: context.destination.maxChannelCount,
     });
   };
 
-  const handleTranscribe = async () => {
-    if (!audioBlob) { setErrorMsg('Please record audio or upload an audio file first.'); return; }
-    if (!isOnline) {
-      setErrorMsg('An internet connection is needed to download the speech model the first time. Audio is processed locally in your browser.');
+  const handleStartRecording = async () => {
+    clearError();
+    setResult(null);
+    setWavValidation(null);
+    setAudioElementDiag(null);
+    setIsRequestingMic(true);
+    await stopWebAudioFallbackPlayback();
+
+    addLog('info', 'User clicked Record Voice. Checking security context & MediaDevices API...');
+
+    if (!window.isSecureContext) {
+      const msg =
+        'Microphone recording requires a secure HTTPS connection (or localhost). Current page is not running in a secure context.';
+      reportError('mic', msg);
+      setIsRequestingMic(false);
       return;
     }
-    if (audioBlob.size < 128) { setErrorMsg('This recording contains no usable audio data. Please record again or upload another file.'); return; }
 
-    setLoading(true);
-    setErrorMsg(null);
-    setTranscriptResult(null);
-    try {
-      // Transformers.js loads a small open-source model; inference stays in this browser tab.
-      if (!localWhisperPipeline) {
-        if (!localWhisperPipelinePromise) {
-          localWhisperPipelinePromise = (async () => {
-            const moduleUrl = 'https://esm.sh/@huggingface/transformers@3.7.2?bundle';
-            // @ts-ignore - runtime-only ESM import, intentionally excluded from Vite bundling.
-            const transformers = await import(/* @vite-ignore */ moduleUrl);
-            return transformers.pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny', {
-              device: 'wasm',
-              dtype: 'q8',
-              progress_callback: (progress: any) => {
-                if (progress?.status === 'progress' && typeof progress.progress === 'number') {
-                  console.info('[Audio Transcriber] Speech model download', Math.round(progress.progress), '%');
-                }
-              },
-            });
-          })();
-        }
-        try { localWhisperPipeline = await localWhisperPipelinePromise; }
-        catch (modelError) { localWhisperPipelinePromise = null; throw modelError; }
-      }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const msg =
+        'Your browser does not expose navigator.mediaDevices.getUserMedia. Check if an extension or privacy setting is blocking WebRTC/MediaDevices.';
+      reportError('mic', msg);
+      setIsRequestingMic(false);
+      return;
+    }
 
-      // Decode supported browser audio, downmix to mono, and resample to Whisper's 16 kHz input.
-      const audioContext = new AudioContext();
+    const anyDoc = document as any;
+    const policy = anyDoc.permissionsPolicy || anyDoc.featurePolicy;
+    if (policy && typeof policy.allowsFeature === 'function') {
       try {
-        const decoded = await audioContext.decodeAudioData(await audioBlob.arrayBuffer());
-        const targetRate = 16000;
-        const targetLength = Math.ceil(decoded.duration * targetRate);
-        if (!Number.isFinite(targetLength) || targetLength < 1 || targetLength > targetRate * 60 * 30) {
-          throw new Error('Audio duration is invalid or exceeds the 30-minute local processing limit.');
+        const allowedByPolicy = policy.allowsFeature('microphone');
+        addLog('info', `Permissions-Policy allowsFeature('microphone'): ${allowedByPolicy}`);
+        if (!allowedByPolicy) {
+          const msg =
+            'Microphone access is blocked by the document Permissions-Policy header or parent <iframe> allow attribute.';
+          reportError('mic', msg);
+          setIsRequestingMic(false);
+          return;
         }
-        const offline = new OfflineAudioContext(1, targetLength, targetRate);
-        const source = offline.createBufferSource();
-        source.buffer = decoded;
-        source.connect(offline.destination);
-        source.start(0);
-        const resampled = await offline.startRendering();
-        const result = await localWhisperPipeline(resampled.getChannelData(0), {
-          sampling_rate: targetRate, chunk_length_s: 30, stride_length_s: 5, return_timestamps: false,
+      } catch (e: any) {
+        addLog('warn', 'Could not inspect Permissions-Policy API', e?.message);
+      }
+    }
+
+    try {
+      addLog('info', 'Calling navigator.mediaDevices.getUserMedia({ audio: true })...');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+
+      await initPcmRecorder(stream);
+    } catch (error: any) {
+      const errName = error?.name || 'UnknownError';
+      const errMsg = error?.message || String(error);
+
+      addLog('error', `getUserMedia failed: ${errName}: ${errMsg}`, {
+        name: errName,
+        message: errMsg,
+        constraint: error?.constraint,
+      });
+
+      let friendlyMessage = `Microphone access failed (${errName}: ${errMsg}).`;
+
+      if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
+        friendlyMessage =
+          'No microphone hardware was detected. Please connect a microphone or headset and try again.';
+      } else if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
+        friendlyMessage =
+          'Microphone permission was denied by the browser or operating system. If the browser address bar already says "Allowed", check macOS System Settings → Privacy & Security → Microphone (or Windows Privacy → Microphone) and ensure your browser is enabled.';
+      } else if (errName === 'NotReadableError' || errName === 'TrackStartError') {
+        friendlyMessage =
+          'Your microphone hardware is currently locked or in exclusive use by another application (such as Zoom, Teams, or another browser tab).';
+      } else if (errName === 'SecurityError') {
+        friendlyMessage =
+          'Microphone access was blocked by a browser security policy or Permissions-Policy header.';
+      }
+
+      reportError('mic', friendlyMessage, { name: errName, message: errMsg });
+      setShowDebug(true);
+    } finally {
+      setIsRequestingMic(false);
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!isRecording) return;
+
+    addLog('info', 'Stopping PCM/WAV recording...');
+    setIsRecording(false);
+    setInputLevelPeak(0);
+
+    const elapsedMs =
+      recordingStartTimestampRef.current > 0
+        ? Date.now() - recordingStartTimestampRef.current
+        : recordingTime * 1000;
+    const elapsedSeconds = Math.max(0.1, Math.round(elapsedMs / 100) / 10);
+
+    await stopRecordingGraph();
+
+    const chunks = pcmChunksRef.current;
+    const stats = computePcmStats(chunks);
+
+    addLog('info', 'Captured PCM audio buffer non-zero verification:', {
+      chunkCount: stats.chunkCount,
+      activeChunkCount: stats.activeChunkCount,
+      silentChunkCount: stats.silentChunkCount,
+      totalSamples: stats.totalSamples,
+      nonZeroSampleCount: stats.nonZeroSampleCount,
+      nonZeroPercentage: `${(stats.nonZeroRatio * 100).toFixed(2)}%`,
+      hasNonZeroAudio: stats.hasNonZeroAudio,
+      peakAmplitude: Number(stats.peakAmplitude.toFixed(5)),
+      rmsAmplitude: Number(stats.rmsAmplitude.toFixed(5)),
+      rmsDbFs: Number.isFinite(stats.rmsDbFs) ? `${stats.rmsDbFs.toFixed(2)} dBFS` : '-Inf dBFS',
+      isSilent: stats.isSilent,
+      elapsedSeconds,
+      sampleRate: sampleRateRef.current,
+    });
+
+    if (stats.totalSamples === 0) {
+      reportError(
+        'recording',
+        'No audio samples were captured before stopping. Please record for at least 1 second and verify that your microphone is not muted.',
+        stats
+      );
+      setShowDebug(true);
+      return;
+    }
+
+    try {
+      const blob = encodeWav(chunks, sampleRateRef.current);
+      const buffer = await blob.arrayBuffer();
+      const validation = parseAndValidateWav(buffer);
+      setWavValidation(validation);
+
+      addLog('info', 'WAV Header Integrity Check (44-byte RIFF/WAVE inspection):', {
+        valid: validation.valid,
+        error: validation.error ?? null,
+        riffHeader: validation.riffHeader,
+        fileSizeField: validation.fileSizeField,
+        actualByteLength: validation.actualByteLength,
+        expectedFileSizeField: 36 + validation.dataByteLength,
+        waveHeader: validation.waveHeader,
+        fmtHeader: validation.fmtHeader,
+        fmtChunkSize: validation.fmtChunkSize,
+        audioFormat: `${validation.audioFormat} (1 = Linear PCM)`,
+        numChannels: validation.numChannels,
+        sampleRate: validation.sampleRate,
+        byteRate: validation.byteRate,
+        expectedByteRate: validation.expectedByteRate,
+        blockAlign: validation.blockAlign,
+        expectedBlockAlign: validation.expectedBlockAlign,
+        bitsPerSample: validation.bitsPerSample,
+        dataHeader: validation.dataHeader,
+        dataByteLength: validation.dataByteLength,
+        sampleCount: validation.sampleCount,
+        durationSeconds: Number(validation.durationSeconds.toFixed(3)),
+        headerHexPreview: validation.headerHexPreview,
+      });
+
+      addLog('info', 'Encoded WAV Blob Non-Zero Audio Payload Verification:', {
+        blobSizeBytes: blob.size,
+        blobMimeType: blob.type,
+        int16SampleCount: validation.sampleCount,
+        int16NonZeroSampleCount: validation.nonZeroSampleCount,
+        int16NonZeroPercentage: `${(validation.nonZeroRatio * 100).toFixed(2)}%`,
+        hasNonZeroAudio: validation.hasNonZeroAudio,
+        firstNonZeroSampleIndex: validation.firstNonZeroSampleIndex,
+        peakAmplitude: Number(validation.peakAmplitude.toFixed(5)),
+        rmsAmplitude: Number(validation.rmsAmplitude.toFixed(5)),
+      });
+
+      if (!validation.valid) {
+        reportError(
+          'recording',
+          `Recorded WAV file failed structural validation: ${validation.error}`,
+          validation
+        );
+        setShowDebug(true);
+        return;
+      }
+
+      if (!validation.hasNonZeroAudio || stats.isSilent) {
+        addLog(
+          'warn',
+          'Captured WAV blob contains all-zero or near-zero audio samples (silence). Check if your microphone hardware mute switch or OS input volume is muted.',
+          {
+            hasNonZeroAudio: validation.hasNonZeroAudio,
+            nonZeroSampleCount: validation.nonZeroSampleCount,
+            peakAmplitude: validation.peakAmplitude,
+          }
+        );
+      }
+
+      // Probe decodeAudioData on a copy of the WAV buffer to confirm browser decoder compatibility
+      try {
+        const AudioContextCtor =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const probeCtx = new AudioContextCtor();
+        try {
+          const decodedProbe = await probeCtx.decodeAudioData(buffer.slice(0));
+          addLog('info', 'Web Audio decodeAudioData() verification probe succeeded on WAV Blob:', {
+            decodedSampleRate: decodedProbe.sampleRate,
+            decodedNumberOfChannels: decodedProbe.numberOfChannels,
+            decodedFrameLength: decodedProbe.length,
+            decodedDurationSeconds: Number(decodedProbe.duration.toFixed(3)),
+          });
+        } finally {
+          await probeCtx.close().catch(() => {});
+        }
+      } catch (decodeProbeErr: any) {
+        addLog('error', 'Web Audio decodeAudioData() verification probe failed on WAV Blob:', {
+          message: decodeProbeErr?.message || String(decodeProbeErr),
         });
-        const transcript = typeof result?.text === 'string' ? result.text.trim() : '';
-        if (!transcript) throw new Error('No speech was detected. Try a longer or clearer recording.');
-
-        let output = transcript;
-        if (contextMode === 'service_desk') {
-          output = ['### Issue Description & Symptoms', transcript, '', '### Diagnostics & Troubleshooting Taken',
-            'Not specified in the transcript.', '', '### Resolution / Pending Next Steps',
-            'Review the transcript and confirm any required follow-up.'].join('\n');
-        } else if (contextMode === 'summary_only') {
-          output = '### Transcript\n' + transcript + '\n\n### Note\nThis is a transcript, not an AI-generated summary.';
-        } else if (contextMode === 'custom' && customPrompt.trim()) {
-          output = '### Transcript\n' + transcript + '\n\n### Your note\n' + customPrompt.trim() +
-            '\n\nNote: custom instructions are included as a note; no separate generative model is used.';
-        } else {
-          output = '### Full Transcript\n' + transcript;
-        }
-        setTranscriptResult(output);
-      } finally {
-        await audioContext.close().catch(() => undefined);
       }
+
+      const nextUrl = urlManagerRef.current.replaceWithBlob(blob);
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+
+      setAudioBlob(blob);
+      setAudioMimeType('audio/wav');
+      setAudioUrl(nextUrl);
+      setAudioFileName(`voice-recording-${timestamp}.wav`);
+      setRecordingTime(Math.max(1, Math.round(validation.durationSeconds)));
+
+      addLog('info', 'Recording complete. Validated WAV Blob and assigned Object URL to <audio>.', {
+        sizeBytes: blob.size,
+        mimeType: blob.type,
+        sampleRate: validation.sampleRate,
+        channels: validation.numChannels,
+        bitsPerSample: validation.bitsPerSample,
+        durationSeconds: Number(validation.durationSeconds.toFixed(2)),
+        hasNonZeroAudio: validation.hasNonZeroAudio,
+        nonZeroSampleCount: validation.nonZeroSampleCount,
+        peakAmplitude: Number(validation.peakAmplitude.toFixed(4)),
+        objectUrl: nextUrl,
+      });
     } catch (err: any) {
-      console.error('[Audio Transcriber] Local transcription failed:', err);
-      const message = String(err?.message || err || 'Unknown error');
-      setErrorDetails({ name: err?.name || 'TranscriptionError', message, stack: err?.stack || '' });
-      if (/decode|encoding|supported source/i.test(message)) {
-        setErrorMsg('The browser could not decode this audio format. Try exporting it as WAV or MP3, then upload it again.');
-      } else if (/fetch|network|download|failed to load|failed to fetch|networkerror|load failed/i.test(message)) {
-        setErrorMsg('The free speech model could not be downloaded. Open Debug Log for the underlying browser error. Check network/content blockers and retry.');
-      } else {
-        setErrorMsg('Local transcription failed: ' + message);
+      reportError(
+        'recording',
+        `Failed to encode WAV audio: ${err?.message || String(err)}`,
+        err
+      );
+      setShowDebug(true);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    clearError();
+    setResult(null);
+    setWavValidation(null);
+    setAudioElementDiag(null);
+    await stopWebAudioFallbackPlayback();
+
+    const validTypes = [
+      'audio/mpeg',
+      'audio/mp3',
+      'audio/wav',
+      'audio/wave',
+      'audio/x-wav',
+      'audio/webm',
+      'audio/ogg',
+      'audio/mp4',
+      'audio/x-m4a',
+      'audio/m4a',
+      'audio/aac',
+      'audio/flac',
+    ];
+    const isAudioExt = /\.(mp3|wav|webm|ogg|m4a|mp4|aac|flac)$/i.test(file.name);
+
+    if (!validTypes.includes(file.type) && !file.type.startsWith('audio/') && !isAudioExt) {
+      reportError(
+        'upload',
+        `Unsupported file format (${file.type || file.name}). Please upload a valid audio file (WAV, MP3, M4A, WebM, OGG, AAC, or FLAC).`
+      );
+      return;
+    }
+
+    if (file.size === 0) {
+      reportError('upload', 'The selected audio file is empty (0 bytes).');
+      return;
+    }
+
+    if (file.size > 20 * 1024 * 1024) {
+      reportError('upload', 'Audio file exceeds the 20 MB maximum size limit.');
+      return;
+    }
+
+    await stopRecordingGraph();
+    pcmChunksRef.current = [];
+    setRecordingTime(0);
+
+    if (file.type.includes('wav') || /\.wav$/i.test(file.name)) {
+      try {
+        const buf = await file.arrayBuffer();
+        const wavCheck = parseAndValidateWav(buf);
+        setWavValidation(wavCheck);
+        addLog('info', 'Uploaded WAV file header & non-zero payload inspection:', {
+          valid: wavCheck.valid,
+          sampleRate: wavCheck.sampleRate,
+          numChannels: wavCheck.numChannels,
+          bitsPerSample: wavCheck.bitsPerSample,
+          durationSeconds: Number(wavCheck.durationSeconds.toFixed(2)),
+          hasNonZeroAudio: wavCheck.hasNonZeroAudio,
+          nonZeroSampleCount: wavCheck.nonZeroSampleCount,
+          peakAmplitude: Number(wavCheck.peakAmplitude.toFixed(4)),
+        });
+      } catch {
+        // Non-standard WAV chunks will still decode via decodeAudioData
       }
-    } finally { setLoading(false); }
+    }
+
+    const nextUrl = urlManagerRef.current.replaceWithBlob(file);
+    setAudioBlob(file);
+    setAudioFileName(file.name);
+    setAudioMimeType(file.type || 'audio/mp3');
+    setAudioUrl(nextUrl);
+
+    addLog('info', `Loaded uploaded file: ${file.name} (${Math.round(file.size / 1024)} KB)`, {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      objectUrl: nextUrl,
+    });
   };
 
-  const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const clearAudio = () => {
+    void stopRecordingGraph();
+    void stopWebAudioFallbackPlayback();
+    pcmChunksRef.current = [];
+    urlManagerRef.current.clear();
+    setAudioBlob(null);
+    setAudioUrl(null);
+    setAudioFileName('');
+    setWavValidation(null);
+    setAudioElementDiag(null);
+    setAudioContextDiag(null);
+    setResult(null);
+    clearError();
+    setRecordingTime(0);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    addLog('info', 'Cleared audio buffer and revoked previous Object URL.');
   };
 
-  const handleCopy = () => {
-    if (!transcriptResult) return;
-    navigator.clipboard.writeText(transcriptResult);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleAudioElementEvent = (
+    eventName: string,
+    e: React.SyntheticEvent<HTMLAudioElement, Event>
+  ) => {
+    const el = e.currentTarget;
+    const diag = extractAudioElementDiagnostics(eventName, el);
+    setAudioElementDiag(diag);
+
+    if (eventName === 'error') {
+      const errText =
+        diag.humanError ||
+        'Audio player encountered an error loading the audio stream. Use "Play via Web Audio" below or inspect the Debug Log.';
+      reportError('playback', errText, {
+        ...diag,
+        wavHeaderValid: wavValidation?.valid ?? null,
+        wavSampleRate: wavValidation?.sampleRate ?? null,
+        wavNumChannels: wavValidation?.numChannels ?? null,
+        wavHasNonZeroAudio: wavValidation?.hasNonZeroAudio ?? null,
+      });
+      setShowDebug(true);
+    } else if (
+      eventName === 'loadedmetadata' ||
+      eventName === 'canplay' ||
+      eventName === 'play' ||
+      eventName === 'playing'
+    ) {
+      addLog('info', `<audio> element lifecycle event: ${eventName}`, {
+        currentSrc: diag.src,
+        duration: diag.duration,
+        rawDuration: diag.rawDuration,
+        readyState: diag.readyStateLabel,
+        networkState: diag.networkStateLabel,
+        canPlayWav: diag.canPlayWav,
+        paused: diag.paused,
+        muted: diag.muted,
+        volume: diag.volume,
+      });
+    }
   };
 
-  const handleDownload = () => {
-    if (!transcriptResult) return;
-    const blob = new Blob([transcriptResult], { type: 'text/markdown;charset=utf-8' });
+  const handlePlayViaWebAudio = async () => {
+    if (!audioBlob) return;
+
+    if (isWebAudioPlaying) {
+      await stopWebAudioFallbackPlayback();
+      addLog('info', 'Stopped direct Web Audio playback.');
+      return;
+    }
+
+    try {
+      clearError();
+      await stopWebAudioFallbackPlayback();
+
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const AudioContextCtor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioContextCtor();
+      webAudioPlaybackContextRef.current = ctx;
+
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(ctx.destination);
+
+      setIsWebAudioPlaying(true);
+      addLog('info', 'Playing audio directly via Web Audio API AudioBufferSourceNode.', {
+        durationSeconds: Number(audioBuffer.duration.toFixed(2)),
+        sampleRate: audioBuffer.sampleRate,
+        channels: audioBuffer.numberOfChannels,
+      });
+
+      source.onended = () => {
+        setIsWebAudioPlaying(false);
+        void ctx.close().catch(() => {});
+        if (webAudioPlaybackContextRef.current === ctx) {
+          webAudioPlaybackContextRef.current = null;
+        }
+      };
+
+      source.start(0);
+    } catch (err: any) {
+      setIsWebAudioPlaying(false);
+      reportError(
+        'playback',
+        `Direct Web Audio playback failed: ${err?.message || String(err)}`,
+        err
+      );
+    }
+  };
+
+  const handleTranscribe = async () => {
+    if (!audioBlob) return;
+
+    setIsProcessing(true);
+    setModelLoadProgress(null);
+    setProcessingStatus('Preparing audio for local transcription...');
+    clearError();
+
+    try {
+      addLog(
+        'info',
+        `Starting local browser transcription (${Math.round(audioBlob.size / 1024)} KB, ${audioMimeType})...`,
+        {
+          selectedLanguage,
+          selectedModelId,
+        }
+      );
+
+      const decoded = await decodeAudioBlobToMono16k(audioBlob, addLog);
+      if (decoded.samples.length === 0) {
+        throw new Error('The recorded or uploaded audio contains 0 decodable audio samples.');
+      }
+
+      let activeModelId = selectedModelId;
+      let transcriber: any;
+
+      try {
+        transcriber = await loadWhisperPipeline(
+          activeModelId,
+          addLog,
+          (statusText, pct) => {
+            setProcessingStatus(statusText);
+            if (pct !== undefined) setModelLoadProgress(pct);
+          }
+        );
+      } catch (primaryModelErr: any) {
+        if (activeModelId !== FALLBACK_WHISPER_MODEL_ID) {
+          addLog(
+            'warn',
+            `Primary model (${activeModelId}) failed to load (${primaryModelErr?.message}). Falling back to ${FALLBACK_WHISPER_MODEL_ID}...`
+          );
+          activeModelId = FALLBACK_WHISPER_MODEL_ID;
+          setSelectedModelId(FALLBACK_WHISPER_MODEL_ID);
+          transcriber = await loadWhisperPipeline(
+            activeModelId,
+            addLog,
+            (statusText, pct) => {
+              setProcessingStatus(statusText);
+              if (pct !== undefined) setModelLoadProgress(pct);
+            }
+          );
+        } else {
+          throw primaryModelErr;
+        }
+      }
+
+      const langMeta = SUPPORTED_TRANSCRIPTION_LANGUAGES.find(
+        (l) => l.code === selectedLanguage
+      );
+      const inferenceOptions = buildWhisperTranscriptionOptions(selectedLanguage);
+
+      setModelLoadProgress(null);
+      setProcessingStatus(
+        selectedLanguage === 'auto'
+          ? 'Transcribing speech in browser (Auto-detecting language)...'
+          : `Transcribing ${langMeta?.label || selectedLanguage} speech in browser...`
+      );
+
+      addLog('info', 'Running local Whisper transcription with options:', {
+        model: activeModelId,
+        ...inferenceOptions,
+      });
+
+      const output = await transcriber(decoded.samples, inferenceOptions);
+
+      const transcript = String(output?.text || '').trim();
+      const { summary, actionItems } = summarizeTranscript(transcript);
+
+      setResult({
+        transcript: transcript || 'No clear speech was detected in the audio.',
+        summary,
+        actionItems,
+        detectedLanguage:
+          selectedLanguage === 'auto'
+            ? 'Auto-detected (Multilingual Whisper)'
+            : `${langMeta?.label || selectedLanguage} (${langMeta?.nativeName || selectedLanguage})`,
+        modelUsed: activeModelId,
+      });
+
+      addLog('info', 'Local transcription and summary completed successfully.', {
+        model: activeModelId,
+        languageMode: selectedLanguage,
+        transcriptLength: transcript.length,
+      });
+    } catch (err: any) {
+      const rawMessage = err?.message || String(err);
+      const isModelFetchFailure =
+        /fetch|network|import|huggingface|esm\.sh|wasm|onnx|csp/i.test(rawMessage);
+
+      if (isModelFetchFailure) {
+        reportError(
+          'model',
+          `Failed to download or initialize the local Whisper speech model (${rawMessage}). Check your internet connection or disable strict content blockers for huggingface.co / esm.sh, then click Retry.`,
+          err
+        );
+      } else {
+        reportError(
+          'transcription',
+          rawMessage || 'An unexpected error occurred while transcribing your audio.',
+          err
+        );
+      }
+      setShowDebug(true);
+    } finally {
+      setIsProcessing(false);
+      setModelLoadProgress(null);
+    }
+  };
+
+  const handleCopy = (text: string, section: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSection(section);
+    setTimeout(() => setCopiedSection(null), 2000);
+  };
+
+  const handleDownloadTxt = () => {
+    if (!result) return;
+    const content = [
+      '=== AI AUDIO TRANSCRIPTION & SUMMARY ===',
+      `Source: ${audioFileName || 'Audio Recording'}`,
+      `Language Mode: ${result.detectedLanguage || 'Auto-detect'}`,
+      `Model: ${result.modelUsed || selectedModelId}`,
+      `Date: ${new Date().toLocaleString()}`,
+      '',
+      '--- EXECUTIVE SUMMARY ---',
+      result.summary,
+      '',
+      '--- ACTION ITEMS & KEY TAKEAWAYS ---',
+      ...(result.actionItems.length > 0
+        ? result.actionItems.map((item, i) => `${i + 1}. ${item}`)
+        : ['None identified.']),
+      '',
+      '--- FULL TRANSCRIPT ---',
+      result.transcript,
+    ].join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${fileName || 'Transcription'}_${new Date().toISOString().slice(0, 10)}.md`;
-    document.body.appendChild(a);
+    a.download = `transcript-${new Date().toISOString().slice(0, 10)}.txt`;
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  const selectedLanguageMeta =
+    SUPPORTED_TRANSCRIPTION_LANGUAGES.find((l) => l.code === selectedLanguage) ||
+    SUPPORTED_TRANSCRIPTION_LANGUAGES[0];
+
+  const verifiedDurationSeconds =
+    wavValidation?.durationSeconds ??
+    audioElementDiag?.duration ??
+    (recordingTime > 0 ? recordingTime : null);
+
   return (
-    <div className="page">
-      <div className="container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
-          <Breadcrumb
-            items={[
-              { label: 'Home', href: '/' },
-              { label: 'Tools', href: '/tools' },
-              { label: 'AI Audio Transcriber & Voice Notes' },
-            ]}
-            style={{ marginBottom: 0 }}
-          />
-          <SocialShareBar
-            title="AI Audio Transcriber & Voice Note Assistant"
-            text="Record or upload audio to generate crystal-clear transcripts, ITSM ticket notes, and technical summaries powered by Gemini 3.5 Transcribe."
-          />
+    <div className="min-h-screen bg-slate-950 text-slate-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <Link
+              to="/tools"
+              className="inline-flex items-center text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              ← Back to All Tools
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowDebug((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700 transition-colors"
+            >
+              <Terminal className="w-3.5 h-3.5 text-indigo-400" />
+              {showDebug ? 'Hide Diagnostics' : 'Audio & Mic Diagnostics'}
+              {showDebug ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+              <Volume2 className="w-7 h-7" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-white">
+                AI Audio Transcriber & Summarizer
+              </h1>
+              <p className="text-slate-400 text-sm sm:text-base mt-1">
+                Record live voice notes or upload audio files for 100% local, private multilingual
+                transcription, executive summaries, and action items.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <header className="page-header">
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '20px', color: '#60a5fa', fontSize: '0.85rem', fontWeight: 600, marginBottom: '12px' }}>
-            <Sparkles size={16} /> Free, local browser transcription
-          </div>
-          <h1 className="page-title">AI Audio Transcriber &amp; Voice Note Assistant</h1>
-          <p className="page-lead">
-            Record voice notes or upload audio to generate a transcript locally in your browser. No transcription API charges; first use downloads an open-source speech model.
-          </p>
-        </header>
+        {/* Multilingual & Model Settings Bar */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Spoken Language Selector */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="transcription-language"
+                className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-300"
+              >
+                <Globe className="w-4 h-4 text-indigo-400" />
+                Spoken Language (Original Script Output)
+              </label>
+              <select
+                id="transcription-language"
+                value={selectedLanguage}
+                onChange={(e) => setSelectedLanguage(e.target.value)}
+                disabled={isProcessing}
+                className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+              >
+                <optgroup label="Automatic Detection">
+                  {SUPPORTED_TRANSCRIPTION_LANGUAGES.filter((l) => l.group === 'auto').map(
+                    (lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.label}
+                      </option>
+                    )
+                  )}
+                </optgroup>
+                <optgroup label="Indian & South Asian Languages">
+                  {SUPPORTED_TRANSCRIPTION_LANGUAGES.filter((l) => l.group === 'indian').map(
+                    (lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.label} ({lang.nativeName})
+                      </option>
+                    )
+                  )}
+                </optgroup>
+                <optgroup label="International Languages">
+                  {SUPPORTED_TRANSCRIPTION_LANGUAGES.filter((l) => l.group === 'global').map(
+                    (lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.label} ({lang.nativeName})
+                      </option>
+                    )
+                  )}
+                </optgroup>
+              </select>
+            </div>
 
-        {!isOnline && (
-          <div
-            style={{
-              padding: '12px 16px',
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              borderRadius: '10px',
-              color: '#fca5a5',
-              fontSize: '0.95rem',
-              fontWeight: 600,
-              marginBottom: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-            }}
-            role="status"
-          >
-            <AlertCircle size={20} /> The free speech model needs an internet connection for its first download. Audio processing runs locally.
+            {/* Whisper Model Selector */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="whisper-model-select"
+                className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-300"
+              >
+                <Cpu className="w-4 h-4 text-indigo-400" />
+                Local Whisper AI Model
+              </label>
+              <select
+                id="whisper-model-select"
+                value={selectedModelId}
+                onChange={(e) => setSelectedModelId(e.target.value)}
+                disabled={isProcessing}
+                className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+              >
+                {WHISPER_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label} [{m.approxDownloadSize}]
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-xs text-slate-400">
+            <span>
+              <strong className="text-slate-300">Language Note:</strong>{' '}
+              {selectedLanguageMeta.accuracyNote}
+            </span>
+            <span className="text-emerald-400/90 font-medium">
+              100% Local Browser Inference • Zero Server Uploads
+            </span>
+          </div>
+        </div>
+
+        {/* Collapsible Environment & Audio Lifecycle Diagnostics Panel */}
+        {showDebug && (
+          <div className="bg-slate-900/95 border border-slate-700 rounded-2xl p-5 space-y-4 text-xs font-mono">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <span className="font-semibold text-indigo-400 flex items-center gap-2">
+                <Terminal className="w-4 h-4" />
+                Browser Audio, WAV Header & Playback Diagnostics
+              </span>
+              <button
+                type="button"
+                onClick={() => setDebugLogs([])}
+                className="text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-800"
+              >
+                Clear Log
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-slate-500">Secure Context (HTTPS)</div>
+                <div
+                  className={
+                    envInfo.isSecureContext
+                      ? 'text-emerald-400 font-bold'
+                      : 'text-red-400 font-bold'
+                  }
+                >
+                  {String(envInfo.isSecureContext)}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-slate-500">getUserMedia API</div>
+                <div
+                  className={
+                    envInfo.hasGetUserMedia
+                      ? 'text-emerald-400 font-bold'
+                      : 'text-red-400 font-bold'
+                  }
+                >
+                  {envInfo.hasGetUserMedia ? 'Available' : 'Missing'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-slate-500">Permission State</div>
+                <div className="text-amber-300 font-bold">{envInfo.permissionState}</div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-slate-500">AudioContext Rate &amp; Ch</div>
+                <div className="text-indigo-300 font-bold">
+                  {audioContextDiag
+                    ? `${audioContextDiag.normalizedSampleRate}Hz • src:${audioContextDiag.sourceChannelCount}ch → proc:${audioContextDiag.processorChannelCount}ch`
+                    : 'Idle'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-slate-500">WAV Header Integrity</div>
+                <div
+                  className={
+                    wavValidation
+                      ? wavValidation.valid
+                        ? 'text-emerald-400 font-bold'
+                        : 'text-red-400 font-bold'
+                      : 'text-slate-400'
+                  }
+                >
+                  {wavValidation
+                    ? wavValidation.valid
+                      ? `VALID (${wavValidation.sampleRate}Hz, ${wavValidation.numChannels}ch, ${wavValidation.bitsPerSample}b)`
+                      : `INVALID (${wavValidation.error})`
+                    : 'No WAV loaded'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-slate-500">Blob Non-Zero Audio</div>
+                <div
+                  className={
+                    wavValidation
+                      ? wavValidation.hasNonZeroAudio
+                        ? 'text-emerald-400 font-bold'
+                        : 'text-amber-400 font-bold'
+                      : 'text-slate-400'
+                  }
+                >
+                  {wavValidation
+                    ? wavValidation.hasNonZeroAudio
+                      ? `NON-ZERO (${(wavValidation.nonZeroRatio * 100).toFixed(1)}%, peak ${wavValidation.peakAmplitude.toFixed(3)})`
+                      : 'ALL ZERO (SILENT)'
+                    : 'N/A'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-slate-500">&lt;audio&gt; ReadyState</div>
+                <div className="text-slate-300 font-bold">
+                  {audioElementDiag ? audioElementDiag.readyStateLabel : 'Not initialized'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                <div className="text-slate-500">&lt;audio&gt; Duration</div>
+                <div className="text-slate-300 font-bold">
+                  {audioElementDiag
+                    ? `${formatDurationDisplay(audioElementDiag.duration)} (raw: ${audioElementDiag.rawDuration})`
+                    : 'N/A'}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-48 overflow-y-auto space-y-1.5">
+              {debugLogs.length === 0 ? (
+                <div className="text-slate-500">No events logged yet.</div>
+              ) : (
+                debugLogs.map((log, idx) => (
+                  <div key={idx} className="leading-relaxed">
+                    <span className="text-slate-500">[{log.timestamp}]</span>{' '}
+                    <span
+                      className={
+                        log.level === 'error'
+                          ? 'text-red-400 font-semibold'
+                          : log.level === 'warn'
+                          ? 'text-amber-400'
+                          : 'text-indigo-300'
+                      }
+                    >
+                      [{log.level.toUpperCase()}]
+                    </span>{' '}
+                    <span className="text-slate-200">{log.message}</span>
+                    {log.details && (
+                      <pre className="mt-1 p-2 rounded bg-slate-900 text-slate-400 overflow-x-auto text-[11px]">
+                        {log.details}
+                      </pre>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 
-        <div className="workspace" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-          {/* Input Panel */}
-          <div className="panel" style={{ background: 'var(--surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--line)' }}>
-            <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem', marginBottom: '16px' }}>
-              <Mic size={20} className="text-primary" /> Audio Input Source
-            </h2>
+        {/* Audio Capture & Upload Card */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Record Voice Box */}
+            <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-slate-950/60 border border-slate-800/80 text-center space-y-4">
+              <div
+                className={`p-4 rounded-full transition-colors ${
+                  isRecording
+                    ? 'bg-red-500/20 text-red-400 animate-pulse'
+                    : 'bg-indigo-500/10 text-indigo-400'
+                }`}
+              >
+                <Mic className="w-8 h-8" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="font-semibold text-white text-lg">
+                  {isRecording
+                    ? 'Recording in Progress...'
+                    : isRequestingMic
+                    ? 'Requesting Microphone...'
+                    : 'Record Voice Note'}
+                </h2>
+                <p className="text-xs text-slate-400">
+                  {isRecording
+                    ? `Elapsed: ${formatDurationDisplay(recordingTime)} • Peak level: ${Math.min(
+                        100,
+                        Math.round(inputLevelPeak * 140)
+                      )}%`
+                    : 'Use your microphone to record mono 16-bit PCM WAV directly in the browser'}
+                </p>
+              </div>
 
-            {/* Microphone Recording Section */}
-            <div style={{ background: 'var(--surface-elevated, rgba(15, 23, 42, 0.4))', borderRadius: '10px', padding: '20px', textAlign: 'center', border: '1px border-dashed var(--line)', marginBottom: '20px' }}>
-              <p style={{ fontWeight: 600, marginBottom: '12px', color: 'var(--text)' }}>
-                Direct Microphone Voice Note
-              </p>
-
-              {isRecording ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#ef4444', fontWeight: 700, fontSize: '1.25rem' }}>
-                    <span className="pulse-indicator" style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }}></span>
-                    {formatTimer(recordingTime)}
-                  </div>
-                  <button
-                    type="button"
-                    className="button"
-                    onClick={stopRecording}
-                    style={{ background: '#ef4444', color: '#fff', padding: '10px 20px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', border: 'none', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    <Square size={18} /> Stop Recording
-                  </button>
-                </div>
+              {!isRecording ? (
+                <button
+                  type="button"
+                  onClick={handleStartRecording}
+                  disabled={isProcessing || isRequestingMic}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
+                >
+                  {isRequestingMic ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Waiting for Mic...
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-4 h-4" />
+                      Record Voice
+                    </>
+                  )}
+                </button>
               ) : (
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="button button-primary"
-                    onClick={startRecording}
-                    disabled={loading}
-                    style={{ padding: '10px 20px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    <Mic size={18} /> Record Voice
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => void stopRecording()}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-all shadow-lg shadow-red-600/20 cursor-pointer"
+                >
+                  <Square className="w-4 h-4 fill-current" />
+                  Stop Recording ({formatDurationDisplay(recordingTime)})
+                </button>
               )}
             </div>
 
-            <div style={{ textAlign: 'center', margin: '14px 0', position: 'relative' }}>
-              <span style={{ background: 'var(--surface)', padding: '0 12px', color: 'var(--muted)', fontSize: '0.85rem', position: 'relative', zIndex: 1 }}>
-                OR UPLOAD AUDIO FILE (100% INDEPENDENT)
-              </span>
-              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'var(--line)', zIndex: 0 }}></div>
-            </div>
+            {/* Upload Audio File Box */}
+            <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-slate-950/60 border border-slate-800/80 text-center space-y-4">
+              <div className="p-4 rounded-full bg-emerald-500/10 text-emerald-400">
+                <Upload className="w-8 h-8" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="font-semibold text-white text-lg">Upload Audio File</h2>
+                <p className="text-xs text-slate-400">
+                  Supports WAV, MP3, M4A, WebM, OGG, AAC & FLAC (Max 20 MB)
+                </p>
+              </div>
 
-            {/* File Upload Drop Zone - Always operational regardless of mic state */}
-            <div style={{ border: '2px dashed var(--line)', borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: 'var(--surface-elevated, rgba(15, 23, 42, 0.2))' }}>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg,.aac,.flac"
-                onChange={handleFileUpload}
-                style={{ display: 'none' }}
-                id="audio-file-input"
+                onChange={(e) => void handleFileUpload(e)}
+                className="hidden"
+                id="audio-upload-input"
               />
-              <label htmlFor="audio-file-input" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <Upload size={28} style={{ color: 'var(--primary)' }} />
-                <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Upload Audio File</span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                  Supports MP3, WAV, M4A, WEBM, OGG, AAC (Max 25MB)
-                </span>
+              <label
+                htmlFor="audio-upload-input"
+                className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium transition-all cursor-pointer border border-slate-700 ${
+                  isRecording || isProcessing ? 'opacity-50 pointer-events-none' : ''
+                }`}
+              >
+                <FileAudio className="w-4 h-4 text-emerald-400" />
+                Choose Audio File
               </label>
             </div>
+          </div>
 
-            {/* Audio Preview & Status */}
-            {audioUrl && (
-              <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)' }}>
-                    <FileAudio size={18} className="text-primary" />
-                    {fileName || 'Recorded Audio Clip'}
+          {/* Active Audio Preview & Action Bar */}
+          {audioUrl && (
+            <div className="p-4 sm:p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-400 shrink-0">
+                    <FileAudio className="w-5 h-5" />
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium text-white truncate">{audioFileName}</p>
+                      {verifiedDurationSeconds !== null && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                          Duration: {formatDurationDisplay(verifiedDurationSeconds)}
+                        </span>
+                      )}
+                      {wavValidation?.valid && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                          {wavValidation.sampleRate} Hz • {wavValidation.numChannels}ch 16-bit PCM WAV •{' '}
+                          {Math.max(1, Math.round(wavValidation.actualByteLength / 1024))} KB •{' '}
+                          {wavValidation.hasNonZeroAudio ? 'Non-Zero Signal' : 'Silent Signal'}
+                        </span>
+                      )}
+                    </div>
+
+                    <audio
+                      key={audioUrl}
+                      ref={audioPlayerRef}
+                      src={audioUrl}
+                      controls
+                      preload="metadata"
+                      onLoadStart={(e) => handleAudioElementEvent('loadstart', e)}
+                      onLoadedMetadata={(e) => handleAudioElementEvent('loadedmetadata', e)}
+                      onLoadedData={(e) => handleAudioElementEvent('loadeddata', e)}
+                      onDurationChange={(e) => handleAudioElementEvent('durationchange', e)}
+                      onCanPlay={(e) => handleAudioElementEvent('canplay', e)}
+                      onCanPlayThrough={(e) => handleAudioElementEvent('canplaythrough', e)}
+                      onPlay={(e) => handleAudioElementEvent('play', e)}
+                      onPlaying={(e) => handleAudioElementEvent('playing', e)}
+                      onEnded={(e) => handleAudioElementEvent('ended', e)}
+                      onError={(e) => handleAudioElementEvent('error', e)}
+                      className="h-9 mt-2.5 w-full max-w-md"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => void handlePlayViaWebAudio()}
+                    disabled={isProcessing}
+                    title="Plays decoded audio directly from memory via Web Audio API"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors cursor-pointer"
+                  >
+                    <Play className="w-3.5 h-3.5 text-emerald-400" />
+                    {isWebAudioPlaying ? 'Stop Direct Playback' : 'Play via Web Audio'}
+                  </button>
+
                   <button
                     type="button"
                     onClick={clearAudio}
-                    title="Remove audio"
-                    style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                    disabled={isProcessing}
+                    className="p-2.5 rounded-xl bg-slate-900 hover:bg-red-950/50 text-slate-400 hover:text-red-400 border border-slate-800 transition-colors cursor-pointer"
+                    title="Remove Audio"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleTranscribe()}
+                    disabled={isProcessing}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-white font-semibold transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {processingStatus}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Transcribe & Summarize
+                      </>
+                    )}
                   </button>
                 </div>
-                <audio
-                  key={audioUrl}
-                  controls
-                  preload="metadata"
-                  src={audioUrl}
-                  onError={(event) => {
-                    const mediaError = event.currentTarget.error;
-                    console.error('[Audio Transcriber] Audio preview playback failed', {
-                      code: mediaError?.code,
-                      message: mediaError?.message,
-                      mimeType: audioMimeType,
-                      blobBytes: audioBlob?.size,
-                    });
-                    setErrorDetails({
-                      name: 'AudioPlaybackError',
-                      message: mediaError?.message || `HTML audio media error code ${mediaError?.code ?? 'unknown'}`,
-                    });
-                    setErrorMsg('The recording was captured, but this browser could not play the preview. Please record again; if it repeats, enable Debug Log and share the error.');
-                  }}
-                  style={{ width: '100%', height: '40px' }}
-                />
               </div>
-            )}
 
-            {/* Transcription Context Options */}
-            <div style={{ marginTop: '24px' }}>
-              <label style={{ fontWeight: 600, display: 'block', marginBottom: '8px', fontSize: '0.95rem' }}>
-                Transcription Mode &amp; Output Format
-              </label>
-              <select
-                value={contextMode}
-                onChange={(e) => setContextMode(e.target.value as any)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--surface-elevated)', color: 'var(--text)', fontSize: '0.9rem', marginBottom: '12px' }}
-              >
-                <option value="standard">🎙️ Technical Notes &amp; Full Transcript (Default)</option>
-                <option value="service_desk">🎫 Service Desk Ticket Note (transcript-based)</option>
-                <option value="summary_only">📝 Transcript Only (no AI summary)</option>
-                <option value="custom">💬 Transcript + Custom Note</option>
-              </select>
-
-              {contextMode === 'custom' && (
-                <div style={{ marginTop: '10px' }}>
-                  <label htmlFor="customPrompt" style={{ fontSize: '0.85rem', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>
-                    Optional note to include below transcript:
-                  </label>
-                  <textarea
-                    id="customPrompt"
-                    rows={3}
-                    placeholder="e.g. Focus on extracting device serial numbers and customer contact preferences..."
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--surface-elevated)', color: 'var(--text)', fontSize: '0.9rem' }}
-                  />
+              {/* Model Download Progress Bar */}
+              {isProcessing && modelLoadProgress !== null && (
+                <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between text-xs text-slate-300">
+                    <span>{processingStatus}</span>
+                    <span className="font-mono text-indigo-400">{modelLoadProgress}%</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-200"
+                      style={{ width: `${modelLoadProgress}%` }}
+                    />
+                  </div>
                 </div>
               )}
             </div>
+          )}
 
-            {/* Submit Button */}
-            <div style={{ marginTop: '24px' }}>
+          {/* Contextual Error Display (Categorized by Failure Stage) */}
+          {errorMsg && (
+            <div className="p-5 rounded-xl bg-red-950/40 border border-red-800/80 text-red-200 text-sm space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 flex-1">
+                  <p className="font-semibold text-red-300">
+                    {errorCategory === 'mic'
+                      ? 'Microphone Access Issue Detected'
+                      : errorCategory === 'playback'
+                      ? 'Audio Player Playback Issue Detected'
+                      : errorCategory === 'recording'
+                      ? 'Audio Recording Capture Issue'
+                      : errorCategory === 'model'
+                      ? 'Local AI Model Download Issue'
+                      : errorCategory === 'upload'
+                      ? 'Audio File Upload Issue'
+                      : 'Audio Transcription Issue'}
+                  </p>
+                  <p className="text-red-200/90 leading-relaxed">{errorMsg}</p>
+                </div>
+                {errorCategory === 'model' && audioBlob && (
+                  <button
+                    type="button"
+                    onClick={() => void handleTranscribe()}
+                    className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-xs font-semibold text-red-200 shrink-0 cursor-pointer"
+                  >
+                    Retry Model Load
+                  </button>
+                )}
+              </div>
+
+              {errorCategory === 'mic' && (
+                <div className="pl-8 space-y-2 text-xs text-slate-300 border-t border-red-900/60 pt-3">
+                  <p className="font-semibold text-amber-300 flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4" />
+                    Why does this happen when site permission is already "Allow"?
+                  </p>
+                  <ul className="list-disc pl-4 space-y-1 text-slate-300">
+                    <li>
+                      <strong>a) Browser Address Bar Lock:</strong> Verify microphone is set to
+                      "Allow" in the lock/tune icon next to the URL, then reload the page.
+                    </li>
+                    <li>
+                      <strong>b) macOS / Windows System Permission:</strong> On macOS, open{' '}
+                      <code>System Settings → Privacy &amp; Security → Microphone</code> and ensure{' '}
+                      <strong>Google Chrome / Microsoft Edge / Safari</strong> is switched{' '}
+                      <strong>ON</strong>.
+                    </li>
+                    <li>
+                      <strong>c) Exclusive Hardware Lock:</strong> Close other apps or tabs holding
+                      exclusive microphone access.
+                    </li>
+                  </ul>
+                </div>
+              )}
+
+              {errorCategory === 'playback' && (
+                <div className="pl-8 space-y-1.5 text-xs text-slate-300 border-t border-red-900/60 pt-3">
+                  <p className="font-semibold text-amber-300">Playback Recovery Options:</p>
+                  <ul className="list-disc pl-4 space-y-1">
+                    <li>
+                      Click <strong>"Play via Web Audio"</strong> above to play the decoded PCM/WAV
+                      audio buffer directly through the browser's Web Audio API.
+                    </li>
+                    <li>
+                      You can still click <strong>"Transcribe &amp; Summarize"</strong> — local
+                      Whisper reads the WAV buffer directly in memory even if native{' '}
+                      <code>&lt;audio&gt;</code> playback is blocked.
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Results Section */}
+        {result && (
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('all')}
+                    className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      activeTab === 'all'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    All Insights
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('summary')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      activeTab === 'summary'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Summary
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('actions')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      activeTab === 'actions'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    <ListChecks className="w-3.5 h-3.5" />
+                    Action Items ({result.actionItems.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('transcript')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      activeTab === 'transcript'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    <AlignLeft className="w-3.5 h-3.5" />
+                    Transcript
+                  </button>
+                </div>
+
+                {result.detectedLanguage && (
+                  <p className="text-xs text-slate-400 pt-1">
+                    Language Mode: <span className="text-indigo-300">{result.detectedLanguage}</span>{' '}
+                    • Model: <span className="text-slate-300">{result.modelUsed}</span>
+                  </p>
+                )}
+              </div>
+
               <button
                 type="button"
-                className="button button-primary"
-                onClick={handleTranscribe}
-                disabled={loading || !audioBlob || !isOnline}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', fontSize: '1rem', fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}
+                onClick={handleDownloadTxt}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium border border-slate-700 transition-colors self-start sm:self-auto cursor-pointer"
               >
-                {loading ? (
-                  <>
-                    <RefreshCw size={18} className="spin" /> Loading model / transcribing locally...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={18} /> Transcribe Audio
-                  </>
-                )}
+                <Download className="w-4 h-4 text-indigo-400" />
+                Export .TXT
               </button>
             </div>
 
-            {errorMsg && (
-              <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: '10px', color: '#fca5a5', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#f87171' }}>
-                    <AlertCircle size={18} /> Multi-Stage Diagnostic Error
-                  </div>
-                  <label style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: 'var(--muted)' }}>
-                    <input
-                      type="checkbox"
-                      checked={debugMode}
-                      onChange={(e) => setDebugMode(e.target.checked)}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Debug Log
-                  </label>
+            {/* Executive Summary */}
+            {(activeTab === 'all' || activeTab === 'summary') && (
+              <div className="p-5 rounded-xl bg-slate-950/70 border border-slate-800/90 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-indigo-400 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Executive Summary
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(result.summary, 'summary')}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+                  >
+                    {copiedSection === 'summary' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy
+                      </>
+                    )}
+                  </button>
                 </div>
+                <p className="text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-line">
+                  {result.summary}
+                </p>
+              </div>
+            )}
 
-                <p style={{ margin: '0 0 10px', fontWeight: 600 }}>{errorMsg}</p>
-
-                {debugMode && errorDetails && (
-                  <div style={{ marginBottom: '10px', padding: '10px', background: 'rgba(2, 6, 23, 0.7)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.78rem', color: '#38bdf8', overflowX: 'auto' }}>
-                    <div><strong>Error Name:</strong> {errorDetails.name}</div>
-                    <div><strong>Error Message:</strong> {errorDetails.message}</div>
-                    {errorDetails.stack && <div style={{ whiteSpace: 'pre-wrap', marginTop: '4px', opacity: 0.85 }}>{errorDetails.stack}</div>}
-                  </div>
+            {/* Action Items */}
+            {(activeTab === 'all' || activeTab === 'actions') && (
+              <div className="p-5 rounded-xl bg-slate-950/70 border border-slate-800/90 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-emerald-400 flex items-center gap-2">
+                    <ListChecks className="w-4 h-4" />
+                    Action Items & Key Takeaways
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(result.actionItems.join('\n• '), 'actions')}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+                  >
+                    {copiedSection === 'actions' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+                {result.actionItems.length > 0 ? (
+                  <ul className="space-y-2">
+                    {result.actionItems.map((item, index) => (
+                      <li
+                        key={index}
+                        className="flex items-start gap-2.5 text-slate-200 text-sm sm:text-base"
+                      >
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold shrink-0 mt-0.5">
+                          {index + 1}
+                        </span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-400 text-sm">
+                    No specific action items were detected in this recording.
+                  </p>
                 )}
+              </div>
+            )}
 
-                <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '12px 14px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid rgba(239, 68, 68, 0.25)', display: 'grid', gap: '10px' }}>
-                  <div>
-                    <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>a) Browser Address Bar Lock:</strong>
-                    Ensure microphone is allowed in the browser address bar lock icon (🔒).
-                  </div>
-                  <div>
-                    <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>b) macOS / Windows System Permission:</strong>
-                    On Mac, check <strong>System Settings → Privacy &amp; Security → Microphone</strong> and ensure your browser (Edge, Chrome, or Safari) is toggled <strong>ON</strong>.
-                  </div>
-                  <div>
-                    <strong style={{ color: '#f87171', display: 'block', marginBottom: '2px' }}>c) Permissions Policy &amp; Iframe Check:</strong>
-                    Ensure this page is not rendered inside a restricted iframe without `allow="microphone *"`.
-                  </div>
+            {/* Full Transcript */}
+            {(activeTab === 'all' || activeTab === 'transcript') && (
+              <div className="p-5 rounded-xl bg-slate-950/70 border border-slate-800/90 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-slate-200 flex items-center gap-2">
+                    <AlignLeft className="w-4 h-4 text-indigo-400" />
+                    Verbatim Transcript
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(result.transcript, 'transcript')}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+                  >
+                    {copiedSection === 'transcript' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="max-h-96 overflow-y-auto pr-2 text-slate-300 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
+                  {result.transcript}
                 </div>
               </div>
             )}
           </div>
-
-          {/* Results Panel */}
-          <div className="panel" style={{ background: 'var(--surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-              <h2 className="section-title" style={{ margin: 0, fontSize: '1.2rem' }}>
-                Transcript &amp; Notes
-              </h2>
-              {transcriptResult && (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    onClick={handleCopy}
-                    style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    {copied ? <Check size={14} /> : <Copy size={14} />}
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    onClick={handleDownload}
-                    style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <Download size={14} /> Export MD
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div style={{ flex: 1, minHeight: '300px', background: 'var(--surface-elevated, rgba(15, 23, 42, 0.5))', borderRadius: '10px', padding: '18px', border: '1px solid var(--line)', overflowY: 'auto' }}>
-              {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '260px', color: 'var(--muted)', gap: '14px' }}>
-                  <Sparkles size={36} className="text-primary spin" style={{ animationDuration: '3s' }} />
-                  <p style={{ margin: 0, fontWeight: 600 }}>Running Whisper locally in your browser...</p>
-                  <small style={{ color: 'var(--muted)' }}>The model is downloaded once and cached by your browser.</small>
-                </div>
-              ) : transcriptResult ? (
-                <div className="tool-output" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: '0.95rem', color: 'var(--text)' }}>
-                  {transcriptResult}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '260px', color: 'var(--muted)', textAlign: 'center' }}>
-                  <Mic size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                  <p style={{ margin: 0, fontWeight: 500 }}>No audio transcribed yet.</p>
-                  <small style={{ color: 'var(--muted)', marginTop: '4px' }}>
-                    Record a voice note or upload an audio file to see transcript &amp; structured notes here.
-                  </small>
-                </div>
-              )}
-            </div>
-
-            {transcriptResult && contextMode === 'service_desk' && (
-              <div style={{ marginTop: '16px', textAlign: 'right' }}>
-                <Link to="/tools/service-desk-note-formatter" className="button button-secondary" style={{ fontSize: '0.88rem' }}>
-                  Open Service Desk Note Formatter →
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 };
+
+export default AiAudioTranscriber;
