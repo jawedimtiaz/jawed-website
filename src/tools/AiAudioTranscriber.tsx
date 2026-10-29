@@ -76,8 +76,6 @@ export const AiAudioTranscriber: React.FC = () => {
       ? 'audio/mp4'
       : 'audio/wav';
 
-    setAudioMimeType(mimeType);
-
     let mediaRecorder: MediaRecorder;
     try {
       mediaRecorder = new MediaRecorder(stream, { mimeType });
@@ -85,6 +83,9 @@ export const AiAudioTranscriber: React.FC = () => {
       mediaRecorder = new MediaRecorder(stream);
     }
     mediaRecorderRef.current = mediaRecorder;
+    // The browser may choose a different format if the requested MIME type is unsupported.
+    const actualMimeType = mediaRecorder.mimeType || mimeType;
+    setAudioMimeType(actualMimeType);
 
     mediaRecorder.ondataavailable = (event) => {
       if (event.data && event.data.size > 0) {
@@ -93,7 +94,17 @@ export const AiAudioTranscriber: React.FC = () => {
     };
 
     mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunksRef.current, { type: mimeType });
+      // MediaRecorder dispatches the final dataavailable event before onstop.
+      // Use its actual MIME type, not only the requested preference.
+      const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || actualMimeType });
+      if (blob.size === 0) {
+        setErrorMsg('The browser finished recording but returned no audio data. Please try recording again, or upload an audio file.');
+        if (activeStreamRef.current) {
+          activeStreamRef.current.getTracks().forEach((track) => track.stop());
+          activeStreamRef.current = null;
+        }
+        return;
+      }
       setAudioBlob(blob);
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
@@ -223,10 +234,8 @@ export const AiAudioTranscriber: React.FC = () => {
       }
       setIsRecording(false);
     }
-    if (activeStreamRef.current) {
-      activeStreamRef.current.getTracks().forEach(track => track.stop());
-      activeStreamRef.current = null;
-    }
+    // Do not stop tracks here: MediaRecorder still needs to flush its final
+    // dataavailable event. The onstop handler releases the stream after the Blob is built.
   };
 
   const clearAudio = () => {

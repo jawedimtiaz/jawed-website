@@ -6,6 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 // GitHub Pages project URLs are served below /jawed-website/.
 // Keep local development, PR browser tests, and Cloudflare Pages at the domain root.
 const isGitHubPagesMainBuild =
+  process.env.BROWSER_RUNTIME_TEST !== 'true' &&
   process.env.GITHUB_ACTIONS === 'true' &&
   process.env.GITHUB_EVENT_NAME === 'push' &&
   process.env.GITHUB_REF === 'refs/heads/main';
