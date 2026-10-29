@@ -17,7 +17,7 @@ const requiredHeaders=[
  "X-Content-Type-Options: nosniff",
  "X-Permitted-Cross-Domain-Policies: none",
  "Referrer-Policy: strict-origin-when-cross-origin",
- "Permissions-Policy: geolocation=(), microphone=(), camera=()",
+ "Permissions-Policy: geolocation=(), microphone=(self), camera=()",
  "Strict-Transport-Security: max-age=31536000",
  "Content-Security-Policy:"
 ];
