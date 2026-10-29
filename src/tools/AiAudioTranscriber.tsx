@@ -36,12 +36,15 @@ export const AiAudioTranscriber: React.FC = () => {
   const activeStreamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioUrlRef = useRef<string | null>(null);
 
-  // Clean up audio URL and media streams on unmount
+  // Keep the current object URL stable for the lifetime of the audio element.
+  // Revoke it only when replacing/clearing the source or unmounting the page.
   useEffect(() => {
     return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -60,7 +63,7 @@ export const AiAudioTranscriber: React.FC = () => {
         void audioContextRef.current.close().catch(() => undefined);
       }
     };
-  }, [audioUrl]);
+  }, []);
 
   // Handle Recording Timer
   useEffect(() => {
@@ -145,6 +148,10 @@ export const AiAudioTranscriber: React.FC = () => {
     source.connect(processor);
     processor.connect(silentGain);
     silentGain.connect(context.destination);
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
     setAudioMimeType('audio/wav');
     setAudioBlob(null);
     setAudioUrl(null);
@@ -172,8 +179,9 @@ export const AiAudioTranscriber: React.FC = () => {
       if (!chunks.length) throw new Error('No audio samples were captured. Check microphone input and record again.');
       const blob = encodePcmWav(chunks, pcmSampleRateRef.current);
       if (blob.size < 1024) throw new Error('The recording is too short or empty. Please record for at least 2 seconds.');
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
       const url = URL.createObjectURL(blob);
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = url;
       setAudioBlob(blob);
       setAudioMimeType('audio/wav');
       setAudioUrl(url);
@@ -304,8 +312,9 @@ export const AiAudioTranscriber: React.FC = () => {
   };
 
   const clearAudio = () => {
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
     }
     setAudioBlob(null);
     setAudioUrl(null);
@@ -338,6 +347,7 @@ export const AiAudioTranscriber: React.FC = () => {
     setAudioBlob(file);
     setAudioMimeType(file.type || 'audio/mp3');
     const url = URL.createObjectURL(file);
+    audioUrlRef.current = url;
     setAudioUrl(url);
   };
 
@@ -600,7 +610,27 @@ export const AiAudioTranscriber: React.FC = () => {
                     <Trash2 size={16} />
                   </button>
                 </div>
-                <audio controls src={audioUrl} style={{ width: '100%', height: '40px' }} />
+                <audio
+                  key={audioUrl}
+                  controls
+                  preload="metadata"
+                  src={audioUrl}
+                  onError={(event) => {
+                    const mediaError = event.currentTarget.error;
+                    console.error('[Audio Transcriber] Audio preview playback failed', {
+                      code: mediaError?.code,
+                      message: mediaError?.message,
+                      mimeType: audioMimeType,
+                      blobBytes: audioBlob?.size,
+                    });
+                    setErrorDetails({
+                      name: 'AudioPlaybackError',
+                      message: mediaError?.message || `HTML audio media error code ${mediaError?.code ?? 'unknown'}`,
+                    });
+                    setErrorMsg('The recording was captured, but this browser could not play the preview. Please record again; if it repeats, enable Debug Log and share the error.');
+                  }}
+                  style={{ width: '100%', height: '40px' }}
+                />
               </div>
             )}
 
