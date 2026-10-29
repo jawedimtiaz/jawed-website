@@ -314,6 +314,7 @@ export const AiAudioTranscriber: React.FC = () => {
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const activeObjectUrlRef = useRef<string | null>(null);
   const urlManagerRef = useRef<SafeObjectUrlManager>(new SafeObjectUrlManager());
   const webAudioPlaybackContextRef = useRef<AudioContext | null>(null);
 
@@ -354,6 +355,86 @@ export const AiAudioTranscriber: React.FC = () => {
     setErrorMsg(null);
     setErrorCategory(null);
   }, []);
+
+  /**
+   * Explicitly resets the <audio> element's source and revokes any active Object URL
+   * using URL.revokeObjectURL() so that multiple Object URLs are never leaked or left active.
+   */
+  const resetAudioSource = useCallback(
+    (reason: string) => {
+      const audioEl = audioPlayerRef.current;
+      if (audioEl) {
+        try {
+          audioEl.pause();
+          audioEl.removeAttribute('src');
+          audioEl.src = '';
+          audioEl.load();
+        } catch {
+          // Ignore DOM media reset errors in non-browser/test environments
+        }
+      }
+
+      const previousUrl =
+        activeObjectUrlRef.current || urlManagerRef.current.getCurrentUrl();
+      if (previousUrl) {
+        try {
+          URL.revokeObjectURL(previousUrl);
+        } catch {
+          // Ignore revoke errors if already revoked
+        }
+        activeObjectUrlRef.current = null;
+        urlManagerRef.current.clear();
+        addLog('info', `Explicitly reset <audio> source and revoked previous Object URL (${reason}):`, {
+          revokedObjectUrl: previousUrl,
+          audioElementReset: Boolean(audioEl),
+        });
+      } else {
+        urlManagerRef.current.clear();
+      }
+
+      setAudioUrl(null);
+      setAudioBlob(null);
+    },
+    [addLog]
+  );
+
+  /**
+   * Resets any previous Object URL and <audio> source, creates a single new Object URL
+   * for the verified Blob, and binds it to the <audio> element.
+   */
+  const assignAudioSourceFromBlob = useCallback(
+    (blob: Blob, fileName: string, mimeType: string, sourceLabel: string): string => {
+      resetAudioSource(`replacing audio source with ${sourceLabel}`);
+
+      const nextUrl = URL.createObjectURL(blob);
+      activeObjectUrlRef.current = nextUrl;
+
+      setAudioBlob(blob);
+      setAudioFileName(fileName);
+      setAudioMimeType(mimeType);
+      setAudioUrl(nextUrl);
+
+      const audioEl = audioPlayerRef.current;
+      if (audioEl) {
+        try {
+          audioEl.src = nextUrl;
+          audioEl.load();
+        } catch {
+          // Ignore media load errors in headless environments
+        }
+      }
+
+      addLog('info', `Assigned single active Object URL for ${sourceLabel}:`, {
+        fileName,
+        mimeType,
+        blobSizeBytes: blob.size,
+        objectUrl: nextUrl,
+      });
+
+      return nextUrl;
+    },
+    [addLog, resetAudioSource]
+  );
 
   const stopWebAudioFallbackPlayback = useCallback(async () => {
     if (webAudioPlaybackContextRef.current) {
@@ -449,6 +530,25 @@ export const AiAudioTranscriber: React.FC = () => {
     void checkEnvironment();
 
     return () => {
+      const audioEl = audioPlayerRef.current;
+      if (audioEl) {
+        try {
+          audioEl.pause();
+          audioEl.removeAttribute('src');
+          audioEl.src = '';
+          audioEl.load();
+        } catch {
+          // Ignore unmount media cleanup errors
+        }
+      }
+      if (activeObjectUrlRef.current) {
+        try {
+          URL.revokeObjectURL(activeObjectUrlRef.current);
+        } catch {
+          // Ignore revoke errors
+        }
+        activeObjectUrlRef.current = null;
+      }
       urlManagerRef.current.clear();
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -457,6 +557,19 @@ export const AiAudioTranscriber: React.FC = () => {
       void stopWebAudioFallbackPlayback();
     };
   }, [addLog, stopRecordingGraph, stopWebAudioFallbackPlayback]);
+
+  useEffect(() => {
+    if (audioUrl && audioPlayerRef.current) {
+      try {
+        if (audioPlayerRef.current.getAttribute('src') !== audioUrl) {
+          audioPlayerRef.current.src = audioUrl;
+        }
+        audioPlayerRef.current.load();
+      } catch {
+        // Ignore load errors in non-DOM test environments
+      }
+    }
+  }, [audioUrl]);
 
   useEffect(() => {
     if (isRecording) {
@@ -535,44 +648,80 @@ export const AiAudioTranscriber: React.FC = () => {
 
       let localPeak = 0;
       let nonZeroCount = 0;
+      let audibleSampleCount = 0;
       let minSample = 0;
       let maxSample = 0;
+      const silenceAmplitudeThreshold = 1e-5;
       for (let i = 0; i < copy.length; i += 1) {
         const val = copy[i];
         const abs = Math.abs(val);
         if (abs > 0) nonZeroCount += 1;
+        if (abs > silenceAmplitudeThreshold) audibleSampleCount += 1;
         if (abs > localPeak) localPeak = abs;
         if (val < minSample) minSample = val;
         if (val > maxSample) maxSample = val;
       }
+      const hasNonZeroAmplitude = nonZeroCount > 0 && localPeak > silenceAmplitudeThreshold;
       setInputLevelPeak(localPeak);
 
       if (!loggedFirstBuffer) {
         loggedFirstBuffer = true;
-        addLog('info', 'First AudioProcessingEvent buffer captured from AudioContext graph:', {
+        const firstBufferDiag = {
+          audioContextState: context.state,
           contextSampleRate: context.sampleRate,
           inputBufferSampleRate: inputBuffer.sampleRate,
           inputBufferNumberOfChannels: inputBuffer.numberOfChannels,
           outputBufferNumberOfChannels: event.outputBuffer.numberOfChannels,
+          sourceChannelCount: source.channelCount,
+          processorChannelCount: processor.channelCount,
           inputBufferFrameLength: inputBuffer.length,
           inputBufferDurationMs: Number((inputBuffer.duration * 1000).toFixed(2)),
           firstChunkNonZeroSamples: nonZeroCount,
+          firstChunkAudibleSamples: audibleSampleCount,
           firstChunkTotalSamples: copy.length,
           firstChunkHasNonZeroAudio: nonZeroCount > 0,
+          firstChunkHasNonZeroAmplitude: hasNonZeroAmplitude,
           firstChunkMinSample: Number(minSample.toFixed(6)),
           firstChunkMaxSample: Number(maxSample.toFixed(6)),
           firstChunkPeakAmplitude: Number(localPeak.toFixed(6)),
-        });
+        };
+        console.log(
+          '[AiAudioTranscriber] First PCM buffer captured — AudioContext & non-zero amplitude check:',
+          firstBufferDiag
+        );
+        if (!hasNonZeroAmplitude) {
+          console.warn(
+            '[AiAudioTranscriber] Silence detected in initial PCM buffer (all samples are zero or below amplitude threshold 1e-5):',
+            firstBufferDiag
+          );
+        }
+        addLog(
+          'info',
+          'First AudioProcessingEvent buffer captured from AudioContext graph:',
+          firstBufferDiag
+        );
       } else if (processedChunkCounter % 25 === 0) {
-        addLog('info', `Live PCM capture progress (chunk #${processedChunkCounter}):`, {
+        const progressDiag = {
           chunkIndex: processedChunkCounter,
+          audioContextState: context.state,
           contextSampleRate: context.sampleRate,
           inputBufferSampleRate: inputBuffer.sampleRate,
           inputBufferChannels: inputBuffer.numberOfChannels,
           chunkNonZeroSamples: nonZeroCount,
+          chunkAudibleSamples: audibleSampleCount,
+          chunkHasNonZeroAmplitude: hasNonZeroAmplitude,
           chunkFrameLength: copy.length,
           chunkPeakAmplitude: Number(localPeak.toFixed(5)),
-        });
+        };
+        console.log(
+          `[AiAudioTranscriber] Live PCM capture progress (chunk #${processedChunkCounter}):`,
+          progressDiag
+        );
+        addLog(
+          'info',
+          `Live PCM capture progress (chunk #${processedChunkCounter}):`,
+          progressDiag
+        );
       }
     };
 
@@ -602,6 +751,18 @@ export const AiAudioTranscriber: React.FC = () => {
     setAudioMimeType('audio/wav');
     setIsRecording(true);
     setRecordingTime(0);
+
+    console.log('[AiAudioTranscriber] Capture started — AudioContext state, sampleRate & channelCount:', {
+      state: context.state,
+      initialState: initialContextState,
+      sampleRate: context.sampleRate,
+      normalizedSampleRate,
+      channelCount: source.channelCount,
+      processorChannelCount: processor.channelCount,
+      destinationChannelCount: context.destination.channelCount,
+      trackChannelCount: trackSettings.channelCount ?? 'browser-default',
+      trackSampleRate: trackSettings.sampleRate ?? 'browser-default',
+    });
 
     addLog('info', 'AudioContext & Web Audio graph initialized for mono 16-bit PCM WAV capture:', {
       initialContextState,
@@ -635,6 +796,7 @@ export const AiAudioTranscriber: React.FC = () => {
     setAudioElementDiag(null);
     setIsRequestingMic(true);
     await stopWebAudioFallbackPlayback();
+    resetAudioSource('starting new microphone recording');
 
     addLog('info', 'User clicked Record Voice. Checking security context & MediaDevices API...');
 
@@ -712,6 +874,89 @@ export const AiAudioTranscriber: React.FC = () => {
     }
   };
 
+  /**
+   * Verifies that a constructed WAV Blob has complete, valid 44-byte RIFF/WAVE headers
+   * for mono (1-channel) 16-bit Linear PCM before an Object URL is created.
+   */
+  const verifyMono16BitPcmWavBlob = async (
+    blob: Blob,
+    expectedSamples: number,
+    expectedSampleRate: number
+  ): Promise<{ buffer: ArrayBuffer; validation: WavValidationResult }> => {
+    if (!blob || blob.size < 44) {
+      throw new Error(
+        `WAV Blob is incomplete (${blob?.size ?? 0} bytes; minimum 44-byte RIFF/WAVE header required).`
+      );
+    }
+
+    if (blob.type !== 'audio/wav') {
+      throw new Error(`Unexpected WAV Blob MIME type "${blob.type}" (expected "audio/wav").`);
+    }
+
+    const buffer = await blob.arrayBuffer();
+    const view = new DataView(buffer);
+    const validation = parseAndValidateWav(buffer);
+
+    const expectedDataBytes = expectedSamples * 2;
+    const expectedTotalBytes = 44 + expectedDataBytes;
+    const expectedByteRate = expectedSampleRate * 2;
+    const expectedBlockAlign = 2;
+
+    const headerChecks = {
+      hasRiffSignature: validation.riffHeader === 'RIFF',
+      hasWaveSignature: validation.waveHeader === 'WAVE',
+      hasFmtSignature: validation.fmtHeader === 'fmt ',
+      isPcmFmtChunkSize16: validation.fmtChunkSize === 16,
+      isLinearPcmAudioFormat1: validation.audioFormat === 1,
+      isMonoSingleChannel: validation.numChannels === 1,
+      isSampleRateMatched: validation.sampleRate === expectedSampleRate,
+      isBitsPerSample16: validation.bitsPerSample === 16,
+      isBlockAlign2Bytes:
+        validation.blockAlign === expectedBlockAlign && view.getUint16(32, true) === 2,
+      isByteRateMatched:
+        validation.byteRate === expectedByteRate &&
+        view.getUint32(28, true) === expectedByteRate,
+      hasDataSignature: validation.dataHeader === 'data',
+      isDataSizeMatched:
+        validation.dataByteLength === expectedDataBytes &&
+        view.getUint32(40, true) === expectedDataBytes,
+      isRiffChunkSizeMatched:
+        validation.fileSizeField === 36 + expectedDataBytes &&
+        view.getUint32(4, true) === 36 + expectedDataBytes,
+      isTotalBlobByteSizeMatched:
+        blob.size === expectedTotalBytes && buffer.byteLength === expectedTotalBytes,
+    };
+
+    const allHeaderChecksPassed = Object.values(headerChecks).every(Boolean);
+
+    addLog(
+      allHeaderChecksPassed && validation.valid ? 'info' : 'error',
+      'Pre-ObjectURL Mono 16-bit PCM WAV Byte Header Verification:',
+      {
+        allHeaderChecksPassed,
+        ...headerChecks,
+        blobSizeBytes: blob.size,
+        expectedTotalBytes,
+        sampleRate: validation.sampleRate,
+        numChannels: validation.numChannels,
+        bitsPerSample: validation.bitsPerSample,
+        blockAlign: validation.blockAlign,
+        byteRate: validation.byteRate,
+        dataByteLength: validation.dataByteLength,
+        headerHexPreview: validation.headerHexPreview,
+      }
+    );
+
+    if (!validation.valid || !allHeaderChecksPassed) {
+      throw new Error(
+        validation.error ||
+          'WAV Blob failed mono 16-bit PCM byte header verification prior to Object URL creation.'
+      );
+    }
+
+    return { buffer, validation };
+  };
+
   const stopRecording = async () => {
     if (!isRecording) return;
 
@@ -729,22 +974,49 @@ export const AiAudioTranscriber: React.FC = () => {
 
     const chunks = pcmChunksRef.current;
     const stats = computePcmStats(chunks);
+    const silenceAmplitudeThreshold = 1e-5;
+    let audibleSampleCount = 0;
+    for (const chunk of chunks) {
+      for (let i = 0; i < chunk.length; i += 1) {
+        if (Math.abs(chunk[i]) > silenceAmplitudeThreshold) {
+          audibleSampleCount += 1;
+        }
+      }
+    }
+    const hasNonZeroAmplitudeSamples =
+      stats.hasNonZeroAudio && audibleSampleCount > 0 && stats.peakAmplitude > silenceAmplitudeThreshold;
 
-    addLog('info', 'Captured PCM audio buffer non-zero verification:', {
+    const pcmBufferVerification = {
       chunkCount: stats.chunkCount,
       activeChunkCount: stats.activeChunkCount,
       silentChunkCount: stats.silentChunkCount,
       totalSamples: stats.totalSamples,
       nonZeroSampleCount: stats.nonZeroSampleCount,
+      audibleSampleCountAbove1e5: audibleSampleCount,
       nonZeroPercentage: `${(stats.nonZeroRatio * 100).toFixed(2)}%`,
       hasNonZeroAudio: stats.hasNonZeroAudio,
+      hasNonZeroAmplitudeSamples,
       peakAmplitude: Number(stats.peakAmplitude.toFixed(5)),
       rmsAmplitude: Number(stats.rmsAmplitude.toFixed(5)),
       rmsDbFs: Number.isFinite(stats.rmsDbFs) ? `${stats.rmsDbFs.toFixed(2)} dBFS` : '-Inf dBFS',
-      isSilent: stats.isSilent,
+      isSilent: stats.isSilent || !hasNonZeroAmplitudeSamples,
       elapsedSeconds,
       sampleRate: sampleRateRef.current,
-    });
+    };
+
+    console.log(
+      '[AiAudioTranscriber] Captured PCM buffer non-zero amplitude check:',
+      pcmBufferVerification
+    );
+
+    if (!hasNonZeroAmplitudeSamples) {
+      console.warn(
+        '[AiAudioTranscriber] Silence diagnosed: PCM buffer contains zero or near-zero amplitude samples across the recording.',
+        pcmBufferVerification
+      );
+    }
+
+    addLog('info', 'Captured PCM audio buffer non-zero verification:', pcmBufferVerification);
 
     if (stats.totalSamples === 0) {
       reportError(
@@ -801,8 +1073,11 @@ export const AiAudioTranscriber: React.FC = () => {
       });
 
       const blob = encodeWav(chunks, targetWavSampleRate);
-      const buffer = await blob.arrayBuffer();
-      const validation = parseAndValidateWav(buffer);
+      const { buffer, validation } = await verifyMono16BitPcmWavBlob(
+        blob,
+        stats.totalSamples,
+        targetWavSampleRate
+      );
       setWavValidation(validation);
 
       // Inspect raw Int16 samples inside the encoded WAV buffer to verify non-zero audio data
@@ -885,16 +1160,6 @@ export const AiAudioTranscriber: React.FC = () => {
         rmsAmplitude: Number(validation.rmsAmplitude.toFixed(5)),
       });
 
-      if (!validation.valid) {
-        reportError(
-          'recording',
-          `Recorded WAV file failed structural validation: ${validation.error}`,
-          validation
-        );
-        setShowDebug(true);
-        return;
-      }
-
       if (!validation.hasNonZeroAudio || stats.isSilent) {
         addLog(
           'warn',
@@ -936,13 +1201,14 @@ export const AiAudioTranscriber: React.FC = () => {
         });
       }
 
-      const nextUrl = urlManagerRef.current.replaceWithBlob(blob);
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-
-      setAudioBlob(blob);
-      setAudioMimeType('audio/wav');
-      setAudioUrl(nextUrl);
-      setAudioFileName(`voice-recording-${timestamp}.wav`);
+      const fileName = `voice-recording-${timestamp}.wav`;
+      const nextUrl = assignAudioSourceFromBlob(
+        blob,
+        fileName,
+        'audio/wav',
+        'recorded mono 16-bit PCM WAV'
+      );
       setRecordingTime(Math.max(1, Math.round(validation.durationSeconds)));
 
       addLog('info', 'Recording complete. Validated WAV Blob and assigned Object URL to <audio>.', {
@@ -976,6 +1242,7 @@ export const AiAudioTranscriber: React.FC = () => {
     setWavValidation(null);
     setAudioElementDiag(null);
     await stopWebAudioFallbackPlayback();
+    resetAudioSource('processing newly uploaded audio file');
 
     const validTypes = [
       'audio/mpeg',
@@ -1035,11 +1302,12 @@ export const AiAudioTranscriber: React.FC = () => {
       }
     }
 
-    const nextUrl = urlManagerRef.current.replaceWithBlob(file);
-    setAudioBlob(file);
-    setAudioFileName(file.name);
-    setAudioMimeType(file.type || 'audio/mp3');
-    setAudioUrl(nextUrl);
+    const nextUrl = assignAudioSourceFromBlob(
+      file,
+      file.name,
+      file.type || 'audio/mp3',
+      `uploaded file (${file.name})`
+    );
 
     addLog('info', `Loaded uploaded file: ${file.name} (${Math.round(file.size / 1024)} KB)`, {
       name: file.name,
@@ -1053,9 +1321,7 @@ export const AiAudioTranscriber: React.FC = () => {
     void stopRecordingGraph();
     void stopWebAudioFallbackPlayback();
     pcmChunksRef.current = [];
-    urlManagerRef.current.clear();
-    setAudioBlob(null);
-    setAudioUrl(null);
+    resetAudioSource('user clicked Clear Audio');
     setAudioFileName('');
     setWavValidation(null);
     setAudioElementDiag(null);
