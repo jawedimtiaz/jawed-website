@@ -55,3 +55,8 @@ When configured, a successful response has the shape:
 The same request ID is returned in the `x-request-id` response header.
 
 Workers AI errors are normalized so provider-specific error details are not exposed to visitors.
+
+
+## Audio transcription (local-first)
+
+The audio transcriber uses Transformers.js with the open-source `onnx-community/whisper-tiny` model in the visitor’s browser. Audio is decoded and transcribed locally; the site does not send audio to a transcription API, and no Workers AI binding or paid transcription key is required. The JavaScript module is loaded from `https://esm.sh`, and model files are downloaded from Hugging Face on first use and may be cached by the browser. Processing speed and memory use depend on the visitor’s device. The tool provides transcript text and simple formatting; it does not run a separate generative model to summarize or follow custom instructions.

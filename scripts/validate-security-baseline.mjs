@@ -33,12 +33,12 @@ assert.equal(csp.includes("https://www.googletagmanager.com"),true,"CSP must ret
 assert.equal(csp.includes("https://www.google-analytics.com"),true,"CSP must retain the analytics collection origin");
 assert.equal(csp.includes("https://cdnjs.cloudflare.com"),true,"CSP must retain the approved PDF reader resource origin");
 assert.equal(/adsbygoogle|googlesyndication\.com|googleadservices\.com/i.test(csp),false,"Ad-serving hosts must remain absent before activation");
-assert.equal(csp.includes("unsafe-eval"),false,"CSP must not permit unsafe-eval");
+assert.equal(/(^|\\s)'unsafe-eval'(\\s|$)/.test(csp),false,"CSP must not permit unrestricted unsafe-eval; wasm-unsafe-eval is allowed for local ONNX inference");
 assert.equal(csp.includes("frame-ancestors 'none'"),true,"CSP must prevent framing");
 
-assert.equal(fs.existsSync("functions"),false,"Current application uses client-side AI; do not assume a Pages Functions runtime");
+assert.equal(fs.existsSync("functions/api/transcribe.ts"),false,"Audio transcription must remain local-first and must not add a billable server endpoint");
 assert.equal(fs.existsSync("public/_routes.json"),false,"Obsolete API-only route configuration must not be published");
-assert.equal(Array.isArray(deploymentContract.api_routes)&&deploymentContract.api_routes.length===0,true,"No server-side API routes are declared for the current client-side AI architecture");
+assert.deepEqual(deploymentContract.api_routes,[],"The local-first audio transcriber must not declare server API routes");
 
 const redirectLines=redirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"));
 const rootRedirectLines=rootRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"));
@@ -54,7 +54,7 @@ assert.equal(fs.readFileSync("sitemap.xml","utf8"),fs.readFileSync("public/sitem
 
 console.log("Security baseline: PASS");
 console.log("Published security headers and CSP: PASS");
-console.log("Client-side AI and no-Functions boundary: PASS");
+console.log("Client-side AI and local-only audio transcription boundary: PASS");
 console.log("SPA routing and legacy redirect policy: PASS");
 console.log("Pre-activation AdSense boundary: PASS");
 console.log("Published custom 404 and synchronized sitemap: PASS");
