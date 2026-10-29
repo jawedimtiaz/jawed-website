@@ -24,6 +24,8 @@ import {
   Play,
   Pause,
   Timer,
+  ArrowDown,
+  ChevronsDown,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -344,6 +346,9 @@ export const AiAudioTranscriber: React.FC = () => {
   const [errorCategory, setErrorCategory] = useState<TranscriberErrorCategory | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'transcript' | 'summary' | 'actions'>('all');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState<string>('');
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState<boolean>(true);
+  const [isUserScrolledUp, setIsUserScrolledUp] = useState<boolean>(false);
 
   // Diagnostics & Debug State
   const [debugLogs, setDebugLogs] = useState<DebugEntry[]>([]);
@@ -365,6 +370,8 @@ export const AiAudioTranscriber: React.FC = () => {
   });
 
   // Refs for Web Audio Recording, MediaRecorder State & Safe Object URL Management
+  const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
+  const transcriptBottomRef = useRef<HTMLDivElement | null>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaRecorderChunksRef = useRef<Blob[]>([]);
@@ -3152,6 +3159,7 @@ export const AiAudioTranscriber: React.FC = () => {
     clearError();
     setRecordingTime(0);
     setRecordingElapsedMs(0);
+    setLiveTranscript('');
     setPlaybackCurrentTime(0);
     setPlaybackDuration(0);
     if (fileInputRef.current) {
@@ -3650,9 +3658,43 @@ export const AiAudioTranscriber: React.FC = () => {
         ...inferenceOptions,
       });
 
-      const output = await transcriber(decoded.samples, inferenceOptions);
+      setLiveTranscript('');
+      setIsUserScrolledUp(false);
+      setIsAutoScrollEnabled(true);
+
+      let streamedText = '';
+      const chunkCallback = (chunk: any) => {
+        const text = chunk?.text || (typeof chunk === 'string' ? chunk : '');
+        if (text) {
+          streamedText = (streamedText + ' ' + text).trim();
+          setLiveTranscript(streamedText);
+        }
+      };
+
+      const output = await transcriber(decoded.samples, {
+        ...inferenceOptions,
+        chunk_callback: chunkCallback,
+      });
 
       const transcript = String(output?.text || '').trim();
+
+      // If chunk_callback did not emit incremental lines, progressively stream sentences so real-time generation and auto-scroll are smooth
+      if (!streamedText && transcript) {
+        const sentences = transcript.split(/(?<=[.!?।۔。\n])\s+/);
+        if (sentences.length > 1) {
+          let progressive = '';
+          for (const s of sentences) {
+            progressive = (progressive + ' ' + s).trim();
+            setLiveTranscript(progressive);
+            await new Promise((r) => setTimeout(r, 60));
+          }
+        } else {
+          setLiveTranscript(transcript);
+        }
+      } else if (transcript) {
+        setLiveTranscript(transcript);
+      }
+
       const { summary, actionItems } = summarizeTranscript(transcript);
 
       setResult({
@@ -3695,6 +3737,39 @@ export const AiAudioTranscriber: React.FC = () => {
       setModelLoadProgress(null);
     }
   };
+
+  const scrollToBottom = useCallback(() => {
+    setIsAutoScrollEnabled(true);
+    setIsUserScrolledUp(false);
+    if (transcriptScrollRef.current) {
+      transcriptScrollRef.current.scrollTo({
+        top: transcriptScrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
+
+  const handleTranscriptScroll = useCallback(() => {
+    const el = transcriptScrollRef.current;
+    if (!el) return;
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const isAtBottom = distanceToBottom < 35;
+    setIsUserScrolledUp(!isAtBottom);
+    if (isAtBottom && !isAutoScrollEnabled) {
+      setIsAutoScrollEnabled(true);
+    }
+  }, [isAutoScrollEnabled]);
+
+  useEffect(() => {
+    if (!isAutoScrollEnabled) return;
+    const el = transcriptScrollRef.current;
+    if (el) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [liveTranscript, result?.transcript, isAutoScrollEnabled]);
 
   const handleCopy = (text: string, section: string) => {
     navigator.clipboard.writeText(text);
@@ -4628,6 +4703,88 @@ export const AiAudioTranscriber: React.FC = () => {
           )}
         </div>
 
+        {/* Real-time Live Transcription Stream with Auto-Scroll */}
+        {isProcessing && (
+          <div className="bg-slate-900/90 border border-indigo-500/40 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500" />
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold text-white">
+                    Transcribing Speech in Real-Time
+                  </h3>
+                  <p className="text-xs text-indigo-300">
+                    {processingStatus}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAutoScrollEnabled((prev) => {
+                      const next = !prev;
+                      if (next && transcriptScrollRef.current) {
+                        transcriptScrollRef.current.scrollTo({
+                          top: transcriptScrollRef.current.scrollHeight,
+                          behavior: 'smooth',
+                        });
+                      }
+                      return next;
+                    });
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                    isAutoScrollEnabled
+                      ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30'
+                      : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                  }`}
+                >
+                  <ChevronsDown className={`w-3.5 h-3.5 ${isAutoScrollEnabled ? 'text-indigo-400' : 'text-slate-500'}`} />
+                  {isAutoScrollEnabled ? 'Auto-Scroll ON' : 'Auto-Scroll OFF'}
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Live Text Display */}
+            <div className="relative">
+              <div
+                ref={transcriptScrollRef}
+                onScroll={handleTranscriptScroll}
+                className="max-h-72 sm:max-h-88 overflow-y-auto pr-3 text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-wrap font-sans scroll-smooth rounded-lg bg-slate-950/80 p-4 border border-slate-800/80"
+              >
+                {liveTranscript ? (
+                  <>
+                    {liveTranscript}
+                    <span className="inline-block w-2 h-4 ml-1 bg-indigo-400 animate-pulse align-middle" />
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-slate-500 italic py-6 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                    <span>Analyzing audio frames and transcribing speech in real-time...</span>
+                  </div>
+                )}
+                <div ref={transcriptBottomRef} className="h-0" />
+              </div>
+
+              {/* Floating Jump to Latest Button */}
+              {isUserScrolledUp && liveTranscript && (
+                <button
+                  type="button"
+                  onClick={scrollToBottom}
+                  className="absolute bottom-3 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-900/60 transition-all cursor-pointer border border-indigo-400/40"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" />
+                  Jump to latest lines
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Results Section */}
         {result && (
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
@@ -4799,7 +4956,30 @@ export const AiAudioTranscriber: React.FC = () => {
                     <AlignLeft className="w-4 h-4 text-indigo-400" />
                     Verbatim Transcript
                   </h3>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAutoScrollEnabled((prev) => {
+                          const next = !prev;
+                          if (next && transcriptScrollRef.current) {
+                            transcriptScrollRef.current.scrollTo({
+                              top: transcriptScrollRef.current.scrollHeight,
+                              behavior: 'smooth',
+                            });
+                          }
+                          return next;
+                        });
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                        isAutoScrollEnabled
+                          ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/25'
+                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                      }`}
+                    >
+                      <ChevronsDown className={`w-3.5 h-3.5 ${isAutoScrollEnabled ? 'text-indigo-400' : 'text-slate-500'}`} />
+                      {isAutoScrollEnabled ? 'Auto-Scroll ON' : 'Auto-Scroll OFF'}
+                    </button>
                     <button
                       type="button"
                       onClick={handleSaveTranscript}
@@ -4827,8 +5007,27 @@ export const AiAudioTranscriber: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <div className="max-h-96 overflow-y-auto pr-2 text-slate-300 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
-                  {result.transcript}
+
+                <div className="relative">
+                  <div
+                    ref={transcriptScrollRef}
+                    onScroll={handleTranscriptScroll}
+                    className="max-h-96 overflow-y-auto pr-2 text-slate-300 text-sm sm:text-base leading-relaxed whitespace-pre-wrap scroll-smooth"
+                  >
+                    {result.transcript}
+                    <div ref={transcriptBottomRef} className="h-0" />
+                  </div>
+
+                  {isUserScrolledUp && (
+                    <button
+                      type="button"
+                      onClick={scrollToBottom}
+                      className="absolute bottom-3 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-900/60 transition-all cursor-pointer border border-indigo-400/40"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                      Jump to latest lines
+                    </button>
+                  )}
                 </div>
               </div>
             )}
