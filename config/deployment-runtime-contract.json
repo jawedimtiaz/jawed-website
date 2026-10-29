@@ -76,5 +76,5 @@
     "/ai / 200",
     "/ai/* / 200"
   ],
-  "ai_runtime": "client-side-knowledge-search-with-cloudflare-pages-audio-transcription"
+  "ai_runtime": "client-side-knowledge-search"
 }
