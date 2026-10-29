@@ -57,6 +57,6 @@ The same request ID is returned in the `x-request-id` response header.
 Workers AI errors are normalized so provider-specific error details are not exposed to visitors.
 
 
-## Audio transcription endpoint
+## Audio transcription (local-first)
 
-The audio transcriber uses the separate Cloudflare Pages Function `POST /api/transcribe` and the Workers AI binding `AI`, with the fixed model `@cf/openai/whisper`. No provider API key is sent to the browser. This transcription model is priced at **$0.000453 per audio minute** according to Cloudflare's published model pricing; verify current account pricing and billing settings before enabling production traffic. Requests fail closed with a JSON error if the `AI` binding is missing. The endpoint validates payload size, MIME type, and audio data, and returns a request ID for diagnostics.
+The audio transcriber uses Transformers.js with the open-source `onnx-community/whisper-tiny` model in the visitor’s browser. Audio is decoded and transcribed locally; the site does not send audio to a transcription API, and no Workers AI binding or paid transcription key is required. The JavaScript module is loaded from `https://esm.sh`, and model files are downloaded from Hugging Face on first use and may be cached by the browser. Processing speed and memory use depend on the visitor’s device. The tool provides transcript text and simple formatting; it does not run a separate generative model to summarize or follow custom instructions.
