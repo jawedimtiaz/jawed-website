@@ -90,15 +90,36 @@ export const AiAudioTranscriber: React.FC = () => {
     mediaRecorder.ondataavailable = (event) => {
       if (event.data && event.data.size > 0) {
         audioChunksRef.current.push(event.data);
+        console.debug("[Audio Transcriber] Captured audio chunk", {
+          chunkBytes: event.data.size,
+          totalChunks: audioChunksRef.current.length,
+          totalBytes: audioChunksRef.current.reduce((total, chunk) => total + chunk.size, 0),
+          mimeType: event.data.type || mediaRecorder.mimeType || actualMimeType,
+        });
       }
+    };
+
+    mediaRecorder.onerror = (event: Event) => {
+      console.error("[Audio Transcriber] MediaRecorder error", event);
+      setErrorMsg("The browser encountered an error while recording. Please try again or upload an audio file.");
+      setIsRecording(false);
     };
 
     mediaRecorder.onstop = () => {
       // MediaRecorder dispatches the final dataavailable event before onstop.
       // Use its actual MIME type, not only the requested preference.
       const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || actualMimeType });
-      if (blob.size === 0) {
-        setErrorMsg('The browser finished recording but returned no audio data. Please try recording again, or upload an audio file.');
+      if (blob.size < 128) {
+        console.error("[Audio Transcriber] Recording produced no usable audio", {
+          blobBytes: blob.size,
+          chunkCount: audioChunksRef.current.length,
+          chunkBytes: audioChunksRef.current.map((chunk) => chunk.size),
+          requestedMimeType: actualMimeType,
+          actualMimeType: mediaRecorder.mimeType,
+        });
+        setAudioBlob(null);
+        setAudioUrl(null);
+        setErrorMsg('The browser returned an empty or incomplete recording. Please record for at least 2 seconds and try again, or upload an audio file.');
         if (activeStreamRef.current) {
           activeStreamRef.current.getTracks().forEach((track) => track.stop());
           activeStreamRef.current = null;
@@ -228,9 +249,20 @@ export const AiAudioTranscriber: React.FC = () => {
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       try {
-        mediaRecorderRef.current.stop();
+        const recorder = mediaRecorderRef.current;
+        // Ask the browser to flush the last encoded chunk before stop(). This
+        // is important for short recordings and browsers with delayed encoders.
+        if (recorder.state === 'recording') {
+          try {
+            recorder.requestData();
+          } catch (requestDataError) {
+            console.warn('[Audio Transcriber] requestData() could not flush a chunk:', requestDataError);
+          }
+          recorder.stop();
+        }
       } catch (e) {
         console.warn('Error stopping media recorder:', e);
+        setErrorMsg('The recording could not be finalized. Please try recording again.');
       }
       setIsRecording(false);
     }
@@ -306,23 +338,41 @@ export const AiAudioTranscriber: React.FC = () => {
     try {
       const base64Audio = await convertBlobToBase64(audioBlob);
 
+      if (audioBlob.size < 128) {
+        throw new Error('This recording contains no usable audio data. Please record again or upload an audio file.');
+      }
+
       const response = await fetch('/api/transcribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({
           audio: base64Audio,
-          mimeType: audioMimeType,
+          mimeType: audioMimeType || audioBlob.type || 'audio/webm',
           contextMode,
           prompt: contextMode === 'custom' ? customPrompt : undefined,
         }),
       });
 
-      const data = await response.json();
+      // Read the body as text first so a proxy/404/empty server response does
+      // not hide the actual HTTP status behind "Unexpected end of JSON input".
+      const responseText = await response.text();
+      let data: any = null;
+      if (responseText.trim()) {
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          throw new Error(`Transcription service returned a non-JSON response (HTTP ${response.status}). Please retry shortly.`);
+        }
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to process audio transcription.');
+        throw new Error(data?.error || data?.message || `Transcription failed (HTTP ${response.status}).`);
+      }
+      if (!data || typeof data.transcript !== 'string' || !data.transcript.trim()) {
+        throw new Error('Transcription service returned no transcript. Please try a longer recording or upload an audio file.');
       }
 
       setTranscriptResult(data.transcript);
