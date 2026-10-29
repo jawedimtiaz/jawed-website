@@ -31,6 +31,9 @@ import {
   RotateCcw,
   Info,
   Lock,
+  Sliders,
+  Activity,
+  MicOff,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
@@ -51,6 +54,30 @@ import {
   extractAudioElementDiagnostics,
   SafeObjectUrlManager,
 } from '../hooks/useAudioRecorder';
+
+export type RecordingPresetId = 'high-fidelity' | 'voice-optimized';
+
+export interface RecordingPresetConfig {
+  id: RecordingPresetId;
+  label: string;
+  sampleRate: number;
+  description: string;
+}
+
+export const RECORDING_PRESETS: RecordingPresetConfig[] = [
+  {
+    id: 'high-fidelity',
+    label: 'High Fidelity (44.1kHz)',
+    sampleRate: 44100,
+    description: 'Studio-grade audio bandwidth (44,100 Hz), ideal for nuanced speech, music, and archival quality.',
+  },
+  {
+    id: 'voice-optimized',
+    label: 'Voice Optimized (16kHz)',
+    sampleRate: 16000,
+    description: 'Speech-focused bandwidth (16,000 Hz) matching Whisper AI input natively with smaller memory footprint.',
+  },
+];
 
 const cachedWhisperPipelines = new Map<string, any>();
 
@@ -339,6 +366,12 @@ export const AiAudioTranscriber: React.FC = () => {
   const [playbackCurrentTime, setPlaybackCurrentTime] = useState<number>(0);
   const [playbackDuration, setPlaybackDuration] = useState<number>(0);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
+  const [recordingPreset, setRecordingPreset] = useState<RecordingPresetId>('high-fidelity');
+  const [isMonitoring, setIsMonitoring] = useState(false);
+  const [meterPeakDb, setMeterPeakDb] = useState<number>(-60);
+  const [meterSignalStatus, setMeterSignalStatus] = useState<
+    'idle' | 'low' | 'optimal' | 'loud' | 'clipping'
+  >('idle');
 
   // Multilingual & Model State
   const [selectedLanguage, setSelectedLanguage] = useState<string>('auto');
@@ -395,6 +428,10 @@ export const AiAudioTranscriber: React.FC = () => {
   const rollingPeakHistoryRef = useRef<number[]>([]);
   const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const waveformRafRef = useRef<number | null>(null);
+  const peakMeterCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isMonitoringRef = useRef<boolean>(false);
+  const peakHoldHistoryRef = useRef<number[]>([]);
+  const masterPeakHoldRef = useRef<{ value: number; timestamp: number }>({ value: 0, timestamp: 0 });
   const sampleRateRef = useRef<number>(44100);
   const recordingStartTimestampRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
@@ -858,6 +895,8 @@ export const AiAudioTranscriber: React.FC = () => {
     isPausedRef.current = false;
     setIsPaused(false);
     setMediaRecorderState('inactive');
+    isMonitoringRef.current = false;
+    setIsMonitoring(false);
 
     const hasActiveGraph = Boolean(
       processorRef.current ||
@@ -1550,6 +1589,304 @@ export const AiAudioTranscriber: React.FC = () => {
     };
   }, [isRecording, isPaused, audioUrl, recordingTime, wavValidation]);
 
+  const startMonitoring = useCallback(async () => {
+    if (isRecording || isMonitoring) return;
+    clearError();
+    addLog('info', 'Starting microphone level monitoring (test signal before recording)...');
+
+    if (!window.isSecureContext) {
+      reportError('mic', 'Microphone monitoring requires a secure HTTPS connection or localhost.');
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      reportError('mic', 'Your browser does not expose navigator.mediaDevices.getUserMedia.');
+      return;
+    }
+
+    try {
+      const targetPreset =
+        RECORDING_PRESETS.find((p) => p.id === recordingPreset) || RECORDING_PRESETS[0];
+      const targetSampleRate = targetPreset.sampleRate;
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            sampleRate: { ideal: targetSampleRate },
+            channelCount: { ideal: 1 },
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+
+      await stopRecordingGraph();
+
+      activeStreamRef.current = stream;
+      const AudioContextCtor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      let context: AudioContext;
+      try {
+        context = new AudioContextCtor({ sampleRate: targetSampleRate });
+      } catch {
+        context = new AudioContextCtor();
+      }
+      audioContextRef.current = context;
+
+      if (context.state === 'suspended') {
+        await context.resume();
+      }
+
+      const source = context.createMediaStreamSource(stream);
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.65;
+
+      const silentGain = context.createGain();
+      silentGain.gain.value = 0; // Prevent acoustic feedback through speakers
+
+      source.connect(analyser);
+      analyser.connect(silentGain);
+      silentGain.connect(context.destination);
+
+      sourceNodeRef.current = source;
+      analyserRef.current = analyser;
+      silentGainRef.current = silentGain;
+      sampleRateRef.current = Math.round(Number(context.sampleRate || targetSampleRate));
+
+      isMonitoringRef.current = true;
+      setIsMonitoring(true);
+      addLog('info', 'Microphone level monitoring is active. AnalyserNode frequency data streaming.');
+    } catch (err: any) {
+      reportError('mic', `Microphone monitoring failed: ${err?.message || err}`);
+    }
+  }, [clearError, isMonitoring, isRecording, recordingPreset, reportError, stopRecordingGraph, addLog]);
+
+  const stopMonitoring = useCallback(async () => {
+    isMonitoringRef.current = false;
+    setIsMonitoring(false);
+    await stopRecordingGraph();
+    addLog('info', 'Microphone level monitoring stopped.');
+  }, [stopRecordingGraph, addLog]);
+
+  const toggleMonitoring = useCallback(async () => {
+    if (isMonitoring) {
+      await stopMonitoring();
+    } else {
+      await startMonitoring();
+    }
+  }, [isMonitoring, startMonitoring, stopMonitoring]);
+
+  /**
+   * Real-time Peak Audio Level Meter (Bar Graph)
+   * Samples the AnalyserNode's frequency data (getByteFrequencyData) to provide
+   * immediate visual feedback on input signal strength before (via monitoring)
+   * and during recording.
+   */
+  useEffect(() => {
+    const canvas = peakMeterCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const numBands = 28;
+    if (peakHoldHistoryRef.current.length !== numBands) {
+      peakHoldHistoryRef.current = new Array(numBands).fill(0);
+    }
+
+    let rafId: number;
+    let lastStateUpdateTime = 0;
+
+    const render = () => {
+      const width = canvas.width;
+      const height = canvas.height;
+      const analyser = analyserRef.current;
+      const isActive = (isRecording && !isPaused) || isMonitoring;
+
+      // Studio dark background
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(0, 0, width, height);
+
+      let currentPeakRatio = 0;
+      const bandValues: number[] = new Array(numBands).fill(0);
+
+      if (isActive && analyser) {
+        const binCount = analyser.frequencyBinCount;
+        const freqData = new Uint8Array(binCount);
+        analyser.getByteFrequencyData(freqData);
+
+        for (let b = 0; b < numBands; b += 1) {
+          // Logarithmic bin mapping concentrates resolution in vocal fundamentals (100Hz - 4kHz)
+          const startBin = Math.floor(Math.pow(b / numBands, 2.0) * (binCount * 0.8));
+          const endBin = Math.max(
+            startBin + 1,
+            Math.floor(Math.pow((b + 1) / numBands, 2.0) * (binCount * 0.8))
+          );
+          let sum = 0;
+          let count = 0;
+          for (let i = startBin; i < endBin && i < binCount; i += 1) {
+            sum += freqData[i];
+            count += 1;
+          }
+          const avg = count > 0 ? sum / count : 0;
+          const ratio = avg / 255;
+          bandValues[b] = ratio;
+          if (ratio > currentPeakRatio) {
+            currentPeakRatio = ratio;
+          }
+        }
+      }
+
+      // Master peak hold with decay
+      const now = Date.now();
+      if (currentPeakRatio >= masterPeakHoldRef.current.value) {
+        masterPeakHoldRef.current = { value: currentPeakRatio, timestamp: now };
+      } else if (now - masterPeakHoldRef.current.timestamp > 750) {
+        masterPeakHoldRef.current.value = Math.max(
+          0,
+          masterPeakHoldRef.current.value - 0.03
+        );
+      }
+
+      const masterPeak = masterPeakHoldRef.current.value;
+      const peakDb =
+        masterPeak > 1e-4 ? Math.max(-60, 20 * Math.log10(masterPeak)) : -60;
+
+      // Throttle React state updates so we don't cause React re-render thrashing at 60fps
+      if (now - lastStateUpdateTime > 120) {
+        lastStateUpdateTime = now;
+        setMeterPeakDb(Math.round(peakDb * 10) / 10);
+        if (!isActive) {
+          setMeterSignalStatus('idle');
+        } else if (masterPeak < 0.06) {
+          setMeterSignalStatus('low');
+        } else if (masterPeak <= 0.78) {
+          setMeterSignalStatus('optimal');
+        } else if (masterPeak <= 0.92) {
+          setMeterSignalStatus('loud');
+        } else {
+          setMeterSignalStatus('clipping');
+        }
+      }
+
+      // Meter Layout dimensions
+      const padX = 10;
+      const meterWidth = width - padX * 2;
+      const topBarY = 7;
+      const topBarHeight = 10;
+      const barsY = 22;
+      const barsHeight = height - barsY - 8;
+
+      // 1. Draw Master Peak Horizontal Level Bar
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.6)';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(padX, topBarY, meterWidth, topBarHeight, 3);
+      } else {
+        ctx.rect(padX, topBarY, meterWidth, topBarHeight);
+      }
+      ctx.fill();
+
+      // Master active fill
+      const activeBarWidth = Math.max(0, Math.min(meterWidth, meterWidth * currentPeakRatio));
+      if (activeBarWidth > 0) {
+        const gradient = ctx.createLinearGradient(padX, 0, padX + meterWidth, 0);
+        gradient.addColorStop(0, '#10b981'); // Safe / Green
+        gradient.addColorStop(0.68, '#34d399');
+        gradient.addColorStop(0.8, '#f59e0b'); // Warning / Amber
+        gradient.addColorStop(0.92, '#ef4444'); // Clipping / Red
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(padX, topBarY, activeBarWidth, topBarHeight, 3);
+        } else {
+          ctx.rect(padX, topBarY, activeBarWidth, topBarHeight);
+        }
+        ctx.fill();
+      }
+
+      // Master Peak Hold Indicator
+      if (masterPeak > 0.02) {
+        const holdX = padX + Math.min(meterWidth - 2, meterWidth * masterPeak);
+        ctx.fillStyle = masterPeak > 0.9 ? '#ef4444' : masterPeak > 0.75 ? '#f59e0b' : '#38bdf8';
+        ctx.fillRect(Math.max(padX, holdX - 1), topBarY - 1, 2.5, topBarHeight + 2);
+      }
+
+      // dBFS Scale tick markers along top bar
+      const dbTicks = [
+        { label: '-48', ratio: 0.15 },
+        { label: '-24', ratio: 0.42 },
+        { label: '-12', ratio: 0.68 },
+        { label: '-6', ratio: 0.84 },
+        { label: '0dB', ratio: 0.98 },
+      ];
+      ctx.font = '500 8px monospace';
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.65)';
+      ctx.textBaseline = 'top';
+      for (const tick of dbTicks) {
+        const tx = padX + meterWidth * tick.ratio;
+        ctx.fillRect(tx, topBarY + topBarHeight, 1, 2);
+      }
+
+      // 2. Draw Segmented Frequency Band Bars (Bar Graph)
+      const gap = 2.5;
+      const totalGaps = (numBands - 1) * gap;
+      const barWidth = Math.max(2, (meterWidth - totalGaps) / numBands);
+
+      for (let b = 0; b < numBands; b += 1) {
+        const bx = padX + b * (barWidth + gap);
+        const val = bandValues[b] || 0;
+
+        // Peak hold decay per band
+        const prevHold = peakHoldHistoryRef.current[b] || 0;
+        const currentHold = Math.max(val, prevHold - 0.025);
+        peakHoldHistoryRef.current[b] = currentHold;
+
+        // Background slot
+        ctx.fillStyle = 'rgba(30, 41, 59, 0.45)';
+        ctx.fillRect(bx, barsY, barWidth, barsHeight);
+
+        // Active frequency bar height
+        const barH = Math.max(0, Math.min(barsHeight, val * barsHeight));
+        if (barH > 0) {
+          const by = barsY + barsHeight - barH;
+          const ratio = barH / barsHeight;
+          ctx.fillStyle = ratio > 0.88 ? '#ef4444' : ratio > 0.68 ? '#f59e0b' : '#10b981';
+          ctx.fillRect(bx, by, barWidth, barH);
+        }
+
+        // Peak hold tick mark
+        const holdH = Math.min(barsHeight, currentHold * barsHeight);
+        if (holdH > 1.5) {
+          const holdY = barsY + barsHeight - holdH;
+          ctx.fillStyle = currentHold > 0.88 ? '#fca5a5' : currentHold > 0.68 ? '#fde68a' : '#a7f3d0';
+          ctx.fillRect(bx, Math.max(barsY, holdY - 1), barWidth, 1.5);
+        }
+      }
+
+      // 3. Status text watermark on meter when idle
+      if (!isActive) {
+        ctx.font = '600 11px system-ui, -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Input Meter Idle • Click "Test Mic Level" to check signal', width / 2, barsY + barsHeight / 2);
+        ctx.textAlign = 'start';
+      }
+
+      rafId = requestAnimationFrame(render);
+    };
+
+    rafId = requestAnimationFrame(render);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [isRecording, isPaused, isMonitoring]);
+
   /**
    * Verifies whether a single PCM Float32Array buffer or an array of PCM chunks
    * contains non-zero amplitude samples above the noise floor to diagnose silence.
@@ -1604,7 +1941,7 @@ export const AiAudioTranscriber: React.FC = () => {
     };
   };
 
-  const initPcmRecorder = async (stream: MediaStream) => {
+  const initPcmRecorder = async (stream: MediaStream, targetSampleRate = 44100) => {
     await stopRecordingGraph();
 
     activeStreamRef.current = stream;
@@ -1660,6 +1997,7 @@ export const AiAudioTranscriber: React.FC = () => {
       echoCancellation: trackSettings.echoCancellation,
       noiseSuppression: trackSettings.noiseSuppression,
       autoGainControl: trackSettings.autoGainControl,
+      targetPresetSampleRate: targetSampleRate,
     };
 
     console.log(
@@ -1668,14 +2006,19 @@ export const AiAudioTranscriber: React.FC = () => {
     );
     addLog(
       'info',
-      'Microphone stream acquired. Inspecting audio tracks & channel settings...',
+      `Microphone stream acquired for preset target ${targetSampleRate} Hz. Inspecting audio tracks & channel settings...`,
       streamTrackDiag
     );
 
     const AudioContextCtor =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const context = new AudioContextCtor();
+    let context: AudioContext;
+    try {
+      context = new AudioContextCtor({ sampleRate: targetSampleRate });
+    } catch {
+      context = new AudioContextCtor();
+    }
     audioContextRef.current = context;
 
     const initialContextState = context.state;
@@ -2103,13 +2446,32 @@ export const AiAudioTranscriber: React.FC = () => {
       }
     }
 
-    try {
-      addLog('info', 'Calling navigator.mediaDevices.getUserMedia({ audio: true })...');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
+    const targetPreset =
+      RECORDING_PRESETS.find((p) => p.id === recordingPreset) || RECORDING_PRESETS[0];
+    const targetSampleRate = targetPreset.sampleRate;
 
-      await initPcmRecorder(stream);
+    try {
+      addLog(
+        'info',
+        `Calling navigator.mediaDevices.getUserMedia for preset "${targetPreset.label}" (${targetSampleRate} Hz)...`
+      );
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            sampleRate: { ideal: targetSampleRate },
+            channelCount: { ideal: 1 },
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+      }
+
+      await initPcmRecorder(stream, targetSampleRate);
 
       const activeCtx = audioContextRef.current;
       const activeChannelCount =
@@ -2717,13 +3079,35 @@ export const AiAudioTranscriber: React.FC = () => {
     }
 
     try {
-      const targetWavSampleRate = Math.max(8000, Math.min(96000, Math.round(sampleRateRef.current || 44100)));
+      const targetPreset =
+        RECORDING_PRESETS.find((p) => p.id === recordingPreset) || RECORDING_PRESETS[0];
+      const targetWavSampleRate = targetPreset.sampleRate;
+
+      // Resample chunks if the actual AudioContext sample rate doesn't match the target preset
+      let activePcmChunks = chunks;
+      let activeTotalSamples = stats.totalSamples;
+      if (sampleRateRef.current > 0 && Math.abs(sampleRateRef.current - targetWavSampleRate) > 50) {
+        const mergedBuffer = new Float32Array(stats.totalSamples);
+        let sampleOffset = 0;
+        for (const chunk of chunks) {
+          mergedBuffer.set(chunk, sampleOffset);
+          sampleOffset += chunk.length;
+        }
+        const resampledChunk = resampleMonoAudio(mergedBuffer, sampleRateRef.current, targetWavSampleRate);
+        activePcmChunks = [resampledChunk];
+        activeTotalSamples = resampledChunk.length;
+        addLog(
+          'info',
+          `Resampled PCM buffer from ${sampleRateRef.current} Hz to preset target ${targetWavSampleRate} Hz (${targetPreset.label}).`
+        );
+      }
+
       const wavNumChannels = 1;
       const wavBitsPerSample = 16;
       const wavBytesPerSample = wavBitsPerSample / 8;
       const wavBlockAlign = wavNumChannels * wavBytesPerSample;
       const wavByteRate = targetWavSampleRate * wavBlockAlign;
-      const wavDataByteLength = stats.totalSamples * wavBytesPerSample;
+      const wavDataByteLength = activeTotalSamples * wavBytesPerSample;
       const wavTotalByteLength = 44 + wavDataByteLength;
       const wavRiffChunkSize = 36 + wavDataByteLength;
       const wavCalculatedDurationSec = wavByteRate > 0 ? wavDataByteLength / wavByteRate : 0;
@@ -2734,6 +3118,7 @@ export const AiAudioTranscriber: React.FC = () => {
         actualSampleRate: actualContextSampleRate,
         audioContextSampleRate: sampleRateRef.current,
         targetWavSampleRate,
+        recordingPreset: targetPreset.label,
         inputChannelCount: actualChannelCount,
         trackChannelCount: preStopAudioContextSnapshot.trackChannelCount,
         sourceChannelCount: preStopAudioContextSnapshot.sourceChannelCount,
@@ -2743,9 +3128,9 @@ export const AiAudioTranscriber: React.FC = () => {
         bytesPerSample: wavBytesPerSample,
         blockAlign: wavBlockAlign,
         byteRate: wavByteRate,
-        chunkCount: stats.chunkCount,
-        totalPcmSamples: stats.totalSamples,
-        rawFloat32ByteLength: rawFloat32BufferBytes,
+        chunkCount: activePcmChunks.length,
+        totalPcmSamples: activeTotalSamples,
+        rawFloat32ByteLength: activeTotalSamples * 4,
         pcm16DataByteLength: wavDataByteLength,
         wavHeaderByteLength: 44,
         riffChunkSizeField: wavRiffChunkSize,
@@ -2775,12 +3160,13 @@ export const AiAudioTranscriber: React.FC = () => {
       addLog('info', 'WAV Header Generation Step 1 — Calculated PCM & RIFF/WAVE layout parameters:', {
         audioContextSampleRate: sampleRateRef.current,
         targetWavSampleRate,
+        recordingPreset: targetPreset.label,
         numChannels: wavNumChannels,
         bitsPerSample: wavBitsPerSample,
         bytesPerSample: wavBytesPerSample,
         blockAlign: wavBlockAlign,
         byteRate: wavByteRate,
-        totalPcmSamples: stats.totalSamples,
+        totalPcmSamples: activeTotalSamples,
         dataByteLength: wavDataByteLength,
         riffChunkSizeField: wavRiffChunkSize,
         totalWavByteLength: wavTotalByteLength,
@@ -2805,7 +3191,7 @@ export const AiAudioTranscriber: React.FC = () => {
       });
 
       const { blob, clampedSampleCount } = generateWavBlobWithDiagnostics(
-        chunks,
+        activePcmChunks,
         targetWavSampleRate,
         {
           liveAudioContextState: preStopAudioContextSnapshot.audioContextStateBeforeStop,
@@ -2827,7 +3213,7 @@ export const AiAudioTranscriber: React.FC = () => {
 
       const { buffer, validation } = await verifyMono16BitPcmWavBlob(
         blob,
-        stats.totalSamples,
+        activeTotalSamples,
         targetWavSampleRate
       );
       setWavValidation(validation);
@@ -4128,6 +4514,18 @@ export const AiAudioTranscriber: React.FC = () => {
                   {wavValidation?.hasNonZeroAudio ? 'Non-Zero Signal' : 'Silent / Standby'}
                 </div>
               </div>
+              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>Recording Preset</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--accent)' }}>
+                  {recordingPreset === 'high-fidelity' ? 'High Fidelity (44.1kHz)' : 'Voice Optimized (16kHz)'}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>Input Peak Level</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: meterPeakDb > -12 ? 'var(--amber)' : meterPeakDb > -40 ? 'var(--emerald)' : 'var(--muted)' }}>
+                  {meterPeakDb <= -60 ? '-Inf dBFS (Idle)' : `${meterPeakDb} dBFS (${meterSignalStatus.toUpperCase()})`}
+                </div>
+              </div>
             </div>
 
             <div
@@ -4433,6 +4831,229 @@ export const AiAudioTranscriber: React.FC = () => {
                       : `Elapsed: ${formatDurationDisplay(recordingTime)} • Peak: ${Math.min(100, Math.round(inputLevelPeak * 140))}%`
                     : 'Captures clean 16-bit mono PCM audio directly into memory'}
                 </p>
+              </div>
+
+              {/* Recording Presets Dropdown */}
+              <div style={{ width: '100%', textAlign: 'left' }}>
+                <label
+                  htmlFor="recording-presets-select"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '6px',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    color: 'var(--text)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Sliders size={14} color="var(--accent)" aria-hidden="true" />
+                    Recording Presets
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      background: 'var(--surface-accent)',
+                      color: 'var(--accent)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {recordingPreset === 'high-fidelity' ? '44.1 kHz' : '16.0 kHz'}
+                  </span>
+                </label>
+                <select
+                  id="recording-presets-select"
+                  name="recordingPresets"
+                  aria-label="Recording Presets"
+                  value={recordingPreset}
+                  onChange={(e) => {
+                    const nextPreset = e.target.value as RecordingPresetId;
+                    setRecordingPreset(nextPreset);
+                    addLog(
+                      'info',
+                      `Switched recording preset to: ${
+                        nextPreset === 'high-fidelity'
+                          ? 'High Fidelity (44.1kHz)'
+                          : 'Voice Optimized (16kHz)'
+                      }`
+                    );
+                  }}
+                  disabled={isRecording || isProcessing}
+                  style={{
+                    width: '100%',
+                    background: 'var(--card)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '9px 12px',
+                    color: 'var(--text)',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    cursor: isRecording || isProcessing ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <option value="high-fidelity">High Fidelity (44.1kHz)</option>
+                  <option value="voice-optimized">Voice Optimized (16kHz)</option>
+                </select>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    color: 'var(--muted)',
+                    marginTop: '5px',
+                    display: 'block',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {recordingPreset === 'high-fidelity'
+                    ? 'High Fidelity: 44.1kHz studio bandwidth for full-spectrum speech & audio.'
+                    : 'Voice Optimized: 16kHz bandwidth matching Whisper AI input natively.'}
+                </span>
+              </div>
+
+              {/* Real-Time Peak Audio Level Meter (Bar Graph) */}
+              <div
+                style={{
+                  width: '100%',
+                  background: 'var(--card)',
+                  border: isMonitoring
+                    ? '1px solid rgba(56, 189, 248, 0.5)'
+                    : isRecording
+                    ? isPaused
+                      ? '1px solid rgba(245, 158, 11, 0.5)'
+                      : '1px solid rgba(239, 68, 68, 0.5)'
+                    : '1px solid var(--line)',
+                  borderRadius: '12px',
+                  padding: '12px 14px',
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.06)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Activity size={14} color="var(--accent)" aria-hidden="true" />
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Peak Audio Level Meter
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        letterSpacing: '0.04em',
+                        background:
+                          meterSignalStatus === 'clipping'
+                            ? 'rgba(239, 68, 68, 0.2)'
+                            : meterSignalStatus === 'loud'
+                            ? 'rgba(245, 158, 11, 0.2)'
+                            : meterSignalStatus === 'optimal'
+                            ? 'rgba(16, 185, 129, 0.2)'
+                            : 'rgba(148, 163, 184, 0.15)',
+                        color:
+                          meterSignalStatus === 'clipping'
+                            ? 'var(--rose)'
+                            : meterSignalStatus === 'loud'
+                            ? 'var(--amber)'
+                            : meterSignalStatus === 'optimal'
+                            ? 'var(--emerald)'
+                            : 'var(--muted)',
+                      }}
+                    >
+                      {isRecording
+                        ? isPaused
+                          ? 'Paused'
+                          : meterSignalStatus === 'clipping'
+                          ? 'Clipping'
+                          : meterSignalStatus === 'loud'
+                          ? 'Hot Signal'
+                          : meterSignalStatus === 'optimal'
+                          ? 'Optimal Signal'
+                          : 'Recording'
+                        : isMonitoring
+                        ? meterSignalStatus === 'optimal'
+                          ? 'Live Mic (Good)'
+                          : meterSignalStatus === 'low'
+                          ? 'Live Mic (Low)'
+                          : 'Monitoring Live'
+                        : 'Standby'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span
+                      style={{
+                        fontFamily: 'monospace',
+                        fontVariantNumeric: 'tabular-nums',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        color:
+                          meterPeakDb > -3
+                            ? 'var(--rose)'
+                            : meterPeakDb > -12
+                            ? 'var(--amber)'
+                            : meterPeakDb > -40
+                            ? 'var(--emerald)'
+                            : 'var(--muted)',
+                      }}
+                    >
+                      {meterPeakDb <= -60 ? '-Inf dBFS' : `${meterPeakDb} dBFS`}
+                    </span>
+
+                    {!isRecording && (
+                      <button
+                        type="button"
+                        onClick={() => void toggleMonitoring()}
+                        disabled={isProcessing}
+                        style={{
+                          background: isMonitoring ? 'rgba(56, 189, 248, 0.15)' : 'var(--bg)',
+                          border: isMonitoring ? '1px solid var(--accent)' : '1px solid var(--line)',
+                          borderRadius: '6px',
+                          padding: '3px 8px',
+                          fontSize: '0.74rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          color: isMonitoring ? 'var(--accent)' : 'var(--text)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          transition: 'all 0.15s ease',
+                        }}
+                        title={isMonitoring ? 'Stop testing microphone' : 'Test microphone signal strength before recording'}
+                      >
+                        {isMonitoring ? <MicOff size={11} /> : <Activity size={11} />}
+                        {isMonitoring ? 'Stop Test' : 'Test Mic Level'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Level Meter Canvas (Bar Graph + Master Peak Bar) */}
+                <canvas
+                  ref={peakMeterCanvasRef}
+                  width={520}
+                  height={80}
+                  aria-label="Real-time peak audio level meter and frequency bar graph"
+                  style={{
+                    width: '100%',
+                    height: '70px',
+                    display: 'block',
+                    borderRadius: '6px',
+                    background: '#020617',
+                    border: '1px solid var(--line)',
+                  }}
+                />
               </div>
 
               {/* Accessible Real-Time Recording Timer */}
@@ -4753,7 +5374,7 @@ export const AiAudioTranscriber: React.FC = () => {
                       )}
                       {wavValidation?.valid && (
                         <span style={{ fontSize: '0.74rem', color: 'var(--emerald)' }}>
-                          · {wavValidation.sampleRate} Hz · {wavValidation.numChannels}ch PCM WAV
+                          · {wavValidation.sampleRate} Hz ({wavValidation.sampleRate === 16000 ? 'Voice Optimized' : wavValidation.sampleRate === 44100 ? 'High Fidelity' : 'Custom'}) · {wavValidation.numChannels}ch PCM WAV
                         </span>
                       )}
                     </div>
@@ -5626,6 +6247,10 @@ export const AiAudioTranscriber: React.FC = () => {
               {
                 q: 'What should I do if the microphone permission is blocked or shows 0:00 duration?',
                 a: 'Ensure you click "Allow" on the browser microphone permission prompt. If you already clicked allow but audio is silent, check your operating system settings (System Settings → Privacy & Security → Microphone) and ensure your browser has access.',
+              },
+              {
+                q: 'What is the difference between "High Fidelity (44.1kHz)" and "Voice Optimized (16kHz)" presets?',
+                a: '"Voice Optimized (16kHz)" samples audio directly at 16,000 Hz, matching OpenAI Whisper\'s native input format for minimal memory overhead and fast transcription. "High Fidelity (44.1kHz)" captures studio-grade acoustic bandwidth, perfect for archiving high-fidelity voice notes or presentations.',
               },
               {
                 q: 'Does the AI model need to download again every time I open this page?',
