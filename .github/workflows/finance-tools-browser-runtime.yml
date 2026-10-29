@@ -48,6 +48,8 @@ jobs:
       - name: Install dependencies without generating a lockfile
         run: npm install --no-package-lock --ignore-scripts
       - name: Build the current Vite application
+        env:
+          BROWSER_RUNTIME_TEST: 'true'
         run: npm run build
       - name: Verify browser tooling
         run: |
