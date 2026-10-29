@@ -56,6 +56,8 @@ jobs:
           google-chrome --version
           chromedriver --version
       - name: Start Vite preview server
+        env:
+          BROWSER_RUNTIME_TEST: 'true'
         run: |
           npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/interactive-tools-preview.log 2>&1 &
           echo $! > /tmp/interactive-tools-preview.pid
