@@ -23,6 +23,7 @@ import {
   Cpu,
   Play,
   Pause,
+  Timer,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -80,6 +81,27 @@ const formatRecordingTimerOverlay = (seconds: number | null | undefined): string
   const secs = Math.floor(clamped % 60);
   const tenths = Math.floor((clamped - Math.floor(clamped)) * 10);
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${tenths}`;
+};
+
+const formatTimerDisplay = (
+  ms: number | null | undefined
+): { formatted: string; minutes: string; seconds: string; tenths: string } => {
+  if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) {
+    return { formatted: '00:00.0', minutes: '00', seconds: '00', tenths: '0' };
+  }
+  const clampedMs = Math.max(0, ms);
+  const totalSeconds = Math.floor(clampedMs / 1000);
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  const tenths = Math.floor((clampedMs % 1000) / 100);
+  const mm = mins.toString().padStart(2, '0');
+  const ss = secs.toString().padStart(2, '0');
+  return {
+    formatted: `${mm}:${ss}.${tenths}`,
+    minutes: mm,
+    seconds: ss,
+    tenths: String(tenths),
+  };
 };
 
 const summarizeTranscript = (text: string): { summary: string; actionItems: string[] } => {
@@ -283,6 +305,7 @@ export const AiAudioTranscriber: React.FC = () => {
   >('inactive');
   const [isRequestingMic, setIsRequestingMic] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingElapsedMs, setRecordingElapsedMs] = useState<number>(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioFileName, setAudioFileName] = useState<string>('');
@@ -1172,9 +1195,10 @@ export const AiAudioTranscriber: React.FC = () => {
         const activeSegmentMs =
           recordingStartTimestampRef.current > 0
             ? Math.max(0, Date.now() - recordingStartTimestampRef.current)
-            : fallbackTicks * 250;
+            : fallbackTicks * 100;
         const elapsedMs = accumulatedRecordingMsRef.current + activeSegmentMs;
         const elapsed = Math.floor(elapsedMs / 1000);
+        setRecordingElapsedMs(elapsedMs);
         setRecordingTime(elapsed);
 
         if (elapsed > 0 && elapsed !== lastLoggedSecond) {
@@ -1245,7 +1269,7 @@ export const AiAudioTranscriber: React.FC = () => {
             );
           }
         }
-      }, 250);
+      }, 100);
     } else if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -1976,6 +2000,7 @@ export const AiAudioTranscriber: React.FC = () => {
     setAudioMimeType('audio/wav');
     setIsRecording(true);
     setRecordingTime(0);
+    setRecordingElapsedMs(0);
 
     console.log('[AiAudioTranscriber] Capture started — AudioContext state, sampleRate & channelCount:', {
       state: context.state,
@@ -2021,6 +2046,8 @@ export const AiAudioTranscriber: React.FC = () => {
     setResult(null);
     setWavValidation(null);
     setAudioElementDiag(null);
+    setRecordingTime(0);
+    setRecordingElapsedMs(0);
     setIsRequestingMic(true);
     await stopWebAudioFallbackPlayback();
     resetAudioSource('starting new microphone recording');
@@ -2470,6 +2497,8 @@ export const AiAudioTranscriber: React.FC = () => {
       isPausedRef.current = true;
       setIsPaused(true);
       setInputLevelPeak(0);
+      setRecordingElapsedMs(accumulatedRecordingMsRef.current);
+      setRecordingTime(Math.floor(accumulatedRecordingMsRef.current / 1000));
 
       if (mr && mr.state === 'recording') {
         try {
@@ -2953,6 +2982,7 @@ export const AiAudioTranscriber: React.FC = () => {
       }
 
       setRecordingTime(Math.max(1, Math.round(validation.durationSeconds)));
+      setRecordingElapsedMs(Math.round(validation.durationSeconds * 1000));
 
       const completionDiag = {
         audioContextStateAtCapture: preStopAudioContextSnapshot.audioContextStateBeforeStop,
@@ -3042,6 +3072,7 @@ export const AiAudioTranscriber: React.FC = () => {
     latestWaveformChunkRef.current = null;
     rollingPeakHistoryRef.current = [];
     setRecordingTime(0);
+    setRecordingElapsedMs(0);
 
     let uploadedWavValidation: WavValidationResult | null = null;
     if (file.type.includes('wav') || /\.wav$/i.test(file.name)) {
@@ -3120,6 +3151,7 @@ export const AiAudioTranscriber: React.FC = () => {
     setResult(null);
     clearError();
     setRecordingTime(0);
+    setRecordingElapsedMs(0);
     setPlaybackCurrentTime(0);
     setPlaybackDuration(0);
     if (fileInputRef.current) {
@@ -3772,6 +3804,16 @@ export const AiAudioTranscriber: React.FC = () => {
     audioElementDiag?.duration ??
     (recordingTime > 0 ? recordingTime : null);
 
+  const activeRecordingTimerMs = isRecording
+    ? recordingElapsedMs
+    : recordingTime > 0
+    ? recordingTime * 1000
+    : wavValidation?.durationSeconds && wavValidation.durationSeconds > 0
+    ? Math.round(wavValidation.durationSeconds * 1000)
+    : 0;
+
+  const recordingTimerDisplay = formatTimerDisplay(activeRecordingTimerMs);
+
   const scrubberMaxDuration =
     playbackDuration > 0
       ? playbackDuration
@@ -4091,6 +4133,85 @@ export const AiAudioTranscriber: React.FC = () => {
                           Math.round(inputLevelPeak * 140)
                         )}%`
                     : 'Use your microphone to record mono 16-bit PCM WAV directly in the browser'}
+                </p>
+              </div>
+
+              {/* Accessible Real-Time Recording Timer Display */}
+              <div
+                role="timer"
+                aria-live="polite"
+                aria-atomic="true"
+                aria-label={
+                  isRecording
+                    ? isPaused
+                      ? `Recording paused at ${recordingTimerDisplay.minutes} minutes and ${recordingTimerDisplay.seconds} seconds`
+                      : `Live recording in progress: ${recordingTimerDisplay.minutes} minutes and ${recordingTimerDisplay.seconds} seconds`
+                    : recordingTime > 0 && audioBlob
+                    ? `Recording captured duration: ${recordingTimerDisplay.minutes} minutes and ${recordingTimerDisplay.seconds} seconds`
+                    : 'Recording timer ready'
+                }
+                className={`w-full max-w-sm flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-xl border transition-all ${
+                  isRecording
+                    ? isPaused
+                      ? 'bg-amber-950/25 border-amber-500/40 shadow-lg shadow-amber-950/30'
+                      : 'bg-red-950/25 border-red-500/40 shadow-lg shadow-red-950/30 animate-in fade-in duration-200'
+                    : recordingTime > 0 && audioBlob
+                    ? 'bg-slate-900/80 border-indigo-500/30 shadow-md'
+                    : 'bg-slate-950/80 border-slate-800/80'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-block w-2.5 h-2.5 rounded-full transition-colors ${
+                      isRecording
+                        ? isPaused
+                          ? 'bg-amber-400'
+                          : 'bg-red-500 animate-pulse'
+                        : recordingTime > 0 && audioBlob
+                        ? 'bg-emerald-400'
+                        : 'bg-slate-600'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span
+                    className={`text-[11px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 ${
+                      isRecording
+                        ? isPaused
+                          ? 'text-amber-300'
+                          : 'text-red-400'
+                        : recordingTime > 0 && audioBlob
+                        ? 'text-emerald-400'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    <Timer className="w-3.5 h-3.5" aria-hidden="true" />
+                    {isRecording
+                      ? isPaused
+                        ? 'Recording Paused'
+                        : 'Recording in Real Time'
+                      : recordingTime > 0 && audioBlob
+                      ? 'Recorded Audio Duration'
+                      : 'Timer Standby'}
+                  </span>
+                </div>
+
+                <div className="flex items-baseline justify-center font-mono tabular-nums mt-1">
+                  <span className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+                    {recordingTimerDisplay.minutes}:{recordingTimerDisplay.seconds}
+                  </span>
+                  <span className="text-base sm:text-lg font-semibold text-slate-400">
+                    .{recordingTimerDisplay.tenths}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                  {isRecording
+                    ? isPaused
+                      ? 'Timer paused • Audio buffer preserved • Click Resume to continue'
+                      : 'Timer counting up in real time • Persists until recording stops'
+                    : recordingTime > 0 && audioBlob
+                    ? 'Duration captured • Ready for playback & local transcription'
+                    : 'Click Record Voice to start recording timer'}
                 </p>
               </div>
 
