@@ -3333,3 +3333,131 @@ select:focus-visible {
   50% { box-shadow: 0 0 8px 1px rgba(244, 63, 94, 0.35); }
 }
 
+/* ==========================================================================
+   Global App-Wide Print Stylesheet (A4 / Letter Professional Printing)
+   ================================================================ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 20mm 15mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+    line-height: 1.5 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide navigation, headers, footers, floating widgets, and UI controls */
+  .site-header,
+  header,
+  .site-nav,
+  .menu-toggle,
+  .theme-toggle-btn,
+  .site-footer,
+  footer,
+  .jawed-ai-widget,
+  .ios-pwa-bottom-sheet,
+  .pwa-install-banner,
+  .modal-overlay,
+  button,
+  .actions,
+  .tool-nav,
+  .cookie-trigger-btn,
+  form,
+  input,
+  select,
+  textarea,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Format breadcrumbs clearly for print */
+  .breadcrumb-container,
+  nav[aria-label="Breadcrumb"] {
+    display: flex !important;
+    visibility: visible !important;
+    margin-bottom: 16pt !important;
+    padding: 6pt 0 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    font-size: 9pt !important;
+    color: #475569 !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  /* Format page body & main content */
+  .site-wrapper,
+  .page,
+  .container,
+  main {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: #0f172a !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  h1 { font-size: 18pt !important; margin-bottom: 8pt !important; }
+  h2 { font-size: 14pt !important; margin-top: 14pt !important; margin-bottom: 6pt !important; }
+  h3 { font-size: 12pt !important; margin-top: 10pt !important; margin-bottom: 4pt !important; }
+
+  p, li {
+    font-size: 10pt !important;
+    line-height: 1.5 !important;
+    color: #1e293b !important;
+  }
+
+  .card, .panel, .stat, .bullet-card, .notice {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    padding: 10pt !important;
+    margin-bottom: 12pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    color: #0f172a !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin: 10pt 0 !important;
+  }
+
+  th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 8.5pt !important;
+    padding: 5pt 8pt !important;
+    font-weight: 700 !important;
+    text-align: left !important;
+  }
+
+  td {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 8.5pt !important;
+    padding: 5pt 8pt !important;
+  }
+}
+
+

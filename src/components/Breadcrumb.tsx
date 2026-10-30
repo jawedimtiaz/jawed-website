@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Home } from 'lucide-react';
 import notesData from '../data/notesData.json';
 import { FIELD_GUIDES } from '../data/fieldGuidesData';
 import { TOOLS } from '../data/toolsData';
@@ -196,12 +197,42 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
                   className="breadcrumb-current"
                   aria-current="page"
                   title={item.label}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    maxWidth: '220px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.14), rgba(99, 102, 241, 0.14))',
+                    border: '1px solid rgba(56, 189, 248, 0.28)',
+                    borderRadius: '6px',
+                    padding: '2px 8px',
+                  }}
                 >
-                  {item.label}
+                  {index === 0 && <Home size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px', flexShrink: 0 }} aria-hidden="true" />}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.label}
+                  </span>
                 </span>
               ) : (
-                <Link to={item.href} className="breadcrumb-link">
-                  {item.label}
+                <Link
+                  to={item.href}
+                  className="breadcrumb-link"
+                  title={item.label}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    maxWidth: '180px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {index === 0 && <Home size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px', flexShrink: 0 }} aria-hidden="true" />}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.label}
+                  </span>
                 </Link>
               )}
             </li>

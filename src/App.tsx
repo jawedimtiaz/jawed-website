@@ -7,6 +7,7 @@ import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { RouteSeo } from './components/RouteSeo';
 import { ScrollProgress } from './components/ScrollProgress';
 import { KeyboardShortcutManager } from './components/KeyboardShortcutManager';
+import { Breadcrumb } from './components/Breadcrumb';
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -61,6 +62,17 @@ function ScrollToTop() {
   return null;
 }
 
+function BreadcrumbNav() {
+  const { pathname } = useLocation();
+  if (pathname === '/') return null;
+
+  return (
+    <div style={{ maxWidth: '1160px', margin: '0 auto', padding: '16px 20px 0', width: '100%', boxSizing: 'border-box' }}>
+      <Breadcrumb />
+    </div>
+  );
+}
+
 export const App: React.FC = () => {
   const [cookieModalOpen, setCookieModalOpen] = useState(false);
   const [analyticsAllowed, setAnalyticsAllowed] = useState(true);
@@ -86,6 +98,7 @@ export const App: React.FC = () => {
         <RouteSeo />
         <ScrollProgress />
         <Header />
+        <BreadcrumbNav />
 
         <div style={{ flex: 1 }}>
           <Routes>

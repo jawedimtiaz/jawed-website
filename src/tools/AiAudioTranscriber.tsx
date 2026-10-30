@@ -50,6 +50,7 @@ import {
   FileImage,
   Image,
   Share2,
+  Printer,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
@@ -685,6 +686,7 @@ export const AiAudioTranscriber: React.FC = () => {
   const [speakerFilter, setSpeakerFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showLineTimestamps, setShowLineTimestamps] = useState<boolean>(true);
+  const [paragraphSpacing, setParagraphSpacing] = useState<'compact' | 'normal' | 'relaxed'>('normal');
 
   // Auto-Pause on Silence State & Refs
   const [autoPauseOnSilence, setAutoPauseOnSilence] = useState<boolean>(true);
@@ -703,6 +705,9 @@ export const AiAudioTranscriber: React.FC = () => {
   const [noiseGateThresholdDb, setNoiseGateThresholdDb] = useState<number>(-40);
   const [isNoiseGateOpen, setIsNoiseGateOpen] = useState<boolean>(true);
 
+  // Input Volume Sensitivity (GainNode) State & Refs
+  const [inputVolumeSensitivity, setInputVolumeSensitivity] = useState<number>(1.0);
+
   // Edit Audio (Trimming) State
   const [showAudioEditor, setShowAudioEditor] = useState<boolean>(false);
   const [trimStartSeconds, setTrimStartSeconds] = useState<number>(0);
@@ -720,9 +725,58 @@ export const AiAudioTranscriber: React.FC = () => {
   const [isExportingSvg, setIsExportingSvg] = useState<boolean>(false);
   const [isSummarizingLlm, setIsSummarizingLlm] = useState<boolean>(false);
   const [llmSummaryError, setLlmSummaryError] = useState<string | null>(null);
+  const [staticWaveformBars, setStaticWaveformBars] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!audioBlob) {
+      setStaticWaveformBars([]);
+      return;
+    }
+
+    let isMounted = true;
+    const generateEnvelope = async () => {
+      try {
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioContextCtor();
+        const decoded = await ctx.decodeAudioData(arrayBuffer);
+        const channelData = decoded.getChannelData(0);
+        const numBars = 100;
+        const blockSize = Math.floor(channelData.length / numBars);
+        const bars: number[] = [];
+
+        for (let i = 0; i < numBars; i += 1) {
+          let sum = 0;
+          const start = i * blockSize;
+          const end = Math.min(start + blockSize, channelData.length);
+          for (let j = start; j < end; j += 1) {
+            sum += Math.abs(channelData[j]);
+          }
+          const avg = (end - start) > 0 ? sum / (end - start) : 0;
+          bars.push(Math.min(1, avg * 3.5));
+        }
+
+        await ctx.close().catch(() => {});
+        if (isMounted) {
+          setStaticWaveformBars(bars);
+        }
+      } catch {
+        if (isMounted) {
+          setStaticWaveformBars(new Array(80).fill(0.3));
+        }
+      }
+    };
+
+    generateEnvelope();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [audioBlob]);
 
   // Auto-Save to localStorage State
   const [lastAutoSaveTime, setLastAutoSaveTime] = useState<string | null>(null);
+  const [showAutoSaveToast, setShowAutoSaveToast] = useState<boolean>(false);
   const [restorableDraft, setRestorableDraft] = useState<{
     timestamp: number;
     formattedTime: string;
@@ -763,6 +817,23 @@ export const AiAudioTranscriber: React.FC = () => {
   const enableNoiseGateRef = useRef<boolean>(true);
   const noiseGateThresholdDbRef = useRef<number>(-40);
   const noiseGateGainNodeRef = useRef<GainNode | null>(null);
+
+  const inputVolumeSensitivityRef = useRef<number>(1.0);
+  const inputVolumeGainNodeRef = useRef<GainNode | null>(null);
+
+  useEffect(() => {
+    inputVolumeSensitivityRef.current = inputVolumeSensitivity;
+    if (inputVolumeGainNodeRef.current && audioContextRef.current) {
+      try {
+        inputVolumeGainNodeRef.current.gain.setValueAtTime(
+          inputVolumeSensitivity,
+          audioContextRef.current.currentTime
+        );
+      } catch {
+        // Ignore automation errors
+      }
+    }
+  }, [inputVolumeSensitivity]);
 
   useEffect(() => {
     waveformThemeRef.current = waveformTheme;
@@ -1357,6 +1428,15 @@ export const AiAudioTranscriber: React.FC = () => {
         // Ignore already disconnected noise gate gain node
       }
       noiseGateGainNodeRef.current = null;
+    }
+
+    if (inputVolumeGainNodeRef.current) {
+      try {
+        inputVolumeGainNodeRef.current.disconnect();
+      } catch {
+        // Ignore already disconnected input volume gain node
+      }
+      inputVolumeGainNodeRef.current = null;
     }
 
     if (audioContextRef.current) {
@@ -2463,6 +2543,12 @@ export const AiAudioTranscriber: React.FC = () => {
   const initPcmRecorder = async (stream: MediaStream, targetSampleRate = 44100) => {
     await stopRecordingGraph();
 
+    try {
+      navigator.vibrate?.([40, 30, 40]);
+    } catch {
+      // Ignore vibration errors if unsupported
+    }
+
     activeStreamRef.current = stream;
     pcmChunksRef.current = [];
     mediaRecorderChunksRef.current = [];
@@ -3041,11 +3127,16 @@ export const AiAudioTranscriber: React.FC = () => {
       }
     };
 
+    const inputVolumeGain = context.createGain();
+    inputVolumeGain.gain.setValueAtTime(inputVolumeSensitivityRef.current, context.currentTime);
+    inputVolumeGainNodeRef.current = inputVolumeGain;
+
     const noiseGateGainNode = context.createGain();
     noiseGateGainNode.gain.setValueAtTime(1.0, context.currentTime);
     noiseGateGainNodeRef.current = noiseGateGainNode;
 
-    source.connect(noiseGateGainNode);
+    source.connect(inputVolumeGain);
+    inputVolumeGain.connect(noiseGateGainNode);
     noiseGateGainNode.connect(analyser);
     noiseGateGainNode.connect(processor);
     processor.connect(silentGain);
@@ -5678,6 +5769,8 @@ export const AiAudioTranscriber: React.FC = () => {
 
         localStorage.setItem(AUTO_SAVE_STORAGE_KEY, JSON.stringify(autoSaveData));
         setLastAutoSaveTime(formattedTime);
+        setShowAutoSaveToast(true);
+        setTimeout(() => setShowAutoSaveToast(false), 3500);
       } catch {
         // Ignore localStorage quota errors
       }
@@ -6752,6 +6845,66 @@ export const AiAudioTranscriber: React.FC = () => {
                 )}
               </div>
 
+              {/* Input Volume Sensitivity (GainNode) Control Card */}
+              <div
+                style={{
+                  width: '100%',
+                  background: 'var(--card)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.84rem',
+                      fontWeight: 600,
+                      color: 'var(--text)',
+                    }}
+                  >
+                    <Sliders size={14} color="var(--accent)" aria-hidden="true" />
+                    Input Volume Sensitivity (Gain)
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      color: 'var(--accent)',
+                      background: 'var(--surface-accent)',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    {inputVolumeSensitivity.toFixed(1)}x ({Math.round(inputVolumeSensitivity * 100)}%)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={3.0}
+                    step={0.1}
+                    value={inputVolumeSensitivity}
+                    onChange={(e) => setInputVolumeSensitivity(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.70rem', color: 'var(--muted)' }}>
+                    <span>0.1x (Quiet)</span>
+                    <span>1.0x (Normal)</span>
+                    <span>3.0x (Boosted)</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Live Auto-Pause & Silence Detection Status Banners */}
               {isRecording && isPaused && isAutoPaused && (
                 <div
@@ -7743,6 +7896,7 @@ export const AiAudioTranscriber: React.FC = () => {
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '6px',
+                      boxShadow: isPaused ? '0 0 12px rgba(16, 185, 129, 0.4)' : '0 0 12px rgba(245, 158, 11, 0.4)',
                     }}
                   >
                     {isPaused ? (
@@ -7774,6 +7928,8 @@ export const AiAudioTranscriber: React.FC = () => {
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '6px',
+                      boxShadow: '0 0 18px rgba(239, 68, 68, 0.7)',
+                      animation: 'pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                     }}
                   >
                     <Square size={15} fill="currentColor" />
@@ -8237,6 +8393,66 @@ export const AiAudioTranscriber: React.FC = () => {
                         </>
                       )}
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Static Audio Waveform Envelope (Full Navigation) */}
+              {staticWaveformBars.length > 0 && (
+                <div
+                  style={{
+                    background: '#020617',
+                    border: '1px solid var(--line)',
+                    borderRadius: '12px',
+                    padding: '12px 14px',
+                    marginBottom: '14px',
+                    position: 'relative',
+                    cursor: 'pointer',
+                  }}
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const pct = Math.max(0, Math.min(1, clickX / rect.width));
+                    const targetTime = pct * (scrubberMaxDuration || 1);
+                    if (audioPlayerRef.current) {
+                      audioPlayerRef.current.currentTime = targetTime;
+                      setPlaybackCurrentTime(targetTime);
+                    }
+                  }}
+                  title="Click anywhere on waveform to seek audio position"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Activity size={12} color="var(--accent)" />
+                      Full Audio Amplitude Envelope (Click to Navigate)
+                    </span>
+                    <span style={{ fontSize: '0.72rem', fontFamily: 'monospace', color: 'var(--accent)', fontWeight: 600 }}>
+                      {formatDurationDisplay(playbackCurrentTime)} / {formatDurationDisplay(scrubberMaxDuration)}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', height: '44px', gap: '2px', position: 'relative' }}>
+                    {staticWaveformBars.map((val, idx) => {
+                      const barProgress = idx / staticWaveformBars.length;
+                      const currentProgress = scrubberMaxDuration > 0 ? playbackCurrentTime / scrubberMaxDuration : 0;
+                      const isPlayed = barProgress <= currentProgress;
+                      const barH = Math.max(3, val * 38);
+
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            flex: 1,
+                            height: `${barH}px`,
+                            borderRadius: '2px',
+                            background: isPlayed
+                              ? 'linear-gradient(180deg, var(--accent), var(--indigo))'
+                              : 'rgba(100, 116, 139, 0.35)',
+                            transition: 'background 0.1s ease',
+                          }}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -9825,14 +10041,84 @@ export const AiAudioTranscriber: React.FC = () => {
 
             {/* Verbatim / Speaker Dialogue Transcript Card */}
             {(activeTab === 'all' || activeTab === 'transcript') && (
-              <div
-                style={{
-                  background: 'var(--bg)',
-                  border: '1px solid var(--line)',
-                  borderRadius: '12px',
-                  padding: '20px',
-                }}
-              >
+              <>
+                {/* Dedicated Print-Only Style Block */}
+                <style>{`
+                  @media print {
+                    body, html {
+                      background: #ffffff !important;
+                      color: #000000 !important;
+                    }
+                    header, nav, footer, .no-print, button, input, select, .audio-controls-panel, .recording-controls, .debug-panel {
+                      display: none !important;
+                    }
+                    .transcript-print-container {
+                      display: block !important;
+                      width: 100% !important;
+                      max-width: none !important;
+                      margin: 0 !important;
+                      padding: 0 !important;
+                      background: transparent !important;
+                      border: none !important;
+                      box-shadow: none !important;
+                      color: #000000 !important;
+                      font-size: 11pt !important;
+                      line-height: 1.6 !important;
+                    }
+                    .transcript-print-content {
+                      font-size: 11pt !important;
+                      line-height: 1.65 !important;
+                      color: #111111 !important;
+                      background: #ffffff !important;
+                      border: none !important;
+                      padding: 0 !important;
+                      max-height: none !important;
+                      overflow: visible !important;
+                      white-space: pre-wrap !important;
+                    }
+                    .print-header {
+                      display: block !important;
+                      margin-bottom: 24px;
+                      border-bottom: 2px solid #000;
+                      padding-bottom: 12px;
+                    }
+                    .print-header h1 {
+                      font-size: 18pt !important;
+                      font-weight: bold !important;
+                      color: #000 !important;
+                      margin: 0 0 4px !important;
+                    }
+                    .print-header p {
+                      font-size: 10pt !important;
+                      color: #555 !important;
+                      margin: 0 !important;
+                    }
+                  }
+                  @media screen {
+                    .print-header {
+                      display: none !important;
+                    }
+                  }
+                `}</style>
+
+                {/* Print-Only Header Banner */}
+                <div className="print-header">
+                  <h1>AI Audio Transcriber Report</h1>
+                  <p>
+                    {metaProject ? `Project: ${metaProject} · ` : ''}
+                    Category: {metaCategory} · Date: {metaDate} · Audio File: {audioFileName || 'Recording.wav'} · Duration: {formatDurationDisplay(sessionMetadata.durationSeconds)}
+                  </p>
+                </div>
+
+                <div
+                  className="transcript-print-container"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                  }}
+                >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
                   <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-heading)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     {transcriptViewMode === 'speaker' ? <Users size={16} color="var(--accent)" /> : <AlignLeft size={16} color="var(--accent)" />}
@@ -9923,6 +10209,27 @@ export const AiAudioTranscriber: React.FC = () => {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setParagraphSpacing((prev) => prev === 'normal' ? 'relaxed' : prev === 'relaxed' ? 'compact' : 'normal')}
+                      style={{
+                        background: paragraphSpacing !== 'normal' ? 'var(--surface-accent)' : 'transparent',
+                        border: paragraphSpacing !== 'normal' ? '1px solid var(--accent)' : '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        fontSize: '0.76rem',
+                        fontFamily: 'monospace',
+                        color: paragraphSpacing !== 'normal' ? 'var(--accent)' : 'var(--muted)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                      title="Toggle paragraph spacing & line-height for readability"
+                    >
+                      <AlignLeft size={12} />
+                      Spacing: {paragraphSpacing.toUpperCase()}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         setIsAutoScrollEnabled((prev) => {
                           const next = !prev;
@@ -9973,6 +10280,26 @@ export const AiAudioTranscriber: React.FC = () => {
                     </button>
                     <button
                       type="button"
+                      onClick={() => window.print()}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        color: 'var(--accent)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                      title="Print transcript in professional document format"
+                    >
+                      <Printer size={12} />
+                      Print
+                    </button>
+                    <button
+                      type="button"
                       onClick={() =>
                         handleCopy(
                           transcriptViewMode === 'speaker' && result.formattedSpeakerTranscript
@@ -10017,7 +10344,7 @@ export const AiAudioTranscriber: React.FC = () => {
 
                 {/* Transcript Body: Speaker Dialogue Turns or Verbatim Text */}
                 {transcriptViewMode === 'speaker' && result.speakerTurns && result.speakerTurns.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: paragraphSpacing === 'relaxed' ? '20px' : paragraphSpacing === 'compact' ? '8px' : '12px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
                     {result.speakerTurns
                       .filter((turn) => speakerFilter === 'all' || turn.speaker === speakerFilter)
                       .map((turn, index) => {
@@ -10090,7 +10417,7 @@ export const AiAudioTranscriber: React.FC = () => {
                               </button>
                             </div>
 
-                            <p style={{ margin: 0, fontSize: '0.94rem', lineHeight: 1.6, color: 'var(--text)' }}>
+                            <p style={{ margin: 0, fontSize: '0.94rem', lineHeight: paragraphSpacing === 'relaxed' ? 2.0 : paragraphSpacing === 'compact' ? 1.35 : 1.65, color: 'var(--text)' }}>
                               {highlightMatchingText(turn.text, searchQuery)}
                             </p>
                           </div>
@@ -10105,12 +10432,12 @@ export const AiAudioTranscriber: React.FC = () => {
                       style={{
                         maxHeight: '360px',
                         overflowY: 'auto',
-                        padding: '16px',
+                        padding: paragraphSpacing === 'relaxed' ? '20px' : paragraphSpacing === 'compact' ? '12px' : '16px',
                         background: 'var(--card)',
                         border: '1px solid var(--line)',
                         borderRadius: '8px',
                         fontSize: '0.95rem',
-                        lineHeight: 1.6,
+                        lineHeight: paragraphSpacing === 'relaxed' ? 2.0 : paragraphSpacing === 'compact' ? 1.35 : 1.65,
                         color: 'var(--text)',
                         whiteSpace: 'pre-wrap',
                       }}
@@ -10280,6 +10607,7 @@ export const AiAudioTranscriber: React.FC = () => {
                   );
                 })()}
               </div>
+              </>
             )}
           </section>
         )}
@@ -10426,6 +10754,54 @@ export const AiAudioTranscriber: React.FC = () => {
             })}
           </div>
         </section>
+
+        {/* Subtle Auto-Save Toast Notification */}
+        {showAutoSaveToast && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
+              zIndex: 9999,
+              background: 'var(--card)',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 0 10px rgba(16, 185, 129, 0.15)',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              animation: 'fadeInOut 0.25s ease-in-out',
+              maxWidth: '320px',
+            }}
+          >
+            <div
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: 'rgba(16, 185, 129, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--emerald)',
+                flexShrink: 0,
+              }}
+            >
+              <CheckCircle2 size={16} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                Transcript Auto-Saved
+              </span>
+              <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>
+                Saved to browser storage at {lastAutoSaveTime}
+              </span>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

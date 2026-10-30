@@ -20,6 +20,38 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
   const listRef = useRef<HTMLUListElement>(null);
   const navigate = useNavigate();
 
+  // Search History (localStorage last 5 queries)
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('jawed_site_recent_searches_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.slice(0, 5);
+      }
+    } catch {}
+    return [];
+  });
+
+  const addRecentSearch = useCallback((searchQuery: string) => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed || trimmed.length < 2) return;
+    setRecentSearches((prev) => {
+      const filtered = prev.filter((q) => q.toLowerCase() !== trimmed.toLowerCase());
+      const next = [trimmed, ...filtered].slice(0, 5);
+      try {
+        localStorage.setItem('jawed_site_recent_searches_v1', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const clearRecentSearches = useCallback(() => {
+    setRecentSearches([]);
+    try {
+      localStorage.removeItem('jawed_site_recent_searches_v1');
+    } catch {}
+  }, []);
+
   // Recommendations when query is empty
   const recommendations = useMemo(() => getQuickSearchRecommendations(), []);
 
@@ -146,12 +178,15 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
   // Normalize URL for React Router navigation
   const navigateToResult = useCallback(
     (item: SiteSearchResult) => {
+      if (query.trim()) {
+        addRecentSearch(query);
+      }
       let targetPath = item.url.replace(/\/+$/, '') || '/';
       handleClose();
       if (onNavigated) onNavigated();
       navigate(targetPath);
     },
-    [navigate, handleClose, onNavigated]
+    [navigate, handleClose, onNavigated, query, addRecentSearch]
   );
 
   const scrollItemIntoView = (index: number) => {
@@ -183,6 +218,9 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
       });
     } else if (e.key === 'Enter') {
       e.preventDefault();
+      if (query.trim()) {
+        addRecentSearch(query);
+      }
       if (displayedItems[selectedIndex]) {
         navigateToResult(displayedItems[selectedIndex]);
       }
@@ -448,6 +486,45 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
               ) : (
                 /* Results List */
                 <div>
+                  {!query.trim() && recentSearches.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div className="search-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>⏱️ Recent Searches</span>
+                        <button
+                          type="button"
+                          onClick={clearRecentSearches}
+                          style={{
+                            background: 'transparent',
+                            border: 0,
+                            color: 'var(--muted)',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                          }}
+                          title="Clear recent searches"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <div className="search-suggestion-chips">
+                        {recentSearches.map((rec) => (
+                          <button
+                            key={rec}
+                            type="button"
+                            className="search-suggestion-chip"
+                            onClick={() => {
+                              setQuery(rec);
+                              inputRef.current?.focus();
+                            }}
+                          >
+                            ⏱️ {rec}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {!query.trim() && (
                     <div className="search-section-header">
                       <span>✨ Recommended Tools, Field Guides &amp; Blog Posts</span>
