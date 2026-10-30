@@ -5,13 +5,26 @@
  * 1. Automatic sentence boundary detection & capitalization
  * 2. Case-insensitive dictionary replacement for IT, Cloud, DevOps, AI, and Software Engineering terms
  * 3. Real-time transcript scanning & auto-correction with statistics tracking
+ * 4. User-configurable custom technical dictionary terms
+ * 5. Configuration import & export bundles for Ollama settings and technical dictionary
  */
+
+import { STORAGE_KEY_AI_PROVIDER, getStoredAiProviderConfig, AiProviderConfig } from '../components/AiProviderSettingsModal';
 
 export interface ITCorrectionRule {
   pattern: RegExp;
   replacement: string;
   category: 'cloud' | 'programming' | 'devops' | 'ai' | 'networking' | 'database' | 'general';
   canonical: string;
+}
+
+export interface CustomDictionaryTerm {
+  id: string;
+  phrase: string;
+  replacement: string;
+  category: 'cloud' | 'programming' | 'devops' | 'ai' | 'networking' | 'database' | 'general';
+  enabled: boolean;
+  notes?: string;
 }
 
 export interface AutoCorrectionResult {
@@ -25,6 +38,35 @@ export interface AutoCorrectionResult {
     count: number;
   }>;
 }
+
+export interface TranscriberConfigExport {
+  version: 1;
+  app: 'jawed-ai-audio-transcriber';
+  exportedAt: string;
+  aiProvider: AiProviderConfig;
+  customDictionary: CustomDictionaryTerm[];
+  metadata?: {
+    totalCustomTerms: number;
+    description?: string;
+  };
+}
+
+export const STORAGE_KEY_CUSTOM_DICTIONARY = 'jawed_custom_tech_dictionary_v1';
+
+export const DEFAULT_CUSTOM_DICTIONARY: CustomDictionaryTerm[] = [
+  { id: 'cd-1', phrase: 'ollama', replacement: 'Ollama', category: 'ai', enabled: true },
+  { id: 'cd-2', phrase: 'langchain', replacement: 'LangChain', category: 'ai', enabled: true },
+  { id: 'cd-3', phrase: 'vllm', replacement: 'vLLM', category: 'ai', enabled: true },
+  { id: 'cd-4', phrase: 'deepseek', replacement: 'DeepSeek', category: 'ai', enabled: true },
+  { id: 'cd-5', phrase: 'hugging face', replacement: 'Hugging Face', category: 'ai', enabled: true },
+  { id: 'cd-6', phrase: 'claude', replacement: 'Claude', category: 'ai', enabled: true },
+  { id: 'cd-7', phrase: 'supabase', replacement: 'Supabase', category: 'database', enabled: true },
+  { id: 'cd-8', phrase: 'prisma', replacement: 'Prisma', category: 'database', enabled: true },
+  { id: 'cd-9', phrase: 'zustand', replacement: 'Zustand', category: 'programming', enabled: true },
+  { id: 'cd-10', phrase: 'bun', replacement: 'Bun', category: 'programming', enabled: true },
+  { id: 'cd-11', phrase: 'pnpm', replacement: 'pnpm', category: 'devops', enabled: true },
+  { id: 'cd-12', phrase: 'fastapi', replacement: 'FastAPI', category: 'programming', enabled: true },
+];
 
 /**
  * Technical IT Dictionary with Regex rules for common speech recognition / Whisper mispronunciations
@@ -101,6 +143,261 @@ export const IT_DICTIONARY_RULES: ITCorrectionRule[] = [
 ];
 
 /**
+ * Retrieve user's custom dictionary from localStorage
+ */
+export function getStoredCustomDictionary(): CustomDictionaryTerm[] {
+  if (typeof window === 'undefined') {
+    return DEFAULT_CUSTOM_DICTIONARY;
+  }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_DICTIONARY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return DEFAULT_CUSTOM_DICTIONARY;
+}
+
+/**
+ * Save user's custom dictionary to localStorage and trigger change event
+ */
+export function saveStoredCustomDictionary(terms: CustomDictionaryTerm[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_CUSTOM_DICTIONARY, JSON.stringify(terms));
+    window.dispatchEvent(new CustomEvent('custom-dictionary-changed', { detail: terms }));
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Add a new custom dictionary term
+ */
+export function addCustomDictionaryTerm(term: Omit<CustomDictionaryTerm, 'id'>): CustomDictionaryTerm {
+  const current = getStoredCustomDictionary();
+  const newTerm: CustomDictionaryTerm = {
+    ...term,
+    id: `cd-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+  };
+  const updated = [newTerm, ...current];
+  saveStoredCustomDictionary(updated);
+  return newTerm;
+}
+
+/**
+ * Remove a custom dictionary term by ID
+ */
+export function removeCustomDictionaryTerm(id: string): void {
+  const current = getStoredCustomDictionary();
+  const updated = current.filter((t) => t.id !== id);
+  saveStoredCustomDictionary(updated);
+}
+
+/**
+ * Toggle active state of a custom dictionary term
+ */
+export function toggleCustomDictionaryTerm(id: string, enabled?: boolean): void {
+  const current = getStoredCustomDictionary();
+  const updated = current.map((t) => {
+    if (t.id === id) {
+      return { ...t, enabled: enabled !== undefined ? enabled : !t.enabled };
+    }
+    return t;
+  });
+  saveStoredCustomDictionary(updated);
+}
+
+/**
+ * Reset custom dictionary back to default set
+ */
+export function resetCustomDictionaryToDefault(): CustomDictionaryTerm[] {
+  saveStoredCustomDictionary(DEFAULT_CUSTOM_DICTIONARY);
+  return DEFAULT_CUSTOM_DICTIONARY;
+}
+
+/**
+ * Export current Ollama API connection settings and custom technical dictionary as a JSON object
+ */
+export function exportTranscriberConfig(): TranscriberConfigExport {
+  const aiProvider = getStoredAiProviderConfig();
+  const customDictionary = getStoredCustomDictionary();
+
+  return {
+    version: 1,
+    app: 'jawed-ai-audio-transcriber',
+    exportedAt: new Date().toISOString(),
+    aiProvider,
+    customDictionary,
+    metadata: {
+      totalCustomTerms: customDictionary.length,
+      description: 'AI Audio Transcriber configuration including Ollama API settings and custom technical terms dictionary.',
+    },
+  };
+}
+
+/**
+ * Trigger download of the configuration JSON file
+ */
+export function downloadTranscriberConfigJson(filename?: string): void {
+  const config = exportTranscriberConfig();
+  const jsonStr = JSON.stringify(config, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  anchor.href = url;
+  anchor.download = filename || `transcriber-config-${dateStr}.json`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Import and validate a JSON configuration bundle, updating localStorage and dispatching events
+ */
+export function importTranscriberConfig(
+  rawInput: string | object,
+  options: { mergeDictionary?: boolean } = {}
+): {
+  success: boolean;
+  message: string;
+  data?: TranscriberConfigExport;
+} {
+  try {
+    let parsed: any;
+    if (typeof rawInput === 'string') {
+      if (!rawInput.trim()) {
+        return { success: false, message: 'Configuration file is empty.' };
+      }
+      parsed = JSON.parse(rawInput);
+    } else {
+      parsed = rawInput;
+    }
+
+    if (!parsed || typeof parsed !== 'object') {
+      return { success: false, message: 'Invalid configuration file format. Root must be a JSON object.' };
+    }
+
+    let importedAiProvider: AiProviderConfig | null = null;
+    let importedDictionary: CustomDictionaryTerm[] = [];
+
+    // 1. Parse & validate AI Provider / Ollama settings
+    if (parsed.aiProvider && typeof parsed.aiProvider === 'object') {
+      importedAiProvider = {
+        provider: parsed.aiProvider.provider === 'ollama' ? 'ollama' : 'gemini',
+        ollamaEndpoint: String(parsed.aiProvider.ollamaEndpoint || 'http://localhost:11434').trim(),
+        ollamaModel: String(parsed.aiProvider.ollamaModel || 'llama3').trim(),
+      };
+    } else if (parsed.ollamaEndpoint || parsed.provider) {
+      importedAiProvider = {
+        provider: parsed.provider === 'ollama' ? 'ollama' : 'gemini',
+        ollamaEndpoint: String(parsed.ollamaEndpoint || 'http://localhost:11434').trim(),
+        ollamaModel: String(parsed.ollamaModel || 'llama3').trim(),
+      };
+    }
+
+    // 2. Parse & validate Custom Technical Dictionary
+    const rawTerms = Array.isArray(parsed.customDictionary)
+      ? parsed.customDictionary
+      : Array.isArray(parsed.dictionary)
+      ? parsed.dictionary
+      : Array.isArray(parsed.terms)
+      ? parsed.terms
+      : null;
+
+    if (rawTerms) {
+      for (let i = 0; i < rawTerms.length; i++) {
+        const item = rawTerms[i];
+        if (item && typeof item === 'object') {
+          const phrase = String(item.phrase || item.pattern || item.term || '').trim();
+          const replacement = String(item.replacement || item.value || '').trim();
+          if (phrase && replacement) {
+            importedDictionary.push({
+              id: item.id ? String(item.id) : `cd-imp-${Date.now()}-${i}`,
+              phrase,
+              replacement,
+              category: (item.category && ['cloud', 'programming', 'devops', 'ai', 'networking', 'database', 'general'].includes(item.category))
+                ? item.category
+                : 'general',
+              enabled: item.enabled !== false,
+              notes: item.notes ? String(item.notes) : undefined,
+            });
+          }
+        }
+      }
+    }
+
+    if (!importedAiProvider && importedDictionary.length === 0) {
+      return {
+        success: false,
+        message: 'No recognizable Ollama connection settings or custom dictionary terms found in the configuration file.',
+      };
+    }
+
+    // Apply AI Provider if found
+    if (importedAiProvider) {
+      localStorage.setItem(STORAGE_KEY_AI_PROVIDER, JSON.stringify(importedAiProvider));
+      window.dispatchEvent(new CustomEvent('ai-provider-changed', { detail: importedAiProvider }));
+    }
+
+    // Apply Dictionary if found
+    let finalDictionary: CustomDictionaryTerm[] = [];
+    if (importedDictionary.length > 0) {
+      if (options.mergeDictionary) {
+        const existing = getStoredCustomDictionary();
+        const existingPhrases = new Set(existing.map((t) => t.phrase.toLowerCase()));
+        const newTerms = importedDictionary.filter((t) => !existingPhrases.has(t.phrase.toLowerCase()));
+        finalDictionary = [...existing, ...newTerms];
+      } else {
+        finalDictionary = importedDictionary;
+      }
+      saveStoredCustomDictionary(finalDictionary);
+    } else {
+      finalDictionary = getStoredCustomDictionary();
+    }
+
+    const currentAi = importedAiProvider || getStoredAiProviderConfig();
+    const resultExport: TranscriberConfigExport = {
+      version: 1,
+      app: 'jawed-ai-audio-transcriber',
+      exportedAt: new Date().toISOString(),
+      aiProvider: currentAi,
+      customDictionary: finalDictionary,
+      metadata: {
+        totalCustomTerms: finalDictionary.length,
+        description: 'Successfully imported configuration.',
+      },
+    };
+
+    const details: string[] = [];
+    if (importedAiProvider) {
+      details.push(`AI Provider (${importedAiProvider.provider === 'ollama' ? `Ollama @ ${importedAiProvider.ollamaEndpoint}` : 'Gemini'})`);
+    }
+    if (importedDictionary.length > 0) {
+      details.push(`${importedDictionary.length} custom technical dictionary terms`);
+    }
+
+    return {
+      success: true,
+      message: `Configuration successfully imported: ${details.join(' and ')}.`,
+      data: resultExport,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Failed to import configuration: ${err?.message || 'Invalid JSON syntax.'}`,
+    };
+  }
+}
+
+/**
  * Capitalizes sentences after punctuation boundaries (. ! ? \n) or start of text
  */
 export function capitalizeSentences(text: string): string {
@@ -116,12 +413,20 @@ export function capitalizeSentences(text: string): string {
 }
 
 /**
+ * Escape a string for use in a regular expression
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Scans a transcript string or buffer, applies sentence capitalization and dictionary term replacements
  */
 export function autoCorrectITTranscript(
   rawText: string,
   enableCapitalization = true,
-  enableDictionary = true
+  enableDictionary = true,
+  customTerms?: CustomDictionaryTerm[]
 ): AutoCorrectionResult {
   if (!rawText || !rawText.trim()) {
     return {
@@ -137,6 +442,7 @@ export function autoCorrectITTranscript(
   const appliedMap = new Map<string, { original: string; replacement: string; category: string; count: number }>();
 
   if (enableDictionary) {
+    // 1. Built-in IT dictionary rules
     for (const rule of IT_DICTIONARY_RULES) {
       const matches = currentText.match(rule.pattern);
       if (matches && matches.length > 0) {
@@ -152,6 +458,34 @@ export function autoCorrectITTranscript(
         };
         existing.count += replaceCount;
         appliedMap.set(rule.canonical, existing);
+      }
+    }
+
+    // 2. Custom technical dictionary rules (loaded from parameter or localStorage)
+    const activeCustom = customTerms !== undefined ? customTerms : getStoredCustomDictionary();
+    const enabledCustom = activeCustom.filter((t) => t.enabled && t.phrase.trim());
+
+    for (const term of enabledCustom) {
+      try {
+        const escaped = escapeRegex(term.phrase.trim());
+        const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+        const matches = currentText.match(regex);
+        if (matches && matches.length > 0) {
+          const replaceCount = matches.length;
+          currentText = currentText.replace(regex, term.replacement);
+          totalCorrections += replaceCount;
+
+          const existing = appliedMap.get(term.replacement) || {
+            original: matches[0],
+            replacement: term.replacement,
+            category: term.category,
+            count: 0,
+          };
+          existing.count += replaceCount;
+          appliedMap.set(term.replacement, existing);
+        }
+      } catch {
+        // ignore regex error on unusual phrase
       }
     }
   }

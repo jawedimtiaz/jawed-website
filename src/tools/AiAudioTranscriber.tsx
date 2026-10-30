@@ -32,6 +32,7 @@ import {
   Info,
   Lock,
   Sliders,
+  Settings,
   Activity,
   MicOff,
   Users,
@@ -51,11 +52,15 @@ import {
   Image,
   Share2,
   Printer,
+  Layers,
+  Plus,
+  PlayCircle,
+  StopCircle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
-import { getStoredAiProviderConfig } from '../components/AiProviderSettingsModal';
+import { getStoredAiProviderConfig, AiProviderSettingsModal } from '../components/AiProviderSettingsModal';
 import {
   TranscriberErrorCategory,
   WavValidationResult,
@@ -81,7 +86,71 @@ import {
 import {
   autoCorrectITTranscript,
   AutoCorrectionResult,
+  getStoredCustomDictionary,
+  CustomDictionaryTerm,
 } from '../utils/itAutoCorrector';
+
+export interface BatchTranscriptResult {
+  summary: string;
+  actionItems: string[];
+  keyTakeaways: string[];
+  itLogEntry: string;
+  modelUsed: string;
+  durationMs?: number;
+}
+
+export interface BatchTranscriptItem {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  transcriptText: string;
+  wordCount: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error?: string;
+  result?: BatchTranscriptResult;
+  isExpanded?: boolean;
+}
+
+export function cleanTranscriptText(text: string): string {
+  if (!text) return '';
+  if (text.includes('-->') || text.startsWith('WEBVTT')) {
+    const lines = text.split(/\r?\n/);
+    const cleaned: string[] = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (trimmed === 'WEBVTT' || /^\d+$/.test(trimmed)) continue;
+      if (trimmed.includes('-->')) continue;
+      cleaned.push(trimmed);
+    }
+    return cleaned.join(' ');
+  }
+  return text;
+}
+
+export function parseUploadedTranscriptFile(fileName: string, content: string): string {
+  if (fileName.toLowerCase().endsWith('.json')) {
+    try {
+      const parsed = JSON.parse(content);
+      if (typeof parsed === 'string') return parsed;
+      if (parsed.transcript && typeof parsed.transcript === 'string') return parsed.transcript;
+      if (parsed.text && typeof parsed.text === 'string') return parsed.text;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => (typeof item === 'string' ? item : item?.text || item?.transcript || ''))
+          .filter(Boolean)
+          .join(' ');
+      }
+      if (parsed.segments && Array.isArray(parsed.segments)) {
+        return parsed.segments.map((s: any) => s?.text || '').filter(Boolean).join(' ');
+      }
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return content;
+    }
+  }
+  return cleanTranscriptText(content);
+}
 
 export type RecordingPresetId = 'high-fidelity' | 'voice-optimized';
 
@@ -755,6 +824,33 @@ export const AiAudioTranscriber: React.FC = () => {
   const [ollamaError, setOllamaError] = useState<string | null>(null);
   const [isRetryingOllama, setIsRetryingOllama] = useState<boolean>(false);
   const [aiProvider, setAiProvider] = useState<'gemini' | 'ollama'>(() => getStoredAiProviderConfig().provider);
+
+  // AI Provider & Custom Technical Dictionary Modal State
+  const [showAiSettingsModal, setShowAiSettingsModal] = useState<boolean>(false);
+  const [aiSettingsModalTab, setAiSettingsModalTab] = useState<'provider' | 'dictionary' | 'import-export'>('provider');
+  const [customDictionaryTerms, setCustomDictionaryTerms] = useState<CustomDictionaryTerm[]>(() => getStoredCustomDictionary());
+
+  useEffect(() => {
+    const handleDictChange = (e: CustomEvent<CustomDictionaryTerm[]>) => {
+      if (e.detail) {
+        setCustomDictionaryTerms(e.detail);
+      }
+    };
+    window.addEventListener('custom-dictionary-changed', handleDictChange as EventListener);
+    return () => {
+      window.removeEventListener('custom-dictionary-changed', handleDictChange as EventListener);
+    };
+  }, []);
+
+  // Batch Ollama Summarization Queue State
+  const [batchQueue, setBatchQueue] = useState<BatchTranscriptItem[]>([]);
+  const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
+  const [currentBatchIndex, setCurrentBatchIndex] = useState<number>(-1);
+  const [showBatchModal, setShowBatchModal] = useState<boolean>(false);
+  const [batchFilter, setBatchFilter] = useState<'all' | 'pending' | 'completed' | 'failed'>('all');
+  const [batchCopiedId, setBatchCopiedId] = useState<string | null>(null);
+  const batchStopRequestedRef = useRef<boolean>(false);
+  const batchFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const checkOllamaStatus = useCallback(async () => {
     setIsRetryingOllama(true);
@@ -5872,6 +5968,334 @@ Output ONLY valid JSON.`;
     }
   };
 
+  const handleBatchFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newItems: BatchTranscriptItem[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const rawText = await file.text();
+        const cleaned = parseUploadedTranscriptFile(file.name, rawText);
+        if (!cleaned || !cleaned.trim()) continue;
+
+        const words = cleaned.trim().split(/\s+/).length;
+        newItems.push({
+          id: `batch-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`,
+          fileName: file.name,
+          fileSize: file.size,
+          transcriptText: cleaned,
+          wordCount: words,
+          status: 'pending',
+          isExpanded: false,
+        });
+      } catch (err: any) {
+        addLog('error', `Failed to read batch transcript file ${file.name}: ${err?.message || err}`);
+      }
+    }
+
+    if (newItems.length > 0) {
+      setBatchQueue((prev) => [...prev, ...newItems]);
+      setShowBatchModal(true);
+      addLog('info', `Added ${newItems.length} transcript file(s) to Ollama batch queue.`);
+    }
+
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
+  const handleAddCurrentTranscriptToBatch = () => {
+    if (!result || !result.transcript || !result.transcript.trim()) return;
+    const baseName = audioFileName ? audioFileName.replace(/\.[^/.]+$/, '') : 'Live-Recording';
+    const fileName = `${baseName}-${metaProject ? metaProject.replace(/[^a-zA-Z0-9_-]+/g, '-') : 'transcript'}.txt`;
+    const text = result.transcript;
+    const words = text.trim().split(/\s+/).length;
+
+    const newItem: BatchTranscriptItem = {
+      id: `batch-curr-${Date.now()}`,
+      fileName,
+      fileSize: new Blob([text]).size,
+      transcriptText: text,
+      wordCount: words,
+      status: 'pending',
+      isExpanded: false,
+    };
+
+    setBatchQueue((prev) => [...prev, newItem]);
+    setShowBatchModal(true);
+    addLog('info', `Added active transcript "${fileName}" to Ollama batch queue.`);
+  };
+
+  const handleStartBatchProcessing = async () => {
+    if (isBatchProcessing) return;
+
+    const eligibleItems = batchQueue
+      .map((item, idx) => ({ item, idx }))
+      .filter(({ item }) => item.status === 'pending' || item.status === 'failed');
+
+    if (eligibleItems.length === 0) {
+      alert('All items in the batch queue have already been summarized.');
+      return;
+    }
+
+    setIsBatchProcessing(true);
+    batchStopRequestedRef.current = false;
+
+    const aiConfig = getStoredAiProviderConfig();
+    addLog(
+      'info',
+      `Starting sequential batch summarization for ${eligibleItems.length} transcript(s) via Ollama (${aiConfig.ollamaEndpoint}, model: ${aiConfig.ollamaModel})...`
+    );
+
+    for (let step = 0; step < eligibleItems.length; step++) {
+      if (batchStopRequestedRef.current) {
+        addLog('warn', 'Batch summarization paused by user.');
+        break;
+      }
+
+      const { idx } = eligibleItems[step];
+      const targetItem = batchQueue[idx];
+      if (!targetItem) continue;
+
+      setCurrentBatchIndex(idx);
+      setBatchQueue((prev) =>
+        prev.map((item, i) =>
+          i === idx ? { ...item, status: 'processing', error: undefined } : item
+        )
+      );
+
+      const itemStartTime = Date.now();
+      try {
+        const summaryData = await summarizeWithOllama(targetItem.transcriptText, aiConfig, {
+          project: metaProject,
+          category: metaCategory,
+          tags: customTags,
+        });
+
+        const durationMs = Date.now() - itemStartTime;
+
+        setBatchQueue((prev) =>
+          prev.map((item, i) =>
+            i === idx
+              ? {
+                  ...item,
+                  status: 'completed',
+                  result: {
+                    summary: summaryData.summary,
+                    actionItems: summaryData.actionItems,
+                    keyTakeaways: summaryData.keyTakeaways,
+                    itLogEntry: summaryData.itLogEntry,
+                    modelUsed: summaryData.modelUsed,
+                    durationMs,
+                  },
+                  isExpanded: true,
+                }
+              : item
+          )
+        );
+
+        addLog(
+          'info',
+          `Completed batch item ${step + 1}/${eligibleItems.length} (${targetItem.fileName}) in ${(durationMs / 1000).toFixed(1)}s via Ollama.`
+        );
+      } catch (err: any) {
+        const errMessage = err?.message || 'Failed to summarize via local Ollama';
+        setBatchQueue((prev) =>
+          prev.map((item, i) =>
+            i === idx ? { ...item, status: 'failed', error: errMessage } : item
+          )
+        );
+        addLog('error', `Batch item ${step + 1}/${eligibleItems.length} (${targetItem.fileName}) failed: ${errMessage}`);
+      }
+    }
+
+    setIsBatchProcessing(false);
+    setCurrentBatchIndex(-1);
+    addLog('info', 'Batch Ollama summarization process completed.');
+  };
+
+  const handleStopBatchProcessing = () => {
+    batchStopRequestedRef.current = true;
+    addLog('info', 'Stop requested for batch summarization queue. Halting after current item finishes.');
+  };
+
+  const handleClearBatchQueue = () => {
+    if (isBatchProcessing) {
+      alert('Please pause or stop the current batch run before clearing the queue.');
+      return;
+    }
+    setBatchQueue([]);
+  };
+
+  const handleClearCompletedBatch = () => {
+    setBatchQueue((prev) => prev.filter((item) => item.status !== 'completed'));
+  };
+
+  const handleRemoveBatchItem = (id: string) => {
+    setBatchQueue((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleRetryBatchItem = (id: string) => {
+    setBatchQueue((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, status: 'pending', error: undefined } : item
+      )
+    );
+  };
+
+  const handleToggleBatchItemExpand = (id: string) => {
+    setBatchQueue((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, isExpanded: !item.isExpanded } : item
+      )
+    );
+  };
+
+  const handleExportAllBatchSummariesJson = () => {
+    const completed = batchQueue.filter((item) => item.status === 'completed' && item.result);
+    if (completed.length === 0) {
+      alert('No completed summaries available to export.');
+      return;
+    }
+
+    const exportBundle = {
+      exportedAt: new Date().toISOString(),
+      provider: 'ollama',
+      totalItems: completed.length,
+      summaries: completed.map((item) => ({
+        fileName: item.fileName,
+        wordCount: item.wordCount,
+        durationMs: item.result?.durationMs,
+        modelUsed: item.result?.modelUsed,
+        summary: item.result?.summary,
+        actionItems: item.result?.actionItems,
+        keyTakeaways: item.result?.keyTakeaways,
+        itLogEntry: item.result?.itLogEntry,
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportBundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ollama-batch-summaries-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    addLog('info', `Exported ${completed.length} batch summaries to JSON bundle.`);
+  };
+
+  const handleExportAllBatchSummariesMarkdown = () => {
+    const completed = batchQueue.filter((item) => item.status === 'completed' && item.result);
+    if (completed.length === 0) {
+      alert('No completed summaries available to export.');
+      return;
+    }
+
+    let md = `# Batch Audio Transcripts & Summaries Report\n\n`;
+    md += `*Generated by Jawed AI Audio Transcriber via Local Ollama*\n`;
+    md += `*Date: ${new Date().toLocaleString()} | Completed Summaries: ${completed.length}*\n\n`;
+    md += `## Table of Contents\n\n`;
+    completed.forEach((item, idx) => {
+      md += `${idx + 1}. [${item.fileName}](#summary-${idx + 1})\n`;
+    });
+    md += `\n---\n\n`;
+
+    completed.forEach((item, idx) => {
+      const res = item.result!;
+      md += `### <a id="summary-${idx + 1}"></a>${idx + 1}. ${item.fileName}\n\n`;
+      md += `- **Word Count:** ${item.wordCount} words\n`;
+      md += `- **Model Used:** ${res.modelUsed}\n`;
+      if (res.durationMs) md += `- **Processing Time:** ${(res.durationMs / 1000).toFixed(1)}s\n`;
+      md += `\n#### Executive Summary\n${res.summary}\n\n`;
+
+      if (res.actionItems && res.actionItems.length > 0) {
+        md += `#### Action Items\n`;
+        res.actionItems.forEach((act) => {
+          md += `- [ ] ${act}\n`;
+        });
+        md += `\n`;
+      }
+
+      if (res.keyTakeaways && res.keyTakeaways.length > 0) {
+        md += `#### Key Takeaways\n`;
+        res.keyTakeaways.forEach((k) => {
+          md += `- ${k}\n`;
+        });
+        md += `\n`;
+      }
+
+      if (res.itLogEntry) {
+        md += `#### IT Support Log Entry\n\`\`\`text\n${res.itLogEntry}\n\`\`\`\n\n`;
+      }
+
+      md += `---\n\n`;
+    });
+
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ollama-batch-summaries-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    addLog('info', `Exported ${completed.length} batch summaries to Markdown report.`);
+  };
+
+  const handleDownloadSingleBatchSummary = (item: BatchTranscriptItem) => {
+    if (!item.result) return;
+    const res = item.result;
+    let txt = `========================================================\n`;
+    txt += `SUMMARY REPORT: ${item.fileName}\n`;
+    txt += `Generated via Local Ollama (${res.modelUsed})\n`;
+    txt += `Date: ${new Date().toLocaleString()}\n`;
+    txt += `========================================================\n\n`;
+    txt += `[EXECUTIVE SUMMARY]\n${res.summary}\n\n`;
+    if (res.actionItems.length > 0) {
+      txt += `[ACTION ITEMS]\n`;
+      res.actionItems.forEach((act, i) => {
+        txt += `${i + 1}. ${act}\n`;
+      });
+      txt += `\n`;
+    }
+    if (res.keyTakeaways.length > 0) {
+      txt += `[KEY TAKEAWAYS]\n`;
+      res.keyTakeaways.forEach((k, i) => {
+        txt += `• ${k}\n`;
+      });
+      txt += `\n`;
+    }
+    if (res.itLogEntry) {
+      txt += `[IT SUPPORT LOG ENTRY]\n${res.itLogEntry}\n\n`;
+    }
+
+    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${item.fileName.replace(/\.[^/.]+$/, '')}-summary.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const handleCopyBatchText = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setBatchCopiedId(id);
+      setTimeout(() => setBatchCopiedId(null), 2000);
+    } catch {
+      // Ignore clipboard write failure
+    }
+  };
+
   const handleSummarizeWithLlm = async () => {
     if (!result || !result.transcript || !result.transcript.trim()) return;
 
@@ -6288,6 +6712,75 @@ Output ONLY valid JSON.`;
                   <RotateCcw size={11} style={{ marginLeft: '2px', opacity: 0.8 }} />
                 )}
               </div>
+
+              {/* Local Ollama Batch Summarizer Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setShowBatchModal(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '3px 10px',
+                  borderRadius: '6px',
+                  background: batchQueue.length > 0 ? 'rgba(56, 189, 248, 0.15)' : 'var(--card)',
+                  border: batchQueue.length > 0 ? '1px solid var(--accent)' : '1px solid var(--line)',
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                  color: batchQueue.length > 0 ? 'var(--accent)' : 'var(--text)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                title="Open Local Ollama Batch Summarizer to queue multiple transcript files for sequential processing"
+              >
+                <Layers size={13} color="var(--accent)" />
+                <span>Batch Mode</span>
+                {batchQueue.length > 0 && (
+                  <span
+                    style={{
+                      background: 'var(--accent)',
+                      color: '#ffffff',
+                      borderRadius: '999px',
+                      padding: '1px 6px',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {batchQueue.length}
+                  </span>
+                )}
+                {isBatchProcessing && (
+                  <Loader2 size={11} className="animate-spin" color="var(--accent)" />
+                )}
+              </button>
+
+              {/* Ollama & Dictionary Config Import / Export Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setAiSettingsModalTab('import-export');
+                  setShowAiSettingsModal(true);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '3px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--card)',
+                  border: '1px solid var(--line)',
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                title="Save & Share Ollama connection settings and custom technical dictionary as JSON"
+              >
+                <Download size={13} color="var(--accent)" />
+                <span>Config / Export</span>
+              </button>
 
               {lastAutoSaveTime && (
                 <span
@@ -6736,6 +7229,47 @@ Output ONLY valid JSON.`;
                       />
                       <span>IT Dictionary</span>
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAiSettingsModalTab('dictionary');
+                        setShowAiSettingsModal(true);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--accent)',
+                        fontSize: '0.74rem',
+                        cursor: 'pointer',
+                        padding: '1px 4px',
+                        textDecoration: 'underline',
+                        textUnderlineOffset: '2px',
+                      }}
+                      title="Manage custom technical dictionary terms and vocabulary"
+                    >
+                      Manage ({customDictionaryTerms.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAiSettingsModalTab('import-export');
+                        setShowAiSettingsModal(true);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--muted)',
+                        fontSize: '0.74rem',
+                        cursor: 'pointer',
+                        padding: '1px 4px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '2px',
+                      }}
+                      title="Import or Export Ollama settings and technical dictionary as JSON"
+                    >
+                      <Download size={11} /> Config JSON
+                    </button>
                   </div>
                 )}
               </div>
@@ -9954,6 +10488,30 @@ Output ONLY valid JSON.`;
                   </button>
                   <button
                     type="button"
+                    onClick={() => {
+                      setAiSettingsModalTab('provider');
+                      setShowAiSettingsModal(true);
+                    }}
+                    style={{
+                      background: 'var(--card)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '8px',
+                      padding: '7px 12px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}
+                    title="Open Ollama API settings and configuration modal"
+                  >
+                    <Settings size={13} />
+                    <span>Configure</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setOllamaError(null)}
                     style={{ background: 'transparent', border: 0, color: 'var(--muted)', cursor: 'pointer', padding: '4px' }}
                     title="Dismiss notice"
@@ -10056,7 +10614,32 @@ Output ONLY valid JSON.`;
                       ) : (
                         <Sparkles size={12} />
                       )}
-                      {result.isLlmGenerated ? 'Re-summarize with AI' : 'Summarize with Gemini AI'}
+                      {result.isLlmGenerated
+                        ? aiProvider === 'ollama' ? 'Re-summarize with Ollama' : 'Re-summarize with AI'
+                        : aiProvider === 'ollama' ? 'Summarize with Ollama' : 'Summarize with Gemini AI'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleAddCurrentTranscriptToBatch}
+                      style={{
+                        background: 'var(--card)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Add this transcript to the sequential local Ollama batch queue"
+                    >
+                      <Layers size={12} color="var(--accent)" />
+                      Add to Batch Queue
                     </button>
 
                     <button
@@ -11294,6 +11877,1269 @@ Output ONLY valid JSON.`;
             </div>
           </div>
         )}
+
+        {/* Hidden Multi-file Input for Batch Transcript Uploads */}
+        <input
+          ref={batchFileInputRef}
+          type="file"
+          multiple
+          accept=".txt,.json,.srt,.vtt,.md,text/plain,application/json"
+          style={{ display: 'none' }}
+          onChange={handleBatchFileUpload}
+        />
+
+        {/* Local Ollama Batch Summarizer Modal */}
+        {showBatchModal && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="batch-modal-title"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.78)',
+              backdropFilter: 'blur(5px)',
+              zIndex: 99999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+            }}
+          >
+            <div
+              style={{
+                background: 'var(--card)',
+                border: '1px solid var(--line)',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '920px',
+                maxHeight: '92vh',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.5)',
+                overflow: 'hidden',
+                animation: 'fadeInOut 0.2s ease-out',
+              }}
+            >
+              {/* Modal Header */}
+              <div
+                style={{
+                  padding: '18px 24px',
+                  borderBottom: '1px solid var(--line)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  background: 'var(--bg)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '10px',
+                      background: 'rgba(56, 189, 248, 0.12)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--accent)',
+                    }}
+                  >
+                    <Layers size={20} />
+                  </div>
+                  <div>
+                    <h2
+                      id="batch-modal-title"
+                      style={{
+                        margin: 0,
+                        fontSize: '1.18rem',
+                        fontWeight: 800,
+                        color: 'var(--text-heading)',
+                        letterSpacing: '-0.01em',
+                      }}
+                    >
+                      Local Ollama Batch Summarizer
+                    </h2>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                      Queue multiple transcript files for sequential private summarization via local Ollama
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {/* Ollama Status Pill */}
+                  <div
+                    onClick={() => void checkOllamaStatus()}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      background:
+                        ollamaStatus === 'connected'
+                          ? 'rgba(16, 185, 129, 0.12)'
+                          : ollamaStatus === 'checking' || isRetryingOllama
+                          ? 'rgba(245, 158, 11, 0.12)'
+                          : 'rgba(239, 68, 68, 0.12)',
+                      border: `1px solid ${
+                        ollamaStatus === 'connected'
+                          ? 'rgba(16, 185, 129, 0.3)'
+                          : ollamaStatus === 'checking' || isRetryingOllama
+                          ? 'rgba(245, 158, 11, 0.3)'
+                          : 'rgba(239, 68, 68, 0.3)'
+                      }`,
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color:
+                        ollamaStatus === 'connected'
+                          ? 'var(--emerald)'
+                          : ollamaStatus === 'checking' || isRetryingOllama
+                          ? 'var(--amber)'
+                          : '#ef4444',
+                      cursor: 'pointer',
+                    }}
+                    title="Click to check Ollama local connection status"
+                  >
+                    <span
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background:
+                          ollamaStatus === 'connected'
+                            ? 'var(--emerald)'
+                            : ollamaStatus === 'checking' || isRetryingOllama
+                            ? 'var(--amber)'
+                            : '#ef4444',
+                        boxShadow: ollamaStatus === 'connected' ? '0 0 6px var(--emerald)' : 'none',
+                      }}
+                    />
+                    <span>
+                      {ollamaStatus === 'connected'
+                        ? `Ollama: ${ollamaModelName}`
+                        : ollamaStatus === 'checking' || isRetryingOllama
+                        ? 'Checking...'
+                        : 'Ollama Disconnected'}
+                    </span>
+                    {ollamaStatus === 'disconnected' && <RotateCcw size={11} />}
+                  </div>
+
+                  {/* Close Modal Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowBatchModal(false)}
+                    style={{
+                      background: 'transparent',
+                      border: 0,
+                      borderRadius: '8px',
+                      padding: '6px',
+                      color: 'var(--muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    title="Close Batch Summarizer"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Toolbar */}
+              <div
+                style={{
+                  padding: '14px 24px',
+                  background: 'var(--card)',
+                  borderBottom: '1px solid var(--line)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Upload Files Button */}
+                  <button
+                    type="button"
+                    onClick={() => batchFileInputRef.current?.click()}
+                    style={{
+                      background: 'var(--surface-accent)',
+                      border: '1px solid var(--accent)',
+                      color: 'var(--accent)',
+                      borderRadius: '8px',
+                      padding: '6px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                    title="Upload .txt, .json, .vtt, .srt, or .md files"
+                  >
+                    <Plus size={15} />
+                    Add Files (.txt, .json, .vtt, .srt, .md)
+                  </button>
+
+                  {/* Add Current Recording Transcript */}
+                  {result?.transcript && (
+                    <button
+                      type="button"
+                      onClick={handleAddCurrentTranscriptToBatch}
+                      style={{
+                        background: 'var(--bg)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--text)',
+                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                      title="Add currently transcribed recording to batch queue"
+                    >
+                      <FileAudio size={14} color="var(--emerald)" />
+                      Add Current Recording
+                    </button>
+                  )}
+
+                  {/* Clear Completed */}
+                  {batchQueue.some((i) => i.status === 'completed') && (
+                    <button
+                      type="button"
+                      onClick={handleClearCompletedBatch}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--line)',
+                        color: 'var(--muted)',
+                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        fontSize: '0.80rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Clear Completed
+                    </button>
+                  )}
+
+                  {/* Clear All */}
+                  {batchQueue.length > 0 && !isBatchProcessing && (
+                    <button
+                      type="button"
+                      onClick={handleClearBatchQueue}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--line)',
+                        color: 'var(--muted)',
+                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        fontSize: '0.80rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Export Buttons */}
+                  {batchQueue.some((i) => i.status === 'completed') && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleExportAllBatchSummariesJson}
+                        style={{
+                          background: 'var(--card)',
+                          border: '1px solid var(--line)',
+                          color: 'var(--text)',
+                          borderRadius: '8px',
+                          padding: '6px 12px',
+                          fontSize: '0.80rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                        title="Download JSON bundle with all completed summaries"
+                      >
+                        <Download size={13} />
+                        Export JSON
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleExportAllBatchSummariesMarkdown}
+                        style={{
+                          background: 'var(--card)',
+                          border: '1px solid var(--line)',
+                          color: 'var(--text)',
+                          borderRadius: '8px',
+                          padding: '6px 12px',
+                          fontSize: '0.80rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                        title="Download Markdown report of all completed summaries"
+                      >
+                        <FileText size={13} />
+                        Export Report (.md)
+                      </button>
+                    </>
+                  )}
+
+                  {/* Start / Pause Processing Button */}
+                  {!isBatchProcessing ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleStartBatchProcessing()}
+                      disabled={
+                        batchQueue.length === 0 ||
+                        !batchQueue.some((i) => i.status === 'pending' || i.status === 'failed')
+                      }
+                      style={{
+                        background:
+                          batchQueue.some((i) => i.status === 'pending' || i.status === 'failed')
+                            ? 'var(--accent)'
+                            : 'var(--surface-accent)',
+                        color:
+                          batchQueue.some((i) => i.status === 'pending' || i.status === 'failed')
+                            ? '#ffffff'
+                            : 'var(--muted)',
+                        border: 0,
+                        borderRadius: '8px',
+                        padding: '7px 16px',
+                        fontSize: '0.84rem',
+                        fontWeight: 700,
+                        cursor:
+                          batchQueue.some((i) => i.status === 'pending' || i.status === 'failed')
+                            ? 'pointer'
+                            : 'not-allowed',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: batchQueue.some((i) => i.status === 'pending' || i.status === 'failed')
+                          ? '0 2px 10px rgba(56, 189, 248, 0.3)'
+                          : 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Sequentially process pending transcript files using Ollama"
+                    >
+                      <PlayCircle size={15} />
+                      Start Batch Summarization
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleStopBatchProcessing}
+                      style={{
+                        background: '#ef4444',
+                        color: '#ffffff',
+                        border: 0,
+                        borderRadius: '8px',
+                        padding: '7px 16px',
+                        fontSize: '0.84rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 10px rgba(239, 68, 68, 0.3)',
+                      }}
+                      title="Pause batch queue after current transcript completes"
+                    >
+                      <StopCircle size={15} />
+                      Pause Queue
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress & Summary Bar */}
+              {batchQueue.length > 0 && (
+                <div
+                  style={{
+                    padding: '12px 24px',
+                    background: 'var(--bg)',
+                    borderBottom: '1px solid var(--line)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '0.78rem',
+                      color: 'var(--muted)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                      <span>
+                        Total: <strong style={{ color: 'var(--text)' }}>{batchQueue.length}</strong>
+                      </span>
+                      <span>
+                        Pending:{' '}
+                        <strong style={{ color: 'var(--amber)' }}>
+                          {batchQueue.filter((i) => i.status === 'pending').length}
+                        </strong>
+                      </span>
+                      <span>
+                        Completed:{' '}
+                        <strong style={{ color: 'var(--emerald)' }}>
+                          {batchQueue.filter((i) => i.status === 'completed').length}
+                        </strong>
+                      </span>
+                      {batchQueue.some((i) => i.status === 'failed') && (
+                        <span>
+                          Failed:{' '}
+                          <strong style={{ color: '#ef4444' }}>
+                            {batchQueue.filter((i) => i.status === 'failed').length}
+                          </strong>
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ fontWeight: 600 }}>
+                      {Math.round(
+                        (batchQueue.filter((i) => i.status === 'completed').length /
+                          batchQueue.length) *
+                          100
+                      )}
+                      % Completed
+                    </div>
+                  </div>
+
+                  {/* Progress Bar Track */}
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '6px',
+                      background: 'var(--card)',
+                      borderRadius: '999px',
+                      overflow: 'hidden',
+                      border: '1px solid var(--line)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${Math.round(
+                          (batchQueue.filter((i) => i.status === 'completed').length /
+                            batchQueue.length) *
+                            100
+                        )}%`,
+                        background:
+                          'linear-gradient(90deg, var(--accent) 0%, var(--emerald) 100%)',
+                        transition: 'width 0.3s ease',
+                      }}
+                    />
+                  </div>
+
+                  {/* Active Processing Indicator */}
+                  {isBatchProcessing && currentBatchIndex >= 0 && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.76rem',
+                        color: 'var(--accent)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Loader2 size={12} className="animate-spin" />
+                      <span>
+                        Processing item {currentBatchIndex + 1} of {batchQueue.length}:{' '}
+                        {batchQueue[currentBatchIndex]?.fileName} via Ollama...
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Filter Tabs (when items exist) */}
+              {batchQueue.length > 0 && (
+                <div
+                  style={{
+                    padding: '8px 24px',
+                    background: 'var(--card)',
+                    borderBottom: '1px solid var(--line)',
+                    display: 'flex',
+                    gap: '6px',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setBatchFilter('all')}
+                    style={{
+                      background: batchFilter === 'all' ? 'var(--surface-accent)' : 'transparent',
+                      color: batchFilter === 'all' ? 'var(--accent)' : 'var(--muted)',
+                      border: 0,
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    All ({batchQueue.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBatchFilter('pending')}
+                    style={{
+                      background: batchFilter === 'pending' ? 'var(--surface-accent)' : 'transparent',
+                      color: batchFilter === 'pending' ? 'var(--accent)' : 'var(--muted)',
+                      border: 0,
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Pending ({batchQueue.filter((i) => i.status === 'pending').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBatchFilter('completed')}
+                    style={{
+                      background: batchFilter === 'completed' ? 'var(--surface-accent)' : 'transparent',
+                      color: batchFilter === 'completed' ? 'var(--accent)' : 'var(--muted)',
+                      border: 0,
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Completed ({batchQueue.filter((i) => i.status === 'completed').length})
+                  </button>
+                  {batchQueue.some((i) => i.status === 'failed') && (
+                    <button
+                      type="button"
+                      onClick={() => setBatchFilter('failed')}
+                      style={{
+                        background: batchFilter === 'failed' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+                        color: batchFilter === 'failed' ? '#ef4444' : 'var(--muted)',
+                        border: 0,
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Failed ({batchQueue.filter((i) => i.status === 'failed').length})
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Queue List (Scrollable) */}
+              <div
+                style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  padding: '20px 24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  background: 'var(--bg)',
+                }}
+              >
+                {batchQueue.length === 0 ? (
+                  <div
+                    onClick={() => batchFileInputRef.current?.click()}
+                    style={{
+                      border: '2px dashed var(--line)',
+                      borderRadius: '12px',
+                      padding: '40px 20px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      background: 'var(--card)',
+                      transition: 'border-color 0.15s ease',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'rgba(56, 189, 248, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 14px',
+                        color: 'var(--accent)',
+                      }}
+                    >
+                      <Layers size={24} />
+                    </div>
+                    <h3
+                      style={{
+                        margin: '0 0 6px',
+                        fontSize: '1rem',
+                        fontWeight: 700,
+                        color: 'var(--text-heading)',
+                      }}
+                    >
+                      Batch Queue is Empty
+                    </h3>
+                    <p
+                      style={{
+                        margin: '0 0 16px',
+                        fontSize: '0.84rem',
+                        color: 'var(--muted)',
+                        maxWidth: '480px',
+                        marginInline: 'auto',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Click here to select multiple transcript files (.txt, .json, .vtt, .srt, .md)
+                      or add your active recording transcript to process them sequentially via your
+                      local Ollama model.
+                    </p>
+                    <button
+                      type="button"
+                      style={{
+                        background: 'var(--accent)',
+                        color: '#ffffff',
+                        border: 0,
+                        borderRadius: '8px',
+                        padding: '7px 16px',
+                        fontSize: '0.84rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Plus size={14} />
+                      Choose Transcript Files
+                    </button>
+                  </div>
+                ) : (
+                  batchQueue
+                    .filter((item) => {
+                      if (batchFilter === 'pending') return item.status === 'pending';
+                      if (batchFilter === 'completed') return item.status === 'completed';
+                      if (batchFilter === 'failed') return item.status === 'failed';
+                      return true;
+                    })
+                    .map((item, index) => (
+                      <div
+                        key={item.id}
+                        style={{
+                          background: 'var(--card)',
+                          border: `1px solid ${
+                            item.status === 'completed'
+                              ? 'rgba(16, 185, 129, 0.4)'
+                              : item.status === 'processing'
+                              ? 'rgba(56, 189, 248, 0.5)'
+                              : item.status === 'failed'
+                              ? 'rgba(239, 68, 68, 0.4)'
+                              : 'var(--line)'
+                          }`,
+                          borderRadius: '12px',
+                          overflow: 'hidden',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                        }}
+                      >
+                        {/* Item Summary Header */}
+                        <div
+                          style={{
+                            padding: '12px 16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '10px',
+                            background:
+                              item.status === 'processing'
+                                ? 'rgba(56, 189, 248, 0.05)'
+                                : item.status === 'completed'
+                                ? 'rgba(16, 185, 129, 0.04)'
+                                : 'transparent',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '200px' }}>
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                color: 'var(--muted)',
+                                background: 'var(--bg)',
+                                padding: '2px 7px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--line)',
+                              }}
+                            >
+                              #{index + 1}
+                            </span>
+
+                            {/* Status Badge */}
+                            {item.status === 'pending' && (
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  color: 'var(--amber)',
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                <Timer size={11} /> Pending
+                              </span>
+                            )}
+                            {item.status === 'processing' && (
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  color: 'var(--accent)',
+                                  background: 'rgba(56, 189, 248, 0.15)',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(56, 189, 248, 0.35)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                }}
+                              >
+                                <Loader2 size={11} className="animate-spin" /> Summarizing...
+                              </span>
+                            )}
+                            {item.status === 'completed' && (
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  color: 'var(--emerald)',
+                                  background: 'rgba(16, 185, 129, 0.12)',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                <Check size={11} /> Completed
+                                {item.result?.durationMs && (
+                                  <span style={{ opacity: 0.8, marginLeft: '2px' }}>
+                                    ({(item.result.durationMs / 1000).toFixed(1)}s)
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                            {item.status === 'failed' && (
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  color: '#ef4444',
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                <AlertCircle size={11} /> Failed
+                              </span>
+                            )}
+
+                            <div>
+                              <strong
+                                style={{
+                                  fontSize: '0.88rem',
+                                  color: 'var(--text-heading)',
+                                  display: 'block',
+                                  wordBreak: 'break-all',
+                                }}
+                              >
+                                {item.fileName}
+                              </strong>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                                {item.wordCount} words • {Math.round(item.fileSize / 1024)} KB
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Quick Item Actions */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {item.status === 'failed' && (
+                              <button
+                                type="button"
+                                onClick={() => handleRetryBatchItem(item.id)}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.1)',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  color: '#ef4444',
+                                  borderRadius: '6px',
+                                  padding: '4px 8px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                <RotateCcw size={11} /> Retry
+                              </button>
+                            )}
+
+                            {item.status === 'completed' && (
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadSingleBatchSummary(item)}
+                                style={{
+                                  background: 'transparent',
+                                  border: '1px solid var(--line)',
+                                  color: 'var(--text)',
+                                  borderRadius: '6px',
+                                  padding: '4px 8px',
+                                  fontSize: '0.74rem',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                                title="Download summary report (.txt)"
+                              >
+                                <Download size={11} /> Download
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleToggleBatchItemExpand(item.id)}
+                              style={{
+                                background: 'transparent',
+                                border: '1px solid var(--line)',
+                                color: 'var(--text)',
+                                borderRadius: '6px',
+                                padding: '4px 8px',
+                                fontSize: '0.74rem',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              {item.isExpanded ? (
+                                <>
+                                  <ChevronUp size={12} /> Hide Details
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown size={12} /> View Details
+                                </>
+                              )}
+                            </button>
+
+                            {!isBatchProcessing && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveBatchItem(item.id)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 0,
+                                  color: 'var(--muted)',
+                                  cursor: 'pointer',
+                                  padding: '4px',
+                                  borderRadius: '4px',
+                                }}
+                                title="Remove from queue"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Error Notice (if failed) */}
+                        {item.status === 'failed' && item.error && (
+                          <div
+                            style={{
+                              padding: '10px 16px',
+                              background: 'rgba(239, 68, 68, 0.08)',
+                              borderTop: '1px solid rgba(239, 68, 68, 0.2)',
+                              fontSize: '0.78rem',
+                              color: '#ef4444',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '8px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                              <span>{item.error}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRetryBatchItem(item.id)}
+                              style={{
+                                background: '#ef4444',
+                                color: '#ffffff',
+                                border: 0,
+                                borderRadius: '4px',
+                                padding: '3px 8px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Retry Now
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Expanded Content (Completed Summary or Verbatim Transcript) */}
+                        {item.isExpanded && (
+                          <div
+                            style={{
+                              padding: '16px',
+                              borderTop: '1px solid var(--line)',
+                              background: 'var(--bg)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '12px',
+                            }}
+                          >
+                            {item.result ? (
+                              <>
+                                {/* Executive Summary */}
+                                <div>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      marginBottom: '6px',
+                                    }}
+                                  >
+                                    <strong
+                                      style={{
+                                        fontSize: '0.82rem',
+                                        color: 'var(--accent)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                      }}
+                                    >
+                                      <FileText size={13} /> Executive Summary
+                                    </strong>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleCopyBatchText(
+                                          item.result?.summary || '',
+                                          `sum-${item.id}`
+                                        )
+                                      }
+                                      style={{
+                                        background: 'transparent',
+                                        border: '1px solid var(--line)',
+                                        borderRadius: '4px',
+                                        padding: '2px 8px',
+                                        fontSize: '0.70rem',
+                                        cursor: 'pointer',
+                                        color: 'var(--text)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                      }}
+                                    >
+                                      {batchCopiedId === `sum-${item.id}` ? (
+                                        <>
+                                          <Check size={10} color="var(--emerald)" /> Copied
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy size={10} /> Copy
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                  <p
+                                    style={{
+                                      margin: 0,
+                                      fontSize: '0.84rem',
+                                      color: 'var(--text)',
+                                      lineHeight: 1.55,
+                                      whiteSpace: 'pre-line',
+                                    }}
+                                  >
+                                    {item.result.summary}
+                                  </p>
+                                </div>
+
+                                {/* Action Items */}
+                                {item.result.actionItems && item.result.actionItems.length > 0 && (
+                                  <div>
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        marginBottom: '6px',
+                                      }}
+                                    >
+                                      <strong
+                                        style={{
+                                          fontSize: '0.82rem',
+                                          color: 'var(--emerald)',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '5px',
+                                        }}
+                                      >
+                                        <ListChecks size={13} /> Action Items
+                                      </strong>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleCopyBatchText(
+                                            item.result?.actionItems.join('\n• ') || '',
+                                            `act-${item.id}`
+                                          )
+                                        }
+                                        style={{
+                                          background: 'transparent',
+                                          border: '1px solid var(--line)',
+                                          borderRadius: '4px',
+                                          padding: '2px 8px',
+                                          fontSize: '0.70rem',
+                                          cursor: 'pointer',
+                                          color: 'var(--text)',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px',
+                                        }}
+                                      >
+                                        {batchCopiedId === `act-${item.id}` ? (
+                                          <>
+                                            <Check size={10} color="var(--emerald)" /> Copied
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Copy size={10} /> Copy
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                    <ul
+                                      style={{
+                                        margin: 0,
+                                        paddingLeft: '18px',
+                                        fontSize: '0.82rem',
+                                        color: 'var(--text)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '4px',
+                                      }}
+                                    >
+                                      {item.result.actionItems.map((act, i) => (
+                                        <li key={i}>{act}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {/* IT Support Log Entry */}
+                                {item.result.itLogEntry && (
+                                  <div>
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        marginBottom: '6px',
+                                      }}
+                                    >
+                                      <strong
+                                        style={{
+                                          fontSize: '0.82rem',
+                                          color: 'var(--text-heading)',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '5px',
+                                        }}
+                                      >
+                                        <Terminal size={13} color="var(--emerald)" /> IT Support
+                                        Log Entry
+                                      </strong>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleCopyBatchText(
+                                            item.result?.itLogEntry || '',
+                                            `it-${item.id}`
+                                          )
+                                        }
+                                        style={{
+                                          background: 'transparent',
+                                          border: '1px solid var(--line)',
+                                          borderRadius: '4px',
+                                          padding: '2px 8px',
+                                          fontSize: '0.70rem',
+                                          cursor: 'pointer',
+                                          color: 'var(--text)',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px',
+                                        }}
+                                      >
+                                        {batchCopiedId === `it-${item.id}` ? (
+                                          <>
+                                            <Check size={10} color="var(--emerald)" /> Copied
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Copy size={10} /> Copy Log
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                    <pre
+                                      style={{
+                                        margin: 0,
+                                        background: 'var(--card)',
+                                        border: '1px solid var(--line)',
+                                        borderRadius: '6px',
+                                        padding: '10px',
+                                        fontSize: '0.76rem',
+                                        fontFamily: 'monospace',
+                                        lineHeight: 1.5,
+                                        color: 'var(--text)',
+                                        whiteSpace: 'pre-wrap',
+                                        maxHeight: '160px',
+                                        overflowY: 'auto',
+                                      }}
+                                    >
+                                      {item.result.itLogEntry}
+                                    </pre>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div>
+                                <strong
+                                  style={{
+                                    display: 'block',
+                                    fontSize: '0.80rem',
+                                    color: 'var(--muted)',
+                                    marginBottom: '6px',
+                                  }}
+                                >
+                                  Transcript Preview ({item.wordCount} words):
+                                </strong>
+                                <div
+                                  style={{
+                                    background: 'var(--card)',
+                                    border: '1px solid var(--line)',
+                                    borderRadius: '6px',
+                                    padding: '10px',
+                                    fontSize: '0.78rem',
+                                    color: 'var(--text)',
+                                    lineHeight: 1.5,
+                                    maxHeight: '140px',
+                                    overflowY: 'auto',
+                                  }}
+                                >
+                                  {item.transcriptText.slice(0, 500)}
+                                  {item.transcriptText.length > 500 ? '...' : ''}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div
+                style={{
+                  padding: '12px 24px',
+                  borderTop: '1px solid var(--line)',
+                  background: 'var(--card)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  fontSize: '0.75rem',
+                  color: 'var(--muted)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={14} color="var(--emerald)" />
+                  <span>
+                    100% Free &amp; Private: All transcripts are processed sequentially via local
+                    Ollama ({ollamaEndpoint}). Zero data leaves your browser.
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowBatchModal(false)}
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--text)',
+                    borderRadius: '6px',
+                    padding: '5px 14px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* AI Provider, Custom Dictionary & Config Import/Export Modal */}
+        <AiProviderSettingsModal
+          isOpen={showAiSettingsModal}
+          onClose={() => setShowAiSettingsModal(false)}
+          initialTab={aiSettingsModalTab}
+        />
       </main>
     </div>
   );
