@@ -5777,7 +5777,7 @@ export const AiAudioTranscriber: React.FC = () => {
     }
   };
 
-  // Load saved draft from localStorage on mount
+  // Automatically restore previous recording state and metadata tags from localStorage on mount / page reload
   useEffect(() => {
     try {
       const savedRaw = localStorage.getItem(AUTO_SAVE_STORAGE_KEY);
@@ -5785,11 +5785,33 @@ export const AiAudioTranscriber: React.FC = () => {
         const parsed = JSON.parse(savedRaw);
         if (parsed && parsed.transcript && parsed.transcript.trim()) {
           setRestorableDraft(parsed);
-          addLog('info', `Found auto-saved draft from ${parsed.formattedTime || 'previous session'}.`);
+          // Automatically restore state on page reload
+          setResult({
+            transcript: parsed.transcript,
+            summary: parsed.summary || 'Restored session draft.',
+            actionItems: parsed.actionItems || [],
+            keyTakeaways: parsed.keyTakeaways || [],
+            itLogEntry: parsed.itLogEntry || '',
+            isLlmGenerated: parsed.isLlmGenerated || false,
+            modelUsed: 'Auto-Restored Session Draft',
+          });
+
+          if (parsed.audioFileName) setAudioFileName(parsed.audioFileName);
+          if (parsed.metaProject) setMetaProject(parsed.metaProject);
+          if (parsed.metaCategory) setMetaCategory(parsed.metaCategory);
+          if (parsed.metaDate) setMetaDate(parsed.metaDate);
+          if (Array.isArray(parsed.customTags)) setCustomTags(parsed.customTags);
+
+          addLog('info', `Successfully auto-restored previous recording state and metadata tags from localStorage (${parsed.formattedTime || 'previous session'}).`, {
+            transcriptLength: parsed.transcript.length,
+            audioFileName: parsed.audioFileName,
+            metaProject: parsed.metaProject,
+            customTags: parsed.customTags,
+          });
         }
       }
-    } catch {
-      // Ignore localStorage errors
+    } catch (err: any) {
+      addLog('warn', 'Failed to auto-restore recording state from localStorage:', err?.message || err);
     }
   }, [addLog]);
 
@@ -10327,7 +10349,7 @@ export const AiAudioTranscriber: React.FC = () => {
                       }}
                     >
                       <Download size={12} />
-                      .txt
+                      Save Transcript
                     </button>
                     <button
                       type="button"
@@ -10423,6 +10445,7 @@ export const AiAudioTranscriber: React.FC = () => {
                         return (
                           <div
                             key={turn.id || index}
+                            onClick={() => seekToTime(turn.startTime)}
                             style={{
                               background: 'var(--card)',
                               border: isSpeaker1
@@ -10433,7 +10456,20 @@ export const AiAudioTranscriber: React.FC = () => {
                               display: 'flex',
                               flexDirection: 'column',
                               gap: '6px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
                             }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = 'var(--accent)';
+                              e.currentTarget.style.background = 'var(--surface-accent)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = isSpeaker1
+                                ? 'rgba(56, 189, 248, 0.35)'
+                                : 'rgba(168, 85, 247, 0.35)';
+                              e.currentTarget.style.background = 'var(--card)';
+                            }}
+                            title={`Seek audio player to ${formatSpeakerTimestamp(turn.startTime)}`}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -10545,27 +10581,51 @@ export const AiAudioTranscriber: React.FC = () => {
                               const timeStr = formatSpeakerTimestamp(lineTimeSec);
 
                               return (
-                                <div key={idx} style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => seekToTime(lineTimeSec)}
-                                    style={{
-                                      background: 'var(--bg)',
-                                      border: '1px solid var(--line)',
-                                      borderRadius: '4px',
-                                      padding: '1px 6px',
-                                      fontSize: '0.74rem',
-                                      fontFamily: 'monospace',
-                                      fontWeight: 700,
-                                      color: 'var(--accent)',
-                                      cursor: 'pointer',
-                                      flexShrink: 0,
-                                      userSelect: 'none',
-                                    }}
-                                    title={`Jump audio player to ${timeStr}`}
-                                  >
-                                    [{timeStr}]
-                                  </button>
+                                <div
+                                  key={idx}
+                                  onClick={() => seekToTime(lineTimeSec)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'baseline',
+                                    gap: '8px',
+                                    cursor: 'pointer',
+                                    padding: '6px 8px',
+                                    borderRadius: '6px',
+                                    transition: 'background 0.15s ease',
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'var(--surface-accent)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'transparent';
+                                  }}
+                                  title={`Seek audio player to ${timeStr}`}
+                                >
+                                  {showLineTimestamps && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        seekToTime(lineTimeSec);
+                                      }}
+                                      style={{
+                                        background: 'var(--bg)',
+                                        border: '1px solid var(--line)',
+                                        borderRadius: '4px',
+                                        padding: '1px 6px',
+                                        fontSize: '0.74rem',
+                                        fontFamily: 'monospace',
+                                        fontWeight: 700,
+                                        color: 'var(--accent)',
+                                        cursor: 'pointer',
+                                        flexShrink: 0,
+                                        userSelect: 'none',
+                                      }}
+                                      title={`Jump audio player to ${timeStr}`}
+                                    >
+                                      [{timeStr}]
+                                    </button>
+                                  )}
                                   <span style={{ flex: 1 }}>{highlightMatchingText(line, searchQuery)}</span>
                                 </div>
                               );
