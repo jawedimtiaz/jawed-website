@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Cpu,
   CheckCircle2,
@@ -117,6 +118,17 @@ export const AiProviderSettingsModal: React.FC<AiProviderSettingsModalProps> = (
       window.removeEventListener('custom-dictionary-changed', handleDictionaryChanged as EventListener);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -271,94 +283,65 @@ export const AiProviderSettingsModal: React.FC<AiProviderSettingsModalProps> = (
       (t.category && t.category.toLowerCase().includes(dictSearch.toLowerCase()))
   );
 
-  return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="AI Audio Transcriber Settings">
-      <div
-        className="modal-content"
-        style={{
-          width: 'min(640px, 95vw)',
-          maxHeight: '90vh',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: 0,
-          overflow: 'hidden',
-        }}
-      >
+  const modalNode = (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-sm overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-label="AI Backend & Generation Settings"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl border border-slate-700/80 bg-slate-900 shadow-2xl overflow-hidden my-auto">
         {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderBottom: '1px solid var(--line)',
-            padding: '16px 20px',
-            background: 'var(--card)',
-          }}
-        >
-          <div>
-            <h3
-              style={{
-                margin: 0,
-                color: 'var(--text-heading)',
-                fontSize: '1.2rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <Cpu size={20} color="var(--accent)" />
-              Transcriber &amp; Local Ollama Settings
-            </h3>
-            <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
-              Manage local AI connections, custom technical terms, and exportable JSON bundles
-            </span>
-          </div>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
+          <h3 className="text-base font-semibold text-slate-100 flex items-center gap-2" style={{ margin: 0 }}>
+            <Cpu className="w-5 h-5" style={{ color: '#38bdf8' }} />
+            AI Backend &amp; Generation Settings
+          </h3>
           <button
             type="button"
             onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 0,
-              color: 'var(--muted)',
-              cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '6px',
-            }}
             aria-label="Close modal"
+            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
           >
-            <X size={18} />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
         <div
+          className="shrink-0"
           style={{
             display: 'flex',
-            borderBottom: '1px solid var(--line)',
-            background: 'var(--bg-darker)',
-            padding: '0 20px',
+            borderBottom: '1px solid #1e293b',
+            background: 'rgba(2, 6, 23, 0.5)',
+            padding: '0 24px',
             gap: '8px',
+            overflowX: 'auto',
           }}
         >
           <button
             type="button"
             onClick={() => setActiveTab('provider')}
             style={{
-              padding: '12px 14px',
+              padding: '10px 12px',
               background: 'transparent',
               border: 'none',
-              borderBottom: activeTab === 'provider' ? '2px solid var(--accent)' : '2px solid transparent',
-              color: activeTab === 'provider' ? 'var(--text-heading)' : 'var(--muted)',
-              fontWeight: activeTab === 'provider' ? 650 : 500,
-              fontSize: '0.85rem',
+              borderBottom: activeTab === 'provider' ? '2px solid #38bdf8' : '2px solid transparent',
+              color: activeTab === 'provider' ? '#f8fafc' : '#94a3b8',
+              fontWeight: activeTab === 'provider' ? 600 : 500,
+              fontSize: '0.82rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
+              whiteSpace: 'nowrap',
               transition: 'all 0.15s ease',
             }}
           >
-            <Cpu size={15} color={activeTab === 'provider' ? 'var(--accent)' : undefined} />
+            <Cpu size={14} color={activeTab === 'provider' ? '#38bdf8' : undefined} />
             AI Provider (Ollama)
           </button>
 
@@ -366,21 +349,22 @@ export const AiProviderSettingsModal: React.FC<AiProviderSettingsModalProps> = (
             type="button"
             onClick={() => setActiveTab('dictionary')}
             style={{
-              padding: '12px 14px',
+              padding: '10px 12px',
               background: 'transparent',
               border: 'none',
-              borderBottom: activeTab === 'dictionary' ? '2px solid var(--accent)' : '2px solid transparent',
-              color: activeTab === 'dictionary' ? 'var(--text-heading)' : 'var(--muted)',
-              fontWeight: activeTab === 'dictionary' ? 650 : 500,
-              fontSize: '0.85rem',
+              borderBottom: activeTab === 'dictionary' ? '2px solid #38bdf8' : '2px solid transparent',
+              color: activeTab === 'dictionary' ? '#f8fafc' : '#94a3b8',
+              fontWeight: activeTab === 'dictionary' ? 600 : 500,
+              fontSize: '0.82rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
+              whiteSpace: 'nowrap',
               transition: 'all 0.15s ease',
             }}
           >
-            <BookOpen size={15} color={activeTab === 'dictionary' ? 'var(--accent)' : undefined} />
+            <BookOpen size={14} color={activeTab === 'dictionary' ? '#38bdf8' : undefined} />
             Custom Dictionary ({dictionary.length})
           </button>
 
@@ -388,27 +372,28 @@ export const AiProviderSettingsModal: React.FC<AiProviderSettingsModalProps> = (
             type="button"
             onClick={() => setActiveTab('import-export')}
             style={{
-              padding: '12px 14px',
+              padding: '10px 12px',
               background: 'transparent',
               border: 'none',
-              borderBottom: activeTab === 'import-export' ? '2px solid var(--accent)' : '2px solid transparent',
-              color: activeTab === 'import-export' ? 'var(--text-heading)' : 'var(--muted)',
-              fontWeight: activeTab === 'import-export' ? 650 : 500,
-              fontSize: '0.85rem',
+              borderBottom: activeTab === 'import-export' ? '2px solid #38bdf8' : '2px solid transparent',
+              color: activeTab === 'import-export' ? '#f8fafc' : '#94a3b8',
+              fontWeight: activeTab === 'import-export' ? 600 : 500,
+              fontSize: '0.82rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
+              whiteSpace: 'nowrap',
               transition: 'all 0.15s ease',
             }}
           >
-            <Download size={15} color={activeTab === 'import-export' ? 'var(--accent)' : undefined} />
+            <Download size={14} color={activeTab === 'import-export' ? '#38bdf8' : undefined} />
             Import / Export JSON
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div style={{ padding: '20px', overflowY: 'auto', flex: 1, maxHeight: '60vh' }}>
+        {/* Scrollable Body */}
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
           {/* TAB 1: AI Provider & Ollama */}
           {activeTab === 'provider' && (
             <div style={{ display: 'grid', gap: '16px' }}>
@@ -959,31 +944,28 @@ export const AiProviderSettingsModal: React.FC<AiProviderSettingsModalProps> = (
         </div>
 
         {/* Footer */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderTop: '1px solid var(--line)',
-            padding: '14px 20px',
-            background: 'var(--card)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: 'var(--muted)' }}>
-            <ShieldCheck size={14} color="var(--emerald)" />
-            <span>Settings saved locally in browser storage</span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button type="button" onClick={onClose} className="button button-secondary" style={{ fontSize: '0.86rem' }}>
-              Cancel
-            </button>
-            <button type="button" onClick={handleSave} className="button" style={{ fontSize: '0.86rem' }}>
-              Save &amp; Apply
-            </button>
-          </div>
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-950/50 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-sky-500 hover:bg-sky-400 shadow-md transition"
+          >
+            Save &amp; Apply
+          </button>
         </div>
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalNode, document.body);
+  }
+  return modalNode;
 };

@@ -12,17 +12,19 @@ import {
   Pause,
   CheckCircle2,
   ShieldCheck,
-  Video,
   Image as ImageIcon,
-  Sliders,
-  RotateCcw,
-  Layers,
-  Sun,
-  Maximize2,
+  Settings,
+  Cpu,
+  Plus,
+  Wand2,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import {
+  AiProviderSettingsModal,
+  getStoredAiProviderConfig,
+  type AiProviderConfig,
+} from '../components/AiProviderSettingsModal';
 
 export type AnimationEffectId = 'ken-burns' | 'orbit-zoom' | 'particle-dust' | 'pulse-glow' | 'cinematic-pan';
 
@@ -30,6 +32,13 @@ export interface AnimationEffectConfig {
   id: AnimationEffectId;
   label: string;
   description: string;
+}
+
+export interface UploadedFrame {
+  id: string;
+  name: string;
+  url: string;
+  imgElement: HTMLImageElement;
 }
 
 export const ANIMATION_EFFECTS: AnimationEffectConfig[] = [
@@ -61,9 +70,7 @@ export const ANIMATION_EFFECTS: AnimationEffectConfig[] = [
 ];
 
 export const AnimateImageToVideo: React.FC = () => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [imageElement, setImageElement] = useState<HTMLImageElement | null>(null);
+  const [frames, setFrames] = useState<UploadedFrame[]>([]);
   const [captionText, setCaptionText] = useState<string>('Cinematic Memory • 2026');
   const [selectedEffect, setSelectedEffect] = useState<AnimationEffectId>('ken-burns');
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
@@ -72,132 +79,130 @@ export const AnimateImageToVideo: React.FC = () => {
   const [isRendering, setIsRendering] = useState<boolean>(false);
   const [renderProgress, setRenderProgress] = useState<number>(0);
   const [renderedVideoUrl, setRenderedVideoUrl] = useState<string | null>(null);
+  const [renderedVideoExt, setRenderedVideoExt] = useState<'webm' | 'mp4'>('webm');
   const [isLivePreviewing, setIsLivePreviewing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // Scoped AI Settings Modal & Provider Config
+  const [settingsModalOpen, setSettingsModalOpen] = useState<boolean>(false);
+  const [aiConfig, setAiConfig] = useState<AiProviderConfig>(getStoredAiProviderConfig);
+  const [isGeneratingCaption, setIsGeneratingCaption] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const liveCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const activeBlobUrlRef = useRef<string | null>(null);
 
-  // Handle Image File Upload
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setErrorMsg('Please upload a valid image file (PNG, JPEG, WebP).');
-      return;
-    }
-
-    if (file.size > 20 * 1024 * 1024) {
-      setErrorMsg('Image file size exceeds the 20 MB limit.');
-      return;
-    }
-
-    setErrorMsg(null);
-    setSelectedFile(file);
-
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      setImageElement(img);
-      setIsLivePreviewing(true);
-    };
-    img.src = objectUrl;
-  };
-
-  const handleClear = () => {
-    setSelectedFile(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
-    setImageElement(null);
-    setRenderedVideoUrl(null);
-    setIsLivePreviewing(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  // Live Canvas Preview & Rendering Loop
+  // Listen for AI provider config updates from AiProviderSettingsModal
   useEffect(() => {
-    const canvas = liveCanvasRef.current;
-    if (!canvas || !imageElement) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const handleProviderChange = (e: Event) => {
+      const customEvent = e as CustomEvent<AiProviderConfig>;
+      if (customEvent.detail) {
+        setAiConfig(customEvent.detail);
+      } else {
+        setAiConfig(getStoredAiProviderConfig());
+      }
+    };
+    window.addEventListener('ai-provider-changed', handleProviderChange);
+    return () => window.removeEventListener('ai-provider-changed', handleProviderChange);
+  }, []);
 
-    let startTime = performance.now();
-    const totalDurationMs = durationSeconds * 1000;
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (activeBlobUrlRef.current) {
+        URL.revokeObjectURL(activeBlobUrlRef.current);
+      }
+    };
+  }, []);
 
-    const renderLoop = (now: number) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(1, elapsed / totalDurationMs);
-
-      // Canvas dimensions based on aspect ratio
-      const width = aspectRatio === '16:9' ? 1280 : 720;
-      const height = aspectRatio === '16:9' ? 720 : 1280;
-      if (canvas.width !== width) canvas.width = width;
-      if (canvas.height !== height) canvas.height = height;
-
+  // Helper to draw a frame onto the canvas at a given progress [0..1]
+  const drawFrameAtProgress = useCallback(
+    (ctx: CanvasRenderingContext2D, width: number, height: number, progress: number) => {
       ctx.fillStyle = '#020617';
       ctx.fillRect(0, 0, width, height);
 
-      // Effect calculations
-      let scale = 1.0;
-      let offsetX = 0;
-      let offsetY = 0;
-      let alphaOverlay = 0;
+      if (frames.length === 0) return;
 
-      if (selectedEffect === 'ken-burns') {
-        scale = 1.0 + progress * 0.22;
-        offsetX = Math.sin(progress * Math.PI) * 40;
-        offsetY = Math.cos(progress * Math.PI) * 20;
-      } else if (selectedEffect === 'orbit-zoom') {
-        scale = 1.05 + Math.sin(progress * Math.PI * 2) * 0.08;
-        offsetX = Math.cos(progress * Math.PI * 2) * 25;
-        offsetY = Math.sin(progress * Math.PI * 2) * 25;
-      } else if (selectedEffect === 'particle-dust') {
-        scale = 1.08 + progress * 0.1;
-      } else if (selectedEffect === 'pulse-glow') {
-        scale = 1.02 + Math.sin(progress * Math.PI * 3) * 0.04;
-        alphaOverlay = 0.15 + Math.sin(progress * Math.PI * 2) * 0.1;
-      } else if (selectedEffect === 'cinematic-pan') {
-        scale = 1.15;
-        offsetX = (progress - 0.5) * 120;
+      // Determine active image (and next image for crossfade when multiple images are queued)
+      const totalFrames = frames.length;
+      const exactIdx = progress * totalFrames;
+      const currentIdx = Math.min(totalFrames - 1, Math.floor(exactIdx));
+      const nextIdx = Math.min(totalFrames - 1, currentIdx + 1);
+      const localProgress = totalFrames > 1 ? exactIdx - currentIdx : progress;
+      const crossfadeAlpha =
+        totalFrames > 1 && currentIdx !== nextIdx && localProgress > 0.75
+          ? (localProgress - 0.75) / 0.25
+          : 0;
+
+      const drawImageWithEffect = (img: HTMLImageElement, p: number, alpha: number) => {
+        let scale = 1.0;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (selectedEffect === 'ken-burns') {
+          scale = 1.0 + p * 0.22;
+          offsetX = Math.sin(p * Math.PI) * 40;
+          offsetY = Math.cos(p * Math.PI) * 20;
+        } else if (selectedEffect === 'orbit-zoom') {
+          scale = 1.05 + Math.sin(p * Math.PI * 2) * 0.08;
+          offsetX = Math.cos(p * Math.PI * 2) * 25;
+          offsetY = Math.sin(p * Math.PI * 2) * 25;
+        } else if (selectedEffect === 'particle-dust') {
+          scale = 1.08 + p * 0.1;
+        } else if (selectedEffect === 'pulse-glow') {
+          scale = 1.02 + Math.sin(p * Math.PI * 3) * 0.04;
+        } else if (selectedEffect === 'cinematic-pan') {
+          scale = 1.15;
+          offsetX = (p - 0.5) * 120;
+        }
+
+        const imgAspect = img.width / img.height;
+        const canvasAspect = width / height;
+
+        let drawW = width * scale;
+        let drawH = height * scale;
+
+        if (imgAspect > canvasAspect) {
+          drawH = height * scale;
+          drawW = drawH * imgAspect;
+        } else {
+          drawW = width * scale;
+          drawH = drawW / imgAspect;
+        }
+
+        const drawX = (width - drawW) / 2 + offsetX;
+        const drawY = (height - drawH) / 2 + offsetY;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+        ctx.restore();
+      };
+
+      drawImageWithEffect(frames[currentIdx].imgElement, localProgress, 1);
+      if (crossfadeAlpha > 0 && nextIdx !== currentIdx) {
+        drawImageWithEffect(frames[nextIdx].imgElement, 0, crossfadeAlpha);
       }
-
-      const imgAspect = imageElement.width / imageElement.height;
-      const canvasAspect = width / height;
-
-      let drawW = width * scale;
-      let drawH = height * scale;
-
-      if (imgAspect > canvasAspect) {
-        drawH = height * scale;
-        drawW = drawH * imgAspect;
-      } else {
-        drawW = width * scale;
-        drawH = drawW / imgAspect;
-      }
-
-      const drawX = (width - drawW) / 2 + offsetX;
-      const drawY = (height - drawH) / 2 + offsetY;
-
-      ctx.save();
-      ctx.drawImage(imageElement, drawX, drawY, drawW, drawH);
-      ctx.restore();
 
       // Atmospheric Vignette
-      const gradient = ctx.createRadialGradient(width / 2, height / 2, width * 0.3, width / 2, height / 2, width * 0.75);
+      const gradient = ctx.createRadialGradient(
+        width / 2,
+        height / 2,
+        width * 0.3,
+        width / 2,
+        height / 2,
+        width * 0.75
+      );
       gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
       gradient.addColorStop(1, 'rgba(2, 6, 23, 0.65)');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
 
       // Sunlight / Glow overlay
-      if (alphaOverlay > 0 || selectedEffect === 'pulse-glow') {
+      if (selectedEffect === 'pulse-glow') {
+        const alphaOverlay = 0.15 + Math.sin(progress * Math.PI * 2) * 0.1;
         ctx.fillStyle = `rgba(251, 191, 36, ${Math.max(0.05, alphaOverlay)})`;
         ctx.fillRect(0, 0, width, height);
       }
@@ -207,7 +212,7 @@ export const AnimateImageToVideo: React.FC = () => {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         for (let i = 0; i < 24; i++) {
           const px = (Math.sin(i * 99 + progress * Math.PI * 4) * 0.5 + 0.5) * width;
-          const py = ((i * 45 + progress * height * 0.8) % height);
+          const py = (i * 45 + progress * height * 0.8) % height;
           const pSize = (i % 3) + 1.5;
           ctx.beginPath();
           ctx.arc(px, py, pSize, 0, Math.PI * 2);
@@ -238,18 +243,214 @@ export const AnimateImageToVideo: React.FC = () => {
         ctx.fillText(`✨ ${captionText.trim()}`, 64, bannerY + bannerH / 2);
         ctx.restore();
       }
+    },
+    [frames, selectedEffect, captionText]
+  );
 
-      if (progress < 1 && isLivePreviewing) {
-        animFrameRef.current = requestAnimationFrame(renderLoop);
-      } else if (progress >= 1 && isLivePreviewing) {
-        // Loop animation
-        startTime = performance.now();
+  // Handle Image File Upload (supports single or multiple images)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const validFiles: File[] = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      if (!file.type.startsWith('image/')) {
+        setErrorMsg('Please upload valid image files (PNG, JPEG, WebP).');
+        continue;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        setErrorMsg(`File "${file.name}" exceeds the 20 MB limit.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) return;
+    setErrorMsg(null);
+
+    validFiles.forEach((file) => {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        setFrames((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: file.name,
+            url: objectUrl,
+            imgElement: img,
+          },
+        ]);
+        setIsLivePreviewing(true);
+      };
+      img.src = objectUrl;
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Load a procedural high-res sample scene so users can test immediately
+  const handleLoadSampleScene = () => {
+    setErrorMsg(null);
+    const offscreen = document.createElement('canvas');
+    offscreen.width = 1280;
+    offscreen.height = 720;
+    const octx = offscreen.getContext('2d');
+    if (!octx) return;
+
+    const grad = octx.createLinearGradient(0, 0, 1280, 720);
+    grad.addColorStop(0, '#0f172a');
+    grad.addColorStop(0.5, '#0369a1');
+    grad.addColorStop(1, '#1e1b4b');
+    octx.fillStyle = grad;
+    octx.fillRect(0, 0, 1280, 720);
+
+    // Draw glowing horizon and geometric mountain silhouettes
+    const sunGrad = octx.createRadialGradient(640, 320, 20, 640, 320, 280);
+    sunGrad.addColorStop(0, 'rgba(56, 189, 248, 0.85)');
+    sunGrad.addColorStop(0.5, 'rgba(45, 212, 191, 0.25)');
+    sunGrad.addColorStop(1, 'rgba(15, 23, 42, 0)');
+    octx.fillStyle = sunGrad;
+    octx.fillRect(0, 0, 1280, 720);
+
+    octx.fillStyle = '#090d16';
+    octx.beginPath();
+    octx.moveTo(0, 720);
+    octx.lineTo(0, 480);
+    octx.lineTo(280, 340);
+    octx.lineTo(520, 460);
+    octx.lineTo(820, 300);
+    octx.lineTo(1080, 440);
+    octx.lineTo(1280, 360);
+    octx.lineTo(1280, 720);
+    octx.closePath();
+    octx.fill();
+
+    const dataUrl = offscreen.toDataURL('image/png');
+    const img = new Image();
+    img.onload = () => {
+      setFrames((prev) => [
+        ...prev,
+        {
+          id: `sample-${Date.now()}`,
+          name: 'sample-horizon-scene.png',
+          url: dataUrl,
+          imgElement: img,
+        },
+      ]);
+      setIsLivePreviewing(true);
+    };
+    img.src = dataUrl;
+  };
+
+  const handleRemoveFrame = (id: string) => {
+    setFrames((prev) => {
+      const target = prev.find((f) => f.id === id);
+      if (target && target.url.startsWith('blob:')) {
+        URL.revokeObjectURL(target.url);
+      }
+      const next = prev.filter((f) => f.id !== id);
+      if (next.length === 0) {
+        setIsLivePreviewing(false);
+      }
+      return next;
+    });
+  };
+
+  const handleClear = () => {
+    frames.forEach((f) => {
+      if (f.url.startsWith('blob:')) URL.revokeObjectURL(f.url);
+    });
+    setFrames([]);
+    setRenderedVideoUrl(null);
+    setIsLivePreviewing(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Generate AI Caption / Motion Suggestion using configured AI Provider (Ollama or Gemini)
+  const handleSuggestCaption = async () => {
+    setIsGeneratingCaption(true);
+    setErrorMsg(null);
+    try {
+      const effectLabel = ANIMATION_EFFECTS.find((e) => e.id === selectedEffect)?.label || selectedEffect;
+      if (aiConfig.provider === 'ollama') {
+        const endpoint = (aiConfig.ollamaEndpoint || 'http://localhost:11434').replace(/\/+$/, '');
+        const res = await fetch(`${endpoint}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: aiConfig.ollamaModel || 'llama3',
+            prompt: `Write a short, punchy 4-to-6 word cinematic video overlay caption for a photo animated with "${effectLabel}". Output ONLY the caption text without quotes.`,
+            stream: false,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const text = (data.response || '').trim().replace(/^["']|["']$/g, '');
+          if (text) {
+            setCaptionText(text.slice(0, 60));
+            setIsGeneratingCaption(false);
+            return;
+          }
+        }
+      }
+
+      // Smart curated fallback captions based on selected effect
+      const presets: Record<AnimationEffectId, string[]> = {
+        'ken-burns': ['Moments in Motion • 2026', 'Timeless Perspective • HD', 'Captured Horizon • Studio'],
+        'orbit-zoom': ['Dynamic Focus • Deep Perspective', 'Pulse of the City • 2026', 'Immersive Visual Story'],
+        'particle-dust': ['Atmospheric Light & Dust', 'Golden Hour Memories • 2026', 'Ethereal Cinema Frame'],
+        'pulse-glow': ['Warm Horizon Glow • 2026', 'Sunlit Memories in Motion', 'Radiant Golden Hour'],
+        'cinematic-pan': ['Widescreen Panorama • 2026', 'Across the Frame • Cinema', 'Sweeping Vista • HD'],
+      };
+      const options = presets[selectedEffect] || presets['ken-burns'];
+      const nextCaption = options[Math.floor(Math.random() * options.length)];
+      setCaptionText(nextCaption);
+    } catch {
+      setCaptionText('Cinematic Showcase • 2026');
+    } finally {
+      setIsGeneratingCaption(false);
+    }
+  };
+
+  // Live Canvas Preview & Rendering Loop
+  useEffect(() => {
+    const canvas = liveCanvasRef.current;
+    if (!canvas || frames.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const width = aspectRatio === '16:9' ? 1280 : 720;
+    const height = aspectRatio === '16:9' ? 720 : 1280;
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+
+    let startTime = performance.now();
+    const totalDurationMs = durationSeconds * 1000;
+
+    const renderLoop = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / totalDurationMs);
+
+      drawFrameAtProgress(ctx, width, height, progress);
+
+      if (isLivePreviewing) {
+        if (progress >= 1) {
+          startTime = performance.now();
+        }
         animFrameRef.current = requestAnimationFrame(renderLoop);
       }
     };
 
     if (isLivePreviewing) {
       animFrameRef.current = requestAnimationFrame(renderLoop);
+    } else {
+      // Draw static preview frame when paused
+      drawFrameAtProgress(ctx, width, height, 0.35);
     }
 
     return () => {
@@ -258,13 +459,13 @@ export const AnimateImageToVideo: React.FC = () => {
         animFrameRef.current = null;
       }
     };
-  }, [imageElement, selectedEffect, aspectRatio, durationSeconds, captionText, isLivePreviewing]);
+  }, [frames, aspectRatio, durationSeconds, isLivePreviewing, drawFrameAtProgress]);
 
   // Record Canvas to Video Blob using MediaRecorder API (100% Free, Client-Side)
   const handleRenderAndRecordVideo = async () => {
     const canvas = liveCanvasRef.current;
-    if (!canvas || !imageElement) {
-      setErrorMsg('Please upload an image first.');
+    if (!canvas || frames.length === 0) {
+      setErrorMsg('Please upload at least one image first (or click "Load Sample Scene").');
       return;
     }
 
@@ -280,16 +481,32 @@ export const AnimateImageToVideo: React.FC = () => {
     setRenderedVideoUrl(null);
 
     try {
-      const stream = canvas.captureStream(30); // 30 FPS
-      let mimeType = 'video/webm;codecs=vp9';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm';
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = '';
-      }
+      const width = aspectRatio === '16:9' ? 1280 : 720;
+      const height = aspectRatio === '16:9' ? 720 : 1280;
+      canvas.width = width;
+      canvas.height = height;
 
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2500000 }) : new MediaRecorder(stream);
+      const stream = canvas.captureStream(30); // 30 FPS
+      const candidates = [
+        { mime: 'video/webm;codecs=vp9', ext: 'webm' as const },
+        { mime: 'video/webm;codecs=vp8', ext: 'webm' as const },
+        { mime: 'video/webm', ext: 'webm' as const },
+        { mime: 'video/mp4', ext: 'mp4' as const },
+      ];
+      let chosenMime = '';
+      let chosenExt: 'webm' | 'mp4' = 'webm';
+      for (const c of candidates) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(c.mime)) {
+          chosenMime = c.mime;
+          chosenExt = c.ext;
+          break;
+        }
+      }
+      setRenderedVideoExt(chosenExt);
+
+      const recorder = chosenMime
+        ? new MediaRecorder(stream, { mimeType: chosenMime, videoBitsPerSecond: 2500000 })
+        : new MediaRecorder(stream);
       const chunks: Blob[] = [];
 
       recorder.ondataavailable = (ev) => {
@@ -310,109 +527,16 @@ export const AnimateImageToVideo: React.FC = () => {
 
       recorder.start();
 
-      // Render frames over durationSeconds
       const totalMs = durationSeconds * 1000;
       const startTime = performance.now();
       const ctx = canvas.getContext('2d')!;
-      const width = canvas.width;
-      const height = canvas.height;
 
       const renderStep = (now: number) => {
         const elapsed = now - startTime;
         const progress = Math.min(1, elapsed / totalMs);
         setRenderProgress(Math.round(progress * 100));
 
-        // Draw frame
-        ctx.fillStyle = '#020617';
-        ctx.fillRect(0, 0, width, height);
-
-        let scale = 1.0;
-        let offsetX = 0;
-        let offsetY = 0;
-        let alphaOverlay = 0;
-
-        if (selectedEffect === 'ken-burns') {
-          scale = 1.0 + progress * 0.22;
-          offsetX = Math.sin(progress * Math.PI) * 40;
-          offsetY = Math.cos(progress * Math.PI) * 20;
-        } else if (selectedEffect === 'orbit-zoom') {
-          scale = 1.05 + Math.sin(progress * Math.PI * 2) * 0.08;
-          offsetX = Math.cos(progress * Math.PI * 2) * 25;
-          offsetY = Math.sin(progress * Math.PI * 2) * 25;
-        } else if (selectedEffect === 'particle-dust') {
-          scale = 1.08 + progress * 0.1;
-        } else if (selectedEffect === 'pulse-glow') {
-          scale = 1.02 + Math.sin(progress * Math.PI * 3) * 0.04;
-          alphaOverlay = 0.15 + Math.sin(progress * Math.PI * 2) * 0.1;
-        } else if (selectedEffect === 'cinematic-pan') {
-          scale = 1.15;
-          offsetX = (progress - 0.5) * 120;
-        }
-
-        const imgAspect = imageElement.width / imageElement.height;
-        const canvasAspect = width / height;
-
-        let drawW = width * scale;
-        let drawH = height * scale;
-
-        if (imgAspect > canvasAspect) {
-          drawH = height * scale;
-          drawW = drawH * imgAspect;
-        } else {
-          drawW = width * scale;
-          drawH = drawW / imgAspect;
-        }
-
-        const drawX = (width - drawW) / 2 + offsetX;
-        const drawY = (height - drawH) / 2 + offsetY;
-
-        ctx.drawImage(imageElement, drawX, drawY, drawW, drawH);
-
-        const gradient = ctx.createRadialGradient(width / 2, height / 2, width * 0.3, width / 2, height / 2, width * 0.75);
-        gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-        gradient.addColorStop(1, 'rgba(2, 6, 23, 0.65)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height);
-
-        if (alphaOverlay > 0 || selectedEffect === 'pulse-glow') {
-          ctx.fillStyle = `rgba(251, 191, 36, ${Math.max(0.05, alphaOverlay)})`;
-          ctx.fillRect(0, 0, width, height);
-        }
-
-        if (selectedEffect === 'particle-dust') {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-          for (let i = 0; i < 24; i++) {
-            const px = (Math.sin(i * 99 + progress * Math.PI * 4) * 0.5 + 0.5) * width;
-            const py = ((i * 45 + progress * height * 0.8) % height);
-            const pSize = (i % 3) + 1.5;
-            ctx.beginPath();
-            ctx.arc(px, py, pSize, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-
-        if (captionText.trim()) {
-          ctx.save();
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
-          ctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
-          ctx.lineWidth = 1;
-          const bannerH = 48;
-          const bannerY = height - bannerH - 24;
-          ctx.beginPath();
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(40, bannerY, width - 80, bannerH, 8);
-          } else {
-            ctx.rect(40, bannerY, width - 80, bannerH);
-          }
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.font = '600 16px system-ui, -apple-system, sans-serif';
-          ctx.fillStyle = '#f8fafc';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(`✨ ${captionText.trim()}`, 64, bannerY + bannerH / 2);
-          ctx.restore();
-        }
+        drawFrameAtProgress(ctx, width, height, progress);
 
         if (progress < 1) {
           requestAnimationFrame(renderStep);
@@ -439,7 +563,7 @@ export const AnimateImageToVideo: React.FC = () => {
     if (!renderedVideoUrl) return;
     const a = document.createElement('a');
     a.href = renderedVideoUrl;
-    a.download = `animated-photo-${new Date().toISOString().slice(0, 10)}.webm`;
+    a.download = `animated-photo-${new Date().toISOString().slice(0, 10)}.${renderedVideoExt}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -451,7 +575,7 @@ export const AnimateImageToVideo: React.FC = () => {
       try {
         await navigator.share({
           title: 'Animated Photo Video',
-          text: `Check out this photo animation created with Jawed AI Studio!`,
+          text: 'Check out this photo animation created with Jawed Imtiaz Studio!',
           url: window.location.href,
         });
       } catch (err: any) {
@@ -486,45 +610,111 @@ export const AnimateImageToVideo: React.FC = () => {
             items={[
               { label: 'Home', href: '/' },
               { label: 'Tools', href: '/tools' },
-              { label: 'Animate Images into Video (100% Free)' },
+              { label: 'Animate Images into Video' },
             ]}
             style={{ marginBottom: 0 }}
           />
           <SocialShareBar
             title="Animate Images into Video | 100% Free"
             text="Transform static photos into cinematic 16:9 or 9:16 videos instantly in your browser with zero paid API costs."
-            url={typeof window !== 'undefined' ? `${window.location.origin}/tools/animate-image-to-video` : 'https://jawed.co.in/tools/animate-image-to-video'}
+            url={
+              typeof window !== 'undefined'
+                ? `${window.location.origin}/tools/animate-image-to-video`
+                : 'https://jawed.co.in/tools/animate-image-to-video'
+            }
           />
         </div>
 
-        {/* Header */}
+        {/* Hero Header with Scoped AI Engine & Settings Trigger */}
         <header style={{ marginBottom: '28px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-            <span
-              style={{
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                color: 'var(--emerald)',
-                background: 'rgba(16, 185, 129, 0.1)',
-                padding: '3px 10px',
-                borderRadius: '999px',
-                border: '1px solid rgba(16, 185, 129, 0.25)',
-              }}
-            >
-              100% Free • Client-Side Studio
-            </span>
-            <span style={{ fontSize: '0.78rem', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <ShieldCheck size={14} color="var(--emerald)" /> Zero Server Costs • Instant Rendering
-            </span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              marginBottom: '12px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'var(--emerald)',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  padding: '3px 10px',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                }}
+              >
+                100% Free • Client-Side Studio
+              </span>
+              <span
+                style={{
+                  fontSize: '0.78rem',
+                  color: 'var(--muted)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <ShieldCheck size={14} color="var(--emerald)" /> Zero Server Costs • Instant Rendering
+              </span>
+            </div>
+
+            {/* Scoped AI Engine & Settings Toolbar Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span
+                style={{
+                  fontSize: '0.76rem',
+                  padding: '4px 10px',
+                  borderRadius: '999px',
+                  background: 'var(--bg-darker)',
+                  border: '1px solid var(--line)',
+                  color: 'var(--muted)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Cpu size={13} color="var(--accent)" />
+                AI Backend:{' '}
+                <strong style={{ color: 'var(--text-heading)' }}>
+                  {aiConfig.provider === 'ollama' ? `Local Ollama (${aiConfig.ollamaModel})` : 'Google Gemini'}
+                </strong>
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setSettingsModalOpen(true)}
+                className="theme-toggle-btn"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                aria-label="AI Engine & Settings"
+                title="Configure AI Backend & Local Ollama Settings"
+              >
+                <Settings size={15} color="var(--accent)" />
+                <span>AI Engine &amp; Settings</span>
+              </button>
+            </div>
           </div>
 
-          <h1 style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.4rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px', color: 'var(--text-heading)' }}>
+          <h1
+            style={{
+              fontSize: 'clamp(1.8rem, 3.5vw, 2.4rem)',
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              margin: '0 0 10px',
+              color: 'var(--text-heading)',
+            }}
+          >
             Animate Images into Video (Free Studio)
           </h1>
           <p className="lead" style={{ fontSize: '1.05rem', color: 'var(--muted)', maxWidth: '820px', lineHeight: 1.6, margin: 0 }}>
-            Upload any static photo, apply cinematic Ken Burns pan/zoom effects, particle dust overlays, and text captions, and record it directly into a video file 100% locally in your browser.
+            Upload one or multiple static photos, apply cinematic Ken Burns pan/zoom effects, particle dust overlays, and AI-assisted captions, and record directly into a video file 100% locally in your browser.
           </p>
         </header>
 
@@ -550,21 +740,42 @@ export const AnimateImageToVideo: React.FC = () => {
         <div className="card-grid two" style={{ alignItems: 'start' }}>
           {/* Left Column: Controls & Configuration */}
           <div className="card" style={{ gap: '18px' }}>
-            <h2 style={{ fontSize: '1.2rem', margin: '0 0 2px', color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Upload size={18} color="var(--accent)" />
-              1. Upload Photo
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+              <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Upload size={18} color="var(--accent)" />
+                1. Upload Photo(s)
+              </h2>
+              {frames.length === 0 && (
+                <button
+                  type="button"
+                  onClick={handleLoadSampleScene}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '4px 10px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    color: 'var(--accent)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  + Load Sample Scene
+                </button>
+              )}
+            </div>
 
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
               accept="image/png,image/jpeg,image/webp"
+              multiple
               style={{ display: 'none' }}
               id="free-image-upload-input"
             />
 
-            {!previewUrl ? (
+            {frames.length === 0 ? (
               <label
                 htmlFor="free-image-upload-input"
                 style={{
@@ -596,23 +807,92 @@ export const AnimateImageToVideo: React.FC = () => {
                 </div>
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.92rem', color: 'var(--text-heading)', marginBottom: '3px' }}>
-                    Click to upload photo
+                    Click to upload photo(s)
                   </strong>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>PNG, JPEG, WebP (Max 20MB)</span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                    PNG, JPEG, WebP (Single or multiple images, Max 20MB)
+                  </span>
                 </div>
               </label>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-darker)', borderRadius: '10px', border: '1px solid var(--line)' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-heading)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  {selectedFile?.name || 'photo.png'}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  style={{ background: 'transparent', border: 0, color: 'var(--rose)', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <Trash2 size={13} /> Change
-                </button>
+              <div style={{ display: 'grid', gap: '8px' }}>
+                {frames.map((frame, index) => (
+                  <div
+                    key={frame.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      background: 'var(--bg-darker)',
+                      borderRadius: '10px',
+                      border: '1px solid var(--line)',
+                      gap: '10px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                      <img
+                        src={frame.url}
+                        alt={frame.name}
+                        style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }}
+                      />
+                      <span
+                        style={{
+                          fontSize: '0.84rem',
+                          fontWeight: 600,
+                          color: 'var(--text-heading)',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {index + 1}. {frame.name}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFrame(frame.id)}
+                      style={{
+                        background: 'transparent',
+                        border: 0,
+                        color: 'var(--rose)',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        fontSize: '0.8rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Trash2 size={13} /> Remove
+                    </button>
+                  </div>
+                ))}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginTop: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="button button-secondary"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                  >
+                    <Plus size={14} /> Add Another Image
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    style={{
+                      background: 'transparent',
+                      border: 0,
+                      color: 'var(--muted)',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    Clear All
+                  </button>
+                </div>
               </div>
             )}
 
@@ -645,9 +925,32 @@ export const AnimateImageToVideo: React.FC = () => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-heading)', marginBottom: '6px' }}>
-                3. Video Caption / Overlay Text
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '8px' }}>
+                <label style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-heading)' }}>
+                  3. Video Caption / Overlay Text
+                </label>
+                <button
+                  type="button"
+                  onClick={handleSuggestCaption}
+                  disabled={isGeneratingCaption}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--line)',
+                    borderRadius: '6px',
+                    padding: '3px 8px',
+                    fontSize: '0.75rem',
+                    color: 'var(--accent)',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                  title="Generate caption with configured AI backend"
+                >
+                  {isGeneratingCaption ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                  AI Suggest
+                </button>
+              </div>
               <input
                 type="text"
                 value={captionText}
@@ -736,15 +1039,15 @@ export const AnimateImageToVideo: React.FC = () => {
             <button
               type="button"
               onClick={handleRenderAndRecordVideo}
-              disabled={isRendering || !imageElement}
+              disabled={isRendering || frames.length === 0}
               className="button"
               style={{
                 width: '100%',
                 marginTop: '6px',
                 padding: '13px',
                 justifyContent: 'center',
-                opacity: isRendering || !imageElement ? 0.6 : 1,
-                cursor: isRendering || !imageElement ? 'not-allowed' : 'pointer',
+                opacity: isRendering || frames.length === 0 ? 0.6 : 1,
+                cursor: isRendering || frames.length === 0 ? 'not-allowed' : 'pointer',
               }}
             >
               {isRendering ? (
@@ -763,10 +1066,34 @@ export const AnimateImageToVideo: React.FC = () => {
 
           {/* Right Column: Live Canvas Preview & Video Output */}
           <div className="card" style={{ gap: '18px', minHeight: '460px', display: 'flex', flexDirection: 'column' }}>
-            <h2 style={{ fontSize: '1.2rem', margin: '0 0 2px', color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Film size={18} color="var(--accent)" />
-              2. Live Preview &amp; Output
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Film size={18} color="var(--accent)" />
+                2. Live Preview &amp; Output
+              </h2>
+              {frames.length > 0 && !isRendering && (
+                <button
+                  type="button"
+                  onClick={() => setIsLivePreviewing((prev) => !prev)}
+                  style={{
+                    background: 'var(--bg-darker)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '5px 10px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  {isLivePreviewing ? <Pause size={13} /> : <Play size={13} />}
+                  {isLivePreviewing ? 'Pause Preview' : 'Resume Preview'}
+                </button>
+              )}
+            </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: '0 0 14px' }}>
               Real-time browser canvas preview with applied animation effect.
             </p>
@@ -791,14 +1118,24 @@ export const AnimateImageToVideo: React.FC = () => {
                   width: '100%',
                   maxHeight: aspectRatio === '16:9' ? '320px' : '400px',
                   objectFit: 'contain',
-                  display: imageElement ? 'block' : 'none',
+                  display: frames.length > 0 ? 'block' : 'none',
                 }}
               />
 
-              {!imageElement && (
+              {frames.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '30px', color: 'var(--muted)' }}>
                   <ImageIcon size={36} opacity={0.4} style={{ margin: '0 auto 8px' }} />
-                  <span style={{ fontSize: '0.88rem' }}>Upload a photo to see the live animation preview.</span>
+                  <span style={{ fontSize: '0.88rem', display: 'block', marginBottom: '12px' }}>
+                    Upload a photo to see the live animation preview.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleLoadSampleScene}
+                    className="button button-secondary"
+                    style={{ fontSize: '0.82rem', padding: '7px 14px' }}
+                  >
+                    Try with Sample Horizon Photo
+                  </button>
                 </div>
               )}
 
@@ -820,18 +1157,34 @@ export const AnimateImageToVideo: React.FC = () => {
                 >
                   <Loader2 size={32} className="animate-spin" color="var(--accent)" />
                   <strong style={{ fontSize: '0.95rem' }}>Recording video stream ({renderProgress}%)...</strong>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Please keep this tab active while rendering.</span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                    Please keep this tab active while rendering.
+                  </span>
                 </div>
               )}
             </div>
 
             {renderedVideoUrl && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: 'auto' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.82rem',
+                    color: 'var(--emerald)',
+                    fontWeight: 600,
+                  }}
+                >
+                  <CheckCircle2 size={15} />
+                  <span>Video rendered and ready for download!</span>
+                </div>
                 <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--line)', background: '#000' }}>
                   <video
                     controls
                     autoPlay
                     loop
+                    playsInline
                     src={renderedVideoUrl}
                     style={{ width: '100%', maxHeight: '240px', objectFit: 'contain', display: 'block' }}
                   />
@@ -844,7 +1197,7 @@ export const AnimateImageToVideo: React.FC = () => {
                     className="button"
                     style={{ flex: 1, padding: '10px', justifyContent: 'center' }}
                   >
-                    <Download size={15} /> Download Video (.webm)
+                    <Download size={15} /> Download Video (.{renderedVideoExt})
                   </button>
                   <button
                     type="button"
@@ -860,6 +1213,11 @@ export const AnimateImageToVideo: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Scoped AI Provider & Generation Settings Modal */}
+      <AiProviderSettingsModal isOpen={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} />
     </div>
   );
 };
+
+export default AnimateImageToVideo;

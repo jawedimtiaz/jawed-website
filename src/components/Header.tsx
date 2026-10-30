@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { SiteSearchBar } from './SiteSearchBar';
 import { usePWAInstall } from '../hooks/usePWAInstall';
-import { AiProviderSettingsModal } from './AiProviderSettingsModal';
 import { ThemeToggle } from './ThemeToggle';
 
 export const Header: React.FC = () => {
@@ -12,7 +11,6 @@ export const Header: React.FC = () => {
   const { isInstallable, isInstalled, isStandalone, isIOS, install } = usePWAInstall();
   const location = useLocation();
   const path = location.pathname;
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   const closeMenu = () => setIsOpen(false);
 
@@ -129,15 +127,6 @@ export const Header: React.FC = () => {
           >
             ⌨️ Hotkeys
           </button>
-          <button
-            type="button"
-            className="theme-toggle-btn"
-            onClick={() => setSettingsModalOpen(true)}
-            aria-label="AI Provider Settings (Ollama / Gemini)"
-            title="Configure AI Provider & Local Ollama"
-          >
-            🤖 AI Settings
-          </button>
           <ThemeToggle />
           <Link
             className="nav-cta"
@@ -148,7 +137,6 @@ export const Header: React.FC = () => {
           </Link>
         </nav>
       </div>
-      <AiProviderSettingsModal isOpen={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} />
     </header>
   );
 };

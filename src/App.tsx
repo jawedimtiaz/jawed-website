@@ -156,8 +156,10 @@ export const App: React.FC = () => {
             <Route path="/tools/audio-transcriber" element={<AiAudioTranscriber />} />
             <Route path="/tools/transcribe" element={<AiAudioTranscriber />} />
             <Route path="/tools/animate-image-to-video" element={<AnimateImageToVideo />} />
+            <Route path="/tools/animate-images-to-video" element={<AnimateImageToVideo />} />
             <Route path="/tools/animate-image" element={<AnimateImageToVideo />} />
             <Route path="/animate-image-to-video" element={<AnimateImageToVideo />} />
+            <Route path="/animate-images-to-video" element={<AnimateImageToVideo />} />
 
             {/* Services & Dispatch */}
             <Route path="/services" element={<ServicesDispatchPage />} />

@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { SeoHead } from './SeoHead';
 import notesData from '../data/notesData.json';
 import { FIELD_GUIDES } from '../data/fieldGuidesData';
+import { TOOLS } from '../data/toolsData';
 import blogData from '../data/blogData.json';
 
 const SITE_ORIGIN = 'https://jawed.co.in';
@@ -180,6 +181,11 @@ const TOOL_METADATA: Record<string, RouteMetadata> = {
   '/tools/ai-audio-transcriber': { title: 'AI Audio Transcriber & Voice Notes', description: 'Record or upload audio to generate accurate transcripts, ITSM ticket notes, and technical summaries powered by Gemini 3.5 Transcribe.', canonicalPath: '/tools/ai-audio-transcriber', ogType: 'website' },
   '/tools/audio-transcriber': { title: 'AI Audio Transcriber & Voice Notes', description: 'Record or upload audio to generate accurate transcripts, ITSM ticket notes, and technical summaries powered by Gemini 3.5 Transcribe.', canonicalPath: '/tools/ai-audio-transcriber', ogType: 'website' },
   '/tools/transcribe': { title: 'AI Audio Transcriber & Voice Notes', description: 'Record or upload audio to generate accurate transcripts, ITSM ticket notes, and technical summaries powered by Gemini 3.5 Transcribe.', canonicalPath: '/tools/ai-audio-transcriber', ogType: 'website' },
+  '/tools/animate-image-to-video': { title: 'Animate Images into Video | Free Studio & AI Engine', description: 'Transform static photos into cinematic 16:9 or 9:16 videos with Ken Burns pan/zoom effects, particle overlays, and AI motion prompts.', canonicalPath: '/tools/animate-image-to-video', ogType: 'website' },
+  '/tools/animate-images-to-video': { title: 'Animate Images into Video | Free Studio & AI Engine', description: 'Transform static photos into cinematic 16:9 or 9:16 videos with Ken Burns pan/zoom effects, particle overlays, and AI motion prompts.', canonicalPath: '/tools/animate-image-to-video', ogType: 'website' },
+  '/tools/animate-image': { title: 'Animate Images into Video | Free Studio & AI Engine', description: 'Transform static photos into cinematic 16:9 or 9:16 videos with Ken Burns pan/zoom effects, particle overlays, and AI motion prompts.', canonicalPath: '/tools/animate-image-to-video', ogType: 'website' },
+  '/animate-image-to-video': { title: 'Animate Images into Video | Free Studio & AI Engine', description: 'Transform static photos into cinematic 16:9 or 9:16 videos with Ken Burns pan/zoom effects, particle overlays, and AI motion prompts.', canonicalPath: '/tools/animate-image-to-video', ogType: 'website' },
+  '/tools/it-resume-bullet-builder': { title: 'IT Resume Bullet Builder', description: 'Turn what you actually did in IT into clear, measurable, ATS-friendly resume bullets, or score a bullet you already wrote.', canonicalPath: '/tools/it-resume-bullet-builder', ogType: 'website' },
 };
 
 function normalizePath(pathname: string): string {
@@ -196,6 +202,16 @@ function resolveMetadata(pathname: string): RouteMetadata {
   const path = normalizePath(pathname);
   const direct = STATIC_METADATA[path] || TOOL_METADATA[path];
   if (direct) return direct;
+
+  const matchedTool = TOOLS.find((t) => normalizePath(t.route) === path);
+  if (matchedTool) {
+    return {
+      title: matchedTool.name,
+      description: matchedTool.description,
+      canonicalPath: matchedTool.route,
+      ogType: 'website',
+    };
+  }
 
   const noteMatch = path.match(/^\/notes\/([^/]+)$/);
   if (noteMatch) {
