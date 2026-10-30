@@ -175,10 +175,10 @@ export const Ipv4SubnetCalculator: React.FC = () => {
             className="button button-secondary no-print"
             onClick={() => window.print()}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '6px 12px' }}
-            title="Print or Save PDF of Subnet Calculation Report"
+            title="Download or Print clean PDF calculation report via browser print dialog"
           >
             <Printer className="w-4 h-4 text-sky-400" />
-            Print Report
+            Download as PDF
           </button>
           <SocialShareBar
             title="IPv4 Subnet & CIDR Calculator"
@@ -193,7 +193,7 @@ export const Ipv4SubnetCalculator: React.FC = () => {
       </div>
 
       {/* Print-Only Engineering Report Header (A4 / Letter Clean Documentation) */}
-      <div className="print-only" style={{ display: 'none', marginBottom: '16pt', borderBottom: '2px solid #0f172a', paddingBottom: '10pt' }}>
+      <div className="print-only" style={{ marginBottom: '16pt', borderBottom: '2px solid #0f172a', paddingBottom: '10pt' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: '7.5pt', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', fontWeight: 700, marginBottom: '2pt' }}>
@@ -299,10 +299,10 @@ export const Ipv4SubnetCalculator: React.FC = () => {
                   className="button button-secondary no-print"
                   onClick={() => window.print()}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', padding: '4px 10px' }}
-                  title="Print Report"
+                  title="Download or Print clean PDF calculation report via browser print dialog"
                 >
                   <Printer className="w-3.5 h-3.5 text-sky-400" />
-                  Print Report
+                  Download as PDF
                 </button>
                 <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
                   {parsed.ipClass}

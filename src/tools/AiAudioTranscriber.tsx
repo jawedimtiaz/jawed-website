@@ -6782,6 +6782,31 @@ Output ONLY valid JSON.`;
                 <span>Config / Export</span>
               </button>
 
+              {result && (
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(244, 63, 94, 0.12)',
+                    border: '1px solid rgba(244, 63, 94, 0.35)',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    color: '#f43f5e',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Download or Print transcript & summary report as high-quality PDF via browser print dialog"
+                >
+                  <Printer size={13} />
+                  <span>Download as PDF</span>
+                </button>
+              )}
+
               {lastAutoSaveTime && (
                 <span
                   style={{
@@ -6995,7 +7020,7 @@ Output ONLY valid JSON.`;
 
         {/* Panel 1: Transcription Model & Spoken Language Settings */}
         <section
-          className="panel"
+          className="panel no-print"
           style={{
             background: 'var(--card)',
             border: '1px solid var(--line)',
@@ -7353,7 +7378,7 @@ Output ONLY valid JSON.`;
 
         {/* Panel 2: Audio Capture (Record or Upload) */}
         <section
-          className="panel"
+          className="panel no-print"
           style={{
             background: 'var(--card)',
             border: '1px solid var(--line)',
@@ -9669,7 +9694,7 @@ Output ONLY valid JSON.`;
         {result && (
           <section
             aria-label="Transcription Results"
-            className="panel"
+            className="panel results-panel transcription-results-section"
             style={{
               background: 'var(--card)',
               border: '1px solid var(--line)',
@@ -9679,7 +9704,33 @@ Output ONLY valid JSON.`;
               boxShadow: '0 6px 24px -4px rgba(0,0,0,0.06)',
             }}
           >
+            {/* Print-Only Professional Document Header (A4 / Letter Clean Documentation) */}
+            <div className="print-only" style={{ marginBottom: '18pt', borderBottom: '2px solid #0f172a', paddingBottom: '12pt' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: '8pt', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', fontWeight: 700, marginBottom: '3pt' }}>
+                    Voice Recording &amp; AI Intelligence Report
+                  </div>
+                  <h1 style={{ fontSize: '18pt', fontWeight: 800, margin: '0 0 4pt', color: '#0f172a' }}>
+                    {metaProject.trim() || 'Audio Transcription Session'}
+                  </h1>
+                  <p style={{ margin: 0, fontSize: '9pt', color: '#475569' }}>
+                    Category: <strong>{metaCategory}</strong> • Spoken Language: <strong>{selectedLanguage.toUpperCase()}</strong> • Summarizer: <strong>{aiProvider === 'ollama' ? `Local Ollama (${ollamaModelName})` : 'Gemini AI'}</strong>
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right', fontSize: '8.5pt', color: '#64748b', flexShrink: 0 }}>
+                  <div><strong>Session Date:</strong> {metaDate || new Date().toISOString().split('T')[0]}</div>
+                  <div><strong>Audio Duration:</strong> {sessionMetadata.formattedDuration || formatDurationDisplay(verifiedDurationSeconds || 0)}</div>
+                  <div><strong>Word Count:</strong> {(result.transcript ? result.transcript.split(/\s+/).filter(Boolean).length : 0).toLocaleString()} words ({(result.transcript || '').length.toLocaleString()} chars)</div>
+                  {customTags.length > 0 && (
+                    <div style={{ marginTop: '2pt' }}><strong>Tags:</strong> #{customTags.join(' #')}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div
+              className="no-print"
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -9830,6 +9881,30 @@ Output ONLY valid JSON.`;
                 >
                   <Download size={14} />
                   Save Transcript (.txt)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.12), rgba(239, 68, 68, 0.18))',
+                    border: '1px solid rgba(244, 63, 94, 0.4)',
+                    color: '#f43f5e',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(244, 63, 94, 0.15)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Download or Print clean, formatted PDF report via browser print dialog"
+                >
+                  <Printer size={14} />
+                  Download as PDF
                 </button>
 
                 <button
@@ -11251,21 +11326,22 @@ Output ONLY valid JSON.`;
                       type="button"
                       onClick={() => window.print()}
                       style={{
-                        background: 'transparent',
-                        border: '1px solid var(--line)',
+                        background: 'rgba(244, 63, 94, 0.1)',
+                        border: '1px solid rgba(244, 63, 94, 0.35)',
                         borderRadius: '6px',
                         padding: '4px 10px',
                         fontSize: '0.78rem',
+                        fontWeight: 700,
                         cursor: 'pointer',
-                        color: 'var(--accent)',
+                        color: '#f43f5e',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '4px',
                       }}
-                      title="Print transcript in professional document format"
+                      title="Download or Print transcript report as PDF in clean document format"
                     >
                       <Printer size={12} />
-                      Print
+                      Download as PDF
                     </button>
                     <button
                       type="button"
@@ -11355,7 +11431,7 @@ Output ONLY valid JSON.`;
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: paragraphSpacing === 'relaxed' ? '16px' : paragraphSpacing === 'compact' ? '8px' : '12px', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>
+                    <div className="transcript-scroll-container" style={{ display: 'flex', flexDirection: 'column', gap: paragraphSpacing === 'relaxed' ? '16px' : paragraphSpacing === 'compact' ? '8px' : '12px', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>
                       {result.speakerTurns
                         .filter((turn) => speakerFilter === 'all' || turn.speaker === speakerFilter)
                         .map((turn, index) => {
@@ -11366,6 +11442,7 @@ Output ONLY valid JSON.`;
                           return (
                             <div
                               key={turnKey}
+                              className="speaker-turn-card"
                               style={{
                                 background: 'var(--card)',
                                 border: isSpeaker1
@@ -11479,6 +11556,7 @@ Output ONLY valid JSON.`;
                   <div style={{ position: 'relative' }}>
                     <div
                       ref={transcriptScrollRef}
+                      className="transcript-scroll-container"
                       onScroll={handleTranscriptScroll}
                       style={{
                         maxHeight: '360px',

@@ -883,10 +883,10 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
                 padding: '6px 12px',
                 borderRadius: '8px',
               }}
-              title="Print Hardware Storage Report (A4 / Letter)"
+              title="Download or Print Hardware Storage Specification as PDF"
             >
               <Printer className="w-4 h-4 text-sky-400" />
-              Print Report
+              Download as PDF
             </button>
             <button
               type="button"
@@ -1134,10 +1134,10 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
                   className="button button-secondary no-print"
                   onClick={() => window.print()}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', padding: '6px 12px' }}
-                  title="Print clean calculation report on A4/Letter paper"
+                  title="Download or Print clean calculation report on A4/Letter paper"
                 >
                   <Printer className="w-3.5 h-3.5 text-indigo-400" />
-                  Print Report
+                  Download as PDF
                 </button>
                 <button
                   type="button"

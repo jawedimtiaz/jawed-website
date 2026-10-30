@@ -6982,13 +6982,31 @@ DRIVE ARRAY & RAID SPECIFICATION:
               </button>
               <button
                 type="button"
+                className="button button-secondary no-print"
+                onClick={handlePrint}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  borderColor: 'rgba(56, 189, 248, 0.35)',
+                }}
+                title="Download or Print clean PDF calculation report via browser print dialog"
+              >
+                <Printer className="w-4 h-4 text-sky-400" />
+                Download as PDF
+              </button>
+              <button
+                type="button"
                 className="button button-secondary"
                 onClick={handleExportPdf}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
                 title="Export clean, professional PDF calculation report for clients or tender documents"
               >
                 {exportedPdf ? <Check className="w-4 h-4 text-emerald-400" /> : <FileText className="w-4 h-4 text-rose-400" />}
-                {exportedPdf ? 'Exported PDF!' : 'Download PDF'}
+                {exportedPdf ? 'Exported PDF!' : 'Download PDF Spec'}
               </button>
               <button
                 type="button"

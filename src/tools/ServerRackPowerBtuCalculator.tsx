@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
+import { Printer } from 'lucide-react';
 
 interface DeviceItem {
   id: string;
@@ -135,10 +136,22 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <SocialShareBar
-          title="Server Rack Power & BTU Calculator"
-          text="Estimate server equipment electrical draw (Watts/Amps), circuit breaker derating, and HVAC BTU/hr cooling load."
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            className="button button-secondary no-print"
+            onClick={() => window.print()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '6px 12px' }}
+            title="Download or Print clean PDF calculation report via browser print dialog"
+          >
+            <Printer className="w-4 h-4 text-sky-400" />
+            Download as PDF
+          </button>
+          <SocialShareBar
+            title="Server Rack Power & BTU Calculator"
+            text="Estimate server equipment electrical draw (Watts/Amps), circuit breaker derating, and HVAC BTU/hr cooling load."
+          />
+        </div>
       </div>
 
       {/* Top Leaderboard Ad Unit */}

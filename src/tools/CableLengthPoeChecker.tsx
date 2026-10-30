@@ -4213,13 +4213,13 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           </button>
           <button
             type="button"
-            className="button button-secondary"
+            className="button button-secondary no-print"
             onClick={handlePrint}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
-            title="Print calculation report"
+            title="Download or Print calculation report as PDF"
           >
             <Printer className="w-4 h-4 text-sky-400" />
-            Print
+            Download as PDF
           </button>
           <button
             type="button"
@@ -6645,6 +6645,16 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
               >
                 {exportedPdf ? <Check className="w-4 h-4 text-emerald-200" /> : <Download className="w-4 h-4" />}
                 {exportedPdf ? 'PDF Downloaded!' : 'Download PDF Summary'}
+              </button>
+              <button
+                type="button"
+                className="button button-secondary no-print"
+                onClick={handlePrint}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.86rem', padding: '9px 16px' }}
+                title="Download or Print clean calculation report as PDF via browser print dialog"
+              >
+                <Printer className="w-4 h-4 text-sky-400" />
+                Download as PDF
               </button>
               <button
                 type="button"

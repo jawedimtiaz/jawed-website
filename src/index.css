@@ -3349,19 +3349,27 @@ select:focus-visible {
   --print-line-height: 1.5;
 }
 
+.print-only {
+  display: none !important;
+}
+
+.print-only-flex {
+  display: none !important;
+}
+
 @media print {
   @page {
     size: A4 portrait;
-    margin: 22mm 15mm 20mm 15mm;
+    margin: 18mm 14mm 16mm 14mm;
     @top-left {
-      content: "Jawed AI • AI Audio Transcriber & Summarizer Report";
+      content: "Jawed.co.in • Engineering Report & Technical Export";
       font-size: 8pt;
       font-weight: 600;
       color: #475569;
       font-family: system-ui, -apple-system, sans-serif;
     }
     @top-right {
-      content: "Official Document";
+      content: "Official Technical Document";
       font-size: 8pt;
       font-weight: 500;
       color: #64748b;
@@ -3387,9 +3395,17 @@ select:focus-visible {
     print-color-adjust: exact !important;
   }
 
-  /* Hide navigation, headers, footers, floating widgets, and UI controls */
+  .print-only {
+    display: block !important;
+  }
+
+  .print-only-flex {
+    display: flex !important;
+  }
+
+  /* Hide navigation, site header/footer, floating widgets, and interactive toolbars */
   .site-header,
-  header,
+  header.site-header,
   .site-nav,
   .menu-toggle,
   .theme-toggle-btn,
@@ -3404,9 +3420,6 @@ select:focus-visible {
   .tool-nav,
   .cookie-trigger-btn,
   form,
-  input,
-  select,
-  textarea,
   .no-print {
     display: none !important;
   }
@@ -3416,10 +3429,10 @@ select:focus-visible {
   nav[aria-label="Breadcrumb"] {
     display: flex !important;
     visibility: visible !important;
-    margin-bottom: 16pt !important;
-    padding: 6pt 0 !important;
+    margin-bottom: 14pt !important;
+    padding: 4pt 0 !important;
     border-bottom: 1px solid var(--print-border) !important;
-    font-size: 9pt !important;
+    font-size: 8.5pt !important;
     color: var(--print-muted) !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
@@ -3460,39 +3473,41 @@ select:focus-visible {
     break-after: avoid !important;
   }
 
-  h1 { font-size: 18pt !important; margin-bottom: 8pt !important; }
-  h2 { font-size: 14pt !important; margin-top: 14pt !important; margin-bottom: 6pt !important; }
-  h3 { font-size: 12pt !important; margin-top: 10pt !important; margin-bottom: 4pt !important; }
+  h1 { font-size: 16pt !important; margin-bottom: 6pt !important; }
+  h2 { font-size: 13pt !important; margin-top: 12pt !important; margin-bottom: 5pt !important; }
+  h3 { font-size: 11pt !important; margin-top: 9pt !important; margin-bottom: 4pt !important; }
 
   p, li {
-    font-size: 10pt !important;
+    font-size: 9.5pt !important;
     line-height: var(--print-line-height) !important;
     color: var(--print-text-secondary) !important;
   }
 
-  .card, .panel, .stat, .bullet-card, .notice {
+  .card, .panel, .stat, .bullet-card, .notice, .speaker-turn-card {
     background: var(--print-surface) !important;
     border: 1px solid var(--print-border) !important;
     border-radius: 6px !important;
     box-shadow: none !important;
-    padding: 10pt !important;
-    margin-bottom: 12pt !important;
+    padding: 9pt !important;
+    margin-bottom: 10pt !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     color: var(--print-heading) !important;
   }
 
-  /* Ensure major document sections and Summary Dashboard start on new pages for professional report output */
-  .print-only-report-header,
-  .summary-dashboard,
-  .executive-summary-card,
-  .action-items-card,
-  .it-support-log-card,
-  .print-report-section,
-  .report-summary-block,
-  .print-page-break,
-  .results-panel,
-  .transcription-results-section {
+  /* Expand all scrollable transcript containers so full documents print without truncation */
+  .transcript-scroll-container,
+  .scrollable-content,
+  [style*="overflow-y: auto"],
+  [style*="max-height"] {
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-y: visible !important;
+    height: auto !important;
+  }
+
+  /* Page breaks only when explicitly tagged */
+  .print-page-break {
     page-break-before: always !important;
     break-before: page !important;
   }
@@ -3502,7 +3517,7 @@ select:focus-visible {
     border-collapse: collapse !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    margin: 10pt 0 !important;
+    margin: 8pt 0 !important;
   }
 
   th {
@@ -3510,7 +3525,7 @@ select:focus-visible {
     color: var(--print-heading) !important;
     border: 1px solid var(--print-border) !important;
     font-size: 8.5pt !important;
-    padding: 5pt 8pt !important;
+    padding: 5pt 7pt !important;
     font-weight: 700 !important;
     text-align: left !important;
   }
@@ -3520,7 +3535,7 @@ select:focus-visible {
     color: var(--print-heading) !important;
     border: 1px solid var(--print-border) !important;
     font-size: 8.5pt !important;
-    padding: 5pt 8pt !important;
+    padding: 5pt 7pt !important;
   }
 }
 
