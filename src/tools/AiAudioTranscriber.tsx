@@ -751,11 +751,18 @@ export const AiAudioTranscriber: React.FC = () => {
   // Ollama Connection Health & Status Polling State
   const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [ollamaModelName, setOllamaModelName] = useState<string>('llama3');
+  const [ollamaEndpoint, setOllamaEndpoint] = useState<string>('http://localhost:11434');
+  const [ollamaError, setOllamaError] = useState<string | null>(null);
+  const [isRetryingOllama, setIsRetryingOllama] = useState<boolean>(false);
+  const [aiProvider, setAiProvider] = useState<'gemini' | 'ollama'>(() => getStoredAiProviderConfig().provider);
 
   const checkOllamaStatus = useCallback(async () => {
+    setIsRetryingOllama(true);
     try {
       const aiConfig = getStoredAiProviderConfig();
+      setAiProvider(aiConfig.provider);
       const endpoint = (aiConfig.ollamaEndpoint || 'http://localhost:11434').replace(/\/+$/, '');
+      setOllamaEndpoint(endpoint);
       setOllamaModelName(aiConfig.ollamaModel || 'llama3');
       const res = await fetch(`${endpoint}/api/tags`, {
         method: 'GET',
@@ -764,14 +771,22 @@ export const AiAudioTranscriber: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setOllamaStatus('connected');
+        setOllamaError(null);
+        setLlmSummaryError(null);
         if (Array.isArray(data.models) && data.models.length > 0 && data.models[0]?.name) {
           setOllamaModelName(data.models[0].name);
         }
       } else {
         setOllamaStatus('disconnected');
+        setOllamaError(`Ollama local server at ${endpoint} returned HTTP status ${res.status}. Please check your Ollama service.`);
       }
     } catch {
+      const aiConfig = getStoredAiProviderConfig();
+      const endpoint = (aiConfig.ollamaEndpoint || 'http://localhost:11434').replace(/\/+$/, '');
       setOllamaStatus('disconnected');
+      setOllamaError(`Cannot connect to local Ollama API at ${endpoint}. Make sure Ollama is running ('ollama serve') and CORS is enabled via OLLAMA_ORIGINS="*".`);
+    } finally {
+      setIsRetryingOllama(false);
     }
   }, []);
 
@@ -5817,33 +5832,44 @@ Return your response as a valid JSON object with keys:
 - "itLogEntry": string (formatted IT support log entry)
 Output ONLY valid JSON.`;
 
-    const res = await fetch(`${endpoint}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        prompt: promptText,
-        stream: false,
-        format: 'json',
-      }),
-    });
+    try {
+      const res = await fetch(`${endpoint}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          prompt: promptText,
+          stream: false,
+          format: 'json',
+        }),
+      });
 
-    if (!res.ok) {
-      throw new Error(`Ollama local server responded with status ${res.status}. Ensure Ollama is running at ${endpoint} with CORS enabled (OLLAMA_ORIGINS="*").`);
+      if (!res.ok) {
+        throw new Error(`Ollama local server responded with status ${res.status}. Ensure Ollama is running at ${endpoint} with CORS enabled (OLLAMA_ORIGINS="*").`);
+      }
+
+      const data = await res.json();
+      const rawResponse = data.response || '{}';
+      const cleanedJson = rawResponse.replace(/```json\s*([\s\S]*?)\s*```/g, '$1').replace(/```\s*([\s\S]*?)\s*```/g, '$1').trim();
+      const parsed = JSON.parse(cleanedJson);
+
+      setOllamaStatus('connected');
+      setOllamaError(null);
+      setLlmSummaryError(null);
+
+      return {
+        summary: parsed.summary || 'Summary unavailable.',
+        actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
+        keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways : [],
+        itLogEntry: parsed.itLogEntry || '',
+        modelUsed: `Local Ollama (${model})`,
+      };
+    } catch (err: any) {
+      setOllamaStatus('disconnected');
+      const friendlyMsg = err?.message || `Failed to connect to local Ollama API at ${endpoint}. Ensure Ollama is active with CORS enabled (OLLAMA_ORIGINS="*").`;
+      setOllamaError(friendlyMsg);
+      throw new Error(friendlyMsg);
     }
-
-    const data = await res.json();
-    const rawResponse = data.response || '{}';
-    const cleanedJson = rawResponse.replace(/```json\s*([\s\S]*?)\s*```/g, '$1').replace(/```\s*([\s\S]*?)\s*```/g, '$1').trim();
-    const parsed = JSON.parse(cleanedJson);
-
-    return {
-      summary: parsed.summary || 'Summary unavailable.',
-      actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
-      keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways : [],
-      itLogEntry: parsed.itLogEntry || '',
-      modelUsed: `Local Ollama (${model})`,
-    };
   };
 
   const handleSummarizeWithLlm = async () => {
@@ -5926,6 +5952,10 @@ Output ONLY valid JSON.`;
     } catch (err: any) {
       const msg = err?.message || 'Error generating AI summary.';
       setLlmSummaryError(msg);
+      if (useOllama) {
+        setOllamaStatus('disconnected');
+        setOllamaError(msg);
+      }
       addLog('error', 'AI Summarizer Error:', msg);
     } finally {
       setIsSummarizingLlm(false);
@@ -6228,30 +6258,35 @@ Output ONLY valid JSON.`;
 
               {/* Ollama Connection Health Status Badge */}
               <div
+                onClick={() => void checkOllamaStatus()}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
                   padding: '3px 10px',
                   borderRadius: '6px',
-                  background: ollamaStatus === 'connected' ? 'rgba(16, 185, 129, 0.12)' : ollamaStatus === 'checking' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                  border: `1px solid ${ollamaStatus === 'connected' ? 'rgba(16, 185, 129, 0.3)' : ollamaStatus === 'checking' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                  background: ollamaStatus === 'connected' ? 'rgba(16, 185, 129, 0.12)' : ollamaStatus === 'checking' || isRetryingOllama ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                  border: `1px solid ${ollamaStatus === 'connected' ? 'rgba(16, 185, 129, 0.3)' : ollamaStatus === 'checking' || isRetryingOllama ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
                   fontSize: '0.76rem',
                   fontWeight: 600,
-                  color: ollamaStatus === 'connected' ? 'var(--emerald)' : ollamaStatus === 'checking' ? 'var(--amber)' : '#ef4444',
+                  color: ollamaStatus === 'connected' ? 'var(--emerald)' : ollamaStatus === 'checking' || isRetryingOllama ? 'var(--amber)' : '#ef4444',
+                  cursor: 'pointer',
                 }}
-                title={`Ollama Local API (${ollamaModelName}): ${ollamaStatus}`}
+                title={`Ollama Local API (${ollamaModelName}): ${ollamaStatus}. Click to test connection.`}
               >
                 <span
                   style={{
                     width: '6px',
                     height: '6px',
                     borderRadius: '50%',
-                    background: ollamaStatus === 'connected' ? 'var(--emerald)' : ollamaStatus === 'checking' ? 'var(--amber)' : '#ef4444',
+                    background: ollamaStatus === 'connected' ? 'var(--emerald)' : ollamaStatus === 'checking' || isRetryingOllama ? 'var(--amber)' : '#ef4444',
                     boxShadow: ollamaStatus === 'connected' ? '0 0 6px var(--emerald)' : 'none',
                   }}
                 />
-                <span>Ollama: {ollamaStatus === 'connected' ? `Connected (${ollamaModelName})` : ollamaStatus === 'checking' ? 'Checking...' : 'Disconnected'}</span>
+                <span>Ollama: {ollamaStatus === 'connected' ? `Connected (${ollamaModelName})` : ollamaStatus === 'checking' || isRetryingOllama ? 'Checking...' : 'Disconnected'}</span>
+                {ollamaStatus === 'disconnected' && (
+                  <RotateCcw size={11} style={{ marginLeft: '2px', opacity: 0.8 }} />
+                )}
               </div>
 
               {lastAutoSaveTime && (
@@ -9223,17 +9258,21 @@ Output ONLY valid JSON.`;
                     gap: '6px',
                     boxShadow: '0 4px 12px rgba(56, 189, 248, 0.25)',
                   }}
-                  title="Extract concise executive summary, action items & IT support log notes using Gemini 3.8 Flash"
+                  title={
+                    aiProvider === 'ollama'
+                      ? 'Extract executive summary, action items & IT support log notes using local Ollama (100% free & private)'
+                      : 'Extract concise executive summary, action items & IT support log notes using Gemini 3.8 Flash'
+                  }
                 >
                   {isSummarizingLlm ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
-                      Summarizing with Gemini...
+                      {aiProvider === 'ollama' ? 'Summarizing with Ollama...' : 'Summarizing with Gemini...'}
                     </>
                   ) : (
                     <>
                       <Sparkles size={14} />
-                      Summarize Transcript (Gemini AI)
+                      {aiProvider === 'ollama' ? 'Summarize Transcript (Local Ollama)' : 'Summarize Transcript (Gemini AI)'}
                     </>
                   )}
                 </button>
@@ -9834,8 +9873,99 @@ Output ONLY valid JSON.`;
               )}
             </div>
 
-            {/* Contextual LLM Summary Error Notice */}
-            {llmSummaryError && (
+            {/* Ollama Connection & API Error Notice within Results Panel with Retry Button */}
+            {ollamaError && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: '12px',
+                  padding: '16px 20px',
+                  marginBottom: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  boxShadow: '0 2px 10px rgba(239, 68, 68, 0.08)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: '260px' }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#ef4444',
+                      flexShrink: 0,
+                      marginTop: '2px',
+                    }}
+                  >
+                    <AlertCircle size={18} />
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '0.94rem', color: '#ef4444', display: 'block', marginBottom: '3px' }}>
+                      Ollama API Connection Failed
+                    </strong>
+                    <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text)', lineHeight: 1.5 }}>
+                      {ollamaError}
+                    </p>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--muted)', display: 'block', marginTop: '4px' }}>
+                      Tip: If running Ollama on localhost, ensure CORS is enabled with{' '}
+                      <code style={{ background: 'var(--card)', padding: '2px 4px', borderRadius: '4px', border: '1px solid var(--line)', fontFamily: 'monospace' }}>
+                        OLLAMA_ORIGINS="*"
+                      </code>{' '}
+                      before starting the Ollama service.
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => void checkOllamaStatus()}
+                    disabled={isRetryingOllama}
+                    style={{
+                      background: '#ef4444',
+                      color: '#ffffff',
+                      border: 0,
+                      borderRadius: '8px',
+                      padding: '7px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      cursor: isRetryingOllama ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.25)',
+                    }}
+                    title="Retry connection health check to local Ollama API"
+                  >
+                    {isRetryingOllama ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <RotateCcw size={13} />
+                    )}
+                    {isRetryingOllama ? 'Retrying...' : 'Retry'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOllamaError(null)}
+                    style={{ background: 'transparent', border: 0, color: 'var(--muted)', cursor: 'pointer', padding: '4px' }}
+                    title="Dismiss notice"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Contextual LLM Summary Error Notice (for non-Ollama errors) */}
+            {llmSummaryError && !ollamaError && (
               <div
                 style={{
                   background: 'rgba(244, 63, 94, 0.08)',
