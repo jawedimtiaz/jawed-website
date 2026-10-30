@@ -34,6 +34,11 @@ import {
   Sliders,
   Activity,
   MicOff,
+  Users,
+  User,
+  Wand2,
+  Search,
+  X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
@@ -54,6 +59,16 @@ import {
   extractAudioElementDiagnostics,
   SafeObjectUrlManager,
 } from '../hooks/useAudioRecorder';
+import {
+  DiarizationMode,
+  SpeakerTurn,
+  processSpeakerDiarization,
+  formatSpeakerTimestamp,
+} from '../utils/speakerDiarization';
+import {
+  autoCorrectITTranscript,
+  AutoCorrectionResult,
+} from '../utils/itAutoCorrector';
 
 export type RecordingPresetId = 'high-fidelity' | 'voice-optimized';
 
@@ -85,6 +100,27 @@ const PLAYBACK_SPEED_OPTIONS = [0.5, 1, 1.5, 2] as const;
 
 interface TranscriptionResult {
   transcript: string;
+  rawUncorrectedTranscript?: string;
+  autoCorrectionCount?: number;
+  appliedAutoCorrections?: Array<{
+    original: string;
+    replacement: string;
+    category: string;
+    count: number;
+  }>;
+  formattedSpeakerTranscript?: string;
+  speakerTurns?: SpeakerTurn[];
+  speakerCount?: number;
+  detectedStreams?: number;
+  diarizationMethod?: 'multi-channel' | 'voice-activity' | 'single-speaker';
+  speakerStats?: Array<{
+    speaker: string;
+    speakerIndex: number;
+    turnCount: number;
+    totalDurationSeconds: number;
+    wordCount: number;
+    percentage: number;
+  }>;
   summary: string;
   actionItems: string[];
   detectedLanguage?: string;
@@ -97,6 +133,28 @@ interface DebugEntry {
   message: string;
   details?: string;
 }
+
+export interface RecordingSessionMetadata {
+  durationSeconds: number;
+  formattedDuration: string;
+  bitRateKbps: number;
+  dataRateKbPerSec: number;
+  fileSizeBytes: number;
+  formattedFileSize: string;
+  chunkCount: number;
+  totalSamples: number;
+  sampleRate: number;
+  bitsPerSample: number;
+  channels: number;
+  formatName: string;
+}
+
+export const formatFileSizeBytes = (bytes: number | null | undefined): string => {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
 
 const formatDurationDisplay = (seconds: number | null | undefined): string => {
   if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) {
@@ -174,6 +232,51 @@ const summarizeTranscript = (text: string): { summary: string; actionItems: stri
   };
 };
 
+export const countKeywordMatches = (text: string, query: string): number => {
+  if (!query || !query.trim() || !text) return 0;
+  const trimmed = query.trim();
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(escaped, 'gi');
+  const matches = text.match(regex);
+  return matches ? matches.length : 0;
+};
+
+export const highlightMatchingText = (text: string, query: string): React.ReactNode => {
+  if (!query || !query.trim() || !text) return text;
+
+  const trimmed = query.trim();
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+
+  if (parts.length <= 1) return text;
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.toLowerCase() === trimmed.toLowerCase() ? (
+          <mark
+            key={index}
+            style={{
+              background: 'rgba(250, 204, 21, 0.45)',
+              color: 'var(--text-heading)',
+              borderRadius: '3px',
+              padding: '1px 3px',
+              margin: '0 1px',
+              fontWeight: 700,
+              boxShadow: '0 0 0 1px rgba(234, 179, 8, 0.6)',
+            }}
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+};
+
 const loadWhisperPipeline = async (
   modelId: string,
   addLog: (level: 'info' | 'warn' | 'error', message: string, details?: any) => void,
@@ -230,7 +333,13 @@ const loadWhisperPipeline = async (
 const decodeAudioBlobToMono16k = async (
   blob: Blob,
   addLog: (level: 'info' | 'warn' | 'error', message: string, details?: any) => void
-): Promise<{ samples: Float32Array; durationSeconds: number; sampleRate: number }> => {
+): Promise<{
+  samples: Float32Array;
+  durationSeconds: number;
+  sampleRate: number;
+  channels: Float32Array[];
+  originalChannelCount: number;
+}> => {
   const targetRate = 16000;
   const arrayBuffer = await blob.arrayBuffer();
 
@@ -274,11 +383,13 @@ const decodeAudioBlobToMono16k = async (
     const channels = decoded.numberOfChannels;
     const length = decoded.length;
     const mono = new Float32Array(length);
+    const individualChannels: Float32Array[] = [];
 
     let monoNonZeroCount = 0;
     let monoPeak = 0;
     for (let channel = 0; channel < channels; channel += 1) {
       const channelData = decoded.getChannelData(channel);
+      individualChannels.push(resampleMonoAudio(channelData, decoded.sampleRate, targetRate));
       for (let i = 0; i < length; i += 1) {
         mono[i] += channelData[i] / channels;
       }
@@ -311,6 +422,7 @@ const decodeAudioBlobToMono16k = async (
       resampledPcmFloat32Bytes: resampled.byteLength,
       resampledNonZeroSamples: resampledNonZeroCount,
       hasValidNonZeroAudio: resampledNonZeroCount > 0,
+      detectedStreamsCount: channels,
     };
     console.log(
       '[AiAudioTranscriber] AudioContext lifecycle (16kHz decoder) — decoded & resampled PCM buffer:',
@@ -321,6 +433,8 @@ const decodeAudioBlobToMono16k = async (
       samples: resampled,
       durationSeconds: decoded.duration,
       sampleRate: decoded.sampleRate,
+      channels: individualChannels,
+      originalChannelCount: channels,
     };
   } finally {
     const preCloseState = audioContext.state;
@@ -372,6 +486,20 @@ export const AiAudioTranscriber: React.FC = () => {
   const [meterSignalStatus, setMeterSignalStatus] = useState<
     'idle' | 'low' | 'optimal' | 'loud' | 'clipping'
   >('idle');
+  const [sessionMetadata, setSessionMetadata] = useState<RecordingSessionMetadata>({
+    durationSeconds: 0,
+    formattedDuration: '00:00.0',
+    bitRateKbps: 705.6,
+    dataRateKbPerSec: 88.2,
+    fileSizeBytes: 44,
+    formattedFileSize: '44 B',
+    chunkCount: 0,
+    totalSamples: 0,
+    sampleRate: 44100,
+    bitsPerSample: 16,
+    channels: 1,
+    formatName: '16-bit Linear PCM WAV',
+  });
 
   // Multilingual & Model State
   const [selectedLanguage, setSelectedLanguage] = useState<string>('auto');
@@ -390,6 +518,15 @@ export const AiAudioTranscriber: React.FC = () => {
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState<boolean>(true);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState<boolean>(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // Speaker Diarization, Auto-Correction & View State
+  const [diarizationMode, setDiarizationMode] = useState<DiarizationMode>('auto');
+  const [transcriptViewMode, setTranscriptViewMode] = useState<'speaker' | 'plain'>('speaker');
+  const [enableAutoCorrection, setEnableAutoCorrection] = useState<boolean>(true);
+  const [enableCapitalization, setEnableCapitalization] = useState<boolean>(true);
+  const [enableITDictionary, setEnableITDictionary] = useState<boolean>(true);
+  const [speakerFilter, setSpeakerFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Diagnostics & Debug State
   const [debugLogs, setDebugLogs] = useState<DebugEntry[]>([]);
@@ -432,6 +569,8 @@ export const AiAudioTranscriber: React.FC = () => {
   const isMonitoringRef = useRef<boolean>(false);
   const peakHoldHistoryRef = useRef<number[]>([]);
   const masterPeakHoldRef = useRef<{ value: number; timestamp: number }>({ value: 0, timestamp: 0 });
+  const totalCapturedSamplesRef = useRef<number>(0);
+  const lastMetaUpdateRef = useRef<number>(0);
   const sampleRateRef = useRef<number>(44100);
   const recordingStartTimestampRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
@@ -1952,6 +2091,25 @@ export const AiAudioTranscriber: React.FC = () => {
     isPausedRef.current = false;
     setIsPaused(false);
     setInputLevelPeak(0);
+    totalCapturedSamplesRef.current = 0;
+    lastMetaUpdateRef.current = 0;
+
+    const initialRate = targetSampleRate || 44100;
+    const initialBitRate = (initialRate * 1 * 16) / 1000;
+    setSessionMetadata({
+      durationSeconds: 0,
+      formattedDuration: '00:00.0',
+      bitRateKbps: initialBitRate,
+      dataRateKbPerSec: initialBitRate / 8,
+      fileSizeBytes: 44,
+      formattedFileSize: '44 B',
+      chunkCount: 0,
+      totalSamples: 0,
+      sampleRate: initialRate,
+      bitsPerSample: 16,
+      channels: 1,
+      formatName: '16-bit Linear PCM WAV',
+    });
 
     // Initialize MediaRecorder to manage 'recording' / 'paused' state and append chunks to a continuous buffer
     if (typeof window !== 'undefined' && typeof window.MediaRecorder !== 'undefined') {
@@ -2172,6 +2330,35 @@ export const AiAudioTranscriber: React.FC = () => {
       pcmChunksRef.current.push(copy);
       latestWaveformChunkRef.current = copy;
       processedChunkCounter += 1;
+      totalCapturedSamplesRef.current += copy.length;
+
+      // Update real-time session metadata dynamically as audio chunks are processed
+      const now = Date.now();
+      if (now - lastMetaUpdateRef.current > 120 || processedChunkCounter === 1) {
+        lastMetaUpdateRef.current = now;
+        const currentSamples = totalCapturedSamplesRef.current;
+        const sRate = normalizedSampleRate || 44100;
+        const durSec = sRate > 0 ? currentSamples / sRate : 0;
+        const wavDataBytes = currentSamples * 2;
+        const totalWavBytes = 44 + wavDataBytes;
+        const bitRate = (sRate * 1 * 16) / 1000;
+        const dataRate = bitRate / 8;
+
+        setSessionMetadata({
+          durationSeconds: durSec,
+          formattedDuration: formatRecordingTimerOverlay(durSec),
+          bitRateKbps: bitRate,
+          dataRateKbPerSec: dataRate,
+          fileSizeBytes: totalWavBytes,
+          formattedFileSize: formatFileSizeBytes(totalWavBytes),
+          chunkCount: pcmChunksRef.current.length,
+          totalSamples: currentSamples,
+          sampleRate: sRate,
+          bitsPerSample: 16,
+          channels: 1,
+          formatName: '16-bit Linear PCM WAV',
+        });
+      }
 
       const chunkCheck = verifyPcmBufferNonZeroAmplitude(copy);
       rollingPeakHistoryRef.current.push(chunkCheck.peakAmplitude);
@@ -3385,6 +3572,21 @@ export const AiAudioTranscriber: React.FC = () => {
       setRecordingTime(Math.max(1, Math.round(validation.durationSeconds)));
       setRecordingElapsedMs(Math.round(validation.durationSeconds * 1000));
 
+      setSessionMetadata({
+        durationSeconds: validation.durationSeconds,
+        formattedDuration: formatRecordingTimerOverlay(validation.durationSeconds),
+        bitRateKbps: (validation.sampleRate * validation.numChannels * validation.bitsPerSample) / 1000,
+        dataRateKbPerSec: validation.byteRate / 1024,
+        fileSizeBytes: blob.size,
+        formattedFileSize: formatFileSizeBytes(blob.size),
+        chunkCount: activePcmChunks.length,
+        totalSamples: validation.sampleCount,
+        sampleRate: validation.sampleRate,
+        bitsPerSample: validation.bitsPerSample,
+        channels: validation.numChannels,
+        formatName: '16-bit Mono PCM WAV',
+      });
+
       const completionDiag = {
         audioContextStateAtCapture: preStopAudioContextSnapshot.audioContextStateBeforeStop,
         audioContextStateCurrent: audioContextRef.current?.state ?? 'closed',
@@ -3556,11 +3758,26 @@ export const AiAudioTranscriber: React.FC = () => {
     setLiveTranscript('');
     setPlaybackCurrentTime(0);
     setPlaybackDuration(0);
+    setTranscriptViewMode('speaker');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
     addLog('info', 'Cleared audio buffer and revoked previous Object URL.');
   };
+
+  const seekToTime = useCallback((timeSec: number) => {
+    if (!Number.isFinite(timeSec) || timeSec < 0) return;
+    setPlaybackCurrentTime(timeSec);
+    const audioEl = audioPlayerRef.current;
+    if (audioEl) {
+      try {
+        audioEl.currentTime = timeSec;
+        void audioEl.play().catch(() => {});
+      } catch {
+        // Ignore seek errors
+      }
+    }
+  }, []);
 
   const handleAudioScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = Number(e.target.value);
@@ -4061,20 +4278,30 @@ export const AiAudioTranscriber: React.FC = () => {
         const text = chunk?.text || (typeof chunk === 'string' ? chunk : '');
         if (text) {
           streamedText = (streamedText + ' ' + text).trim();
-          setLiveTranscript(streamedText);
+          const liveCorrected = enableAutoCorrection
+            ? autoCorrectITTranscript(streamedText, enableCapitalization, enableITDictionary).correctedText
+            : streamedText;
+          setLiveTranscript(liveCorrected);
         }
       };
 
       const output = await transcriber(decoded.samples, {
         ...inferenceOptions,
+        return_timestamps: true,
         chunk_callback: chunkCallback,
       });
 
-      const transcript = String(output?.text || '').trim();
+      const rawTranscript = String(output?.text || '').trim();
+      const autoCorrected = autoCorrectITTranscript(
+        rawTranscript,
+        enableCapitalization,
+        enableITDictionary
+      );
+      const finalTranscript = enableAutoCorrection ? autoCorrected.correctedText : rawTranscript;
 
       // If chunk_callback did not emit incremental lines, progressively stream sentences so real-time generation and auto-scroll are smooth
-      if (!streamedText && transcript) {
-        const sentences = transcript.split(/(?<=[.!?।۔。\n])\s+/);
+      if (!streamedText && finalTranscript) {
+        const sentences = finalTranscript.split(/(?<=[.!?।۔。\n])\s+/);
         if (sentences.length > 1) {
           let progressive = '';
           for (const s of sentences) {
@@ -4083,16 +4310,54 @@ export const AiAudioTranscriber: React.FC = () => {
             await new Promise((r) => setTimeout(r, 60));
           }
         } else {
-          setLiveTranscript(transcript);
+          setLiveTranscript(finalTranscript);
         }
-      } else if (transcript) {
-        setLiveTranscript(transcript);
+      } else if (finalTranscript) {
+        setLiveTranscript(finalTranscript);
       }
 
-      const { summary, actionItems } = summarizeTranscript(transcript);
+      // Differentiate speakers via multi-channel streams or voice activity analysis
+      setProcessingStatus('Differentiating speakers via voice activity & stream analysis...');
+      const diarization = processSpeakerDiarization({
+        channelsData:
+          decoded.channels && decoded.channels.length > 0
+            ? decoded.channels
+            : [decoded.samples],
+        sampleRate: 16000,
+        durationSeconds: decoded.durationSeconds,
+        transcriptText: finalTranscript,
+        whisperChunks: Array.isArray(output?.chunks) ? output.chunks : undefined,
+        mode: diarizationMode,
+      });
+
+      // Ensure speaker turn texts are also auto-corrected
+      if (enableAutoCorrection && diarization.turns.length > 0) {
+        diarization.turns = diarization.turns.map((turn) => {
+          const turnCorrected = autoCorrectITTranscript(
+            turn.text,
+            enableCapitalization,
+            enableITDictionary
+          );
+          return {
+            ...turn,
+            text: turnCorrected.correctedText,
+          };
+        });
+      }
+
+      const { summary, actionItems } = summarizeTranscript(finalTranscript);
 
       setResult({
-        transcript: transcript || 'No clear speech was detected in the audio.',
+        transcript: finalTranscript || 'No clear speech was detected in the audio.',
+        rawUncorrectedTranscript: rawTranscript,
+        autoCorrectionCount: autoCorrected.correctionCount,
+        appliedAutoCorrections: autoCorrected.appliedCorrections,
+        formattedSpeakerTranscript: diarization.formattedTranscript,
+        speakerTurns: diarization.turns,
+        speakerCount: diarization.speakerCount,
+        detectedStreams: diarization.detectedStreams,
+        diarizationMethod: diarization.method,
+        speakerStats: diarization.speakerStats,
         summary,
         actionItems,
         detectedLanguage:
@@ -4102,10 +4367,14 @@ export const AiAudioTranscriber: React.FC = () => {
         modelUsed: activeModelId,
       });
 
-      addLog('info', 'Local transcription and summary completed successfully.', {
+      addLog('info', 'Local transcription and speaker differentiation completed successfully.', {
         model: activeModelId,
         languageMode: selectedLanguage,
-        transcriptLength: transcript.length,
+        transcriptLength: finalTranscript.length,
+        speakersIdentified: diarization.speakerCount,
+        diarizationMethod: diarization.method,
+        detectedStreams: diarization.detectedStreams,
+        speakerTurnsCount: diarization.turns.length,
       });
     } catch (err: any) {
       const rawMessage = err?.message || String(err);
@@ -4710,6 +4979,103 @@ export const AiAudioTranscriber: React.FC = () => {
                 ))}
               </select>
             </div>
+
+            {/* Speaker Diarization Selector */}
+            <div>
+              <label
+                htmlFor="diarization-mode-select"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  marginBottom: '6px',
+                  color: 'var(--text)',
+                }}
+              >
+                <Users size={15} color="var(--accent)" aria-hidden="true" />
+                Speaker Diarization Mode
+              </label>
+              <select
+                id="diarization-mode-select"
+                value={diarizationMode}
+                onChange={(e) => setDiarizationMode(e.target.value as DiarizationMode)}
+                disabled={isProcessing}
+                style={{
+                  width: '100%',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  color: 'var(--text)',
+                  fontSize: '0.92rem',
+                }}
+              >
+                <option value="auto">Auto-Detect (Multi-Stream & VAD Acoustic Analysis)</option>
+                <option value="2-speakers">2-Speaker Dialogue (Interview / Conversation)</option>
+                <option value="multi-channel">Multi-Stream Stereo (Left / Right Channel Detection)</option>
+                <option value="disabled">Single Speaker / Diarization Disabled</option>
+              </select>
+            </div>
+
+            {/* IT Terms Real-Time Auto-Correction Selector */}
+            <div>
+              <label
+                htmlFor="auto-correction-select"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  marginBottom: '6px',
+                  color: 'var(--text)',
+                }}
+              >
+                <Wand2 size={15} color="var(--emerald)" aria-hidden="true" />
+                IT Term &amp; Sentence Auto-Correction
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: '4px' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', color: 'var(--text)' }}>
+                  <input
+                    type="checkbox"
+                    checked={enableAutoCorrection}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setEnableAutoCorrection(enabled);
+                      setEnableCapitalization(enabled);
+                      setEnableITDictionary(enabled);
+                    }}
+                    style={{ accentColor: 'var(--emerald)', cursor: 'pointer' }}
+                  />
+                  <span>Enable Auto-Correction</span>
+                </label>
+
+                {enableAutoCorrection && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--muted)' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={enableCapitalization}
+                        onChange={(e) => setEnableCapitalization(e.target.checked)}
+                        style={{ accentColor: 'var(--accent)' }}
+                      />
+                      <span>Capitalize</span>
+                    </label>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={enableITDictionary}
+                        onChange={(e) => setEnableITDictionary(e.target.checked)}
+                        style={{ accentColor: 'var(--accent)' }}
+                      />
+                      <span>IT Dictionary</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div
@@ -4873,6 +5239,16 @@ export const AiAudioTranscriber: React.FC = () => {
                   onChange={(e) => {
                     const nextPreset = e.target.value as RecordingPresetId;
                     setRecordingPreset(nextPreset);
+                    const targetRate = nextPreset === 'voice-optimized' ? 16000 : 44100;
+                    const targetBitRate = (targetRate * 1 * 16) / 1000;
+                    if (!isRecording && !audioBlob) {
+                      setSessionMetadata((prev) => ({
+                        ...prev,
+                        sampleRate: targetRate,
+                        bitRateKbps: targetBitRate,
+                        dataRateKbPerSec: targetBitRate / 8,
+                      }));
+                    }
                     addLog(
                       'info',
                       `Switched recording preset to: ${
@@ -5127,6 +5503,311 @@ export const AiAudioTranscriber: React.FC = () => {
                 <div style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums', fontSize: '2rem', fontWeight: 800, color: 'var(--text-heading)' }}>
                   {recordingTimerDisplay.minutes}:{recordingTimerDisplay.seconds}
                   <span style={{ fontSize: '1.2rem', color: 'var(--muted)', fontWeight: 600 }}>.{recordingTimerDisplay.tenths}</span>
+                </div>
+              </div>
+
+              {/* Real-Time Recording Session Metadata Panel */}
+              <div
+                aria-label="Real-time recording session technical metadata"
+                style={{
+                  width: '100%',
+                  background: 'var(--card)',
+                  border: isRecording
+                    ? isPaused
+                      ? '1px solid rgba(245, 158, 11, 0.5)'
+                      : '1px solid rgba(56, 189, 248, 0.5)'
+                    : '1px solid var(--line)',
+                  borderRadius: '12px',
+                  padding: '12px 14px',
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.06)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    marginBottom: '10px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Activity size={14} color="var(--accent)" aria-hidden="true" />
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Recording Session Metadata
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        letterSpacing: '0.04em',
+                        background: isRecording
+                          ? isPaused
+                            ? 'rgba(245, 158, 11, 0.2)'
+                            : 'rgba(16, 185, 129, 0.2)'
+                          : audioBlob
+                          ? 'rgba(56, 189, 248, 0.15)'
+                          : 'rgba(148, 163, 184, 0.15)',
+                        color: isRecording
+                          ? isPaused
+                            ? 'var(--amber)'
+                            : 'var(--emerald)'
+                          : audioBlob
+                          ? 'var(--accent)'
+                          : 'var(--muted)',
+                      }}
+                    >
+                      {isRecording
+                        ? isPaused
+                          ? 'Stream Paused'
+                          : 'Live Streaming'
+                        : audioBlob
+                        ? 'Captured Session'
+                        : 'Standby'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontFamily: 'monospace',
+                        color: 'var(--muted)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {sessionMetadata.sampleRate >= 1000
+                        ? `${(sessionMetadata.sampleRate / 1000).toFixed(1)} kHz`
+                        : `${sessionMetadata.sampleRate} Hz`} • 16-bit PCM
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4-Tile Responsive Metric Grid */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(115px, 1fr))',
+                    gap: '8px',
+                  }}
+                >
+                  {/* 1. Audio Duration */}
+                  <div
+                    style={{
+                      background: 'var(--bg)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        color: 'var(--muted)',
+                        fontSize: '0.70rem',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      <Timer size={11} aria-hidden="true" />
+                      <span>Duration</span>
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'monospace',
+                        fontVariantNumeric: 'tabular-nums',
+                        fontSize: '1.05rem',
+                        fontWeight: 800,
+                        color: 'var(--text-heading)',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {sessionMetadata.formattedDuration}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', fontFamily: 'monospace' }}>
+                      {sessionMetadata.totalSamples.toLocaleString()} smp
+                    </div>
+                  </div>
+
+                  {/* 2. Current Bit Rate */}
+                  <div
+                    style={{
+                      background: 'var(--bg)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        color: 'var(--muted)',
+                        fontSize: '0.70rem',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      <Volume2 size={11} aria-hidden="true" />
+                      <span>Bit Rate</span>
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'monospace',
+                        fontVariantNumeric: 'tabular-nums',
+                        fontSize: '1.05rem',
+                        fontWeight: 800,
+                        color: 'var(--text-heading)',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {sessionMetadata.bitRateKbps.toFixed(1)}{' '}
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)' }}>
+                        kbps
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', fontFamily: 'monospace' }}>
+                      {sessionMetadata.dataRateKbPerSec.toFixed(1)} KB/s
+                    </div>
+                  </div>
+
+                  {/* 3. File Size */}
+                  <div
+                    style={{
+                      background: 'var(--bg)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        color: 'var(--muted)',
+                        fontSize: '0.70rem',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      <FileAudio size={11} aria-hidden="true" />
+                      <span>File Size</span>
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'monospace',
+                        fontVariantNumeric: 'tabular-nums',
+                        fontSize: '1.05rem',
+                        fontWeight: 800,
+                        color: 'var(--text-heading)',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {sessionMetadata.formattedFileSize}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', fontFamily: 'monospace' }}>
+                      {sessionMetadata.fileSizeBytes.toLocaleString()} B
+                    </div>
+                  </div>
+
+                  {/* 4. Stream & Chunks */}
+                  <div
+                    style={{
+                      background: 'var(--bg)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        color: 'var(--muted)',
+                        fontSize: '0.70rem',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      <Sliders size={11} aria-hidden="true" />
+                      <span>Chunks</span>
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'monospace',
+                        fontVariantNumeric: 'tabular-nums',
+                        fontSize: '1.05rem',
+                        fontWeight: 800,
+                        color: 'var(--text-heading)',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {sessionMetadata.chunkCount.toLocaleString()}{' '}
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)' }}>
+                        pkts
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', fontFamily: 'monospace' }}>
+                      2048 smp/pkt
+                    </div>
+                  </div>
+                </div>
+
+                {/* Compact Format & Status Bar */}
+                <div
+                  style={{
+                    marginTop: '8px',
+                    paddingTop: '6px',
+                    borderTop: '1px solid var(--line)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '6px',
+                    fontSize: '0.70rem',
+                    color: 'var(--muted)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Info size={11} aria-hidden="true" />
+                    <span>
+                      Format: <strong style={{ color: 'var(--text)' }}>{sessionMetadata.formatName}</strong>
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '0.68rem' }}>
+                    {isRecording
+                      ? isPaused
+                        ? 'Buffer held in memory (paused)'
+                        : 'Processing Web Audio PCM buffers live'
+                      : audioBlob
+                      ? 'WAV Blob generated & verified'
+                      : 'Ready to capture audio stream'}
+                  </div>
                 </div>
               </div>
 
@@ -5665,6 +6346,65 @@ export const AiAudioTranscriber: React.FC = () => {
               </button>
             </div>
 
+            {/* Live Real-time Keyword Search Bar */}
+            <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                <Search size={14} color="var(--muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <input
+                  type="text"
+                  placeholder="Filter or search keywords live as transcription streams..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 30px 6px 30px',
+                    fontSize: '0.82rem',
+                    borderRadius: '8px',
+                    border: searchQuery.trim() ? '1px solid var(--accent)' : '1px solid var(--line)',
+                    background: 'var(--bg)',
+                    color: 'var(--text)',
+                    outline: 'none',
+                  }}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '8px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'transparent',
+                      border: 0,
+                      color: 'var(--muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    title="Clear search query"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+              {searchQuery.trim() && (
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    fontFamily: 'monospace',
+                    fontWeight: 700,
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    background: countKeywordMatches(liveTranscript, searchQuery) > 0 ? 'rgba(250, 204, 21, 0.25)' : 'rgba(148, 163, 184, 0.15)',
+                    color: countKeywordMatches(liveTranscript, searchQuery) > 0 ? 'var(--amber)' : 'var(--muted)',
+                  }}
+                >
+                  {countKeywordMatches(liveTranscript, searchQuery)} matches
+                </span>
+              )}
+            </div>
+
             <div style={{ position: 'relative' }}>
               <div
                 ref={transcriptScrollRef}
@@ -5684,7 +6424,7 @@ export const AiAudioTranscriber: React.FC = () => {
               >
                 {liveTranscript ? (
                   <>
-                    {liveTranscript}
+                    {highlightMatchingText(liveTranscript, searchQuery)}
                     <span
                       style={{
                         display: 'inline-block',
@@ -6017,7 +6757,191 @@ export const AiAudioTranscriber: React.FC = () => {
               </div>
             )}
 
-            {/* Verbatim Transcript Card */}
+            {/* Speaker Diarization & Auto-Correction Overview Banner */}
+            <div
+              style={{
+                background: 'var(--bg)',
+                border: '1px solid var(--line)',
+                borderRadius: '12px',
+                padding: '16px 20px',
+                marginBottom: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <Users size={16} color="var(--accent)" />
+                  <strong style={{ fontSize: '0.92rem', color: 'var(--text-heading)' }}>
+                    Speaker Diarization: {result.speakerCount || 1} {result.speakerCount === 1 ? 'Speaker' : 'Speakers Identified'}
+                  </strong>
+                  <span
+                    style={{
+                      fontSize: '0.70rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      color: 'var(--accent)',
+                    }}
+                  >
+                    {result.diarizationMethod === 'multi-channel'
+                      ? 'Multi-Stream Channel Analysis'
+                      : result.diarizationMethod === 'voice-activity'
+                      ? 'Voice Activity & Acoustic Profiling'
+                      : 'Single Stream'}
+                  </span>
+
+                  {(result.autoCorrectionCount || 0) > 0 && (
+                    <span
+                      style={{
+                        fontSize: '0.70rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        color: 'var(--emerald)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <Wand2 size={11} />
+                      {result.autoCorrectionCount} IT Terms &amp; Capitalizations Auto-Corrected
+                    </span>
+                  )}
+                </div>
+
+                {/* View Mode & Filter Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'inline-flex', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '8px', padding: '2px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setTranscriptViewMode('speaker')}
+                      style={{
+                        background: transcriptViewMode === 'speaker' ? 'var(--surface-accent)' : 'transparent',
+                        color: transcriptViewMode === 'speaker' ? 'var(--accent)' : 'var(--muted)',
+                        border: 0,
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <Users size={12} />
+                      Speaker Dialogue
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTranscriptViewMode('plain')}
+                      style={{
+                        background: transcriptViewMode === 'plain' ? 'var(--surface-accent)' : 'transparent',
+                        color: transcriptViewMode === 'plain' ? 'var(--accent)' : 'var(--muted)',
+                        border: 0,
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <AlignLeft size={12} />
+                      Verbatim Text
+                    </button>
+                  </div>
+
+                  {transcriptViewMode === 'speaker' && result.speakerStats && result.speakerStats.length > 1 && (
+                    <select
+                      value={speakerFilter}
+                      onChange={(e) => setSpeakerFilter(e.target.value)}
+                      style={{
+                        background: 'var(--card)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        fontSize: '0.78rem',
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="all">All Speakers ({result.speakerCount})</option>
+                      {result.speakerStats.map((s) => (
+                        <option key={s.speaker} value={s.speaker}>
+                          {s.speaker} ({s.turnCount} turns)
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+
+              {/* Speaker Speaking Time Distribution Bar */}
+              {result.speakerStats && result.speakerStats.length > 0 && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.76rem', color: 'var(--muted)', marginBottom: '4px' }}>
+                    {result.speakerStats.map((s) => (
+                      <span key={s.speaker} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <strong style={{ color: s.speakerIndex === 1 ? 'var(--accent)' : 'var(--indigo)' }}>{s.speaker}:</strong>{' '}
+                        {s.percentage}% time ({s.wordCount} words)
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: 'var(--line)', overflow: 'hidden', display: 'flex' }}>
+                    {result.speakerStats.map((s) => (
+                      <div
+                        key={s.speaker}
+                        style={{
+                          width: `${s.percentage}%`,
+                          height: '100%',
+                          background: s.speakerIndex === 1 ? 'var(--accent)' : 'var(--indigo)',
+                          transition: 'width 0.3s ease',
+                        }}
+                        title={`${s.speaker}: ${s.percentage}% speaking time`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Applied IT Auto-Corrections Badge List */}
+              {result.appliedAutoCorrections && result.appliedAutoCorrections.length > 0 && (
+                <div style={{ paddingTop: '8px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontSize: '0.75rem' }}>
+                  <span style={{ color: 'var(--muted)', fontWeight: 600 }}>Normalized Technical Terms:</span>
+                  {result.appliedAutoCorrections.slice(0, 8).map((c, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        background: 'var(--card)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '4px',
+                        padding: '1px 6px',
+                        fontFamily: 'monospace',
+                        color: 'var(--emerald)',
+                      }}
+                      title={`Original: "${c.original}" -> Normalized: "${c.replacement}" (${c.count}x)`}
+                    >
+                      {c.replacement}
+                    </span>
+                  ))}
+                  {result.appliedAutoCorrections.length > 8 && (
+                    <span style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>
+                      +{result.appliedAutoCorrections.length - 8} more
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Verbatim / Speaker Dialogue Transcript Card */}
             {(activeTab === 'all' || activeTab === 'transcript') && (
               <div
                 style={{
@@ -6027,11 +6951,72 @@ export const AiAudioTranscriber: React.FC = () => {
                   padding: '20px',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
                   <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-heading)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <AlignLeft size={16} color="var(--accent)" />
-                    Verbatim Transcript
+                    {transcriptViewMode === 'speaker' ? <Users size={16} color="var(--accent)" /> : <AlignLeft size={16} color="var(--accent)" />}
+                    {transcriptViewMode === 'speaker' ? 'Differentiated Speaker Dialogue' : 'Verbatim Transcript'}
                   </h3>
+
+                  {/* Real-time Keyword Search Bar in Results Card */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px', maxWidth: '360px' }}>
+                    <div style={{ position: 'relative', width: '100%' }}>
+                      <Search size={14} color="var(--muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                      <input
+                        type="text"
+                        placeholder="Search &amp; highlight keywords..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '6px 30px 6px 30px',
+                          fontSize: '0.82rem',
+                          borderRadius: '8px',
+                          border: searchQuery.trim() ? '1px solid var(--accent)' : '1px solid var(--line)',
+                          background: 'var(--card)',
+                          color: 'var(--text)',
+                          outline: 'none',
+                        }}
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery('')}
+                          style={{
+                            position: 'absolute',
+                            right: '8px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'transparent',
+                            border: 0,
+                            color: 'var(--muted)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                          title="Clear search query"
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
+                    {searchQuery.trim() && (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontFamily: 'monospace',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          background: countKeywordMatches(result.transcript, searchQuery) > 0 ? 'rgba(250, 204, 21, 0.25)' : 'rgba(148, 163, 184, 0.15)',
+                          color: countKeywordMatches(result.transcript, searchQuery) > 0 ? 'var(--amber)' : 'var(--muted)',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {countKeywordMatches(result.transcript, searchQuery)} {countKeywordMatches(result.transcript, searchQuery) === 1 ? 'match' : 'matches'}
+                      </span>
+                    )}
+                  </div>
+
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                       type="button"
@@ -6085,7 +7070,14 @@ export const AiAudioTranscriber: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleCopy(result.transcript, 'transcript')}
+                      onClick={() =>
+                        handleCopy(
+                          transcriptViewMode === 'speaker' && result.formattedSpeakerTranscript
+                            ? result.formattedSpeakerTranscript
+                            : result.transcript,
+                          'transcript'
+                        )
+                      }
                       style={{
                         background: 'transparent',
                         border: '1px solid var(--line)',
@@ -6114,54 +7106,138 @@ export const AiAudioTranscriber: React.FC = () => {
                   </div>
                 </div>
 
-                <div style={{ position: 'relative' }}>
-                  <div
-                    ref={transcriptScrollRef}
-                    onScroll={handleTranscriptScroll}
-                    style={{
-                      maxHeight: '360px',
-                      overflowY: 'auto',
-                      padding: '16px',
-                      background: 'var(--card)',
-                      border: '1px solid var(--line)',
-                      borderRadius: '8px',
-                      fontSize: '0.95rem',
-                      lineHeight: 1.6,
-                      color: 'var(--text)',
-                      whiteSpace: 'pre-wrap',
-                    }}
-                  >
-                    {result.transcript}
-                    <div ref={transcriptBottomRef} style={{ height: 0 }} />
-                  </div>
+                {/* Transcript Body: Speaker Dialogue Turns or Verbatim Text */}
+                {transcriptViewMode === 'speaker' && result.speakerTurns && result.speakerTurns.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {result.speakerTurns
+                      .filter((turn) => speakerFilter === 'all' || turn.speaker === speakerFilter)
+                      .map((turn, index) => {
+                        const isSpeaker1 = turn.speakerIndex === 1;
+                        return (
+                          <div
+                            key={turn.id || index}
+                            style={{
+                              background: 'var(--card)',
+                              border: isSpeaker1
+                                ? '1px solid rgba(56, 189, 248, 0.35)'
+                                : '1px solid rgba(168, 85, 247, 0.35)',
+                              borderRadius: '10px',
+                              padding: '12px 14px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span
+                                  style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '50%',
+                                    background: isSpeaker1
+                                      ? 'rgba(56, 189, 248, 0.2)'
+                                      : 'rgba(168, 85, 247, 0.2)',
+                                    color: isSpeaker1 ? 'var(--accent)' : 'var(--indigo)',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 800,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                >
+                                  S{turn.speakerIndex}
+                                </span>
+                                <strong style={{ fontSize: '0.9rem', color: isSpeaker1 ? 'var(--accent)' : 'var(--indigo)' }}>
+                                  {turn.speaker}
+                                </strong>
+                                {typeof turn.channel === 'number' && (
+                                  <span style={{ fontSize: '0.70rem', color: 'var(--muted)', background: 'var(--bg)', padding: '1px 5px', borderRadius: '4px', border: '1px solid var(--line)' }}>
+                                    Ch {turn.channel + 1}
+                                  </span>
+                                )}
+                              </div>
 
-                  {isUserScrolledUp && (
-                    <button
-                      type="button"
-                      onClick={scrollToBottom}
+                              <button
+                                type="button"
+                                onClick={() => seekToTime(turn.startTime)}
+                                style={{
+                                  background: 'var(--bg)',
+                                  border: '1px solid var(--line)',
+                                  borderRadius: '6px',
+                                  padding: '2px 8px',
+                                  fontSize: '0.74rem',
+                                  fontFamily: 'monospace',
+                                  color: 'var(--muted)',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                                title="Jump audio player to this speaker turn"
+                              >
+                                <Play size={10} color="var(--emerald)" />
+                                {formatSpeakerTimestamp(turn.startTime)} - {formatSpeakerTimestamp(turn.endTime)}
+                              </button>
+                            </div>
+
+                            <p style={{ margin: 0, fontSize: '0.94rem', lineHeight: 1.6, color: 'var(--text)' }}>
+                              {highlightMatchingText(turn.text, searchQuery)}
+                            </p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <div style={{ position: 'relative' }}>
+                    <div
+                      ref={transcriptScrollRef}
+                      onScroll={handleTranscriptScroll}
                       style={{
-                        position: 'absolute',
-                        bottom: '12px',
-                        right: '16px',
-                        background: 'var(--accent)',
-                        color: '#ffffff',
-                        border: 0,
-                        borderRadius: '20px',
-                        padding: '6px 14px',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
+                        maxHeight: '360px',
+                        overflowY: 'auto',
+                        padding: '16px',
+                        background: 'var(--card)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem',
+                        lineHeight: 1.6,
+                        color: 'var(--text)',
+                        whiteSpace: 'pre-wrap',
                       }}
                     >
-                      <ArrowDown size={13} />
-                      Jump to latest lines
-                    </button>
-                  )}
-                </div>
+                      {highlightMatchingText(result.transcript, searchQuery)}
+                      <div ref={transcriptBottomRef} style={{ height: 0 }} />
+                    </div>
+
+                    {isUserScrolledUp && (
+                      <button
+                        type="button"
+                        onClick={scrollToBottom}
+                        style={{
+                          position: 'absolute',
+                          bottom: '12px',
+                          right: '16px',
+                          background: 'var(--accent)',
+                          color: '#ffffff',
+                          border: 0,
+                          borderRadius: '20px',
+                          padding: '6px 14px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <ArrowDown size={13} />
+                        Jump to latest lines
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </section>
