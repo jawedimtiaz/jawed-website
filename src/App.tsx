@@ -51,7 +51,7 @@ import { CctvStorageCalculator } from './tools/CctvStorageCalculator';
 import { HardwareStorageCalculator } from './tools/HardwareStorageCalculator';
 import { CableLengthPoeChecker } from './tools/CableLengthPoeChecker';
 import { AiAudioTranscriber } from './tools/AiAudioTranscriber';
-import { AnimateImageToVideo } from './tools/AnimateImageToVideo';
+import { AnimateImageToVideo } from './pages/tools/AnimateImageToVideo';
 
 function ScrollToTop() {
   const { pathname } = useLocation();

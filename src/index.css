@@ -254,7 +254,11 @@ select:focus-visible {
   color: var(--nav-link);
   font-size: 0.938rem;
   font-weight: 500;
+  font-family: inherit;
   text-decoration: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
   align-items: center;
@@ -3575,10 +3579,24 @@ select:focus-visible {
   button,
   .actions,
   .tool-nav,
+  .tool-toolbar,
   .cookie-trigger-btn,
   form,
   .no-print {
     display: none !important;
+  }
+
+  .animate-image-to-video-page .card-grid.two {
+    display: block !important;
+  }
+
+  .animate-image-to-video-page canvas {
+    max-width: 100% !important;
+    max-height: 220pt !important;
+    border: 1px solid var(--print-border) !important;
+    border-radius: 6px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   /* Format breadcrumbs clearly for print with simplified trail and hidden interactive menus */

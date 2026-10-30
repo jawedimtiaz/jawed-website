@@ -117,7 +117,6 @@ export const Header: React.FC = () => {
           <button
             type="button"
             className="nav-item"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', background: 'transparent', border: 0 }}
             onClick={() => {
               closeMenu();
               window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', shiftKey: true }));
