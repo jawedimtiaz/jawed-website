@@ -18,6 +18,29 @@
     <meta name="theme-color" content="#0f172a" />
     <link rel="manifest" href="%BASE_URL%manifest.json" />
 
+    <!-- Prevent Theme FOUC: Synchronously apply persisted theme or system preference -->
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('theme');
+          var resolved = 'dark';
+          if (saved === 'light' || saved === 'dark') {
+            resolved = saved;
+          } else {
+            resolved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          }
+          document.documentElement.setAttribute('data-theme', resolved);
+          if (resolved === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+          } else {
+            document.documentElement.classList.add('light');
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- Performance & Font Delivery: Preconnect & display=swap for LCP Optimization -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

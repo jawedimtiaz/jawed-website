@@ -55,15 +55,45 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
   }, []);
 
   const handleToggleTheme = useCallback(() => {
-    const doc = document.documentElement;
-    const currentTheme = doc.getAttribute('data-theme') || 'dark';
-    const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    doc.setAttribute('data-theme', nextTheme);
+    let currentMode: 'system' | 'light' | 'dark' = 'system';
     try {
-      localStorage.setItem('theme', nextTheme);
+      const saved = localStorage.getItem('theme');
+      if (saved === 'system' || saved === 'light' || saved === 'dark') {
+        currentMode = saved as 'system' | 'light' | 'dark';
+      }
     } catch {}
-    window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: nextTheme } }));
-    triggerToastNotification('theme', `Switched to ${nextTheme.toUpperCase()} Mode (Alt+T)`);
+
+    const cycle: Record<'system' | 'light' | 'dark', 'system' | 'light' | 'dark'> = {
+      system: 'light',
+      light: 'dark',
+      dark: 'system',
+    };
+    const nextMode = cycle[currentMode] || 'light';
+
+    const getSystem = () =>
+      window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    const resolved = nextMode === 'system' ? getSystem() : nextMode;
+
+    const doc = document.documentElement;
+    doc.setAttribute('data-theme', resolved);
+    if (resolved === 'dark') {
+      doc.classList.add('dark');
+      doc.classList.remove('light');
+    } else {
+      doc.classList.add('light');
+      doc.classList.remove('dark');
+    }
+
+    try {
+      localStorage.setItem('theme', nextMode);
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: nextMode } }));
+    const label =
+      nextMode === 'system'
+        ? `SYSTEM (${resolved.toUpperCase()})`
+        : nextMode.toUpperCase();
+    triggerToastNotification('theme', `Theme: ${label} (Alt+T)`);
   }, []);
 
   const handleCloseAll = useCallback(() => {
@@ -169,8 +199,8 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     {
       id: 'toggle-theme',
       combo: 'alt+t',
-      label: 'Toggle Light / Dark Theme',
-      description: 'Switch application color theme dynamically',
+      label: 'Cycle Theme (System / Light / Dark)',
+      description: 'Cycle application theme between System, Light, and Dark',
       category: 'Global Controls',
       allowInInput: true,
       action: handleToggleTheme,

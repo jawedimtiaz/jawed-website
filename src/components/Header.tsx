@@ -3,22 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { SiteSearchBar } from './SiteSearchBar';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { AiProviderSettingsModal } from './AiProviderSettingsModal';
+import { ThemeToggle } from './ThemeToggle';
 
 export const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const menuToggleRef = useRef<HTMLButtonElement>(null);
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = window.localStorage.getItem('theme');
-        if (saved === 'light' || saved === 'dark') return saved;
-      } catch {
-        // Storage can be unavailable in private or restricted browser contexts.
-      }
-      return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    }
-    return 'dark';
-  });
 
   const { isInstallable, isInstalled, isStandalone, isIOS, install } = usePWAInstall();
   const location = useLocation();
@@ -40,30 +29,6 @@ export const Header: React.FC = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    try {
-      window.localStorage.setItem('theme', theme);
-    } catch {
-      // Keep the selected theme for this page session even when persistence is blocked.
-    }
-  }, [theme]);
-
-  useEffect(() => {
-    const handleThemeChanged = (e: Event) => {
-      const customEvent = e as CustomEvent<{ theme: 'dark' | 'light' }>;
-      if (customEvent.detail?.theme) {
-        setTheme(customEvent.detail.theme);
-      }
-    };
-    window.addEventListener('theme-changed', handleThemeChanged);
-    return () => window.removeEventListener('theme-changed', handleThemeChanged);
-  }, []);
-
-  const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
-  };
 
   return (
     <header className="site-header">
@@ -173,15 +138,7 @@ export const Header: React.FC = () => {
           >
             🤖 AI Settings
           </button>
-          <button
-            type="button"
-            className="theme-toggle-btn"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode (Alt+T)`}
-          >
-            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-          </button>
+          <ThemeToggle />
           <Link
             className="nav-cta"
             to="/contact"

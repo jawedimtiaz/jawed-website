@@ -317,6 +317,81 @@ select:focus-visible {
   background: var(--surface-hover);
 }
 
+/* Theme Toggle Component (System, Light, Dark) */
+.theme-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-darker);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 2px;
+  position: relative;
+  user-select: none;
+}
+
+.theme-toggle-btn-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.theme-toggle-btn-option:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .theme-toggle-btn-option:hover,
+.light .theme-toggle-btn-option:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.theme-toggle-btn-option.is-active {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 600;
+  border-color: var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .theme-toggle-btn-option.is-active,
+.light .theme-toggle-btn-option.is-active {
+  background: #ffffff;
+  color: var(--accent-dark);
+  border-color: var(--border);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.theme-toggle-btn-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.theme-toggle-btn-label {
+  display: inline;
+}
+
+/* On intermediate desktop widths (769px to 1200px), keep icons and hide text to avoid cramped headers */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .theme-toggle-btn-label {
+    display: none;
+  }
+  .theme-toggle-btn-option {
+    padding: 6px 8px;
+  }
+}
+
 .menu-toggle {
   display: none;
   border: 1px solid var(--border);
@@ -864,6 +939,26 @@ select:focus-visible {
 
   .theme-toggle-btn {
     min-height: 44px;
+  }
+
+  .theme-toggle-group {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    width: 100%;
+    border-radius: 10px;
+    padding: 4px;
+    margin: 4px 0;
+  }
+
+  .theme-toggle-btn-option {
+    min-height: 42px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    padding: 8px 10px;
+  }
+
+  .theme-toggle-btn-label {
+    display: inline;
   }
 
   .site-nav {
@@ -3409,6 +3504,7 @@ select:focus-visible {
   .site-nav,
   .menu-toggle,
   .theme-toggle-btn,
+  .theme-toggle-group,
   .site-footer,
   footer,
   .jawed-ai-widget,
@@ -3515,9 +3611,12 @@ select:focus-visible {
   table {
     width: 100% !important;
     border-collapse: collapse !important;
+    margin: 8pt 0 !important;
+  }
+
+  tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    margin: 8pt 0 !important;
   }
 
   th {
@@ -3528,6 +3627,8 @@ select:focus-visible {
     padding: 5pt 7pt !important;
     font-weight: 700 !important;
     text-align: left !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   td {
@@ -3536,6 +3637,8 @@ select:focus-visible {
     border: 1px solid var(--print-border) !important;
     font-size: 8.5pt !important;
     padding: 5pt 7pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
 
