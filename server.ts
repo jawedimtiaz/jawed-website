@@ -99,6 +99,87 @@ Format output into:
   }
 });
 
+// Server-side LLM transcript summarization endpoint using Gemini 3.8 Flash
+app.post('/api/summarize-transcript', async (req, res) => {
+  try {
+    const { transcript, context } = req.body;
+
+    if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {
+      return res.status(400).json({ error: 'Transcript text is required for summarization.' });
+    }
+
+    const { Type } = await import('@google/genai');
+    const ai = getGenAiClient();
+
+    const project = context?.project ? `Project: ${context.project}` : '';
+    const category = context?.category ? `Category: ${context.category}` : '';
+    const tags = Array.isArray(context?.tags) && context.tags.length > 0 ? `Tags: ${context.tags.join(', ')}` : '';
+    const metadataContext = [project, category, tags].filter(Boolean).join(' | ');
+
+    const promptText = `Analyze the following transcript from an IT voice recording, meeting, or field note.
+${metadataContext ? `Session Metadata Context: [${metadataContext}]\n` : ''}
+
+Transcript:
+"""
+${transcript.trim()}
+"""
+
+Provide an executive summary, concrete action items, key technical takeaways, and a clean IT support log entry formatted for ticketing systems (ServiceNow/Jira/ITIL notes).`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: [{ text: promptText }],
+      config: {
+        systemInstruction: `You are an expert Senior IT Support Engineer and IT Infrastructure Analyst.
+Your task is to analyze audio transcripts and extract high-value, structured summaries for IT support logs.
+Output must be structured JSON adhering strictly to the schema provided.`,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            summary: {
+              type: Type.STRING,
+              description: 'A concise 2-4 sentence executive summary highlighting core IT issue, resolution, or discussion.',
+            },
+            actionItems: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: 'Concrete action items, follow-up tasks, tickets, or verification steps.',
+            },
+            keyTakeaways: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: 'Key technical findings, hardware/software affected, or decisions made.',
+            },
+            itLogEntry: {
+              type: Type.STRING,
+              description: 'A clean, formatted single-block IT Support Log entry for ticketing system notes.',
+            },
+          },
+          required: ['summary', 'actionItems', 'keyTakeaways', 'itLogEntry'],
+        },
+      },
+    });
+
+    const jsonText = (response.text || '{}').trim();
+    const parsed = JSON.parse(jsonText);
+
+    res.json({
+      success: true,
+      summary: parsed.summary || 'Summary unavailable.',
+      actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
+      keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways : [],
+      itLogEntry: parsed.itLogEntry || '',
+      modelUsed: 'gemini-3.8-flash',
+    });
+  } catch (error: any) {
+    console.error('Error in /api/summarize-transcript:', error);
+    res.status(500).json({
+      error: error?.message || 'Failed to generate LLM transcript summary.',
+    });
+  }
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');

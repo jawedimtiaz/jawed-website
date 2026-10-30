@@ -42,6 +42,14 @@ import {
   Palette,
   VolumeX,
   Scissors,
+  Tag,
+  Tags,
+  Calendar,
+  Folder,
+  Edit3,
+  FileImage,
+  Image,
+  Share2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
@@ -105,6 +113,32 @@ export type WaveformThemeId =
   | 'fire-ruby'
   | 'custom';
 
+export type VisualizerStyleId = 'bar-graph' | 'waveform' | 'circular-wave';
+
+export interface VisualizerStyleConfig {
+  id: VisualizerStyleId;
+  label: string;
+  description: string;
+}
+
+export const VISUALIZER_STYLES: VisualizerStyleConfig[] = [
+  {
+    id: 'bar-graph',
+    label: 'Bar Graph',
+    description: 'Vertical frequency spectrum frequency bars with peak decay caps.',
+  },
+  {
+    id: 'waveform',
+    label: 'Waveform',
+    description: 'Continuous smooth oscilloscope waveform curve with gradient glow.',
+  },
+  {
+    id: 'circular-wave',
+    label: 'Circular Wave',
+    description: 'Radial pulsating frequency ring radiating outward from center.',
+  },
+];
+
 export interface WaveformThemeConfig {
   id: WaveformThemeId;
   label: string;
@@ -158,6 +192,8 @@ export const WAVEFORM_THEMES: WaveformThemeConfig[] = [
   },
 ];
 
+export const AUTO_SAVE_STORAGE_KEY = 'ai_audio_transcriber_auto_save_v1';
+
 export const hexToRgba = (hex: string, alpha: number): string => {
   if (!hex || typeof hex !== 'string') return `rgba(99, 102, 241, ${alpha})`;
   let clean = hex.trim().replace('#', '');
@@ -201,6 +237,9 @@ interface TranscriptionResult {
   }>;
   summary: string;
   actionItems: string[];
+  keyTakeaways?: string[];
+  itLogEntry?: string;
+  isLlmGenerated?: boolean;
   detectedLanguage?: string;
   modelUsed?: string;
 }
@@ -232,6 +271,46 @@ export const formatFileSizeBytes = (bytes: number | null | undefined): string =>
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
+
+export const buildTimestampedTranscriptText = (
+  text: string,
+  durationSec: number | null | undefined,
+  speakerTurns?: SpeakerTurn[]
+): string => {
+  if (speakerTurns && speakerTurns.length > 0) {
+    return speakerTurns
+      .map((turn) => `[${formatSpeakerTimestamp(turn.startTime)}] ${turn.speaker}: ${turn.text}`)
+      .join('\n\n');
+  }
+
+  if (!text || !text.trim()) return '';
+
+  const cleanText = text.trim();
+  const rawLines = cleanText
+    .split(/\n+/)
+    .flatMap((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return [];
+      const parts = trimmed.split(/(?<=[.!?।۔。])\s+/).map((s) => s.trim()).filter(Boolean);
+      return parts.length > 0 ? parts : [trimmed];
+    });
+
+  if (rawLines.length === 0) return cleanText;
+
+  const totalChars = cleanText.length || 1;
+  const dur = typeof durationSec === 'number' && durationSec > 0 ? durationSec : 0;
+
+  let accumChars = 0;
+  return rawLines
+    .map((line) => {
+      const fraction = accumChars / totalChars;
+      const lineTimeSec = dur * fraction;
+      accumChars += line.length;
+      const timeStr = formatSpeakerTimestamp(lineTimeSec);
+      return `[${timeStr}] ${line}`;
+    })
+    .join('\n');
 };
 
 const formatDurationDisplay = (seconds: number | null | undefined): string => {
@@ -605,6 +684,7 @@ export const AiAudioTranscriber: React.FC = () => {
   const [enableITDictionary, setEnableITDictionary] = useState<boolean>(true);
   const [speakerFilter, setSpeakerFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showLineTimestamps, setShowLineTimestamps] = useState<boolean>(true);
 
   // Auto-Pause on Silence State & Refs
   const [autoPauseOnSilence, setAutoPauseOnSilence] = useState<boolean>(true);
@@ -613,6 +693,7 @@ export const AiAudioTranscriber: React.FC = () => {
 
   // Canvas Visualizer Custom Gradient Theme State & Settings
   const [waveformTheme, setWaveformTheme] = useState<WaveformThemeId>('emerald-indigo');
+  const [visualizerStyle, setVisualizerStyle] = useState<VisualizerStyleId>('bar-graph');
   const [customStartColor, setCustomStartColor] = useState<string>('#10b981');
   const [customEndColor, setCustomEndColor] = useState<string>('#6366f1');
   const [showVisualizerSettings, setShowVisualizerSettings] = useState<boolean>(false);
@@ -629,9 +710,55 @@ export const AiAudioTranscriber: React.FC = () => {
   const [isTrimming, setIsTrimming] = useState<boolean>(false);
   const [isPreviewingTrim, setIsPreviewingTrim] = useState<boolean>(false);
 
+  // Session Metadata & Tagging State
+  const [metaProject, setMetaProject] = useState<string>('');
+  const [metaCategory, setMetaCategory] = useState<string>('General');
+  const [metaDate, setMetaDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [customTags, setCustomTags] = useState<string[]>(['Voice-Note', 'Whisper-AI']);
+  const [tagInput, setTagInput] = useState<string>('');
+  const [showMetadataEditor, setShowMetadataEditor] = useState<boolean>(true);
+  const [isExportingSvg, setIsExportingSvg] = useState<boolean>(false);
+  const [isSummarizingLlm, setIsSummarizingLlm] = useState<boolean>(false);
+  const [llmSummaryError, setLlmSummaryError] = useState<string | null>(null);
+
+  // Auto-Save to localStorage State
+  const [lastAutoSaveTime, setLastAutoSaveTime] = useState<string | null>(null);
+  const [restorableDraft, setRestorableDraft] = useState<{
+    timestamp: number;
+    formattedTime: string;
+    transcript: string;
+    summary: string;
+    actionItems: string[];
+    keyTakeaways?: string[];
+    itLogEntry?: string;
+    isLlmGenerated?: boolean;
+    audioFileName?: string;
+    metaProject?: string;
+    metaCategory?: string;
+    metaDate?: string;
+    customTags?: string[];
+  } | null>(null);
+
+  const handleAddTag = (tagToAdd?: string) => {
+    const text = (tagToAdd !== undefined ? tagToAdd : tagInput).trim();
+    if (!text) return;
+    const cleanTag = text.replace(/^[#\s]+/, '').trim();
+    if (cleanTag && !customTags.includes(cleanTag)) {
+      setCustomTags((prev) => [...prev, cleanTag]);
+    }
+    if (tagToAdd === undefined) {
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setCustomTags((prev) => prev.filter((t) => t !== tagToRemove));
+  };
+
   const waveformThemeRef = useRef<WaveformThemeId>('emerald-indigo');
   const customStartColorRef = useRef<string>('#10b981');
   const customEndColorRef = useRef<string>('#6366f1');
+  const visualizerStyleRef = useRef<VisualizerStyleId>('bar-graph');
 
   const enableNoiseGateRef = useRef<boolean>(true);
   const noiseGateThresholdDbRef = useRef<number>(-40);
@@ -641,7 +768,8 @@ export const AiAudioTranscriber: React.FC = () => {
     waveformThemeRef.current = waveformTheme;
     customStartColorRef.current = customStartColor;
     customEndColorRef.current = customEndColor;
-  }, [waveformTheme, customStartColor, customEndColor]);
+    visualizerStyleRef.current = visualizerStyle;
+  }, [waveformTheme, customStartColor, customEndColor, visualizerStyle]);
 
   useEffect(() => {
     enableNoiseGateRef.current = enableNoiseGate;
@@ -1733,88 +1861,155 @@ export const AiAudioTranscriber: React.FC = () => {
         timeSamples = latestWaveformChunkRef.current;
       }
 
-      // 1. Draw rolling peak bar history in the background for cumulative capture feedback
       const peakHistory = rollingPeakHistoryRef.current;
-      if (peakHistory.length > 0) {
-        const maxBars = 64;
-        const barSpacing = width / maxBars;
-        const barWidth = Math.max(2, barSpacing * 0.58);
-        const startIdx = Math.max(0, peakHistory.length - maxBars);
+      const currentStyle = visualizerStyleRef.current || visualizerStyle;
 
-        for (let i = startIdx; i < peakHistory.length; i += 1) {
-          const slot = i - startIdx;
-          const x = slot * barSpacing + (barSpacing - barWidth) / 2;
-          const rawPeak = peakHistory[i] || 0;
-          // Boost low-to-mid voice levels slightly for clear visual responsiveness
-          const scaledPeak = Math.min(1, Math.pow(rawPeak, 0.65) * 1.35);
-          const barHalfHeight = Math.max(1.5, scaledPeak * (height * 0.44));
+      if (currentStyle === 'bar-graph') {
+        // Draw Equalizer Frequency Bar Graph Style
+        const numBars = 52;
+        const barSpacing = width / numBars;
+        const barWidth = Math.max(2.5, barSpacing * 0.7);
+        const startIdx = Math.max(0, peakHistory.length - numBars);
 
-          ctx2d.fillStyle = activeRecording
-            ? rawPeak > 1e-4
-              ? barActiveColor
-              : hexToRgba(strokeInactive, 0.16)
-            : hexToRgba(strokeInactive, 0.22);
-          ctx2d.fillRect(x, centerY - barHalfHeight, barWidth, barHalfHeight * 2);
+        for (let i = 0; i < numBars; i += 1) {
+          const rawPeak = peakHistory[startIdx + i] || (timeSamples ? Math.abs(timeSamples[Math.floor((i / numBars) * timeSamples.length)] || 0) : 0);
+          const scaledPeak = Math.min(1, Math.pow(rawPeak, 0.6) * 1.45);
+          const barH = Math.max(4, scaledPeak * (height * 0.72));
+          const x = i * barSpacing + (barSpacing - barWidth) / 2;
+          const y = centerY - barH / 2;
+
+          const barGrad = ctx2d.createLinearGradient(x, y, x, y + barH);
+          barGrad.addColorStop(0, strokeActive);
+          barGrad.addColorStop(1, strokeInactive);
+
+          ctx2d.fillStyle = barGrad;
+          ctx2d.beginPath();
+          if (typeof ctx2d.roundRect === 'function') {
+            ctx2d.roundRect(x, y, barWidth, barH, 4);
+          } else {
+            ctx2d.rect(x, y, barWidth, barH);
+          }
+          ctx2d.fill();
         }
-      }
+      } else if (currentStyle === 'circular-wave') {
+        // Draw Circular Pulsating Wave Style
+        const radius = Math.min(width, height) * 0.25;
+        const centerX = width / 2;
+        const centerYCoord = height / 2;
+        const numPoints = 120;
 
-      // 2. Draw real-time oscilloscope waveform trace on top
-      if (timeSamples && timeSamples.length > 0) {
-        let framePeak = 0;
-        for (let i = 0; i < timeSamples.length; i += 1) {
-          const abs = Math.abs(timeSamples[i]);
-          if (abs > framePeak) framePeak = abs;
-        }
-
-        const hasActiveSignal = framePeak > 1e-4;
-        const visualGain = framePeak > 0 && framePeak < 0.25 ? Math.min(3.2, 0.35 / framePeak) : 1.15;
-
-        // Filled waveform glow envelope with dynamic theme gradient
-        const gradient = ctx2d.createLinearGradient(0, 0, 0, height);
-        if (activeRecording && hasActiveSignal) {
-          gradient.addColorStop(0, topFillColor);
-          gradient.addColorStop(0.5, midFillColor);
-          gradient.addColorStop(1, bottomFillColor);
-        } else {
-          gradient.addColorStop(0, hexToRgba(strokeInactive, 0.18));
-          gradient.addColorStop(0.5, hexToRgba(strokeInactive, 0.04));
-          gradient.addColorStop(1, hexToRgba(strokeInactive, 0.18));
+        let avgVal = 0;
+        if (timeSamples && timeSamples.length > 0) {
+          for (let i = 0; i < timeSamples.length; i += 1) {
+            avgVal += Math.abs(timeSamples[i]);
+          }
+          avgVal /= timeSamples.length;
         }
 
-        const step = Math.max(1, Math.floor(timeSamples.length / width));
+        const pulseRadius = radius + Math.min(45, avgVal * 110);
+
         ctx2d.beginPath();
-        ctx2d.moveTo(0, centerY);
-        for (let x = 0; x < width; x += 1) {
-          const sampleIdx = Math.min(timeSamples.length - 1, x * step);
-          const sample = Math.max(-1, Math.min(1, (timeSamples[sampleIdx] || 0) * visualGain));
-          const y = centerY - sample * (height * 0.42);
-          ctx2d.lineTo(x, y);
+        for (let i = 0; i <= numPoints; i += 1) {
+          const angle = (i / numPoints) * Math.PI * 2;
+          const sampleIdx = timeSamples ? Math.floor((i / numPoints) * timeSamples.length) : 0;
+          const sampleVal = timeSamples ? (timeSamples[sampleIdx] || 0) : 0;
+          const r = pulseRadius + sampleVal * 32;
+          const x = centerX + Math.cos(angle) * r;
+          const y = centerYCoord + Math.sin(angle) * r;
+          if (i === 0) ctx2d.moveTo(x, y);
+          else ctx2d.lineTo(x, y);
         }
-        ctx2d.lineTo(width, centerY);
         ctx2d.closePath();
-        ctx2d.fillStyle = gradient;
+
+        const circGrad = ctx2d.createRadialGradient(centerX, centerYCoord, radius * 0.4, centerX, centerYCoord, pulseRadius * 1.25);
+        circGrad.addColorStop(0, topFillColor);
+        circGrad.addColorStop(0.65, midFillColor);
+        circGrad.addColorStop(1, 'transparent');
+        ctx2d.fillStyle = circGrad;
         ctx2d.fill();
 
-        // Crisp primary waveform stroke with dynamic theme color
-        ctx2d.beginPath();
-        ctx2d.lineWidth = activeRecording && hasActiveSignal ? 2.2 : 1.6;
-        ctx2d.strokeStyle = activeRecording
-          ? hasActiveSignal
-            ? strokeActive
-            : strokeInactive
-          : strokeInactive;
+        ctx2d.strokeStyle = strokeActive;
+        ctx2d.lineWidth = 2.2;
+        ctx2d.stroke();
+      } else {
+        // Default 'waveform' oscilloscope style: rolling peak history bars in background + oscilloscope trace on top
+        if (peakHistory.length > 0) {
+          const maxBars = 64;
+          const barSpacing = width / maxBars;
+          const barWidth = Math.max(2, barSpacing * 0.58);
+          const startIdx = Math.max(0, peakHistory.length - maxBars);
 
-        for (let x = 0; x < width; x += 1) {
-          const sampleIdx = Math.min(timeSamples.length - 1, x * step);
-          const sample = Math.max(-1, Math.min(1, (timeSamples[sampleIdx] || 0) * visualGain));
-          const y = centerY - sample * (height * 0.42);
-          if (x === 0) {
-            ctx2d.moveTo(x, y);
-          } else {
-            ctx2d.lineTo(x, y);
+          for (let i = startIdx; i < peakHistory.length; i += 1) {
+            const slot = i - startIdx;
+            const x = slot * barSpacing + (barSpacing - barWidth) / 2;
+            const rawPeak = peakHistory[i] || 0;
+            const scaledPeak = Math.min(1, Math.pow(rawPeak, 0.65) * 1.35);
+            const barHalfHeight = Math.max(1.5, scaledPeak * (height * 0.44));
+
+            ctx2d.fillStyle = activeRecording
+              ? rawPeak > 1e-4
+                ? barActiveColor
+                : hexToRgba(strokeInactive, 0.16)
+              : hexToRgba(strokeInactive, 0.22);
+            ctx2d.fillRect(x, centerY - barHalfHeight, barWidth, barHalfHeight * 2);
           }
         }
-        ctx2d.stroke();
+
+        if (timeSamples && timeSamples.length > 0) {
+          let framePeak = 0;
+          for (let i = 0; i < timeSamples.length; i += 1) {
+            const abs = Math.abs(timeSamples[i]);
+            if (abs > framePeak) framePeak = abs;
+          }
+
+          const hasActiveSignal = framePeak > 1e-4;
+          const visualGain = framePeak > 0 && framePeak < 0.25 ? Math.min(3.2, 0.35 / framePeak) : 1.15;
+
+          const gradient = ctx2d.createLinearGradient(0, 0, 0, height);
+          if (activeRecording && hasActiveSignal) {
+            gradient.addColorStop(0, topFillColor);
+            gradient.addColorStop(0.5, midFillColor);
+            gradient.addColorStop(1, bottomFillColor);
+          } else {
+            gradient.addColorStop(0, hexToRgba(strokeInactive, 0.18));
+            gradient.addColorStop(0.5, hexToRgba(strokeInactive, 0.04));
+            gradient.addColorStop(1, hexToRgba(strokeInactive, 0.18));
+          }
+
+          const step = Math.max(1, Math.floor(timeSamples.length / width));
+          ctx2d.beginPath();
+          ctx2d.moveTo(0, centerY);
+          for (let x = 0; x < width; x += 1) {
+            const sampleIdx = Math.min(timeSamples.length - 1, x * step);
+            const sample = Math.max(-1, Math.min(1, (timeSamples[sampleIdx] || 0) * visualGain));
+            const y = centerY - sample * (height * 0.42);
+            ctx2d.lineTo(x, y);
+          }
+          ctx2d.lineTo(width, centerY);
+          ctx2d.closePath();
+          ctx2d.fillStyle = gradient;
+          ctx2d.fill();
+
+          ctx2d.beginPath();
+          ctx2d.lineWidth = activeRecording && hasActiveSignal ? 2.2 : 1.6;
+          ctx2d.strokeStyle = activeRecording
+            ? hasActiveSignal
+              ? strokeActive
+              : strokeInactive
+            : strokeInactive;
+
+          for (let x = 0; x < width; x += 1) {
+            const sampleIdx = Math.min(timeSamples.length - 1, x * step);
+            const sample = Math.max(-1, Math.min(1, (timeSamples[sampleIdx] || 0) * visualGain));
+            const y = centerY - sample * (height * 0.42);
+            if (x === 0) {
+              ctx2d.moveTo(x, y);
+            } else {
+              ctx2d.lineTo(x, y);
+            }
+          }
+          ctx2d.stroke();
+        }
       }
 
       // 3. Draw real-time recording duration timer overlay directly on the visualizer canvas
@@ -4100,7 +4295,13 @@ export const AiAudioTranscriber: React.FC = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-    addLog('info', 'Cleared audio buffer and revoked previous Object URL.');
+    try {
+      localStorage.removeItem(AUTO_SAVE_STORAGE_KEY);
+    } catch {
+      // Ignore errors
+    }
+    setLastAutoSaveTime(null);
+    addLog('info', 'Cleared audio buffer, revoked previous Object URL, and reset auto-save draft.');
   };
 
   const seekToTime = useCallback((timeSec: number) => {
@@ -4956,12 +5157,41 @@ export const AiAudioTranscriber: React.FC = () => {
       activeDownloadUrlRef.current = null;
     }
 
+    const exportBody = showLineTimestamps
+      ? buildTimestampedTranscriptText(
+          result.transcript,
+          sessionMetadata.durationSeconds || verifiedDurationSeconds,
+          result.speakerTurns
+        )
+      : result.transcript;
+
+    const metadataHeader = [
+      '========================================================================',
+      '=== AI AUDIO TRANSCRIPTION — SESSION METADATA & VERBATIM TRANSCRIPT ===',
+      '========================================================================',
+      `Source Audio File : ${audioFileName || 'Audio Recording'}`,
+      ...(metaProject.trim() ? [`Project Name      : ${metaProject.trim()}`] : []),
+      ...(metaCategory.trim() ? [`Session Category  : ${metaCategory.trim()}`] : []),
+      `Session Date      : ${metaDate || new Date().toISOString().slice(0, 10)}`,
+      ...(customTags.length > 0
+        ? [`Session Tags      : ${customTags.map((t) => (t.startsWith('#') ? t : `#${t}`)).join(', ')}`]
+        : []),
+      `Language Mode     : ${result.detectedLanguage || selectedLanguage}`,
+      `Whisper AI Model  : ${result.modelUsed || selectedModelId}`,
+      `Audio Duration    : ${sessionMetadata.formattedDuration}`,
+      `Exported Timestamp: ${new Date().toLocaleString()}`,
+      '========================================================================',
+      '',
+      '--- VERBATIM TRANSCRIPT ---',
+      exportBody,
+    ].join('\n');
+
     const baseName = audioFileName
       ? audioFileName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]+/g, '-')
       : `audio-${new Date().toISOString().slice(0, 10)}`;
     const downloadFileName = `${baseName}-transcript.txt`;
 
-    const blob = new Blob([result.transcript], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([metadataHeader], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     activeDownloadUrlRef.current = url;
 
@@ -4972,7 +5202,7 @@ export const AiAudioTranscriber: React.FC = () => {
     a.click();
     document.body.removeChild(a);
 
-    addLog('info', `Saved transcript as .txt file (${downloadFileName}, ${blob.size} bytes).`);
+    addLog('info', `Saved transcript as .txt file with metadata (${downloadFileName}, ${blob.size} bytes).`);
 
     setTimeout(() => {
       try {
@@ -4988,12 +5218,23 @@ export const AiAudioTranscriber: React.FC = () => {
 
   const handleDownloadTxt = () => {
     if (!result) return;
-    const content = [
-      '=== AI AUDIO TRANSCRIPTION & SUMMARY ===',
-      `Source: ${audioFileName || 'Audio Recording'}`,
-      `Language Mode: ${result.detectedLanguage || 'Auto-detect'}`,
-      `Model: ${result.modelUsed || selectedModelId}`,
-      `Date: ${new Date().toLocaleString()}`,
+
+    const metadataHeader = [
+      '========================================================================',
+      '=== AI AUDIO TRANSCRIPTION & EXECUTIVE SUMMARY REPORT ===',
+      '========================================================================',
+      `Source Audio File : ${audioFileName || 'Audio Recording'}`,
+      ...(metaProject.trim() ? [`Project Name      : ${metaProject.trim()}`] : []),
+      ...(metaCategory.trim() ? [`Session Category  : ${metaCategory.trim()}`] : []),
+      `Session Date      : ${metaDate || new Date().toISOString().slice(0, 10)}`,
+      ...(customTags.length > 0
+        ? [`Session Tags      : ${customTags.map((t) => (t.startsWith('#') ? t : `#${t}`)).join(', ')}`]
+        : []),
+      `Language Mode     : ${result.detectedLanguage || selectedLanguage}`,
+      `Whisper AI Model  : ${result.modelUsed || selectedModelId}`,
+      `Audio Duration    : ${sessionMetadata.formattedDuration}`,
+      `Exported Timestamp: ${new Date().toLocaleString()}`,
+      '========================================================================',
       '',
       '--- EXECUTIVE SUMMARY ---',
       result.summary,
@@ -5016,12 +5257,12 @@ export const AiAudioTranscriber: React.FC = () => {
       activeDownloadUrlRef.current = null;
     }
 
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([metadataHeader], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     activeDownloadUrlRef.current = url;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `transcript-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.download = `transcript-summary-${new Date().toISOString().slice(0, 10)}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -5035,6 +5276,447 @@ export const AiAudioTranscriber: React.FC = () => {
         activeDownloadUrlRef.current = null;
       }
     }, 1000);
+  };
+
+  const handleWebShare = async () => {
+    if (!result) return;
+    if (typeof navigator === 'undefined' || !navigator.share) {
+      alert('Web Share API is not supported in this browser environment.');
+      return;
+    }
+
+    try {
+      const shareTitle = metaProject.trim() ? `${metaProject.trim()} - AI Transcript` : 'AI Audio Transcription';
+      const shareText = [
+        metaProject.trim() ? `Project: ${metaProject.trim()}` : '',
+        metaCategory.trim() ? `Category: ${metaCategory.trim()}` : '',
+        `Duration: ${sessionMetadata.formattedDuration}`,
+        '',
+        '--- EXECUTIVE SUMMARY ---',
+        result.summary,
+        '',
+        '--- TRANSCRIPT ---',
+        showLineTimestamps
+          ? buildTimestampedTranscriptText(
+              result.transcript,
+              sessionMetadata.durationSeconds || verifiedDurationSeconds,
+              result.speakerTurns
+            )
+          : result.transcript,
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      const shareData: ShareData = {
+        title: shareTitle,
+        text: shareText,
+        url: window.location.href,
+      };
+
+      if (audioBlob && navigator.canShare) {
+        const file = new File([audioBlob], audioFileName || 'recording.wav', { type: audioBlob.type || 'audio/wav' });
+        const fileShareData = { ...shareData, files: [file] };
+        if (navigator.canShare(fileShareData)) {
+          await navigator.share(fileShareData);
+          addLog('info', 'Successfully shared transcript and audio file via Web Share API.');
+          return;
+        }
+      }
+
+      await navigator.share(shareData);
+      addLog('info', 'Successfully shared transcript text via Web Share API.');
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        addLog('warn', 'Web Share API invocation failed:', err?.message || err);
+      }
+    }
+  };
+
+  const handleExportWaveformSvg = async () => {
+    setIsExportingSvg(true);
+    addLog('info', 'Initiating high-resolution vector SVG audio waveform export...');
+
+    try {
+      let samples: Float32Array | null = null;
+
+      // 1. Gather PCM samples from pcmChunksRef if available
+      if (pcmChunksRef.current && pcmChunksRef.current.length > 0) {
+        let totalSamples = 0;
+        for (let i = 0; i < pcmChunksRef.current.length; i++) {
+          totalSamples += pcmChunksRef.current[i].length;
+        }
+        if (totalSamples > 0) {
+          samples = new Float32Array(totalSamples);
+          let offset = 0;
+          for (let i = 0; i < pcmChunksRef.current.length; i++) {
+            samples.set(pcmChunksRef.current[i], offset);
+            offset += pcmChunksRef.current[i].length;
+          }
+        }
+      }
+
+      // 2. Fallback: decode audioBlob if PCM chunks are empty
+      if ((!samples || samples.length === 0) && audioBlob) {
+        try {
+          const decoded = await decodeAudioBlobToMono16k(audioBlob, addLog);
+          if (decoded && decoded.samples && decoded.samples.length > 0) {
+            samples = decoded.samples;
+          }
+        } catch (err: any) {
+          addLog('warn', 'Failed to decode audioBlob for SVG export:', err?.message || err);
+        }
+      }
+
+      // 3. Peak bin calculation for clean SVG bars
+      const BIN_COUNT = 120;
+      const peaks: number[] = new Array(BIN_COUNT).fill(0.05);
+
+      if (samples && samples.length > 0) {
+        const samplesPerBin = Math.max(1, Math.floor(samples.length / BIN_COUNT));
+        let maxPeakAcrossBins = 0;
+
+        for (let i = 0; i < BIN_COUNT; i++) {
+          const start = Math.floor(i * samplesPerBin);
+          const end = Math.min(samples.length, Math.floor((i + 1) * samplesPerBin));
+          let binPeak = 0;
+          for (let j = start; j < end; j++) {
+            const abs = Math.abs(samples[j]);
+            if (abs > binPeak) binPeak = abs;
+          }
+          peaks[i] = binPeak;
+          if (binPeak > maxPeakAcrossBins) maxPeakAcrossBins = binPeak;
+        }
+
+        // Normalize peak amplitudes to range 0.08 .. 0.95
+        if (maxPeakAcrossBins > 0) {
+          for (let i = 0; i < BIN_COUNT; i++) {
+            peaks[i] = Math.max(0.08, Math.min(0.95, peaks[i] / maxPeakAcrossBins));
+          }
+        }
+      } else {
+        // Synthetic representative waveform curve if no audio loaded
+        for (let i = 0; i < BIN_COUNT; i++) {
+          const t = i / BIN_COUNT;
+          peaks[i] = Math.max(0.1, 0.4 + 0.45 * Math.sin(t * Math.PI * 4) * Math.cos(t * Math.PI * 2.5));
+        }
+      }
+
+      // Theme Gradient Colors
+      const activeTheme = WAVEFORM_THEMES.find((t) => t.id === waveformTheme) || WAVEFORM_THEMES[0];
+      const colorStart = waveformTheme === 'custom' ? customStartColor : activeTheme.startColor;
+      const colorEnd = waveformTheme === 'custom' ? customEndColor : activeTheme.endColor;
+
+      // Metadata Strings for SVG Header Banner
+      const projectLabel = metaProject.trim() || 'General Recording';
+      const categoryLabel = metaCategory.trim() || 'Voice Note';
+      const dateLabel = metaDate || new Date().toISOString().slice(0, 10);
+      const durationLabel =
+        sessionMetadata.formattedDuration && sessionMetadata.formattedDuration !== '00:00.0'
+          ? sessionMetadata.formattedDuration
+          : formatDurationDisplay(verifiedDurationSeconds);
+      const tagString = customTags.length > 0 ? customTags.map((t) => `#${t}`).join(' ') : '#Voice-Note #Whisper-AI';
+
+      // SVG Canvas Dimensions
+      const width = 1200;
+      const height = 520;
+      const centerY = 310;
+      const maxAmplitudeY = 150;
+
+      const barPadding = 2;
+      const totalWidth = width - 80;
+      const barWidth = Math.max(2, (totalWidth / BIN_COUNT) - barPadding);
+
+      let topPathPoints: string[] = [];
+      let bottomPathPoints: string[] = [];
+      let svgBars: string[] = [];
+
+      for (let i = 0; i < BIN_COUNT; i++) {
+        const x = 40 + i * (barWidth + barPadding) + barWidth / 2;
+        const amp = peaks[i];
+        const barH = Math.max(6, amp * maxAmplitudeY);
+        const topY = centerY - barH;
+        const bottomY = centerY + barH;
+
+        topPathPoints.push(`${x.toFixed(1)},${topY.toFixed(1)}`);
+        bottomPathPoints.unshift(`${x.toFixed(1)},${bottomY.toFixed(1)}`);
+
+        const opacity = Math.min(1, 0.45 + amp * 0.55);
+        svgBars.push(
+          `<rect x="${(x - barWidth / 2).toFixed(1)}" y="${topY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${(barH * 2).toFixed(1)}" rx="${(barWidth / 2).toFixed(1)}" fill="url(#waveformGrad)" opacity="${opacity.toFixed(2)}" />`
+        );
+      }
+
+      const contourAreaD = `M 40,${centerY} L ${topPathPoints.join(' L ')} L ${40 + totalWidth},${centerY} L ${bottomPathPoints.join(' L ')} Z`;
+
+      const svgContent = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020617" />
+      <stop offset="50%" stop-color="#0b132b" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+
+    <!-- Waveform Theme Gradient -->
+    <linearGradient id="waveformGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${colorStart}" />
+      <stop offset="100%" stop-color="${colorEnd}" />
+    </linearGradient>
+
+    <!-- Waveform Glow Gradient -->
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="${colorStart}" stop-opacity="0.35" />
+      <stop offset="50%" stop-color="${colorEnd}" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="${colorStart}" stop-opacity="0.02" />
+    </linearGradient>
+
+    <!-- Card Overlay Border Gradient -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${colorStart}" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="${colorEnd}" stop-opacity="0.3" />
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="neonGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Container Outer Card -->
+  <rect x="0" y="0" width="${width}" height="${height}" rx="20" fill="url(#bgGrad)" />
+  <rect x="2" y="2" width="${width - 4}" height="${height - 4}" rx="18" fill="none" stroke="url(#borderGrad)" stroke-width="2" opacity="0.8" />
+
+  <!-- Header Branding Banner -->
+  <g transform="translate(40, 42)">
+    <rect x="0" y="0" width="280" height="26" rx="6" fill="${colorStart}" fill-opacity="0.15" stroke="${colorStart}" stroke-opacity="0.4" stroke-width="1" />
+    <text x="12" y="17" fill="${colorStart}" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="800" letter-spacing="1.2">
+      JAWED AI AUDIO • WAVEFORM PATTERN
+    </text>
+
+    <text x="0" y="54" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="800">
+      ${audioFileName ? audioFileName.replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'Audio Session Recording'}
+    </text>
+
+    <g transform="translate(0, 68)">
+      <text x="0" y="16" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">
+        Project: <tspan fill="#e2e8f0" font-weight="700">${projectLabel.replace(/</g, '&lt;')}</tspan>  •  Category: <tspan fill="#e2e8f0" font-weight="700">${categoryLabel.replace(/</g, '&lt;')}</tspan>  •  Date: <tspan fill="#e2e8f0" font-weight="700">${dateLabel}</tspan>  •  Duration: <tspan fill="${colorStart}" font-weight="800">${durationLabel}</tspan>
+      </text>
+    </g>
+  </g>
+
+  <!-- Session Tags Chip List in Header Top-Right -->
+  <g transform="translate(${width - 40}, 42)" text-anchor="end">
+    <text x="0" y="18" fill="#94a3b8" font-family="monospace" font-size="12" font-weight="700">
+      ${tagString.replace(/</g, '&lt;')}
+    </text>
+    <text x="0" y="38" fill="#64748b" font-family="monospace" font-size="11">
+      ${sessionMetadata.sampleRate || 44100} Hz  •  16-bit Mono PCM
+    </text>
+  </g>
+
+  <!-- Horizontal Grid Lines & Center Zero Axis -->
+  <line x1="40" y1="${centerY - maxAmplitudeY}" x2="${width - 40}" y2="${centerY - maxAmplitudeY}" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="40" y1="${centerY - maxAmplitudeY / 2}" x2="${width - 40}" y2="${centerY - maxAmplitudeY / 2}" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2" />
+  <line x1="40" y1="${centerY}" x2="${width - 40}" y2="${centerY}" stroke="${colorStart}" stroke-opacity="0.5" stroke-width="1.5" />
+  <line x1="40" y1="${centerY + maxAmplitudeY / 2}" x2="${width - 40}" y2="${centerY + maxAmplitudeY / 2}" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2" />
+  <line x1="40" y1="${centerY + maxAmplitudeY}" x2="${width - 40}" y2="${centerY + maxAmplitudeY}" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4" />
+
+  <!-- Smooth Glow Area Under Contour Envelope -->
+  <path d="${contourAreaD}" fill="url(#glowGrad)" opacity="0.85" />
+
+  <!-- Vector Waveform Bars -->
+  <g filter="url(#neonGlow)">
+    ${svgBars.join('\n    ')}
+  </g>
+
+  <!-- Timeline Markers & Time Labels -->
+  <g transform="translate(0, ${centerY + maxAmplitudeY + 22})" fill="#64748b" font-family="monospace" font-size="11">
+    <text x="40" text-anchor="start">0:00</text>
+    <text x="${(40 + totalWidth * 0.25).toFixed(1)}" text-anchor="middle">25%</text>
+    <text x="${(40 + totalWidth * 0.5).toFixed(1)}" text-anchor="middle">50%</text>
+    <text x="${(40 + totalWidth * 0.75).toFixed(1)}" text-anchor="middle">75%</text>
+    <text x="${width - 40}" text-anchor="end">${durationLabel}</text>
+  </g>
+
+  <!-- Footer Branding & Export Date -->
+  <g transform="translate(40, ${height - 22})">
+    <text x="0" y="0" fill="#475569" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600">
+      Generated by Jawed AI Audio Transcriber  •  100% In-Browser Privacy  •  Whisper Neural Speech Engine
+    </text>
+    <text x="${totalWidth}" y="0" text-anchor="end" fill="#475569" font-family="monospace" font-size="11">
+      Exported: ${new Date().toISOString().slice(0, 10)}
+    </text>
+  </g>
+</svg>`;
+
+      // Download SVG File
+      const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const baseName = audioFileName
+        ? audioFileName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]+/g, '-')
+        : `audio-waveform-${new Date().toISOString().slice(0, 10)}`;
+      const downloadFileName = `${baseName}-waveform.svg`;
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = downloadFileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      addLog('info', `Successfully exported waveform SVG file (${downloadFileName}, ${blob.size} bytes).`);
+
+      setTimeout(() => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          // Ignore if already revoked
+        }
+      }, 1000);
+    } catch (err: any) {
+      reportError('playback', 'Failed to generate waveform SVG image file.', err?.message || err);
+    } finally {
+      setIsExportingSvg(false);
+    }
+  };
+
+  const handleSummarizeWithLlm = async () => {
+    if (!result || !result.transcript || !result.transcript.trim()) return;
+
+    setIsSummarizingLlm(true);
+    setLlmSummaryError(null);
+    addLog('info', 'Generating Gemini 3.8 Flash AI summary, action items & IT support log entry...');
+
+    try {
+      const res = await fetch('/api/summarize-transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: result.transcript,
+          context: {
+            project: metaProject,
+            category: metaCategory,
+            date: metaDate,
+            tags: customTags,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to summarize transcript via Gemini AI.');
+      }
+
+      setResult((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          summary: data.summary,
+          actionItems: data.actionItems && data.actionItems.length > 0 ? data.actionItems : prev.actionItems,
+          keyTakeaways: data.keyTakeaways || [],
+          itLogEntry: data.itLogEntry || '',
+          isLlmGenerated: true,
+          modelUsed: `${prev.modelUsed || selectedModelId} + Gemini 3.8 Flash (LLM Summary)`,
+        };
+      });
+
+      addLog('info', 'Successfully generated Gemini AI transcript summary & IT support log notes.');
+    } catch (err: any) {
+      const msg = err?.message || 'Error generating AI summary.';
+      setLlmSummaryError(msg);
+      addLog('error', 'Gemini AI Summarizer Error:', msg);
+    } finally {
+      setIsSummarizingLlm(false);
+    }
+  };
+
+  // Load saved draft from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedRaw = localStorage.getItem(AUTO_SAVE_STORAGE_KEY);
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (parsed && parsed.transcript && parsed.transcript.trim()) {
+          setRestorableDraft(parsed);
+          addLog('info', `Found auto-saved draft from ${parsed.formattedTime || 'previous session'}.`);
+        }
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [addLog]);
+
+  // Periodic 30-second Auto-Save Effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentTranscript = result?.transcript || liveTranscript;
+      if (!currentTranscript || !currentTranscript.trim()) return;
+
+      try {
+        const now = new Date();
+        const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const autoSaveData = {
+          timestamp: now.getTime(),
+          formattedTime,
+          transcript: currentTranscript,
+          summary: result?.summary || '',
+          actionItems: result?.actionItems || [],
+          keyTakeaways: result?.keyTakeaways || [],
+          itLogEntry: result?.itLogEntry || '',
+          isLlmGenerated: result?.isLlmGenerated || false,
+          audioFileName: audioFileName || 'Voice Recording',
+          metaProject,
+          metaCategory,
+          metaDate,
+          customTags,
+        };
+
+        localStorage.setItem(AUTO_SAVE_STORAGE_KEY, JSON.stringify(autoSaveData));
+        setLastAutoSaveTime(formattedTime);
+      } catch {
+        // Ignore localStorage quota errors
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [result, liveTranscript, audioFileName, metaProject, metaCategory, metaDate, customTags, addLog]);
+
+  const handleRestoreDraft = () => {
+    if (!restorableDraft) return;
+
+    setResult({
+      transcript: restorableDraft.transcript,
+      summary: restorableDraft.summary || 'Restored transcript draft.',
+      actionItems: restorableDraft.actionItems || [],
+      keyTakeaways: restorableDraft.keyTakeaways || [],
+      itLogEntry: restorableDraft.itLogEntry || '',
+      isLlmGenerated: restorableDraft.isLlmGenerated || false,
+      modelUsed: 'Restored Draft',
+    });
+
+    if (restorableDraft.audioFileName) setAudioFileName(restorableDraft.audioFileName);
+    if (restorableDraft.metaProject) setMetaProject(restorableDraft.metaProject);
+    if (restorableDraft.metaCategory) setMetaCategory(restorableDraft.metaCategory);
+    if (restorableDraft.metaDate) setMetaDate(restorableDraft.metaDate);
+    if (Array.isArray(restorableDraft.customTags)) setCustomTags(restorableDraft.customTags);
+
+    setRestorableDraft(null);
+    addLog('info', 'Successfully restored auto-saved transcript draft.');
+  };
+
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(AUTO_SAVE_STORAGE_KEY);
+    } catch {
+      // Ignore errors
+    }
+    setRestorableDraft(null);
+    addLog('info', 'Discarded auto-saved transcript draft.');
   };
 
   const selectedLanguageMeta =
@@ -5109,6 +5791,80 @@ export const AiAudioTranscriber: React.FC = () => {
           />
         </div>
 
+        {/* Auto-Saved Draft Recovery Banner */}
+        {restorableDraft && (
+          <div
+            style={{
+              background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.12), rgba(99, 102, 241, 0.12))',
+              border: '1px solid var(--accent)',
+              borderRadius: '12px',
+              padding: '14px 18px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              boxShadow: '0 4px 14px rgba(56, 189, 248, 0.12)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <RotateCcw size={20} color="var(--accent)" style={{ flexShrink: 0 }} />
+              <div>
+                <strong style={{ fontSize: '0.94rem', color: 'var(--text-heading)', display: 'block' }}>
+                  Auto-Saved Transcript Draft Found ({restorableDraft.formattedTime || 'Previous session'})
+                </strong>
+                <span style={{ fontSize: '0.80rem', color: 'var(--muted)' }}>
+                  Found transcript from "{restorableDraft.audioFileName || 'Session'}": "{restorableDraft.transcript.slice(0, 90)}..."
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleRestoreDraft}
+                style={{
+                  background: 'var(--accent)',
+                  color: '#ffffff',
+                  border: 0,
+                  borderRadius: '8px',
+                  padding: '6px 14px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+              >
+                <RotateCcw size={13} />
+                Restore Draft
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                style={{
+                  background: 'var(--card)',
+                  border: '1px solid var(--line)',
+                  color: 'var(--muted)',
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <Trash2 size={13} />
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Page Header matching ITCoverLetterBuilder & Site Standard */}
         <header style={{ marginBottom: '24px' }}>
           <div
@@ -5148,6 +5904,26 @@ export const AiAudioTranscriber: React.FC = () => {
               >
                 <ShieldCheck size={14} color="var(--emerald)" aria-hidden="true" /> Zero Server Uploads • 100% Private
               </span>
+
+              {lastAutoSaveTime && (
+                <span
+                  style={{
+                    fontSize: '0.76rem',
+                    color: 'var(--emerald)',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                  }}
+                >
+                  <CheckCircle2 size={12} color="var(--emerald)" />
+                  Auto-saved ({lastAutoSaveTime})
+                </span>
+              )}
             </div>
 
             <button
@@ -6580,28 +7356,58 @@ export const AiAudioTranscriber: React.FC = () => {
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowVisualizerSettings(!showVisualizerSettings)}
-                    style={{
-                      background: showVisualizerSettings ? 'var(--surface-accent)' : 'var(--card)',
-                      border: showVisualizerSettings ? '1px solid var(--accent)' : '1px solid var(--line)',
-                      borderRadius: '6px',
-                      padding: '3px 9px',
-                      fontSize: '0.74rem',
-                      fontWeight: 600,
-                      color: showVisualizerSettings ? 'var(--accent)' : 'var(--text)',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      transition: 'all 0.15s ease',
-                    }}
-                    title="Customize waveform visualizer gradient colors"
-                  >
-                    <Palette size={12} />
-                    <span>Waveform Colors</span>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => void handleExportWaveformSvg()}
+                      disabled={isExportingSvg}
+                      style={{
+                        background: 'var(--card)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '3px 9px',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        color: 'var(--accent)',
+                        cursor: isExportingSvg ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Export high-resolution vector SVG waveform image file"
+                    >
+                      {isExportingSvg ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <FileImage size={12} />
+                      )}
+                      <span>Export Waveform (SVG)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowVisualizerSettings(!showVisualizerSettings)}
+                      style={{
+                        background: showVisualizerSettings ? 'var(--surface-accent)' : 'var(--card)',
+                        border: showVisualizerSettings ? '1px solid var(--accent)' : '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '3px 9px',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        color: showVisualizerSettings ? 'var(--accent)' : 'var(--text)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Customize waveform visualizer gradient colors"
+                    >
+                      <Palette size={12} />
+                      <span>Waveform Colors</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Expandable Visualizer Color Settings Panel */}
@@ -6616,7 +7422,7 @@ export const AiAudioTranscriber: React.FC = () => {
                       marginBottom: '10px',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '10px',
+                      gap: '12px',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                       textAlign: 'left',
                     }}
@@ -6625,7 +7431,7 @@ export const AiAudioTranscriber: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Palette size={14} color="var(--accent)" />
                         <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-heading)' }}>
-                          Waveform Gradient Settings
+                          Waveform Visualizer Style &amp; Colors
                         </span>
                       </div>
                       <button
@@ -6646,51 +7452,93 @@ export const AiAudioTranscriber: React.FC = () => {
                       </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px' }}>
-                      {WAVEFORM_THEMES.map((theme) => {
-                        const isSelected = waveformTheme === theme.id;
-                        const previewStart = theme.id === 'custom' ? customStartColor : theme.startColor;
-                        const previewEnd = theme.id === 'custom' ? customEndColor : theme.endColor;
-
-                        return (
-                          <button
-                            key={theme.id}
-                            type="button"
-                            onClick={() => setWaveformTheme(theme.id)}
-                            style={{
-                              background: isSelected ? 'var(--surface-accent)' : 'var(--bg)',
-                              border: isSelected ? '2px solid var(--accent)' : '1px solid var(--line)',
-                              borderRadius: '8px',
-                              padding: '8px 10px',
-                              textAlign: 'left',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '4px',
-                              transition: 'all 0.15s ease',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isSelected ? 'var(--accent)' : 'var(--text)' }}>
-                                {theme.label.split(' ')[0]} {theme.label.split(' ')[1] || ''}
+                    {/* Visualizer Style Selector */}
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text)', marginBottom: '6px' }}>
+                        Visualizer Style Mode:
+                      </span>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
+                        {VISUALIZER_STYLES.map((st) => {
+                          const isStyleSelected = visualizerStyle === st.id;
+                          return (
+                            <button
+                              key={st.id}
+                              type="button"
+                              onClick={() => setVisualizerStyle(st.id)}
+                              style={{
+                                background: isStyleSelected ? 'var(--surface-accent)' : 'var(--bg)',
+                                border: isStyleSelected ? '2px solid var(--accent)' : '1px solid var(--line)',
+                                borderRadius: '8px',
+                                padding: '6px 10px',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '2px',
+                              }}
+                            >
+                              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isStyleSelected ? 'var(--accent)' : 'var(--text)' }}>
+                                {st.label}
                               </span>
-                              <div
-                                style={{
-                                  width: '20px',
-                                  height: '10px',
-                                  borderRadius: '3px',
-                                  background: `linear-gradient(90deg, ${previewStart}, ${previewEnd})`,
-                                  border: '1px solid rgba(255,255,255,0.25)',
-                                  boxShadow: `0 0 4px ${previewStart}`,
-                                }}
-                              />
-                            </div>
-                            <span style={{ fontSize: '0.68rem', color: 'var(--muted)', lineHeight: 1.2 }}>
-                              {theme.id === 'custom' ? 'Custom Pickers' : theme.description}
-                            </span>
-                          </button>
-                        );
-                      })}
+                              <span style={{ fontSize: '0.66rem', color: 'var(--muted)', lineHeight: 1.2 }}>
+                                {st.description}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: '10px' }}>
+                      <span style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text)', marginBottom: '6px' }}>
+                        Gradient Theme:
+                      </span>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
+                        {WAVEFORM_THEMES.map((theme) => {
+                          const isSelected = waveformTheme === theme.id;
+                          const previewStart = theme.id === 'custom' ? customStartColor : theme.startColor;
+                          const previewEnd = theme.id === 'custom' ? customEndColor : theme.endColor;
+
+                          return (
+                            <button
+                              key={theme.id}
+                              type="button"
+                              onClick={() => setWaveformTheme(theme.id)}
+                              style={{
+                                background: isSelected ? 'var(--surface-accent)' : 'var(--bg)',
+                                border: isSelected ? '2px solid var(--accent)' : '1px solid var(--line)',
+                                borderRadius: '8px',
+                                padding: '8px 10px',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isSelected ? 'var(--accent)' : 'var(--text)' }}>
+                                  {theme.label.split(' ')[0]} {theme.label.split(' ')[1] || ''}
+                                </span>
+                                <div
+                                  style={{
+                                    width: '20px',
+                                    height: '10px',
+                                    borderRadius: '3px',
+                                    background: `linear-gradient(90deg, ${previewStart}, ${previewEnd})`,
+                                    border: '1px solid rgba(255,255,255,0.25)',
+                                    boxShadow: `0 0 4px ${previewStart}`,
+                                  }}
+                                />
+                              </div>
+                              <span style={{ fontSize: '0.68rem', color: 'var(--muted)', lineHeight: 1.2 }}>
+                                {theme.id === 'custom' ? 'Custom Pickers' : theme.description}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     {/* Custom Dual-Color HEX Pickers */}
@@ -7721,6 +8569,58 @@ export const AiAudioTranscriber: React.FC = () => {
                 </button>
               )}
             </div>
+
+            {/* Live Real-Time Word & Character Count Indicator */}
+            {(() => {
+              const clean = (liveTranscript || '').trim();
+              const chars = clean.length;
+              const words = clean ? clean.split(/\s+/).filter(Boolean).length : 0;
+              const sentences = clean ? clean.split(/(?<=[.!?।۔。])\s+/).filter(Boolean).length : 0;
+
+              return (
+                <div
+                  style={{
+                    marginTop: '12px',
+                    paddingTop: '10px',
+                    borderTop: '1px solid var(--line)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    fontSize: '0.78rem',
+                    color: 'var(--muted)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <AlignLeft size={12} color="var(--accent)" />
+                      <strong style={{ color: 'var(--text-heading)', fontFamily: 'monospace' }}>
+                        {words.toLocaleString()}
+                      </strong>{' '}
+                      {words === 1 ? 'word' : 'words'}
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <FileText size={12} color="var(--emerald)" />
+                      <strong style={{ color: 'var(--text-heading)', fontFamily: 'monospace' }}>
+                        {chars.toLocaleString()}
+                      </strong>{' '}
+                      characters
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <ListChecks size={12} color="var(--amber)" />
+                      <strong style={{ color: 'var(--text-heading)', fontFamily: 'monospace' }}>
+                        {sentences.toLocaleString()}
+                      </strong>{' '}
+                      {sentences === 1 ? 'sentence' : 'sentences'}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--accent)', fontWeight: 600 }}>
+                    Transcribing Live...
+                  </span>
+                </div>
+              );
+            })()}
           </section>
         )}
 
@@ -7834,6 +8734,40 @@ export const AiAudioTranscriber: React.FC = () => {
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
+                  onClick={() => void handleSummarizeWithLlm()}
+                  disabled={isSummarizingLlm}
+                  style={{
+                    background: 'linear-gradient(90deg, var(--accent), var(--indigo))',
+                    color: '#ffffff',
+                    border: 0,
+                    borderRadius: '8px',
+                    padding: '7px 16px',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    cursor: isSummarizingLlm ? 'not-allowed' : 'pointer',
+                    opacity: isSummarizingLlm ? 0.75 : 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(56, 189, 248, 0.25)',
+                  }}
+                  title="Extract concise executive summary, action items & IT support log notes using Gemini 3.8 Flash"
+                >
+                  {isSummarizingLlm ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Summarizing with Gemini...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={14} />
+                      Summarize Transcript (Gemini AI)
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleSaveTranscript}
                   style={{
                     background: 'var(--surface-accent)',
@@ -7873,8 +8807,591 @@ export const AiAudioTranscriber: React.FC = () => {
                   <FileText size={14} color="var(--accent)" />
                   Export Full Summary
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAudioEditor(true);
+                    if (verifiedDurationSeconds && verifiedDurationSeconds > 0) {
+                      setTrimStartSeconds(0);
+                      setTrimEndSeconds(verifiedDurationSeconds);
+                    }
+                  }}
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--accent)',
+                    color: 'var(--accent)',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                  title="Trim start and end timestamps to generate a new cropped audio clip"
+                >
+                  <Scissors size={14} />
+                  Trim Audio Clip
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleCopy(
+                      transcriptViewMode === 'speaker' && result.formattedSpeakerTranscript
+                        ? result.formattedSpeakerTranscript
+                        : showLineTimestamps
+                        ? buildTimestampedTranscriptText(
+                            result.transcript,
+                            sessionMetadata.durationSeconds || verifiedDurationSeconds,
+                            result.speakerTurns
+                          )
+                        : result.transcript,
+                      'results-transcript'
+                    )
+                  }
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--text)',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                  title="Copy full generated transcript text to clipboard"
+                >
+                  {copiedSection === 'results-transcript' ? (
+                    <>
+                      <Check size={14} color="var(--emerald)" />
+                      <span style={{ color: 'var(--emerald)' }}>Copied Transcript!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} color="var(--accent)" />
+                      Copy Transcript
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleWebShare()}
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--text)',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                  title="Share transcript text or audio file via Web Share API"
+                >
+                  <Share2 size={14} color="var(--accent)" />
+                  Share Transcript
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleExportWaveformSvg()}
+                  disabled={isExportingSvg}
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--text)',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: isExportingSvg ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                  title="Export high-resolution vector SVG waveform pattern image"
+                >
+                  {isExportingSvg ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <FileImage size={14} color="var(--emerald)" />
+                  )}
+                  Export Waveform (SVG)
+                </button>
               </div>
             </div>
+
+            {/* Results Panel: Dedicated Trim Audio & Download Cropped Clip Card */}
+            {showAudioEditor && (
+              <div
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--accent)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '20px',
+                  boxShadow: '0 4px 16px rgba(56, 189, 248, 0.15)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Scissors size={18} color="var(--accent)" />
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        Results Panel: Trim Audio &amp; Export Cropped Clip
+                      </h4>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                        Select precise start and end timestamps to slice the recorded session and generate a downloadable cropped audio URL.
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAudioEditor(false)}
+                    style={{ background: 'transparent', border: 0, color: 'var(--muted)', cursor: 'pointer', padding: '4px' }}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                  {/* Start Time Input */}
+                  <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '12px' }}>
+                    <label htmlFor="results-trim-start" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)', marginBottom: '6px' }}>
+                      <span>Start Timestamp:</span>
+                      <strong style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>
+                        {formatRecordingTimerOverlay(trimStartSeconds)} ({trimStartSeconds.toFixed(1)}s)
+                      </strong>
+                    </label>
+                    <input
+                      id="results-trim-start"
+                      type="range"
+                      min={0}
+                      max={Math.max(0, trimEndSeconds - 0.1)}
+                      step={0.1}
+                      value={trimStartSeconds}
+                      onChange={(e) => setTrimStartSeconds(Number(e.target.value))}
+                      style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                    />
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        min={0}
+                        max={Math.max(0, trimEndSeconds - 0.1)}
+                        step={0.1}
+                        value={trimStartSeconds}
+                        onChange={(e) => setTrimStartSeconds(Math.max(0, Math.min(Number(e.target.value), trimEndSeconds - 0.1)))}
+                        style={{ width: '84px', padding: '4px 8px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'monospace' }}
+                      />
+                      <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>sec</span>
+                    </div>
+                  </div>
+
+                  {/* End Time Input */}
+                  <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '12px' }}>
+                    <label htmlFor="results-trim-end" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)', marginBottom: '6px' }}>
+                      <span>End Timestamp:</span>
+                      <strong style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>
+                        {formatRecordingTimerOverlay(trimEndSeconds)} ({trimEndSeconds.toFixed(1)}s)
+                      </strong>
+                    </label>
+                    <input
+                      id="results-trim-end"
+                      type="range"
+                      min={Math.min(trimStartSeconds + 0.1, (verifiedDurationSeconds || 1))}
+                      max={verifiedDurationSeconds || 10}
+                      step={0.1}
+                      value={trimEndSeconds}
+                      onChange={(e) => setTrimEndSeconds(Number(e.target.value))}
+                      style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                    />
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        min={trimStartSeconds + 0.1}
+                        max={verifiedDurationSeconds || 10}
+                        step={0.1}
+                        value={trimEndSeconds}
+                        onChange={(e) => setTrimEndSeconds(Math.max(trimStartSeconds + 0.1, Math.min(Number(e.target.value), verifiedDurationSeconds || 10)))}
+                        style={{ width: '84px', padding: '4px 8px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'monospace' }}
+                      />
+                      <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>sec</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Visual Timeline Selection Bar */}
+                <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '6px' }}>
+                    <span>Cropped Window Duration:</span>
+                    <strong style={{ color: 'var(--emerald)', fontFamily: 'monospace' }}>
+                      {formatDurationDisplay(Math.max(0, trimEndSeconds - trimStartSeconds))} ({(Math.max(0, trimEndSeconds - trimStartSeconds)).toFixed(1)}s)
+                    </strong>
+                  </div>
+                  <div style={{ width: '100%', height: '12px', background: 'var(--line)', borderRadius: '6px', overflow: 'hidden', position: 'relative' }}>
+                    {verifiedDurationSeconds && verifiedDurationSeconds > 0 && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${(trimStartSeconds / verifiedDurationSeconds) * 100}%`,
+                          width: `${((trimEndSeconds - trimStartSeconds) / verifiedDurationSeconds) * 100}%`,
+                          top: 0,
+                          bottom: 0,
+                          background: 'linear-gradient(90deg, var(--emerald), var(--accent))',
+                          borderRadius: '3px',
+                          boxShadow: '0 0 8px rgba(16, 185, 129, 0.5)',
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Presets & Actions */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--muted)', fontWeight: 600 }}>Presets:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dur = verifiedDurationSeconds || 10;
+                        setTrimStartSeconds(0);
+                        setTrimEndSeconds(Math.min(5, dur));
+                      }}
+                      style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '6px', padding: '3px 8px', fontSize: '0.74rem', cursor: 'pointer', color: 'var(--text)' }}
+                    >
+                      First 5s
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dur = verifiedDurationSeconds || 10;
+                        setTrimStartSeconds(0);
+                        setTrimEndSeconds(Math.min(15, dur));
+                      }}
+                      style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '6px', padding: '3px 8px', fontSize: '0.74rem', cursor: 'pointer', color: 'var(--text)' }}
+                    >
+                      First 15s
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dur = verifiedDurationSeconds || 10;
+                        setTrimStartSeconds(0);
+                        setTrimEndSeconds(dur);
+                      }}
+                      style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '6px', padding: '3px 8px', fontSize: '0.74rem', cursor: 'pointer', color: 'var(--text)' }}
+                    >
+                      Reset Full
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={handlePreviewTrim}
+                      style={{
+                        background: isPreviewingTrim ? 'rgba(245, 158, 11, 0.15)' : 'var(--card)',
+                        border: isPreviewingTrim ? '1px solid var(--amber)' : '1px solid var(--line)',
+                        borderRadius: '8px',
+                        padding: '7px 12px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        color: isPreviewingTrim ? 'var(--amber)' : 'var(--text)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      {isPreviewingTrim ? <Pause size={13} /> : <Play size={13} color="var(--amber)" />}
+                      {isPreviewingTrim ? 'Pause Preview' : 'Preview Segment'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void handleApplyTrim()}
+                      disabled={isTrimming}
+                      style={{
+                        background: 'linear-gradient(90deg, var(--emerald), #059669)',
+                        color: '#ffffff',
+                        border: 0,
+                        borderRadius: '8px',
+                        padding: '7px 16px',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        cursor: isTrimming ? 'not-allowed' : 'pointer',
+                        opacity: isTrimming ? 0.7 : 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                      }}
+                    >
+                      {isTrimming ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Trimming &amp; Generating URL...
+                        </>
+                      ) : (
+                        <>
+                          <Download size={14} />
+                          Generate &amp; Download Cropped Audio
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Session Metadata & Tags Editor Card */}
+            <div
+              style={{
+                background: 'var(--bg)',
+                border: '1px solid var(--accent)',
+                borderRadius: '12px',
+                padding: '16px 20px',
+                marginBottom: '20px',
+                boxShadow: '0 2px 10px rgba(56, 189, 248, 0.08)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Tags size={18} color="var(--accent)" />
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Session Metadata &amp; Tags
+                    </h4>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                      Attach project labels, categories, and custom tags to embed in exported transcript files.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowMetadataEditor((prev) => !prev)}
+                  style={{
+                    background: showMetadataEditor ? 'var(--surface-accent)' : 'var(--card)',
+                    border: showMetadataEditor ? '1px solid var(--accent)' : '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '5px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: showMetadataEditor ? 'var(--accent)' : 'var(--text)',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Edit3 size={13} />
+                  {showMetadataEditor ? 'Minimize Metadata Editor' : 'Edit Metadata & Tags'}
+                </button>
+              </div>
+
+              {/* Active Metadata Badges Summary */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: showMetadataEditor ? '14px' : '0' }}>
+                {metaProject.trim() && (
+                  <span style={{ fontSize: '0.76rem', fontWeight: 700, padding: '3px 9px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)', border: '1px solid rgba(56, 189, 248, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Folder size={12} /> Project: {metaProject.trim()}
+                  </span>
+                )}
+                {metaCategory.trim() && (
+                  <span style={{ fontSize: '0.76rem', fontWeight: 700, padding: '3px 9px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--emerald)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Tag size={12} /> Category: {metaCategory.trim()}
+                  </span>
+                )}
+                {metaDate && (
+                  <span style={{ fontSize: '0.76rem', fontWeight: 700, padding: '3px 9px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber)', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Calendar size={12} /> Date: {metaDate}
+                  </span>
+                )}
+                {customTags.map((t) => (
+                  <span key={t} style={{ fontSize: '0.76rem', fontWeight: 700, padding: '3px 9px', borderRadius: '12px', background: 'var(--card)', color: 'var(--text)', border: '1px solid var(--line)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    #{t}
+                  </span>
+                ))}
+              </div>
+
+              {/* Metadata Editor Form Fields */}
+              {showMetadataEditor && (
+                <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                    {/* Project Input */}
+                    <div>
+                      <label htmlFor="meta-project-input" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+                        Project Name
+                      </label>
+                      <input
+                        id="meta-project-input"
+                        type="text"
+                        placeholder="e.g. Q4 Infrastructure Audit"
+                        value={metaProject}
+                        onChange={(e) => setMetaProject(e.target.value)}
+                        style={{ width: '100%', padding: '7px 10px', fontSize: '0.84rem', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--text)' }}
+                      />
+                    </div>
+
+                    {/* Category Select */}
+                    <div>
+                      <label htmlFor="meta-category-select" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+                        Category
+                      </label>
+                      <select
+                        id="meta-category-select"
+                        value={metaCategory}
+                        onChange={(e) => setMetaCategory(e.target.value)}
+                        style={{ width: '100%', padding: '7px 10px', fontSize: '0.84rem', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--text)' }}
+                      >
+                        <option value="General">General Voice Note</option>
+                        <option value="Meeting">Meeting / Standup</option>
+                        <option value="Field Note">IT Field Note</option>
+                        <option value="Interview">Interview / Discussion</option>
+                        <option value="Support Ticket">Support Ticket Notes</option>
+                        <option value="Troubleshooting">Troubleshooting Session</option>
+                        <option value="Podcast / Media">Podcast / Media Audio</option>
+                      </select>
+                    </div>
+
+                    {/* Date Input */}
+                    <div>
+                      <label htmlFor="meta-date-input" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+                        Session Date
+                      </label>
+                      <input
+                        id="meta-date-input"
+                        type="date"
+                        value={metaDate}
+                        onChange={(e) => setMetaDate(e.target.value)}
+                        style={{ width: '100%', padding: '7px 10px', fontSize: '0.84rem', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--text)' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tags Manager */}
+                  <div>
+                    <label htmlFor="meta-tag-input" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+                      Custom Tags
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px', flex: 1, minWidth: '220px' }}>
+                        <input
+                          id="meta-tag-input"
+                          type="text"
+                          placeholder="Type tag name and press Enter (e.g. Follow-Up)..."
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddTag();
+                            }
+                          }}
+                          style={{ flex: 1, padding: '6px 10px', fontSize: '0.84rem', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--text)' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddTag()}
+                          style={{ background: 'var(--accent)', color: '#ffffff', border: 0, borderRadius: '8px', padding: '6px 14px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          Add Tag
+                        </button>
+                      </div>
+
+                      {/* Quick Tag Presets */}
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--muted)', fontWeight: 600 }}>Presets:</span>
+                        {['High Priority', 'Follow-Up', 'Internal', 'Client Review', 'Audit'].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => handleAddTag(preset)}
+                            style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '6px', padding: '3px 8px', fontSize: '0.74rem', cursor: 'pointer', color: 'var(--text)' }}
+                          >
+                            + {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Tag Chips */}
+                    {customTags.length > 0 && (
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                        {customTags.map((tag) => (
+                          <span
+                            key={tag}
+                            style={{
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              padding: '4px 10px',
+                              borderRadius: '999px',
+                              background: 'var(--card)',
+                              border: '1px solid var(--accent)',
+                              color: 'var(--accent)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            #{tag}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                              title={`Remove ${tag} tag`}
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Contextual LLM Summary Error Notice */}
+            {llmSummaryError && (
+              <div
+                style={{
+                  background: 'rgba(244, 63, 94, 0.08)',
+                  border: '1px solid var(--rose)',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  marginBottom: '16px',
+                  color: 'var(--rose)',
+                  fontSize: '0.86rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertCircle size={16} />
+                  <span>{llmSummaryError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLlmSummaryError(null)}
+                  style={{ background: 'transparent', border: 0, color: 'var(--rose)', cursor: 'pointer' }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
 
             {/* Executive Summary Card */}
             {(activeTab === 'all' || activeTab === 'summary') && (
@@ -7887,43 +9404,158 @@ export const AiAudioTranscriber: React.FC = () => {
                   marginBottom: '18px',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                   <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <FileText size={16} />
                     Executive Summary
                   </h3>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {result.isLlmGenerated && (
+                      <span
+                        style={{
+                          fontSize: '0.70rem',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          color: 'var(--accent)',
+                          border: '1px solid rgba(56, 189, 248, 0.3)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <Sparkles size={11} /> Gemini 3.8 Flash AI Summary
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => void handleSummarizeWithLlm()}
+                      disabled={isSummarizingLlm}
+                      style={{
+                        background: 'var(--card)',
+                        border: '1px solid var(--accent)',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        color: 'var(--accent)',
+                        cursor: isSummarizingLlm ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                      title="Extract AI summary & IT support log notes using Gemini LLM"
+                    >
+                      {isSummarizingLlm ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={12} />
+                      )}
+                      {result.isLlmGenerated ? 'Re-summarize with AI' : 'Summarize with Gemini AI'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(result.summary, 'summary')}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        color: 'var(--text)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      {copiedSection === 'summary' ? (
+                        <>
+                          <Check size={12} color="var(--emerald)" />
+                          <span style={{ color: 'var(--emerald)' }}>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={12} />
+                          Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-line' }}>
+                  {result.summary}
+                </p>
+              </div>
+            )}
+
+            {/* Formatted IT Support Log (ServiceNow / Jira Note) Card */}
+            {result.itLogEntry && (activeTab === 'all' || activeTab === 'summary' || activeTab === 'actions') && (
+              <div
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--emerald)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '18px',
+                  boxShadow: '0 2px 12px rgba(16, 185, 129, 0.08)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--emerald)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Terminal size={16} />
+                    Formatted IT Support Log Note (ServiceNow / Jira)
+                  </h3>
                   <button
                     type="button"
-                    onClick={() => handleCopy(result.summary, 'summary')}
+                    onClick={() => handleCopy(result.itLogEntry || '', 'itLog')}
                     style={{
-                      background: 'transparent',
-                      border: '1px solid var(--line)',
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      border: '1px solid var(--emerald)',
                       borderRadius: '6px',
                       padding: '4px 10px',
                       fontSize: '0.78rem',
+                      fontWeight: 600,
                       cursor: 'pointer',
-                      color: 'var(--text)',
+                      color: 'var(--emerald)',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
                     }}
                   >
-                    {copiedSection === 'summary' ? (
+                    {copiedSection === 'itLog' ? (
                       <>
                         <Check size={12} color="var(--emerald)" />
-                        <span style={{ color: 'var(--emerald)' }}>Copied</span>
+                        <span style={{ color: 'var(--emerald)' }}>Copied Log Note</span>
                       </>
                     ) : (
                       <>
                         <Copy size={12} />
-                        Copy
+                        Copy IT Support Log
                       </>
                     )}
                   </button>
                 </div>
-                <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-line' }}>
-                  {result.summary}
-                </p>
+                <pre
+                  style={{
+                    margin: 0,
+                    fontSize: '0.86rem',
+                    fontFamily: 'monospace',
+                    lineHeight: 1.6,
+                    color: 'var(--text)',
+                    whiteSpace: 'pre-wrap',
+                    background: 'var(--card)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '14px',
+                  }}
+                >
+                  {result.itLogEntry}
+                </pre>
               </div>
             )}
 
@@ -8270,6 +9902,27 @@ export const AiAudioTranscriber: React.FC = () => {
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                       type="button"
+                      onClick={() => setShowLineTimestamps((prev) => !prev)}
+                      style={{
+                        background: showLineTimestamps ? 'var(--surface-accent)' : 'transparent',
+                        border: showLineTimestamps ? '1px solid var(--accent)' : '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        fontSize: '0.76rem',
+                        fontFamily: 'monospace',
+                        color: showLineTimestamps ? 'var(--accent)' : 'var(--muted)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                      title="Toggle line-by-line timestamp badges in transcript display and .txt exports"
+                    >
+                      <Timer size={12} />
+                      {showLineTimestamps ? 'Line Timestamps ON' : 'Line Timestamps OFF'}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         setIsAutoScrollEnabled((prev) => {
                           const next = !prev;
@@ -8324,6 +9977,12 @@ export const AiAudioTranscriber: React.FC = () => {
                         handleCopy(
                           transcriptViewMode === 'speaker' && result.formattedSpeakerTranscript
                             ? result.formattedSpeakerTranscript
+                            : showLineTimestamps
+                            ? buildTimestampedTranscriptText(
+                                result.transcript,
+                                sessionMetadata.durationSeconds || verifiedDurationSeconds,
+                                result.speakerTurns
+                              )
                             : result.transcript,
                           'transcript'
                         )
@@ -8456,7 +10115,66 @@ export const AiAudioTranscriber: React.FC = () => {
                         whiteSpace: 'pre-wrap',
                       }}
                     >
-                      {highlightMatchingText(result.transcript, searchQuery)}
+                      {(() => {
+                        if (!showLineTimestamps) {
+                          return highlightMatchingText(result.transcript, searchQuery);
+                        }
+
+                        const cleanText = result.transcript.trim();
+                        const rawLines = cleanText
+                          .split(/\n+/)
+                          .flatMap((line) => {
+                            const trimmed = line.trim();
+                            if (!trimmed) return [];
+                            const parts = trimmed.split(/(?<=[.!?।۔。])\s+/).map((s) => s.trim()).filter(Boolean);
+                            return parts.length > 0 ? parts : [trimmed];
+                          });
+
+                        if (rawLines.length === 0) {
+                          return highlightMatchingText(result.transcript, searchQuery);
+                        }
+
+                        const totalChars = cleanText.length || 1;
+                        const dur = sessionMetadata.durationSeconds || verifiedDurationSeconds || 0;
+                        let accumChars = 0;
+
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {rawLines.map((line, idx) => {
+                              const fraction = accumChars / totalChars;
+                              const lineTimeSec = dur * fraction;
+                              accumChars += line.length;
+                              const timeStr = formatSpeakerTimestamp(lineTimeSec);
+
+                              return (
+                                <div key={idx} style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => seekToTime(lineTimeSec)}
+                                    style={{
+                                      background: 'var(--bg)',
+                                      border: '1px solid var(--line)',
+                                      borderRadius: '4px',
+                                      padding: '1px 6px',
+                                      fontSize: '0.74rem',
+                                      fontFamily: 'monospace',
+                                      fontWeight: 700,
+                                      color: 'var(--accent)',
+                                      cursor: 'pointer',
+                                      flexShrink: 0,
+                                      userSelect: 'none',
+                                    }}
+                                    title={`Jump audio player to ${timeStr}`}
+                                  >
+                                    [{timeStr}]
+                                  </button>
+                                  <span style={{ flex: 1 }}>{highlightMatchingText(line, searchQuery)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                       <div ref={transcriptBottomRef} style={{ height: 0 }} />
                     </div>
 
@@ -8488,6 +10206,79 @@ export const AiAudioTranscriber: React.FC = () => {
                     )}
                   </div>
                 )}
+
+                {/* Real-Time Word, Character & Content Metrics Indicator Bar */}
+                {(() => {
+                  const currentText =
+                    transcriptViewMode === 'speaker' && result.formattedSpeakerTranscript
+                      ? result.formattedSpeakerTranscript
+                      : result.transcript;
+                  const clean = (currentText || '').trim();
+                  const chars = clean.length;
+                  const charsNoSpaces = clean.replace(/\s+/g, '').length;
+                  const words = clean ? clean.split(/\s+/).filter(Boolean).length : 0;
+                  const sentences = clean ? clean.split(/(?<=[.!?।۔。])\s+/).filter(Boolean).length : 0;
+                  const avgWordLen = words > 0 ? (charsNoSpaces / words).toFixed(1) : '0';
+                  const readingTimeMins = Math.max(1, Math.round(words / 200));
+
+                  return (
+                    <div
+                      style={{
+                        marginTop: '16px',
+                        paddingTop: '12px',
+                        borderTop: '1px solid var(--line)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                        fontSize: '0.80rem',
+                        color: 'var(--muted)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <AlignLeft size={13} color="var(--accent)" />
+                          <span>
+                            <strong style={{ color: 'var(--text-heading)', fontFamily: 'monospace' }}>
+                              {words.toLocaleString()}
+                            </strong>{' '}
+                            {words === 1 ? 'Word' : 'Words'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <FileText size={13} color="var(--emerald)" />
+                          <span>
+                            <strong style={{ color: 'var(--text-heading)', fontFamily: 'monospace' }}>
+                              {chars.toLocaleString()}
+                            </strong>{' '}
+                            Characters <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>({charsNoSpaces.toLocaleString()} excl. spaces)</span>
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <ListChecks size={13} color="var(--amber)" />
+                          <span>
+                            <strong style={{ color: 'var(--text-heading)', fontFamily: 'monospace' }}>
+                              {sentences.toLocaleString()}
+                            </strong>{' '}
+                            {sentences === 1 ? 'Sentence' : 'Sentences'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.75rem', background: 'var(--card)', padding: '2px 8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                          Avg: <strong style={{ color: 'var(--text)', fontFamily: 'monospace' }}>{avgWordLen}</strong> chars/word
+                        </span>
+                        <span style={{ fontSize: '0.75rem', background: 'var(--surface-accent)', color: 'var(--accent)', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.3)', fontWeight: 600 }}>
+                          Est. Read: {words < 50 ? '< 1 min' : `~${readingTimeMins} min${readingTimeMins > 1 ? 's' : ''}`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </section>
