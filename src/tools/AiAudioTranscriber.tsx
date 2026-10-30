@@ -4395,6 +4395,57 @@ export const AiAudioTranscriber: React.FC = () => {
     addLog('info', 'Cleared audio buffer, revoked previous Object URL, and reset auto-save draft.');
   };
 
+  const handleShare = async () => {
+    if (!result) return;
+    const textToShare =
+      transcriptViewMode === 'speaker' && result.formattedSpeakerTranscript
+        ? result.formattedSpeakerTranscript
+        : showLineTimestamps
+        ? buildTimestampedTranscriptText(
+            result.transcript,
+            sessionMetadata.durationSeconds || verifiedDurationSeconds,
+            result.speakerTurns
+          )
+        : result.transcript;
+
+    const shareData: ShareData = {
+      title: metaProject ? `Transcript: ${metaProject}` : 'AI Audio Transcription',
+      text: textToShare,
+    };
+
+    if (audioBlob && navigator.canShare) {
+      try {
+        const file = new File([audioBlob], audioFileName || 'recording.wav', { type: audioMimeType || 'audio/wav' });
+        const fileShareData = { ...shareData, files: [file] };
+        if (navigator.canShare(fileShareData)) {
+          await navigator.share(fileShareData);
+          addLog('info', 'Successfully shared transcription and audio file via Web Share API.');
+          return;
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        addLog('info', 'Successfully shared transcription via Web Share API.');
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          addLog('warn', 'Web Share API failed or was cancelled.', err);
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(textToShare);
+        alert('Web Share API is not supported on this browser. Transcription text has been copied to your clipboard!');
+      } catch {
+        alert('Web Share API is not supported on this browser.');
+      }
+    }
+  };
+
   const seekToTime = useCallback((timeSec: number) => {
     if (!Number.isFinite(timeSec) || timeSec < 0) return;
     setPlaybackCurrentTime(timeSec);
@@ -10297,6 +10348,26 @@ export const AiAudioTranscriber: React.FC = () => {
                     >
                       <Printer size={12} />
                       Print
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        color: 'var(--accent)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                      title="Share transcription text or audio file via Web Share API"
+                    >
+                      <Share2 size={12} />
+                      Share
                     </button>
                     <button
                       type="button"
