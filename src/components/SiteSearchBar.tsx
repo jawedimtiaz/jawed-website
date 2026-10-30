@@ -69,8 +69,30 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
     setActiveCategory('all');
   }, []);
 
-  // Global keyboard shortcuts (Cmd+K, Ctrl+K, '/')
+  // Global keyboard shortcuts & custom event listeners (Cmd+K, Ctrl+K, '/', Esc)
   useEffect(() => {
+    const handleToggleEvent = () => {
+      if (isOpen) {
+        handleClose();
+      } else {
+        handleOpen();
+      }
+    };
+
+    const handleOpenEvent = () => {
+      handleOpen();
+    };
+
+    const handleCloseEvent = () => {
+      if (isOpen) {
+        handleClose();
+      }
+    };
+
+    window.addEventListener('toggle-search-modal', handleToggleEvent);
+    window.addEventListener('open-search-modal', handleOpenEvent);
+    window.addEventListener('close-all-modals', handleCloseEvent);
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd+K or Ctrl+K
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -102,7 +124,12 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('toggle-search-modal', handleToggleEvent);
+      window.removeEventListener('open-search-modal', handleOpenEvent);
+      window.removeEventListener('close-all-modals', handleCloseEvent);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, handleOpen, handleClose]);
 
   // Lock body scroll when modal is open

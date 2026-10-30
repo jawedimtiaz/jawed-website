@@ -72,10 +72,34 @@ export const JawedAiWidget: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
+    const handleToggleWidget = () => {
+      if (isOpen && !isMinimized) {
+        setIsMinimized(true);
+      } else {
+        setIsOpen(true);
+        setIsMinimized(false);
+      }
+    };
+
+    const handleOpenWidget = () => {
+      setIsOpen(true);
+      setIsMinimized(false);
+    };
+
+    const handleCloseWidget = () => {
+      if (isOpen) {
+        stopListening();
+        setIsOpen(false);
+        setIsMinimized(false);
+      }
+    };
+
+    window.addEventListener('toggle-ai-widget', handleToggleWidget);
+    window.addEventListener('open-ai-widget', handleOpenWidget);
+    window.addEventListener('close-all-modals', handleCloseWidget);
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && isOpen) {
         stopListening();
         setIsOpen(false);
         setIsMinimized(false);
@@ -84,8 +108,13 @@ export const JawedAiWidget: React.FC = () => {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, stopListening]);
+    return () => {
+      window.removeEventListener('toggle-ai-widget', handleToggleWidget);
+      window.removeEventListener('open-ai-widget', handleOpenWidget);
+      window.removeEventListener('close-all-modals', handleCloseWidget);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, isMinimized, stopListening]);
 
   // Cleanup on unmount or when closed
   useEffect(() => {

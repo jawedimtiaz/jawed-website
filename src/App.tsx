@@ -6,6 +6,7 @@ import { JawedAiWidget } from './components/JawedAiWidget';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { RouteSeo } from './components/RouteSeo';
 import { ScrollProgress } from './components/ScrollProgress';
+import { KeyboardShortcutManager } from './components/KeyboardShortcutManager';
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -79,163 +80,165 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="site-wrapper" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <ScrollToTop />
-      <RouteSeo />
-      <ScrollProgress />
-      <Header />
+    <KeyboardShortcutManager>
+      <div className="site-wrapper" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <ScrollToTop />
+        <RouteSeo />
+        <ScrollProgress />
+        <Header />
 
-      <div style={{ flex: 1 }}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
+        <div style={{ flex: 1 }}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
 
-          {/* Navigation Items (Clean Taxonomy: /guides, /tools, /services) */}
-          <Route path="/guides" element={<NotesListPage />} />
-          <Route path="/guides/:slug" element={<NoteDetailPage />} />
+            {/* Navigation Items (Clean Taxonomy: /guides, /tools, /services) */}
+            <Route path="/guides" element={<NotesListPage />} />
+            <Route path="/guides/:slug" element={<NoteDetailPage />} />
 
-          {/* Backward-Compatible Route Aliases */}
-          <Route path="/field-guides" element={<NotesListPage />} />
-          <Route path="/field-guides/:slug" element={<NoteDetailPage />} />
-          <Route path="/notes" element={<NotesListPage />} />
-          <Route path="/notes/:slug" element={<NoteDetailPage />} />
+            {/* Backward-Compatible Route Aliases */}
+            <Route path="/field-guides" element={<NotesListPage />} />
+            <Route path="/field-guides/:slug" element={<NoteDetailPage />} />
+            <Route path="/notes" element={<NotesListPage />} />
+            <Route path="/notes/:slug" element={<NoteDetailPage />} />
 
-          <Route path="/diagnostic-tools" element={<ToolsPage />} />
-          <Route path="/tools" element={<ToolsPage />} />
+            <Route path="/diagnostic-tools" element={<ToolsPage />} />
+            <Route path="/tools" element={<ToolsPage />} />
 
-          {/* Specific Tools */}
-          <Route path="/tools/ai-prompt-builder" element={<AiPromptBuilder />} />
-          <Route path="/tools/career-match-resume-review" element={<CareerMatchResumeReview />} />
-          <Route path="/tools/resume-bullet-strength-checker" element={<ResumeBulletStrengthChecker />} />
-          <Route path="/tools/it-resume-bullet-builder" element={<ITResumeBulletBuilder />} />
-          <Route path="/tools/it-cover-letter-builder" element={<ITCoverLetterBuilder />} />
-          <Route path="/tools/it-interview-practice" element={<ITInterviewPractice />} />
-          <Route path="/tools/interview-preparation-planner" element={<InterviewPreparationPlanner />} />
-          <Route path="/tools/it-troubleshooting-assistant" element={<ItTroubleshootingAssistant />} />
-          <Route path="/tools/service-desk-note-formatter" element={<ServiceDeskNoteFormatter />} />
-          <Route path="/tools/ticket-to-knowledge-base-draft" element={<TicketToKbDraft />} />
-          <Route path="/tools/ipv4-subnet-calculator" element={<Ipv4SubnetCalculator />} />
-          <Route path="/tools/server-rack-power-btu-calculator" element={<ServerRackPowerBtuCalculator />} />
-          <Route path="/tools/personal-finance-snapshot" element={<PersonalFinanceSnapshot />} />
-          <Route path="/tools/finance-planning-workspace" element={<FinancePlanningWorkspace />} />
-          <Route path="/tools/compound-growth-sip-calculator" element={<CompoundGrowthCalculator />} />
-          <Route path="/tools/inflation-goal-planning-calculator" element={<InflationGoalCalculator />} />
-          <Route path="/tools/retirement-planning-calculator" element={<RetirementPlanningCalculator />} />
-          <Route path="/tools/calculator" element={<RetirementPlanningCalculator />} />
-          <Route path="/tools/it-salary-offer-calculator" element={<ItSalaryOfferCalculator />} />
-          <Route path="/tools/salary-calculator" element={<ItSalaryOfferCalculator />} />
-          <Route path="/tools/cctv-storage-calculator" element={<CctvStorageCalculator />} />
-          <Route path="/tools/cctv-calculator" element={<CctvStorageCalculator />} />
-          <Route path="/cctv-storage-calculator" element={<CctvStorageCalculator />} />
-          <Route path="/tools/hardware-storage-calculator" element={<HardwareStorageCalculator />} />
-          <Route path="/tools/raid-calculator" element={<HardwareStorageCalculator />} />
-          <Route path="/tools/hardware-storage" element={<HardwareStorageCalculator />} />
-          <Route path="/hardware-storage-calculator" element={<HardwareStorageCalculator />} />
-          <Route path="/raid-calculator" element={<HardwareStorageCalculator />} />
-          <Route path="/tools/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
-          <Route path="/tools/cable-length-poe-checker" element={<CableLengthPoeChecker />} />
-          <Route path="/tools/poe-budget-calculator" element={<CableLengthPoeChecker />} />
-          <Route path="/tools/cable-length-checker" element={<CableLengthPoeChecker />} />
-          <Route path="/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
-          <Route path="/tools/ai-audio-transcriber" element={<AiAudioTranscriber />} />
-          <Route path="/tools/audio-transcriber" element={<AiAudioTranscriber />} />
-          <Route path="/tools/transcribe" element={<AiAudioTranscriber />} />
+            {/* Specific Tools */}
+            <Route path="/tools/ai-prompt-builder" element={<AiPromptBuilder />} />
+            <Route path="/tools/career-match-resume-review" element={<CareerMatchResumeReview />} />
+            <Route path="/tools/resume-bullet-strength-checker" element={<ResumeBulletStrengthChecker />} />
+            <Route path="/tools/it-resume-bullet-builder" element={<ITResumeBulletBuilder />} />
+            <Route path="/tools/it-cover-letter-builder" element={<ITCoverLetterBuilder />} />
+            <Route path="/tools/it-interview-practice" element={<ITInterviewPractice />} />
+            <Route path="/tools/interview-preparation-planner" element={<InterviewPreparationPlanner />} />
+            <Route path="/tools/it-troubleshooting-assistant" element={<ItTroubleshootingAssistant />} />
+            <Route path="/tools/service-desk-note-formatter" element={<ServiceDeskNoteFormatter />} />
+            <Route path="/tools/ticket-to-knowledge-base-draft" element={<TicketToKbDraft />} />
+            <Route path="/tools/ipv4-subnet-calculator" element={<Ipv4SubnetCalculator />} />
+            <Route path="/tools/server-rack-power-btu-calculator" element={<ServerRackPowerBtuCalculator />} />
+            <Route path="/tools/personal-finance-snapshot" element={<PersonalFinanceSnapshot />} />
+            <Route path="/tools/finance-planning-workspace" element={<FinancePlanningWorkspace />} />
+            <Route path="/tools/compound-growth-sip-calculator" element={<CompoundGrowthCalculator />} />
+            <Route path="/tools/inflation-goal-planning-calculator" element={<InflationGoalCalculator />} />
+            <Route path="/tools/retirement-planning-calculator" element={<RetirementPlanningCalculator />} />
+            <Route path="/tools/calculator" element={<RetirementPlanningCalculator />} />
+            <Route path="/tools/it-salary-offer-calculator" element={<ItSalaryOfferCalculator />} />
+            <Route path="/tools/salary-calculator" element={<ItSalaryOfferCalculator />} />
+            <Route path="/tools/cctv-storage-calculator" element={<CctvStorageCalculator />} />
+            <Route path="/tools/cctv-calculator" element={<CctvStorageCalculator />} />
+            <Route path="/cctv-storage-calculator" element={<CctvStorageCalculator />} />
+            <Route path="/tools/hardware-storage-calculator" element={<HardwareStorageCalculator />} />
+            <Route path="/tools/raid-calculator" element={<HardwareStorageCalculator />} />
+            <Route path="/tools/hardware-storage" element={<HardwareStorageCalculator />} />
+            <Route path="/hardware-storage-calculator" element={<HardwareStorageCalculator />} />
+            <Route path="/raid-calculator" element={<HardwareStorageCalculator />} />
+            <Route path="/tools/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
+            <Route path="/tools/cable-length-poe-checker" element={<CableLengthPoeChecker />} />
+            <Route path="/tools/poe-budget-calculator" element={<CableLengthPoeChecker />} />
+            <Route path="/tools/cable-length-checker" element={<CableLengthPoeChecker />} />
+            <Route path="/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
+            <Route path="/tools/ai-audio-transcriber" element={<AiAudioTranscriber />} />
+            <Route path="/tools/audio-transcriber" element={<AiAudioTranscriber />} />
+            <Route path="/tools/transcribe" element={<AiAudioTranscriber />} />
 
-          {/* Services & Dispatch */}
-          <Route path="/services" element={<ServicesDispatchPage />} />
-          <Route path="/services-dispatch" element={<ServicesDispatchPage />} />
+            {/* Services & Dispatch */}
+            <Route path="/services" element={<ServicesDispatchPage />} />
+            <Route path="/services-dispatch" element={<ServicesDispatchPage />} />
 
-          {/* Main Pages */}
-          <Route path="/about/*" element={<AboutPage />} />
-          <Route path="/work/*" element={<WorkPage />} />
-          <Route path="/topics/*" element={<TopicsPage />} />
-          <Route path="/resources/*" element={<ResourcesPage />} />
-          <Route path="/blog" element={<BlogListPage />} />
-          <Route path="/blog/:slug" element={<BlogPostPage />} />
+            {/* Main Pages */}
+            <Route path="/about/*" element={<AboutPage />} />
+            <Route path="/work/*" element={<WorkPage />} />
+            <Route path="/topics/*" element={<TopicsPage />} />
+            <Route path="/resources/*" element={<ResourcesPage />} />
+            <Route path="/blog" element={<BlogListPage />} />
+            <Route path="/blog/:slug" element={<BlogPostPage />} />
 
-          {/* Legal & Contact Pages */}
-          <Route path="/contact/*" element={<ContactPage />} />
-          <Route path="/privacy/*" element={<PrivacyPage />} />
-          <Route path="/terms/*" element={<TermsPage />} />
-          <Route path="/cookies/*" element={<CookiePolicyPage />} />
+            {/* Legal & Contact Pages */}
+            <Route path="/contact/*" element={<ContactPage />} />
+            <Route path="/privacy/*" element={<PrivacyPage />} />
+            <Route path="/terms/*" element={<TermsPage />} />
+            <Route path="/cookies/*" element={<CookiePolicyPage />} />
 
-          {/* AI */}
-          <Route path="/ai/*" element={<AiPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </div>
+            {/* AI */}
+            <Route path="/ai/*" element={<AiPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </div>
 
-      <Footer onOpenCookieModal={() => setCookieModalOpen(true)} />
-      <JawedAiWidget />
-      <PWAInstallBanner />
+        <Footer onOpenCookieModal={() => setCookieModalOpen(true)} />
+        <JawedAiWidget />
+        <PWAInstallBanner />
 
-      {/* Cookie Preference Modal */}
-      {cookieModalOpen && (
-        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Cookie Preferences">
-          <div className="modal-content">
-            <h3 style={{ marginTop: 0, color: 'var(--text-heading)', fontSize: '1.25rem' }}>
-              ⚙ Cookie &amp; Privacy Preferences
-            </h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
-              Manage your consent preferences for analytics and Google AdSense advertising cookies.
-            </p>
+        {/* Cookie Preference Modal */}
+        {cookieModalOpen && (
+          <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Cookie Preferences">
+            <div className="modal-content">
+              <h3 style={{ marginTop: 0, color: 'var(--text-heading)', fontSize: '1.25rem' }}>
+                ⚙ Cookie &amp; Privacy Preferences
+              </h3>
+              <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
+                Manage your consent preferences for analytics and Google AdSense advertising cookies.
+              </p>
 
-            <div style={{ display: 'grid', gap: '14px', margin: '20px 0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <strong style={{ display: 'block', color: 'var(--text-heading)' }}>Essential Cookies</strong>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Theme, security &amp; local routing</span>
+              <div style={{ display: 'grid', gap: '14px', margin: '20px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <strong style={{ display: 'block', color: 'var(--text-heading)' }}>Essential Cookies</strong>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Theme, security &amp; local routing</span>
+                  </div>
+                  <span className="badge" style={{ color: 'var(--emerald)' }}>Always Active</span>
                 </div>
-                <span className="badge" style={{ color: 'var(--emerald)' }}>Always Active</span>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <strong style={{ display: 'block', color: 'var(--text-heading)' }}>Analytics (GA4)</strong>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Anonymized usage statistics</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={analyticsAllowed}
+                    onChange={e => setAnalyticsAllowed(e.target.checked)}
+                    style={{ width: '20px', height: '20px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <strong style={{ display: 'block', color: 'var(--text-heading)' }}>Google AdSense Ads</strong>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Personalized advertising</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={adsAllowed}
+                    onChange={e => setAdsAllowed(e.target.checked)}
+                    style={{ width: '20px', height: '20px' }}
+                  />
+                </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <strong style={{ display: 'block', color: 'var(--text-heading)' }}>Analytics (GA4)</strong>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Anonymized usage statistics</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={analyticsAllowed}
-                  onChange={e => setAnalyticsAllowed(e.target.checked)}
-                  style={{ width: '20px', height: '20px' }}
-                />
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                <Link
+                  to="/cookies"
+                  className="button button-secondary"
+                  onClick={() => setCookieModalOpen(false)}
+                  style={{ fontSize: '0.85rem' }}
+                >
+                  Read Cookie Policy
+                </Link>
+                <button
+                  className="button button-primary"
+                  type="button"
+                  onClick={saveCookieModalSettings}
+                >
+                  Save &amp; Close
+                </button>
               </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <strong style={{ display: 'block', color: 'var(--text-heading)' }}>Google AdSense Ads</strong>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Personalized advertising</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={adsAllowed}
-                  onChange={e => setAdsAllowed(e.target.checked)}
-                  style={{ width: '20px', height: '20px' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-              <Link
-                to="/cookies"
-                className="button button-secondary"
-                onClick={() => setCookieModalOpen(false)}
-                style={{ fontSize: '0.85rem' }}
-              >
-                Read Cookie Policy
-              </Link>
-              <button
-                className="button button-primary"
-                type="button"
-                onClick={saveCookieModalSettings}
-              >
-                Save &amp; Close
-              </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </KeyboardShortcutManager>
   );
 };
 

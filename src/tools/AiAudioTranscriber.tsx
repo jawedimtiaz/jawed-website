@@ -39,6 +39,9 @@ import {
   Wand2,
   Search,
   X,
+  Palette,
+  VolumeX,
+  Scissors,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
@@ -93,6 +96,81 @@ export const RECORDING_PRESETS: RecordingPresetConfig[] = [
     description: 'Speech-focused bandwidth (16,000 Hz) matching Whisper AI input natively with smaller memory footprint.',
   },
 ];
+
+export type WaveformThemeId =
+  | 'emerald-indigo'
+  | 'cyan-blue'
+  | 'sunset-amber'
+  | 'purple-pink'
+  | 'fire-ruby'
+  | 'custom';
+
+export interface WaveformThemeConfig {
+  id: WaveformThemeId;
+  label: string;
+  startColor: string;
+  endColor: string;
+  description: string;
+}
+
+export const WAVEFORM_THEMES: WaveformThemeConfig[] = [
+  {
+    id: 'emerald-indigo',
+    label: 'Cyber Emerald & Indigo',
+    startColor: '#34d399',
+    endColor: '#818cf8',
+    description: 'Vibrant emerald stroke with soft indigo visualizer glow.',
+  },
+  {
+    id: 'cyan-blue',
+    label: 'Neon Cyan & Blue',
+    startColor: '#22d3ee',
+    endColor: '#60a5fa',
+    description: 'Electric cyan waveform line with neon blue peak aura.',
+  },
+  {
+    id: 'sunset-amber',
+    label: 'Sunset Amber & Gold',
+    startColor: '#fb923c',
+    endColor: '#facc15',
+    description: 'Warm, high-contrast orange-amber audio intensity theme.',
+  },
+  {
+    id: 'purple-pink',
+    label: 'Vaporwave Violet',
+    startColor: '#e879f9',
+    endColor: '#c084fc',
+    description: 'Synthwave magenta stroke with vibrant violet gradient fill.',
+  },
+  {
+    id: 'fire-ruby',
+    label: 'Crimson Ruby & Fire',
+    startColor: '#fb7185',
+    endColor: '#f87171',
+    description: 'Bold crimson ruby waveform with high-gain fire gradient.',
+  },
+  {
+    id: 'custom',
+    label: 'Custom Dual-Color Picker',
+    startColor: '#10b981',
+    endColor: '#6366f1',
+    description: 'Select custom Start & Glow HEX colors for a personalized display.',
+  },
+];
+
+export const hexToRgba = (hex: string, alpha: number): string => {
+  if (!hex || typeof hex !== 'string') return `rgba(99, 102, 241, ${alpha})`;
+  let clean = hex.trim().replace('#', '');
+  if (clean.length === 3) {
+    clean = clean.split('').map((c) => c + c).join('');
+  }
+  const num = parseInt(clean, 16);
+  if (Number.isNaN(num) || clean.length !== 6) return `rgba(99, 102, 241, ${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 const cachedWhisperPipelines = new Map<string, any>();
 
@@ -528,6 +606,48 @@ export const AiAudioTranscriber: React.FC = () => {
   const [speakerFilter, setSpeakerFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Auto-Pause on Silence State & Refs
+  const [autoPauseOnSilence, setAutoPauseOnSilence] = useState<boolean>(true);
+  const [isAutoPaused, setIsAutoPaused] = useState<boolean>(false);
+  const [silenceDurationSeconds, setSilenceDurationSeconds] = useState<number>(0);
+
+  // Canvas Visualizer Custom Gradient Theme State & Settings
+  const [waveformTheme, setWaveformTheme] = useState<WaveformThemeId>('emerald-indigo');
+  const [customStartColor, setCustomStartColor] = useState<string>('#10b981');
+  const [customEndColor, setCustomEndColor] = useState<string>('#6366f1');
+  const [showVisualizerSettings, setShowVisualizerSettings] = useState<boolean>(false);
+
+  // Web Audio API Noise Gate (GainNode) State & Refs
+  const [enableNoiseGate, setEnableNoiseGate] = useState<boolean>(true);
+  const [noiseGateThresholdDb, setNoiseGateThresholdDb] = useState<number>(-40);
+  const [isNoiseGateOpen, setIsNoiseGateOpen] = useState<boolean>(true);
+
+  // Edit Audio (Trimming) State
+  const [showAudioEditor, setShowAudioEditor] = useState<boolean>(false);
+  const [trimStartSeconds, setTrimStartSeconds] = useState<number>(0);
+  const [trimEndSeconds, setTrimEndSeconds] = useState<number>(0);
+  const [isTrimming, setIsTrimming] = useState<boolean>(false);
+  const [isPreviewingTrim, setIsPreviewingTrim] = useState<boolean>(false);
+
+  const waveformThemeRef = useRef<WaveformThemeId>('emerald-indigo');
+  const customStartColorRef = useRef<string>('#10b981');
+  const customEndColorRef = useRef<string>('#6366f1');
+
+  const enableNoiseGateRef = useRef<boolean>(true);
+  const noiseGateThresholdDbRef = useRef<number>(-40);
+  const noiseGateGainNodeRef = useRef<GainNode | null>(null);
+
+  useEffect(() => {
+    waveformThemeRef.current = waveformTheme;
+    customStartColorRef.current = customStartColor;
+    customEndColorRef.current = customEndColor;
+  }, [waveformTheme, customStartColor, customEndColor]);
+
+  useEffect(() => {
+    enableNoiseGateRef.current = enableNoiseGate;
+    noiseGateThresholdDbRef.current = noiseGateThresholdDb;
+  }, [enableNoiseGate, noiseGateThresholdDb]);
+
   // Diagnostics & Debug State
   const [debugLogs, setDebugLogs] = useState<DebugEntry[]>([]);
   const [showDebug, setShowDebug] = useState(false);
@@ -554,6 +674,9 @@ export const AiAudioTranscriber: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaRecorderChunksRef = useRef<Blob[]>([]);
   const isPausedRef = useRef<boolean>(false);
+  const autoPauseOnSilenceRef = useRef<boolean>(true);
+  const isAutoPausedRef = useRef<boolean>(false);
+  const silenceStartTimestampRef = useRef<number>(0);
   const accumulatedRecordingMsRef = useRef<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -581,6 +704,10 @@ export const AiAudioTranscriber: React.FC = () => {
   const createdObjectUrlsRef = useRef<Set<string>>(new Set());
   const urlManagerRef = useRef<SafeObjectUrlManager>(new SafeObjectUrlManager());
   const webAudioPlaybackContextRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    autoPauseOnSilenceRef.current = autoPauseOnSilence;
+  }, [autoPauseOnSilence]);
 
   const addLog = useCallback(
     (level: 'info' | 'warn' | 'error', message: string, details?: any) => {
@@ -1095,6 +1222,15 @@ export const AiAudioTranscriber: React.FC = () => {
       silentGainRef.current = null;
     }
 
+    if (noiseGateGainNodeRef.current) {
+      try {
+        noiseGateGainNodeRef.current.disconnect();
+      } catch {
+        // Ignore already disconnected noise gate gain node
+      }
+      noiseGateGainNodeRef.current = null;
+    }
+
     if (audioContextRef.current) {
       const ctx = audioContextRef.current;
       const preCloseState = ctx.state;
@@ -1492,6 +1628,55 @@ export const AiAudioTranscriber: React.FC = () => {
       const height = canvas.height;
       const centerY = height / 2;
 
+      // Calculate dynamic theme gradient colors
+      const currentThemeId = waveformThemeRef.current || waveformTheme;
+      const customStart = customStartColorRef.current || customStartColor;
+      const customEnd = customEndColorRef.current || customEndColor;
+
+      let topFillColor = 'rgba(52, 211, 153, 0.32)';
+      let midFillColor = 'rgba(99, 102, 241, 0.08)';
+      let bottomFillColor = 'rgba(52, 211, 153, 0.32)';
+      let strokeActive = '#34d399';
+      let strokeInactive = '#818cf8';
+      let barActiveColor = 'rgba(16, 185, 129, 0.28)';
+
+      if (currentThemeId === 'cyan-blue') {
+        topFillColor = 'rgba(34, 211, 238, 0.35)';
+        midFillColor = 'rgba(59, 130, 246, 0.08)';
+        bottomFillColor = 'rgba(34, 211, 238, 0.35)';
+        strokeActive = '#22d3ee';
+        strokeInactive = '#60a5fa';
+        barActiveColor = 'rgba(6, 182, 212, 0.30)';
+      } else if (currentThemeId === 'sunset-amber') {
+        topFillColor = 'rgba(251, 146, 60, 0.35)';
+        midFillColor = 'rgba(234, 179, 8, 0.08)';
+        bottomFillColor = 'rgba(251, 146, 60, 0.35)';
+        strokeActive = '#fb923c';
+        strokeInactive = '#facc15';
+        barActiveColor = 'rgba(245, 158, 11, 0.30)';
+      } else if (currentThemeId === 'purple-pink') {
+        topFillColor = 'rgba(232, 121, 249, 0.35)';
+        midFillColor = 'rgba(168, 85, 247, 0.08)';
+        bottomFillColor = 'rgba(232, 121, 249, 0.35)';
+        strokeActive = '#e879f9';
+        strokeInactive = '#c084fc';
+        barActiveColor = 'rgba(192, 132, 252, 0.30)';
+      } else if (currentThemeId === 'fire-ruby') {
+        topFillColor = 'rgba(251, 113, 133, 0.35)';
+        midFillColor = 'rgba(239, 68, 68, 0.08)';
+        bottomFillColor = 'rgba(251, 113, 133, 0.35)';
+        strokeActive = '#fb7185';
+        strokeInactive = '#f87171';
+        barActiveColor = 'rgba(244, 63, 94, 0.30)';
+      } else if (currentThemeId === 'custom') {
+        topFillColor = hexToRgba(customStart, 0.36);
+        midFillColor = hexToRgba(customEnd, 0.10);
+        bottomFillColor = hexToRgba(customStart, 0.36);
+        strokeActive = customStart;
+        strokeInactive = customEnd;
+        barActiveColor = hexToRgba(customStart, 0.30);
+      }
+
       // Studio dark background
       ctx2d.fillStyle = '#020617';
       ctx2d.fillRect(0, 0, width, height);
@@ -1507,7 +1692,7 @@ export const AiAudioTranscriber: React.FC = () => {
       ctx2d.stroke();
 
       ctx2d.strokeStyle = activeRecording
-        ? 'rgba(99, 102, 241, 0.4)'
+        ? hexToRgba(strokeInactive, 0.4)
         : 'rgba(71, 85, 105, 0.45)';
       ctx2d.beginPath();
       ctx2d.moveTo(0, centerY);
@@ -1566,9 +1751,9 @@ export const AiAudioTranscriber: React.FC = () => {
 
           ctx2d.fillStyle = activeRecording
             ? rawPeak > 1e-4
-              ? 'rgba(16, 185, 129, 0.24)'
-              : 'rgba(99, 102, 241, 0.16)'
-            : 'rgba(99, 102, 241, 0.22)';
+              ? barActiveColor
+              : hexToRgba(strokeInactive, 0.16)
+            : hexToRgba(strokeInactive, 0.22);
           ctx2d.fillRect(x, centerY - barHalfHeight, barWidth, barHalfHeight * 2);
         }
       }
@@ -1584,16 +1769,16 @@ export const AiAudioTranscriber: React.FC = () => {
         const hasActiveSignal = framePeak > 1e-4;
         const visualGain = framePeak > 0 && framePeak < 0.25 ? Math.min(3.2, 0.35 / framePeak) : 1.15;
 
-        // Filled waveform glow envelope
+        // Filled waveform glow envelope with dynamic theme gradient
         const gradient = ctx2d.createLinearGradient(0, 0, 0, height);
         if (activeRecording && hasActiveSignal) {
-          gradient.addColorStop(0, 'rgba(52, 211, 153, 0.28)');
-          gradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.08)');
-          gradient.addColorStop(1, 'rgba(52, 211, 153, 0.28)');
+          gradient.addColorStop(0, topFillColor);
+          gradient.addColorStop(0.5, midFillColor);
+          gradient.addColorStop(1, bottomFillColor);
         } else {
-          gradient.addColorStop(0, 'rgba(129, 140, 248, 0.18)');
-          gradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.04)');
-          gradient.addColorStop(1, 'rgba(129, 140, 248, 0.18)');
+          gradient.addColorStop(0, hexToRgba(strokeInactive, 0.18));
+          gradient.addColorStop(0.5, hexToRgba(strokeInactive, 0.04));
+          gradient.addColorStop(1, hexToRgba(strokeInactive, 0.18));
         }
 
         const step = Math.max(1, Math.floor(timeSamples.length / width));
@@ -1610,14 +1795,14 @@ export const AiAudioTranscriber: React.FC = () => {
         ctx2d.fillStyle = gradient;
         ctx2d.fill();
 
-        // Crisp primary waveform stroke
+        // Crisp primary waveform stroke with dynamic theme color
         ctx2d.beginPath();
         ctx2d.lineWidth = activeRecording && hasActiveSignal ? 2.2 : 1.6;
         ctx2d.strokeStyle = activeRecording
           ? hasActiveSignal
-            ? '#34d399'
-            : '#818cf8'
-          : '#6366f1';
+            ? strokeActive
+            : strokeInactive
+          : strokeInactive;
 
         for (let x = 0; x < width; x += 1) {
           const sampleIdx = Math.min(timeSamples.length - 1, x * step);
@@ -2089,7 +2274,11 @@ export const AiAudioTranscriber: React.FC = () => {
     accumulatedRecordingMsRef.current = 0;
     recordingStartTimestampRef.current = Date.now();
     isPausedRef.current = false;
+    isAutoPausedRef.current = false;
+    silenceStartTimestampRef.current = 0;
     setIsPaused(false);
+    setIsAutoPaused(false);
+    setSilenceDurationSeconds(0);
     setInputLevelPeak(0);
     totalCapturedSamplesRef.current = 0;
     lastMetaUpdateRef.current = 0;
@@ -2276,12 +2465,144 @@ export const AiAudioTranscriber: React.FC = () => {
     let loggedFirstBuffer = false;
     let processedChunkCounter = 0;
     processor.onaudioprocess = (event: AudioProcessingEvent) => {
-      if (isPausedRef.current || mediaRecorderRef.current?.state === 'paused') {
-        return;
-      }
       const inputBuffer = event.inputBuffer;
       const numChannels = Math.max(1, inputBuffer.numberOfChannels);
       const frameLength = inputBuffer.length;
+
+      // Sample input buffer peak amplitude for real-time silence & sound detection
+      let framePeakAmplitude = 0;
+      for (let ch = 0; ch < numChannels; ch += 1) {
+        const chData = inputBuffer.getChannelData(ch);
+        for (let i = 0; i < frameLength; i += 1) {
+          const s = chData[i];
+          if (!Number.isFinite(s)) continue;
+          const abs = Math.abs(s);
+          if (abs > framePeakAmplitude) framePeakAmplitude = abs;
+        }
+      }
+
+      const SILENCE_THRESHOLD = 0.015;
+      const SOUND_RESUME_THRESHOLD = 0.028;
+      const SILENCE_PAUSE_MS = 5000;
+
+      // IF PAUSED or AUTO-PAUSED:
+      if (isPausedRef.current || mediaRecorderRef.current?.state === 'paused') {
+        if (isAutoPausedRef.current && autoPauseOnSilenceRef.current) {
+          if (framePeakAmplitude >= SOUND_RESUME_THRESHOLD) {
+            // Sound/Speech detected! Auto-resume recording
+            isPausedRef.current = false;
+            isAutoPausedRef.current = false;
+            setIsPaused(false);
+            setIsAutoPaused(false);
+            silenceStartTimestampRef.current = 0;
+            setSilenceDurationSeconds(0);
+            recordingStartTimestampRef.current = Date.now();
+
+            const mr = mediaRecorderRef.current;
+            if (mr && mr.state === 'paused') {
+              try {
+                mr.resume();
+              } catch {
+                // Ignore MediaRecorder resume error if unsupported
+              }
+            }
+            setMediaRecorderState('recording');
+
+            addLog(
+              'info',
+              `Auto-resumed recording: Speech/sound detected (peak level ${framePeakAmplitude.toFixed(4)}).`
+            );
+          }
+        }
+        return;
+      }
+
+      // IF ACTIVELY RECORDING:
+      if (framePeakAmplitude < SILENCE_THRESHOLD) {
+        if (silenceStartTimestampRef.current === 0) {
+          silenceStartTimestampRef.current = Date.now();
+        }
+        const silenceMs = Date.now() - silenceStartTimestampRef.current;
+        setSilenceDurationSeconds(Math.min(5.0, silenceMs / 1000));
+
+        if (silenceMs >= SILENCE_PAUSE_MS && autoPauseOnSilenceRef.current && !isPausedRef.current) {
+          // Continuous silence >= 5s detected! Auto-pause recording
+          if (recordingStartTimestampRef.current > 0) {
+            accumulatedRecordingMsRef.current += Math.max(
+              0,
+              Date.now() - recordingStartTimestampRef.current
+            );
+            recordingStartTimestampRef.current = 0;
+          }
+
+          isPausedRef.current = true;
+          isAutoPausedRef.current = true;
+          setIsPaused(true);
+          setIsAutoPaused(true);
+          setInputLevelPeak(0);
+
+          const mr = mediaRecorderRef.current;
+          if (mr && mr.state === 'recording') {
+            try {
+              mr.pause();
+            } catch {
+              // Ignore MediaRecorder pause error if unsupported
+            }
+          }
+          setMediaRecorderState('paused');
+
+          addLog(
+            'info',
+            `Auto-paused recording: 5 seconds of continuous silence detected (< ${SILENCE_THRESHOLD} peak). Listening for sound to resume...`
+          );
+          return;
+        }
+      } else {
+        silenceStartTimestampRef.current = 0;
+        setSilenceDurationSeconds(0);
+      }
+
+      // Web Audio API Noise Gate dynamic attenuation
+      const framePeakDb = framePeakAmplitude > 0 ? 20 * Math.log10(framePeakAmplitude) : -100;
+      const gateThresholdDb = noiseGateThresholdDbRef.current;
+      const isGateEnabled = enableNoiseGateRef.current;
+
+      let gateMultiplier = 1.0;
+      if (isGateEnabled) {
+        if (framePeakDb >= gateThresholdDb) {
+          // Gate OPEN: Signal above threshold (speech)
+          gateMultiplier = 1.0;
+          setIsNoiseGateOpen(true);
+          if (noiseGateGainNodeRef.current && context) {
+            try {
+              noiseGateGainNodeRef.current.gain.setTargetAtTime(1.0, context.currentTime, 0.01);
+            } catch {
+              // Ignore node automation errors
+            }
+          }
+        } else {
+          // Gate CLOSED: Suppress ambient room noise
+          gateMultiplier = 0.02; // ~34 dB noise reduction
+          setIsNoiseGateOpen(false);
+          if (noiseGateGainNodeRef.current && context) {
+            try {
+              noiseGateGainNodeRef.current.gain.setTargetAtTime(0.02, context.currentTime, 0.08);
+            } catch {
+              // Ignore node automation errors
+            }
+          }
+        }
+      } else {
+        setIsNoiseGateOpen(true);
+        if (noiseGateGainNodeRef.current && context) {
+          try {
+            noiseGateGainNodeRef.current.gain.setValueAtTime(1.0, context.currentTime);
+          } catch {
+            // Ignore node automation errors
+          }
+        }
+      }
+
       const copy = new Float32Array(frameLength);
 
       const channelAmplitudes: Array<{
@@ -2324,6 +2645,13 @@ export const AiAudioTranscriber: React.FC = () => {
               copy[i] += s / divisor;
             }
           }
+        }
+      }
+
+      // Suppress ambient noise in recorded PCM memory buffer when gate is closed
+      if (isGateEnabled && gateMultiplier < 1.0) {
+        for (let i = 0; i < copy.length; i += 1) {
+          copy[i] *= gateMultiplier;
         }
       }
 
@@ -2518,8 +2846,13 @@ export const AiAudioTranscriber: React.FC = () => {
       }
     };
 
-    source.connect(analyser);
-    source.connect(processor);
+    const noiseGateGainNode = context.createGain();
+    noiseGateGainNode.gain.setValueAtTime(1.0, context.currentTime);
+    noiseGateGainNodeRef.current = noiseGateGainNode;
+
+    source.connect(noiseGateGainNode);
+    noiseGateGainNode.connect(analyser);
+    noiseGateGainNode.connect(processor);
     processor.connect(silentGain);
     silentGain.connect(context.destination);
 
@@ -3045,6 +3378,11 @@ export const AiAudioTranscriber: React.FC = () => {
   const handlePauseResumeRecording = async () => {
     if (!isRecording) return;
 
+    isAutoPausedRef.current = false;
+    setIsAutoPaused(false);
+    silenceStartTimestampRef.current = 0;
+    setSilenceDurationSeconds(0);
+
     const mr = mediaRecorderRef.current;
     const ctx = audioContextRef.current;
 
@@ -3073,7 +3411,7 @@ export const AiAudioTranscriber: React.FC = () => {
       }
       setMediaRecorderState(mr?.state === 'paused' ? 'paused' : 'paused');
 
-      if (ctx && ctx.state === 'running') {
+      if (!autoPauseOnSilenceRef.current && ctx && ctx.state === 'running') {
         try {
           await ctx.suspend();
         } catch {
@@ -3823,6 +4161,172 @@ export const AiAudioTranscriber: React.FC = () => {
       }
     }
     addLog('info', `Updated audio playback speed to ${nextRate}x`, { playbackRate: nextRate });
+  };
+
+  const handleToggleAudioEditor = () => {
+    const dur =
+      verifiedDurationSeconds && verifiedDurationSeconds > 0
+        ? verifiedDurationSeconds
+        : sessionMetadata.durationSeconds > 0
+        ? sessionMetadata.durationSeconds
+        : playbackDuration > 0
+        ? playbackDuration
+        : 10;
+    setTrimStartSeconds(0);
+    setTrimEndSeconds(dur);
+    setShowAudioEditor((prev) => !prev);
+  };
+
+  const handlePreviewTrim = () => {
+    const audioEl = audioPlayerRef.current;
+    if (!audioEl) return;
+
+    if (isPreviewingTrim) {
+      audioEl.pause();
+      setIsPreviewingTrim(false);
+      return;
+    }
+
+    audioEl.currentTime = trimStartSeconds;
+    setIsPreviewingTrim(true);
+    void audioEl.play().catch(() => setIsPreviewingTrim(false));
+  };
+
+  useEffect(() => {
+    if (!isPreviewingTrim) return;
+    const audioEl = audioPlayerRef.current;
+    if (!audioEl) return;
+
+    const handleTimeUpdate = () => {
+      if (audioEl.currentTime >= trimEndSeconds) {
+        audioEl.pause();
+        audioEl.currentTime = trimStartSeconds;
+        setIsPreviewingTrim(false);
+      }
+    };
+
+    audioEl.addEventListener('timeupdate', handleTimeUpdate);
+    return () => {
+      audioEl.removeEventListener('timeupdate', handleTimeUpdate);
+    };
+  }, [isPreviewingTrim, trimStartSeconds, trimEndSeconds]);
+
+  const handleApplyTrim = async () => {
+    if (!audioBlob && pcmChunksRef.current.length === 0) return;
+    setIsTrimming(true);
+    clearError();
+
+    try {
+      const totalDur =
+        verifiedDurationSeconds && verifiedDurationSeconds > 0
+          ? verifiedDurationSeconds
+          : sessionMetadata.durationSeconds > 0
+          ? sessionMetadata.durationSeconds
+          : playbackDuration > 0
+          ? playbackDuration
+          : 1;
+
+      const startSec = Math.max(0, Math.min(trimStartSeconds, totalDur - 0.1));
+      const endSec = Math.max(startSec + 0.1, Math.min(trimEndSeconds, totalDur));
+      const targetSampleRate = sessionMetadata.sampleRate || sampleRateRef.current || 44100;
+
+      let trimmedPcm: Float32Array;
+
+      if (pcmChunksRef.current.length > 0) {
+        let totalSamples = 0;
+        for (const chunk of pcmChunksRef.current) {
+          totalSamples += chunk.length;
+        }
+        const fullPcm = new Float32Array(totalSamples);
+        let offset = 0;
+        for (const chunk of pcmChunksRef.current) {
+          fullPcm.set(chunk, offset);
+          offset += chunk.length;
+        }
+
+        const startSample = Math.floor((startSec / totalDur) * totalSamples);
+        const endSample = Math.ceil((endSec / totalDur) * totalSamples);
+        trimmedPcm = fullPcm.slice(
+          Math.max(0, startSample),
+          Math.min(totalSamples, endSample)
+        );
+      } else {
+        const arrayBuffer = await audioBlob!.arrayBuffer();
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const ctx = new AudioCtx();
+        try {
+          const audioBuf = await ctx.decodeAudioData(arrayBuffer.slice(0));
+          const rate = audioBuf.sampleRate;
+          const startSample = Math.floor(startSec * rate);
+          const endSample = Math.ceil(endSec * rate);
+          const channel0 = audioBuf.getChannelData(0);
+          trimmedPcm = channel0.slice(
+            Math.max(0, startSample),
+            Math.min(channel0.length, endSample)
+          );
+        } finally {
+          await ctx.close().catch(() => {});
+        }
+      }
+
+      if (!trimmedPcm || trimmedPcm.length === 0) {
+        reportError('recording', 'Trimmed segment contains no audio samples.');
+        setIsTrimming(false);
+        return;
+      }
+
+      const trimmedWavBlob = encodeWav([trimmedPcm], targetSampleRate);
+      pcmChunksRef.current = [trimmedPcm];
+
+      const trimmedDuration = trimmedPcm.length / targetSampleRate;
+      const baseName = audioFileName ? audioFileName.replace(/\.wav$/i, '') : 'recording';
+      const trimmedFileName = `${baseName}-trimmed.wav`;
+
+      const nextUrl = await assignAudioSourceFromBlob(
+        trimmedWavBlob,
+        trimmedFileName,
+        'audio/wav',
+        'trimmed audio segment'
+      );
+
+      if (!nextUrl) {
+        reportError('recording', 'Failed to assign Object URL for trimmed audio.');
+        setIsTrimming(false);
+        return;
+      }
+
+      setRecordingTime(Math.max(1, Math.round(trimmedDuration)));
+      setRecordingElapsedMs(Math.round(trimmedDuration * 1000));
+      setPlaybackCurrentTime(0);
+      setPlaybackDuration(trimmedDuration);
+
+      setSessionMetadata({
+        durationSeconds: trimmedDuration,
+        formattedDuration: formatRecordingTimerOverlay(trimmedDuration),
+        bitRateKbps: (targetSampleRate * 1 * 16) / 1000,
+        dataRateKbPerSec: (targetSampleRate * 1 * 2) / 1024,
+        fileSizeBytes: trimmedWavBlob.size,
+        formattedFileSize: formatFileSizeBytes(trimmedWavBlob.size),
+        chunkCount: 1,
+        totalSamples: trimmedPcm.length,
+        sampleRate: targetSampleRate,
+        bitsPerSample: 16,
+        channels: 1,
+        formatName: '16-bit Mono PCM WAV (Trimmed)',
+      });
+
+      addLog(
+        'info',
+        `Successfully trimmed audio from ${startSec.toFixed(1)}s to ${endSec.toFixed(1)}s (new duration: ${trimmedDuration.toFixed(2)}s).`
+      );
+      setShowAudioEditor(false);
+    } catch (err: any) {
+      reportError('recording', `Failed to trim audio: ${err?.message || String(err)}`);
+    } finally {
+      setIsTrimming(false);
+    }
   };
 
   const handleAudioElementEvent = (
@@ -5076,6 +5580,59 @@ export const AiAudioTranscriber: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* Web Audio API Noise Gate (GainNode) Control */}
+            <div>
+              <label
+                htmlFor="noise-gate-toggle"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  marginBottom: '6px',
+                  color: 'var(--text)',
+                }}
+              >
+                <Sliders size={15} color="var(--amber)" aria-hidden="true" />
+                Web Audio Noise Gate (GainNode)
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '2px' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', color: 'var(--text)' }}>
+                  <input
+                    id="noise-gate-toggle"
+                    type="checkbox"
+                    checked={enableNoiseGate}
+                    onChange={(e) => setEnableNoiseGate(e.target.checked)}
+                    style={{ accentColor: 'var(--amber)', cursor: 'pointer' }}
+                  />
+                  <span>Enable Web Audio Noise Gate</span>
+                </label>
+
+                {enableNoiseGate && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '8px', padding: '8px 10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--muted)' }}>
+                      <span>Gate Threshold:</span>
+                      <strong style={{ fontFamily: 'monospace', color: 'var(--amber)' }}>{noiseGateThresholdDb} dBFS</strong>
+                    </div>
+                    <input
+                      type="range"
+                      min={-60}
+                      max={-15}
+                      step={1}
+                      value={noiseGateThresholdDb}
+                      onChange={(e) => setNoiseGateThresholdDb(Number(e.target.value))}
+                      style={{ width: '100%', accentColor: 'var(--amber)', cursor: 'pointer' }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--muted)' }}>
+                      <span>-60 dBFS (Quiet Room)</span>
+                      <span>-15 dBFS (Loud Ambient)</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div
@@ -5288,6 +5845,187 @@ export const AiAudioTranscriber: React.FC = () => {
                     : 'Voice Optimized: 16kHz bandwidth matching Whisper AI input natively.'}
                 </span>
               </div>
+
+              {/* Auto-Pause on 5s Silence Toggle Control */}
+              <div style={{ width: '100%', textAlign: 'left' }}>
+                <label
+                  htmlFor="auto-pause-checkbox"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    color: 'var(--text)',
+                    cursor: isRecording ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <input
+                    id="auto-pause-checkbox"
+                    type="checkbox"
+                    checked={autoPauseOnSilence}
+                    onChange={(e) => setAutoPauseOnSilence(e.target.checked)}
+                    disabled={isRecording}
+                    style={{ accentColor: 'var(--amber)', cursor: 'pointer' }}
+                  />
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <Timer size={14} color="var(--amber)" aria-hidden="true" />
+                    Auto-Pause on 5s Silence (Auto-Resume on Speech)
+                  </span>
+                </label>
+              </div>
+
+              {/* Web Audio API Noise Gate (GainNode) Control Card */}
+              <div
+                style={{
+                  width: '100%',
+                  background: 'var(--card)',
+                  border: enableNoiseGate
+                    ? isRecording
+                      ? isNoiseGateOpen
+                        ? '1px solid rgba(16, 185, 129, 0.4)'
+                        : '1px solid rgba(245, 158, 11, 0.4)'
+                      : '1px solid var(--line)'
+                    : '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <label
+                    htmlFor="boxa-noise-gate-checkbox"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.84rem',
+                      fontWeight: 600,
+                      color: 'var(--text)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      id="boxa-noise-gate-checkbox"
+                      type="checkbox"
+                      checked={enableNoiseGate}
+                      onChange={(e) => setEnableNoiseGate(e.target.checked)}
+                      style={{ accentColor: 'var(--amber)', cursor: 'pointer' }}
+                    />
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <Sliders size={14} color="var(--amber)" aria-hidden="true" />
+                      Web Audio Noise Gate (GainNode)
+                    </span>
+                  </label>
+
+                  {enableNoiseGate && isRecording && (
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        background: isNoiseGateOpen
+                          ? 'rgba(16, 185, 129, 0.18)'
+                          : 'rgba(245, 158, 11, 0.18)',
+                        color: isNoiseGateOpen ? 'var(--emerald)' : 'var(--amber)',
+                        border: isNoiseGateOpen
+                          ? '1px solid rgba(16, 185, 129, 0.35)'
+                          : '1px solid rgba(245, 158, 11, 0.35)',
+                      }}
+                    >
+                      {isNoiseGateOpen ? (
+                        <>
+                          <Volume2 size={12} />
+                          Gate OPEN (Speech)
+                        </>
+                      ) : (
+                        <>
+                          <VolumeX size={12} />
+                          Gate CLOSED (Muted Noise)
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                {enableNoiseGate && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '2px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--muted)' }}>
+                      <span>Noise Gate Threshold:</span>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--amber)' }}>
+                        {noiseGateThresholdDb} dBFS
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={-60}
+                      max={-15}
+                      step={1}
+                      value={noiseGateThresholdDb}
+                      onChange={(e) => setNoiseGateThresholdDb(Number(e.target.value))}
+                      style={{ width: '100%', accentColor: 'var(--amber)', cursor: 'pointer' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Live Auto-Pause & Silence Detection Status Banners */}
+              {isRecording && isPaused && isAutoPaused && (
+                <div
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    border: '1px solid rgba(245, 158, 11, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    color: 'var(--amber)',
+                  }}
+                >
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--amber)', display: 'inline-block' }} />
+                    <span>Auto-Paused: 5s Silence Detected (Listening for sound...)</span>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', background: 'var(--card)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--line)' }}>
+                    Speak to Resume
+                  </span>
+                </div>
+              )}
+
+              {isRecording && !isPaused && autoPauseOnSilence && silenceDurationSeconds > 0.5 && (
+                <div
+                  style={{
+                    width: '100%',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    border: '1px solid rgba(245, 158, 11, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    color: 'var(--amber)',
+                  }}
+                >
+                  <span>Silence detected...</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                    {silenceDurationSeconds.toFixed(1)}s / 5.0s
+                  </span>
+                </div>
+              )}
 
               {/* Real-Time Peak Audio Level Meter (Bar Graph) */}
               <div
@@ -5811,60 +6549,299 @@ export const AiAudioTranscriber: React.FC = () => {
                 </div>
               </div>
 
-              {/* Real-time Oscilloscope Waveform Canvas */}
-              <div
-                style={{
-                  width: '100%',
-                  background: '#020617',
-                  border: '1px solid var(--line)',
-                  borderRadius: '12px',
-                  padding: '8px',
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}
-              >
-                <canvas
-                  ref={waveformCanvasRef}
-                  width={520}
-                  height={90}
-                  aria-label="Real-time audio recording waveform visualizer"
-                  style={{ width: '100%', height: '80px', display: 'block', borderRadius: '6px' }}
-                />
+              {/* Real-time Oscilloscope Waveform Canvas Section */}
+              <div style={{ width: '100%' }}>
+                {/* Visualizer Header & Color Settings Toggle */}
                 <div
                   style={{
-                    position: 'absolute',
-                    bottom: '12px',
-                    left: '14px',
-                    pointerEvents: 'none',
-                    background: 'rgba(2, 6, 23, 0.82)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '6px',
-                    padding: '2px 8px',
-                    fontSize: '0.72rem',
-                    fontFamily: 'monospace',
-                    color: isRecording ? (isPaused ? '#fde68a' : '#fecaca') : '#cbd5e1',
-                    display: 'inline-flex',
+                    display: 'flex',
                     alignItems: 'center',
-                    gap: '5px',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    marginBottom: '6px',
                   }}
                 >
-                  <span
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Activity size={14} color="var(--accent)" aria-hidden="true" />
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Oscilloscope Waveform Visualizer
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        padding: '2px 7px',
+                        borderRadius: '999px',
+                        background: 'var(--surface-accent)',
+                        color: 'var(--accent)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {WAVEFORM_THEMES.find((t) => t.id === waveformTheme)?.label || 'Custom'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowVisualizerSettings(!showVisualizerSettings)}
                     style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: isRecording ? (isPaused ? '#fbbf24' : '#ef4444') : '#38bdf8',
+                      background: showVisualizerSettings ? 'var(--surface-accent)' : 'var(--card)',
+                      border: showVisualizerSettings ? '1px solid var(--accent)' : '1px solid var(--line)',
+                      borderRadius: '6px',
+                      padding: '3px 9px',
+                      fontSize: '0.74rem',
+                      fontWeight: 600,
+                      color: showVisualizerSettings ? 'var(--accent)' : 'var(--text)',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      transition: 'all 0.15s ease',
                     }}
+                    title="Customize waveform visualizer gradient colors"
+                  >
+                    <Palette size={12} />
+                    <span>Waveform Colors</span>
+                  </button>
+                </div>
+
+                {/* Expandable Visualizer Color Settings Panel */}
+                {showVisualizerSettings && (
+                  <div
+                    style={{
+                      width: '100%',
+                      background: 'var(--card)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '10px',
+                      padding: '12px 14px',
+                      marginBottom: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Palette size={14} color="var(--accent)" />
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                          Waveform Gradient Settings
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowVisualizerSettings(false)}
+                        style={{
+                          background: 'transparent',
+                          border: 0,
+                          color: 'var(--muted)',
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                        title="Close color settings"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px' }}>
+                      {WAVEFORM_THEMES.map((theme) => {
+                        const isSelected = waveformTheme === theme.id;
+                        const previewStart = theme.id === 'custom' ? customStartColor : theme.startColor;
+                        const previewEnd = theme.id === 'custom' ? customEndColor : theme.endColor;
+
+                        return (
+                          <button
+                            key={theme.id}
+                            type="button"
+                            onClick={() => setWaveformTheme(theme.id)}
+                            style={{
+                              background: isSelected ? 'var(--surface-accent)' : 'var(--bg)',
+                              border: isSelected ? '2px solid var(--accent)' : '1px solid var(--line)',
+                              borderRadius: '8px',
+                              padding: '8px 10px',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '4px',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isSelected ? 'var(--accent)' : 'var(--text)' }}>
+                                {theme.label.split(' ')[0]} {theme.label.split(' ')[1] || ''}
+                              </span>
+                              <div
+                                style={{
+                                  width: '20px',
+                                  height: '10px',
+                                  borderRadius: '3px',
+                                  background: `linear-gradient(90deg, ${previewStart}, ${previewEnd})`,
+                                  border: '1px solid rgba(255,255,255,0.25)',
+                                  boxShadow: `0 0 4px ${previewStart}`,
+                                }}
+                              />
+                            </div>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--muted)', lineHeight: 1.2 }}>
+                              {theme.id === 'custom' ? 'Custom Pickers' : theme.description}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Custom Dual-Color HEX Pickers */}
+                    {waveformTheme === 'custom' && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '16px',
+                          flexWrap: 'wrap',
+                          paddingTop: '10px',
+                          borderTop: '1px solid var(--line)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <label
+                            htmlFor="custom-start-color"
+                            style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text)' }}
+                          >
+                            Waveform Color:
+                          </label>
+                          <input
+                            id="custom-start-color"
+                            type="color"
+                            value={customStartColor}
+                            onChange={(e) => setCustomStartColor(e.target.value)}
+                            style={{
+                              width: '32px',
+                              height: '28px',
+                              padding: '0',
+                              border: '1px solid var(--line)',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              background: 'none',
+                            }}
+                          />
+                          <input
+                            type="text"
+                            value={customStartColor}
+                            onChange={(e) => setCustomStartColor(e.target.value)}
+                            style={{
+                              width: '75px',
+                              fontSize: '0.76rem',
+                              fontFamily: 'monospace',
+                              padding: '4px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--line)',
+                              background: 'var(--bg)',
+                              color: 'var(--text)',
+                            }}
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <label
+                            htmlFor="custom-end-color"
+                            style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text)' }}
+                          >
+                            Glow / Aura Color:
+                          </label>
+                          <input
+                            id="custom-end-color"
+                            type="color"
+                            value={customEndColor}
+                            onChange={(e) => setCustomEndColor(e.target.value)}
+                            style={{
+                              width: '32px',
+                              height: '28px',
+                              padding: '0',
+                              border: '1px solid var(--line)',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              background: 'none',
+                            }}
+                          />
+                          <input
+                            type="text"
+                            value={customEndColor}
+                            onChange={(e) => setCustomEndColor(e.target.value)}
+                            style={{
+                              width: '75px',
+                              fontSize: '0.76rem',
+                              fontFamily: 'monospace',
+                              padding: '4px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--line)',
+                              background: 'var(--bg)',
+                              color: 'var(--text)',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Visualizer Canvas Box */}
+                <div
+                  style={{
+                    width: '100%',
+                    background: '#020617',
+                    border: '1px solid var(--line)',
+                    borderRadius: '12px',
+                    padding: '8px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <canvas
+                    ref={waveformCanvasRef}
+                    width={520}
+                    height={90}
+                    aria-label="Real-time audio recording waveform visualizer"
+                    style={{ width: '100%', height: '80px', display: 'block', borderRadius: '6px' }}
                   />
-                  <span>
-                    {isRecording
-                      ? isPaused
-                        ? `Paused: ${formatDurationDisplay(recordingTime)}`
-                        : `Duration: ${formatDurationDisplay(recordingTime)}`
-                      : verifiedDurationSeconds !== null && verifiedDurationSeconds > 0
-                      ? `Captured: ${formatDurationDisplay(verifiedDurationSeconds)}`
-                      : 'Duration: 0:00'}
-                  </span>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      left: '14px',
+                      pointerEvents: 'none',
+                      background: 'rgba(2, 6, 23, 0.82)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '6px',
+                      padding: '2px 8px',
+                      fontSize: '0.72rem',
+                      fontFamily: 'monospace',
+                      color: isRecording ? (isPaused ? '#fde68a' : '#fecaca') : '#cbd5e1',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: isRecording ? (isPaused ? '#fbbf24' : '#ef4444') : '#38bdf8',
+                      }}
+                    />
+                    <span>
+                      {isRecording
+                        ? isPaused
+                          ? `Paused: ${formatDurationDisplay(recordingTime)}`
+                          : `Duration: ${formatDurationDisplay(recordingTime)}`
+                        : verifiedDurationSeconds !== null && verifiedDurationSeconds > 0
+                        ? `Captured: ${formatDurationDisplay(verifiedDurationSeconds)}`
+                        : 'Duration: 0:00'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -6065,6 +7042,29 @@ export const AiAudioTranscriber: React.FC = () => {
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <button
                     type="button"
+                    onClick={handleToggleAudioEditor}
+                    disabled={isProcessing}
+                    style={{
+                      background: showAudioEditor ? 'var(--surface-accent)' : 'transparent',
+                      border: showAudioEditor ? '1px solid var(--accent)' : '1px solid var(--line)',
+                      borderRadius: '8px',
+                      padding: '7px 12px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      color: showAudioEditor ? 'var(--accent)' : 'var(--text)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}
+                    title="Set start and end timestamps to trim audio segment"
+                  >
+                    <Scissors size={13} color="var(--accent)" />
+                    {showAudioEditor ? 'Close Audio Editor' : 'Edit / Trim Audio'}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => void handlePlayViaWebAudio()}
                     disabled={isProcessing}
                     style={{
@@ -6142,6 +7142,256 @@ export const AiAudioTranscriber: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Interactive Edit & Trim Audio Panel */}
+              {showAudioEditor && verifiedAudioElementSrc && (
+                <div
+                  style={{
+                    background: 'var(--card)',
+                    border: '1px solid var(--accent)',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    marginTop: '12px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    boxShadow: '0 4px 16px rgba(56, 189, 248, 0.15)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Scissors size={18} color="var(--accent)" />
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                          Edit &amp; Trim Audio Segment
+                        </h4>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                          Set start and end timestamps to slice your audio before transcribing or downloading.
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAudioEditor(false)}
+                      style={{
+                        background: 'transparent',
+                        border: 0,
+                        color: 'var(--muted)',
+                        cursor: 'pointer',
+                        padding: '4px',
+                      }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {/* Start / End Slider Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                    {/* Start Time Input */}
+                    <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '10px', padding: '10px 12px' }}>
+                      <label
+                        htmlFor="trim-start-time"
+                        style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', marginBottom: '6px' }}
+                      >
+                        <span>Start Time:</span>
+                        <strong style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>
+                          {formatRecordingTimerOverlay(trimStartSeconds)} ({trimStartSeconds.toFixed(1)}s)
+                        </strong>
+                      </label>
+                      <input
+                        id="trim-start-time"
+                        type="range"
+                        min={0}
+                        max={Math.max(0, trimEndSeconds - 0.1)}
+                        step={0.1}
+                        value={trimStartSeconds}
+                        onChange={(e) => setTrimStartSeconds(Number(e.target.value))}
+                        style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                      />
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px', alignItems: 'center' }}>
+                        <input
+                          type="number"
+                          min={0}
+                          max={Math.max(0, trimEndSeconds - 0.1)}
+                          step={0.1}
+                          value={trimStartSeconds}
+                          onChange={(e) => setTrimStartSeconds(Math.max(0, Math.min(Number(e.target.value), trimEndSeconds - 0.1)))}
+                          style={{ width: '80px', padding: '3px 6px', fontSize: '0.78rem', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--text)', fontFamily: 'monospace' }}
+                        />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>sec</span>
+                      </div>
+                    </div>
+
+                    {/* End Time Input */}
+                    <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '10px', padding: '10px 12px' }}>
+                      <label
+                        htmlFor="trim-end-time"
+                        style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', marginBottom: '6px' }}
+                      >
+                        <span>End Time:</span>
+                        <strong style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>
+                          {formatRecordingTimerOverlay(trimEndSeconds)} ({trimEndSeconds.toFixed(1)}s)
+                        </strong>
+                      </label>
+                      <input
+                        id="trim-end-time"
+                        type="range"
+                        min={Math.min(trimStartSeconds + 0.1, (verifiedDurationSeconds || 1))}
+                        max={verifiedDurationSeconds || 10}
+                        step={0.1}
+                        value={trimEndSeconds}
+                        onChange={(e) => setTrimEndSeconds(Number(e.target.value))}
+                        style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                      />
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px', alignItems: 'center' }}>
+                        <input
+                          type="number"
+                          min={trimStartSeconds + 0.1}
+                          max={verifiedDurationSeconds || 10}
+                          step={0.1}
+                          value={trimEndSeconds}
+                          onChange={(e) => setTrimEndSeconds(Math.max(trimStartSeconds + 0.1, Math.min(Number(e.target.value), verifiedDurationSeconds || 10)))}
+                          style={{ width: '80px', padding: '3px 6px', fontSize: '0.78rem', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--text)', fontFamily: 'monospace' }}
+                        />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>sec</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Visual Timeline Selection Bar */}
+                  <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '10px', padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '6px' }}>
+                      <span>Selected Window Duration:</span>
+                      <strong style={{ color: 'var(--emerald)', fontFamily: 'monospace' }}>
+                        {formatDurationDisplay(Math.max(0, trimEndSeconds - trimStartSeconds))} ({(Math.max(0, trimEndSeconds - trimStartSeconds)).toFixed(1)}s)
+                      </strong>
+                    </div>
+                    <div style={{ width: '100%', height: '12px', background: 'var(--line)', borderRadius: '6px', overflow: 'hidden', position: 'relative' }}>
+                      {verifiedDurationSeconds && verifiedDurationSeconds > 0 && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: `${(trimStartSeconds / verifiedDurationSeconds) * 100}%`,
+                            width: `${((trimEndSeconds - trimStartSeconds) / verifiedDurationSeconds) * 100}%`,
+                            top: 0,
+                            bottom: 0,
+                            background: 'linear-gradient(90deg, var(--emerald), var(--accent))',
+                            borderRadius: '3px',
+                            boxShadow: '0 0 8px rgba(16, 185, 129, 0.5)',
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--muted)', fontWeight: 600 }}>Quick Presets:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dur = verifiedDurationSeconds || 10;
+                        setTrimStartSeconds(0);
+                        setTrimEndSeconds(Math.min(5, dur));
+                      }}
+                      style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '6px', padding: '3px 8px', fontSize: '0.74rem', cursor: 'pointer', color: 'var(--text)' }}
+                    >
+                      First 5s
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dur = verifiedDurationSeconds || 10;
+                        setTrimStartSeconds(0);
+                        setTrimEndSeconds(Math.min(10, dur));
+                      }}
+                      style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '6px', padding: '3px 8px', fontSize: '0.74rem', cursor: 'pointer', color: 'var(--text)' }}
+                    >
+                      First 10s
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dur = verifiedDurationSeconds || 10;
+                        setTrimStartSeconds(dur * 0.25);
+                        setTrimEndSeconds(dur * 0.75);
+                      }}
+                      style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '6px', padding: '3px 8px', fontSize: '0.74rem', cursor: 'pointer', color: 'var(--text)' }}
+                    >
+                      Middle 50%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dur = verifiedDurationSeconds || 10;
+                        setTrimStartSeconds(0);
+                        setTrimEndSeconds(dur);
+                      }}
+                      style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '6px', padding: '3px 8px', fontSize: '0.74rem', cursor: 'pointer', color: 'var(--text)' }}
+                    >
+                      Reset Full Range
+                    </button>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', paddingTop: '8px', borderTop: '1px solid var(--line)' }}>
+                    <button
+                      type="button"
+                      onClick={handlePreviewTrim}
+                      style={{
+                        background: isPreviewingTrim ? 'rgba(245, 158, 11, 0.15)' : 'var(--bg)',
+                        border: isPreviewingTrim ? '1px solid var(--amber)' : '1px solid var(--line)',
+                        borderRadius: '8px',
+                        padding: '7px 14px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        color: isPreviewingTrim ? 'var(--amber)' : 'var(--text)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      {isPreviewingTrim ? <Pause size={14} /> : <Play size={14} color="var(--amber)" />}
+                      {isPreviewingTrim ? 'Pause Preview' : 'Preview Trimmed Segment'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void handleApplyTrim()}
+                      disabled={isTrimming}
+                      style={{
+                        background: 'linear-gradient(90deg, var(--emerald), #059669)',
+                        color: '#ffffff',
+                        border: 0,
+                        borderRadius: '8px',
+                        padding: '8px 18px',
+                        fontSize: '0.86rem',
+                        fontWeight: 700,
+                        cursor: isTrimming ? 'not-allowed' : 'pointer',
+                        opacity: isTrimming ? 0.7 : 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                      }}
+                    >
+                      {isTrimming ? (
+                        <>
+                          <Loader2 size={15} className="animate-spin" />
+                          Trimming Audio...
+                        </>
+                      ) : (
+                        <>
+                          <Scissors size={15} />
+                          Apply Trim &amp; Save Audio
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Native audio element */}
               <audio

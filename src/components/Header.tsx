@@ -48,6 +48,17 @@ export const Header: React.FC = () => {
     }
   }, [theme]);
 
+  useEffect(() => {
+    const handleThemeChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<{ theme: 'dark' | 'light' }>;
+      if (customEvent.detail?.theme) {
+        setTheme(customEvent.detail.theme);
+      }
+    };
+    window.addEventListener('theme-changed', handleThemeChanged);
+    return () => window.removeEventListener('theme-changed', handleThemeChanged);
+  }, []);
+
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
@@ -140,10 +151,23 @@ export const Header: React.FC = () => {
           )}
           <button
             type="button"
+            className="nav-item"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', background: 'transparent', border: 0 }}
+            onClick={() => {
+              closeMenu();
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', shiftKey: true }));
+            }}
+            aria-label="View Keyboard Shortcuts (Shift+?)"
+            title="View Keyboard Shortcuts (Shift+?)"
+          >
+            ⌨️ Hotkeys
+          </button>
+          <button
+            type="button"
             className="theme-toggle-btn"
             onClick={toggleTheme}
             aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode (Alt+T)`}
           >
             {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
           </button>
