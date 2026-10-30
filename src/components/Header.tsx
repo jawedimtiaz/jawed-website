@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { SiteSearchBar } from './SiteSearchBar';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { AiProviderSettingsModal } from './AiProviderSettingsModal';
 
 export const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,6 +23,7 @@ export const Header: React.FC = () => {
   const { isInstallable, isInstalled, isStandalone, isIOS, install } = usePWAInstall();
   const location = useLocation();
   const path = location.pathname;
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   const closeMenu = () => setIsOpen(false);
 
@@ -165,6 +167,15 @@ export const Header: React.FC = () => {
           <button
             type="button"
             className="theme-toggle-btn"
+            onClick={() => setSettingsModalOpen(true)}
+            aria-label="AI Provider Settings (Ollama / Gemini)"
+            title="Configure AI Provider & Local Ollama"
+          >
+            🤖 AI Settings
+          </button>
+          <button
+            type="button"
+            className="theme-toggle-btn"
             onClick={toggleTheme}
             aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode (Alt+T)`}
@@ -180,6 +191,7 @@ export const Header: React.FC = () => {
           </Link>
         </nav>
       </div>
+      <AiProviderSettingsModal isOpen={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} />
     </header>
   );
 };

@@ -99,17 +99,14 @@ Format output into:
   }
 });
 
-// Server-side LLM transcript summarization endpoint using Gemini 3.8 Flash
+// Server-side LLM transcript summarization endpoint supporting Gemini Cloud and Local Ollama
 app.post('/api/summarize-transcript', async (req, res) => {
   try {
-    const { transcript, context } = req.body;
+    const { transcript, context, providerConfig } = req.body;
 
     if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {
       return res.status(400).json({ error: 'Transcript text is required for summarization.' });
     }
-
-    const { Type } = await import('@google/genai');
-    const ai = getGenAiClient();
 
     const project = context?.project ? `Project: ${context.project}` : '';
     const category = context?.category ? `Category: ${context.category}` : '';
@@ -124,7 +121,53 @@ Transcript:
 ${transcript.trim()}
 """
 
-Provide an executive summary, concrete action items, key technical takeaways, and a clean IT support log entry formatted for ticketing systems (ServiceNow/Jira/ITIL notes).`;
+Provide an executive summary, concrete action items, key technical takeaways, and a clean IT support log entry formatted for ticketing systems (ServiceNow/Jira/ITIL notes).
+Return your response as a valid JSON object with keys: summary (string), actionItems (array of strings), keyTakeaways (array of strings), itLogEntry (string).`;
+
+    // If local Ollama provider is requested
+    if (providerConfig && providerConfig.provider === 'ollama') {
+      const endpoint = (providerConfig.ollamaEndpoint || 'http://localhost:11434').replace(/\/+$/, '');
+      const model = providerConfig.ollamaModel || 'llama3';
+
+      try {
+        const ollamaRes = await fetch(`${endpoint}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            prompt: promptText + '\nOutput ONLY valid JSON matching the requested schema.',
+            stream: false,
+            format: 'json',
+          }),
+        });
+
+        if (!ollamaRes.ok) {
+          throw new Error(`Ollama server error status ${ollamaRes.status}`);
+        }
+
+        const ollamaData = await ollamaRes.json();
+        const rawResponse = ollamaData.response || '{}';
+        
+        // Clean markdown code blocks if any
+        const cleanedJson = rawResponse.replace(/```json\s*([\s\S]*?)\s*```/g, '$1').replace(/```\s*([\s\S]*?)\s*```/g, '$1').trim();
+        const parsed = JSON.parse(cleanedJson);
+
+        return res.json({
+          success: true,
+          summary: parsed.summary || 'Summary unavailable.',
+          actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
+          keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways : [],
+          itLogEntry: parsed.itLogEntry || '',
+          modelUsed: `Ollama (${model})`,
+        });
+      } catch (ollamaErr: any) {
+        console.warn('Ollama request failed, falling back to Gemini Cloud:', ollamaErr?.message);
+      }
+    }
+
+    // Default Gemini Cloud API
+    const { Type } = await import('@google/genai');
+    const ai = getGenAiClient();
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
@@ -176,6 +219,64 @@ Output must be structured JSON adhering strictly to the schema provided.`,
     console.error('Error in /api/summarize-transcript:', error);
     res.status(500).json({
       error: error?.message || 'Failed to generate LLM transcript summary.',
+    });
+  }
+});
+
+// Server-side video generation endpoint using gemini-omni-1.1-flash (Animate Image to Video)
+app.post('/api/animate-image-to-video', async (req, res) => {
+  try {
+    const { image, mimeType = 'image/png', prompt, aspectRatio = '16:9' } = req.body;
+
+    if (!image) {
+      return res.status(400).json({ error: 'Source image payload is required.' });
+    }
+
+    const base64Data = image.replace(/^data:[^;]+;base64,/, '');
+    const validAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
+
+    const ai = getGenAiClient();
+    const interaction = await ai.interactions.create({
+      model: 'gemini-omni-1.1-flash',
+      input: [
+        {
+          type: 'image',
+          mime_type: mimeType || 'image/png',
+          data: base64Data,
+        },
+        {
+          type: 'text',
+          text: prompt && typeof prompt === 'string' && prompt.trim()
+            ? prompt.trim()
+            : 'Animate this photo with natural motion and cinematic lighting.',
+        },
+      ],
+      background: false,
+      store: false,
+      stream: false,
+      response_format: {
+        type: 'video',
+        aspect_ratio: validAspectRatio,
+        duration: '5s',
+        resolution: '720p',
+      },
+    }, { timeout: 300000 });
+
+    const videoPart = interaction.output_video;
+    if (!videoPart || !videoPart.data) {
+      throw new Error('Model did not return a video payload.');
+    }
+
+    res.json({
+      success: true,
+      video: videoPart.data,
+      mimeType: videoPart.mime_type || 'video/mp4',
+      model: 'gemini-omni-1.1-flash',
+    });
+  } catch (error: any) {
+    console.error('Error in /api/animate-image-to-video:', error);
+    res.status(500).json({
+      error: error?.message || 'Failed to animate image into video. Please try again.',
     });
   }
 });

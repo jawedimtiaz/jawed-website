@@ -328,4 +328,12 @@ export const TOOLS: ToolItem[] = [
     route: '/tools/ai-audio-transcriber',
     keywords: ['transcribe', 'audio', 'voice', 'recording', 'speech', 'microphone', 'gemini', 'service desk', 'voice note', 'call summary', 'ai'],
   },
+  {
+    id: 'animate-image-to-video',
+    name: 'Animate Images into Video',
+    description: 'Transform static photos into cinematic 16:9 or 9:16 videos with custom motion prompts powered by Gemini Omni Flash.',
+    category: 'ai',
+    route: '/tools/animate-image-to-video',
+    keywords: ['video', 'animate', 'image to video', 'omni flash', 'movie', 'ai', 'gemini', 'cinematic'],
+  },
 ];

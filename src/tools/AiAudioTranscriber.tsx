@@ -55,6 +55,7 @@ import {
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { getStoredAiProviderConfig } from '../components/AiProviderSettingsModal';
 import {
   TranscriberErrorCategory,
   WavValidationResult,
@@ -687,6 +688,26 @@ export const AiAudioTranscriber: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showLineTimestamps, setShowLineTimestamps] = useState<boolean>(true);
   const [paragraphSpacing, setParagraphSpacing] = useState<'compact' | 'normal' | 'relaxed'>('normal');
+  const [collapsedTurns, setCollapsedTurns] = useState<Record<string, boolean>>({});
+
+  const toggleTurnCollapsed = (turnKey: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setCollapsedTurns((prev) => ({ ...prev, [turnKey]: !prev[turnKey] }));
+  };
+
+  const expandAllTurns = () => {
+    setCollapsedTurns({});
+  };
+
+  const collapseAllTurns = () => {
+    const next: Record<string, boolean> = {};
+    if (result?.speakerTurns) {
+      result.speakerTurns.forEach((t, i) => {
+        next[t.id || String(i)] = true;
+      });
+    }
+    setCollapsedTurns(next);
+  };
 
   // Auto-Pause on Silence State & Refs
   const [autoPauseOnSilence, setAutoPauseOnSilence] = useState<boolean>(true);
@@ -726,6 +747,46 @@ export const AiAudioTranscriber: React.FC = () => {
   const [isSummarizingLlm, setIsSummarizingLlm] = useState<boolean>(false);
   const [llmSummaryError, setLlmSummaryError] = useState<string | null>(null);
   const [staticWaveformBars, setStaticWaveformBars] = useState<number[]>([]);
+
+  // Ollama Connection Health & Status Polling State
+  const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [ollamaModelName, setOllamaModelName] = useState<string>('llama3');
+
+  const checkOllamaStatus = useCallback(async () => {
+    try {
+      const aiConfig = getStoredAiProviderConfig();
+      const endpoint = (aiConfig.ollamaEndpoint || 'http://localhost:11434').replace(/\/+$/, '');
+      setOllamaModelName(aiConfig.ollamaModel || 'llama3');
+      const res = await fetch(`${endpoint}/api/tags`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOllamaStatus('connected');
+        if (Array.isArray(data.models) && data.models.length > 0 && data.models[0]?.name) {
+          setOllamaModelName(data.models[0].name);
+        }
+      } else {
+        setOllamaStatus('disconnected');
+      }
+    } catch {
+      setOllamaStatus('disconnected');
+    }
+  }, []);
+
+  useEffect(() => {
+    checkOllamaStatus();
+    const interval = setInterval(checkOllamaStatus, 15000);
+    const handleProviderChange = () => {
+      checkOllamaStatus();
+    };
+    window.addEventListener('ai-provider-changed', handleProviderChange);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('ai-provider-changed', handleProviderChange);
+    };
+  }, [checkOllamaStatus]);
 
   useEffect(() => {
     if (!audioBlob) {
@@ -5727,14 +5788,107 @@ export const AiAudioTranscriber: React.FC = () => {
     }
   };
 
+  const summarizeWithOllama = async (
+    transcriptText: string,
+    config: { ollamaEndpoint: string; ollamaModel: string },
+    contextData: any
+  ) => {
+    const endpoint = (config.ollamaEndpoint || 'http://localhost:11434').replace(/\/+$/, '');
+    const model = config.ollamaModel || 'llama3';
+
+    const project = contextData?.project ? `Project: ${contextData.project}` : '';
+    const category = contextData?.category ? `Category: ${contextData.category}` : '';
+    const tags = Array.isArray(contextData?.tags) && contextData.tags.length > 0 ? `Tags: ${contextData.tags.join(', ')}` : '';
+    const metadataContext = [project, category, tags].filter(Boolean).join(' | ');
+
+    const promptText = `Analyze the following transcript from an IT voice recording, meeting, or field note.
+${metadataContext ? `Session Metadata Context: [${metadataContext}]\n` : ''}
+
+Transcript:
+"""
+${transcriptText.trim()}
+"""
+
+Provide an executive summary, concrete action items, key technical takeaways, and a clean IT support log entry formatted for ticketing systems (ServiceNow/Jira/ITIL notes).
+Return your response as a valid JSON object with keys:
+- "summary": string (2-4 sentence executive summary)
+- "actionItems": array of strings (concrete action items)
+- "keyTakeaways": array of strings (key technical findings)
+- "itLogEntry": string (formatted IT support log entry)
+Output ONLY valid JSON.`;
+
+    const res = await fetch(`${endpoint}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        prompt: promptText,
+        stream: false,
+        format: 'json',
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Ollama local server responded with status ${res.status}. Ensure Ollama is running at ${endpoint} with CORS enabled (OLLAMA_ORIGINS="*").`);
+    }
+
+    const data = await res.json();
+    const rawResponse = data.response || '{}';
+    const cleanedJson = rawResponse.replace(/```json\s*([\s\S]*?)\s*```/g, '$1').replace(/```\s*([\s\S]*?)\s*```/g, '$1').trim();
+    const parsed = JSON.parse(cleanedJson);
+
+    return {
+      summary: parsed.summary || 'Summary unavailable.',
+      actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
+      keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways : [],
+      itLogEntry: parsed.itLogEntry || '',
+      modelUsed: `Local Ollama (${model})`,
+    };
+  };
+
   const handleSummarizeWithLlm = async () => {
     if (!result || !result.transcript || !result.transcript.trim()) return;
 
     setIsSummarizingLlm(true);
     setLlmSummaryError(null);
-    addLog('info', 'Generating Gemini 3.8 Flash AI summary, action items & IT support log entry...');
+
+    const aiConfig = getStoredAiProviderConfig();
+    const useOllama = aiConfig.provider === 'ollama';
+
+    addLog(
+      'info',
+      useOllama
+        ? `Generating summary via local Ollama (${aiConfig.ollamaEndpoint}, model: ${aiConfig.ollamaModel})...`
+        : 'Generating Gemini Cloud AI summary, action items & IT support log entry...'
+    );
 
     try {
+      if (useOllama) {
+        const ollamaResult = await summarizeWithOllama(result.transcript, aiConfig, {
+          project: metaProject,
+          category: metaCategory,
+          date: metaDate,
+          tags: customTags,
+        });
+
+        setResult((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            summary: ollamaResult.summary,
+            actionItems: ollamaResult.actionItems.length > 0 ? ollamaResult.actionItems : prev.actionItems,
+            keyTakeaways: ollamaResult.keyTakeaways || [],
+            itLogEntry: ollamaResult.itLogEntry || '',
+            isLlmGenerated: true,
+            modelUsed: `${prev.modelUsed || selectedModelId} + ${ollamaResult.modelUsed} (Free Local AI)`,
+          };
+        });
+
+        addLog('info', 'Successfully generated transcript summary & IT support notes via local Ollama (100% free & private).');
+        return;
+      }
+
+      // Default Gemini Cloud API fallback via server
       const res = await fetch('/api/summarize-transcript', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -5746,12 +5900,13 @@ export const AiAudioTranscriber: React.FC = () => {
             date: metaDate,
             tags: customTags,
           },
+          providerConfig: aiConfig,
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to summarize transcript via Gemini AI.');
+        throw new Error(data.error || 'Failed to summarize transcript via AI.');
       }
 
       setResult((prev) => {
@@ -5763,15 +5918,15 @@ export const AiAudioTranscriber: React.FC = () => {
           keyTakeaways: data.keyTakeaways || [],
           itLogEntry: data.itLogEntry || '',
           isLlmGenerated: true,
-          modelUsed: `${prev.modelUsed || selectedModelId} + Gemini 3.8 Flash (LLM Summary)`,
+          modelUsed: `${prev.modelUsed || selectedModelId} + ${data.modelUsed || 'AI Summary'}`,
         };
       });
 
-      addLog('info', 'Successfully generated Gemini AI transcript summary & IT support log notes.');
+      addLog('info', 'Successfully generated AI transcript summary & IT support log notes.');
     } catch (err: any) {
       const msg = err?.message || 'Error generating AI summary.';
       setLlmSummaryError(msg);
-      addLog('error', 'Gemini AI Summarizer Error:', msg);
+      addLog('error', 'AI Summarizer Error:', msg);
     } finally {
       setIsSummarizingLlm(false);
     }
@@ -6070,6 +6225,34 @@ export const AiAudioTranscriber: React.FC = () => {
               >
                 <ShieldCheck size={14} color="var(--emerald)" aria-hidden="true" /> Zero Server Uploads • 100% Private
               </span>
+
+              {/* Ollama Connection Health Status Badge */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '3px 10px',
+                  borderRadius: '6px',
+                  background: ollamaStatus === 'connected' ? 'rgba(16, 185, 129, 0.12)' : ollamaStatus === 'checking' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                  border: `1px solid ${ollamaStatus === 'connected' ? 'rgba(16, 185, 129, 0.3)' : ollamaStatus === 'checking' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                  color: ollamaStatus === 'connected' ? 'var(--emerald)' : ollamaStatus === 'checking' ? 'var(--amber)' : '#ef4444',
+                }}
+                title={`Ollama Local API (${ollamaModelName}): ${ollamaStatus}`}
+              >
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: ollamaStatus === 'connected' ? 'var(--emerald)' : ollamaStatus === 'checking' ? 'var(--amber)' : '#ef4444',
+                    boxShadow: ollamaStatus === 'connected' ? '0 0 6px var(--emerald)' : 'none',
+                  }}
+                />
+                <span>Ollama: {ollamaStatus === 'connected' ? `Connected (${ollamaModelName})` : ollamaStatus === 'checking' ? 'Checking...' : 'Disconnected'}</span>
+              </div>
 
               {lastAutoSaveTime && (
                 <span
@@ -10437,99 +10620,147 @@ export const AiAudioTranscriber: React.FC = () => {
 
                 {/* Transcript Body: Speaker Dialogue Turns or Verbatim Text */}
                 {transcriptViewMode === 'speaker' && result.speakerTurns && result.speakerTurns.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: paragraphSpacing === 'relaxed' ? '20px' : paragraphSpacing === 'compact' ? '8px' : '12px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
-                    {result.speakerTurns
-                      .filter((turn) => speakerFilter === 'all' || turn.speaker === speakerFilter)
-                      .map((turn, index) => {
-                        const isSpeaker1 = turn.speakerIndex === 1;
-                        return (
-                          <div
-                            key={turn.id || index}
-                            onClick={() => seekToTime(turn.startTime)}
-                            style={{
-                              background: 'var(--card)',
-                              border: isSpeaker1
-                                ? '1px solid rgba(56, 189, 248, 0.35)'
-                                : '1px solid rgba(168, 85, 247, 0.35)',
-                              borderRadius: '10px',
-                              padding: '12px 14px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '6px',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.borderColor = 'var(--accent)';
-                              e.currentTarget.style.background = 'var(--surface-accent)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.borderColor = isSpeaker1
-                                ? 'rgba(56, 189, 248, 0.35)'
-                                : 'rgba(168, 85, 247, 0.35)';
-                              e.currentTarget.style.background = 'var(--card)';
-                            }}
-                            title={`Seek audio player to ${formatSpeakerTimestamp(turn.startTime)}`}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span
-                                  style={{
-                                    width: '26px',
-                                    height: '26px',
-                                    borderRadius: '50%',
-                                    background: isSpeaker1
-                                      ? 'rgba(56, 189, 248, 0.2)'
-                                      : 'rgba(168, 85, 247, 0.2)',
-                                    color: isSpeaker1 ? 'var(--accent)' : 'var(--indigo)',
-                                    fontSize: '0.78rem',
-                                    fontWeight: 800,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
-                                >
-                                  S{turn.speakerIndex}
-                                </span>
-                                <strong style={{ fontSize: '0.9rem', color: isSpeaker1 ? 'var(--accent)' : 'var(--indigo)' }}>
-                                  {turn.speaker}
-                                </strong>
-                                {typeof turn.channel === 'number' && (
-                                  <span style={{ fontSize: '0.70rem', color: 'var(--muted)', background: 'var(--bg)', padding: '1px 5px', borderRadius: '4px', border: '1px solid var(--line)' }}>
-                                    Ch {turn.channel + 1}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* Global Expand/Collapse controls for speaker cards */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', fontSize: '0.78rem', color: 'var(--muted)' }}>
+                      <span>Speaker Sections ({result.speakerTurns.filter((turn) => speakerFilter === 'all' || turn.speaker === speakerFilter).length})</span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={expandAllTurns}
+                          style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.74rem', cursor: 'pointer', color: 'var(--accent)' }}
+                        >
+                          Expand All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={collapseAllTurns}
+                          style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.74rem', cursor: 'pointer', color: 'var(--text)' }}
+                        >
+                          Collapse All
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: paragraphSpacing === 'relaxed' ? '16px' : paragraphSpacing === 'compact' ? '8px' : '12px', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {result.speakerTurns
+                        .filter((turn) => speakerFilter === 'all' || turn.speaker === speakerFilter)
+                        .map((turn, index) => {
+                          const isSpeaker1 = turn.speakerIndex === 1;
+                          const turnKey = turn.id || String(index);
+                          const isCollapsed = Boolean(collapsedTurns[turnKey]);
+
+                          return (
+                            <div
+                              key={turnKey}
+                              style={{
+                                background: 'var(--card)',
+                                border: isSpeaker1
+                                  ? '1px solid rgba(56, 189, 248, 0.35)'
+                                  : '1px solid rgba(168, 85, 247, 0.35)',
+                                borderRadius: '10px',
+                                overflow: 'hidden',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              {/* Collapsible Card Header */}
+                              <div
+                                onClick={(e) => toggleTurnCollapsed(turnKey, e)}
+                                style={{
+                                  padding: '10px 14px',
+                                  background: isCollapsed ? 'var(--card)' : 'var(--surface-accent)',
+                                  borderBottom: isCollapsed ? 'none' : '1px solid var(--line)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  flexWrap: 'wrap',
+                                  gap: '8px',
+                                  cursor: 'pointer',
+                                }}
+                                title="Click to expand or collapse speaker section"
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span
+                                    style={{
+                                      width: '26px',
+                                      height: '26px',
+                                      borderRadius: '50%',
+                                      background: isSpeaker1
+                                        ? 'rgba(56, 189, 248, 0.2)'
+                                        : 'rgba(168, 85, 247, 0.2)',
+                                      color: isSpeaker1 ? 'var(--accent)' : 'var(--indigo)',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 800,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}
+                                  >
+                                    S{turn.speakerIndex}
                                   </span>
-                                )}
+                                  <strong style={{ fontSize: '0.9rem', color: isSpeaker1 ? 'var(--accent)' : 'var(--indigo)' }}>
+                                    {turn.speaker}
+                                  </strong>
+                                  {typeof turn.channel === 'number' && (
+                                    <span style={{ fontSize: '0.70rem', color: 'var(--muted)', background: 'var(--bg)', padding: '1px 5px', borderRadius: '4px', border: '1px solid var(--line)' }}>
+                                      Ch {turn.channel + 1}
+                                    </span>
+                                  )}
+                                  {isCollapsed && (
+                                    <span style={{ fontSize: '0.76rem', color: 'var(--muted)', fontStyle: 'italic', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      "{turn.text.slice(0, 50)}..."
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      seekToTime(turn.startTime);
+                                    }}
+                                    style={{
+                                      background: 'var(--bg)',
+                                      border: '1px solid var(--line)',
+                                      borderRadius: '6px',
+                                      padding: '2px 8px',
+                                      fontSize: '0.74rem',
+                                      fontFamily: 'monospace',
+                                      color: 'var(--muted)',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                    title="Jump audio player to this speaker turn"
+                                  >
+                                    <Play size={10} color="var(--emerald)" />
+                                    {formatSpeakerTimestamp(turn.startTime)} - {formatSpeakerTimestamp(turn.endTime)}
+                                  </button>
+
+                                  <div style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>
+                                    {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                                  </div>
+                                </div>
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={() => seekToTime(turn.startTime)}
-                                style={{
-                                  background: 'var(--bg)',
-                                  border: '1px solid var(--line)',
-                                  borderRadius: '6px',
-                                  padding: '2px 8px',
-                                  fontSize: '0.74rem',
-                                  fontFamily: 'monospace',
-                                  color: 'var(--muted)',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                }}
-                                title="Jump audio player to this speaker turn"
-                              >
-                                <Play size={10} color="var(--emerald)" />
-                                {formatSpeakerTimestamp(turn.startTime)} - {formatSpeakerTimestamp(turn.endTime)}
-                              </button>
+                              {/* Collapsible Card Body */}
+                              {!isCollapsed && (
+                                <div style={{ padding: '12px 14px' }}>
+                                  <p
+                                    onClick={() => seekToTime(turn.startTime)}
+                                    style={{ margin: 0, fontSize: '0.94rem', lineHeight: paragraphSpacing === 'relaxed' ? 2.0 : paragraphSpacing === 'compact' ? 1.35 : 1.65, color: 'var(--text)', cursor: 'pointer' }}
+                                    title="Click to seek audio to this timestamp"
+                                  >
+                                    {highlightMatchingText(turn.text, searchQuery)}
+                                  </p>
+                                </div>
+                              )}
                             </div>
-
-                            <p style={{ margin: 0, fontSize: '0.94rem', lineHeight: paragraphSpacing === 'relaxed' ? 2.0 : paragraphSpacing === 'compact' ? 1.35 : 1.65, color: 'var(--text)' }}>
-                              {highlightMatchingText(turn.text, searchQuery)}
-                            </p>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                    </div>
                   </div>
                 ) : (
                   <div style={{ position: 'relative' }}>

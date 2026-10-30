@@ -51,6 +51,7 @@ import { CctvStorageCalculator } from './tools/CctvStorageCalculator';
 import { HardwareStorageCalculator } from './tools/HardwareStorageCalculator';
 import { CableLengthPoeChecker } from './tools/CableLengthPoeChecker';
 import { AiAudioTranscriber } from './tools/AiAudioTranscriber';
+import { AnimateImageToVideo } from './tools/AnimateImageToVideo';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -154,6 +155,9 @@ export const App: React.FC = () => {
             <Route path="/tools/ai-audio-transcriber" element={<AiAudioTranscriber />} />
             <Route path="/tools/audio-transcriber" element={<AiAudioTranscriber />} />
             <Route path="/tools/transcribe" element={<AiAudioTranscriber />} />
+            <Route path="/tools/animate-image-to-video" element={<AnimateImageToVideo />} />
+            <Route path="/tools/animate-image" element={<AnimateImageToVideo />} />
+            <Route path="/animate-image-to-video" element={<AnimateImageToVideo />} />
 
             {/* Services & Dispatch */}
             <Route path="/services" element={<ServicesDispatchPage />} />

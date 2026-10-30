@@ -3352,7 +3352,27 @@ select:focus-visible {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 20mm 15mm;
+    margin: 22mm 15mm 20mm 15mm;
+    @top-left {
+      content: "Jawed AI • AI Audio Transcriber & Summarizer Report";
+      font-size: 8pt;
+      font-weight: 600;
+      color: #475569;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    @top-right {
+      content: "Official Document";
+      font-size: 8pt;
+      font-weight: 500;
+      color: #64748b;
+      font-family: system-ui, sans-serif;
+    }
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 8pt;
+      color: #64748b;
+      font-family: system-ui, sans-serif;
+    }
   }
 
   html, body {
@@ -3391,7 +3411,7 @@ select:focus-visible {
     display: none !important;
   }
 
-  /* Format breadcrumbs clearly for print */
+  /* Format breadcrumbs clearly for print with simplified trail and hidden interactive menus */
   .breadcrumb-container,
   nav[aria-label="Breadcrumb"] {
     display: flex !important;
@@ -3403,6 +3423,22 @@ select:focus-visible {
     color: var(--print-muted) !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
+  }
+
+  /* Suppress interactive dropdowns and buttons inside breadcrumbs for clean print output */
+  .breadcrumb-dropdown,
+  .breadcrumb-history-menu,
+  .breadcrumb-separator-btn,
+  .breadcrumb-menu-btn,
+  button.breadcrumb-sep,
+  button.breadcrumb-link-btn {
+    display: none !important;
+  }
+
+  .breadcrumb-container a,
+  nav[aria-label="Breadcrumb"] a {
+    color: var(--print-muted) !important;
+    text-decoration: none !important;
   }
 
   /* Format page body & main content */
