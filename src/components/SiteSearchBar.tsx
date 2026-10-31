@@ -11,6 +11,57 @@ interface SiteSearchBarProps {
   onNavigated?: () => void;
 }
 
+const POPULAR_SEARCH_CATEGORIES: {
+  label: string;
+  badge: string;
+  url: string;
+  query: string;
+  description: string;
+}[] = [
+  {
+    label: 'IPv4 Calculator',
+    badge: 'Networking',
+    url: '/tools/ipv4-subnet-calculator',
+    query: 'IPv4 Subnet Calculator',
+    description: 'CIDR masks, host ranges & broadcast addresses',
+  },
+  {
+    label: 'Resume Review',
+    badge: 'Career & ATS',
+    url: '/tools/career-match-resume-review',
+    query: 'Resume Review',
+    description: 'Match resume keywords against IT job descriptions',
+  },
+  {
+    label: 'IT Field Guides',
+    badge: 'Documentation',
+    url: '/guides',
+    query: 'IT Field Guides',
+    description: 'SOPs for cabling, Windows, macOS & network triage',
+  },
+  {
+    label: 'Cable Length & PoE',
+    badge: 'Hardware',
+    url: '/tools/cable-length-poe-budget-checker',
+    query: 'Cable Length & PoE',
+    description: 'Verify Cat5e/6/6a runs & switch PoE power budgets',
+  },
+  {
+    label: 'Service Desk Notes',
+    badge: 'ITSM',
+    url: '/tools/service-desk-note-formatter',
+    query: 'Service Desk Note Formatter',
+    description: 'Format troubleshooting notes into clean ticket updates',
+  },
+  {
+    label: 'AI Prompt Builder',
+    badge: 'AI Tool',
+    url: '/tools/ai-prompt-builder',
+    query: 'AI Prompt Builder',
+    description: 'Craft high-context technical & support prompts',
+  },
+];
+
 export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -224,6 +275,10 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
       if (displayedItems[selectedIndex]) {
         navigateToResult(displayedItems[selectedIndex]);
       }
+    } else if (e.key === '?' && !query.trim()) {
+      e.preventDefault();
+      handleClose();
+      window.dispatchEvent(new CustomEvent('open-shortcuts-modal'));
     }
   };
 
@@ -460,14 +515,14 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                   </p>
                   <div className="search-suggestion-chips">
                     {[
-                      'Audio Transcriber',
+                      'IPv4 Calculator',
+                      'Resume Review',
+                      'IT Field Guides',
                       'Cable Length & PoE',
-                      'IPv4 Subnet',
                       'AI Prompt Builder',
                       'Service Desk Note',
                       'RJ45 T568B',
-                      'Rebuilding Jawed.co.in',
-                      'IT Troubleshooting',
+                      'Audio Transcriber',
                     ].map((suggestion) => (
                       <button
                         key={suggestion}
@@ -519,6 +574,52 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                             }}
                           >
                             ⏱️ {rec}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {!query.trim() && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div className="search-section-header">
+                        <span>🔥 Popular Searches</span>
+                      </div>
+                      <div
+                        className="search-suggestion-chips"
+                        style={{ padding: '4px 12px 6px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}
+                        role="group"
+                        aria-label="Popular Searches"
+                      >
+                        {POPULAR_SEARCH_CATEGORIES.map((item) => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            className="search-suggestion-chip"
+                            onClick={() => {
+                              handleClose();
+                              if (onNavigated) onNavigated();
+                              navigate(item.url);
+                            }}
+                            title={`${item.label} — ${item.description}`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <span style={{ fontWeight: 600 }}>{item.label}</span>
+                            <span
+                              style={{
+                                fontSize: '0.7rem',
+                                opacity: 0.75,
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: 'rgba(128, 128, 128, 0.15)',
+                              }}
+                            >
+                              {item.badge}
+                            </span>
                           </button>
                         ))}
                       </div>
@@ -586,7 +687,10 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                   Press <kbd className="search-footer-kbd">⌘K</kbd> or <kbd className="search-footer-kbd">/</kbd> to search
                 </span>
                 <span className="search-footer-hint">
-                  <kbd className="search-footer-kbd">↑</kbd> <kbd className="search-footer-kbd">↓</kbd> to navigate
+                  <kbd className="search-footer-kbd">↑ ↓</kbd> to navigate
+                </span>
+                <span className="search-footer-hint">
+                  <kbd className="search-footer-kbd">↵</kbd> to select
                 </span>
                 <span className="search-footer-hint">
                   <kbd className="search-footer-kbd">ESC</kbd> to close
@@ -599,6 +703,7 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                     handleClose();
                     window.dispatchEvent(new CustomEvent('open-shortcuts-modal'));
                   }}
+                  title="Open keyboard shortcut cheatsheet"
                   style={{
                     background: 'transparent',
                     border: 0,
@@ -611,7 +716,7 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
                     gap: '4px',
                   }}
                 >
-                  <span>
+                  <span className="search-footer-hint">
                     Press <kbd className="search-footer-kbd">?</kbd> for all shortcuts
                   </span>
                 </button>

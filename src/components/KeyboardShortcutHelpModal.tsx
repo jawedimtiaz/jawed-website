@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ShortcutItem, formatComboForDisplay } from '../hooks/useKeyboardShortcuts';
 
-interface KeyboardShortcutHelpModalProps {
+export interface KeyboardShortcutHelpModalProps {
   isOpen: boolean;
   onClose: () => void;
   shortcuts: ShortcutItem[];

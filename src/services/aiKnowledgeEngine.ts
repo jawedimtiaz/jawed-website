@@ -88,9 +88,9 @@ const corePageEntries: KnowledgeEntry[] = [
   },
   {
     url: '/guides',
-    title: 'Technical Field Guides & IT Notes',
+    title: 'IT Field Guides & Technical Notes',
     summary: 'In-depth IT field notes on networking, macOS, Windows administration, cable verification, and workplace support workflows.',
-    keywords: ['field guides', 'notes', 'documentation', 'cheatsheet', 'sop'],
+    keywords: ['it field guides', 'field guides', 'notes', 'documentation', 'cheatsheet', 'sop'],
   },
   {
     url: '/tools',
@@ -478,13 +478,15 @@ export function searchSite(query: string, maxResults: number = 40): CategorizedS
 
 export function getQuickSearchRecommendations(): SiteSearchResult[] {
   const recommendedUrls = [
-    '/tools/ai-audio-transcriber',
-    '/tools/cable-length-poe-budget-checker',
     '/tools/ipv4-subnet-calculator',
+    '/tools/career-match-resume-review',
+    '/guides',
+    '/tools/cable-length-poe-budget-checker',
+    '/tools/service-desk-note-formatter',
     '/tools/ai-prompt-builder',
+    '/tools/ai-audio-transcriber',
     '/guides/rj45-cabling-t568a-vs-t568b-guide',
     '/blog/rebuilding-jawed-co-in',
-    '/blog/triage-workplace-app-access-issue',
     '/about',
     '/services',
   ];

@@ -1,21 +1,72 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useKeyboardShortcuts, type ShortcutItem } from '../hooks/useKeyboardShortcuts';
+import { KeyboardShortcutModal } from './KeyboardShortcutModal';
 
 interface FooterProps {
   onOpenCookieModal?: () => void;
   onOpenShortcutsModal?: () => void;
 }
 
+const FALLBACK_SHORTCUTS: ShortcutItem[] = [
+  {
+    id: 'nav-home',
+    combo: 'g+h',
+    label: 'Go to Home',
+    description: 'G + H -> Go to Home',
+    category: 'Navigation',
+    action: () => {},
+  },
+  {
+    id: 'nav-tools',
+    combo: 'g+t',
+    label: 'Go to Tools',
+    description: 'G + T -> Go to Tools',
+    category: 'Navigation',
+    action: () => {},
+  },
+  {
+    id: 'nav-guides',
+    combo: 'g+g',
+    label: 'Go to Guides',
+    description: 'G + G -> Go to Guides',
+    category: 'Navigation',
+    action: () => {},
+  },
+  {
+    id: 'search-modal',
+    combo: 'mod+k',
+    label: 'Open Search',
+    description: '⌘ + K -> Open Search',
+    category: 'Search & Modals',
+    action: () => {},
+  },
+  {
+    id: 'toggle-theme',
+    combo: 't',
+    label: 'Toggle Theme (Dark / Light)',
+    description: 'T -> Toggle Theme (Dark / Light)',
+    category: 'Global Controls',
+    action: () => {},
+  },
+];
+
 export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal, onOpenShortcutsModal }) => {
   const currentYear = new Date().getFullYear();
-  const { openHelpModal } = useKeyboardShortcuts();
+  const { shortcuts, openHelpModal } = useKeyboardShortcuts();
+  const [isFallbackModalOpen, setIsFallbackModalOpen] = useState(false);
+
+  const hasGlobalShortcutManager = shortcuts.length > 0;
 
   const handleOpenShortcuts = () => {
     if (onOpenShortcutsModal) {
       onOpenShortcutsModal();
     }
-    openHelpModal();
+    if (hasGlobalShortcutManager) {
+      openHelpModal();
+    } else {
+      setIsFallbackModalOpen(true);
+    }
     window.dispatchEvent(new CustomEvent('open-shortcuts-modal'));
   };
 
@@ -65,20 +116,13 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal, onOpenShortcu
               <li><Link to="/terms">Terms of Service</Link></li>
               <li><Link to="/cookies">Cookie Policy</Link></li>
               <li><Link to="/contact">Contact Us</Link></li>
-              <li style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+              <li>
                 <button
                   type="button"
                   className="cookie-trigger-btn"
                   onClick={onOpenCookieModal}
                 >
                   ⚙ Cookie Preferences
-                </button>
-                <button
-                  type="button"
-                  className="cookie-trigger-btn"
-                  onClick={handleOpenShortcuts}
-                >
-                  Keyboard Shortcuts
                 </button>
               </li>
             </ul>
@@ -97,22 +141,24 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal, onOpenShortcu
             <span>•</span>
             <button
               type="button"
+              className="cookie-trigger-btn"
               onClick={handleOpenShortcuts}
-              style={{
-                background: 'transparent',
-                border: 0,
-                padding: 0,
-                color: 'inherit',
-                font: 'inherit',
-                cursor: 'pointer',
-                textDecoration: 'none',
-              }}
             >
               Keyboard Shortcuts
             </button>
           </div>
         </div>
       </div>
+
+      {!hasGlobalShortcutManager && (
+        <KeyboardShortcutModal
+          isOpen={isFallbackModalOpen}
+          onClose={() => setIsFallbackModalOpen(false)}
+          shortcuts={FALLBACK_SHORTCUTS}
+          onTriggerShortcut={() => {}}
+        />
+      )}
     </footer>
   );
 };
+

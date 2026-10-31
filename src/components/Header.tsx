@@ -56,7 +56,11 @@ export const Header: React.FC = () => {
           {isOpen ? '✕ Close' : '☰ Menu'}
         </button>
 
-        <nav id="primary-nav" className={`site-nav ${isOpen ? 'is-open' : ''}`}>
+        <nav
+          id="primary-nav"
+          aria-label="Primary Navigation"
+          className={`site-nav ${isOpen ? 'is-open' : ''}`}
+        >
           <Link
             className="nav-item"
             to="/guides"
