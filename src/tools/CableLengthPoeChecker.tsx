@@ -40,9 +40,11 @@ import {
   Package,
   Download,
   X,
+  Eye,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import * as d3 from 'd3';
+import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 
 // -------------------------------------------------------------
 // TYPES & DEFINITIONS
@@ -3241,6 +3243,8 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
     setTimeout(() => setCopiedSummary(false), 2500);
   };
 
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+
   const handlePrint = () => {
     window.print();
   };
@@ -3943,6 +3947,7 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           title="Cable Length & PoE Budget Checker | Jawed Imtiaz"
           text="Free browser-based Ethernet cable distance checker (Cat5e/Cat6/Cat6a) and PoE switch power budget calculator."
           url={typeof window !== 'undefined' ? `${window.location.origin}/tools/cable-length-poe-budget-checker` : 'https://jawed.co.in/tools/cable-length-poe-budget-checker'}
+          showPrintPreview={false}
         />
       </div>
 
@@ -4210,6 +4215,18 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           >
             {exportedPdf ? <Check className="w-4 h-4 text-emerald-200" /> : <FileText className="w-4 h-4 text-rose-200" />}
             {exportedPdf ? 'PDF Downloaded!' : 'Download PDF Summary'}
+          </button>
+          <button
+            type="button"
+            className="button button-secondary no-print"
+            onClick={() => setIsPrintPreviewOpen(true)}
+            data-testid="open-print-preview-btn"
+            aria-label="Open A4 Print Preview"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', borderColor: 'rgba(56, 189, 248, 0.45)' }}
+            title="Open visual A4 print preview to verify table readability and data density before printing"
+          >
+            <Eye className="w-4 h-4 text-sky-400" />
+            Print Preview
           </button>
           <button
             type="button"
@@ -7277,6 +7294,49 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           </div>
         </div>
       )}
+
+      <A4PrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        toolTitle="Ethernet Cable Distance & PoE Switch Power Budget Report"
+        toolSubtitle={`${cableCategory} (${cableResult.condSpec.shortName}) @ ${linkSpeed} · ${lengthMeters.toFixed(1)}m Run · Switch Budget: ${poeResult.totalRequestedWatts.toFixed(1)}W / ${switchBudgetWatts}W`}
+        toolCategory="Network Cabling & PoE Infrastructure"
+        summaryMetrics={[
+          { label: 'Channel Run Length', value: `${lengthMeters.toFixed(1)} m`, unit: `(${cableResult.status.toUpperCase()})` },
+          { label: 'PoE Power Load', value: `${poeResult.totalRequestedWatts.toFixed(1)} W`, unit: `/ ${switchBudgetWatts} W` },
+          { label: 'Switch Utilization', value: `${poeResult.utilizationPct.toFixed(1)}%`, unit: `(${poeResult.totalPortsUsed}/${switchPortsCount} Ports)` },
+          { label: 'Total Cable Pull', value: `${materialCostResult.totalCableMeters.toFixed(0)} m`, unit: `(${materialCostResult.standard305mBoxes} Boxes)` },
+        ]}
+        tables={[
+          {
+            id: 'cable-verification-audit',
+            title: 'Structured Cabling & Signal Integrity Audit',
+            headers: ['Physical Parameter', 'Configured / Calculated Value', 'ANSI/TIA-568 & IEEE Compliance'],
+            rows: [
+              ['Cable Category & Speed', `${cableCategory} @ ${linkSpeed}`, cableResult.spec.standard],
+              ['Conductor Material', cableResult.condSpec.name, cableResult.condSpec.tiaCompliant ? 'TIA-568 Compliant Pure Copper' : 'NON-COMPLIANT CCA'],
+              ['Configured Channel Length', `${lengthMeters.toFixed(1)} m (${lengthFeet.toFixed(1)} ft)`, `Max Rated Limit: ${cableResult.maxDistM} m`],
+              ['Effective DC Loop Resistance', `${cableResult.effectiveLoopRes.toFixed(1)} Ω @ ${ambientTempC}°C`, `Base 20°C: ${cableResult.loopResistanceOhms.toFixed(1)} Ω`],
+              ['Insertion Loss & Return Loss', `-${cableResult.effectiveRunAttenDb.toFixed(1)} dB | RL: ${cableResult.returnLossDb.toFixed(1)} dB`, `Z0: ~${cableResult.effectiveZ0.toFixed(1)} Ω (${cableResult.returnLossStatus.toUpperCase()})`],
+            ],
+          },
+          {
+            id: 'poe-device-inventory-table',
+            title: 'Connected PoE Device Inventory & Per-Run Power Breakdown',
+            headers: ['Device Description', 'Qty', 'PoE Class', 'Port Load', 'Subtotal (W)', 'Run Length', 'Power at PD'],
+            rows: poeResult.deviceBreakdowns.map(dev => [
+              dev.name,
+              dev.qty,
+              dev.classKey,
+              `${dev.effectiveWattsEach.toFixed(1)} W`,
+              `${dev.subtotalWatts.toFixed(1)} W`,
+              `${dev.estCableLengthM} m`,
+              `${dev.wattsDeliveredAtDevice.toFixed(1)} W (-${dev.singleCableLossWatts.toFixed(2)} W loss)`,
+            ]),
+            footerNote: `Total PoE Load: ${poeResult.totalRequestedWatts.toFixed(1)} W (${poeResult.utilizationPct.toFixed(1)}% of ${switchBudgetWatts} W switch budget) | Recommended Switch Sizing (+20% headroom): ${poeResult.recommendedBudgetWithHeadroomWatts} W`,
+          },
+        ]}
+      />
     </main>
   );
 };

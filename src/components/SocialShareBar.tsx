@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { Printer } from 'lucide-react';
 import { UniversalShareModal } from './common/UniversalShareModal';
+import { A4PrintPreviewModal } from './A4PrintPreviewModal';
 
 export interface SocialShareBarProps {
   /**
@@ -34,6 +36,10 @@ export interface SocialShareBarProps {
    * Optional custom hashtags to pass through to the universal share modal.
    */
   hashtags?: string[];
+  /**
+   * Whether to show the A4 Print Preview button in the share bar. Defaults to true.
+   */
+  showPrintPreview?: boolean;
 }
 
 export const SocialShareBar: React.FC<SocialShareBarProps> = ({
@@ -45,8 +51,10 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
   showLabel = true,
   size = 'normal',
   hashtags,
+  showPrintPreview = true,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'shared' | 'error'>('idle');
 
   const resolvedUrl = url || (typeof window !== 'undefined' ? window.location.href : '');
@@ -221,6 +229,30 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
           </svg>
           <span>Reddit</span>
         </a>
+
+        {showPrintPreview && (
+          <button
+            type="button"
+            className="button button-secondary no-print"
+            onClick={() => setIsPrintPreviewOpen(true)}
+            data-testid="open-print-preview-btn"
+            aria-label="Open A4 Print Preview"
+            title="Open visual A4 print preview to verify table readability and data density before printing"
+            style={{
+              padding: buttonPadding,
+              fontSize,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+              borderColor: 'rgba(56, 189, 248, 0.35)',
+            }}
+          >
+            <Printer width={iconSize} height={iconSize} className="text-sky-400" />
+            <span>Print Preview</span>
+          </button>
+        )}
       </div>
 
       {/* Universal Share Modal */}
@@ -232,6 +264,16 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
         defaultDescription={text}
         hashtags={hashtags}
       />
+
+      {/* A4 Visual Print Preview Modal */}
+      {showPrintPreview && (
+        <A4PrintPreviewModal
+          isOpen={isPrintPreviewOpen}
+          onClose={() => setIsPrintPreviewOpen(false)}
+          toolTitle={title}
+          toolSubtitle={text}
+        />
+      )}
     </>
   );
 };

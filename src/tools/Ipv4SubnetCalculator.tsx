@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Printer } from 'lucide-react';
+import { Printer, Eye } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
+import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 
 interface SubnetOption {
   cidr: number;
@@ -71,6 +72,7 @@ export const Ipv4SubnetCalculator: React.FC = () => {
   const [ipInput, setIpInput] = useState('192.168.1.50');
   const [cidrPrefix, setCidrPrefix] = useState<number>(24);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
   const parsed = useMemo(() => {
     const ipInt = ipToInt(ipInput);
@@ -169,7 +171,19 @@ export const Ipv4SubnetCalculator: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="button button-secondary no-print"
+            onClick={() => setIsPrintPreviewOpen(true)}
+            data-testid="open-print-preview-btn"
+            aria-label="Open A4 Print Preview"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '6px 12px', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+            title="Open visual A4 print preview to verify table readability and data density before printing"
+          >
+            <Eye className="w-4 h-4 text-sky-400" />
+            Print Preview
+          </button>
           <button
             type="button"
             className="button button-secondary no-print"
@@ -183,6 +197,7 @@ export const Ipv4SubnetCalculator: React.FC = () => {
           <SocialShareBar
             title="IPv4 Subnet & CIDR Calculator"
             text="Calculate IPv4 network boundaries, usable host ranges, broadcast addresses, wildcard masks, and 32-bit binary notation."
+            showPrintPreview={false}
           />
         </div>
       </div>
@@ -485,6 +500,56 @@ export const Ipv4SubnetCalculator: React.FC = () => {
           In Cisco IOS Access Control Lists (ACLs) and OSPF network configuration commands, a <code>0</code> bit indicates "must match exact bit value," whereas a <code>1</code> bit indicates "ignore this bit (wildcard)." For example, matching a <code>192.168.1.0/24</code> subnet in a Cisco ACL uses <code>access-list 101 permit ip 192.168.1.0 0.0.0.255 any</code>.
         </p>
       </section>
+
+      <A4PrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        toolTitle="IPv4 Subnet & CIDR Allocation Specification"
+        toolSubtitle="Network boundary analysis, usable IP range geometry, broadcast domains, and Cisco ACL wildcard masks."
+        toolCategory="Network Infrastructure Engineering"
+        summaryMetrics={
+          parsed.isValid
+            ? [
+                { label: 'Target CIDR Block', value: `${parsed.networkAddress}/${cidrPrefix}` },
+                { label: 'Subnet Mask', value: parsed.subnetMask },
+                { label: 'Usable Host Capacity', value: parsed.usableHosts.toLocaleString(), unit: 'Hosts' },
+                { label: 'Address Scope', value: `${parsed.ipClass} (${parsed.ipScope})` },
+              ]
+            : undefined
+        }
+        tables={
+          parsed.isValid
+            ? [
+                {
+                  id: 'ipv4-subnet-boundaries',
+                  title: 'IPv4 Subnet Boundary & Addressing Parameters',
+                  headers: ['Network Parameter', 'Dotted-Decimal Value', 'Engineering Notes / RFC Standard'],
+                  rows: [
+                    ['Configured IP Address', `${parsed.ipAddress}/${cidrPrefix}`, `${parsed.ipClass} · ${parsed.ipScope}`],
+                    ['Network Address (Route ID)', parsed.networkAddress, 'All host bits set to binary 0'],
+                    ['Subnet Mask', parsed.subnetMask, `/${cidrPrefix} prefix (${cidrPrefix} network bits)`],
+                    ['Cisco ACL Wildcard Mask', parsed.wildcardMask, 'Bitwise inverse of subnet mask for OSPF / ACLs'],
+                    ['Broadcast Address', parsed.broadcastAddress, 'All host bits set to binary 1'],
+                    ['First Usable Host IP', parsed.firstUsableIp, 'Start of assignable DHCP / static host pool'],
+                    ['Last Usable Host IP', parsed.lastUsableIp, 'End of assignable DHCP / static host pool'],
+                    ['Usable Host Count', parsed.usableHosts.toLocaleString(), `Total Addresses: ${parsed.totalAddresses.toLocaleString()}`],
+                  ],
+                },
+                {
+                  id: 'ipv4-binary-octets',
+                  title: '32-Bit Binary Octet Representation',
+                  headers: ['Address Component', 'Dotted-Decimal', '32-Bit Binary Octets (Network vs Host Bits)'],
+                  rows: [
+                    ['IPv4 Address', parsed.ipAddress, parsed.binaryIp],
+                    ['Subnet Mask', parsed.subnetMask, parsed.binaryMask],
+                    ['Network ID', parsed.networkAddress, parsed.binaryNetwork],
+                    ['Broadcast ID', parsed.broadcastAddress, parsed.binaryBroadcast],
+                  ],
+                },
+              ]
+            : undefined
+        }
+      />
     </main>
   );
 };

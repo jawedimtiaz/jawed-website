@@ -45,6 +45,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
+import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 import {
   BarChart,
   Bar,
@@ -4331,6 +4332,8 @@ DRIVE ARRAY & RAID SPECIFICATION:
     setTimeout(() => setCopiedSummary(false), 2500);
   };
 
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+
   const handlePrint = () => {
     window.print();
   };
@@ -5148,6 +5151,7 @@ DRIVE ARRAY & RAID SPECIFICATION:
           title="CCTV Storage Calculator | Jawed Imtiaz"
           text="Free browser-based CCTV video storage and hard drive RAID capacity calculator for camera systems."
           url={typeof window !== 'undefined' ? `${window.location.origin}/tools/cctv-storage-calculator` : 'https://jawed.co.in/tools/cctv-storage-calculator'}
+          showPrintPreview={false}
         />
       </div>
 
@@ -6983,6 +6987,26 @@ DRIVE ARRAY & RAID SPECIFICATION:
               <button
                 type="button"
                 className="button button-secondary no-print"
+                onClick={() => setIsPrintPreviewOpen(true)}
+                data-testid="open-print-preview-btn"
+                aria-label="Open A4 Print Preview"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  background: 'rgba(56, 189, 248, 0.16)',
+                  borderColor: 'rgba(56, 189, 248, 0.45)',
+                }}
+                title="Open visual A4 print preview to verify table readability and data density before printing"
+              >
+                <Eye className="w-4 h-4 text-sky-400" />
+                Print Preview
+              </button>
+              <button
+                type="button"
+                className="button button-secondary no-print"
                 onClick={handlePrint}
                 style={{
                   display: 'inline-flex',
@@ -7874,6 +7898,48 @@ DRIVE ARRAY & RAID SPECIFICATION:
           <ChevronRight className="w-4 h-4" />
         </Link>
       </div>
+
+      <A4PrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        toolTitle="CCTV Video Storage & NVR RAID BOM Specification"
+        toolSubtitle={`${calculations.safeCams} Cameras · ${resolutionPreset.toUpperCase()} (${codec.toUpperCase()}) · ${calculations.safeDays} Days Retention · ${RAID_DEFINITIONS[raidType].label}`}
+        toolCategory="Surveillance & Storage Engineering"
+        summaryMetrics={[
+          { label: 'Usable Capacity Needed', value: `${calculations.totalNeedTb.toFixed(1)} TB`, unit: `(+${calculations.safeHead}% headroom)` },
+          { label: 'Recommended NVR Disks', value: calculations.possible ? `${calculations.drivesNeeded} × ${calculations.safeDriveTb} TB` : 'Exceeds 64 bays' },
+          { label: 'Daily Stream Ingestion', value: `${calculations.totalDailyGb.toFixed(0)} GB/day`, unit: `(${calculations.totalDailyTb.toFixed(2)} TB/d)` },
+          { label: 'Projected Drive BOM', value: `$${calculations.totalHardwareInvestmentCost.toLocaleString()}` },
+        ]}
+        tables={[
+          {
+            id: 'cctv-system-parameters',
+            title: 'System Parameters & Camera Stream Configuration',
+            headers: ['Parameter', 'Configured Value', 'Engineering Notes'],
+            rows: [
+              ['Active Camera Count', `${calculations.safeCams} Cameras`, `Bitrate per Camera: ${calculations.safeMbps.toFixed(2)} Mbps`],
+              ['Resolution & Compression', `${resolutionPreset.toUpperCase()} · ${codec.toUpperCase()}`, `Total Throughput: ${(calculations.safeMbps * calculations.safeCams).toFixed(1)} Mbps`],
+              ['Target Retention Period', `${calculations.safeDays} Days`, `Duty Cycle: ${calculations.safeRec}% (${calculations.safeRec === 100 ? '24/7 Continuous' : 'Motion Scheduled'})`],
+              ['Storage Per Camera / Day', `${calculations.gbPerCameraPerDay.toFixed(1)} GB / day`, `${calculations.gbPerCameraRetention.toFixed(0)} GB over ${calculations.safeDays} days`],
+              ['Total Usable Storage Required', `${calculations.totalNeedTb.toFixed(2)} TB`, `Raw Net Without Headroom: ${calculations.totalRawTb.toFixed(2)} TB`],
+              ['Configured RAID Array', RAID_DEFINITIONS[raidType].label, calculations.possible ? `${calculations.drivesNeeded} × ${calculations.safeDriveTb} TB Drives (${calculations.usableStorageTb.toFixed(1)} TB Usable)` : 'Exceeds 64-bay limit'],
+            ],
+          },
+          {
+            id: 'cctv-raid-matrix',
+            title: 'Surveillance NVR/SAN RAID Comparison Matrix',
+            headers: ['RAID Level', 'Drives Needed', 'Usable Capacity', 'Raw Capacity', 'Parity / Overhead', 'Fault Tolerance'],
+            rows: calculations.raidMatrix.map(r => [
+              r.label,
+              r.possible ? `${r.drives} × ${calculations.safeDriveTb} TB` : '>64 Drives',
+              r.possible ? `${r.usableTb.toFixed(1)} TB` : 'N/A',
+              r.possible ? `${r.rawTb.toFixed(1)} TB` : 'N/A',
+              r.possible ? `${r.parityTb.toFixed(1)} TB` : 'N/A',
+              r.faultTolerance,
+            ]),
+          },
+        ]}
+      />
     </main>
   );
 };

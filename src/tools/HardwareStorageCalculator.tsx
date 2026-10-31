@@ -29,8 +29,10 @@ import {
   Clock,
   Zap,
   Printer,
+  Eye,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
+import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 
 export type RaidLevel = 'jbod' | 'raid0' | 'raid1' | 'raid5' | 'raid6' | 'raid10' | 'raid50' | 'raid60';
 
@@ -305,6 +307,7 @@ export const HardwareStorageCalculator: React.FC = () => {
   const [calcMode, setCalcMode] = useState<'target-to-drives' | 'drives-to-usable'>(() => {
     return (localStorage.getItem('hw_calc_mode') as 'target-to-drives' | 'drives-to-usable') || 'target-to-drives';
   });
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
   // Inputs for Target Mode
   const [targetUsableTb, setTargetUsableTb] = useState<number>(() => {
@@ -824,6 +827,7 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
         <SocialShareBar
           title="Hardware Storage & RAID Calculator | Hard Drive Sizing, Parity & Chassis Advisor"
           text="Calculate how many hard drives are required for your target usable capacity based on RAID 5, RAID 6, RAID 10, RAID 50, drive capacity, parity overhead, hot spares, and server chassis bays."
+          showPrintPreview={false}
         />
       </div>
 
@@ -870,7 +874,27 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }} className="no-print">
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }} className="no-print">
+            <button
+              type="button"
+              className="button button-secondary no-print"
+              onClick={() => setIsPrintPreviewOpen(true)}
+              data-testid="open-print-preview-btn"
+              aria-label="Open A4 Print Preview"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                borderColor: 'rgba(56, 189, 248, 0.4)',
+              }}
+              title="Open visual A4 print preview to verify table readability and data density before printing"
+            >
+              <Eye className="w-4 h-4 text-sky-400" />
+              Print Preview
+            </button>
             <button
               type="button"
               className="button button-secondary no-print"
@@ -2396,6 +2420,49 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
       <div style={{ marginTop: '32px' }}>
         <AdUnitPlaceholder slotType="in-feed" />
       </div>
+
+      <A4PrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        toolTitle="Hardware Storage & RAID Array Engineering Specification"
+        toolSubtitle={`Configured Architecture: ${currentSpec.name} · ${calcResults.totalPhysicalDrives}x ${driveSizeTb} TB Drives · ${calcResults.usableTb.toFixed(1)} TB Usable (~${calcResults.usableTib.toFixed(1)} TiB)`}
+        toolCategory="Storage Infrastructure Engineering"
+        summaryMetrics={[
+          { label: 'Usable Capacity', value: `${calcResults.usableTb.toFixed(1)} TB`, unit: `(${calcResults.usableTib.toFixed(1)} TiB)` },
+          { label: 'Total Physical Disks', value: calcResults.totalPhysicalDrives, unit: `× ${driveSizeTb} TB` },
+          { label: 'Parity / Redundancy', value: `${calcResults.parityTb.toFixed(1)} TB`, unit: `(${calcResults.parityDrives} Drives)` },
+          { label: 'Array Efficiency', value: `${calcResults.storageEfficiencyPct.toFixed(1)}%` },
+        ]}
+        tables={[
+          {
+            id: 'raid-array-geometry',
+            title: 'Configured RAID Array Geometry & Capacity Allocation',
+            headers: ['Specification Parameter', 'Calculated Value', 'Engineering Notes'],
+            rows: [
+              ['RAID Topology', currentSpec.name, currentSpec.summary],
+              ['Total Physical Drives', `${calcResults.totalPhysicalDrives} Drives (${calcResults.rawCapacityTb.toFixed(1)} TB Raw)`, `${calcResults.dataDrives} Data + ${calcResults.parityDrives} Parity + ${calcResults.hotSpares} Hot Spares`],
+              ['Effective Usable Storage', `${calcResults.usableTb.toFixed(1)} TB Decimal`, `Binary OS Reported: ${calcResults.usableTib.toFixed(1)} TiB`],
+              ['Fault Tolerance', currentSpec.faultToleranceText(calcResults.activeArrayDrives), `Rebuild Risk: ${currentSpec.rebuildRiskLevel}`],
+              ['Storage Efficiency', `${calcResults.storageEfficiencyPct.toFixed(1)}%`, `Read: ${currentSpec.readPerf} · Write: ${currentSpec.writePerf}`],
+            ],
+          },
+          {
+            id: 'raid-comparison-matrix',
+            title: 'Multi-RAID Architecture Comparison Matrix',
+            headers: ['RAID Level', 'Min Drives', 'Total Drives', 'Usable (TB)', 'Raw (TB)', 'Parity (TB)', 'Efficiency', 'Fault Tolerance'],
+            rows: comparisonMatrix.map(r => [
+              r.spec.name,
+              r.spec.minDrives,
+              r.totalDrives,
+              `${r.usableTb.toFixed(1)} TB`,
+              `${r.rawTb.toFixed(1)} TB`,
+              `${r.parityTb.toFixed(1)} TB`,
+              `${r.efficiencyPct.toFixed(0)}%`,
+              r.faultTolerance,
+            ]),
+          },
+        ]}
+      />
     </main>
   );
 };

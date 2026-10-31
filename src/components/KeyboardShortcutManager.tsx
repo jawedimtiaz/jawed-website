@@ -3,12 +3,281 @@ import { useNavigate } from 'react-router-dom';
 import {
   KeyboardShortcutContext,
   ShortcutItem,
+  VoiceCommandMatch,
+  LastVoiceCommandRecord,
   matchHotkey,
 } from '../hooks/useKeyboardShortcuts';
 import { KeyboardShortcutModal } from './KeyboardShortcutModal';
 
 interface KeyboardShortcutManagerProps {
   children: ReactNode;
+}
+
+export interface VoiceCommandRule {
+  id: string;
+  route?: string;
+  label: string;
+  shortcutCombo: string;
+  phrases: string[];
+}
+
+export const VOICE_COMMAND_RULES: VoiceCommandRule[] = [
+  {
+    id: 'nav-home',
+    route: '/',
+    label: 'Go to Home',
+    shortcutCombo: 'g+h',
+    phrases: [
+      'go home',
+      'open home',
+      'go to home',
+      'navigate home',
+      'navigate to home',
+      'return home',
+      'home page',
+      'home',
+    ],
+  },
+  {
+    id: 'nav-tools',
+    route: '/tools',
+    label: 'Go to Tools',
+    shortcutCombo: 'g+t',
+    phrases: [
+      'open tools',
+      'go tools',
+      'go to tools',
+      'navigate to tools',
+      'navigate tools',
+      'show tools',
+      'launch tools',
+      'tools page',
+      'tools',
+    ],
+  },
+  {
+    id: 'nav-guides',
+    route: '/guides',
+    label: 'Go to Guides',
+    shortcutCombo: 'g+g',
+    phrases: [
+      'open guides',
+      'go guides',
+      'go to guides',
+      'navigate to guides',
+      'navigate guides',
+      'show guides',
+      'guides page',
+      'guides',
+    ],
+  },
+  {
+    id: 'nav-services',
+    route: '/services',
+    label: 'Go to Services',
+    shortcutCombo: 'alt+s',
+    phrases: [
+      'open services',
+      'go services',
+      'go to services',
+      'navigate to services',
+      'navigate services',
+      'show services',
+      'services page',
+      'services',
+    ],
+  },
+  {
+    id: 'nav-contact',
+    route: '/contact',
+    label: 'Go to Contact Page',
+    shortcutCombo: 'alt+c',
+    phrases: [
+      'open contact',
+      'go contact',
+      'go to contact',
+      'navigate to contact',
+      'navigate contact',
+      'contact support',
+      'show contact',
+      'contact page',
+      'contact',
+    ],
+  },
+  {
+    id: 'search-modal',
+    label: 'Open Search',
+    shortcutCombo: 'mod+k',
+    phrases: [
+      'open search',
+      'focus search',
+      'open command palette',
+      'command palette',
+      'search',
+    ],
+  },
+  {
+    id: 'toggle-theme',
+    label: 'Toggle Theme (Dark / Light)',
+    shortcutCombo: 't',
+    phrases: [
+      'toggle theme',
+      'switch theme',
+      'change theme',
+      'dark mode',
+      'light mode',
+    ],
+  },
+  {
+    id: 'shortcuts-help',
+    label: 'Keyboard Shortcuts',
+    shortcutCombo: 'shift+?',
+    phrases: [
+      'open shortcuts',
+      'show shortcuts',
+      'keyboard shortcuts',
+      'shortcuts help',
+      'open help',
+    ],
+  },
+  {
+    id: 'ai-widget',
+    label: 'Toggle AI Assistant',
+    shortcutCombo: 'alt+a',
+    phrases: [
+      'open ai',
+      'toggle ai',
+      'ai assistant',
+      'open assistant',
+    ],
+  },
+  {
+    id: 'close-modals',
+    label: 'Close Active Modals',
+    shortcutCombo: 'esc',
+    phrases: [
+      'close modal',
+      'close modals',
+      'close dialog',
+      'dismiss',
+      'close',
+    ],
+  },
+];
+
+export function normalizeVoiceTranscript(transcript: string): string {
+  return String(transcript || '')
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function extractVoiceTranscript(eventOrData: unknown): string {
+  if (!eventOrData) return '';
+  if (typeof eventOrData === 'string') {
+    return eventOrData;
+  }
+
+  const evt = eventOrData as Record<string, any>;
+
+  if (typeof evt.transcript === 'string') {
+    return evt.transcript;
+  }
+  if (typeof evt.command === 'string') {
+    return evt.command;
+  }
+  if (typeof evt.phrase === 'string') {
+    return evt.phrase;
+  }
+  if (evt.detail) {
+    if (typeof evt.detail === 'string') {
+      return evt.detail;
+    }
+    if (typeof evt.detail.transcript === 'string') {
+      return evt.detail.transcript;
+    }
+    if (typeof evt.detail.command === 'string') {
+      return evt.detail.command;
+    }
+    if (typeof evt.detail.phrase === 'string') {
+      return evt.detail.phrase;
+    }
+  }
+
+  const results = evt.results;
+  if (results && typeof results.length === 'number' && results.length > 0) {
+    const startIdx = typeof evt.resultIndex === 'number' ? evt.resultIndex : results.length - 1;
+    const collected: string[] = [];
+    for (let i = startIdx; i < results.length; i++) {
+      const resultItem = results[i];
+      if (!resultItem) continue;
+      if (typeof resultItem.transcript === 'string') {
+        collected.push(resultItem.transcript);
+        continue;
+      }
+      const firstAlt = resultItem[0] ?? (typeof resultItem.item === 'function' ? resultItem.item(0) : null);
+      if (firstAlt && typeof firstAlt.transcript === 'string') {
+        collected.push(firstAlt.transcript);
+      }
+    }
+    if (collected.length > 0) {
+      return collected.join(' ').trim();
+    }
+  }
+
+  return '';
+}
+
+export function matchVoiceCommand(transcript: string): VoiceCommandMatch | null {
+  const normalized = normalizeVoiceTranscript(transcript);
+  if (!normalized) return null;
+
+  // 1. Exact phrase match first (prefer multi-word phrases over single-word fallbacks)
+  for (const rule of VOICE_COMMAND_RULES) {
+    for (const phrase of rule.phrases) {
+      const normPhrase = normalizeVoiceTranscript(phrase);
+      if (normalized === normPhrase) {
+        return {
+          ...rule,
+          matchedPhrase: phrase,
+          transcript: transcript.trim(),
+        };
+      }
+    }
+  }
+
+  // 2. Word-boundary substring match for multi-word phrases (longest phrase first)
+  const candidates: Array<{ rule: VoiceCommandRule; phrase: string; normPhrase: string }> = [];
+  for (const rule of VOICE_COMMAND_RULES) {
+    for (const phrase of rule.phrases) {
+      const normPhrase = normalizeVoiceTranscript(phrase);
+      if (normPhrase.includes(' ')) {
+        candidates.push({ rule, phrase, normPhrase });
+      }
+    }
+  }
+  candidates.sort((a, b) => b.normPhrase.length - a.normPhrase.length);
+
+  for (const { rule, phrase, normPhrase } of candidates) {
+    const escaped = normPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const boundaryRegex = new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`, 'i');
+    if (boundaryRegex.test(normalized)) {
+      return {
+        ...rule,
+        matchedPhrase: phrase,
+        transcript: transcript.trim(),
+      };
+    }
+  }
+
+  return null;
+}
+
+function getSpeechRecognitionConstructor(): any {
+  if (typeof window === 'undefined') return null;
+  const win = window as Record<string, any>;
+  return win.SpeechRecognition || win.webkitSpeechRecognition || null;
 }
 
 const FOCUSABLE_MODAL_SELECTOR =
@@ -22,12 +291,18 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     label: string;
     timestamp: number;
   } | null>(null);
+  const [isVoiceSupported, setIsVoiceSupported] = useState<boolean>(() =>
+    Boolean(getSpeechRecognitionConstructor())
+  );
+  const [isVoiceListening, setIsVoiceListening] = useState<boolean>(false);
+  const [lastVoiceCommand, setLastVoiceCommand] = useState<LastVoiceCommandRecord | null>(null);
 
   const activePrefixRef = useRef<string | null>(null);
   const prefixTimeoutRef = useRef<number | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const appWrapperRef = useRef<HTMLDivElement | null>(null);
   const modalWrapperRef = useRef<HTMLDivElement | null>(null);
+  const recognitionRef = useRef<any>(null);
   const navigate = useNavigate();
 
   const clearPrefix = useCallback(() => {
@@ -406,6 +681,233 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     [defaultShortcuts]
   );
 
+  // Execute a spoken voice command phrase and mirror existing keyboard shortcut navigation/action logic
+  const executeVoiceCommand = useCallback(
+    (transcript: string): boolean => {
+      const matched = matchVoiceCommand(transcript);
+      if (!matched) {
+        return false;
+      }
+
+      clearPrefix();
+
+      const shortcutItem = defaultShortcuts.find((s) => s.id === matched.id);
+      if (shortcutItem) {
+        shortcutItem.action();
+      } else if (matched.route) {
+        navigate(matched.route);
+        triggerToastNotification(matched.id, `${matched.label} (Voice: "${matched.matchedPhrase}")`);
+      }
+
+      const record: LastVoiceCommandRecord = {
+        id: matched.id,
+        label: matched.label,
+        route: matched.route,
+        transcript: matched.transcript,
+        matchedPhrase: matched.matchedPhrase,
+        timestamp: Date.now(),
+      };
+      setLastVoiceCommand(record);
+
+      window.dispatchEvent(
+        new CustomEvent('voice-command-executed', {
+          detail: record,
+        })
+      );
+
+      return true;
+    },
+    [clearPrefix, defaultShortcuts, navigate, triggerToastNotification]
+  );
+
+  // Auto-hide lastVoiceCommand badge after 2.5 seconds
+  useEffect(() => {
+    if (!lastVoiceCommand) return;
+    const timer = setTimeout(() => {
+      setLastVoiceCommand(null);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [lastVoiceCommand]);
+
+  const createOrGetRecognitionInstance = useCallback(() => {
+    if (recognitionRef.current) {
+      return recognitionRef.current;
+    }
+    const SpeechRecognitionCtor = getSpeechRecognitionConstructor();
+    if (!SpeechRecognitionCtor) {
+      setIsVoiceSupported(false);
+      return null;
+    }
+
+    setIsVoiceSupported(true);
+    let instance: any = null;
+    try {
+      instance = new SpeechRecognitionCtor();
+    } catch {
+      try {
+        instance = SpeechRecognitionCtor();
+      } catch {
+        return null;
+      }
+    }
+
+    if (!instance) return null;
+
+    try {
+      instance.continuous = true;
+      instance.interimResults = false;
+      instance.lang = 'en-US';
+    } catch {
+      // Ignore read-only properties in mock implementations
+    }
+
+    recognitionRef.current = instance;
+    return instance;
+  }, []);
+
+  const startVoiceRecognition = useCallback(() => {
+    const recognition = createOrGetRecognitionInstance();
+    if (!recognition) return;
+    try {
+      setIsVoiceListening(true);
+      if (typeof recognition.start === 'function') {
+        recognition.start();
+      }
+    } catch {
+      // Recognition may already be started
+      setIsVoiceListening(true);
+    }
+  }, [createOrGetRecognitionInstance]);
+
+  const stopVoiceRecognition = useCallback(() => {
+    const recognition = recognitionRef.current;
+    setIsVoiceListening(false);
+    if (!recognition) return;
+    try {
+      if (typeof recognition.stop === 'function') {
+        recognition.stop();
+      } else if (typeof recognition.abort === 'function') {
+        recognition.abort();
+      }
+    } catch {
+      // Ignore stop errors if already stopped
+    }
+  }, []);
+
+  const toggleVoiceRecognition = useCallback(() => {
+    if (isVoiceListening) {
+      stopVoiceRecognition();
+    } else {
+      startVoiceRecognition();
+    }
+  }, [isVoiceListening, startVoiceRecognition, stopVoiceRecognition]);
+
+  // Bind Web Speech API recognition and custom voice command events
+  useEffect(() => {
+    const handledEvents = new WeakSet<object>();
+
+    const handleSpeechResult = (event: any) => {
+      if (event && typeof event === 'object') {
+        if (handledEvents.has(event)) return;
+        handledEvents.add(event);
+      }
+      const transcript = extractVoiceTranscript(event);
+      if (transcript) {
+        executeVoiceCommand(transcript);
+      }
+    };
+
+    const handleCustomVoiceEvent = (evt: Event) => {
+      const transcript = extractVoiceTranscript(evt);
+      if (transcript) {
+        executeVoiceCommand(transcript);
+      }
+    };
+
+    const handleStartVoiceEvent = () => startVoiceRecognition();
+    const handleStopVoiceEvent = () => stopVoiceRecognition();
+    const handleToggleVoiceEvent = () => toggleVoiceRecognition();
+
+    window.addEventListener('voice-command', handleCustomVoiceEvent);
+    window.addEventListener('speech-command', handleCustomVoiceEvent);
+    window.addEventListener('start-voice-commands', handleStartVoiceEvent);
+    window.addEventListener('stop-voice-commands', handleStopVoiceEvent);
+    window.addEventListener('toggle-voice-commands', handleToggleVoiceEvent);
+
+    const recognition = createOrGetRecognitionInstance();
+    if (recognition) {
+      const handleStart = () => setIsVoiceListening(true);
+      const handleEnd = () => setIsVoiceListening(false);
+      const handleError = () => setIsVoiceListening(false);
+
+      recognition.onresult = handleSpeechResult;
+      recognition.onstart = handleStart;
+      recognition.onend = handleEnd;
+      recognition.onerror = handleError;
+
+      if (typeof recognition.addEventListener === 'function') {
+        try {
+          recognition.addEventListener('result', handleSpeechResult);
+          recognition.addEventListener('start', handleStart);
+          recognition.addEventListener('end', handleEnd);
+          recognition.addEventListener('error', handleError);
+        } catch {
+          // Ignore if mock addEventListener throws
+        }
+      }
+
+      try {
+        if (typeof recognition.start === 'function') {
+          recognition.start();
+          setIsVoiceListening(true);
+        }
+      } catch {
+        // Ignore auto-start errors in environments requiring user gesture
+      }
+
+      return () => {
+        window.removeEventListener('voice-command', handleCustomVoiceEvent);
+        window.removeEventListener('speech-command', handleCustomVoiceEvent);
+        window.removeEventListener('start-voice-commands', handleStartVoiceEvent);
+        window.removeEventListener('stop-voice-commands', handleStopVoiceEvent);
+        window.removeEventListener('toggle-voice-commands', handleToggleVoiceEvent);
+
+        if (typeof recognition.removeEventListener === 'function') {
+          try {
+            recognition.removeEventListener('result', handleSpeechResult);
+            recognition.removeEventListener('start', handleStart);
+            recognition.removeEventListener('end', handleEnd);
+            recognition.removeEventListener('error', handleError);
+          } catch {}
+        }
+        try {
+          if (recognition.onresult === handleSpeechResult) {
+            recognition.onresult = null;
+          }
+          if (typeof recognition.stop === 'function') {
+            recognition.stop();
+          } else if (typeof recognition.abort === 'function') {
+            recognition.abort();
+          }
+        } catch {}
+      };
+    }
+
+    return () => {
+      window.removeEventListener('voice-command', handleCustomVoiceEvent);
+      window.removeEventListener('speech-command', handleCustomVoiceEvent);
+      window.removeEventListener('start-voice-commands', handleStartVoiceEvent);
+      window.removeEventListener('stop-voice-commands', handleStopVoiceEvent);
+      window.removeEventListener('toggle-voice-commands', handleToggleVoiceEvent);
+    };
+  }, [
+    createOrGetRecognitionInstance,
+    executeVoiceCommand,
+    startVoiceRecognition,
+    stopVoiceRecognition,
+    toggleVoiceRecognition,
+  ]);
+
   // Listen for custom open/toggle events from Footer or Command Palette
   useEffect(() => {
     const handleOpenShortcutsEvent = (evt: Event) => {
@@ -645,6 +1147,13 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
         triggerShortcut,
         lastTriggeredAction,
         activePrefix,
+        isVoiceSupported,
+        isVoiceListening,
+        startVoiceRecognition,
+        stopVoiceRecognition,
+        toggleVoiceRecognition,
+        executeVoiceCommand,
+        lastVoiceCommand,
       }}
     >
       <div ref={appWrapperRef} className="keyboard-shortcut-app-scope">
@@ -780,7 +1289,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
         </div>
       )}
 
-      {/* Floating Hotkey Execution Toast Popup */}
+      {/* Floating Hotkey / Voice Command Execution Toast Popup */}
       {lastTriggeredAction && !activePrefix && (
         <div
           role="status"
@@ -807,9 +1316,22 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
           }}
         >
           <span style={{ color: 'var(--accent)', fontSize: '1rem' }} aria-hidden="true">
-            ⌨️
+            {lastVoiceCommand ? '🎙️' : '⌨️'}
           </span>
           <span>{lastTriggeredAction.label}</span>
+          {lastVoiceCommand && (
+            <span
+              data-testid="voice-command-toast"
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                color: 'var(--accent)',
+                marginLeft: '4px',
+              }}
+            >
+              Voice: &ldquo;{lastVoiceCommand.transcript}&rdquo;
+            </span>
+          )}
         </div>
       )}
     </KeyboardShortcutContext.Provider>

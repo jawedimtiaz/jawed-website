@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
-import { Printer } from 'lucide-react';
+import { Printer, Eye } from 'lucide-react';
+import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 
 interface DeviceItem {
   id: string;
@@ -28,6 +29,7 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
   const [safetyMargin, setSafetyMargin] = useState<number>(20); // 20% Growth & Headroom
   const [electricityCostRate, setElectricityCostRate] = useState<number>(0.14); // $0.14 per kWh average
   const [hoursPerDay, setHoursPerDay] = useState<number>(24);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState<boolean>(false);
 
   // New Custom Device state
   const [newName, setNewName] = useState('');
@@ -136,7 +138,19 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
           ]}
           style={{ marginBottom: 0 }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="button button-secondary no-print"
+            onClick={() => setIsPrintPreviewOpen(true)}
+            data-testid="open-print-preview-btn"
+            aria-label="Open A4 Print Preview"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '6px 12px', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+            title="Open visual A4 print preview to verify table readability and data density before printing"
+          >
+            <Eye className="w-4 h-4 text-sky-400" />
+            Print Preview
+          </button>
           <button
             type="button"
             className="button button-secondary no-print"
@@ -150,6 +164,7 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
           <SocialShareBar
             title="Server Rack Power & BTU Calculator"
             text="Estimate server equipment electrical draw (Watts/Amps), circuit breaker derating, and HVAC BTU/hr cooling load."
+            showPrintPreview={false}
           />
         </div>
       </div>
@@ -469,6 +484,49 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
           Utilizing rigid hot-aisle containment (HAC) or cold-aisle containment (CAC) prevents hot exhaust recirculation, reducing overall facility Power Usage Effectiveness (PUE) from historical 2.0 averages down to modern 1.2 to 1.3 enterprise standards.
         </p>
       </section>
+
+      <A4PrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        toolTitle="Server Rack Electrical Load & HVAC BTU Specification"
+        toolSubtitle={`Configured at ${voltage}V AC · PF ${powerFactor} · +${safetyMargin}% Headroom · NEC 80% Continuous Derating`}
+        toolCategory="Data Center Power & Thermal Engineering"
+        summaryMetrics={[
+          { label: 'Total Active Power', value: calc.rawWatts.toLocaleString(), unit: 'W' },
+          { label: 'Current Draw (Amps)', value: calc.currentAmps, unit: `A @ ${voltage}V` },
+          { label: 'Thermal Heat Output', value: calc.btuPerHour.toLocaleString(), unit: 'BTU/hr' },
+          { label: 'Cooling Capacity', value: calc.coolingTons, unit: 'Tons' },
+        ]}
+        tables={[
+          {
+            id: 'rack-equipment-inventory',
+            title: 'Rack Hardware Equipment Inventory & Power Schedule',
+            headers: ['Equipment Description', 'Category', 'Quantity', 'Unit Draw (W)', 'Subtotal Load (W)'],
+            rows: devices.map(d => [
+              d.name,
+              d.category,
+              d.quantity,
+              `${d.wattsPerUnit} W`,
+              `${(d.quantity * d.wattsPerUnit).toLocaleString()} W`,
+            ]),
+            footerNote: `Total Active IT Load: ${calc.rawWatts.toLocaleString()} W | With +${safetyMargin}% Safety Margin: ${calc.designWatts.toLocaleString()} W (${calc.designKilowatts} kW)`,
+          },
+          {
+            id: 'rack-electrical-thermal-summary',
+            title: 'Electrical Circuit Sizing & HVAC Cooling Specification',
+            headers: ['Engineering Metric', 'Calculated Output', 'Design Standard / Specification'],
+            rows: [
+              ['Active Real Power (W / kW)', `${calc.rawWatts.toLocaleString()} W`, `With +${safetyMargin}% Margin: ${calc.designWatts.toLocaleString()} W (${calc.designKilowatts} kW)`],
+              ['Apparent Power (VA)', `${calc.apparentPowerVa.toLocaleString()} VA`, `Power Factor (PF): ${powerFactor}`],
+              ['Active Amperage Draw', `${calc.currentAmps} Amps`, `Configured at ${voltage}V AC single-phase`],
+              ['NEC 80% Min Circuit Breaker', `${calc.minBreakerRatingAmps} A Circuit`, calc.pduRec],
+              ['Thermal Heat Dissipation', `${calc.btuPerHour.toLocaleString()} BTU/hr`, `With Safety Margin: ${calc.btuPerHourDesignRounded.toLocaleString()} BTU/hr`],
+              ['Required CRAC/CRAH Cooling', `${calc.coolingTons} Tons`, '12,000 BTU/hr per Ton of Refrigeration'],
+              ['Monthly Energy Consumption', `${calc.monthlyKwh.toLocaleString()} kWh / mo`, `Est. Cost: $${calc.monthlyCost.toFixed(2)}/mo @ $${electricityCostRate}/kWh`],
+            ],
+          },
+        ]}
+      />
     </main>
   );
 };

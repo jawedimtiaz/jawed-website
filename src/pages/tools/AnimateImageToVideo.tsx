@@ -40,7 +40,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { Breadcrumb } from '../../components/Breadcrumb';
-import { SocialShareBar } from '../../components/SocialShareBar';
 import {
   AiProviderSettingsModal,
   getStoredAiProviderConfig,
@@ -50,6 +49,7 @@ import {
   useAnimationPreferences,
   type OutputFrameRate,
 } from '../../hooks/useAnimationPreferences';
+import { A4PrintPreviewModal } from '../../components/A4PrintPreviewModal';
 
 export type AnimationEffectId = 'ken-burns' | 'orbit-zoom' | 'particle-dust' | 'pulse-glow' | 'cinematic-pan';
 
@@ -1116,7 +1116,7 @@ export async function shareAnimationViaWebShare(
         };
       }
 
-      // If sharing with files failed in a browser that only supports URL/text sharing, retry with URL + text
+      // If sharing with files failed (e.g. TypeError or DataError on mobile/desktop browsers that only support URL/text sharing), retry with URL + text
       if (canShareFiles) {
         try {
           await nav.share({
@@ -1155,7 +1155,7 @@ export async function shareAnimationViaWebShare(
   return {
     status: 'copied',
     method: 'clipboard',
-    message: `Direct link copied to clipboard (${payload.url}).`,
+    message: `Link Copied! Direct link copied to clipboard (${payload.url}).`,
     payload,
   };
 }
@@ -4471,6 +4471,8 @@ export const AnimateImageToVideo: React.FC = () => {
     setIsFinalQualityPreviewOpen(true);
   };
 
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+
   // Trigger browser print dialog with src/index.css @media print styles active
   const handleDownloadPdf = () => {
     const canvas = liveCanvasRef.current;
@@ -4486,7 +4488,7 @@ export const AnimateImageToVideo: React.FC = () => {
   return (
     <div className="page animate-image-to-video-page">
       <main className="container" style={{ maxWidth: '1160px', margin: '0 auto', paddingBottom: '80px' }}>
-        {/* Breadcrumb & Social Share */}
+        {/* Breadcrumb */}
         <div
           style={{
             display: 'flex',
@@ -4504,15 +4506,6 @@ export const AnimateImageToVideo: React.FC = () => {
               { label: 'Animate Images into Video' },
             ]}
             style={{ marginBottom: 0 }}
-          />
-          <SocialShareBar
-            title="Animate Images into Video | 100% Free"
-            text="Transform static photos into cinematic 16:9 or 9:16 videos instantly in your browser with zero paid API costs."
-            url={
-              typeof window !== 'undefined'
-                ? `${window.location.origin}/tools/animate-image-to-video`
-                : 'https://jawed.co.in/tools/animate-image-to-video'
-            }
           />
         </div>
 
@@ -9352,7 +9345,7 @@ export const AnimateImageToVideo: React.FC = () => {
                   type="button"
                   onClick={handleShare}
                   data-testid="share-animation-btn"
-                  title="Share a direct link or the generated video asset via the browser native Share API"
+                  title="Share the generated animation via mobile OS sharing dialogs or the browser Web Share API"
                   className="button button-secondary"
                   style={{
                     flex: 1,
@@ -9362,7 +9355,18 @@ export const AnimateImageToVideo: React.FC = () => {
                   }}
                 >
                   <Share2 size={15} aria-hidden="true" />
-                  <span>{copied ? 'Link Copied!' : 'Share'}</span>
+                  <span>Share</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPrintPreviewOpen(true)}
+                  data-testid="open-print-preview-btn"
+                  aria-label="Open A4 Print Preview"
+                  title="Open visual A4 print preview to verify table readability and data density before initiating the system print dialog"
+                  className="button button-secondary"
+                  style={{ flex: 1, padding: '10px', justifyContent: 'center', gap: '6px' }}
+                >
+                  <Printer size={15} /> Print Preview
                 </button>
                 <button
                   type="button"
@@ -9396,12 +9400,14 @@ export const AnimateImageToVideo: React.FC = () => {
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
                     <Share2 size={14} aria-hidden="true" />
-                    {shareFeedback.message}
+                    {copied && !shareFeedback.message.startsWith('Link Copied!')
+                      ? `Link Copied! ${shareFeedback.message}`
+                      : shareFeedback.message}
                   </span>
                   <button
                     type="button"
                     onClick={() => setShareFeedback(null)}
-                    aria-label="Dismiss share status"
+                    aria-label="Dismiss notification"
                     style={{
                       background: 'transparent',
                       border: 'none',
@@ -10681,6 +10687,18 @@ export const AnimateImageToVideo: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   <button
                     type="button"
+                    onClick={handleShare}
+                    data-testid="share-from-preview-btn"
+                    title="Share the generated animation via mobile OS sharing dialogs or the browser Web Share API"
+                    className="button button-secondary"
+                    style={{ padding: '9px 14px', gap: '6px' }}
+                  >
+                    <Share2 size={15} aria-hidden="true" />
+                    <span>Share</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => {
                       setIsFinalQualityPreviewOpen(false);
                       handleDownloadAll();
@@ -10717,6 +10735,16 @@ export const AnimateImageToVideo: React.FC = () => {
 
       {/* Scoped AI Provider & Generation Settings Modal */}
       <AiProviderSettingsModal isOpen={isAiSettingsOpen} onClose={() => setIsAiSettingsOpen(false)} />
+
+      {/* A4 Visual Print Preview Modal */}
+      <A4PrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        onConfirmPrint={handleDownloadPdf}
+        toolTitle="Animation Generation & Storyboard Specification"
+        toolSubtitle={`Output Format: ${exportFormat.toUpperCase()} · ${aspectRatio} (${getAspectRatioDimensions(aspectRatio).width}×${getAspectRatioDimensions(aspectRatio).height}px) @ ${frameRate} FPS`}
+        toolCategory="Digital Media & Video Engineering"
+      />
     </div>
   );
 };

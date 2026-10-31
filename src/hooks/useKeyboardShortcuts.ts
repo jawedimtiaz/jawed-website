@@ -11,6 +11,25 @@ export interface ShortcutItem {
   action: () => void;
 }
 
+export interface VoiceCommandMatch {
+  id: string;
+  route?: string;
+  label: string;
+  shortcutCombo: string;
+  phrases: string[];
+  matchedPhrase: string;
+  transcript: string;
+}
+
+export interface LastVoiceCommandRecord {
+  id: string;
+  label: string;
+  route?: string;
+  transcript: string;
+  matchedPhrase: string;
+  timestamp: number;
+}
+
 interface KeyboardShortcutContextType {
   shortcuts: ShortcutItem[];
   isHelpModalOpen: boolean;
@@ -20,6 +39,13 @@ interface KeyboardShortcutContextType {
   triggerShortcut: (id: string) => void;
   activePrefix: string | null;
   lastTriggeredAction: { id: string; label: string; timestamp: number } | null;
+  isVoiceSupported?: boolean;
+  isVoiceListening?: boolean;
+  startVoiceRecognition?: () => void;
+  stopVoiceRecognition?: () => void;
+  toggleVoiceRecognition?: () => void;
+  executeVoiceCommand?: (transcript: string) => boolean;
+  lastVoiceCommand?: LastVoiceCommandRecord | null;
 }
 
 export const KeyboardShortcutContext = createContext<KeyboardShortcutContextType>({
@@ -31,6 +57,13 @@ export const KeyboardShortcutContext = createContext<KeyboardShortcutContextType
   triggerShortcut: () => {},
   activePrefix: null,
   lastTriggeredAction: null,
+  isVoiceSupported: false,
+  isVoiceListening: false,
+  startVoiceRecognition: () => {},
+  stopVoiceRecognition: () => {},
+  toggleVoiceRecognition: () => {},
+  executeVoiceCommand: () => false,
+  lastVoiceCommand: null,
 });
 
 export const useKeyboardShortcuts = () => useContext(KeyboardShortcutContext);
