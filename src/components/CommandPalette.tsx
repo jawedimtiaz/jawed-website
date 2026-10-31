@@ -23,6 +23,7 @@ export interface PaletteShortcutDisplayItem {
   label: string;
   description: string;
   category: string;
+  scope?: 'Global' | 'Local';
 }
 
 export interface QuickActionItem {
@@ -163,6 +164,66 @@ export const FALLBACK_SHORTCUTS: PaletteShortcutDisplayItem[] = [
     label: 'Toggle AI Assistant',
     description: 'Open or minimize Jawed AI troubleshooting widget',
     category: 'AI Assistant',
+    scope: 'Global',
+  },
+  {
+    id: 'nav-services',
+    combo: 'alt+s',
+    label: 'Go to Services',
+    description: 'Navigate to IT field services dispatch',
+    category: 'Navigation',
+    scope: 'Global',
+  },
+  {
+    id: 'nav-contact',
+    combo: 'alt+c',
+    label: 'Go to Contact Page',
+    description: 'Navigate to direct contact & support page',
+    category: 'Navigation',
+    scope: 'Global',
+  },
+];
+
+export const LOCAL_PALETTE_SHORTCUTS: PaletteShortcutDisplayItem[] = [
+  {
+    id: 'local-nav-up-down',
+    combo: '↑+↓',
+    label: 'Navigate Results (Up / Down)',
+    description: 'Move selection up or down through command palette items',
+    category: 'Local Palette',
+    scope: 'Local',
+  },
+  {
+    id: 'local-jump-bounds',
+    combo: 'Home+End',
+    label: 'Jump to First / Last Item',
+    description: 'Jump to top or bottom of list (or PgUp / PgDn by 5)',
+    category: 'Local Palette',
+    scope: 'Local',
+  },
+  {
+    id: 'local-cycle-category',
+    combo: 'alt+←/→',
+    label: 'Cycle Category Filter Tabs',
+    description: 'Switch between All, Tools, Field Guides, Blog, and Pages tabs',
+    category: 'Local Palette',
+    scope: 'Local',
+  },
+  {
+    id: 'local-execute-selected',
+    combo: 'Enter',
+    label: 'Execute Highlighted Item',
+    description: 'Open selected search result or run highlighted shortcut',
+    category: 'Local Palette',
+    scope: 'Local',
+  },
+  {
+    id: 'local-shortcut-discovery',
+    combo: '?',
+    label: 'Shortcut Discovery Mode',
+    description: 'Press ? inside search box to filter global & local shortcuts',
+    category: 'Local Palette',
+    scope: 'Local',
   },
 ];
 
@@ -246,6 +307,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [activeKeyHint, setActiveKeyHint] = useState<NavigationKeyHintType>(null);
   const [navigationMode, setNavigationMode] = useState<'keyboard' | 'pointer'>('keyboard');
   const [quickActionNotice, setQuickActionNotice] = useState<string | null>(null);
+  const [isShortcutDiscoveryActive, setIsShortcutDiscoveryActive] = useState(false);
+  const [shortcutScopeFilter, setShortcutScopeFilter] = useState<'all' | 'Global' | 'Local'>('all');
 
   const modalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -289,46 +352,73 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   }, []);
 
   const availableShortcuts: PaletteShortcutDisplayItem[] = useMemo(() => {
-    return shortcuts.length > 0 ? shortcuts : FALLBACK_SHORTCUTS;
+    const baseGlobal = shortcuts.length > 0 ? shortcuts : FALLBACK_SHORTCUTS;
+    const globalWithScope: PaletteShortcutDisplayItem[] = baseGlobal.map((s) => ({
+      ...s,
+      scope: s.scope || 'Global',
+    }));
+    return [...globalWithScope, ...LOCAL_PALETTE_SHORTCUTS];
   }, [shortcuts]);
 
-  // Show the 'Keyboard Shortcuts' section when the user types '?' or 'help' (or 'shortcut' / 'hotkey')
+  // Dedicated 'Shortcut Discovery' mode triggers when the user presses '?' inside the search box
+  const isShortcutDiscoveryMode = useMemo(() => {
+    const trimmed = query.trim();
+    return isShortcutDiscoveryActive || trimmed === '?' || trimmed.startsWith('?');
+  }, [isShortcutDiscoveryActive, query]);
+
+  // Show the 'Keyboard Shortcuts' / 'Shortcut Discovery' section when in Shortcut Discovery mode or typing 'help' / 'shortcut' / 'hotkey'
   const isShortcutQuery = useMemo(() => {
+    if (isShortcutDiscoveryMode) return true;
     const trimmed = query.trim().toLowerCase();
     if (!trimmed) return false;
     return (
-      trimmed === '?' ||
-      trimmed.startsWith('?') ||
       trimmed === 'help' ||
       trimmed.includes('help') ||
       trimmed.includes('shortcut') ||
       trimmed.includes('hotkey')
     );
+  }, [isShortcutDiscoveryMode, query]);
+
+  const shortcutFilterSubQuery = useMemo(() => {
+    const trimmed = query.trim().toLowerCase();
+    const raw = trimmed.startsWith('?') ? trimmed.slice(1).trim() : trimmed;
+    if (
+      !raw ||
+      raw === '?' ||
+      raw === 'help' ||
+      raw === 'shortcut' ||
+      raw === 'shortcuts' ||
+      raw === 'hotkey' ||
+      raw === 'hotkeys'
+    ) {
+      return '';
+    }
+    return raw;
   }, [query]);
 
   const matchingShortcuts = useMemo(() => {
     if (!isShortcutQuery) return [];
-    const trimmed = query.trim().toLowerCase();
-    const subQuery = trimmed.startsWith('?') ? trimmed.slice(1).trim() : trimmed;
-    if (
-      !subQuery ||
-      subQuery === 'help' ||
-      subQuery === 'shortcut' ||
-      subQuery === 'shortcuts' ||
-      subQuery === 'hotkey' ||
-      subQuery === 'hotkeys'
-    ) {
-      return availableShortcuts;
+    const scopeFiltered = availableShortcuts.filter((s) => {
+      const itemScope = s.scope || 'Global';
+      if (shortcutScopeFilter === 'all') return true;
+      return itemScope === shortcutScopeFilter;
+    });
+
+    if (!shortcutFilterSubQuery) {
+      return scopeFiltered;
     }
-    const filtered = availableShortcuts.filter(
-      (s) =>
-        s.label.toLowerCase().includes(subQuery) ||
-        s.description.toLowerCase().includes(subQuery) ||
-        s.combo.toLowerCase().includes(subQuery) ||
-        s.category.toLowerCase().includes(subQuery)
-    );
-    return filtered.length > 0 ? filtered : availableShortcuts;
-  }, [isShortcutQuery, query, availableShortcuts]);
+
+    return scopeFiltered.filter((s) => {
+      const itemScope = (s.scope || 'Global').toLowerCase();
+      return (
+        s.label.toLowerCase().includes(shortcutFilterSubQuery) ||
+        s.description.toLowerCase().includes(shortcutFilterSubQuery) ||
+        s.combo.toLowerCase().includes(shortcutFilterSubQuery) ||
+        s.category.toLowerCase().includes(shortcutFilterSubQuery) ||
+        itemScope.includes(shortcutFilterSubQuery)
+      );
+    });
+  }, [isShortcutQuery, availableShortcuts, shortcutScopeFilter, shortcutFilterSubQuery]);
 
   // Search History (localStorage last 5 queries)
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
@@ -555,14 +645,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return searchSite(query);
   }, [query, recommendations]);
 
-  // Filter by category tab
+  // Filter by category tab (hide general site results when in dedicated '?' Shortcut Discovery mode)
   const displayedItems = useMemo(() => {
+    if (isShortcutDiscoveryMode) return [];
     if (activeCategory === 'tool') return searchResults.tools;
     if (activeCategory === 'guide') return searchResults.guides;
     if (activeCategory === 'blog') return searchResults.blogs;
     if (activeCategory === 'page') return searchResults.pages;
     return searchResults.all;
-  }, [searchResults, activeCategory]);
+  }, [isShortcutDiscoveryMode, searchResults, activeCategory]);
 
   // Unified navigable target items across Keyboard Shortcuts (when active) and Search Results
   const navigableTargets: NavigablePaletteTarget[] = useMemo(() => {
@@ -581,7 +672,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // Reset selectedIndex on query or tab change
   useEffect(() => {
     setSelectedIndex(0);
-  }, [query, activeCategory]);
+  }, [query, activeCategory, shortcutScopeFilter, isShortcutDiscoveryMode]);
 
   // Keep selectedIndex within bounds if list size shrinks
   useEffect(() => {
@@ -595,6 +686,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     setIsOpen(true);
     setNavigationMode('keyboard');
     setQuickActionNotice(null);
+    setIsShortcutDiscoveryActive(false);
+    setShortcutScopeFilter('all');
     flashKeyHint('search');
     setTimeout(() => {
       inputRef.current?.focus();
@@ -609,6 +702,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     setQuery('');
     setActiveCategory('all');
     setQuickActionNotice(null);
+    setIsShortcutDiscoveryActive(false);
+    setShortcutScopeFilter('all');
   }, [flashKeyHint]);
 
   // Quick Actions Handlers
@@ -834,6 +929,22 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const handleExecuteShortcut = useCallback(
     (shortcutId: string) => {
       flashKeyHint('select');
+      // Handle local palette shortcuts without closing the Command Palette
+      if (shortcutId === 'local-cycle-category') {
+        cycleCategory(1);
+        inputRef.current?.focus();
+        return;
+      }
+      if (
+        shortcutId === 'local-nav-up-down' ||
+        shortcutId === 'local-jump-bounds' ||
+        shortcutId === 'local-execute-selected' ||
+        shortcutId === 'local-shortcut-discovery'
+      ) {
+        inputRef.current?.focus();
+        return;
+      }
+
       handleClose();
       if (shortcuts.length > 0) {
         triggerShortcut(shortcutId);
@@ -842,13 +953,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       if (shortcutId === 'nav-home') navigate('/');
       else if (shortcutId === 'nav-tools') navigate('/tools');
       else if (shortcutId === 'nav-guides') navigate('/guides');
+      else if (shortcutId === 'nav-services') navigate('/services');
+      else if (shortcutId === 'nav-contact') navigate('/contact');
       else if (shortcutId === 'shortcuts-help') {
         handleOpenShortcutModal();
       } else if (shortcutId === 'ai-widget') {
         window.dispatchEvent(new CustomEvent('toggle-ai-widget'));
       }
     },
-    [flashKeyHint, handleClose, shortcuts.length, triggerShortcut, navigate, handleOpenShortcutModal]
+    [
+      flashKeyHint,
+      cycleCategory,
+      handleClose,
+      shortcuts.length,
+      triggerShortcut,
+      navigate,
+      handleOpenShortcutModal,
+    ]
   );
 
   const scrollTargetIntoView = useCallback(
@@ -1004,10 +1125,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     } else if (e.key === 'ArrowLeft' && !query && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
       e.preventDefault();
       cycleCategory(-1);
-    } else if (e.key === '?' && e.shiftKey && !query) {
-      // Pressing Shift+? when the search box is empty opens the full Keyboard Shortcuts cheatsheet
-      e.preventDefault();
-      handleOpenShortcutModal();
+    } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+      // Pressing '?' inside the search box triggers dedicated Shortcut Discovery mode
+      setIsShortcutDiscoveryActive(true);
+      flashKeyHint('shortcuts');
+    } else if (e.key === 'Backspace' && (query === '?' || query === '')) {
+      setIsShortcutDiscoveryActive(false);
     } else if (e.key === 'Enter') {
       e.preventDefault();
       activateSelectedTarget();
@@ -1219,32 +1342,69 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
+              {isShortcutDiscoveryMode && (
+                <span
+                  className="shortcut-discovery-input-badge"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'var(--surface-accent)',
+                    border: '1px solid var(--accent)',
+                    color: 'var(--accent)',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                >
+                  <span aria-hidden="true">⌨️</span>
+                  <span>Shortcut Discovery</span>
+                </span>
+              )}
               <input
                 ref={inputRef}
                 id="command-palette-search-input"
                 type="search"
                 className="search-modal-input"
-                placeholder="Search tools, field guides, blog posts, calculators (or ? for shortcuts)..."
+                placeholder={
+                  isShortcutDiscoveryMode
+                    ? 'Filter global & local shortcuts (e.g. ? navigation, ? theme, ? local)...'
+                    : 'Search tools, field guides, blog posts, calculators (or ? for shortcuts)...'
+                }
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  const nextVal = e.target.value;
+                  setQuery(nextVal);
+                  if (nextVal.trim().startsWith('?')) {
+                    setIsShortcutDiscoveryActive(true);
+                  } else if (!nextVal.trim()) {
+                    setIsShortcutDiscoveryActive(false);
+                    setShortcutScopeFilter('all');
+                  }
+                }}
                 onKeyDown={handleInputKeyDown}
                 role="combobox"
                 aria-label="Search site tools, field guides, blog posts, and keyboard shortcuts"
                 aria-autocomplete="list"
                 aria-haspopup="listbox"
                 aria-expanded={navigableTargets.length > 0}
-                aria-controls="search-results-list"
+                aria-controls={isShortcutQuery ? 'search-shortcuts-listbox' : 'search-results-list'}
                 aria-activedescendant={activeDescendantId}
                 aria-describedby="command-palette-footer-shortcuts"
                 autoComplete="off"
                 spellCheck="false"
               />
-              {query && (
+              {(query || isShortcutDiscoveryMode) && (
                 <button
                   type="button"
                   className="search-clear-btn"
                   onClick={() => {
                     setQuery('');
+                    setIsShortcutDiscoveryActive(false);
+                    setShortcutScopeFilter('all');
                     inputRef.current?.focus();
                   }}
                   aria-label="Clear search query"
@@ -1455,7 +1615,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 <div>
                   {isShortcutQuery && (
                     <div
-                      className="search-shortcuts-section"
+                      className="search-shortcuts-section shortcut-discovery-mode"
+                      data-testid="shortcut-discovery-mode"
                       role="region"
                       aria-label="Keyboard Shortcuts"
                       style={{ marginBottom: displayedItems.length > 0 ? '18px' : '4px' }}
@@ -1466,141 +1627,278 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
+                          flexWrap: 'wrap',
                           gap: '8px',
+                          marginBottom: '8px',
                         }}
                       >
-                        <span>⌨️ Keyboard Shortcuts</span>
-                        <button
-                          type="button"
-                          onClick={handleOpenShortcutModal}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span>⌨️ Keyboard Shortcuts</span>
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              color: 'var(--accent)',
+                              background: 'var(--surface-accent)',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              borderRadius: '999px',
+                              padding: '1px 8px',
+                              textTransform: 'none',
+                              letterSpacing: 'normal',
+                            }}
+                          >
+                            Shortcut Discovery ({matchingShortcuts.length})
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          {/* Scope Filter Buttons: All / Global / Local */}
+                          <div
+                            role="group"
+                            aria-label="Filter shortcuts by scope"
+                            style={{ display: 'inline-flex', gap: '4px' }}
+                          >
+                            {(['all', 'Global', 'Local'] as const).map((scopeOpt) => {
+                              const isActiveScope = shortcutScopeFilter === scopeOpt;
+                              return (
+                                <button
+                                  key={scopeOpt}
+                                  type="button"
+                                  onClick={() => {
+                                    setShortcutScopeFilter(scopeOpt);
+                                    inputRef.current?.focus();
+                                  }}
+                                  aria-pressed={isActiveScope}
+                                  style={{
+                                    background: isActiveScope ? 'var(--surface-accent)' : 'transparent',
+                                    border: isActiveScope
+                                      ? '1px solid var(--accent)'
+                                      : '1px solid var(--line)',
+                                    color: isActiveScope ? 'var(--accent)' : 'var(--muted)',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    padding: '2px 7px',
+                                    borderRadius: '6px',
+                                    textTransform: 'none',
+                                  }}
+                                >
+                                  {scopeOpt === 'all' ? 'All' : scopeOpt}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {isShortcutDiscoveryMode && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQuery('');
+                                setIsShortcutDiscoveryActive(false);
+                                setShortcutScopeFilter('all');
+                                inputRef.current?.focus();
+                              }}
+                              style={{
+                                background: 'transparent',
+                                border: '1px solid var(--line)',
+                                color: 'var(--muted)',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                textTransform: 'none',
+                              }}
+                            >
+                              Exit Discovery
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={handleOpenShortcutModal}
+                            style={{
+                              background: 'transparent',
+                              border: '1px solid var(--line)',
+                              color: 'var(--accent)',
+                              fontSize: '0.73rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              textTransform: 'none',
+                            }}
+                          >
+                            Open Full Cheatsheet →
+                          </button>
+                        </div>
+                      </div>
+
+                      {matchingShortcuts.length === 0 ? (
+                        <div
                           style={{
-                            background: 'transparent',
-                            border: '1px solid var(--line)',
-                            color: 'var(--accent)',
-                            fontSize: '0.73rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            padding: '2px 8px',
-                            borderRadius: '6px',
+                            padding: '18px 12px',
+                            textAlign: 'center',
+                            color: 'var(--muted)',
+                            fontSize: '0.84rem',
+                            border: '1px dashed var(--line)',
+                            borderRadius: '10px',
+                            margin: '4px 8px',
                           }}
                         >
-                          Open Full Cheatsheet →
-                        </button>
-                      </div>
-                      <ul
-                        id="search-shortcuts-listbox"
-                        ref={shortcutsListRef}
-                        className="search-shortcuts-list"
-                        role="listbox"
-                        aria-label="Matching keyboard shortcuts"
-                        style={{
-                          listStyle: 'none',
-                          margin: '6px 0 0',
-                          padding: '0 8px',
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-                          gap: '8px',
-                        }}
-                      >
-                        {matchingShortcuts.map((shortcut, sIdx) => {
-                          const { keys } = formatComboForDisplay(shortcut.combo);
-                          const isShortcutSelected = selectedIndex === sIdx;
-                          return (
-                            <li
-                              id={`command-palette-shortcut-option-${sIdx}`}
-                              key={shortcut.id}
-                              onClick={() => handleExecuteShortcut(shortcut.id)}
-                              onMouseEnter={() => setSelectedIndex(sIdx)}
-                              role="option"
-                              aria-selected={isShortcutSelected}
-                              aria-posinset={sIdx + 1}
-                              aria-setsize={navigableTargets.length}
-                              tabIndex={-1}
-                              className={`search-shortcut-option ${
-                                isShortcutSelected ? 'is-selected' : ''
-                              }`}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: '10px',
-                                padding: '8px 12px',
-                                borderRadius: '8px',
-                                border: isShortcutSelected
-                                  ? '1px solid var(--accent)'
-                                  : '1px solid var(--line)',
-                                background: isShortcutSelected
-                                  ? 'var(--surface-accent)'
-                                  : 'var(--bg)',
-                                cursor: 'pointer',
-                                transition: 'border-color 0.15s ease, background-color 0.15s ease',
-                              }}
-                              title={`Run shortcut: ${shortcut.label}`}
-                            >
-                              <div style={{ minWidth: 0, flex: 1 }}>
-                                <div
-                                  style={{
-                                    fontWeight: 700,
-                                    fontSize: '0.84rem',
-                                    color: 'var(--text-heading)',
-                                  }}
-                                >
-                                  {shortcut.label}
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: '0.73rem',
-                                    color: 'var(--muted)',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                  }}
-                                >
-                                  {shortcut.description}
-                                </div>
-                              </div>
-                              <div
-                                role="group"
-                                aria-label={`Key combination: ${keys.join(' plus ')}`}
+                          No global or local shortcuts match &ldquo;
+                          <strong style={{ color: 'var(--text-heading)' }}>
+                            {shortcutFilterSubQuery || query}
+                          </strong>
+                          &rdquo;.
+                        </div>
+                      ) : (
+                        <ul
+                          id="search-shortcuts-listbox"
+                          ref={shortcutsListRef}
+                          className="search-shortcuts-list"
+                          role="listbox"
+                          aria-label="Matching keyboard shortcuts"
+                          style={{
+                            listStyle: 'none',
+                            margin: '6px 0 0',
+                            padding: '0 8px',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                            gap: '8px',
+                          }}
+                        >
+                          {matchingShortcuts.map((shortcut, sIdx) => {
+                            const { keys } = formatComboForDisplay(shortcut.combo);
+                            const isShortcutSelected = selectedIndex === sIdx;
+                            const itemScope = shortcut.scope || 'Global';
+                            return (
+                              <li
+                                id={`command-palette-shortcut-option-${sIdx}`}
+                                key={shortcut.id}
+                                onClick={() => handleExecuteShortcut(shortcut.id)}
+                                onMouseEnter={() => setSelectedIndex(sIdx)}
+                                role="option"
+                                aria-selected={isShortcutSelected}
+                                aria-posinset={sIdx + 1}
+                                aria-setsize={navigableTargets.length}
+                                tabIndex={-1}
+                                className={`search-shortcut-option ${
+                                  isShortcutSelected ? 'is-selected' : ''
+                                }`}
                                 style={{
-                                  display: 'inline-flex',
+                                  display: 'flex',
                                   alignItems: 'center',
-                                  gap: '4px',
-                                  flexShrink: 0,
+                                  justifyContent: 'space-between',
+                                  gap: '10px',
+                                  padding: '9px 12px',
+                                  borderRadius: '8px',
+                                  border: isShortcutSelected
+                                    ? '1px solid var(--accent)'
+                                    : '1px solid var(--line)',
+                                  background: isShortcutSelected
+                                    ? 'var(--surface-accent)'
+                                    : 'var(--bg)',
+                                  cursor: 'pointer',
+                                  transition: 'border-color 0.15s ease, background-color 0.15s ease',
                                 }}
+                                title={`Run shortcut: ${shortcut.label}`}
                               >
-                                {keys.map((keyLabel, idx) => (
-                                  <React.Fragment key={idx}>
-                                    {idx > 0 && (
-                                      <span
-                                        aria-hidden="true"
-                                        style={{
-                                          fontSize: '0.7rem',
-                                          color: 'var(--muted)',
-                                          fontWeight: 700,
-                                        }}
-                                      >
-                                        +
-                                      </span>
-                                    )}
-                                    <kbd
-                                      className="search-footer-kbd command-palette-kbd"
-                                      role="term"
-                                      aria-label={keyLabel}
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      flexWrap: 'wrap',
+                                      marginBottom: '2px',
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontWeight: 700,
+                                        fontSize: '0.84rem',
+                                        color: 'var(--text-heading)',
+                                      }}
                                     >
-                                      {keyLabel}
-                                    </kbd>
-                                  </React.Fragment>
-                                ))}
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                                      {shortcut.label}
+                                    </span>
+                                    <span
+                                      style={{
+                                        fontSize: '0.64rem',
+                                        fontWeight: 700,
+                                        padding: '1px 5px',
+                                        borderRadius: '4px',
+                                        background:
+                                          itemScope === 'Local'
+                                            ? 'rgba(45, 212, 191, 0.14)'
+                                            : 'rgba(56, 189, 248, 0.14)',
+                                        color:
+                                          itemScope === 'Local' ? 'var(--teal)' : 'var(--accent)',
+                                        border:
+                                          itemScope === 'Local'
+                                            ? '1px solid rgba(45, 212, 191, 0.28)'
+                                            : '1px solid rgba(56, 189, 248, 0.28)',
+                                      }}
+                                    >
+                                      {itemScope}
+                                    </span>
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: '0.73rem',
+                                      color: 'var(--muted)',
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                    }}
+                                  >
+                                    {shortcut.description}
+                                  </div>
+                                </div>
+                                <div
+                                  role="group"
+                                  aria-label={`Key combination: ${keys.join(' plus ')}`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {keys.map((keyLabel, idx) => (
+                                    <React.Fragment key={idx}>
+                                      {idx > 0 && (
+                                        <span
+                                          aria-hidden="true"
+                                          style={{
+                                            fontSize: '0.7rem',
+                                            color: 'var(--muted)',
+                                            fontWeight: 700,
+                                          }}
+                                        >
+                                          +
+                                        </span>
+                                      )}
+                                      <kbd
+                                        className="search-footer-kbd command-palette-kbd"
+                                        role="term"
+                                        aria-label={keyLabel}
+                                      >
+                                        {keyLabel}
+                                      </kbd>
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
                     </div>
                   )}
 
-                  {!query.trim() && recentSearches.length > 0 && (
+                  {!isShortcutDiscoveryMode && !query.trim() && recentSearches.length > 0 && (
                     <div style={{ marginBottom: '16px' }}>
                       <div
                         className="search-section-header"
@@ -1642,7 +1940,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     </div>
                   )}
 
-                  {matchingQuickActions.length > 0 && (
+                  {!isShortcutDiscoveryMode && matchingQuickActions.length > 0 && (
                     <div
                       className="search-quick-actions-section"
                       role="region"
@@ -1776,7 +2074,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     </div>
                   )}
 
-                  {!query.trim() && frequentlySearchedItems.length > 0 && (
+                  {!isShortcutDiscoveryMode && !query.trim() && frequentlySearchedItems.length > 0 && (
                     <div
                       className="search-frequently-searched-section"
                       role="region"
@@ -1920,7 +2218,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     </div>
                   )}
 
-                  {!query.trim() && (
+                  {!isShortcutDiscoveryMode && !query.trim() && (
                     <div style={{ marginBottom: '16px' }}>
                       <div className="search-section-header">
                         <span>🔥 Popular Searches</span>
@@ -1978,7 +2276,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     </div>
                   )}
 
-                  {!query.trim() && (
+                  {!isShortcutDiscoveryMode && !query.trim() && (
                     <div className="search-section-header">
                       <span>✨ Recommended Tools, Field Guides &amp; Blog Posts</span>
                     </div>

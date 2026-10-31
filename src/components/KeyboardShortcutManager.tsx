@@ -12,7 +12,7 @@ interface KeyboardShortcutManagerProps {
 }
 
 const FOCUSABLE_MODAL_SELECTOR =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'button:not([disabled]):not([data-focus-guard]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([data-focus-guard])';
 
 export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = ({ children }) => {
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
@@ -80,6 +80,9 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
   const restorePreviousFocus = useCallback(() => {
     const target = previousFocusRef.current;
     if (target && typeof target.focus === 'function') {
+      if (document.body.contains(target)) {
+        target.focus();
+      }
       window.requestAnimationFrame(() => {
         if (document.body.contains(target)) {
           target.focus();
@@ -133,7 +136,13 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
 
       const focusableElements = Array.from(
         modalWrapperRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_MODAL_SELECTOR)
-      ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+      ).filter((el) => {
+        if (el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true') {
+          return false;
+        }
+        const style = window.getComputedStyle(el);
+        return style.display !== 'none' && style.visibility !== 'hidden';
+      });
 
       if (focusableElements.length === 0) return;
 
