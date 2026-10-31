@@ -581,20 +581,40 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = ({ onNavigated }) => 
 
             {/* Modal Footer with Keyboard Shortcuts */}
             <div className="search-modal-footer">
-              <div className="search-footer-hints">
+              <div className="search-footer-hints" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
                 <span className="search-footer-hint">
-                  <kbd className="search-footer-kbd">↑</kbd>
-                  <kbd className="search-footer-kbd">↓</kbd> Navigate
+                  Press <kbd className="search-footer-kbd">⌘K</kbd> or <kbd className="search-footer-kbd">/</kbd> to search
                 </span>
                 <span className="search-footer-hint">
-                  <kbd className="search-footer-kbd">↵</kbd> Open
+                  <kbd className="search-footer-kbd">↑</kbd> <kbd className="search-footer-kbd">↓</kbd> to navigate
                 </span>
                 <span className="search-footer-hint">
-                  <kbd className="search-footer-kbd">esc</kbd> Dismiss
+                  <kbd className="search-footer-kbd">ESC</kbd> to close
                 </span>
               </div>
               <div className="search-footer-powered">
-                <span>Ctrl + K Command Palette</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleClose();
+                    window.dispatchEvent(new CustomEvent('open-shortcuts-modal'));
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 0,
+                    color: 'inherit',
+                    fontSize: 'inherit',
+                    cursor: 'pointer',
+                    padding: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <span>
+                    Press <kbd className="search-footer-kbd">?</kbd> for all shortcuts
+                  </span>
+                </button>
               </div>
             </div>
           </div>

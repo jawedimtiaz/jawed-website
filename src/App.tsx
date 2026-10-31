@@ -4,10 +4,25 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { JawedAiWidget } from './components/JawedAiWidget';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
-import { RouteSeo } from './components/RouteSeo';
+import {
+  RouteSeo,
+  TOOL_METADATA,
+  STATIC_METADATA,
+  resolveMetadata,
+  canonicalUrl,
+  type RouteMetadata,
+} from './components/RouteSeo';
 import { ScrollProgress } from './components/ScrollProgress';
 import { KeyboardShortcutManager } from './components/KeyboardShortcutManager';
 import { Breadcrumb } from './components/Breadcrumb';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
+import {
+  OfflineModeFallback,
+  CACHED_OFFLINE_TOOLS,
+  isCachedOfflineToolPath,
+} from './components/OfflineModeFallback';
+
+export { OfflineModeFallback, CACHED_OFFLINE_TOOLS };
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -53,6 +68,65 @@ import { CableLengthPoeChecker } from './tools/CableLengthPoeChecker';
 import { AiAudioTranscriber } from './tools/AiAudioTranscriber';
 import { AnimateImageToVideo } from './pages/tools/AnimateImageToVideo';
 
+export const TOOL_PAGE_META: Record<string, RouteMetadata> = {
+  ...STATIC_METADATA,
+  ...TOOL_METADATA,
+};
+
+export function DynamicRouteMeta() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    const metadata = resolveMetadata(pathname);
+    const fullTitle = metadata.title.includes('Jawed Imtiaz')
+      ? metadata.title
+      : `${metadata.title} | Jawed Imtiaz`;
+    const metaDesc = metadata.description;
+    const ogTitle = metadata.ogTitle
+      ? metadata.ogTitle.includes('Jawed Imtiaz')
+        ? metadata.ogTitle
+        : `${metadata.ogTitle} | Jawed Imtiaz`
+      : fullTitle;
+    const ogDescription = metadata.ogDescription || metaDesc;
+    const ogType = metadata.ogType || 'website';
+    const robots = metadata.robots || 'index, follow';
+    const resolvedCanonical = canonicalUrl(metadata.canonicalPath);
+
+    document.title = fullTitle;
+
+    const upsertMeta = (attr: 'name' | 'property', key: string, content: string) => {
+      let element = document.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
+      if (!element) {
+        element = document.createElement('meta');
+        element.setAttribute(attr, key);
+        document.head.appendChild(element);
+      }
+      element.setAttribute('content', content);
+    };
+
+    upsertMeta('name', 'description', metaDesc);
+    upsertMeta('name', 'robots', robots);
+    upsertMeta('property', 'og:site_name', 'Jawed Imtiaz');
+    upsertMeta('property', 'og:title', ogTitle);
+    upsertMeta('property', 'og:description', ogDescription);
+    upsertMeta('property', 'og:type', ogType);
+    upsertMeta('property', 'og:url', resolvedCanonical);
+    upsertMeta('name', 'twitter:card', 'summary_large_image');
+    upsertMeta('name', 'twitter:title', ogTitle);
+    upsertMeta('name', 'twitter:description', ogDescription);
+
+    let canonicalLink = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonicalLink) {
+      canonicalLink = document.createElement('link');
+      canonicalLink.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.setAttribute('href', resolvedCanonical);
+  }, [pathname]);
+
+  return null;
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -75,9 +149,18 @@ function BreadcrumbNav() {
 }
 
 export const App: React.FC = () => {
+  const isOnline = useOnlineStatus();
+  const { pathname } = useLocation();
+  const [showOfflineHub, setShowOfflineHub] = useState(false);
   const [cookieModalOpen, setCookieModalOpen] = useState(false);
   const [analyticsAllowed, setAnalyticsAllowed] = useState(true);
   const [adsAllowed, setAdsAllowed] = useState(true);
+
+  useEffect(() => {
+    if (isOnline) {
+      setShowOfflineHub(false);
+    }
+  }, [isOnline]);
 
   useEffect(() => {
     const a = localStorage.getItem('cookie_analytics_consent');
@@ -92,97 +175,127 @@ export const App: React.FC = () => {
     setCookieModalOpen(false);
   };
 
+  const onCachedToolRoute = isCachedOfflineToolPath(pathname);
+  const shouldShowFullOfflineFallback =
+    !isOnline && (!onCachedToolRoute || showOfflineHub || pathname === '/offline');
+
   return (
     <KeyboardShortcutManager>
       <div className="site-wrapper" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <ScrollToTop />
+        <DynamicRouteMeta />
         <RouteSeo />
         <ScrollProgress />
         <Header />
         <BreadcrumbNav />
 
         <div style={{ flex: 1 }}>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
+          {!isOnline && onCachedToolRoute && !showOfflineHub && (
+            <OfflineModeFallback
+              compact
+              isOnline={isOnline}
+              onExpandHub={() => setShowOfflineHub(true)}
+              onSelectTool={() => setShowOfflineHub(false)}
+            />
+          )}
 
-            {/* Navigation Items (Clean Taxonomy: /guides, /tools, /services) */}
-            <Route path="/guides" element={<NotesListPage />} />
-            <Route path="/guides/:slug" element={<NoteDetailPage />} />
+          {shouldShowFullOfflineFallback ? (
+            <OfflineModeFallback
+              isOnline={isOnline}
+              onSelectTool={() => setShowOfflineHub(false)}
+            />
+          ) : (
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route
+                path="/offline"
+                element={
+                  <OfflineModeFallback
+                    isOnline={isOnline}
+                    onSelectTool={() => setShowOfflineHub(false)}
+                  />
+                }
+              />
 
-            {/* Backward-Compatible Route Aliases */}
-            <Route path="/field-guides" element={<NotesListPage />} />
-            <Route path="/field-guides/:slug" element={<NoteDetailPage />} />
-            <Route path="/notes" element={<NotesListPage />} />
-            <Route path="/notes/:slug" element={<NoteDetailPage />} />
+              {/* Navigation Items (Clean Taxonomy: /guides, /tools, /services) */}
+              <Route path="/guides" element={<NotesListPage />} />
+              <Route path="/guides/:slug" element={<NoteDetailPage />} />
 
-            <Route path="/diagnostic-tools" element={<ToolsPage />} />
-            <Route path="/tools" element={<ToolsPage />} />
+              {/* Backward-Compatible Route Aliases */}
+              <Route path="/field-guides" element={<NotesListPage />} />
+              <Route path="/field-guides/:slug" element={<NoteDetailPage />} />
+              <Route path="/notes" element={<NotesListPage />} />
+              <Route path="/notes/:slug" element={<NoteDetailPage />} />
 
-            {/* Specific Tools */}
-            <Route path="/tools/ai-prompt-builder" element={<AiPromptBuilder />} />
-            <Route path="/tools/career-match-resume-review" element={<CareerMatchResumeReview />} />
-            <Route path="/tools/resume-bullet-strength-checker" element={<ResumeBulletStrengthChecker />} />
-            <Route path="/tools/it-resume-bullet-builder" element={<ITResumeBulletBuilder />} />
-            <Route path="/tools/it-cover-letter-builder" element={<ITCoverLetterBuilder />} />
-            <Route path="/tools/it-interview-practice" element={<ITInterviewPractice />} />
-            <Route path="/tools/interview-preparation-planner" element={<InterviewPreparationPlanner />} />
-            <Route path="/tools/it-troubleshooting-assistant" element={<ItTroubleshootingAssistant />} />
-            <Route path="/tools/service-desk-note-formatter" element={<ServiceDeskNoteFormatter />} />
-            <Route path="/tools/ticket-to-knowledge-base-draft" element={<TicketToKbDraft />} />
-            <Route path="/tools/ipv4-subnet-calculator" element={<Ipv4SubnetCalculator />} />
-            <Route path="/tools/server-rack-power-btu-calculator" element={<ServerRackPowerBtuCalculator />} />
-            <Route path="/tools/personal-finance-snapshot" element={<PersonalFinanceSnapshot />} />
-            <Route path="/tools/finance-planning-workspace" element={<FinancePlanningWorkspace />} />
-            <Route path="/tools/compound-growth-sip-calculator" element={<CompoundGrowthCalculator />} />
-            <Route path="/tools/inflation-goal-planning-calculator" element={<InflationGoalCalculator />} />
-            <Route path="/tools/retirement-planning-calculator" element={<RetirementPlanningCalculator />} />
-            <Route path="/tools/calculator" element={<RetirementPlanningCalculator />} />
-            <Route path="/tools/it-salary-offer-calculator" element={<ItSalaryOfferCalculator />} />
-            <Route path="/tools/salary-calculator" element={<ItSalaryOfferCalculator />} />
-            <Route path="/tools/cctv-storage-calculator" element={<CctvStorageCalculator />} />
-            <Route path="/tools/cctv-calculator" element={<CctvStorageCalculator />} />
-            <Route path="/cctv-storage-calculator" element={<CctvStorageCalculator />} />
-            <Route path="/tools/hardware-storage-calculator" element={<HardwareStorageCalculator />} />
-            <Route path="/tools/raid-calculator" element={<HardwareStorageCalculator />} />
-            <Route path="/tools/hardware-storage" element={<HardwareStorageCalculator />} />
-            <Route path="/hardware-storage-calculator" element={<HardwareStorageCalculator />} />
-            <Route path="/raid-calculator" element={<HardwareStorageCalculator />} />
-            <Route path="/tools/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
-            <Route path="/tools/cable-length-poe-checker" element={<CableLengthPoeChecker />} />
-            <Route path="/tools/poe-budget-calculator" element={<CableLengthPoeChecker />} />
-            <Route path="/tools/cable-length-checker" element={<CableLengthPoeChecker />} />
-            <Route path="/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
-            <Route path="/tools/ai-audio-transcriber" element={<AiAudioTranscriber />} />
-            <Route path="/tools/audio-transcriber" element={<AiAudioTranscriber />} />
-            <Route path="/tools/transcribe" element={<AiAudioTranscriber />} />
-            <Route path="/tools/animate-image-to-video" element={<AnimateImageToVideo />} />
-            <Route path="/tools/animate-images-to-video" element={<AnimateImageToVideo />} />
-            <Route path="/tools/animate-image" element={<AnimateImageToVideo />} />
-            <Route path="/animate-image-to-video" element={<AnimateImageToVideo />} />
-            <Route path="/animate-images-to-video" element={<AnimateImageToVideo />} />
+              <Route path="/diagnostic-tools" element={<ToolsPage />} />
+              <Route path="/tools" element={<ToolsPage />} />
 
-            {/* Services & Dispatch */}
-            <Route path="/services" element={<ServicesDispatchPage />} />
-            <Route path="/services-dispatch" element={<ServicesDispatchPage />} />
+              {/* Specific Tools */}
+              <Route path="/tools/ai-prompt-builder" element={<AiPromptBuilder />} />
+              <Route path="/tools/career-match-resume-review" element={<CareerMatchResumeReview />} />
+              <Route path="/tools/resume-bullet-strength-checker" element={<ResumeBulletStrengthChecker />} />
+              <Route path="/tools/it-resume-bullet-builder" element={<ITResumeBulletBuilder />} />
+              <Route path="/tools/it-cover-letter-builder" element={<ITCoverLetterBuilder />} />
+              <Route path="/tools/it-interview-practice" element={<ITInterviewPractice />} />
+              <Route path="/tools/interview-preparation-planner" element={<InterviewPreparationPlanner />} />
+              <Route path="/tools/it-troubleshooting-assistant" element={<ItTroubleshootingAssistant />} />
+              <Route path="/tools/service-desk-note-formatter" element={<ServiceDeskNoteFormatter />} />
+              <Route path="/tools/ticket-to-knowledge-base-draft" element={<TicketToKbDraft />} />
+              <Route path="/tools/ipv4-subnet-calculator" element={<Ipv4SubnetCalculator />} />
+              <Route path="/tools/server-rack-power-btu-calculator" element={<ServerRackPowerBtuCalculator />} />
+              <Route path="/tools/personal-finance-snapshot" element={<PersonalFinanceSnapshot />} />
+              <Route path="/tools/finance-planning-workspace" element={<FinancePlanningWorkspace />} />
+              <Route path="/tools/compound-growth-sip-calculator" element={<CompoundGrowthCalculator />} />
+              <Route path="/tools/inflation-goal-planning-calculator" element={<InflationGoalCalculator />} />
+              <Route path="/tools/retirement-planning-calculator" element={<RetirementPlanningCalculator />} />
+              <Route path="/tools/calculator" element={<RetirementPlanningCalculator />} />
+              <Route path="/tools/it-salary-offer-calculator" element={<ItSalaryOfferCalculator />} />
+              <Route path="/tools/salary-calculator" element={<ItSalaryOfferCalculator />} />
+              <Route path="/tools/cctv-storage-calculator" element={<CctvStorageCalculator />} />
+              <Route path="/tools/cctv-calculator" element={<CctvStorageCalculator />} />
+              <Route path="/cctv-storage-calculator" element={<CctvStorageCalculator />} />
+              <Route path="/tools/hardware-storage-calculator" element={<HardwareStorageCalculator />} />
+              <Route path="/tools/raid-calculator" element={<HardwareStorageCalculator />} />
+              <Route path="/tools/hardware-storage" element={<HardwareStorageCalculator />} />
+              <Route path="/hardware-storage-calculator" element={<HardwareStorageCalculator />} />
+              <Route path="/raid-calculator" element={<HardwareStorageCalculator />} />
+              <Route path="/tools/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
+              <Route path="/tools/cable-length-poe-checker" element={<CableLengthPoeChecker />} />
+              <Route path="/tools/poe-budget-calculator" element={<CableLengthPoeChecker />} />
+              <Route path="/tools/cable-length-checker" element={<CableLengthPoeChecker />} />
+              <Route path="/cable-length-poe-budget-checker" element={<CableLengthPoeChecker />} />
+              <Route path="/tools/ai-audio-transcriber" element={<AiAudioTranscriber />} />
+              <Route path="/tools/audio-transcriber" element={<AiAudioTranscriber />} />
+              <Route path="/tools/transcribe" element={<AiAudioTranscriber />} />
+              <Route path="/tools/animate-image-to-video" element={<AnimateImageToVideo />} />
+              <Route path="/tools/animate-images-to-video" element={<AnimateImageToVideo />} />
+              <Route path="/tools/animate-image" element={<AnimateImageToVideo />} />
+              <Route path="/animate-image-to-video" element={<AnimateImageToVideo />} />
+              <Route path="/animate-images-to-video" element={<AnimateImageToVideo />} />
 
-            {/* Main Pages */}
-            <Route path="/about/*" element={<AboutPage />} />
-            <Route path="/work/*" element={<WorkPage />} />
-            <Route path="/topics/*" element={<TopicsPage />} />
-            <Route path="/resources/*" element={<ResourcesPage />} />
-            <Route path="/blog" element={<BlogListPage />} />
-            <Route path="/blog/:slug" element={<BlogPostPage />} />
+              {/* Services & Dispatch */}
+              <Route path="/services" element={<ServicesDispatchPage />} />
+              <Route path="/services-dispatch" element={<ServicesDispatchPage />} />
 
-            {/* Legal & Contact Pages */}
-            <Route path="/contact/*" element={<ContactPage />} />
-            <Route path="/privacy/*" element={<PrivacyPage />} />
-            <Route path="/terms/*" element={<TermsPage />} />
-            <Route path="/cookies/*" element={<CookiePolicyPage />} />
+              {/* Main Pages */}
+              <Route path="/about/*" element={<AboutPage />} />
+              <Route path="/work/*" element={<WorkPage />} />
+              <Route path="/topics/*" element={<TopicsPage />} />
+              <Route path="/resources/*" element={<ResourcesPage />} />
+              <Route path="/blog" element={<BlogListPage />} />
+              <Route path="/blog/:slug" element={<BlogPostPage />} />
 
-            {/* AI */}
-            <Route path="/ai/*" element={<AiPage />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
+              {/* Legal & Contact Pages */}
+              <Route path="/contact/*" element={<ContactPage />} />
+              <Route path="/privacy/*" element={<PrivacyPage />} />
+              <Route path="/terms/*" element={<TermsPage />} />
+              <Route path="/cookies/*" element={<CookiePolicyPage />} />
+
+              {/* AI */}
+              <Route path="/ai/*" element={<AiPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          )}
         </div>
 
         <Footer onOpenCookieModal={() => setCookieModalOpen(true)} />

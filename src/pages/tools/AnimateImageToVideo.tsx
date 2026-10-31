@@ -30,6 +30,9 @@ import {
   Scissors,
   Music,
   Volume2,
+  HelpCircle,
+  Keyboard,
+  X,
 } from 'lucide-react';
 import { Breadcrumb } from '../../components/Breadcrumb';
 import { SocialShareBar } from '../../components/SocialShareBar';
@@ -296,6 +299,67 @@ export function formatVideoTimestamp(seconds: number): string {
   const ss = String(secs).padStart(2, '0');
   return `${mm}:${ss}.${tenths}`;
 }
+
+/**
+ * Formats a byte count into a human-readable KB or MB string (e.g., "840 KB", "1.62 MB").
+ */
+export function formatVideoFileSize(bytes: number): string {
+  const safeBytes = Math.max(0, Number.isFinite(bytes) ? bytes : 0);
+  if (safeBytes < 1024) {
+    return `${Math.round(safeBytes)} B`;
+  }
+  const kb = safeBytes / 1024;
+  if (kb < 1024) {
+    return `${kb >= 100 ? Math.round(kb) : kb.toFixed(1)} KB`;
+  }
+  const mb = kb / 1024;
+  return `${mb.toFixed(2)} MB`;
+}
+
+export interface EstimateAnimationFileSizeParams {
+  width: number;
+  height: number;
+  durationSeconds: number;
+  frameRate: number;
+  animationIntensity: number;
+  hasAudio: boolean;
+  motionBlurEnabled?: boolean;
+}
+
+/**
+ * Computes the estimated file size in bytes and target bitrate (kbps) for the generated video
+ * based on output canvas dimensions, clipped duration, frame rate, motion complexity, and audio stream.
+ */
+export function estimateAnimationFileSize(params: EstimateAnimationFileSizeParams): {
+  estimatedBytes: number;
+  estimatedBitrateKbps: number;
+} {
+  const baseVideoBps =
+    params.frameRate >= 60 ? 4_500_000 : params.frameRate >= 30 ? 2_500_000 : 2_000_000;
+  const referencePixels = 1280 * 720;
+  const actualPixels = Math.max(1, params.width * params.height);
+  const resolutionFactor = Math.max(0.55, Math.min(1.65, actualPixels / referencePixels));
+  const intensityFactor = 0.88 + (Math.max(10, Math.min(100, params.animationIntensity)) / 100) * 0.24;
+  const blurCompressionFactor = params.motionBlurEnabled ? 0.96 : 1.0;
+
+  const effectiveVideoBps = Math.round(
+    baseVideoBps * resolutionFactor * intensityFactor * blurCompressionFactor
+  );
+  const audioBps = params.hasAudio ? 128_000 : 0;
+  const totalBps = effectiveVideoBps + audioBps;
+  const containerHeaderOverheadBytes = 18 * 1024;
+  const activeSeconds = Math.max(0.5, params.durationSeconds);
+
+  const estimatedBytes = Math.round(
+    (totalBps / 8) * activeSeconds + containerHeaderOverheadBytes
+  );
+
+  return {
+    estimatedBytes,
+    estimatedBitrateKbps: Math.round(totalBps / 1000),
+  };
+}
+
 
 export interface AnimationEffectConfig {
   id: AnimationEffectId;
@@ -1241,12 +1305,14 @@ export const AnimateImageToVideo: React.FC = () => {
   const [renderProgress, setRenderProgress] = useState<number>(0);
   const [renderedVideoUrl, setRenderedVideoUrl] = useState<string | null>(null);
   const [renderedVideoExt, setRenderedVideoExt] = useState<'webm' | 'mp4'>('webm');
+  const [renderedVideoSizeBytes, setRenderedVideoSizeBytes] = useState<number | null>(null);
   const [isLivePreviewing, setIsLivePreviewing] = useState<boolean>(false);
   const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
   const [sourceFitMode, setSourceFitMode] = useState<'contain' | 'cover'>('contain');
   const [showMotionHeatmap, setShowMotionHeatmap] = useState<boolean>(true);
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(72);
   const [motionBlurEnabled, setMotionBlurEnabled] = useState<boolean>(false);
+  const [loopAnimationEnabled, setLoopAnimationEnabled] = useState<boolean>(false);
   const [transitionEffect, setTransitionEffect] = useState<TransitionEffectId>(() => {
     try {
       const saved = localStorage.getItem('animate_img_to_video_transition_effect');
@@ -1305,6 +1371,8 @@ export const AnimateImageToVideo: React.FC = () => {
 
   // Scoped AI Settings Modal & Provider Config (exclusively on this tool page)
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState<boolean>(false);
+  const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState<boolean>(false);
+  const [lastKeyboardActionLabel, setLastKeyboardActionLabel] = useState<string | null>(null);
   const [aiConfig, setAiConfig] = useState<AiProviderConfig>(getStoredAiProviderConfig);
   const [isGeneratingCaption, setIsGeneratingCaption] = useState<boolean>(false);
 
@@ -1387,6 +1455,14 @@ export const AnimateImageToVideo: React.FC = () => {
       const crossfadeAlpha =
         totalFrames > 1 && currentIdx !== nextIdx && localProgress > 0.75
           ? (localProgress - 0.75) / 0.25
+          : 0;
+      const loopCrossfadeRaw =
+        loopAnimationEnabled && currentIdx === totalFrames - 1 && localProgress > 0.75
+          ? Math.min(1, Math.max(0, (localProgress - 0.75) / 0.25))
+          : 0;
+      const loopCrossfadeAlpha =
+        loopCrossfadeRaw > 0
+          ? loopCrossfadeRaw * loopCrossfadeRaw * (3 - 2 * loopCrossfadeRaw)
           : 0;
 
       const intensityFactor = animationIntensity / 100;
@@ -1526,6 +1602,11 @@ export const AnimateImageToVideo: React.FC = () => {
         }
       }
 
+      // Seamless Loop Crossfade: intelligently crossfade the end frames back into the initial start frame (frames[0] at p = 0)
+      if (loopCrossfadeAlpha > 0 && frames[0]) {
+        drawImageWithEffect(frames[0].imgElement, 0, loopCrossfadeAlpha);
+      }
+
       // Atmospheric Vignette
       const gradient = ctx.createRadialGradient(
         width / 2,
@@ -1550,14 +1631,24 @@ export const AnimateImageToVideo: React.FC = () => {
       // Floating Particles for particle-dust effect
       if (selectedEffect === 'particle-dust') {
         const particleCount = Math.max(8, Math.round(24 * intensityFactor));
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        for (let i = 0; i < particleCount; i++) {
-          const px = (Math.sin(i * 99 + progress * Math.PI * 4 * intensityFactor) * 0.5 + 0.5) * width;
-          const py = (i * 45 + progress * height * 0.8 * intensityFactor) % height;
-          const pSize = (i % 3) + 1.5;
-          ctx.beginPath();
-          ctx.arc(px, py, pSize, 0, Math.PI * 2);
-          ctx.fill();
+        const drawDustLayer = (layerProgress: number, alphaWeight: number) => {
+          if (alphaWeight <= 0.01) return;
+          ctx.fillStyle = `rgba(255, 255, 255, ${(0.6 * alphaWeight).toFixed(3)})`;
+          for (let i = 0; i < particleCount; i++) {
+            const px =
+              (Math.sin(i * 99 + layerProgress * Math.PI * 4 * intensityFactor) * 0.5 + 0.5) * width;
+            const py = (i * 45 + layerProgress * height * 0.8 * intensityFactor) % height;
+            const pSize = (i % 3) + 1.5;
+            ctx.beginPath();
+            ctx.arc(px, py, pSize, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        };
+        if (loopCrossfadeAlpha > 0) {
+          drawDustLayer(progress, 1 - loopCrossfadeAlpha);
+          drawDustLayer(0, loopCrossfadeAlpha);
+        } else {
+          drawDustLayer(progress, 1);
         }
       }
 
@@ -1594,6 +1685,7 @@ export const AnimateImageToVideo: React.FC = () => {
       motionBlurRadiusPx,
       heatmapMetrics.hotspots,
       transitionEffect,
+      loopAnimationEnabled,
     ]
   );
 
@@ -1766,6 +1858,7 @@ export const AnimateImageToVideo: React.FC = () => {
     setFrames([]);
     setSelectedPreviewIndex(0);
     setRenderedVideoUrl(null);
+    setRenderedVideoSizeBytes(null);
     setIsLivePreviewing(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -2043,6 +2136,178 @@ export const AnimateImageToVideo: React.FC = () => {
     },
     [durationSeconds, frames.length, aspectRatio, drawFrameAtProgress, lastRenderedTrimRange.start]
   );
+
+  // Toggle Play/Pause for live canvas preview and rendered video player
+  const handleTogglePlayPause = useCallback(() => {
+    setIsLivePreviewing((prev) => {
+      const nextPlaying = !prev;
+      if (videoPlayerRef.current) {
+        try {
+          if (nextPlaying) {
+            void videoPlayerRef.current.play().catch(() => {
+              // Ignore autoplay block if any
+            });
+          } else {
+            videoPlayerRef.current.pause();
+          }
+        } catch {
+          // Ignore media state errors
+        }
+      }
+      setLastKeyboardActionLabel(nextPlaying ? 'Playback Resumed (Space)' : 'Playback Paused (Space)');
+      return nextPlaying;
+    });
+  }, []);
+
+  // Step backward or forward by a given number of frames (e.g. -1/+1 for Left/Right arrows, -5/+5 with Shift)
+  const handleScrubFrames = useCallback(
+    (frameDelta: number) => {
+      const safeFps = Math.max(1, frameRate);
+      const frameDurationSec = 1 / safeFps;
+      const currentSec = selectedSummaryProgress * durationSeconds;
+      const minBound = Math.max(0, Math.min(durationSeconds, trimStartSeconds));
+      const maxBound = Math.max(minBound, Math.min(durationSeconds, trimEndSeconds));
+      const unclampedNext = currentSec + frameDelta * frameDurationSec;
+      const nextSeconds = Math.max(minBound, Math.min(maxBound, unclampedNext));
+
+      scrubPreviewToTimestamp(nextSeconds);
+
+      const totalFramesCount = Math.max(1, Math.round(durationSeconds * safeFps));
+      const currentFrameNumber = Math.min(
+        totalFramesCount,
+        Math.max(1, Math.round((nextSeconds / Math.max(0.1, durationSeconds)) * totalFramesCount))
+      );
+      setLastKeyboardActionLabel(
+        `Scrubbed ${frameDelta > 0 ? `+${frameDelta}` : frameDelta} ${
+          Math.abs(frameDelta) === 1 ? 'frame' : 'frames'
+        } • Frame ${currentFrameNumber}/${totalFramesCount} (${formatVideoTimestamp(nextSeconds)})`
+      );
+    },
+    [frameRate, selectedSummaryProgress, durationSeconds, trimStartSeconds, trimEndSeconds, scrubPreviewToTimestamp]
+  );
+
+  // Global keyboard shortcuts for playback control, frame scrubbing, and help modal accessibility
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase() || '';
+      const isEditableInput =
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        Boolean(target?.isContentEditable);
+
+      if (e.key === 'Escape' && isShortcutsHelpOpen) {
+        e.preventDefault();
+        setIsShortcutsHelpOpen(false);
+        return;
+      }
+
+      // Do not intercept typing inside form controls
+      if (isEditableInput) return;
+
+      // Toggle Keyboard Shortcuts Help Modal with '?'
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setIsShortcutsHelpOpen((prev) => !prev);
+        return;
+      }
+
+      // Do not trigger playback shortcuts while AI settings modal is open
+      if (isAiSettingsOpen) return;
+
+      // Space or K: Play / Pause live animation preview
+      if (
+        (e.key === ' ' || e.code === 'Space' || e.key === 'k' || e.key === 'K') &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey
+      ) {
+        // Allow native button/link activation with Space when a button or link is focused
+        if ((e.key === ' ' || e.code === 'Space') && (tagName === 'button' || tagName === 'a')) {
+          return;
+        }
+        if (!isRendering) {
+          e.preventDefault();
+          handleTogglePlayPause();
+        }
+        return;
+      }
+
+      // Left / Right Arrows: Frame scrubbing (Shift + Arrow steps 5 frames)
+      if (e.key === 'ArrowLeft' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        handleScrubFrames(e.shiftKey ? -5 : -1);
+        return;
+      }
+
+      if (e.key === 'ArrowRight' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        handleScrubFrames(e.shiftKey ? 5 : 1);
+        return;
+      }
+
+      // Home or '0': Jump to start of clip
+      if ((e.key === 'Home' || e.key === '0') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        scrubPreviewToTimestamp(trimStartSeconds);
+        setLastKeyboardActionLabel(`Jumped to Clip Start (${formatVideoTimestamp(trimStartSeconds)})`);
+        return;
+      }
+
+      // End: Jump to end of clip
+      if (e.key === 'End' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        scrubPreviewToTimestamp(trimEndSeconds);
+        setLastKeyboardActionLabel(`Jumped to Clip End (${formatVideoTimestamp(trimEndSeconds)})`);
+        return;
+      }
+
+      // C: Toggle Side-by-Side Comparison View
+      if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setComparisonViewEnabled((prev) => {
+          const next = !prev;
+          setLastKeyboardActionLabel(`Comparison View ${next ? 'Enabled' : 'Disabled'} (C)`);
+          return next;
+        });
+        return;
+      }
+
+      // H: Toggle AI Motion Heatmap Overlay
+      if ((e.key === 'h' || e.key === 'H') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setShowMotionHeatmap((prev) => {
+          const next = !prev;
+          setLastKeyboardActionLabel(`AI Motion Heatmap ${next ? 'Enabled' : 'Disabled'} (H)`);
+          return next;
+        });
+        return;
+      }
+
+      // M: Toggle Directional Motion Blur
+      if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setMotionBlurEnabled((prev) => {
+          const next = !prev;
+          setLastKeyboardActionLabel(`Motion Blur ${next ? 'Enabled' : 'Disabled'} (M)`);
+          return next;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isShortcutsHelpOpen,
+    isAiSettingsOpen,
+    isRendering,
+    handleTogglePlayPause,
+    handleScrubFrames,
+    scrubPreviewToTimestamp,
+    trimStartSeconds,
+    trimEndSeconds,
+  ]);
 
   const handleTrimStartChange = (rawVal: number) => {
     if (!Number.isFinite(rawVal)) return;
@@ -2392,6 +2657,7 @@ export const AnimateImageToVideo: React.FC = () => {
       activeBlobUrlRef.current = null;
     }
     setRenderedVideoUrl(null);
+    setRenderedVideoSizeBytes(null);
 
     if (audioPreviewElRef.current && isAudioPlaying) {
       try {
@@ -2499,6 +2765,7 @@ export const AnimateImageToVideo: React.FC = () => {
         const url = URL.createObjectURL(blob);
         activeBlobUrlRef.current = url;
         setRenderedVideoUrl(url);
+        setRenderedVideoSizeBytes(blob.size > 0 ? blob.size : null);
         setLastRenderedTrimRange({ start: trimStartSeconds, end: trimEndSeconds });
         setIsTrimDirty(false);
         setIsRendering(false);
@@ -2740,6 +3007,44 @@ export const AnimateImageToVideo: React.FC = () => {
               >
                 <Printer size={15} color="var(--emerald)" />
                 <span>Download as PDF</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsShortcutsHelpOpen(true)}
+                data-testid="keyboard-shortcuts-help-btn"
+                aria-label="Keyboard Shortcuts Help"
+                aria-haspopup="dialog"
+                aria-expanded={isShortcutsHelpOpen}
+                title="View keyboard shortcuts for playback control & frame scrubbing (?)"
+                className="theme-toggle-btn no-print"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '10px',
+                  fontWeight: 600,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <HelpCircle size={15} color="var(--accent)" />
+                <span>Keyboard Shortcuts</span>
+                <kbd
+                  style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    background: 'rgba(56, 189, 248, 0.14)',
+                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                    color: 'var(--accent)',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  ?
+                </kbd>
               </button>
 
               <button
@@ -3560,6 +3865,121 @@ export const AnimateImageToVideo: React.FC = () => {
                 </span>
               </div>
 
+              {/* Loop Animation Toggle Switch (Intelligently crossfades start and end frames for a seamless loop) */}
+              <div
+                data-testid="loop-animation-config-panel"
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: loopAnimationEnabled
+                    ? '1px solid rgba(16, 185, 129, 0.48)'
+                    : '1px solid var(--line)',
+                  background: loopAnimationEnabled
+                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(56, 189, 248, 0.08))'
+                    : 'var(--surface)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  transition: 'all 0.18s ease',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                  }}
+                >
+                  <label
+                    htmlFor="loop-animation-toggle"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontWeight: 600,
+                      fontSize: '0.84rem',
+                      color: 'var(--text-heading)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <RotateCcw
+                      size={14}
+                      color={loopAnimationEnabled ? 'var(--emerald)' : 'var(--muted)'}
+                    />
+                    <span>Loop Animation</span>
+                    <span
+                      data-testid="loop-animation-status-badge"
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        padding: '1px 7px',
+                        borderRadius: '999px',
+                        background: loopAnimationEnabled
+                          ? 'rgba(16, 185, 129, 0.2)'
+                          : 'rgba(148, 163, 184, 0.15)',
+                        color: loopAnimationEnabled ? 'var(--emerald)' : 'var(--muted)',
+                        border: loopAnimationEnabled
+                          ? '1px solid rgba(16, 185, 129, 0.4)'
+                          : '1px solid rgba(148, 163, 184, 0.25)',
+                      }}
+                    >
+                      {loopAnimationEnabled ? 'ON (Seamless Crossfade)' : 'OFF'}
+                    </span>
+                  </label>
+
+                  <button
+                    id="loop-animation-toggle"
+                    data-testid="loop-animation-toggle"
+                    type="button"
+                    role="switch"
+                    aria-checked={loopAnimationEnabled}
+                    aria-label="Loop Animation"
+                    onClick={() => {
+                      setLoopAnimationEnabled((prev) => !prev);
+                      if (renderedVideoUrl) {
+                        setIsTrimDirty(true);
+                      }
+                    }}
+                    style={{
+                      position: 'relative',
+                      width: '44px',
+                      height: '24px',
+                      borderRadius: '999px',
+                      border: loopAnimationEnabled
+                        ? '1px solid rgba(16, 185, 129, 0.7)'
+                        : '1px solid var(--line)',
+                      background: loopAnimationEnabled
+                        ? 'linear-gradient(90deg, #059669, #10b981)'
+                        : 'rgba(15, 23, 42, 0.85)',
+                      cursor: 'pointer',
+                      padding: 0,
+                      transition: 'background 0.18s ease, border-color 0.18s ease',
+                      flexShrink: 0,
+                    }}
+                    title="Toggle seamless loop crossfade between the start and end frames of the generated video"
+                  >
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: '2px',
+                        left: loopAnimationEnabled ? '22px' : '2px',
+                        width: '18px',
+                        height: '18px',
+                        borderRadius: '50%',
+                        background: '#f8fafc',
+                        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.45)',
+                        transition: 'left 0.18s ease',
+                      }}
+                    />
+                  </button>
+                </div>
+
+                <span style={{ fontSize: '0.72rem', color: 'var(--muted)', lineHeight: 1.4 }}>
+                  Intelligently crossfades the start and end frames of the generated video (final 25% of closing segment blends into 0.0s opening frame) to create a seamless looping effect.
+                </span>
+              </div>
+
               {/* Transition Effects Dropdown (Applied between keyframes extracted for the Sequence Preview) */}
               <div
                 data-testid="transition-effects-config-panel"
@@ -4117,7 +4537,8 @@ export const AnimateImageToVideo: React.FC = () => {
                 {frames.length > 0 && !isRendering && (
                   <button
                     type="button"
-                    onClick={() => setIsLivePreviewing((prev) => !prev)}
+                    onClick={handleTogglePlayPause}
+                    title="Toggle Play/Pause (Shortcut: Space or K)"
                     style={{
                       background: 'var(--bg-darker)',
                       border: '1px solid var(--line)',
@@ -4136,6 +4557,35 @@ export const AnimateImageToVideo: React.FC = () => {
                     {isLivePreviewing ? 'Pause Preview' : 'Resume Preview'}
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setIsShortcutsHelpOpen(true)}
+                  data-testid="preview-shortcuts-help-btn"
+                  aria-label="Playback Keyboard Shortcuts"
+                  aria-haspopup="dialog"
+                  aria-expanded={isShortcutsHelpOpen}
+                  title="Open Keyboard Shortcuts Help Modal (?)"
+                  style={{
+                    background: isShortcutsHelpOpen
+                      ? 'rgba(56, 189, 248, 0.18)'
+                      : 'var(--bg-darker)',
+                    border: isShortcutsHelpOpen
+                      ? '1px solid rgba(56, 189, 248, 0.5)'
+                      : '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '5px 10px',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    color: isShortcutsHelpOpen ? 'var(--accent)' : 'var(--text)',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <Keyboard size={14} color="var(--accent)" />
+                  <span>Shortcuts</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsAiSettingsOpen(true)}
@@ -5647,7 +6097,7 @@ export const AnimateImageToVideo: React.FC = () => {
                               color: 'var(--emerald)',
                             }}
                           >
-                            {activeEffectLabel} ({animationIntensity}%{motionBlurEnabled ? ' • Blur ON' : ''})
+                            {activeEffectLabel} ({animationIntensity}%{motionBlurEnabled ? ' • Blur ON' : ''}{loopAnimationEnabled ? ' • Seamless Loop' : ''})
                           </span>
                           <span style={{ fontFamily: 'monospace', flexShrink: 0, color: '#38bdf8' }}>
                             {aspectRatio} ({outW}×{outH}px)
@@ -5707,6 +6157,290 @@ export const AnimateImageToVideo: React.FC = () => {
                 );
               })()}
             </div>
+
+            {/* Animation Metadata Card — Total Frame Count, Original Resolution, and Estimated File Size */}
+            {(() => {
+              const { width: outW, height: outH } = getAspectRatioDimensions(aspectRatio);
+              const activeSourceFrame =
+                frames.length > 0
+                  ? frames[Math.min(selectedPreviewIndex, frames.length - 1)] || frames[0]
+                  : null;
+              const origW =
+                activeSourceFrame?.dimensions?.width ||
+                activeSourceFrame?.imgElement?.naturalWidth ||
+                outW;
+              const origH =
+                activeSourceFrame?.dimensions?.height ||
+                activeSourceFrame?.imgElement?.naturalHeight ||
+                outH;
+              const origMegapixels = ((origW * origH) / 1_000_000).toFixed(2);
+              const fullTimelineFrames = Math.max(1, Math.round(durationSeconds * frameRate));
+
+              const { estimatedBytes, estimatedBitrateKbps } = estimateAnimationFileSize({
+                width: outW,
+                height: outH,
+                durationSeconds: clippedDurationSeconds,
+                frameRate,
+                animationIntensity,
+                hasAudio: Boolean(audioTrack),
+                motionBlurEnabled,
+              });
+
+              const formattedEstimatedSize = formatVideoFileSize(estimatedBytes);
+              const formattedActualSize =
+                renderedVideoSizeBytes && renderedVideoSizeBytes > 0
+                  ? formatVideoFileSize(renderedVideoSizeBytes)
+                  : null;
+
+              return (
+                <section
+                  aria-label="Animation Metadata"
+                  data-testid="animation-metadata-card"
+                  style={{
+                    borderRadius: '14px',
+                    border: renderedVideoUrl
+                      ? '1px solid rgba(16, 185, 129, 0.38)'
+                      : '1px solid rgba(56, 189, 248, 0.32)',
+                    background:
+                      'linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(2, 6, 23, 0.82) 100%)',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  {/* Card Header */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '8px',
+                          background: 'rgba(56, 189, 248, 0.14)',
+                          border: '1px solid rgba(56, 189, 248, 0.32)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'var(--accent)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Gauge size={14} />
+                      </span>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <strong style={{ fontSize: '0.88rem', color: 'var(--text)' }}>
+                            Animation Metadata
+                          </strong>
+                          <span
+                            style={{
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              padding: '2px 7px',
+                              borderRadius: '999px',
+                              background: renderedVideoUrl
+                                ? 'rgba(16, 185, 129, 0.16)'
+                                : 'rgba(56, 189, 248, 0.14)',
+                              color: renderedVideoUrl ? 'var(--emerald)' : 'var(--accent)',
+                              border: renderedVideoUrl
+                                ? '1px solid rgba(16, 185, 129, 0.35)'
+                                : '1px solid rgba(56, 189, 248, 0.3)',
+                            }}
+                          >
+                            {renderedVideoUrl
+                              ? `Encoded .${renderedVideoExt.toUpperCase()}`
+                              : 'Live Output Spec'}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)', display: 'block' }}>
+                          Real-time technical summary of frame count, source resolution, and output size
+                        </span>
+                      </div>
+                    </div>
+
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontFamily: 'monospace',
+                        fontWeight: 600,
+                        color: 'var(--muted)',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: 'rgba(2, 6, 23, 0.7)',
+                        border: '1px solid var(--line)',
+                      }}
+                    >
+                      {aspectRatio} • {frameRate} FPS • {clippedDurationSeconds.toFixed(1)}s
+                    </span>
+                  </div>
+
+                  {/* 3-Column Metadata Metrics Grid */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(175px, 1fr))',
+                      gap: '10px',
+                    }}
+                  >
+                    {/* 1. Total Frame Count */}
+                    <div
+                      data-testid="metadata-total-frames"
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        background: 'rgba(2, 6, 23, 0.65)',
+                        border: '1px solid rgba(56, 189, 248, 0.24)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          color: 'var(--muted)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        <Film size={12} color="var(--accent)" />
+                        Total Frame Count
+                      </span>
+                      <strong
+                        style={{
+                          fontSize: '1.04rem',
+                          fontWeight: 800,
+                          fontFamily: 'monospace',
+                          color: '#38bdf8',
+                        }}
+                      >
+                        {clippedTotalFrames} frames
+                      </strong>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                        {clippedDurationSeconds.toFixed(1)}s × {frameRate} FPS
+                        {isClipTrimmed ? ` (Full: ${fullTimelineFrames}f)` : ' (Full clip)'}
+                      </span>
+                    </div>
+
+                    {/* 2. Original Resolution */}
+                    <div
+                      data-testid="metadata-original-resolution"
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        background: 'rgba(2, 6, 23, 0.65)',
+                        border: '1px solid rgba(16, 185, 129, 0.24)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          color: 'var(--muted)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        <Maximize2 size={12} color="var(--emerald)" />
+                        Original Resolution
+                      </span>
+                      <strong
+                        style={{
+                          fontSize: '1.04rem',
+                          fontWeight: 800,
+                          fontFamily: 'monospace',
+                          color: 'var(--emerald)',
+                        }}
+                      >
+                        {origW}×{origH} px
+                      </strong>
+                      <span
+                        style={{
+                          fontSize: '0.7rem',
+                          color: 'var(--muted)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={
+                          activeSourceFrame
+                            ? `${activeSourceFrame.name} (${origMegapixels} MP) → Output ${outW}×${outH} px`
+                            : `Default HD Canvas (${origMegapixels} MP) → Output ${outW}×${outH} px`
+                        }
+                      >
+                        {origMegapixels} MP • Target: {outW}×{outH} px
+                      </span>
+                    </div>
+
+                    {/* 3. Estimated File Size */}
+                    <div
+                      data-testid="metadata-estimated-file-size"
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        background: 'rgba(2, 6, 23, 0.65)',
+                        border: '1px solid rgba(245, 158, 11, 0.26)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          color: 'var(--muted)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        <Download size={12} color="#fbbf24" />
+                        Estimated File Size
+                      </span>
+                      <strong
+                        style={{
+                          fontSize: '1.04rem',
+                          fontWeight: 800,
+                          fontFamily: 'monospace',
+                          color: '#fbbf24',
+                        }}
+                      >
+                        ~{formattedEstimatedSize}
+                      </strong>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                        {formattedActualSize && !isTrimDirty
+                          ? `Actual Blob: ${formattedActualSize} • ~${(estimatedBitrateKbps / 1000).toFixed(1)} Mbps`
+                          : `~${(estimatedBitrateKbps / 1000).toFixed(1)} Mbps • ${renderedVideoExt.toUpperCase()}${
+                              audioTrack ? ' + Audio' : ''
+                            }`}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+              );
+            })()}
 
             {/* Duration Trimming Interface — Clip start and end timestamps before final export */}
             {(frames.length > 0 || Boolean(renderedVideoUrl)) && (
@@ -6449,6 +7183,436 @@ export const AnimateImageToVideo: React.FC = () => {
           )}
         </section>
       </main>
+
+      {/* Accessible Keyboard Shortcuts Help Modal for Playback Control & Frame Scrubbing */}
+      {isShortcutsHelpOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="keyboard-shortcuts-modal-title"
+          aria-describedby="keyboard-shortcuts-modal-desc"
+          data-testid="keyboard-shortcuts-modal"
+          onClick={() => setIsShortcutsHelpOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(2, 6, 23, 0.78)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '640px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              borderRadius: '16px',
+              background: 'var(--surface, #0f172a)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.55)',
+              padding: '22px 24px',
+              color: 'var(--text)',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '12px',
+                paddingBottom: '14px',
+                borderBottom: '1px solid var(--line)',
+                marginBottom: '16px',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'rgba(56, 189, 248, 0.14)',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--accent)',
+                    }}
+                  >
+                    <Keyboard size={18} />
+                  </span>
+                  <h2
+                    id="keyboard-shortcuts-modal-title"
+                    style={{
+                      margin: 0,
+                      fontSize: '1.15rem',
+                      fontWeight: 800,
+                      color: 'var(--text-heading)',
+                    }}
+                  >
+                    Keyboard Shortcuts
+                  </h2>
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      background: 'rgba(16, 185, 129, 0.14)',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      color: 'var(--emerald)',
+                    }}
+                  >
+                    Accessibility Ready
+                  </span>
+                </div>
+                <p
+                  id="keyboard-shortcuts-modal-desc"
+                  style={{
+                    margin: '6px 0 0',
+                    fontSize: '0.82rem',
+                    color: 'var(--muted)',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Control live animation playback, scrub frame-by-frame across the timeline, and toggle visual inspection modes directly from your keyboard.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsShortcutsHelpOpen(false)}
+                data-testid="close-keyboard-shortcuts-modal"
+                aria-label="Close Keyboard Shortcuts Help"
+                title="Close (Esc)"
+                style={{
+                  background: 'var(--bg-darker)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '6px',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Playback & Frame Scrubbing Section */}
+            <div style={{ marginBottom: '18px' }}>
+              <h3
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'var(--accent)',
+                  margin: '0 0 10px',
+                }}
+              >
+                Playback &amp; Frame Scrubbing Controls
+              </h3>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                {[
+                  {
+                    keys: ['Space', 'K'],
+                    action: 'Play / Pause Animation',
+                    detail: 'Toggle live canvas preview and synced video playback on or off',
+                  },
+                  {
+                    keys: ['←', 'Left Arrow'],
+                    action: 'Scrub Backward 1 Frame',
+                    detail: `Step back one frame (${(1 / Math.max(1, frameRate)).toFixed(3)}s at ${frameRate} FPS)`,
+                  },
+                  {
+                    keys: ['→', 'Right Arrow'],
+                    action: 'Scrub Forward 1 Frame',
+                    detail: `Advance forward one frame (${(1 / Math.max(1, frameRate)).toFixed(3)}s at ${frameRate} FPS)`,
+                  },
+                  {
+                    keys: ['Shift', '+', '← / →'],
+                    action: 'Fast Scrub 5 Frames',
+                    detail: 'Jump 5 frames backward or forward along the animation timeline',
+                  },
+                  {
+                    keys: ['Home', '0'],
+                    action: 'Jump to Clip Start',
+                    detail: `Seek immediately to trim start timestamp (${formatVideoTimestamp(trimStartSeconds)})`,
+                  },
+                  {
+                    keys: ['End'],
+                    action: 'Jump to Clip End',
+                    detail: `Seek immediately to trim end timestamp (${formatVideoTimestamp(trimEndSeconds)})`,
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.action}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                      padding: '9px 12px',
+                      borderRadius: '10px',
+                      background: 'rgba(15, 23, 42, 0.65)',
+                      border: '1px solid rgba(148, 163, 184, 0.16)',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ minWidth: '200px', flex: '1 1 220px' }}>
+                      <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        {item.action}
+                      </div>
+                      <div style={{ fontSize: '0.73rem', color: 'var(--muted)', marginTop: '2px' }}>
+                        {item.detail}
+                      </div>
+                    </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                      {item.keys.map((k, idx) => (
+                        <kbd
+                          key={`${item.action}-${k}-${idx}`}
+                          style={{
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            fontFamily: 'monospace',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            background: 'rgba(56, 189, 248, 0.14)',
+                            border: '1px solid rgba(56, 189, 248, 0.38)',
+                            color: '#e0f2fe',
+                            boxShadow: 'inset 0 -1px 0 rgba(56, 189, 248, 0.25)',
+                          }}
+                        >
+                          {k}
+                        </kbd>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* View Toggles & Modal Navigation Section */}
+            <div style={{ marginBottom: '18px' }}>
+              <h3
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'var(--emerald)',
+                  margin: '0 0 10px',
+                }}
+              >
+                Inspection Overlays &amp; Help Navigation
+              </h3>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                  gap: '8px',
+                }}
+              >
+                {[
+                  {
+                    keys: ['C'],
+                    action: 'Toggle Comparison View',
+                    detail: 'Switch side-by-side source vs. final frame view',
+                  },
+                  {
+                    keys: ['H'],
+                    action: 'Toggle Motion Heatmap',
+                    detail: 'Show or hide AI motion intensity heatmap overlay',
+                  },
+                  {
+                    keys: ['M'],
+                    action: 'Toggle Motion Blur',
+                    detail: 'Enable or disable directional blur on high-motion zones',
+                  },
+                  {
+                    keys: ['?', 'Esc'],
+                    action: 'Toggle / Close Shortcuts Help',
+                    detail: 'Open or dismiss this keyboard shortcuts reference',
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.action}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      padding: '8px 11px',
+                      borderRadius: '10px',
+                      background: 'rgba(15, 23, 42, 0.5)',
+                      border: '1px solid rgba(148, 163, 184, 0.14)',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        {item.action}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '1px' }}>
+                        {item.detail}
+                      </div>
+                    </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                      {item.keys.map((k) => (
+                        <kbd
+                          key={k}
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            fontFamily: 'monospace',
+                            padding: '2px 7px',
+                            borderRadius: '6px',
+                            background: 'rgba(16, 185, 129, 0.14)',
+                            border: '1px solid rgba(16, 185, 129, 0.35)',
+                            color: '#d1fae5',
+                          }}
+                        >
+                          {k}
+                        </kbd>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Interactive Playback Quick-Test & Status Footer */}
+            <div
+              style={{
+                paddingTop: '12px',
+                borderTop: '1px solid var(--line)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div
+                aria-live="polite"
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span>
+                  Playhead:{' '}
+                  <strong style={{ color: 'var(--text-heading)' }}>
+                    {formatVideoTimestamp(selectedSummaryProgress * durationSeconds)}
+                  </strong>{' '}
+                  ({Math.round(selectedSummaryProgress * 100)}%)
+                </span>
+                {lastKeyboardActionLabel && (
+                  <span
+                    data-testid="keyboard-shortcut-status"
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      background: 'rgba(56, 189, 248, 0.12)',
+                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                      color: 'var(--accent)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {lastKeyboardActionLabel}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handleScrubFrames(-1)}
+                  style={{
+                    background: 'var(--bg-darker)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '6px 10px',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ← Prev Frame
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTogglePlayPause}
+                  style={{
+                    background: 'var(--bg-darker)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '6px 10px',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isLivePreviewing ? 'Pause (Space)' : 'Play (Space)'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScrubFrames(1)}
+                  style={{
+                    background: 'var(--bg-darker)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '6px 10px',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Next Frame →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsShortcutsHelpOpen(false)}
+                  style={{
+                    background: 'var(--accent)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '6px 14px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    color: '#020617',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Scoped AI Provider & Generation Settings Modal */}
       <AiProviderSettingsModal isOpen={isAiSettingsOpen} onClose={() => setIsAiSettingsOpen(false)} />

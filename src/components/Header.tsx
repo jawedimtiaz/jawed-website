@@ -114,18 +114,6 @@ export const Header: React.FC = () => {
               📲 Install App
             </button>
           )}
-          <button
-            type="button"
-            className="nav-item"
-            onClick={() => {
-              closeMenu();
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', shiftKey: true }));
-            }}
-            aria-label="View Keyboard Shortcuts (Shift+?)"
-            title="View Keyboard Shortcuts (Shift+?)"
-          >
-            ⌨️ Hotkeys
-          </button>
           <ThemeToggle />
           <Link
             className="nav-cta"

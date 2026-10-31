@@ -3,6 +3,8 @@ import React, { useEffect } from 'react';
 interface SeoHeadProps {
   title?: string;
   description?: string;
+  ogTitle?: string;
+  ogDescription?: string;
   ogType?: string;
   ogImage?: string;
   canonicalUrl?: string;
@@ -15,6 +17,8 @@ const DEFAULT_DESC = 'Technical guides, subnet calculators, server rack power ca
 export const SeoHead: React.FC<SeoHeadProps> = ({
   title,
   description,
+  ogTitle,
+  ogDescription,
   ogType = 'article',
   ogImage = 'https://jawed.co.in/assets/images/social-preview.png',
   canonicalUrl,
@@ -23,6 +27,10 @@ export const SeoHead: React.FC<SeoHeadProps> = ({
   useEffect(() => {
     const fullTitle = title ? (title.includes('Jawed Imtiaz') ? title : `${title} | Jawed Imtiaz`) : DEFAULT_TITLE;
     const fullDesc = description || DEFAULT_DESC;
+    const resolvedOgTitle = ogTitle
+      ? (ogTitle.includes('Jawed Imtiaz') ? ogTitle : `${ogTitle} | Jawed Imtiaz`)
+      : fullTitle;
+    const resolvedOgDesc = ogDescription || fullDesc;
 
     // Update document title
     document.title = fullTitle;
@@ -47,15 +55,15 @@ export const SeoHead: React.FC<SeoHeadProps> = ({
     updateMeta('meta[name="description"]', fullDesc);
     updateMeta('meta[name="robots"]', robots);
     updateMeta('meta[property="og:site_name"]', 'Jawed Imtiaz');
-    updateMeta('meta[property="og:title"]', fullTitle);
-    updateMeta('meta[property="og:description"]', fullDesc);
+    updateMeta('meta[property="og:title"]', resolvedOgTitle);
+    updateMeta('meta[property="og:description"]', resolvedOgDesc);
     updateMeta('meta[property="og:type"]', ogType);
     updateMeta('meta[property="og:image"]', ogImage);
     updateMeta('meta[property="og:image:width"]', '1200');
     updateMeta('meta[property="og:image:height"]', '630');
     updateMeta('meta[name="twitter:card"]', 'summary_large_image');
-    updateMeta('meta[name="twitter:title"]', fullTitle);
-    updateMeta('meta[name="twitter:description"]', fullDesc);
+    updateMeta('meta[name="twitter:title"]', resolvedOgTitle);
+    updateMeta('meta[name="twitter:description"]', resolvedOgDesc);
     updateMeta('meta[name="twitter:image"]', ogImage);
 
     const resolvedCanonical = canonicalUrl || (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://jawed.co.in/');
@@ -68,7 +76,7 @@ export const SeoHead: React.FC<SeoHeadProps> = ({
       document.head.appendChild(linkEl);
     }
     linkEl.setAttribute('href', resolvedCanonical);
-  }, [title, description, ogType, ogImage, canonicalUrl, robots]);
+  }, [title, description, ogTitle, ogDescription, ogType, ogImage, canonicalUrl, robots]);
 
   return null;
 };

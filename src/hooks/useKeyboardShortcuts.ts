@@ -81,17 +81,17 @@ export const formatComboForDisplay = (combo: string): { keys: string[]; isMac: b
 
   parts.forEach((p) => {
     if (p === 'mod') {
-      keys.push(isMac ? '⌘' : 'Ctrl');
+      keys.push('⌘');
     } else if (p === 'ctrl' || p === 'control') {
       keys.push(isMac ? '⌃' : 'Ctrl');
-    } else if (p === 'cmd' || p === 'meta') {
+    } else if (p === 'cmd' || p === 'meta' || p === '⌘') {
       keys.push('⌘');
     } else if (p === 'alt' || p === 'option') {
       keys.push(isMac ? '⌥' : 'Alt');
     } else if (p === 'shift') {
-      keys.push(isMac ? '⇧' : 'Shift');
+      keys.push('Shift');
     } else if (p === 'esc' || p === 'escape') {
-      keys.push('Esc');
+      keys.push('ESC');
     } else if (p === '?') {
       keys.push('?');
     } else if (p === '/') {

@@ -108,83 +108,92 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
   // Navigation handlers
   const handleGoHome = useCallback(() => {
     navigate('/');
-    triggerToastNotification('nav-home', 'Navigated Home (Alt+H)');
+    triggerToastNotification('nav-home', 'Go to Home (G + H)');
   }, [navigate]);
 
   const handleGoGuides = useCallback(() => {
     navigate('/guides');
-    triggerToastNotification('nav-guides', 'Navigated to Field Guides (Alt+G)');
+    triggerToastNotification('nav-guides', 'Go to Guides (G + G)');
   }, [navigate]);
 
   const handleGoTools = useCallback(() => {
     navigate('/tools');
-    triggerToastNotification('nav-tools', 'Navigated to Diagnostic Tools (Alt+W)');
+    triggerToastNotification('nav-tools', 'Go to Tools (G + T)');
   }, [navigate]);
 
   const handleGoServices = useCallback(() => {
     navigate('/services');
-    triggerToastNotification('nav-services', 'Navigated to Services Dispatch (Alt+S)');
+    triggerToastNotification('nav-services', 'Go to Services (Alt+S)');
   }, [navigate]);
 
   const handleGoContact = useCallback(() => {
     navigate('/contact');
-    triggerToastNotification('nav-contact', 'Navigated to Contact Page (Alt+C)');
+    triggerToastNotification('nav-contact', 'Go to Contact Page (Alt+C)');
   }, [navigate]);
 
   // List of active global default shortcuts
   const defaultShortcuts: ShortcutItem[] = [
     {
+      id: 'nav-home',
+      combo: 'g+h',
+      label: 'Go to Home',
+      description: 'G + H -> Go to Home',
+      category: 'Navigation',
+      allowInInput: false,
+      action: handleGoHome,
+    },
+    {
+      id: 'nav-tools',
+      combo: 'g+t',
+      label: 'Go to Tools',
+      description: 'G + T -> Go to Tools',
+      category: 'Navigation',
+      allowInInput: false,
+      action: handleGoTools,
+    },
+    {
+      id: 'nav-guides',
+      combo: 'g+g',
+      label: 'Go to Guides',
+      description: 'G + G -> Go to Guides',
+      category: 'Navigation',
+      allowInInput: false,
+      action: handleGoGuides,
+    },
+    {
       id: 'search-modal',
       combo: 'mod+k',
-      label: 'Global Search Palette',
-      description: 'Open or dismiss global search command palette',
+      label: 'Open Search',
+      description: '⌘ + K -> Open Search',
       category: 'Search & Modals',
       allowInInput: true,
       action: handleToggleSearchModal,
     },
     {
+      id: 'toggle-theme',
+      combo: 't',
+      label: 'Toggle Theme (Dark / Light)',
+      description: 'T -> Toggle Theme (Dark / Light)',
+      category: 'Global Controls',
+      allowInInput: false,
+      action: handleToggleTheme,
+    },
+    {
       id: 'focus-search',
       combo: '/',
       label: 'Focus Search Input',
-      description: 'Quickly open search modal from anywhere',
+      description: 'Press / to quickly open search modal from anywhere',
       category: 'Search & Modals',
       allowInInput: false,
       action: handleFocusSearch,
     },
     {
-      id: 'ai-widget',
-      combo: 'alt+a',
-      label: 'Toggle AI Assistant',
-      description: 'Open or minimize Jawed AI troubleshooting widget',
-      category: 'AI Assistant',
-      allowInInput: true,
-      action: handleToggleAiWidget,
-    },
-    {
-      id: 'ai-widget-ctrl-j',
-      combo: 'ctrl+j',
-      label: 'Toggle AI Assistant (Ctrl+J)',
-      description: 'Alternative quick shortcut for Jawed AI Assistant',
-      category: 'AI Assistant',
-      allowInInput: true,
-      action: handleToggleAiWidget,
-    },
-    {
       id: 'shortcuts-help',
       combo: 'shift+?',
-      label: 'Shortcut Cheat Sheet',
-      description: 'Display interactive list of all global hotkeys',
+      label: 'Keyboard Shortcuts',
+      description: 'Open keyboard shortcuts cheatsheet modal (Shift + ?)',
       category: 'Search & Modals',
-      allowInInput: true,
-      action: toggleHelpModal,
-    },
-    {
-      id: 'shortcuts-help-alt',
-      combo: 'ctrl+/',
-      label: 'Shortcut Cheat Sheet (Ctrl+/)',
-      description: 'Alternative hotkey for shortcut cheat sheet',
-      category: 'Search & Modals',
-      allowInInput: true,
+      allowInInput: false,
       action: toggleHelpModal,
     },
     {
@@ -197,40 +206,13 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
       action: handleCloseAll,
     },
     {
-      id: 'toggle-theme',
-      combo: 'alt+t',
-      label: 'Cycle Theme (System / Light / Dark)',
-      description: 'Cycle application theme between System, Light, and Dark',
-      category: 'Global Controls',
+      id: 'ai-widget',
+      combo: 'alt+a',
+      label: 'Toggle AI Assistant',
+      description: 'Open or minimize Jawed AI troubleshooting widget',
+      category: 'AI Assistant',
       allowInInput: true,
-      action: handleToggleTheme,
-    },
-    {
-      id: 'nav-home',
-      combo: 'alt+h',
-      label: 'Go to Home Page',
-      description: 'Navigate to site homepage',
-      category: 'Navigation',
-      allowInInput: false,
-      action: handleGoHome,
-    },
-    {
-      id: 'nav-guides',
-      combo: 'alt+g',
-      label: 'Go to Field Guides',
-      description: 'Navigate to IT technical notes & field guides',
-      category: 'Navigation',
-      allowInInput: false,
-      action: handleGoGuides,
-    },
-    {
-      id: 'nav-tools',
-      combo: 'alt+w',
-      label: 'Go to Diagnostic Tools',
-      description: 'Navigate to workplace calculators & IT tools',
-      category: 'Navigation',
-      allowInInput: false,
-      action: handleGoTools,
+      action: handleToggleAiWidget,
     },
     {
       id: 'nav-services',
@@ -262,16 +244,72 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     [defaultShortcuts]
   );
 
-  // Global Keydown Listener
+  // Listen for custom open/toggle events from Footer or Command Palette
   useEffect(() => {
+    const handleOpenShortcutsEvent = () => setIsHelpModalOpen(true);
+    const handleToggleShortcutsEvent = () => setIsHelpModalOpen((prev) => !prev);
+
+    window.addEventListener('open-shortcuts-modal', handleOpenShortcutsEvent);
+    window.addEventListener('toggle-shortcuts-modal', handleToggleShortcutsEvent);
+    return () => {
+      window.removeEventListener('open-shortcuts-modal', handleOpenShortcutsEvent);
+      window.removeEventListener('toggle-shortcuts-modal', handleToggleShortcutsEvent);
+    };
+  }, []);
+
+  // Global Keydown Listener (supports Shift+?, G+H / G+T / G+G chords, T, Cmd/Ctrl+K, etc.)
+  useEffect(() => {
+    let gPrefixTimestamp = 0;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Check if user is typing inside an editable form element
       const target = e.target as HTMLElement | null;
       const isEditable =
-        target &&
-        (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
+        Boolean(
+          target &&
+            (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
+        );
+
+      const lowerKey = e.key.toLowerCase();
+
+      // Shift + ? or '?' when not typing in an input opens/toggles the cheatsheet modal
+      if ((e.key === '?' || (e.shiftKey && e.key === '/')) && !isEditable) {
+        e.preventDefault();
+        toggleHelpModal();
+        return;
+      }
+
+      // Handle G + H, G + T, G + G two-key chord navigation when not in an input
+      if (!isEditable && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const now = Date.now();
+        if (now - gPrefixTimestamp < 1000) {
+          if (lowerKey === 'h') {
+            e.preventDefault();
+            gPrefixTimestamp = 0;
+            handleGoHome();
+            return;
+          }
+          if (lowerKey === 't') {
+            e.preventDefault();
+            gPrefixTimestamp = 0;
+            handleGoTools();
+            return;
+          }
+          if (lowerKey === 'g') {
+            e.preventDefault();
+            gPrefixTimestamp = 0;
+            handleGoGuides();
+            return;
+          }
+        }
+
+        if (lowerKey === 'g' && !e.shiftKey) {
+          gPrefixTimestamp = now;
+          return;
+        }
+      }
 
       for (const s of defaultShortcuts) {
+        if (s.combo.startsWith('g+')) continue;
         if (matchHotkey(e, s.combo)) {
           if (isEditable && !s.allowInInput) {
             continue;
@@ -285,7 +323,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [defaultShortcuts]);
+  }, [defaultShortcuts, toggleHelpModal, handleGoHome, handleGoTools, handleGoGuides]);
 
   return (
     <KeyboardShortcutContext.Provider

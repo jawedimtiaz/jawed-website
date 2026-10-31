@@ -1,12 +1,23 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
 interface FooterProps {
   onOpenCookieModal?: () => void;
+  onOpenShortcutsModal?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal, onOpenShortcutsModal }) => {
   const currentYear = new Date().getFullYear();
+  const { openHelpModal } = useKeyboardShortcuts();
+
+  const handleOpenShortcuts = () => {
+    if (onOpenShortcutsModal) {
+      onOpenShortcutsModal();
+    }
+    openHelpModal();
+    window.dispatchEvent(new CustomEvent('open-shortcuts-modal'));
+  };
 
   return (
     <footer className="site-footer">
@@ -54,14 +65,20 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal }) => {
               <li><Link to="/terms">Terms of Service</Link></li>
               <li><Link to="/cookies">Cookie Policy</Link></li>
               <li><Link to="/contact">Contact Us</Link></li>
-              <li>
+              <li style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
                 <button
                   type="button"
                   className="cookie-trigger-btn"
                   onClick={onOpenCookieModal}
-                  style={{ marginTop: '6px' }}
                 >
                   ⚙ Cookie Preferences
+                </button>
+                <button
+                  type="button"
+                  className="cookie-trigger-btn"
+                  onClick={handleOpenShortcuts}
+                >
+                  Keyboard Shortcuts
                 </button>
               </li>
             </ul>
@@ -71,12 +88,28 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal }) => {
         {/* Footer Bottom Bar */}
         <div className="footer-bottom">
           <p>© {currentYear} Jawed Imtiaz. All rights reserved. IT Field Support &amp; Workplace Engineering.</p>
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
             <Link to="/privacy">Privacy Policy</Link>
             <span>•</span>
             <Link to="/terms">Terms of Service</Link>
             <span>•</span>
             <Link to="/cookies">Cookie Preferences</Link>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={handleOpenShortcuts}
+              style={{
+                background: 'transparent',
+                border: 0,
+                padding: 0,
+                color: 'inherit',
+                font: 'inherit',
+                cursor: 'pointer',
+                textDecoration: 'none',
+              }}
+            >
+              Keyboard Shortcuts
+            </button>
           </div>
         </div>
       </div>

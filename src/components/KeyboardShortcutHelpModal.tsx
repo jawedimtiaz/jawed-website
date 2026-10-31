@@ -19,10 +19,10 @@ export const KeyboardShortcutHelpModal: React.FC<KeyboardShortcutHelpModalProps>
   if (!isOpen) return null;
 
   const categories: ShortcutItem['category'][] = [
-    'Search & Modals',
-    'AI Assistant',
-    'Global Controls',
     'Navigation',
+    'Search & Modals',
+    'Global Controls',
+    'AI Assistant',
   ];
 
   const filteredShortcuts = shortcuts.filter((s) => {
@@ -101,11 +101,11 @@ export const KeyboardShortcutHelpModal: React.FC<KeyboardShortcutHelpModalProps>
                 ⌨️
               </span>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-heading)' }}>
-                Keyboard Shortcuts &amp; Hotkeys
+                Keyboard Shortcuts
               </h3>
             </div>
             <p style={{ margin: '4px 0 0 40px', fontSize: '0.82rem', color: 'var(--muted)' }}>
-              Speed up your workflow using global keyboard hotkeys from anywhere on the site.
+              Navigate across Guides, Tools, Search, and Theme controls using quick keyboard shortcuts.
             </p>
           </div>
 
@@ -135,7 +135,7 @@ export const KeyboardShortcutHelpModal: React.FC<KeyboardShortcutHelpModalProps>
         <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--line)', background: 'var(--bg)' }}>
           <input
             type="search"
-            placeholder="Search hotkeys (e.g. Search, AI, Theme, Ctrl+K)..."
+            placeholder="Filter shortcuts (e.g. G + H, Tools, Search, Theme)..."
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             style={{
@@ -235,23 +235,29 @@ export const KeyboardShortcutHelpModal: React.FC<KeyboardShortcutHelpModalProps>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                           {keys.map((k, kIdx) => (
-                            <kbd
-                              key={kIdx}
-                              style={{
-                                background: 'var(--card)',
-                                border: '1px solid var(--line)',
-                                borderBottom: '2px solid var(--line)',
-                                borderRadius: '6px',
-                                padding: '3px 7px',
-                                fontSize: '0.76rem',
-                                fontWeight: 800,
-                                fontFamily: 'monospace',
-                                color: 'var(--text)',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                              }}
-                            >
-                              {k}
-                            </kbd>
+                            <React.Fragment key={kIdx}>
+                              {kIdx > 0 && (
+                                <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 700 }}>
+                                  +
+                                </span>
+                              )}
+                              <kbd
+                                style={{
+                                  background: 'var(--card)',
+                                  border: '1px solid var(--line)',
+                                  borderBottom: '2px solid var(--line)',
+                                  borderRadius: '6px',
+                                  padding: '3px 7px',
+                                  fontSize: '0.76rem',
+                                  fontWeight: 800,
+                                  fontFamily: 'monospace',
+                                  color: 'var(--text)',
+                                  boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                                }}
+                              >
+                                {k}
+                              </kbd>
+                            </React.Fragment>
                           ))}
 
                           <button
