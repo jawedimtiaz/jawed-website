@@ -8,15 +8,23 @@ import { SocialShareBar } from '../components/SocialShareBar';
 import { SeoHead } from '../components/SeoHead';
 import { calculateReadTime } from '../utils/readTimeHelper';
 import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
+import { extractContentFreshness, type NoteSchemaItem } from '../utils/contentFreshness';
 
 import { COMPONENT_MAPPER, getInteractiveComponentForSlug } from '../utils/componentMapper';
 
 /**
  * Helper function: extractGuideMetadata
- * Extracts 'title' and 'description' fields from markdown frontmatter (YAML block)
- * or falls back to note object metadata or HTML heading/lead elements.
+ * Extracts 'title', 'description', 'publishedDate', and 'lastUpdated' fields from markdown frontmatter (YAML block),
+ * schema properties, or embedded HTML metadata/heading/lead elements.
  */
-export const extractGuideMetadata = (note: { title?: string; description?: string; content?: string }) => {
+export const extractGuideMetadata = (note: {
+  title?: string;
+  description?: string;
+  content?: string;
+  publishedDate?: string;
+  updatedDate?: string;
+  lastUpdated?: string;
+}) => {
   let metaTitle = note.title || '';
   let metaDescription = note.description || '';
 
@@ -57,9 +65,15 @@ export const extractGuideMetadata = (note: { title?: string; description?: strin
     }
   }
 
+  const freshness = extractContentFreshness(note);
+
   return {
     title: metaTitle,
-    description: metaDescription
+    description: metaDescription,
+    publishedDate: freshness.publishedFormatted,
+    lastUpdated: freshness.updatedFormatted,
+    isoUpdated: freshness.isoUpdated,
+    isoPublished: freshness.isoPublished,
   };
 };
 
@@ -70,19 +84,36 @@ export const extractGuideMetadata = (note: { title?: string; description?: strin
  * or metadata changes, with an explicit cleanup function upon component unmount.
  */
 export const useSeoMetadata = (
-  frontmatter?: { title?: string; description?: string; content?: string },
+  frontmatter?: {
+    title?: string;
+    description?: string;
+    content?: string;
+    publishedDate?: string;
+    updatedDate?: string;
+    lastUpdated?: string;
+  },
   slug?: string
 ) => {
   const metadata = React.useMemo(() => {
-    if (!frontmatter) return { title: '', description: '' };
-    if (frontmatter.content) {
-      return extractGuideMetadata(frontmatter);
+    if (!frontmatter) {
+      return {
+        title: '',
+        description: '',
+        publishedDate: '',
+        lastUpdated: '',
+        isoUpdated: '',
+        isoPublished: '',
+      };
     }
-    return {
-      title: frontmatter.title || '',
-      description: frontmatter.description || ''
-    };
-  }, [frontmatter?.title, frontmatter?.description, frontmatter?.content]);
+    return extractGuideMetadata(frontmatter);
+  }, [
+    frontmatter?.title,
+    frontmatter?.description,
+    frontmatter?.content,
+    frontmatter?.publishedDate,
+    frontmatter?.updatedDate,
+    frontmatter?.lastUpdated,
+  ]);
 
   React.useEffect(() => {
     const defaultTitle = 'Jawed Imtiaz | Guides, Tools & Services';
@@ -138,7 +169,7 @@ export const NoteDetailPage: React.FC = () => {
   }
 
   // Otherwise check notesData
-  const note = notesData.find(n => n.slug === slug);
+  const note = (notesData as NoteSchemaItem[]).find(n => n.slug === slug);
 
   if (!note) {
     return <Navigate to="/guides" replace />;
@@ -179,8 +210,17 @@ export const NoteDetailPage: React.FC = () => {
         />
       </div>
 
-      {/* Note Metadata Bar */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+      {/* Note Metadata Header Bar with Dynamic 'Last Updated' Timestamp */}
+      <header
+        className="note-detail-header"
+        style={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          marginBottom: '16px',
+          flexWrap: 'wrap',
+        }}
+      >
         <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)', fontWeight: 600, fontSize: '0.8rem' }}>
           {note.category || 'Quick Note'}
         </span>
@@ -188,7 +228,45 @@ export const NoteDetailPage: React.FC = () => {
         <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>
           {calculateReadTime(cleanHtmlContent || note.description)}
         </span>
-      </div>
+        {guideMetadata.lastUpdated && (
+          <>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
+            <span
+              className="note-last-updated-badge"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.82rem',
+                color: 'var(--muted-light)',
+                padding: '3px 10px',
+                borderRadius: '6px',
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                fontWeight: 500,
+              }}
+              title={`Content verified and last updated on ${guideMetadata.lastUpdated}`}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: 'var(--emerald, #10b981)',
+                  display: 'inline-block',
+                }}
+              />
+              <span>
+                Last Updated:{' '}
+                <time dateTime={guideMetadata.isoUpdated} style={{ fontWeight: 600, color: 'var(--text-heading)' }}>
+                  {guideMetadata.lastUpdated}
+                </time>
+              </span>
+            </span>
+          </>
+        )}
+      </header>
 
       {/* Rendered Note Content */}
       <article className="quick-note-article card" style={{ padding: '32px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}>

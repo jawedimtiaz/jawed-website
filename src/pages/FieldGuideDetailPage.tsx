@@ -8,6 +8,7 @@ import { SocialShareBar } from '../components/SocialShareBar';
 import { Image } from '../components/Image';
 import { calculateReadTime } from '../utils/readTimeHelper';
 import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
+import { extractContentFreshness } from '../utils/contentFreshness';
 
 // Reusable Visual Guide Components & Aliases
 import {
@@ -32,6 +33,7 @@ export const FieldGuideDetailPage: React.FC = () => {
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
   const relatedGuides = FIELD_GUIDES.filter(g => g.slug !== guide.slug);
+  const freshness = extractContentFreshness(guide);
 
   // Render guide body with embedded interactive components
   const renderGuideBodyContent = () => {
@@ -902,13 +904,43 @@ export const FieldGuideDetailPage: React.FC = () => {
               {guide.readTime || calculateReadTime(guide.contentHtml || guide.description)}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Published {guide.publishedDate}</span>
-            {guide.updatedDate && guide.updatedDate !== guide.publishedDate && (
-              <>
-                <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
-                <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Updated {guide.updatedDate}</span>
-              </>
-            )}
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              Published <time dateTime={freshness.isoPublished}>{freshness.publishedFormatted}</time>
+            </span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
+            <span
+              className="guide-last-updated-badge"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.82rem',
+                color: 'var(--muted-light)',
+                padding: '3px 10px',
+                borderRadius: '6px',
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                fontWeight: 500,
+              }}
+              title={`Field guide last updated on ${freshness.updatedFormatted}`}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: 'var(--emerald, #10b981)',
+                  display: 'inline-block',
+                }}
+              />
+              <span>
+                Last Updated:{' '}
+                <time dateTime={freshness.isoUpdated} style={{ fontWeight: 600, color: 'var(--text-heading)' }}>
+                  {freshness.updatedFormatted}
+                </time>
+              </span>
+            </span>
           </div>
 
           <h1 style={{ fontSize: '2.2rem', lineHeight: 1.25, marginBottom: '16px', color: 'var(--text-heading)' }}>

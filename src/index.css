@@ -900,6 +900,39 @@ select:focus-visible {
   color: var(--accent-hover);
 }
 
+.footer-text-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.footer-text-btn:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+[data-theme="light"] .footer-text-btn,
+.light .footer-text-btn {
+  color: var(--accent-hover);
+}
+
+[data-theme="light"] .footer-text-btn:hover,
+.light .footer-text-btn:hover {
+  color: var(--accent-dark);
+}
+
 /* Modal Overlay for Cookies */
 .modal-overlay {
   position: fixed;
@@ -2382,11 +2415,14 @@ select:focus-visible {
   background: var(--surface-hover);
 }
 
-/* Modal Footer */
-.search-modal-footer {
+/* Modal Footer & Command Palette Keyboard Hints (<kbd>) */
+.search-modal-footer,
+.command-palette-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
   padding: 10px 18px;
   border-top: 1px solid var(--border);
   background: var(--bg-darker);
@@ -2394,32 +2430,126 @@ select:focus-visible {
   color: var(--text-muted);
 }
 
-.search-footer-hints {
+.search-footer-hints,
+.command-palette-footer-hints {
   display: flex;
   align-items: center;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 8px 14px;
 }
 
-.search-footer-hint {
+.search-footer-hint,
+.command-palette-hint {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
 }
 
-.search-footer-kbd {
-  padding: 2px 5px;
-  border-radius: 4px;
+.search-footer-hint.is-active,
+.command-palette-hint.is-active {
+  color: var(--text-heading);
+}
+
+.search-footer-kbd,
+.command-palette-kbd,
+.search-modal-footer kbd,
+.command-palette-footer kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 2px 6px;
+  border-radius: 5px;
   background: var(--surface);
   border: 1px solid var(--border);
-  font-family: ui-monospace, SFMono-Regular, monospace;
+  border-bottom-width: 2px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1;
+  letter-spacing: -0.01em;
+  user-select: none;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
-.search-footer-powered {
-  font-size: 0.725rem;
-  opacity: 0.8;
+.command-palette-kbd.is-interactive {
+  cursor: pointer;
+}
+
+.command-palette-kbd.is-interactive:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.search-footer-kbd.is-active,
+.command-palette-kbd.is-active,
+.command-palette-kbd[data-active="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--surface-accent);
+  transform: translateY(1px);
+  border-bottom-width: 1px;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
+.search-footer-powered,
+.command-palette-footer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+}
+
+.command-palette-nav-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.command-palette-shortcuts-trigger {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: 3px 6px;
+  margin: -3px -6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.command-palette-shortcuts-trigger:hover {
+  color: var(--accent);
+  background: var(--surface-accent);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.command-palette-shortcuts-trigger:hover .command-palette-hint {
+  color: var(--accent);
+}
+
+.command-palette-shortcuts-trigger:hover kbd {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Hands-Free Web Speech API Mic Button */

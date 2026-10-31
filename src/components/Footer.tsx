@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useKeyboardShortcuts, type ShortcutItem } from '../hooks/useKeyboardShortcuts';
 import { KeyboardShortcutModal } from './KeyboardShortcutModal';
+import { getSiteLastUpdated } from '../utils/contentFreshness';
 
 interface FooterProps {
   onOpenCookieModal?: () => void;
@@ -49,16 +50,40 @@ const FALLBACK_SHORTCUTS: ShortcutItem[] = [
     category: 'Global Controls',
     action: () => {},
   },
+  {
+    id: 'shortcuts-help',
+    combo: 'shift+?',
+    label: 'Keyboard Shortcuts',
+    description: 'Open keyboard shortcuts cheatsheet modal (Shift + ?)',
+    category: 'Search & Modals',
+    action: () => {},
+  },
+  {
+    id: 'close-modals',
+    combo: 'esc',
+    label: 'Close Active Modals',
+    description: 'Dismiss open search modal, AI widget, or dialogs',
+    category: 'Search & Modals',
+    action: () => {},
+  },
 ];
 
 export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal, onOpenShortcutsModal }) => {
   const currentYear = new Date().getFullYear();
-  const { shortcuts, openHelpModal } = useKeyboardShortcuts();
+  const location = useLocation();
+  const { shortcuts, isHelpModalOpen, openHelpModal } = useKeyboardShortcuts();
   const [isFallbackModalOpen, setIsFallbackModalOpen] = useState(false);
 
-  const hasGlobalShortcutManager = shortcuts.length > 0;
+  const lastUpdatedInfo = useMemo(
+    () => getSiteLastUpdated(location.pathname),
+    [location.pathname]
+  );
 
-  const handleOpenShortcuts = () => {
+  const hasGlobalShortcutManager = shortcuts.length > 0;
+  const isShortcutsModalOpen = hasGlobalShortcutManager ? isHelpModalOpen : isFallbackModalOpen;
+
+  const handleOpenShortcuts = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const triggerEl = e.currentTarget;
     if (onOpenShortcutsModal) {
       onOpenShortcutsModal();
     }
@@ -67,7 +92,11 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal, onOpenShortcu
     } else {
       setIsFallbackModalOpen(true);
     }
-    window.dispatchEvent(new CustomEvent('open-shortcuts-modal'));
+    window.dispatchEvent(
+      new CustomEvent('open-shortcuts-modal', {
+        detail: { triggerElement: triggerEl },
+      })
+    );
   };
 
   return (
@@ -131,17 +160,58 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal, onOpenShortcu
 
         {/* Footer Bottom Bar */}
         <div className="footer-bottom">
-          <p>© {currentYear} Jawed Imtiaz. All rights reserved. IT Field Support &amp; Workplace Engineering.</p>
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <p style={{ margin: 0 }}>
+              © {currentYear} Jawed Imtiaz. All rights reserved. IT Field Support &amp; Workplace Engineering.
+            </p>
+            <span style={{ color: 'var(--muted)', opacity: 0.6 }} aria-hidden="true">•</span>
+            <span
+              className="footer-last-updated"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.82rem',
+                color: 'var(--muted)',
+              }}
+              title="Content freshness timestamp derived from notes & field guides metadata"
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: 'var(--emerald, #10b981)',
+                  display: 'inline-block',
+                }}
+              />
+              <span>
+                Last Updated:{' '}
+                <time dateTime={lastUpdatedInfo.iso} style={{ fontWeight: 600, color: 'var(--text)' }}>
+                  {lastUpdatedInfo.formatted}
+                </time>
+              </span>
+            </span>
+          </div>
+          <div
+            className="footer-bottom-links"
+            style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}
+          >
             <Link to="/privacy">Privacy Policy</Link>
-            <span>•</span>
+            <span aria-hidden="true">•</span>
             <Link to="/terms">Terms of Service</Link>
-            <span>•</span>
+            <span aria-hidden="true">•</span>
             <Link to="/cookies">Cookie Preferences</Link>
-            <span>•</span>
+            <span aria-hidden="true">•</span>
             <button
               type="button"
-              className="cookie-trigger-btn"
+              className="footer-text-btn"
+              data-shortcuts-trigger="true"
+              aria-haspopup="dialog"
+              aria-expanded={isShortcutsModalOpen}
+              aria-keyshortcuts="Shift+?"
+              title="Open Keyboard Shortcuts Cheatsheet (Shift + ?)"
               onClick={handleOpenShortcuts}
             >
               Keyboard Shortcuts

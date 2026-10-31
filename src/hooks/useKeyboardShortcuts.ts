@@ -18,6 +18,7 @@ interface KeyboardShortcutContextType {
   closeHelpModal: () => void;
   toggleHelpModal: () => void;
   triggerShortcut: (id: string) => void;
+  activePrefix: string | null;
   lastTriggeredAction: { id: string; label: string; timestamp: number } | null;
 }
 
@@ -28,6 +29,7 @@ export const KeyboardShortcutContext = createContext<KeyboardShortcutContextType
   closeHelpModal: () => {},
   toggleHelpModal: () => {},
   triggerShortcut: () => {},
+  activePrefix: null,
   lastTriggeredAction: null,
 });
 

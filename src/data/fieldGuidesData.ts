@@ -9,6 +9,7 @@ export interface FieldGuide {
   readTime: string;
   publishedDate: string;
   updatedDate?: string;
+  lastUpdated?: string;
   author: string;
   keywords: string[];
   toc: { id: string; text: string }[];
