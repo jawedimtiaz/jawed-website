@@ -2,16 +2,89 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { useLocalStorageDraft } from '../hooks/useLocalStorageDraft';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
+import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+
+export interface ServiceDeskDraft {
+  ticketId: string;
+  caller: string;
+  status: string;
+  issueSummary: string;
+  troubleshootingDone: string;
+  rootCause: string;
+  resolutionOrNextStep: string;
+}
+
+export const SERVICE_DESK_STORAGE_KEY = 'service_desk_note_formatter_draft_v1';
+
+export const DEFAULT_SERVICE_DESK_DRAFT: ServiceDeskDraft = {
+  ticketId: 'INC-84920',
+  caller: 'Priya Sharma (Finance)',
+  status: 'Resolved',
+  issueSummary: 'Outlook disconnected status when roaming between office APs.',
+  troubleshootingDone: 'Flushed DNS cache, re-authenticated with MFA, verified exchange endpoint connectivity.',
+  rootCause: 'Cached OAuth token mismatch following user UPN change.',
+  resolutionOrNextStep: 'Removed legacy Windows credential vault entry; re-launched Outlook with seamless single sign-on.',
+};
 
 export const ServiceDeskNoteFormatter: React.FC = () => {
-  const [ticketId, setTicketId] = useState('INC-84920');
-  const [caller, setCaller] = useState('Priya Sharma (Finance)');
-  const [issueSummary, setIssueSummary] = useState('Outlook disconnected status when roaming between office APs.');
-  const [troubleshootingDone, setTroubleshootingDone] = useState('Flushed DNS cache, re-authenticated with MFA, verified exchange endpoint connectivity.');
-  const [rootCause, setRootCause] = useState('Cached OAuth token mismatch following user UPN change.');
-  const [resolutionOrNextStep, setResolutionOrNextStep] = useState('Removed legacy Windows credential vault entry; re-launched Outlook with seamless single sign-on.');
-  const [status, setStatus] = useState('Resolved');
+  const {
+    values,
+    updateField,
+    saveDraftNow,
+    clearDraft,
+    formattedLastSaved,
+    isOnline,
+    isRestored,
+    hasSavedDraft,
+    isDirty,
+    saveStatus,
+    statusMessage,
+  } = useLocalStorageDraft<ServiceDeskDraft>({
+    key: SERVICE_DESK_STORAGE_KEY,
+    defaultValues: DEFAULT_SERVICE_DESK_DRAFT,
+  });
+
+  const {
+    ticketId,
+    caller,
+    status,
+    issueSummary,
+    troubleshootingDone,
+    rootCause,
+    resolutionOrNextStep,
+  } = values;
   const [copied, setCopied] = useState(false);
+
+  useRegisterShortcut([
+    {
+      id: 'sd-note-generate',
+      combo: 'mod+enter',
+      label: 'Format Service Desk Note',
+      description: 'Format raw input fields into clean ticket notes',
+      category: 'Service Desk Formatter',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        saveDraftNow();
+      },
+    },
+    {
+      id: 'sd-note-save',
+      combo: 'mod+s',
+      label: 'Save Note Draft',
+      description: 'Save current ticket note values to browser local storage',
+      category: 'Service Desk Formatter',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        saveDraftNow();
+      },
+    },
+  ]);
 
   const formattedNote = `### SERVICE DESK TICKET NOTE
 Ticket ID: ${ticketId}
@@ -66,6 +139,19 @@ ${resolutionOrNextStep}
 
         <div className="workspace">
           <div className="panel">
+            <DraftSaveToolbar
+              isOnline={isOnline}
+              hasSavedDraft={hasSavedDraft}
+              isRestored={isRestored}
+              isDirty={isDirty}
+              formattedLastSaved={formattedLastSaved}
+              statusMessage={statusMessage}
+              saveStatus={saveStatus}
+              onSaveNow={saveDraftNow}
+              onClearDraft={clearDraft}
+              toolName="Service Desk Ticket Note"
+            />
+
             <h2 className="section-title">Ticket Information</h2>
             <div className="field-grid">
               <div className="field-group">
@@ -74,7 +160,7 @@ ${resolutionOrNextStep}
                   id="ticketId"
                   type="text"
                   value={ticketId}
-                  onChange={e => setTicketId(e.target.value)}
+                  onChange={e => updateField('ticketId', e.target.value)}
                   placeholder="e.g. INC-10294"
                 />
               </div>
@@ -85,14 +171,14 @@ ${resolutionOrNextStep}
                   id="caller"
                   type="text"
                   value={caller}
-                  onChange={e => setCaller(e.target.value)}
+                  onChange={e => updateField('caller', e.target.value)}
                   placeholder="e.g. Jane Doe (Marketing)"
                 />
               </div>
 
               <div className="field-group">
                 <label htmlFor="status">Ticket Status</label>
-                <select id="status" value={status} onChange={e => setStatus(e.target.value)}>
+                <select id="status" value={status} onChange={e => updateField('status', e.target.value)}>
                   <option value="In Progress">In Progress (Work in progress)</option>
                   <option value="Pending Customer">Pending Customer Response</option>
                   <option value="Escalated">Escalated to Tier 2/Tier 3</option>
@@ -107,7 +193,7 @@ ${resolutionOrNextStep}
                 id="issueSummary"
                 rows={2}
                 value={issueSummary}
-                onChange={e => setIssueSummary(e.target.value)}
+                onChange={e => updateField('issueSummary', e.target.value)}
               />
             </div>
 
@@ -117,7 +203,7 @@ ${resolutionOrNextStep}
                 id="troubleshootingDone"
                 rows={3}
                 value={troubleshootingDone}
-                onChange={e => setTroubleshootingDone(e.target.value)}
+                onChange={e => updateField('troubleshootingDone', e.target.value)}
               />
             </div>
 
@@ -128,7 +214,7 @@ ${resolutionOrNextStep}
                   id="rootCause"
                   rows={2}
                   value={rootCause}
-                  onChange={e => setRootCause(e.target.value)}
+                  onChange={e => updateField('rootCause', e.target.value)}
                 />
               </div>
 
@@ -138,18 +224,19 @@ ${resolutionOrNextStep}
                   id="resolutionOrNextStep"
                   rows={2}
                   value={resolutionOrNextStep}
-                  onChange={e => setResolutionOrNextStep(e.target.value)}
+                  onChange={e => updateField('resolutionOrNextStep', e.target.value)}
                 />
               </div>
             </div>
           </div>
 
           <div className="panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
               <h2 className="section-title" style={{ margin: 0 }}>Formatted Note</h2>
-              <button className="button button-primary" type="button" onClick={handleCopy}>
-                {copied ? 'Copied to Clipboard!' : 'Copy Formatted Note'}
-              </button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <PdfExportButton documentTitle={ticketId ? `Ticket-${ticketId}-Formatted-Note` : 'Service-Desk-Note'} variant="secondary" size="sm" />
+                <CopyButton text={formattedNote} label="Copy Formatted Note" variant="primary" />
+              </div>
             </div>
 
             <pre className="tool-output">

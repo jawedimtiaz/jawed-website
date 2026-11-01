@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import {
   TrendingUp,
   Scale,
@@ -248,6 +251,37 @@ export const ItSalaryOfferCalculator: React.FC = () => {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
+  useRegisterShortcut([
+    {
+      id: 'salary-calc-calculate',
+      combo: 'mod+enter',
+      label: 'Calculate Salary / Hike',
+      description: 'Trigger recalculation or update saved comparisons',
+      category: 'Salary & Offer Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        showToast('Salary & offer comparison updated!');
+      },
+    },
+    {
+      id: 'salary-calc-save',
+      combo: 'mod+s',
+      label: 'Save Offer Scenario',
+      description: 'Save current offer comparison scenario',
+      category: 'Salary & Offer Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        if (activeTab === 'compare') {
+          handleSaveScenario();
+        } else {
+          showToast('Draft salary inputs auto-saved locally!');
+        }
+      },
+    },
+  ], [activeTab, offerA, offerB, scenarioTitleInput]);
+
   const copyToClipboard = async (text: string, key = 'generic') => {
     try {
       await navigator.clipboard.writeText(text);
@@ -459,12 +493,11 @@ export const ItSalaryOfferCalculator: React.FC = () => {
     }));
   };
 
-  const copyComparisonSummary = () => {
+  const getCmpSummaryText = (): string => {
     if (!comparisonResult.hasBoth) {
-      showToast('Enter fixed pay for both offers first');
-      return;
+      return 'Enter fixed pay for both offers first';
     }
-    const text = `IT Job Offer Comparison (${currentCurrency.symbol}):
+    return `IT Job Offer Comparison (${currentCurrency.symbol}):
 -----------------------------------------------
 1. ${offerA.name || 'Offer A'}:
    - Fixed Pay: ${formatMoney(comparisonResult.a.fixed)}
@@ -490,8 +523,6 @@ ${comparisonResult.bBetterNet
   : `Offer A provides ${formatMoney(Math.abs(comparisonResult.netDiff))} more annual net income.`}
 -----------------------------------------------
 Generated on Jawed.co.in Tools`;
-
-    copyToClipboard(text, 'cmp-summary');
   };
 
   // FAQ items matching and expanding user attachments
@@ -941,34 +972,20 @@ Generated on Jawed.co.in Tools`;
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    const txt = `Salary Hike Summary:
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <PdfExportButton documentTitle="Salary-Hike-Calculation-Report" variant="secondary" size="sm" />
+                  <CopyButton
+                    text={() => `Salary Hike Summary:
 Current CTC: ${formatMoney(hikeCalculations.current)}
 New Offer: ${formatMoney(hikeCalculations.newOffer)}
 Hike: ${hikeCalculations.diff >= 0 ? '+' : ''}${hikeCalculations.pct.toFixed(1)}% (${formatMoney(hikeCalculations.diff)}/year)
 Gross Change/Month: ${formatMoney(hikeCalculations.monthlyGrossIncrease)}
-Net Change/Month (~${hikeCalculations.taxRate}% tax): ${formatMoney(hikeCalculations.monthlyNetIncrease)}`;
-                    copyToClipboard(txt, 'hike-summary');
-                  }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface)',
-                    color: 'var(--text)',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {copiedKey === 'hike-summary' ? <Check size={14} style={{ color: 'var(--emerald)' }} /> : <Copy size={14} />}
-                  Copy Result
-                </button>
+Net Change/Month (~${hikeCalculations.taxRate}% tax): ${formatMoney(hikeCalculations.monthlyNetIncrease)}`}
+                    label="Copy Result"
+                    variant="secondary"
+                    size="sm"
+                  />
+                </div>
               </div>
 
               {/* Breakdown Grid */}
@@ -1066,26 +1083,12 @@ Net Change/Month (~${hikeCalculations.taxRate}% tax): ${formatMoney(hikeCalculat
               </div>
 
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={copyComparisonSummary}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface)',
-                    color: 'var(--text)',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {copiedKey === 'cmp-summary' ? <Check size={14} style={{ color: 'var(--emerald)' }} /> : <Copy size={14} />}
-                  Copy Summary
-                </button>
+                <CopyButton
+                  text={getCmpSummaryText}
+                  label="Copy Summary"
+                  variant="secondary"
+                  size="sm"
+                />
 
                 <button
                   type="button"
@@ -1998,33 +2001,16 @@ Net Change/Month (~${hikeCalculations.taxRate}% tax): ${formatMoney(hikeCalculat
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    const txt = `Notice Period Buyout Calculation:
+                <CopyButton
+                  text={() => `Notice Period Buyout Calculation:
 Monthly Gross Salary: ${formatMoney(buyoutCalculations.monthly)}
 Notice Shortfall: ${buyoutCalculations.days} days
 Per-day Rate: ${formatMoney(buyoutCalculations.perDayGross)}/day
-Total Buyout Payable: ${formatMoney(buyoutCalculations.buyoutTotal)}`;
-                    copyToClipboard(txt, 'buyout-summary');
-                  }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface)',
-                    color: 'var(--text)',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {copiedKey === 'buyout-summary' ? <Check size={14} style={{ color: 'var(--emerald)' }} /> : <Copy size={14} />}
-                  Copy Result
-                </button>
+Total Buyout Payable: ${formatMoney(buyoutCalculations.buyoutTotal)}`}
+                  label="Copy Result"
+                  variant="secondary"
+                  size="sm"
+                />
               </div>
 
               <div

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
 
 const SKILLS = [
   "service desk", "it support", "troubleshooting", "servicenow", "jira",
@@ -157,7 +159,22 @@ export const InterviewPrepPlanner: React.FC = () => {
 
         {hasBuilt && !errorMsg && (
           <div className="prep-card">
-            <h2>Interview preparation plan</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+              <h2 style={{ margin: 0 }}>Interview preparation plan</h2>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <PdfExportButton documentTitle="Interview-Preparation-Plan" variant="secondary" size="sm" />
+                <CopyButton
+                  text={() => `=== Interview Preparation Plan ===
+Topics: ${detectedSkills.join(', ') || 'N/A'}
+Evidence: ${evidenceText}
+Questions:
+${questions.map((q, idx) => `${idx + 1}. ${q}`).join('\n')}`}
+                  label="Copy Plan"
+                  variant="primary"
+                  size="sm"
+                />
+              </div>
+            </div>
             <h3>Preparation topics</h3>
             <div>
               {detectedSkills.length > 0 ? (

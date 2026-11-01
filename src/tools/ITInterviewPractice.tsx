@@ -19,6 +19,9 @@ import {
 } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 export type DifficultyLevel = 'All' | 'Beginner' | 'Intermediate' | 'Advanced';
 
@@ -900,6 +903,33 @@ export const ITInterviewPractice: React.FC = () => {
     }, 2800);
   };
 
+  useRegisterShortcut([
+    {
+      id: 'interview-practice-reveal',
+      combo: 'mod+enter',
+      label: 'Reveal Checklist / Next Question',
+      description: 'Reveal answer checklist or proceed to next interview question',
+      category: 'IT Interview Practice',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        setRevealed(true);
+      },
+    },
+    {
+      id: 'interview-practice-save',
+      combo: 'mod+s',
+      label: 'Save Practice Answer',
+      description: 'Save current practice answer and session notes',
+      category: 'IT Interview Practice',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        showToast('Practice answer saved!');
+      },
+    },
+  ], [userAnswer, revealed]);
+
   const persistHistory = (newHistory: StoredPracticeRecord[]) => {
     setPracticeHistory(newHistory);
     try {
@@ -1740,14 +1770,33 @@ export const ITInterviewPractice: React.FC = () => {
                   </span>
                 </div>
 
-                <div
-                  style={{
-                    fontSize: '0.88rem',
-                    fontWeight: 700,
-                    color: coveragePercent >= 80 ? 'var(--emerald)' : coveragePercent >= 50 ? 'var(--amber)' : 'var(--muted)',
-                  }}
-                >
-                  Covered {checkedCount} of {pointsCount} ({coveragePercent}%)
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <PdfExportButton
+                    documentTitle={`${selectedRole.replace(/\s+/g, '-')}-Interview-Practice-Guide`}
+                    variant="secondary"
+                    size="sm"
+                  />
+                  <CopyButton
+                    text={() => [
+                      `Question: ${currentQuestion.q}`,
+                      `Category: ${currentQuestion.category} | Difficulty: ${currentQuestion.difficulty}`,
+                      ``,
+                      `Key Talking Points & Answer Guide:`,
+                      ...currentQuestion.points.map((pt, i) => `${i + 1}. ${pt}`),
+                    ].join('\n')}
+                    label="Copy Answer Guide"
+                    variant="secondary"
+                    size="sm"
+                  />
+                  <div
+                    style={{
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      color: coveragePercent >= 80 ? 'var(--emerald)' : coveragePercent >= 50 ? 'var(--amber)' : 'var(--muted)',
+                    }}
+                  >
+                    Covered {checkedCount} of {pointsCount} ({coveragePercent}%)
+                  </div>
                 </div>
               </div>
 

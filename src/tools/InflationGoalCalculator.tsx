@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 export const InflationGoalCalculator: React.FC = () => {
   const [cost, setCost] = useState<number>(1000000);
@@ -16,10 +19,58 @@ export const InflationGoalCalculator: React.FC = () => {
       maximumFractionDigits: 0
     }).format(n);
 
+  useRegisterShortcut([
+    {
+      id: 'inflation-goal-calc',
+      combo: 'mod+enter',
+      label: 'Calculate Inflation Goal',
+      description: 'Calculate future cost and inflation gap',
+      category: 'Inflation Goal Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        // Calculation is reactive
+      },
+    },
+    {
+      id: 'inflation-goal-save',
+      combo: 'mod+s',
+      label: 'Save Goal Projection',
+      description: 'Save goal inputs to browser local storage',
+      category: 'Inflation Goal Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        try {
+          localStorage.setItem('igc_cost', String(cost));
+          localStorage.setItem('igc_years', String(years));
+        } catch {
+          // ignore
+        }
+      },
+    },
+  ], [cost, years, inflation, savings]);
+
   const i = inflation / 100;
   const futureCost = cost * Math.pow(1 + i, years);
   const inc = futureCost - cost;
   const gap = Math.max(0, futureCost - savings);
+
+  const getGoalSummaryText = (): string => {
+    return [
+      `=== Inflation & Goal Planning Calculation ===`,
+      `Input Parameters:`,
+      `• Goal Cost Today: ${money(cost)}`,
+      `• Years Until Goal: ${years} years`,
+      `• Assumed Annual Inflation: ${inflation}%`,
+      `• Savings Already Set Aside: ${money(savings)}`,
+      ``,
+      `Calculated Results:`,
+      `• Estimated Future Goal Cost: ${money(futureCost)}`,
+      `• Inflation Cost Increase: ${money(inc)}`,
+      `• Funding Gap (Uncovered Amount): ${money(gap)}`,
+    ].join('\n');
+  };
 
   const handleReset = () => {
     setCost(1000000);
@@ -109,8 +160,19 @@ export const InflationGoalCalculator: React.FC = () => {
         </form>
       </section>
 
-      <section className="content-section" aria-live="polite" aria-atomic="true">
-        <h2>Illustrative results</h2>
+      <section className="content-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <h2 style={{ margin: 0 }}>Illustrative results</h2>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <PdfExportButton documentTitle="Inflation-Goal-Calculation-Report" variant="secondary" size="sm" />
+            <CopyButton
+              text={getGoalSummaryText}
+              label="Copy Results"
+              variant="secondary"
+              size="sm"
+            />
+          </div>
+        </div>
         <div className="stats-grid">
           <div className="stat">
             <strong>{money(futureCost)}</strong>

@@ -24,10 +24,84 @@ export interface PaletteShortcutDisplayItem {
   description: string;
   category: string;
   scope?: 'Global' | 'Local';
+  route?: string;
+  action?: () => void;
 }
 
+export interface FrequentUsageRecord {
+  url: string;
+  title: string;
+  summary: string;
+  category: 'tool' | 'guide';
+  badge?: string;
+  hits: number;
+  sessionHits: number;
+  lastAccessed: number;
+}
+
+export const FREQUENT_STORAGE_KEY = 'jawed_frequent_tools_guides_v1';
+export const FREQUENT_SESSION_KEY = 'jawed_session_frequent_hits_v1';
+
+export const BASELINE_FREQUENT_ITEMS: {
+  url: string;
+  title: string;
+  summary: string;
+  category: 'tool' | 'guide';
+  badge: string;
+  hits: number;
+}[] = [
+  {
+    url: '/tools/ipv4-subnet-calculator',
+    title: 'IPv4 Subnet Calculator',
+    summary: 'CIDR masks, usable host ranges, broadcast addresses & network triage',
+    category: 'tool',
+    badge: 'Popular Tool',
+    hits: 24,
+  },
+  {
+    url: '/tools/cable-length-poe-budget-checker',
+    title: 'Cable Length & PoE Budget Checker',
+    summary: 'Verify Cat5e/6/6a distance limits, voltage drop and 802.3af/at/bt switch power',
+    category: 'tool',
+    badge: 'Hardware',
+    hits: 19,
+  },
+  {
+    url: '/tools/service-desk-note-formatter',
+    title: 'Service Desk Note Formatter',
+    summary: 'Format raw field troubleshooting notes into clean structured tickets',
+    category: 'tool',
+    badge: 'ITSM',
+    hits: 16,
+  },
+  {
+    url: '/tools/career-match-resume-review',
+    title: 'Resume Review & Career Matcher',
+    summary: 'Match IT resumes against enterprise job requirements and ATS criteria',
+    category: 'tool',
+    badge: 'Career',
+    hits: 14,
+  },
+  {
+    url: '/guides/ethernet-cable-pinout-t568a-t568b',
+    title: 'RJ45 T568A vs T568B Field Guide',
+    summary: 'Color codes, pinouts, crossover standards, and field termination steps',
+    category: 'guide',
+    badge: 'Field Guide',
+    hits: 18,
+  },
+  {
+    url: '/guides/network-switch-port-troubleshooting',
+    title: 'Switch Port Troubleshooting Guide',
+    summary: 'Link flapping, speed/duplex negotiation, CRC errors, and VLAN mismatch triage',
+    category: 'guide',
+    badge: 'Network Guide',
+    hits: 15,
+  },
+];
+
 export interface QuickActionItem {
-  id: 'clear-local-storage' | 'print-current-tool' | 'contact-support';
+  id: string;
   label: string;
   description: string;
   badge: string;
@@ -36,120 +110,152 @@ export interface QuickActionItem {
   action: () => void;
 }
 
-export interface FrequentUsageRecord {
-  url: string;
-  title: string;
-  summary: string;
-  category: 'tool' | 'guide';
-  badge: string;
-  hits: number;
-  sessionHits: number;
-  lastAccessed: number;
-}
-
-const FREQUENT_STORAGE_KEY = 'jawed_frequent_items_v1';
-const FREQUENT_SESSION_KEY = 'jawed_session_frequent_items_v1';
-
-export const BASELINE_FREQUENT_ITEMS: Omit<FrequentUsageRecord, 'sessionHits' | 'lastAccessed'>[] = [
-  {
-    url: '/tools/ipv4-subnet-calculator',
-    title: 'IPv4 Subnet Calculator',
-    summary: 'Calculate CIDR masks, usable host ranges, wildcard masks & broadcast addresses',
-    category: 'tool',
-    badge: 'Networking',
-    hits: 14,
-  },
-  {
-    url: '/tools/career-match-resume-review',
-    title: 'Career Match & Resume Review',
-    summary: 'Score resume keywords against IT & engineering job descriptions',
-    category: 'tool',
-    badge: 'Career & ATS',
-    hits: 12,
-  },
-  {
-    url: '/guides',
-    title: 'IT Field Guides & SOP Library',
-    summary: 'Step-by-step field procedures for structured cabling, OS triage & rack deployments',
-    category: 'guide',
-    badge: 'Field SOPs',
-    hits: 11,
-  },
-  {
-    url: '/tools/cable-length-poe-budget-checker',
-    title: 'Cable Length & PoE Budget Checker',
-    summary: 'Validate Cat5e/Cat6/Cat6A distance limits and IEEE 802.3af/at/bt PoE budgets',
-    category: 'tool',
-    badge: 'Hardware',
-    hits: 10,
-  },
-  {
-    url: '/tools/service-desk-note-formatter',
-    title: 'Service Desk Note Formatter',
-    summary: 'Structure raw troubleshooting notes into clean, standardized ticket updates',
-    category: 'tool',
-    badge: 'ITSM',
-    hits: 9,
-  },
-  {
-    url: '/tools/ai-prompt-builder',
-    title: 'AI Technical Prompt Builder',
-    summary: 'Build structured root-cause analysis and script-generation prompts',
-    category: 'tool',
-    badge: 'AI Workflow',
-    hits: 8,
-  },
-];
+export const NAV_ROUTE_MAP: Record<string, string> = {
+  'nav-home': '/',
+  'nav-tools': '/tools',
+  'nav-guides': '/guides',
+  'nav-services': '/services',
+  'nav-contact': '/contact',
+  'nav-notes': '/notes',
+  'nav-blog': '/blog',
+  'nav-work': '/work',
+  'nav-about': '/about',
+  'nav-topics': '/topics',
+  'nav-resources': '/resources',
+  'nav-ai': '/ai',
+};
 
 export const FALLBACK_SHORTCUTS: PaletteShortcutDisplayItem[] = [
   {
     id: 'nav-home',
     combo: 'g+h',
     label: 'Go to Home',
-    description: 'G + H -> Go to Home',
+    description: 'G + H -> Navigate to Home landing page',
     category: 'Navigation',
+    scope: 'Global',
+    route: '/',
   },
   {
     id: 'nav-tools',
     combo: 'g+t',
     label: 'Go to Tools',
-    description: 'G + T -> Go to Tools',
+    description: 'G + T -> Browse interactive IT diagnostic, calculator & career tools',
     category: 'Navigation',
+    scope: 'Global',
+    route: '/tools',
   },
   {
     id: 'nav-guides',
     combo: 'g+g',
     label: 'Go to Guides',
-    description: 'G + G -> Go to Guides',
+    description: 'G + G -> Access IT field SOPs, network cabling & troubleshooting guides',
     category: 'Navigation',
+    scope: 'Global',
+    route: '/guides',
+  },
+  {
+    id: 'nav-notes',
+    combo: 'g+n',
+    label: 'Go to Notes & Documentation',
+    description: 'G + N -> Field triage notes, cheat sheets & quick technical references',
+    category: 'Navigation',
+    scope: 'Global',
+    route: '/notes',
+  },
+  {
+    id: 'nav-blog',
+    combo: 'g+b',
+    label: 'Go to Blog',
+    description: 'G + B -> Technical engineering deep dives & IT career advice',
+    category: 'Navigation',
+    scope: 'Global',
+    route: '/blog',
+  },
+  {
+    id: 'nav-work',
+    combo: 'g+w',
+    label: 'Go to Work & Case Studies',
+    description: 'G + W -> Enterprise deployments, rack builds & infrastructure projects',
+    category: 'Navigation',
+    scope: 'Global',
+    route: '/work',
+  },
+  {
+    id: 'nav-about',
+    combo: 'g+a',
+    label: 'Go to About Jawed',
+    description: 'G + A -> Professional bio, certifications & enterprise credentials',
+    category: 'Navigation',
+    scope: 'Global',
+    route: '/about',
+  },
+  {
+    id: 'nav-topics',
+    combo: 'g+o',
+    label: 'Go to Topics Index',
+    description: 'G + O -> Browse IT infrastructure, networking & career subject topics',
+    category: 'Navigation',
+    scope: 'Global',
+    route: '/topics',
+  },
+  {
+    id: 'nav-resources',
+    combo: 'g+r',
+    label: 'Go to Resources Library',
+    description: 'G + R -> Downloadable cheatsheets, diagrams & configuration templates',
+    category: 'Navigation',
+    scope: 'Global',
+    route: '/resources',
+  },
+  {
+    id: 'nav-services',
+    combo: 'alt+s',
+    label: 'Go to Services',
+    description: 'Alt + S -> On-site IT field services & support dispatch',
+    category: 'Navigation',
+    scope: 'Global',
+    route: '/services',
+  },
+  {
+    id: 'nav-contact',
+    combo: 'alt+c',
+    label: 'Go to Contact Page',
+    description: 'Alt + C -> Direct support dispatch & consultation booking',
+    category: 'Navigation',
+    scope: 'Global',
+    route: '/contact',
   },
   {
     id: 'search-modal',
     combo: 'mod+k',
-    label: 'Open Search',
-    description: '⌘ + K -> Open Search',
+    label: 'Open Search & Command Palette',
+    description: '⌘ + K -> Global command interface to search & trigger actions',
     category: 'Search & Modals',
+    scope: 'Global',
   },
   {
     id: 'toggle-theme',
     combo: 't',
     label: 'Toggle Theme (Dark / Light)',
-    description: 'T -> Toggle Theme (Dark / Light)',
+    description: 'T -> Cycle dark, light, and system color mode',
     category: 'Global Controls',
+    scope: 'Global',
   },
   {
     id: 'focus-search',
     combo: '/',
     label: 'Focus Search Input',
-    description: 'Press / to quickly open search modal from anywhere',
+    description: 'Press / to quickly open command palette from anywhere',
     category: 'Search & Modals',
+    scope: 'Global',
   },
   {
     id: 'shortcuts-help',
     combo: 'shift+?',
-    label: 'Keyboard Shortcuts',
-    description: 'Open keyboard shortcuts cheatsheet modal (Shift + ?)',
+    label: 'Keyboard Shortcuts Cheatsheet',
+    description: 'Shift + ? -> Open full interactive shortcuts cheatsheet modal',
     category: 'Search & Modals',
+    scope: 'Global',
   },
   {
     id: 'close-modals',
@@ -157,29 +263,14 @@ export const FALLBACK_SHORTCUTS: PaletteShortcutDisplayItem[] = [
     label: 'Close Active Modals',
     description: 'Dismiss open search modal, AI widget, or dialogs',
     category: 'Search & Modals',
+    scope: 'Global',
   },
   {
     id: 'ai-widget',
     combo: 'alt+a',
-    label: 'Toggle AI Assistant',
-    description: 'Open or minimize Jawed AI troubleshooting widget',
+    label: 'Toggle Jawed AI Assistant',
+    description: 'Alt + A -> Open or minimize AI troubleshooting widget',
     category: 'AI Assistant',
-    scope: 'Global',
-  },
-  {
-    id: 'nav-services',
-    combo: 'alt+s',
-    label: 'Go to Services',
-    description: 'Navigate to IT field services dispatch',
-    category: 'Navigation',
-    scope: 'Global',
-  },
-  {
-    id: 'nav-contact',
-    combo: 'alt+c',
-    label: 'Go to Contact Page',
-    description: 'Navigate to direct contact & support page',
-    category: 'Navigation',
     scope: 'Global',
   },
 ];
@@ -293,7 +384,9 @@ export type NavigablePaletteTarget =
   | { kind: 'shortcut'; shortcut: PaletteShortcutDisplayItem; indexInGroup: number }
   | { kind: 'result'; item: SiteSearchResult; indexInGroup: number };
 
-const CATEGORY_ORDER: ('all' | SiteCategory)[] = ['all', 'tool', 'guide', 'blog', 'page'];
+export type PaletteTabCategory = 'all' | SiteCategory | 'shortcuts';
+
+const CATEGORY_ORDER: PaletteTabCategory[] = ['all', 'tool', 'guide', 'blog', 'page', 'shortcuts'];
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onNavigated,
@@ -302,24 +395,26 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [query, setQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<'all' | SiteCategory>('all');
+  const [activeCategory, setActiveCategory] = useState<PaletteTabCategory>('all');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [activeKeyHint, setActiveKeyHint] = useState<NavigationKeyHintType>(null);
   const [navigationMode, setNavigationMode] = useState<'keyboard' | 'pointer'>('keyboard');
   const [quickActionNotice, setQuickActionNotice] = useState<string | null>(null);
   const [isShortcutDiscoveryActive, setIsShortcutDiscoveryActive] = useState(false);
   const [shortcutScopeFilter, setShortcutScopeFilter] = useState<'all' | 'Global' | 'Local'>('all');
+  const [shortcutCategoryFilter, setShortcutCategoryFilter] = useState<string>('all');
 
   const modalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const shortcutsListRef = useRef<HTMLUListElement>(null);
-  const tabRefs = useRef<Record<'all' | SiteCategory, HTMLButtonElement | null>>({
+  const tabRefs = useRef<Record<PaletteTabCategory, HTMLButtonElement | null>>({
     all: null,
     tool: null,
     guide: null,
     blog: null,
     page: null,
+    shortcuts: null,
   });
   const keyHintTimeoutRef = useRef<number | null>(null);
   const quickActionNoticeTimeoutRef = useRef<number | null>(null);
@@ -352,19 +447,43 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   }, []);
 
   const availableShortcuts: PaletteShortcutDisplayItem[] = useMemo(() => {
-    const baseGlobal = shortcuts.length > 0 ? shortcuts : FALLBACK_SHORTCUTS;
-    const globalWithScope: PaletteShortcutDisplayItem[] = baseGlobal.map((s) => ({
-      ...s,
-      scope: s.scope || 'Global',
-    }));
-    return [...globalWithScope, ...LOCAL_PALETTE_SHORTCUTS];
+    const map = new Map<string, PaletteShortcutDisplayItem>();
+
+    // 1. Seed with baseline shortcuts containing navigation routes
+    for (const s of FALLBACK_SHORTCUTS) {
+      map.set(s.id, { ...s });
+    }
+
+    // 2. Merge in dynamic global and tool shortcuts from context
+    for (const s of shortcuts) {
+      const existing = map.get(s.id);
+      map.set(s.id, {
+        id: s.id,
+        combo: s.combo,
+        label: s.label,
+        description: s.description,
+        category: s.category || existing?.category || 'Navigation',
+        scope: s.isToolSpecific ? 'Local' : existing?.scope || 'Global',
+        route: existing?.route || NAV_ROUTE_MAP[s.id],
+        action: s.action,
+      });
+    }
+
+    const mergedList = Array.from(map.values());
+    return [...mergedList, ...LOCAL_PALETTE_SHORTCUTS];
   }, [shortcuts]);
 
-  // Dedicated 'Shortcut Discovery' mode triggers when the user presses '?' inside the search box
+  // Dedicated 'Shortcut Discovery' mode triggers when the user presses '?' inside the search box or selects the Shortcuts tab
   const isShortcutDiscoveryMode = useMemo(() => {
     const trimmed = query.trim();
-    return isShortcutDiscoveryActive || trimmed === '?' || trimmed.startsWith('?');
-  }, [isShortcutDiscoveryActive, query]);
+    return (
+      isShortcutDiscoveryActive ||
+      trimmed === '?' ||
+      trimmed.startsWith('?') ||
+      trimmed.includes('?') ||
+      activeCategory === 'shortcuts'
+    );
+  }, [isShortcutDiscoveryActive, query, activeCategory]);
 
   // Show the 'Keyboard Shortcuts' / 'Shortcut Discovery' section when in Shortcut Discovery mode or typing 'help' / 'shortcut' / 'hotkey'
   const isShortcutQuery = useMemo(() => {
@@ -381,44 +500,93 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   const shortcutFilterSubQuery = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
-    const raw = trimmed.startsWith('?') ? trimmed.slice(1).trim() : trimmed;
-    if (
-      !raw ||
-      raw === '?' ||
-      raw === 'help' ||
-      raw === 'shortcut' ||
-      raw === 'shortcuts' ||
-      raw === 'hotkey' ||
-      raw === 'hotkeys'
-    ) {
+    const raw = trimmed.replace(/\?/g, '').trim();
+    const triggerWords = ['help', 'shortcut', 'shortcuts', 'hotkey', 'hotkeys'];
+    if (!raw || triggerWords.includes(raw)) {
       return '';
     }
     return raw;
   }, [query]);
 
+  // Counts for category badges
+  const shortcutCategoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: availableShortcuts.length,
+      Navigation: 0,
+      'Global Controls': 0,
+      'Search & Modals': 0,
+      'AI Assistant': 0,
+      'Local Palette': 0,
+    };
+    for (const s of availableShortcuts) {
+      const cat = s.category || 'Other';
+      counts[cat] = (counts[cat] || 0) + 1;
+    }
+    return counts;
+  }, [availableShortcuts]);
+
   const matchingShortcuts = useMemo(() => {
     if (!isShortcutQuery) return [];
-    const scopeFiltered = availableShortcuts.filter((s) => {
-      const itemScope = s.scope || 'Global';
-      if (shortcutScopeFilter === 'all') return true;
-      return itemScope === shortcutScopeFilter;
-    });
 
-    if (!shortcutFilterSubQuery) {
-      return scopeFiltered;
+    let list = availableShortcuts;
+
+    // Filter by Scope (All / Global / Local)
+    if (shortcutScopeFilter !== 'all') {
+      list = list.filter((s) => (s.scope || 'Global') === shortcutScopeFilter);
     }
 
-    return scopeFiltered.filter((s) => {
+    // Filter by Category (All / Navigation / Global Controls / Search & Modals / etc.)
+    if (shortcutCategoryFilter !== 'all') {
+      list = list.filter((s) => s.category.toLowerCase() === shortcutCategoryFilter.toLowerCase());
+    }
+
+    if (!shortcutFilterSubQuery) {
+      // Prioritize navigational shortcuts first when in discovery mode
+      return [...list].sort((a, b) => {
+        if (a.category === 'Navigation' && b.category !== 'Navigation') return -1;
+        if (b.category === 'Navigation' && a.category !== 'Navigation') return 1;
+        return 0;
+      });
+    }
+
+    const term = shortcutFilterSubQuery.toLowerCase();
+    const filtered = list.filter((s) => {
       const itemScope = (s.scope || 'Global').toLowerCase();
+      const itemCategory = (s.category || '').toLowerCase();
+      const itemLabel = s.label.toLowerCase();
+      const itemDesc = s.description.toLowerCase();
+      const itemCombo = s.combo.toLowerCase();
+      const itemRoute = (s.route || '').toLowerCase();
+
       return (
-        s.label.toLowerCase().includes(shortcutFilterSubQuery) ||
-        s.description.toLowerCase().includes(shortcutFilterSubQuery) ||
-        s.combo.toLowerCase().includes(shortcutFilterSubQuery) ||
-        s.category.toLowerCase().includes(shortcutFilterSubQuery) ||
-        itemScope.includes(shortcutFilterSubQuery)
+        itemLabel.includes(term) ||
+        itemDesc.includes(term) ||
+        itemCombo.includes(term) ||
+        itemCategory.includes(term) ||
+        itemScope.includes(term) ||
+        itemRoute.includes(term)
       );
     });
-  }, [isShortcutQuery, availableShortcuts, shortcutScopeFilter, shortcutFilterSubQuery]);
+
+    // Sort exact matches and navigation items to top
+    return filtered.sort((a, b) => {
+      const aNav = a.category === 'Navigation';
+      const bNav = b.category === 'Navigation';
+      const aStarts = a.label.toLowerCase().startsWith(term) || (a.route && a.route.toLowerCase().includes(term));
+      const bStarts = b.label.toLowerCase().startsWith(term) || (b.route && b.route.toLowerCase().includes(term));
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      if (aNav && !bNav) return -1;
+      if (!aNav && bNav) return 1;
+      return 0;
+    });
+  }, [
+    isShortcutQuery,
+    availableShortcuts,
+    shortcutScopeFilter,
+    shortcutCategoryFilter,
+    shortcutFilterSubQuery,
+  ]);
 
   // Search History (localStorage last 5 queries)
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
@@ -647,7 +815,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   // Filter by category tab (hide general site results when in dedicated '?' Shortcut Discovery mode)
   const displayedItems = useMemo(() => {
-    if (isShortcutDiscoveryMode) return [];
+    if (isShortcutDiscoveryMode || activeCategory === 'shortcuts') return [];
     if (activeCategory === 'tool') return searchResults.tools;
     if (activeCategory === 'guide') return searchResults.guides;
     if (activeCategory === 'blog') return searchResults.blogs;
@@ -672,7 +840,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // Reset selectedIndex on query or tab change
   useEffect(() => {
     setSelectedIndex(0);
-  }, [query, activeCategory, shortcutScopeFilter, isShortcutDiscoveryMode]);
+  }, [query, activeCategory, shortcutScopeFilter, shortcutCategoryFilter, isShortcutDiscoveryMode]);
 
   // Keep selectedIndex within bounds if list size shrinks
   useEffect(() => {
@@ -688,6 +856,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     setQuickActionNotice(null);
     setIsShortcutDiscoveryActive(false);
     setShortcutScopeFilter('all');
+    setShortcutCategoryFilter('all');
     flashKeyHint('search');
     setTimeout(() => {
       inputRef.current?.focus();
@@ -704,6 +873,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     setQuickActionNotice(null);
     setIsShortcutDiscoveryActive(false);
     setShortcutScopeFilter('all');
+    setShortcutCategoryFilter('all');
   }, [flashKeyHint]);
 
   // Quick Actions Handlers
@@ -945,17 +1115,30 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         return;
       }
 
+      const targetShortcut = availableShortcuts.find((s) => s.id === shortcutId);
+      const targetRoute = targetShortcut?.route || NAV_ROUTE_MAP[shortcutId];
+
       handleClose();
-      if (shortcuts.length > 0) {
+
+      // 1. If it has a navigation destination route, navigate immediately
+      if (targetRoute) {
+        if (onNavigated) onNavigated();
+        navigate(targetRoute);
         triggerShortcut(shortcutId);
         return;
       }
-      if (shortcutId === 'nav-home') navigate('/');
-      else if (shortcutId === 'nav-tools') navigate('/tools');
-      else if (shortcutId === 'nav-guides') navigate('/guides');
-      else if (shortcutId === 'nav-services') navigate('/services');
-      else if (shortcutId === 'nav-contact') navigate('/contact');
-      else if (shortcutId === 'shortcuts-help') {
+
+      // 2. If it has an explicit action callback, execute it
+      if (targetShortcut?.action) {
+        targetShortcut.action();
+        return;
+      }
+
+      // 3. Fallback through KeyboardShortcutContext trigger
+      triggerShortcut(shortcutId);
+
+      // 4. Fallback triggers for modal & widget actions
+      if (shortcutId === 'shortcuts-help') {
         handleOpenShortcutModal();
       } else if (shortcutId === 'ai-widget') {
         window.dispatchEvent(new CustomEvent('toggle-ai-widget'));
@@ -964,10 +1147,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     [
       flashKeyHint,
       cycleCategory,
+      availableShortcuts,
       handleClose,
-      shortcuts.length,
-      triggerShortcut,
+      onNavigated,
       navigate,
+      triggerShortcut,
       handleOpenShortcutModal,
     ]
   );
@@ -1153,8 +1337,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     } else if (e.key === 'End') {
       e.preventDefault();
       flashKeyHint('category');
-      setActiveCategory('page');
-      tabRefs.current.page?.focus();
+      setActiveCategory('shortcuts');
+      tabRefs.current.shortcuts?.focus();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       inputRef.current?.focus();
@@ -1405,6 +1589,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     setQuery('');
                     setIsShortcutDiscoveryActive(false);
                     setShortcutScopeFilter('all');
+                    setShortcutCategoryFilter('all');
                     inputRef.current?.focus();
                   }}
                   aria-label="Clear search query"
@@ -1532,6 +1717,31 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 }}
               >
                 📄 Pages ({searchResults.pages.length})
+              </button>
+              <button
+                ref={(el) => {
+                  tabRefs.current.shortcuts = el;
+                }}
+                id="search-tab-shortcuts"
+                type="button"
+                role="tab"
+                tabIndex={activeCategory === 'shortcuts' || isShortcutDiscoveryMode ? 0 : -1}
+                aria-selected={activeCategory === 'shortcuts' || isShortcutDiscoveryMode}
+                aria-controls="search-shortcuts-listbox"
+                className={`search-tab ${
+                  activeCategory === 'shortcuts' || isShortcutDiscoveryMode ? 'is-active' : ''
+                }`}
+                onClick={() => {
+                  flashKeyHint('category');
+                  setActiveCategory('shortcuts');
+                  setIsShortcutDiscoveryActive(true);
+                  if (!query.trim().startsWith('?')) {
+                    setQuery('?');
+                  }
+                  inputRef.current?.focus();
+                }}
+              >
+                ⌨️ Shortcuts ({availableShortcuts.length})
               </button>
             </div>
 
@@ -1734,10 +1944,64 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         </div>
                       </div>
 
+                      {/* Shortcut Category Filters (All, Navigation, Controls, Search & Modals, AI Assistant, Local) */}
+                      <div
+                        role="group"
+                        aria-label="Filter shortcuts by category"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          flexWrap: 'wrap',
+                          padding: '0 8px 10px',
+                          borderBottom: '1px solid var(--line)',
+                          marginBottom: '10px',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600 }}>
+                          Category:
+                        </span>
+                        {[
+                          { id: 'all', label: `All (${availableShortcuts.length})` },
+                          { id: 'Navigation', label: `🧭 Navigation (${shortcutCategoryCounts['Navigation'] || 0})` },
+                          { id: 'Global Controls', label: `⚙️ Controls (${shortcutCategoryCounts['Global Controls'] || 0})` },
+                          { id: 'Search & Modals', label: `🔍 Search & Modals (${shortcutCategoryCounts['Search & Modals'] || 0})` },
+                          { id: 'AI Assistant', label: `🤖 AI (${shortcutCategoryCounts['AI Assistant'] || 0})` },
+                          { id: 'Local Palette', label: `⌨️ Local (${shortcutCategoryCounts['Local Palette'] || 0})` },
+                        ].map((cat) => {
+                          const isCatActive = shortcutCategoryFilter.toLowerCase() === cat.id.toLowerCase();
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => {
+                                setShortcutCategoryFilter(cat.id);
+                                inputRef.current?.focus();
+                              }}
+                              aria-pressed={isCatActive}
+                              className="shortcut-category-chip"
+                              style={{
+                                background: isCatActive ? 'var(--surface-accent)' : 'transparent',
+                                border: isCatActive ? '1px solid var(--accent)' : '1px solid var(--line)',
+                                color: isCatActive ? 'var(--accent)' : 'var(--muted)',
+                                fontSize: '0.72rem',
+                                fontWeight: isCatActive ? 700 : 500,
+                                cursor: 'pointer',
+                                padding: '2px 9px',
+                                borderRadius: '999px',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              {cat.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
                       {matchingShortcuts.length === 0 ? (
                         <div
                           style={{
-                            padding: '18px 12px',
+                            padding: '20px 14px',
                             textAlign: 'center',
                             color: 'var(--muted)',
                             fontSize: '0.84rem',
@@ -1746,11 +2010,47 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                             margin: '4px 8px',
                           }}
                         >
-                          No global or local shortcuts match &ldquo;
-                          <strong style={{ color: 'var(--text-heading)' }}>
-                            {shortcutFilterSubQuery || query}
-                          </strong>
-                          &rdquo;.
+                          <p style={{ margin: '0 0 10px', color: 'var(--text-heading)', fontWeight: 600 }}>
+                            No shortcuts match &ldquo;{shortcutFilterSubQuery || query}&rdquo;
+                            {shortcutCategoryFilter !== 'all' && ` in ${shortcutCategoryFilter}`}.
+                          </p>
+                          <p style={{ margin: '0 0 12px', fontSize: '0.78rem' }}>
+                            Try searching for common navigation actions:
+                          </p>
+                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            {[
+                              { label: '🧭 All Navigation', q: '? nav' },
+                              { label: 'Home', q: '? home' },
+                              { label: 'Tools', q: '? tools' },
+                              { label: 'Guides', q: '? guides' },
+                              { label: 'Services', q: '? services' },
+                              { label: 'Contact', q: '? contact' },
+                              { label: 'Notes', q: '? notes' },
+                              { label: 'Blog', q: '? blog' },
+                            ].map((s) => (
+                              <button
+                                key={s.label}
+                                type="button"
+                                onClick={() => {
+                                  setQuery(s.q);
+                                  setShortcutCategoryFilter('all');
+                                  inputRef.current?.focus();
+                                }}
+                                style={{
+                                  background: 'var(--surface-accent)',
+                                  border: '1px solid var(--accent)',
+                                  color: 'var(--accent)',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {s.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       ) : (
                         <ul
@@ -1772,6 +2072,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                             const { keys } = formatComboForDisplay(shortcut.combo);
                             const isShortcutSelected = selectedIndex === sIdx;
                             const itemScope = shortcut.scope || 'Global';
+                            const isNavigation = shortcut.category === 'Navigation' || Boolean(shortcut.route);
                             return (
                               <li
                                 id={`command-palette-shortcut-option-${sIdx}`}
@@ -1802,7 +2103,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                                   cursor: 'pointer',
                                   transition: 'border-color 0.15s ease, background-color 0.15s ease',
                                 }}
-                                title={`Run shortcut: ${shortcut.label}`}
+                                title={
+                                  isNavigation
+                                    ? `Navigate to ${shortcut.route || shortcut.label} (${shortcut.combo})`
+                                    : `Run shortcut: ${shortcut.label} (${shortcut.combo})`
+                                }
                               >
                                 <div style={{ minWidth: 0, flex: 1 }}>
                                   <div
@@ -1821,8 +2126,38 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                                         color: 'var(--text-heading)',
                                       }}
                                     >
-                                      {shortcut.label}
+                                      {highlightMatch(shortcut.label, shortcutFilterSubQuery)}
                                     </span>
+                                    {isNavigation && (
+                                      <span
+                                        style={{
+                                          fontSize: '0.64rem',
+                                          fontWeight: 700,
+                                          padding: '1px 6px',
+                                          borderRadius: '4px',
+                                          background: 'rgba(16, 185, 129, 0.15)',
+                                          color: '#10b981',
+                                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                                        }}
+                                      >
+                                        🧭 Navigation
+                                      </span>
+                                    )}
+                                    {shortcut.route && (
+                                      <span
+                                        style={{
+                                          fontSize: '0.64rem',
+                                          fontFamily: 'monospace',
+                                          padding: '1px 5px',
+                                          borderRadius: '4px',
+                                          background: 'rgba(56, 189, 248, 0.1)',
+                                          color: 'var(--accent)',
+                                          border: '1px solid rgba(56, 189, 248, 0.25)',
+                                        }}
+                                      >
+                                        → {shortcut.route}
+                                      </span>
+                                    )}
                                     <span
                                       style={{
                                         fontSize: '0.64rem',
@@ -1853,42 +2188,64 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                                       textOverflow: 'ellipsis',
                                     }}
                                   >
-                                    {shortcut.description}
+                                    {highlightMatch(shortcut.description, shortcutFilterSubQuery)}
                                   </div>
                                 </div>
                                 <div
-                                  role="group"
-                                  aria-label={`Key combination: ${keys.join(' plus ')}`}
                                   style={{
-                                    display: 'inline-flex',
+                                    display: 'flex',
                                     alignItems: 'center',
-                                    gap: '4px',
+                                    gap: '8px',
                                     flexShrink: 0,
                                   }}
                                 >
-                                  {keys.map((keyLabel, idx) => (
-                                    <React.Fragment key={idx}>
-                                      {idx > 0 && (
-                                        <span
-                                          aria-hidden="true"
-                                          style={{
-                                            fontSize: '0.7rem',
-                                            color: 'var(--muted)',
-                                            fontWeight: 700,
-                                          }}
+                                  {isShortcutSelected && (
+                                    <span
+                                      style={{
+                                        fontSize: '0.68rem',
+                                        fontWeight: 700,
+                                        color: isNavigation ? '#10b981' : 'var(--accent)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                      }}
+                                    >
+                                      {isNavigation ? 'Jump to Page ↵' : 'Execute ↵'}
+                                    </span>
+                                  )}
+                                  <div
+                                    role="group"
+                                    aria-label={`Key combination: ${keys.join(' plus ')}`}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                  >
+                                    {keys.map((keyLabel, idx) => (
+                                      <React.Fragment key={idx}>
+                                        {idx > 0 && (
+                                          <span
+                                            aria-hidden="true"
+                                            style={{
+                                              fontSize: '0.7rem',
+                                              color: 'var(--muted)',
+                                              fontWeight: 700,
+                                            }}
+                                          >
+                                            +
+                                          </span>
+                                        )}
+                                        <kbd
+                                          className="search-footer-kbd command-palette-kbd"
+                                          role="term"
+                                          aria-label={keyLabel}
                                         >
-                                          +
-                                        </span>
-                                      )}
-                                      <kbd
-                                        className="search-footer-kbd command-palette-kbd"
-                                        role="term"
-                                        aria-label={keyLabel}
-                                      >
-                                        {keyLabel}
-                                      </kbd>
-                                    </React.Fragment>
-                                  ))}
+                                          {keyLabel}
+                                        </kbd>
+                                      </React.Fragment>
+                                    ))}
+                                  </div>
                                 </div>
                               </li>
                             );

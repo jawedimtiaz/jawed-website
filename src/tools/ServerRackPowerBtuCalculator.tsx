@@ -5,6 +5,11 @@ import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { Printer, Eye } from 'lucide-react';
 import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
+import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
+import { useDiagnosticToolStorage } from '../hooks/useDiagnosticToolStorage';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
 
 interface DeviceItem {
   id: string;
@@ -22,13 +27,62 @@ const DEFAULT_DEVICES: DeviceItem[] = [
   { id: 'dev-5', name: 'Firewall & Edge Security Appliances', category: 'Security', quantity: 2, wattsPerUnit: 120 },
 ];
 
+export interface ServerRackDraftValues {
+  devices: DeviceItem[];
+  voltage: number;
+  powerFactor: number;
+  safetyMargin: number;
+  electricityCostRate: number;
+  hoursPerDay: number;
+}
+
+const DEFAULT_RACK_DRAFT: ServerRackDraftValues = {
+  devices: DEFAULT_DEVICES,
+  voltage: 208,
+  powerFactor: 0.95,
+  safetyMargin: 20,
+  electricityCostRate: 0.14,
+  hoursPerDay: 24,
+};
+
 export const ServerRackPowerBtuCalculator: React.FC = () => {
-  const [devices, setDevices] = useState<DeviceItem[]>(DEFAULT_DEVICES);
-  const [voltage, setVoltage] = useState<number>(208); // Default 208V High-Density Data Center
-  const [powerFactor, setPowerFactor] = useState<number>(0.95);
-  const [safetyMargin, setSafetyMargin] = useState<number>(20); // 20% Growth & Headroom
-  const [electricityCostRate, setElectricityCostRate] = useState<number>(0.14); // $0.14 per kWh average
-  const [hoursPerDay, setHoursPerDay] = useState<number>(24);
+  const {
+    values,
+    setValues,
+    updateField,
+    saveDraftNow,
+    clearDraft,
+    formattedLastSaved,
+    isOnline,
+    isRestored,
+    hasSavedDraft,
+    isDirty,
+    saveStatus,
+    statusMessage,
+  } = useDiagnosticToolStorage<ServerRackDraftValues>({
+    toolId: 'server-rack-power-btu-calculator',
+    defaultValues: DEFAULT_RACK_DRAFT,
+  });
+
+  const devices = values.devices;
+  const voltage = values.voltage;
+  const powerFactor = values.powerFactor;
+  const safetyMargin = values.safetyMargin;
+  const electricityCostRate = values.electricityCostRate;
+  const hoursPerDay = values.hoursPerDay;
+
+  const setDevices = (updater: React.SetStateAction<DeviceItem[]>) => {
+    setValues(prev => ({
+      ...prev,
+      devices: typeof updater === 'function' ? updater(prev.devices) : updater,
+    }));
+  };
+  const setVoltage = (val: number) => updateField('voltage', val);
+  const setPowerFactor = (val: number) => updateField('powerFactor', val);
+  const setSafetyMargin = (val: number) => updateField('safetyMargin', val);
+  const setElectricityCostRate = (val: number) => updateField('electricityCostRate', val);
+  const setHoursPerDay = (val: number) => updateField('hoursPerDay', val);
+
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState<boolean>(false);
 
   // New Custom Device state
@@ -36,6 +90,33 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
   const [newCategory, setNewCategory] = useState('Server');
   const [newQuantity, setNewQuantity] = useState(1);
   const [newWatts, setNewWatts] = useState(300);
+
+  useRegisterShortcut([
+    {
+      id: 'rack-calculate',
+      combo: 'mod+enter',
+      label: 'Calculate Rack Power & Thermal',
+      description: 'Compute total active watts, BTU/hr, and required cooling tons',
+      category: 'Rack Power Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        saveDraftNow();
+      },
+    },
+    {
+      id: 'rack-save',
+      combo: 'mod+s',
+      label: 'Save Equipment Inventory',
+      description: 'Save current server rack device inventory to local storage',
+      category: 'Rack Power Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        saveDraftNow();
+      },
+    },
+  ]);
 
   const handleDeviceChange = (id: string, field: 'quantity' | 'wattsPerUnit', value: number) => {
     setDevices(prev =>
@@ -126,6 +207,31 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
     };
   }, [devices, voltage, powerFactor, safetyMargin, electricityCostRate, hoursPerDay]);
 
+  const getPowerBtuSummaryText = (): string => {
+    return [
+      `=== Server Rack Power & BTU Thermal Calculations ===`,
+      `Input Parameters:`,
+      `• Supply Voltage: ${voltage} V`,
+      `• Power Factor (PF): ${powerFactor}`,
+      `• Headroom / Safety Margin: ${safetyMargin}%`,
+      `• Electricity Cost: $${electricityCostRate}/kWh`,
+      ``,
+      `Calculated Metrics:`,
+      `• Total Base Active Power: ${calc.rawWatts.toLocaleString()} W`,
+      `• Design Active Power (with ${safetyMargin}% margin): ${calc.designWatts.toLocaleString()} W (${calc.designKilowatts.toFixed(2)} kW)`,
+      `• Current Draw @ ${voltage}V: ${calc.currentAmps} A`,
+      `• Apparent Power: ${calc.apparentPowerVa.toLocaleString()} VA`,
+      `• Thermal Dissipation (Design): ${calc.btuPerHourDesignRounded.toLocaleString()} BTU/hr (Base: ${calc.btuPerHour.toLocaleString()} BTU/hr)`,
+      `• Required HVAC Capacity: ${calc.coolingTons} Tons`,
+      `• Min Circuit Breaker Rating: ${calc.minBreakerRatingAmps} A`,
+      `• Recommended PDU: ${calc.pduRec}`,
+      `• Monthly Energy Cost: $${calc.monthlyCost.toFixed(2)} (${calc.monthlyKwh.toLocaleString()} kWh)`,
+      ``,
+      `Equipment Inventory:`,
+      ...devices.map(d => `• ${d.name} [${d.category}] x${d.quantity} @ ${d.wattsPerUnit}W = ${d.quantity * d.wattsPerUnit}W`),
+    ].join('\n');
+  };
+
   return (
     <main className="container page">
 
@@ -177,6 +283,22 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
       <p className="lead">
         Calculate total IT equipment electrical power load (Watts/kW), circuit amperage draw (Amps), NEC 80% continuous load circuit derating, heat dissipation in BTU/hr, and HVAC cooling capacity in Tons of Refrigeration.
       </p>
+
+      {/* Local Storage & Offline Persistence Toolbar */}
+      <div className="no-print">
+        <DraftSaveToolbar
+          isOnline={isOnline}
+          hasSavedDraft={hasSavedDraft}
+          isRestored={isRestored}
+          isDirty={isDirty}
+          formattedLastSaved={formattedLastSaved}
+          statusMessage={statusMessage}
+          saveStatus={saveStatus}
+          onSaveNow={saveDraftNow}
+          onClearDraft={clearDraft}
+          toolName="Server Rack Calculator"
+        />
+      </div>
 
       {/* Calculator Container */}
       <div className="card" style={{ padding: '24px', background: 'var(--surface)', border: '1px solid var(--line)', marginBottom: '36px' }}>
@@ -364,9 +486,15 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
 
         {/* Power & BTU Output Dashboard */}
         <div style={{ paddingTop: '20px', borderTop: '2px solid var(--line)' }}>
-          <h3 style={{ color: 'var(--text-heading)', fontSize: '1.2rem', marginBottom: '16px' }}>
-            ⚡ Calculated Power &amp; Thermal Metrics
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+            <h3 style={{ color: 'var(--text-heading)', fontSize: '1.2rem', margin: 0 }}>
+              ⚡ Calculated Power &amp; Thermal Metrics
+            </h3>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <PdfExportButton documentTitle="Server-Rack-Power-BTU-Report" variant="secondary" size="sm" />
+              <CopyButton text={getPowerBtuSummaryText} label="Copy Results" variant="primary" size="sm" />
+            </div>
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
             <div className="card" style={{ background: 'var(--bg-darker)', border: '1px solid var(--line)', padding: '16px' }}>

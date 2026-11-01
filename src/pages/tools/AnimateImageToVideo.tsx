@@ -50,6 +50,9 @@ import {
   type OutputFrameRate,
 } from '../../hooks/useAnimationPreferences';
 import { A4PrintPreviewModal } from '../../components/A4PrintPreviewModal';
+import { CopyButton } from '../../components/common/CopyButton';
+import { PdfExportButton } from '../../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../../hooks/useKeyboardShortcuts';
 
 export type AnimationEffectId = 'ken-burns' | 'orbit-zoom' | 'particle-dust' | 'pulse-glow' | 'cinematic-pan';
 
@@ -1090,7 +1093,7 @@ export async function shareAnimationViaWebShare(
         return {
           status: 'shared-asset',
           method: 'native-asset',
-          message: `Shared ${payload.formatLabel} video asset (${payload.fileName}) and direct link via browser share sheet.`,
+          message: `Shared ${payload.formatLabel} video asset (${payload.fileName}) via mobile OS sharing dialog.`,
           payload,
         };
       }
@@ -1103,7 +1106,7 @@ export async function shareAnimationViaWebShare(
       return {
         status: 'shared-link',
         method: 'native-link',
-        message: `Shared direct link (${payload.url}) via browser share sheet.`,
+        message: `Shared direct link (${payload.url}) via mobile OS sharing dialog.`,
         payload,
       };
     } catch (err: any) {
@@ -1127,7 +1130,7 @@ export async function shareAnimationViaWebShare(
           return {
             status: 'shared-link',
             method: 'native-link',
-            message: `Shared direct link (${payload.url}) via browser share sheet.`,
+            message: `Shared direct link (${payload.url}) via mobile OS sharing dialog.`,
             payload,
           };
         } catch (retryErr: any) {
@@ -2564,6 +2567,39 @@ export const AnimateImageToVideo: React.FC = () => {
     window.addEventListener('ai-provider-changed', handleProviderChange);
     return () => window.removeEventListener('ai-provider-changed', handleProviderChange);
   }, []);
+
+  useRegisterShortcut([
+    {
+      id: 'animate-video-render',
+      combo: 'mod+enter',
+      label: 'Render Animation / Trigger File Upload',
+      description: 'Trigger video rendering or open image upload dialog',
+      category: 'Animate Image to Video',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+      },
+    },
+    {
+      id: 'animate-video-save',
+      combo: 'mod+s',
+      label: 'Save Animation Preset',
+      description: 'Save animation configuration and settings',
+      category: 'Animate Image to Video',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        try {
+          localStorage.setItem('animate_img_to_video_transition_effect', transitionEffect);
+        } catch {
+          // ignore
+        }
+      },
+    },
+  ], [transitionEffect]);
 
   // Cleanup object URLs and toast timers on unmount
   useEffect(() => {
@@ -6123,6 +6159,32 @@ export const AnimateImageToVideo: React.FC = () => {
                   <LayoutGrid size={13} color={comparisonViewEnabled ? 'var(--accent)' : 'var(--muted)'} />
                   Comparison View: {comparisonViewEnabled ? 'ON' : 'OFF'}
                 </button>
+                {(frames.length > 0 || Boolean(renderedVideoUrl)) && (
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    data-testid="header-share-animation-btn"
+                    title="Share the animation via mobile OS sharing dialogs or Web Share API"
+                    aria-label="Share animation via mobile OS sharing dialog"
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.12)',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      borderRadius: '8px',
+                      padding: '5px 10px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      color: 'var(--accent)',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      transition: 'all 0.18s ease',
+                    }}
+                  >
+                    <Share2 size={13} aria-hidden="true" />
+                    <span>Share</span>
+                  </button>
+                )}
                 {frames.length > 0 && !isRendering && (
                   <button
                     type="button"
@@ -9243,21 +9305,61 @@ export const AnimateImageToVideo: React.FC = () => {
                         {formatVideoTimestamp(lastRenderedTrimRange.end)})
                       </span>
                     </div>
-                    {isTrimDirty && (
-                      <span
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={handleShare}
+                        data-testid="rendered-video-share-btn"
+                        title="Share the generated animation via mobile OS sharing dialogs (Web Share API)"
                         style={{
-                          fontSize: '0.71rem',
-                          color: '#fbbf24',
-                          background: 'rgba(245, 158, 11, 0.14)',
-                          border: '1px solid rgba(245, 158, 11, 0.35)',
-                          padding: '2px 8px',
-                          borderRadius: '999px',
-                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '4px 10px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          borderRadius: '6px',
+                          background: 'rgba(56, 189, 248, 0.14)',
+                          border: '1px solid rgba(56, 189, 248, 0.38)',
+                          color: '#38bdf8',
+                          cursor: 'pointer',
                         }}
                       >
-                        Trim updated — click Re-Render Trimmed Clip to bake new bounds into export file
-                      </span>
-                    )}
+                        <Share2 size={13} aria-hidden="true" />
+                        <span>Share Video</span>
+                      </button>
+                      <CopyButton
+                        text={() => [
+                          `=== AI Image Animation Specification ===`,
+                          `Trim Range: ${formatVideoTimestamp(lastRenderedTrimRange.start)} → ${formatVideoTimestamp(lastRenderedTrimRange.end)}`,
+                          renderedVideoUrl ? `Rendered Video Blob: ${renderedVideoUrl}` : '',
+                        ].filter(Boolean).join('\n')}
+                        label="Copy Specs"
+                        variant="subtle"
+                        size="sm"
+                      />
+                      <PdfExportButton
+                        documentTitle="AI-Animation-Specification"
+                        label="Export PDF"
+                        variant="subtle"
+                        size="sm"
+                      />
+                      {isTrimDirty && (
+                        <span
+                          style={{
+                            fontSize: '0.71rem',
+                            color: '#fbbf24',
+                            background: 'rgba(245, 158, 11, 0.14)',
+                            border: '1px solid rgba(245, 158, 11, 0.35)',
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Trim updated — click Re-Render Trimmed Clip to bake new bounds into export file
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--line)', background: '#000' }}>
                     <video
@@ -9347,15 +9449,37 @@ export const AnimateImageToVideo: React.FC = () => {
                   data-testid="share-animation-btn"
                   title="Share the generated animation via mobile OS sharing dialogs or the browser Web Share API"
                   className="button button-secondary"
+                  disabled={isRendering || (frames.length === 0 && !renderedVideoUrl)}
                   style={{
-                    flex: 1,
-                    padding: '10px 12px',
+                    flex: '1 1 130px',
+                    padding: '10px 14px',
                     justifyContent: 'center',
                     gap: '6px',
+                    border: '1px solid rgba(56, 189, 248, 0.45)',
+                    background:
+                      'linear-gradient(135deg, rgba(56, 189, 248, 0.14) 0%, rgba(15, 23, 42, 0.85) 100%)',
+                    color: '#38bdf8',
+                    fontWeight: 700,
                   }}
                 >
                   <Share2 size={15} aria-hidden="true" />
                   <span>Share</span>
+                  {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                    <span
+                      style={{
+                        fontSize: '0.64rem',
+                        fontWeight: 700,
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        background: 'rgba(56, 189, 248, 0.22)',
+                        color: '#7dd3fc',
+                        fontFamily: 'monospace',
+                        marginLeft: '2px',
+                      }}
+                    >
+                      OS Share
+                    </span>
+                  )}
                 </button>
                 <button
                   type="button"

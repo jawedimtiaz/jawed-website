@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   KeyboardShortcutContext,
   ShortcutItem,
   VoiceCommandMatch,
   LastVoiceCommandRecord,
+  ShortcutConflictToastRecord,
+  checkShortcutConflict,
   matchHotkey,
 } from '../hooks/useKeyboardShortcuts';
 import { KeyboardShortcutModal } from './KeyboardShortcutModal';
@@ -297,6 +300,24 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
   const [isVoiceListening, setIsVoiceListening] = useState<boolean>(false);
   const [lastVoiceCommand, setLastVoiceCommand] = useState<LastVoiceCommandRecord | null>(null);
 
+  // Dynamic tool-specific shortcuts registered by active tool pages/components
+  const [toolShortcuts, setToolShortcuts] = useState<ShortcutItem[]>([]);
+  // Warning notification record displayed when a tool shortcut conflicts with global/system shortcuts
+  const [conflictWarning, setConflictWarning] = useState<ShortcutConflictToastRecord | null>(null);
+
+  // Auto-dismiss conflict warning toast after 6 seconds
+  useEffect(() => {
+    if (!conflictWarning) return;
+    const timer = setTimeout(() => {
+      setConflictWarning(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [conflictWarning]);
+
+  const dismissConflictWarning = useCallback(() => {
+    setConflictWarning(null);
+  }, []);
+
   const activePrefixRef = useRef<string | null>(null);
   const prefixTimeoutRef = useRef<number | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -553,6 +574,36 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     triggerToastNotification('nav-contact', 'Go to Contact Page (Alt+C)');
   }, [navigate, triggerToastNotification]);
 
+  const handleGoNotes = useCallback(() => {
+    navigate('/notes');
+    triggerToastNotification('nav-notes', 'Go to Notes & Docs (G + N)');
+  }, [navigate, triggerToastNotification]);
+
+  const handleGoBlog = useCallback(() => {
+    navigate('/blog');
+    triggerToastNotification('nav-blog', 'Go to Blog (G + B)');
+  }, [navigate, triggerToastNotification]);
+
+  const handleGoWork = useCallback(() => {
+    navigate('/work');
+    triggerToastNotification('nav-work', 'Go to Work & Case Studies (G + W)');
+  }, [navigate, triggerToastNotification]);
+
+  const handleGoAbout = useCallback(() => {
+    navigate('/about');
+    triggerToastNotification('nav-about', 'Go to About (G + A)');
+  }, [navigate, triggerToastNotification]);
+
+  const handleGoTopics = useCallback(() => {
+    navigate('/topics');
+    triggerToastNotification('nav-topics', 'Go to Topics Index (G + O)');
+  }, [navigate, triggerToastNotification]);
+
+  const handleGoResources = useCallback(() => {
+    navigate('/resources');
+    triggerToastNotification('nav-resources', 'Go to Resources Library (G + R)');
+  }, [navigate, triggerToastNotification]);
+
   // List of active global default shortcuts
   const defaultShortcuts: ShortcutItem[] = useMemo(
     () => [
@@ -582,6 +633,60 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
         category: 'Navigation',
         allowInInput: false,
         action: handleGoGuides,
+      },
+      {
+        id: 'nav-notes',
+        combo: 'g+n',
+        label: 'Go to Notes & Documentation',
+        description: 'G + N -> Field triage notes & documentation',
+        category: 'Navigation',
+        allowInInput: false,
+        action: handleGoNotes,
+      },
+      {
+        id: 'nav-blog',
+        combo: 'g+b',
+        label: 'Go to Blog',
+        description: 'G + B -> Technical engineering articles',
+        category: 'Navigation',
+        allowInInput: false,
+        action: handleGoBlog,
+      },
+      {
+        id: 'nav-work',
+        combo: 'g+w',
+        label: 'Go to Work & Case Studies',
+        description: 'G + W -> Enterprise deployments & case studies',
+        category: 'Navigation',
+        allowInInput: false,
+        action: handleGoWork,
+      },
+      {
+        id: 'nav-about',
+        combo: 'g+a',
+        label: 'Go to About Jawed',
+        description: 'G + A -> Professional bio & verified credentials',
+        category: 'Navigation',
+        allowInInput: false,
+        action: handleGoAbout,
+      },
+      {
+        id: 'nav-topics',
+        combo: 'g+o',
+        label: 'Go to Topics Index',
+        description: 'G + O -> IT infrastructure & networking topics',
+        category: 'Navigation',
+        allowInInput: false,
+        action: handleGoTopics,
+      },
+      {
+        id: 'nav-resources',
+        combo: 'g+r',
+        label: 'Go to Resources Library',
+        description: 'G + R -> Downloadable cheatsheets & templates',
+        category: 'Navigation',
+        allowInInput: false,
+        action: handleGoResources,
       },
       {
         id: 'search-modal',
@@ -660,6 +765,12 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
       handleGoHome,
       handleGoTools,
       handleGoGuides,
+      handleGoNotes,
+      handleGoBlog,
+      handleGoWork,
+      handleGoAbout,
+      handleGoTopics,
+      handleGoResources,
       handleToggleSearchModal,
       handleToggleTheme,
       handleFocusSearch,
@@ -671,14 +782,97 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     ]
   );
 
+  const unregisterShortcut = useCallback((id: string) => {
+    setToolShortcuts((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  const registerShortcut = useCallback(
+    (shortcut: ShortcutItem): (() => void) => {
+      setToolShortcuts((prev) => {
+        // Evaluate conflict against global shortcuts and already registered tool shortcuts (excluding current id)
+        const otherShortcuts = [
+          ...defaultShortcuts,
+          ...prev.filter((s) => s.id !== shortcut.id),
+        ];
+
+        const conflictResult = checkShortcutConflict(shortcut, otherShortcuts);
+
+        if (conflictResult.hasConflict) {
+          const breakdown = conflictResult.conflicts
+            .map((c) => `  - [${c.type.toUpperCase()}] ${c.source}: ${c.reason}`)
+            .join('\n');
+
+          // 1. Console warning as requested
+          console.warn(
+            `[KeyboardShortcutManager] Shortcut conflict detected for "${shortcut.label}" (${shortcut.combo}):\n${breakdown}`
+          );
+
+          // 2. Display visual warning toast if not explicitly marked as intentional overrideSystem
+          if (!shortcut.overrideSystem && shortcut.combo !== 'mod+s' && shortcut.combo !== 'mod+enter' && shortcut.combo !== 'ctrl+s' && shortcut.combo !== 'ctrl+enter') {
+            const conflictToast: ShortcutConflictToastRecord = {
+              id: `conflict-${shortcut.id}-${Date.now()}`,
+              shortcut,
+              conflicts: conflictResult.conflicts,
+              timestamp: Date.now(),
+            };
+            setConflictWarning(conflictToast);
+          }
+
+          // 3. Dispatch window event for test automation & integration
+          window.dispatchEvent(
+            new CustomEvent('shortcut-conflict-detected', {
+              detail: {
+                shortcut,
+                conflicts: conflictResult.conflicts,
+                warningMessage: conflictResult.warningMessage,
+              },
+            })
+          );
+        }
+
+        const enriched: ShortcutItem = {
+          ...shortcut,
+          isToolSpecific: shortcut.isToolSpecific ?? true,
+          category: shortcut.category || 'Tool Specific',
+        };
+
+        const existingIdx = prev.findIndex((s) => s.id === shortcut.id);
+        if (existingIdx >= 0) {
+          const next = [...prev];
+          next[existingIdx] = enriched;
+          return next;
+        }
+        return [...prev, enriched];
+      });
+
+      return () => {
+        unregisterShortcut(shortcut.id);
+      };
+    },
+    [defaultShortcuts, unregisterShortcut]
+  );
+
+  const checkConflict = useCallback(
+    (shortcut: ShortcutItem) => {
+      const allActive = [...defaultShortcuts, ...toolShortcuts.filter((s) => s.id !== shortcut.id)];
+      return checkShortcutConflict(shortcut, allActive);
+    },
+    [defaultShortcuts, toolShortcuts]
+  );
+
+  // Combined active shortcuts list (default globals + registered tool shortcuts)
+  const allShortcuts: ShortcutItem[] = useMemo(() => {
+    return [...defaultShortcuts, ...toolShortcuts];
+  }, [defaultShortcuts, toolShortcuts]);
+
   const triggerShortcut = useCallback(
     (id: string) => {
-      const match = defaultShortcuts.find((s) => s.id === id);
+      const match = allShortcuts.find((s) => s.id === id);
       if (match) {
         match.action();
       }
     },
-    [defaultShortcuts]
+    [allShortcuts]
   );
 
   // Execute a spoken voice command phrase and mirror existing keyboard shortcut navigation/action logic
@@ -691,7 +885,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
 
       clearPrefix();
 
-      const shortcutItem = defaultShortcuts.find((s) => s.id === matched.id);
+      const shortcutItem = allShortcuts.find((s) => s.id === matched.id);
       if (shortcutItem) {
         shortcutItem.action();
       } else if (matched.route) {
@@ -717,7 +911,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
 
       return true;
     },
-    [clearPrefix, defaultShortcuts, navigate, triggerToastNotification]
+    [clearPrefix, allShortcuts, navigate, triggerToastNotification]
   );
 
   // Auto-hide lastVoiceCommand badge after 2.5 seconds
@@ -1087,7 +1281,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
             return;
           }
 
-          const chordShortcut = defaultShortcuts.find((s) => s.combo === `g+${lowerKey}`);
+          const chordShortcut = allShortcuts.find((s) => s.combo === `g+${lowerKey}`);
           if (chordShortcut) {
             e.preventDefault();
             clearPrefix();
@@ -1107,7 +1301,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
         return;
       }
 
-      for (const s of defaultShortcuts) {
+      for (const s of allShortcuts) {
         if (s.combo.startsWith('g+') || s.id === 'shortcuts-help') continue;
         if (matchHotkey(e, s.combo)) {
           if (isEditable && !s.allowInInput) {
@@ -1123,7 +1317,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    defaultShortcuts,
+    allShortcuts,
     isHelpModalOpen,
     isUserTypingInEditableField,
     clearPrefix,
@@ -1134,12 +1328,18 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     handleGoHome,
     handleGoTools,
     handleGoGuides,
+    handleGoNotes,
+    handleGoBlog,
+    handleGoWork,
+    handleGoAbout,
+    handleGoTopics,
+    handleGoResources,
   ]);
 
   return (
     <KeyboardShortcutContext.Provider
       value={{
-        shortcuts: defaultShortcuts,
+        shortcuts: allShortcuts,
         isHelpModalOpen,
         openHelpModal,
         closeHelpModal,
@@ -1147,6 +1347,11 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
         triggerShortcut,
         lastTriggeredAction,
         activePrefix,
+        registerShortcut,
+        unregisterShortcut,
+        checkConflict,
+        conflictWarning,
+        dismissConflictWarning,
         isVoiceSupported,
         isVoiceListening,
         startVoiceRecognition,
@@ -1165,129 +1370,204 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
         <KeyboardShortcutModal
           isOpen={isHelpModalOpen}
           onClose={closeHelpModal}
-          shortcuts={defaultShortcuts}
+          shortcuts={allShortcuts}
           onTriggerShortcut={triggerShortcut}
           triggerElementRef={previousFocusRef}
+          voiceCommands={VOICE_COMMAND_RULES}
+          isVoiceSupported={isVoiceSupported}
+          isVoiceListening={isVoiceListening}
+          onToggleVoice={toggleVoiceRecognition}
         />
       </div>
 
-      {/* Visual Feedback Toast when 'G' (Go) Prefix Key is Pressed */}
-      {activePrefix === 'g' && (
-        <div
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          data-testid="shortcut-prefix-toast"
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            left: '24px',
-            zIndex: 10001,
-            background: 'var(--card)',
-            border: '1px solid var(--accent)',
-            borderRadius: '10px',
-            padding: '10px 16px',
-            fontSize: '0.84rem',
-            fontWeight: 700,
-            color: 'var(--text-heading)',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '10px',
-            animation: 'slideUpFade 0.16s ease-out',
-            pointerEvents: 'none',
-          }}
-        >
-          <span
+      {/* Subtle 'Shortcut Active' Indicator (Corner Toast / Footer Host) when Prefix Key (e.g. 'G') is Initiated */}
+      {activePrefix && (() => {
+        const upperPrefix = activePrefix.toUpperCase();
+        const indicatorNode = (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-label={`Shortcut active: prefix ${upperPrefix} initiated, listening for secondary key`}
+            data-testid="shortcut-prefix-toast"
+            data-prefix-key={activePrefix}
             style={{
-              display: 'inline-flex',
+              position: 'fixed',
+              bottom: '24px',
+              left: '24px',
+              zIndex: 10001,
+              background: 'var(--card)',
+              border: '1px solid var(--accent)',
+              borderRadius: '10px',
+              padding: '10px 16px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              color: 'var(--text-heading)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+              display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              color: 'var(--accent)',
+              flexWrap: 'wrap',
+              gap: '10px',
+              animation: 'slideUpFade 0.16s ease-out',
+              pointerEvents: 'none',
             }}
           >
-            <kbd
+            {/* Subtle 'Shortcut Active' Badge */}
+            <span
+              data-testid="shortcut-active-indicator"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                minWidth: '22px',
-                height: '22px',
-                padding: '0 6px',
-                borderRadius: '5px',
-                background: 'var(--accent)',
-                color: '#fff',
-                fontFamily: 'var(--font-mono, monospace)',
-                fontSize: '0.76rem',
-                fontWeight: 800,
+                gap: '6px',
+                padding: '2px 8px',
+                borderRadius: '999px',
+                background: 'rgba(56, 189, 248, 0.14)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                color: 'var(--accent)',
+                fontSize: '0.73rem',
+                fontWeight: 700,
+                letterSpacing: '0.02em',
               }}
             >
-              G
-            </kbd>
-            <span>Go to…</span>
-          </span>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              color: 'var(--text-muted, var(--text))',
-            }}
-          >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: 'var(--emerald, #10b981)',
+                  boxShadow: '0 0 8px var(--emerald, #10b981)',
+                  display: 'inline-block',
+                }}
+              />
+              <span>Shortcut Active</span>
+            </span>
+
+            {/* Initiated Prefix Key & Listening Confirmation */}
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                color: 'var(--accent)',
+              }}
+            >
               <kbd
                 style={{
-                  padding: '1px 5px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: '22px',
+                  height: '22px',
+                  padding: '0 6px',
+                  borderRadius: '5px',
+                  background: 'var(--accent)',
+                  color: '#fff',
                   fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: '0.72rem',
-                  color: 'var(--text-heading)',
+                  fontSize: '0.76rem',
+                  fontWeight: 800,
                 }}
               >
-                H
+                {upperPrefix}
               </kbd>
-              Home
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <kbd
+              <span>Go to…</span>
+              <span
                 style={{
-                  padding: '1px 5px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg)',
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: '0.72rem',
-                  color: 'var(--text-heading)',
+                  fontSize: '0.75rem',
+                  fontWeight: 500,
+                  color: 'var(--muted, var(--text-muted))',
                 }}
               >
-                T
-              </kbd>
-              Tools
+                (Listening for secondary key)
+              </span>
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <kbd
-                style={{
-                  padding: '1px 5px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg)',
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: '0.72rem',
-                  color: 'var(--text-heading)',
-                }}
-              >
-                G
-              </kbd>
-              Guides
+
+            {/* Secondary Key Chord Options */}
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                color: 'var(--text-muted, var(--text))',
+              }}
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <kbd
+                  style={{
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg)',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontSize: '0.72rem',
+                    color: 'var(--text-heading)',
+                  }}
+                >
+                  H
+                </kbd>
+                Home
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <kbd
+                  style={{
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg)',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontSize: '0.72rem',
+                    color: 'var(--text-heading)',
+                  }}
+                >
+                  T
+                </kbd>
+                Tools
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <kbd
+                  style={{
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg)',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontSize: '0.72rem',
+                    color: 'var(--text-heading)',
+                  }}
+                >
+                  G
+                </kbd>
+                Guides
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', opacity: 0.8 }}>
+                <kbd
+                  style={{
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg)',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontSize: '0.7rem',
+                    color: 'var(--muted)',
+                  }}
+                >
+                  Esc
+                </kbd>
+                Cancel
+              </span>
             </span>
-          </span>
-        </div>
-      )}
+          </div>
+        );
+
+        const footerHost =
+          typeof document !== 'undefined'
+            ? document.querySelector<HTMLElement>('[data-footer-shortcut-host="true"]')
+            : null;
+
+        return footerHost ? createPortal(indicatorNode, footerHost) : indicatorNode;
+      })()}
 
       {/* Floating Hotkey / Voice Command Execution Toast Popup */}
       {lastTriggeredAction && !activePrefix && (
@@ -1333,6 +1613,139 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
             </span>
           )}
         </div>
+      )}
+
+      {/* Floating Shortcut Conflict Notification Toast */}
+      {conflictWarning && (
+        <aside
+          role="alert"
+          aria-live="polite"
+          data-testid="shortcut-conflict-toast"
+          aria-label="Keyboard Shortcut Conflict Warning"
+          style={{
+            position: 'fixed',
+            top: '24px',
+            right: '24px',
+            maxWidth: '460px',
+            zIndex: 10003,
+            background: 'var(--card, #1e293b)',
+            border: '1px solid #f59e0b',
+            borderRadius: '12px',
+            padding: '14px 18px',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(245, 158, 11, 0.25)',
+            animation: 'slideDownFade 0.22s ease-out',
+            color: 'var(--text, #f8fafc)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.15rem' }} aria-hidden="true">
+                ⚠️
+              </span>
+              <strong
+                style={{
+                  fontSize: '0.88rem',
+                  fontWeight: 700,
+                  color: '#f59e0b',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                Shortcut Conflict Detected
+              </strong>
+            </div>
+            <button
+              type="button"
+              onClick={dismissConflictWarning}
+              aria-label="Dismiss shortcut conflict warning"
+              data-testid="dismiss-conflict-toast"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--muted, #94a3b8)',
+                cursor: 'pointer',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '1rem',
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div
+            style={{
+              marginTop: '8px',
+              fontSize: '0.82rem',
+              lineHeight: 1.45,
+              color: 'var(--text-heading, #f1f5f9)',
+            }}
+          >
+            <span>
+              Tool shortcut <strong>&ldquo;{conflictWarning.shortcut.label}&rdquo;</strong> (
+            </span>
+            <kbd
+              style={{
+                padding: '2px 6px',
+                borderRadius: '4px',
+                border: '1px solid #f59e0b',
+                background: 'rgba(245, 158, 11, 0.12)',
+                fontFamily: 'var(--font-mono, monospace)',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                color: '#fbbf24',
+              }}
+            >
+              {conflictWarning.shortcut.combo.toUpperCase()}
+            </kbd>
+            <span>) conflicts with:</span>
+          </div>
+
+          <ul
+            style={{
+              margin: '8px 0 0',
+              paddingLeft: '18px',
+              fontSize: '0.76rem',
+              color: 'var(--muted, #94a3b8)',
+              lineHeight: 1.4,
+            }}
+          >
+            {conflictWarning.conflicts.map((c, idx) => (
+              <li key={idx} style={{ marginBottom: '4px' }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    padding: '1px 5px',
+                    borderRadius: '3px',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    marginRight: '6px',
+                    textTransform: 'uppercase',
+                    background:
+                      c.type === 'system'
+                        ? 'rgba(239, 68, 68, 0.15)'
+                        : 'rgba(56, 189, 248, 0.15)',
+                    color: c.type === 'system' ? '#f87171' : 'var(--accent, #38bdf8)',
+                    border:
+                      c.type === 'system'
+                        ? '1px solid rgba(239, 68, 68, 0.3)'
+                        : '1px solid rgba(56, 189, 248, 0.3)',
+                  }}
+                >
+                  {c.type}
+                </span>
+                <strong style={{ color: 'var(--text-heading, #f1f5f9)' }}>{c.source}</strong>: {c.reason}
+              </li>
+            ))}
+          </ul>
+        </aside>
       )}
     </KeyboardShortcutContext.Provider>
   );

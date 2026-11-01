@@ -5,6 +5,11 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
+import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useDiagnosticToolStorage } from '../hooks/useDiagnosticToolStorage';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 interface SubnetOption {
   cidr: number;
@@ -69,10 +74,57 @@ function intToBinaryString(int: number): string {
 }
 
 export const Ipv4SubnetCalculator: React.FC = () => {
-  const [ipInput, setIpInput] = useState('192.168.1.50');
-  const [cidrPrefix, setCidrPrefix] = useState<number>(24);
+  const {
+    values,
+    updateField,
+    saveDraftNow,
+    clearDraft,
+    formattedLastSaved,
+    isOnline,
+    isRestored,
+    hasSavedDraft,
+    isDirty,
+    saveStatus,
+    statusMessage,
+  } = useDiagnosticToolStorage<{ ipInput: string; cidrPrefix: number }>({
+    toolId: 'ipv4-subnet-calculator',
+    defaultValues: { ipInput: '192.168.1.50', cidrPrefix: 24 },
+  });
+
+  const ipInput = values.ipInput;
+  const cidrPrefix = values.cidrPrefix;
+  const setIpInput = (val: string) => updateField('ipInput', val);
+  const setCidrPrefix = (val: number) => updateField('cidrPrefix', val);
+
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+
+  useRegisterShortcut([
+    {
+      id: 'ipv4-calculate',
+      combo: 'mod+enter',
+      label: 'Calculate Subnet Details',
+      description: 'Calculate network ranges, broadcast address, and host capacity',
+      category: 'Subnet Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        saveDraftNow();
+      },
+    },
+    {
+      id: 'ipv4-save',
+      combo: 'mod+s',
+      label: 'Save Subnet Calculation',
+      description: 'Save active IP and CIDR prefix to local browser storage',
+      category: 'Subnet Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        saveDraftNow();
+      },
+    },
+  ]);
 
   const parsed = useMemo(() => {
     const ipInt = ipToInt(ipInput);
@@ -237,6 +289,20 @@ export const Ipv4SubnetCalculator: React.FC = () => {
         <p className="lead">
           Calculate IPv4 network boundaries, usable host ranges, broadcast addresses, wildcard masks, and 32-bit binary octet representations for network engineering, firewall rules, and Cisco ACLs.
         </p>
+
+        {/* Local Storage & Offline Persistence Toolbar */}
+        <DraftSaveToolbar
+          isOnline={isOnline}
+          hasSavedDraft={hasSavedDraft}
+          isRestored={isRestored}
+          isDirty={isDirty}
+          formattedLastSaved={formattedLastSaved}
+          statusMessage={statusMessage}
+          saveStatus={saveStatus}
+          onSaveNow={saveDraftNow}
+          onClearDraft={clearDraft}
+          toolName="IPv4 Subnet Calculator"
+        />
       </div>
 
       {/* Calculator Interface */}
@@ -308,17 +374,38 @@ export const Ipv4SubnetCalculator: React.FC = () => {
               <h3 style={{ margin: 0, color: 'var(--text-heading)', fontSize: '1.2rem' }}>
                 📊 Network Calculation Results for {parsed.ipAddress}/{cidrPrefix}
               </h3>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  className="button button-secondary no-print"
-                  onClick={() => window.print()}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', padding: '4px 10px' }}
-                  title="Download or Print clean PDF calculation report via browser print dialog"
-                >
-                  <Printer className="w-3.5 h-3.5 text-sky-400" />
-                  Download as PDF
-                </button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <CopyButton
+                  text={() => {
+                    if (!parsed.isValid) return '';
+                    return (
+                      `=====================================================\n` +
+                      `IPV4 SUBNET & CIDR ALLOCATION SPECIFICATION\n` +
+                      `=====================================================\n` +
+                      `• Target IP / Prefix: ${parsed.ipAddress}/${cidrPrefix}\n` +
+                      `• Subnet Mask: ${parsed.subnetMask}\n` +
+                      `• Wildcard Mask: ${parsed.wildcardMask}\n` +
+                      `• Network Address: ${parsed.networkAddress}\n` +
+                      `• Broadcast Address: ${parsed.broadcastAddress}\n` +
+                      `• Usable Host Range: ${parsed.firstUsableIp} - ${parsed.lastUsableIp}\n` +
+                      `• Total Usable Hosts: ${parsed.usableHosts.toLocaleString()}\n` +
+                      `• Total Addresses: ${parsed.totalAddresses.toLocaleString()}\n` +
+                      `• IP Class / Scope: ${parsed.ipClass} (${parsed.ipScope})\n` +
+                      `• Binary IP: ${parsed.binaryIp}\n` +
+                      `• Binary Mask: ${parsed.binaryMask}\n` +
+                      `=====================================================`
+                    );
+                  }}
+                  label="Copy Results"
+                  variant="primary"
+                  size="sm"
+                />
+                <PdfExportButton
+                  documentTitle={parsed.isValid ? `IPv4-Subnet-${parsed.ipAddress}-${cidrPrefix}` : 'IPv4-Subnet-Report'}
+                  label="Export PDF"
+                  variant="secondary"
+                  size="sm"
+                />
                 <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
                   {parsed.ipClass}
                 </span>

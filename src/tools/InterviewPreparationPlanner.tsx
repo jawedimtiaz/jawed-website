@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import {
   DndContext,
@@ -2381,6 +2383,33 @@ export const InterviewPreparationPlanner: React.FC = () => {
     }, 3000);
   };
 
+  useRegisterShortcut([
+    {
+      id: 'ipp-add-story',
+      combo: 'mod+enter',
+      label: 'Add / Save STAR Story',
+      description: 'Save draft STAR story or add new task to vault',
+      category: 'Interview Prep Planner',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        handleAddStory();
+      },
+    },
+    {
+      id: 'ipp-save-draft',
+      combo: 'mod+s',
+      label: 'Save STAR Planner',
+      description: 'Save current STAR story draft and state',
+      category: 'Interview Prep Planner',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        handleAddStory();
+      },
+    },
+  ], [storyTheme, situation, task, action, result, storyCategory, customCategoryInput, isCustomCategoryMode, editingId, storyStatus, storyPriority, storyRepeat, storyEffort]);
+
   const handleShareTask = async (story: StarStory) => {
     const markdown = `# Interview Prep Task: ${story.theme}
 - **Category**: ${story.categoryLabel || 'Technical'}
@@ -3642,24 +3671,16 @@ ${story.result || 'N/A'}
                     Archive Completed ({summaryStats.doneCount})
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  onClick={() => {
-                    const allText = activeStories.map((s, idx) => `=== STORY #${idx + 1}: ${s.theme.toUpperCase()} ===
+                <CopyButton
+                  text={() => activeStories.map((s, idx) => `=== STORY #${idx + 1}: ${s.theme.toUpperCase()} ===
 [SITUATION]: ${s.situation}
 [TASK]: ${s.task}
 [ACTION]: ${s.action}
 [RESULT]: ${s.result}
-----------------------------------------`).join('\n\n');
-                    navigator.clipboard.writeText(allText);
-                    showToast('All active STAR stories copied to clipboard!');
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Copy className="w-4 h-4 text-sky-400" />
-                  Copy All Active
-                </button>
+----------------------------------------`).join('\n\n')}
+                  label="Copy All Active"
+                  variant="secondary"
+                />
                 <button
                   type="button"
                   className="button button-secondary no-print"

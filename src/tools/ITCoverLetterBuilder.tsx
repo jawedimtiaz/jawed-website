@@ -19,6 +19,9 @@ import {
 } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 interface SavedLetterItem {
   id: string;
@@ -295,6 +298,33 @@ export const ITCoverLetterBuilder: React.FC = () => {
     persistSavedLetters(updated);
     showToast('Saved to browser storage');
   };
+
+  useRegisterShortcut([
+    {
+      id: 'cover-letter-generate',
+      combo: 'mod+enter',
+      label: 'Generate IT Cover Letter',
+      description: 'Generate customized IT cover letter draft',
+      category: 'Cover Letter Builder',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        handleGenerate();
+      },
+    },
+    {
+      id: 'cover-letter-save',
+      combo: 'mod+s',
+      label: 'Save Cover Letter Draft',
+      description: 'Save draft cover letter to browser storage',
+      category: 'Cover Letter Builder',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        handleSaveLetter();
+      },
+    },
+  ]);
 
   const handleDeleteSaved = (id: string) => {
     const updated = savedLetters.filter(item => item.id !== id);
@@ -935,26 +965,16 @@ export const ITCoverLetterBuilder: React.FC = () => {
               }}
             >
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => handleCopy()}
-                  style={{
-                    background: 'var(--bg)',
-                    border: '1px solid var(--line)',
-                    borderRadius: '8px',
-                    padding: '8px 16px',
-                    fontSize: '0.88rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    color: 'var(--text)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  <Copy size={15} aria-hidden="true" />
-                  Copy Text
-                </button>
+                <CopyButton
+                  text={letterText}
+                  label="Copy Text"
+                  variant="secondary"
+                />
+                <PdfExportButton
+                  documentTitle={formData.role ? `${formData.role.replace(/\s+/g, '-')}-Cover-Letter` : 'IT-Cover-Letter'}
+                  label="Export PDF"
+                  variant="secondary"
+                />
 
                 <button
                   type="button"
@@ -1124,21 +1144,12 @@ export const ITCoverLetterBuilder: React.FC = () => {
                       >
                         Load
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(item.text)}
-                        style={{
-                          background: 'var(--card)',
-                          border: '1px solid var(--line)',
-                          borderRadius: '6px',
-                          padding: '4px 10px',
-                          fontSize: '0.8rem',
-                          cursor: 'pointer',
-                          color: 'var(--text)',
-                        }}
-                      >
-                        Copy
-                      </button>
+                      <CopyButton
+                        text={item.text}
+                        label="Copy"
+                        variant="secondary"
+                        size="sm"
+                      />
                       <button
                         type="button"
                         onClick={() => handleDownloadTxt(item.text, `${item.company ? item.company.toLowerCase().replace(/[^a-z0-9]/g, '-') : 'saved'}-cover-letter.txt`)}

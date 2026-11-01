@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 export const CompoundGrowthCalculator: React.FC = () => {
   const [initial, setInitial] = useState<number>(100000);
@@ -16,6 +19,38 @@ export const CompoundGrowthCalculator: React.FC = () => {
       currency: 'INR',
       maximumFractionDigits: 0
     }).format(n);
+
+  useRegisterShortcut([
+    {
+      id: 'compound-growth-calc',
+      combo: 'mod+enter',
+      label: 'Calculate Growth',
+      description: 'Run SIP & compound growth projections',
+      category: 'Compound Growth Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        // Calculation is reactive
+      },
+    },
+    {
+      id: 'compound-growth-save',
+      combo: 'mod+s',
+      label: 'Save Growth Projection',
+      description: 'Save growth calculation inputs to browser storage',
+      category: 'Compound Growth Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        try {
+          localStorage.setItem('cgc_initial', String(initial));
+          localStorage.setItem('cgc_monthly', String(monthly));
+        } catch {
+          // ignore
+        }
+      },
+    },
+  ], [initial, monthly, years, returnRate]);
 
   const n = Math.round(years * 12);
   const r = returnRate / 100 / 12;
@@ -36,6 +71,22 @@ export const CompoundGrowthCalculator: React.FC = () => {
     }
     estimatedGrowth = futureValue - totalInvested;
   }
+
+  const getGrowthSummaryText = (): string => {
+    return [
+      `=== Compound Growth & SIP Calculation Summary ===`,
+      `Input Parameters:`,
+      `• Starting Amount: ${money(initial)}`,
+      `• Monthly Contribution: ${money(monthly)}`,
+      `• Time Horizon: ${years} years (${n} months)`,
+      `• Assumed Annual Return: ${returnRate}%`,
+      ``,
+      `Calculated Results:`,
+      `• Estimated Future Value: ${money(futureValue)}`,
+      `• Total Amount Contributed: ${money(totalInvested)}`,
+      `• Total Illustrative Growth: ${money(estimatedGrowth)}`,
+    ].join('\n');
+  };
 
   const handleReset = () => {
     setInitial(100000);
@@ -128,8 +179,21 @@ export const CompoundGrowthCalculator: React.FC = () => {
         </form>
       </section>
 
-      <section className="content-section" aria-live="polite" aria-atomic="true">
-        <h2>Illustrative result</h2>
+      <section className="content-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <h2 style={{ margin: 0 }}>Illustrative result</h2>
+          {isCalculable && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <PdfExportButton documentTitle="Compound-Growth-Calculation-Report" variant="secondary" size="sm" />
+              <CopyButton
+                text={getGrowthSummaryText}
+                label="Copy Results"
+                variant="secondary"
+                size="sm"
+              />
+            </div>
+          )}
+        </div>
         <div className="stats-grid">
           <div className="stat">
             <strong>{isCalculable ? money(futureValue) : '—'}</strong>

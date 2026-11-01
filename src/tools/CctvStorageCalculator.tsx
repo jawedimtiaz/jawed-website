@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import * as d3 from 'd3';
 import {
   HardDrive,
@@ -3305,6 +3307,34 @@ export const CctvStorageCalculator: React.FC = () => {
   const [activeView, setActiveView] = useLocalStorageState<'calculator' | 'compare'>('cctv_calc_active_view', 'calculator');
   const [scenarios, setScenarios] = useLocalStorageState<ScenarioConfig[]>('cctv_calc_scenarios_list', DEFAULT_SCENARIOS);
 
+  useRegisterShortcut([
+    {
+      id: 'cctv-calc-run',
+      combo: 'mod+enter',
+      label: 'Calculate CCTV Storage',
+      description: 'Run CCTV storage requirements calculation',
+      category: 'CCTV Storage Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        // Calculation is reactive via useMemo; toast confirmation
+      },
+    },
+    {
+      id: 'cctv-calc-save',
+      combo: 'mod+s',
+      label: 'Save CCTV Spec',
+      description: 'Save current CCTV camera and storage spec to storage',
+      category: 'CCTV Storage Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        setCameras(cameras);
+        setRetentionDays(retentionDays);
+      },
+    },
+  ], [cameras, retentionDays, bitrateMbps, driveSizeTb, raidType]);
+
   const handleUpdateScenario = (id: string, updated: Partial<ScenarioConfig>) => {
     setScenarios(prev => prev.map(s => (s.id === id ? { ...s, ...updated } : s)));
   };
@@ -4293,8 +4323,8 @@ export const CctvStorageCalculator: React.FC = () => {
     return tips;
   }, [codec, bitrateMbps, recordingPct, headroomPct, resolutionPreset, raidType, calculations, h265SavingsPct]);
 
-  const handleCopySummary = () => {
-    const text = `=====================================================
+  const getCctvSummaryText = (): string => {
+    return `=====================================================
 CCTV STORAGE & HARD DRIVE BOM SPECIFICATION
 Generated via Jawed Imtiaz CCTV Calculator (jawed.co.in/tools)
 =====================================================
@@ -4326,10 +4356,6 @@ DRIVE ARRAY & RAID SPECIFICATION:
 • Cost per Camera: $${calculations.costPerCamera.toFixed(0)} / channel
 • Cost per Retention Day: $${calculations.costPerRetentionDay.toFixed(2)} / day
 =====================================================`;
-
-    navigator.clipboard.writeText(text);
-    setCopiedSummary(true);
-    setTimeout(() => setCopiedSummary(false), 2500);
   };
 
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
@@ -5379,16 +5405,12 @@ DRIVE ARRAY & RAID SPECIFICATION:
             {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
           </button>
-          <button
-            type="button"
-            className="button button-secondary"
-            onClick={handleCopySummary}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
-            title="Copy specification summary to clipboard"
-          >
-            {copiedSummary ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-sky-400" />}
-            {copiedSummary ? 'Copied BOM!' : 'Copy Summary'}
-          </button>
+          <CopyButton
+            text={getCctvSummaryText}
+            label="Copy Summary"
+            copiedLabel="Copied BOM!"
+            variant="secondary"
+          />
           <button
             type="button"
             className="button button-secondary"
@@ -7032,16 +7054,12 @@ DRIVE ARRAY & RAID SPECIFICATION:
                 {exportedPdf ? <Check className="w-4 h-4 text-emerald-400" /> : <FileText className="w-4 h-4 text-rose-400" />}
                 {exportedPdf ? 'Exported PDF!' : 'Download PDF Spec'}
               </button>
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={handleCopySummary}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
-                title="Copy specification summary to clipboard"
-              >
-                {copiedSummary ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-sky-400" />}
-                {copiedSummary ? 'Copied Summary!' : 'Copy Summary'}
-              </button>
+              <CopyButton
+                text={getCctvSummaryText}
+                label="Copy Summary"
+                variant="secondary"
+                size="sm"
+              />
             </div>
           </div>
 

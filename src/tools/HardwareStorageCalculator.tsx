@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
+import { CopyButton } from '../components/common/CopyButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import {
   HardDrive,
   Server,
@@ -357,6 +359,40 @@ export const HardwareStorageCalculator: React.FC = () => {
   // Copied feedback
   const [copiedBom, setCopiedBom] = useState<boolean>(false);
 
+  useRegisterShortcut([
+    {
+      id: 'hw-storage-calc',
+      combo: 'mod+enter',
+      label: 'Calculate RAID Storage BOM',
+      description: 'Run RAID calculation and drive array sizing',
+      category: 'Hardware & RAID Storage Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        setCopiedBom(true);
+        setTimeout(() => setCopiedBom(false), 2000);
+      },
+    },
+    {
+      id: 'hw-storage-save',
+      combo: 'mod+s',
+      label: 'Save Storage Specification',
+      description: 'Save storage configuration locally',
+      category: 'Hardware & RAID Storage Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        try {
+          localStorage.setItem('hw_calc_target_tb', String(targetUsableTb));
+          localStorage.setItem('hw_calc_raid', selectedRaid);
+          localStorage.setItem('hw_calc_drive_size', String(driveSizeTb));
+        } catch {
+          // ignore
+        }
+      },
+    },
+  ], [targetUsableTb, selectedRaid, driveSizeTb, calcMode, manualDriveCount]);
+
   // Theme support
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const docTheme = document.documentElement.getAttribute('data-theme');
@@ -550,8 +586,8 @@ export const HardwareStorageCalculator: React.FC = () => {
   }, [calcMode, targetUsableTb, manualDriveCount, driveSizeTb, hotSparesCount]);
 
   // Copy Bill of Materials (BOM) & Hardware Summary to clipboard
-  const handleCopyBom = () => {
-    const text = `HARDWARE STORAGE & RAID SPECIFICATION
+  const getHardwareBomText = (): string => {
+    return `HARDWARE STORAGE & RAID SPECIFICATION
 --------------------------------------------------
 Configuration Summary:
 • Mode: ${calcMode === 'target-to-drives' ? `Target ${targetUsableTb} TB Usable` : `${manualDriveCount} Physical Drives Installed`}
@@ -585,10 +621,6 @@ Financial Estimate:
 }
 --------------------------------------------------
 Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storage-calculator`;
-
-    navigator.clipboard.writeText(text);
-    setCopiedBom(true);
-    setTimeout(() => setCopiedBom(false), 2500);
   };
 
   // Download PDF Hardware Specification
@@ -1163,16 +1195,13 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
                   <Printer className="w-3.5 h-3.5 text-indigo-400" />
                   Download as PDF
                 </button>
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  onClick={handleCopyBom}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', padding: '6px 12px' }}
-                  title="Copy full hardware bill of materials to clipboard"
-                >
-                  {copiedBom ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedBom ? 'Copied BOM!' : 'Copy BOM'}
-                </button>
+                <CopyButton
+                  text={getHardwareBomText}
+                  label="Copy BOM"
+                  copiedLabel="Copied BOM!"
+                  variant="secondary"
+                  size="sm"
+                />
                 <button
                   type="button"
                   className="button button-secondary"

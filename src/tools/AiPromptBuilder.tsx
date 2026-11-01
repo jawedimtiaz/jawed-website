@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import {
   Sparkles,
   Copy,
@@ -233,6 +236,33 @@ ${examples.trim() ? `\n### Examples / Additional Guidance:\n${examples}` : ''}
     setTimeout(() => setSavedSuccess(''), 2500);
   };
 
+  useRegisterShortcut([
+    {
+      id: 'prompt-builder-save',
+      combo: 'mod+s',
+      label: 'Save Prompt Template',
+      description: 'Save active prompt inputs to local browser storage',
+      category: 'AI Prompt Builder',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        handleSavePrompt();
+      },
+    },
+    {
+      id: 'prompt-builder-generate',
+      combo: 'mod+enter',
+      label: 'Build Prompt Specification',
+      description: 'Update and generate structured prompt specification',
+      category: 'AI Prompt Builder',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        handleSavePrompt();
+      },
+    },
+  ]);
+
   const handleDeleteSaved = (id: string) => {
     const updated = savedPrompts.filter(p => p.id !== id);
     setSavedPrompts(updated);
@@ -452,7 +482,7 @@ ${examples.trim() ? `\n### Examples / Additional Guidance:\n${examples}` : ''}
                     2. Generated Prompt Output
                   </h2>
 
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button
                       className="button button-secondary"
                       type="button"
@@ -463,16 +493,8 @@ ${examples.trim() ? `\n### Examples / Additional Guidance:\n${examples}` : ''}
                       <Bookmark className="w-4 h-4 text-teal-400" />
                       Save Prompt
                     </button>
-                    <button
-                      className="button button-primary"
-                      type="button"
-                      onClick={handleCopy}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 700 }}
-                      title="Copy complete prompt markdown to clipboard"
-                    >
-                      {copied ? <Check className="w-4 h-4 text-emerald-200" /> : <Copy className="w-4 h-4" />}
-                      {copied ? 'Copied Prompt!' : 'Copy Prompt'}
-                    </button>
+                    <PdfExportButton documentTitle={role ? `AI-Prompt-${role.replace(/\s+/g, '-')}` : 'AI-Prompt-Specification'} variant="secondary" size="sm" />
+                    <CopyButton text={generatedPrompt} label="Copy Prompt" variant="primary" />
                   </div>
                 </div>
 
@@ -619,17 +641,7 @@ ${examples.trim() ? `\n### Examples / Additional Guidance:\n${examples}` : ''}
                     >
                       Load in Builder
                     </button>
-                    <button
-                      type="button"
-                      className="button button-primary"
-                      onClick={() => {
-                        navigator.clipboard.writeText(item.generatedText);
-                        alert('Prompt copied to clipboard!');
-                      }}
-                      style={{ flex: 1, fontSize: '0.8rem' }}
-                    >
-                      Copy Prompt
-                    </button>
+                    <CopyButton text={item.generatedText} label="Copy Prompt" variant="primary" style={{ flex: 1, fontSize: '0.8rem' }} />
                   </div>
                 </div>
               ))}

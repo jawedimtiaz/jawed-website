@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 interface BulletAnalysis {
   text: string;
@@ -33,6 +36,37 @@ export const ResumeBulletStrengthChecker: React.FC = () => {
   const [bulletsInput, setBulletsInput] = useState(
     `Engineered automated PowerShell onboarding scripts, reducing user provisioning turnaround time from 48 hours to 20 minutes across 350+ workstations.\nResolved over 1,200 Tier 2 tickets maintaining a 98.4% customer satisfaction rating and zero SLA breaches.\nResponsible for helping with WiFi connectivity issues in the main office.\nAssisted in migrating mailboxes to Exchange Online.`
   );
+
+  useRegisterShortcut([
+    {
+      id: 'resume-bullet-analyze',
+      combo: 'mod+enter',
+      label: 'Analyze Bullets',
+      description: 'Run resume bullet strength and impact analysis',
+      category: 'Resume Bullet Strength Checker',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        // Analyses are computed reactively from state
+      },
+    },
+    {
+      id: 'resume-bullet-save',
+      combo: 'mod+s',
+      label: 'Save Bullets Draft',
+      description: 'Save bullet text draft to local storage',
+      category: 'Resume Bullet Strength Checker',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        try {
+          localStorage.setItem('resume_bullet_draft', bulletsInput);
+        } catch {
+          // ignore
+        }
+      },
+    },
+  ], [bulletsInput]);
 
   const analyzeBullet = (line: string): BulletAnalysis | null => {
     const trimmed = line.trim().replace(/^[-•*]\s*/, '');
@@ -154,17 +188,38 @@ export const ResumeBulletStrengthChecker: React.FC = () => {
           </div>
 
           <div className="panel">
-            <h2 className="section-title">Line-by-Line Breakdown</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+              <h2 className="section-title" style={{ margin: 0 }}>Line-by-Line Breakdown</h2>
+              {analyses.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <PdfExportButton documentTitle="Resume-Bullet-Strength-Report" variant="secondary" size="sm" />
+                  <CopyButton
+                    text={() => analyses.map(a => '• ' + a.text).join('\n')}
+                    label="Copy All Bullets"
+                    variant="secondary"
+                    size="sm"
+                  />
+                </div>
+              )}
+            </div>
             <div className="bullet-list">
               {analyses.map((a, i) => (
                 <div key={i} className={`bullet-item ${a.score}`}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.8rem', color: a.score === 'strong' ? '#10b981' : a.score === 'weak' ? '#d97706' : '#dc2626' }}>
-                      {a.score}
-                    </span>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-                      {a.metric ? '✓ Metric Included' : '✗ Missing Metric'} | {a.actionVerb ? '✓ Action Verb' : '✗ Weak Opener'}
-                    </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.8rem', color: a.score === 'strong' ? '#10b981' : a.score === 'weak' ? '#d97706' : '#dc2626' }}>
+                        {a.score}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                        {a.metric ? '✓ Metric Included' : '✗ Missing Metric'} | {a.actionVerb ? '✓ Action Verb' : '✗ Weak Opener'}
+                      </span>
+                    </div>
+                    <CopyButton
+                      text={a.text}
+                      label="Copy"
+                      variant="ghost"
+                      size="sm"
+                    />
                   </div>
                   <p style={{ margin: '8px 0 4px', fontWeight: 500 }}>{a.text}</p>
                   <ul className="bullet-feedback" style={{ paddingLeft: '20px', margin: '4px 0 0' }}>

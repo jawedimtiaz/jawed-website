@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 export const RetirementPlanningCalculator: React.FC = () => {
   const [age, setAge] = useState<number>(45);
@@ -21,6 +24,38 @@ export const RetirementPlanningCalculator: React.FC = () => {
       currency: 'INR',
       maximumFractionDigits: 0
     }).format(n);
+
+  useRegisterShortcut([
+    {
+      id: 'retirement-calc-run',
+      combo: 'mod+enter',
+      label: 'Calculate Retirement Corpus',
+      description: 'Run retirement corpus projections and gap analysis',
+      category: 'Retirement Planning Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        // Calculation is reactive
+      },
+    },
+    {
+      id: 'retirement-calc-save',
+      combo: 'mod+s',
+      label: 'Save Retirement Plan',
+      description: 'Save retirement inputs to browser local storage',
+      category: 'Retirement Planning Calculator',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        try {
+          localStorage.setItem('rpc_age', String(age));
+          localStorage.setItem('rpc_spending', String(spending));
+        } catch {
+          // ignore
+        }
+      },
+    },
+  ], [age, spending, corpus, contribution, retirementAge]);
 
   let years = retirementAge - age;
   let months = Math.round(years * 12);
@@ -57,6 +92,25 @@ export const RetirementPlanningCalculator: React.FC = () => {
 
     gap = projected - required;
   }
+
+  const getRetirementSummaryText = (): string => {
+    return [
+      `=== Retirement Planning Calculation Summary ===`,
+      `Input Parameters:`,
+      `• Current Age: ${age} | Retirement Age: ${retirementAge} (${years} years)`,
+      `• Current Annual Spending: ${money(spending)}`,
+      `• Existing Retirement Corpus: ${money(corpus)}`,
+      `• Monthly Contribution: ${money(contribution)}`,
+      `• Funding Horizon: ${horizon} years (Lifespan: ${lifespan})`,
+      `• Rates: ${inflation}% Inflation | ${preReturn}% Pre-Ret. Return | ${realReturn}% Post-Ret. Real Return`,
+      ``,
+      `Calculated Results:`,
+      `• Retirement-Year Annual Spending: ${money(futureSpending)}`,
+      `• Estimated Corpus Required: ${money(required)}`,
+      `• Projected Corpus at Retirement: ${money(projected)}`,
+      `• Projected Gap / Surplus: ${money(gap)} (${gap >= 0 ? 'Surplus' : 'Deficit'})`,
+    ].join('\n');
+  };
 
   const handleReset = () => {
     setAge(45);
@@ -205,8 +259,21 @@ export const RetirementPlanningCalculator: React.FC = () => {
         </form>
       </section>
 
-      <section className="content-section" aria-live="polite" aria-atomic="true">
-        <h2>3. Illustrative results</h2>
+      <section className="content-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <h2 style={{ margin: 0 }}>3. Illustrative results</h2>
+          {isValid && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <PdfExportButton documentTitle="Retirement-Planning-Calculation-Report" variant="secondary" size="sm" />
+              <CopyButton
+                text={getRetirementSummaryText}
+                label="Copy Results"
+                variant="secondary"
+                size="sm"
+              />
+            </div>
+          )}
+        </div>
         <div className="stats-grid">
           <div className="stat">
             <strong>{isValid ? `${years} years` : '—'}</strong>

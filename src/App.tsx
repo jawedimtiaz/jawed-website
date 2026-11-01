@@ -21,6 +21,7 @@ import {
   CACHED_OFFLINE_TOOLS,
   isCachedOfflineToolPath,
 } from './components/OfflineModeFallback';
+import { DiagnosticToolsAutoPersist } from './components/DiagnosticToolsAutoPersist';
 
 export { OfflineModeFallback, CACHED_OFFLINE_TOOLS };
 
@@ -181,6 +182,7 @@ export const App: React.FC = () => {
 
   return (
     <KeyboardShortcutManager>
+      <DiagnosticToolsAutoPersist />
       <div className="site-wrapper" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <ScrollToTop />
         <DynamicRouteMeta />

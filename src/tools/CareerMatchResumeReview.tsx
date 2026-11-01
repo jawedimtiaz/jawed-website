@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 const STOP = new Set("about above after also and any are been but can could does each for from had has have her his how into its may more most must not our out over per should some such than that the their them then there these they this those through too under was were what when where which while who will with within would you your able ability strong excellent good great including include includes required requirements preferred plus work working works role team teams company candidate candidates job years year experience experienced looking join position responsibilities responsible skills skill knowledge understanding across using use used well based need needs like new".split(" "));
 const SKILLS = "python,java,javascript,typescript,c++,c#,golang,rust,ruby,php,swift,kotlin,scala,sql,nosql,mysql,postgresql,mongodb,redis,oracle,html,css,sass,react,angular,vue,next.js,node.js,express,django,flask,fastapi,spring boot,.net,graphql,rest api,microservices,docker,kubernetes,terraform,ansible,jenkins,ci/cd,git,github,gitlab,linux,bash,aws,azure,gcp,cloud computing,devops,agile,scrum,kanban,jira,confluence,tdd,unit testing,selenium,cypress,jest,machine learning,deep learning,nlp,computer vision,tensorflow,pytorch,scikit-learn,pandas,numpy,data analysis,data science,data engineering,data visualization,tableau,power bi,excel,looker,spark,hadoop,kafka,airflow,etl,snowflake,bigquery,statistics,a/b testing,product management,roadmapping,stakeholder management,project management,leadership,mentoring,communication,problem solving,teamwork,collaboration,customer service,sales,negotiation,crm,salesforce,hubspot,seo,sem,content marketing,social media,google analytics,copywriting,email marketing,marketing automation,budgeting,forecasting,financial modeling,accounting,quickbooks,sap,erp,recruiting,onboarding,payroll,compliance,risk management,auditing,figma,sketch,adobe photoshop,ux design,ui design,user research,wireframing,prototyping,accessibility,cybersecurity,penetration testing,siem,networking,api design,system design,react native,flutter,android,ios,mobile development,blockchain,solidity,supply chain,logistics,six sigma,operations management,customer success,technical writing,presentation,analytics,reporting,strategic planning".split(",");
@@ -144,6 +147,37 @@ export const CareerMatchResumeReview: React.FC = () => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 2500);
   };
+
+  useRegisterShortcut([
+    {
+      id: 'career-match-analyze',
+      combo: 'mod+enter',
+      label: 'Analyze Match',
+      description: 'Run resume vs job description comparison analysis',
+      category: 'Career Match Review',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        runAnalysis();
+      },
+    },
+    {
+      id: 'career-match-save',
+      combo: 'mod+s',
+      label: 'Save Analysis',
+      description: 'Save current match analysis to local storage',
+      category: 'Career Match Review',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        if (analysis) {
+          handleSaveAnalysis();
+        } else {
+          showToast('Run an analysis first before saving.');
+        }
+      },
+    },
+  ], [analysis, resumeText, jdText, savedList]);
 
   const runAnalysis = () => {
     const r = resumeText.trim();
@@ -404,9 +438,34 @@ export const CareerMatchResumeReview: React.FC = () => {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '18px' }}>
                 <h2>Analysis: {analysis.title}</h2>
-                <button className="button button-secondary" type="button" onClick={handleSaveAnalysis}>
-                  Save Analysis to Browser
-                </button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <CopyButton
+                    text={() => [
+                      `=== Job Match Analysis Report: ${analysis.title} ===`,
+                      `Overall Match Score: ${analysis.overall}%`,
+                      `• Skills Match: ${analysis.sSkill != null ? `${analysis.sSkill}%` : 'N/A'}`,
+                      `• Keywords Match: ${analysis.sKey != null ? `${analysis.sKey}%` : 'N/A'}`,
+                      ``,
+                      `Matching Skills: ${analysis.matching.join(', ') || 'None'}`,
+                      `Missing Skills: ${analysis.missing.join(', ') || 'None'}`,
+                      ``,
+                      `=== TAILORED SUMMARY ===`,
+                      analysis.summary,
+                      ``,
+                      `=== DRAFT COVER LETTER ===`,
+                      analysis.cover,
+                    ].join('\n')}
+                    label="Copy Match Report"
+                    variant="secondary"
+                  />
+                  <PdfExportButton
+                    documentTitle="Career-Match-Resume-Review-Report"
+                    variant="secondary"
+                  />
+                  <button className="button button-secondary" type="button" onClick={handleSaveAnalysis}>
+                    Save Analysis to Browser
+                  </button>
+                </div>
               </div>
 
               <div className="stats-grid">
@@ -446,10 +505,16 @@ export const CareerMatchResumeReview: React.FC = () => {
                 </div>
 
                 <div className="panel">
-                  <h3>Tailored Professional Summary</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h3 style={{ margin: 0 }}>Tailored Professional Summary</h3>
+                    <CopyButton text={analysis.summary} label="Copy Summary" size="sm" variant="ghost" />
+                  </div>
                   <pre className="tool-output">{analysis.summary}</pre>
 
-                  <h3>Draft Cover Letter</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', marginBottom: '8px' }}>
+                    <h3 style={{ margin: 0 }}>Draft Cover Letter</h3>
+                    <CopyButton text={analysis.cover} label="Copy Cover Letter" size="sm" variant="ghost" />
+                  </div>
                   <pre className="tool-output" style={{ fontSize: '13px' }}>{analysis.cover}</pre>
                 </div>
               </div>

@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 export const PersonalFinanceSnapshot: React.FC = () => {
   const [income, setIncome] = useState(100000);
@@ -30,6 +33,38 @@ export const PersonalFinanceSnapshot: React.FC = () => {
       maximumFractionDigits: 0
     }).format(n);
 
+  useRegisterShortcut([
+    {
+      id: 'finance-snapshot-calc',
+      combo: 'mod+enter',
+      label: 'Update Financial Snapshot',
+      description: 'Recalculate monthly cash flow and net worth',
+      category: 'Personal Finance Snapshot',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        // Calculations are reactive
+      },
+    },
+    {
+      id: 'finance-snapshot-save',
+      combo: 'mod+s',
+      label: 'Save Snapshot Draft',
+      description: 'Save financial snapshot values to browser storage',
+      category: 'Personal Finance Snapshot',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        try {
+          localStorage.setItem('pfs_income', String(income));
+          localStorage.setItem('pfs_essential', String(essential));
+        } catch {
+          // ignore
+        }
+      },
+    },
+  ], [income, essential, emergencySavings, cash, investments]);
+
   const totalSpending = essential + discretionary + debt;
   const surplus = income - totalSpending;
   const savingsRate = income > 0 ? (surplus / income * 100).toFixed(1) + '%' : '—';
@@ -41,6 +76,31 @@ export const PersonalFinanceSnapshot: React.FC = () => {
   const totalAssets = cash + investments + retirement + property + otherAssets;
   const totalLiabilities = homeLoan + vehicleLoan + personalLoan + otherDebt;
   const netWorth = totalAssets - totalLiabilities;
+
+  const getFinancialSnapshotText = (): string => {
+    return [
+      `=== Personal Finance Snapshot ===`,
+      `Monthly Cash Flow:`,
+      `• Income: ${money(income)}`,
+      `• Essential Spending: ${money(essential)}`,
+      `• Discretionary Spending: ${money(discretionary)}`,
+      `• Monthly Debt Payments: ${money(debt)}`,
+      `• Total Monthly Spending: ${money(totalSpending)}`,
+      `• Monthly Surplus/Deficit: ${money(surplus)}`,
+      `• Cash-flow Margin: ${savingsRate}`,
+      ``,
+      `Emergency Reserve:`,
+      `• Current Savings: ${money(emergencySavings)}`,
+      `• Target (${targetMonths} months): ${money(reserveTarget)}`,
+      `• Reserve Gap/Surplus: ${money(reserveGap)}`,
+      `• Months Covered: ${monthsCovered} months`,
+      ``,
+      `Net Worth Snapshot:`,
+      `• Total Assets: ${money(totalAssets)}`,
+      `• Total Liabilities: ${money(totalLiabilities)}`,
+      `• Net Worth: ${money(netWorth)}`,
+    ].join('\n');
+  };
 
   const handleReset = () => {
     setIncome(100000);
@@ -309,7 +369,16 @@ export const PersonalFinanceSnapshot: React.FC = () => {
           </div>
         </div>
 
-        <div className="actions" style={{ marginTop: '20px' }}>
+        <div className="actions" style={{ marginTop: '20px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <PdfExportButton
+            documentTitle="Personal-Finance-Snapshot"
+            variant="secondary"
+          />
+          <CopyButton
+            text={getFinancialSnapshotText}
+            label="Copy Snapshot"
+            variant="primary"
+          />
           <button className="button button-secondary" type="button" onClick={handleReset}>
             Reset Snapshot
           </button>

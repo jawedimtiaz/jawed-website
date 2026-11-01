@@ -28,7 +28,9 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
 
 interface SavedBulletItem {
   id: string;
@@ -2435,6 +2437,35 @@ export const ITResumeBulletBuilder: React.FC = () => {
     setCheckResult(checkBullet(v));
   };
 
+  useRegisterShortcut([
+    {
+      id: 'resume-bullet-generate',
+      combo: 'mod+enter',
+      label: 'Generate Resume Bullets',
+      description: 'Generate high-impact ATS resume bullet points',
+      category: 'Resume Bullet Builder',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        handleGenerate();
+      },
+    },
+    {
+      id: 'resume-bullet-save',
+      combo: 'mod+s',
+      label: 'Save Bullet Draft',
+      description: 'Save current bullet inputs to browser storage',
+      category: 'Resume Bullet Builder',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        if (generatedOuts.length > 0) {
+          handleSaveBullet(generatedOuts[0].t);
+        }
+      },
+    },
+  ]);
+
   return (
     <main className="container page" style={{ maxWidth: '980px', margin: '0 auto', padding: '20px 20px 64px 20px' }}>
       {/* Toast */}
@@ -2784,6 +2815,8 @@ export const ITResumeBulletBuilder: React.FC = () => {
               </span>
             </div>
           </div>
+
+
 
           <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
             <div>
@@ -3220,33 +3253,12 @@ export const ITResumeBulletBuilder: React.FC = () => {
                               lineHeight: '1.5',
                             }}
                           />
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(x.t)}
-                            title="Copy bullet to clipboard"
-                            aria-label={`Copy ${x.n} bullet to clipboard`}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '6px',
-                              padding: '8px 16px',
-                              background: 'var(--brand)',
-                              color: '#fff',
-                              border: 'none',
-                              borderRadius: '8px',
-                              fontWeight: 600,
-                              fontSize: '0.875rem',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap',
-                              flexShrink: 0,
-                              minHeight: '40px',
-                              transition: 'opacity 0.15s ease',
-                            }}
-                          >
-                            <Copy size={16} aria-hidden="true" />
-                            Copy
-                          </button>
+                          <CopyButton
+                            text={x.t}
+                            label="Copy"
+                            variant="primary"
+                            size="sm"
+                          />
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
                           <div className="muted" style={{ fontSize: '14px', color: 'var(--muted)' }}>
@@ -3648,26 +3660,13 @@ export const ITResumeBulletBuilder: React.FC = () => {
 
                 {/* Batch Actions: Copy All, Save All, Export */}
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={handleCopyAllBatch}
-                    style={{
-                      background: 'var(--brand)',
-                      border: 'none',
-                      color: '#fff',
-                      borderRadius: '8px',
-                      padding: '7px 14px',
-                      fontSize: '0.82rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                    }}
-                  >
-                    <Copy size={14} aria-hidden="true" />
-                    Copy All Bullets
-                  </button>
+                  <CopyButton
+                    text={() => batchGeneratedItems?.map(b => '• ' + b.currentBullet).join('\n') || ''}
+                    label="Copy All Bullets"
+                    copiedLabel="Copied All Bullets!"
+                    variant="primary"
+                    size="sm"
+                  />
 
                   <button
                     type="button"
@@ -4084,25 +4083,12 @@ export const ITResumeBulletBuilder: React.FC = () => {
 
                           {/* Copy & Save Buttons */}
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleCopy(item.currentBullet)}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                background: 'var(--brand)',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '6px',
-                                padding: '5px 12px',
-                                fontSize: '0.78rem',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <Copy size={13} aria-hidden="true" /> Copy
-                            </button>
+                            <CopyButton
+                              text={item.currentBullet}
+                              label="Copy"
+                              variant="primary"
+                              size="sm"
+                            />
                             <button
                               type="button"
                               onClick={() => handleSaveBullet(item.currentBullet)}
@@ -4364,13 +4350,12 @@ export const ITResumeBulletBuilder: React.FC = () => {
             📥 Drag and drop any generated resume bullet here to instantly save it to your collection.
           </div>
           <div className="row" style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => handleCopy(savedBullets.map(t => '• ' + t).join('\n'))}
-              disabled={savedBullets.length === 0}
-            >
-              Copy all
-            </button>
+            <CopyButton
+              text={() => savedBullets.map(t => '• ' + t).join('\n')}
+              label="Copy all"
+              variant="secondary"
+              size="sm"
+            />
             <button
               type="button"
               className="no-print"
@@ -4567,9 +4552,12 @@ export const ITResumeBulletBuilder: React.FC = () => {
                         >
                           ↓
                         </button>
-                        <button type="button" onClick={() => handleCopy(t)}>
-                          Copy
-                        </button>
+                        <CopyButton
+                          text={t}
+                          label="Copy"
+                          variant="secondary"
+                          size="sm"
+                        />
                         <button
                           type="button"
                           onClick={() => {

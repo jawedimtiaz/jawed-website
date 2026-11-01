@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
+import { CopyButton } from '../components/common/CopyButton';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import {
   Cable,
   Zap,
@@ -2747,6 +2749,34 @@ export const CableLengthPoeChecker: React.FC = () => {
   const [jsonImportError, setJsonImportError] = useState<string | null>(null);
   const jsonFileInputRef = useRef<HTMLInputElement>(null);
 
+  useRegisterShortcut([
+    {
+      id: 'poe-cable-verify',
+      combo: 'mod+enter',
+      label: 'Verify PoE & Cable Compliance',
+      description: 'Run PoE budget and cable length compliance check',
+      category: 'Cable & PoE Checker',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        setCopiedSummary(true);
+        setTimeout(() => setCopiedSummary(false), 2000);
+      },
+    },
+    {
+      id: 'poe-cable-save',
+      combo: 'mod+s',
+      label: 'Save Cable Specification',
+      description: 'Export or save cable specification plan',
+      category: 'Cable & PoE Checker',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        handleExportCsv();
+      },
+    },
+  ], [cableCategory, linkSpeed, channelLength, switchBudgetWatts, deviceRows]);
+
   // -------------------------------------------------------------
   // CABLE LENGTH CALCULATIONS
   // -------------------------------------------------------------
@@ -3196,8 +3226,8 @@ export const CableLengthPoeChecker: React.FC = () => {
   // -------------------------------------------------------------
   // COPY SUMMARY & EXPORTS
   // -------------------------------------------------------------
-  const handleCopySummary = () => {
-    const text = `=====================================================
+  const getAuditSummaryText = (): string => {
+    return `=====================================================
 CABLE LENGTH & POE BUDGET AUDIT SPECIFICATION
 Generated via Jawed Imtiaz Tools (jawed.co.in/tools)
 =====================================================
@@ -3237,10 +3267,6 @@ Generated via Jawed Imtiaz Tools (jawed.co.in/tools)
 4. CONNECTED DEVICE INVENTORY:
 ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (${d.classKey}) = ${(d.qty * d.wattsEach).toFixed(1)}W [Run: ${d.estCableLengthM}m | Total: ${d.qty * d.estCableLengthM}m${materialCostResult.isCostConfigured ? ` | Cost: ${costCurrency}${(d.qty * d.estCableLengthM * materialCostResult.unitCost).toFixed(2)}` : ''}]`).join('\n')}
 =====================================================`;
-
-    navigator.clipboard.writeText(text);
-    setCopiedSummary(true);
-    setTimeout(() => setCopiedSummary(false), 2500);
   };
 
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
@@ -4186,16 +4212,12 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
             style={{ display: 'none' }}
           />
 
-          <button
-            type="button"
-            className="button button-secondary"
-            onClick={handleCopySummary}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
-            title="Copy technical audit summary to clipboard"
-          >
-            {copiedSummary ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-sky-400" />}
-            {copiedSummary ? 'Copied Audit!' : 'Copy Summary'}
-          </button>
+          <CopyButton
+            text={getAuditSummaryText}
+            label="Copy Summary"
+            copiedLabel="Copied Audit!"
+            variant="secondary"
+          />
           <button
             type="button"
             className="button button-secondary"

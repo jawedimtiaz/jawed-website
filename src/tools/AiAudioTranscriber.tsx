@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import {
   Mic,
   Square,
@@ -746,6 +749,36 @@ export const AiAudioTranscriber: React.FC = () => {
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState<boolean>(true);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState<boolean>(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  useRegisterShortcut([
+    {
+      id: 'audio-transcribe-start',
+      combo: 'mod+enter',
+      label: 'Start / Process Audio Transcription',
+      description: 'Trigger audio transcription or start microphone capture',
+      category: 'AI Audio Transcriber',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        const fileInput = document.getElementById('audio-upload-input') as HTMLInputElement;
+        if (fileInput) fileInput.click();
+      },
+    },
+    {
+      id: 'audio-transcribe-save',
+      combo: 'mod+s',
+      label: 'Save Transcript',
+      description: 'Export or copy transcription text to local storage / clipboard',
+      category: 'AI Audio Transcriber',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        if (result?.transcript) {
+          navigator.clipboard.writeText(result.transcript);
+        }
+      },
+    },
+  ], [result]);
 
   // Speaker Diarization, Auto-Correction & View State
   const [diarizationMode, setDiarizationMode] = useState<DiarizationMode>('auto');
@@ -9956,49 +9989,23 @@ Output ONLY valid JSON.`;
                   Trim Audio Clip
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleCopy(
-                      transcriptViewMode === 'speaker' && result.formattedSpeakerTranscript
-                        ? result.formattedSpeakerTranscript
-                        : showLineTimestamps
-                        ? buildTimestampedTranscriptText(
-                            result.transcript,
-                            sessionMetadata.durationSeconds || verifiedDurationSeconds,
-                            result.speakerTurns
-                          )
-                        : result.transcript,
-                      'results-transcript'
-                    )
+                <CopyButton
+                  text={() =>
+                    transcriptViewMode === 'speaker' && result.formattedSpeakerTranscript
+                      ? result.formattedSpeakerTranscript
+                      : showLineTimestamps
+                      ? buildTimestampedTranscriptText(
+                          result.transcript,
+                          sessionMetadata.durationSeconds || verifiedDurationSeconds,
+                          result.speakerTurns
+                        )
+                      : result.transcript
                   }
-                  style={{
-                    background: 'var(--bg)',
-                    border: '1px solid var(--line)',
-                    color: 'var(--text)',
-                    borderRadius: '8px',
-                    padding: '7px 14px',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                  }}
-                  title="Copy full generated transcript text to clipboard"
-                >
-                  {copiedSection === 'results-transcript' ? (
-                    <>
-                      <Check size={14} color="var(--emerald)" />
-                      <span style={{ color: 'var(--emerald)' }}>Copied Transcript!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={14} color="var(--accent)" />
-                      Copy Transcript
-                    </>
-                  )}
-                </button>
+                  label="Copy Transcript"
+                  copiedLabel="Copied Transcript!"
+                  variant="secondary"
+                  size="sm"
+                />
 
                 <button
                   type="button"
@@ -11322,27 +11329,12 @@ Output ONLY valid JSON.`;
                       <Download size={12} />
                       Save Transcript
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => window.print()}
-                      style={{
-                        background: 'rgba(244, 63, 94, 0.1)',
-                        border: '1px solid rgba(244, 63, 94, 0.35)',
-                        borderRadius: '6px',
-                        padding: '4px 10px',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        color: '#f43f5e',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}
-                      title="Download or Print transcript report as PDF in clean document format"
-                    >
-                      <Printer size={12} />
-                      Download as PDF
-                    </button>
+                    <PdfExportButton
+                      documentTitle="Audio-Transcription-Report"
+                      label="Download as PDF"
+                      variant="secondary"
+                      size="sm"
+                    />
                     <button
                       type="button"
                       onClick={handleShare}

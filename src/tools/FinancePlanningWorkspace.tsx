@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 export const FinancePlanningWorkspace: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'snapshot' | 'goals' | 'retirement' | 'review'>('snapshot');
@@ -49,6 +52,38 @@ export const FinancePlanningWorkspace: React.FC = () => {
       currency: 'INR',
       maximumFractionDigits: 0
     }).format(n);
+
+  useRegisterShortcut([
+    {
+      id: 'finance-workspace-review',
+      combo: 'mod+enter',
+      label: 'Review Financial Plan',
+      description: 'Switch to overall review or update plan calculations',
+      category: 'Finance Planning Workspace',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        setActiveTab('review');
+      },
+    },
+    {
+      id: 'finance-workspace-save',
+      combo: 'mod+s',
+      label: 'Save Workspace Inputs',
+      description: 'Save financial planning workspace values to browser storage',
+      category: 'Finance Planning Workspace',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        try {
+          localStorage.setItem('fpw_income', String(income));
+          localStorage.setItem('fpw_essential', String(essential));
+        } catch {
+          // ignore
+        }
+      },
+    },
+  ], [income, essential, activeTab]);
 
   // Snapshot calculations
   const totalSpending = essential + discretionary + debt;
@@ -98,6 +133,34 @@ export const FinancePlanningWorkspace: React.FC = () => {
     requiredCorpus = retFutureSpend * (1 - Math.pow(1 + rr, -retHorizon)) / rr;
   }
   const retGap = projectedCorpus - requiredCorpus;
+
+  const getWorkspacePlanText = (): string => {
+    return [
+      `=== Financial Planning Workspace Master Summary ===`,
+      ``,
+      `1. CASH FLOW & NET WORTH SNAPSHOT:`,
+      `• Monthly Income: ${money(income)}`,
+      `• Total Spending: ${money(totalSpending)} (Essential: ${money(essential)}, Disc: ${money(discretionary)}, Debt: ${money(debt)})`,
+      `• Monthly Surplus: ${money(surplus)} (Margin: ${savingsRate})`,
+      `• Emergency Reserves: ${money(emergencySavings)} (${monthsCovered} months covered | Target: ${money(reserveTarget)})`,
+      `• Total Assets: ${money(assets)}`,
+      `• Total Liabilities: ${money(liabilities)}`,
+      `• Net Worth: ${money(netWorth)}`,
+      ``,
+      `2. GOALS & COMPOUND GROWTH:`,
+      `• Goal Today Cost: ${money(goalCost)} (${goalYears} yrs @ ${goalInflation}% infl.)`,
+      `• Estimated Future Goal Cost: ${money(futureGoal)} (Gap: ${money(goalGap)})`,
+      `• SIP Investment: ${money(initial)} start + ${money(monthly)}/mo for ${growthYears} yrs @ ${growthReturn}%`,
+      `• Future Investment Value: ${money(futureValue)} (Growth: ${money(estimatedGrowth)})`,
+      ``,
+      `3. RETIREMENT PLANNING:`,
+      `• Timeline: Age ${age} -> Retirement Age ${retAge} (${retYears} yrs) -> Lifespan ${lifespan} (${retHorizon} yrs horizon)`,
+      `• Annual Spending: Today ${money(retSpending)} -> In Retirement ${money(retFutureSpend)}`,
+      `• Required Corpus: ${money(requiredCorpus)}`,
+      `• Projected Corpus: ${money(projectedCorpus)}`,
+      `• Projected Gap / Surplus: ${money(retGap)}`,
+    ].join('\n');
+  };
 
   return (
     <main className="workspace">
@@ -408,7 +471,17 @@ export const FinancePlanningWorkspace: React.FC = () => {
       {activeTab === 'review' && (
         <section className="view on">
           <div className="panel">
-            <h2>Planning review</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+              <h2 style={{ margin: 0 }}>Planning review</h2>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <PdfExportButton documentTitle="Financial-Planning-Master-Report" variant="secondary" size="sm" />
+                <CopyButton
+                  text={getWorkspacePlanText}
+                  label="Copy Full Plan Summary"
+                  variant="primary"
+                />
+              </div>
+            </div>
             <p>
               Use this page as a structured review of the numbers you entered. It deliberately does not convert the results into a buy/sell recommendation or a personalized financial plan.
             </p>

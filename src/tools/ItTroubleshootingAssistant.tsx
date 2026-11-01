@@ -2,12 +2,74 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { useLocalStorageDraft } from '../hooks/useLocalStorageDraft';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
+import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
+import { CopyButton } from '../components/common/CopyButton';
+import { PdfExportButton } from '../components/common/PdfExportButton';
+
+export interface TroubleshootingDraft {
+  category: string;
+  scope: string;
+  urgency: string;
+  symptom: string;
+}
+
+export const IT_TROUBLESHOOTING_STORAGE_KEY = 'it_troubleshooting_assistant_draft_v1';
+
+export const DEFAULT_TROUBLESHOOTING_DRAFT: TroubleshootingDraft = {
+  category: 'network',
+  scope: 'single',
+  urgency: 'medium',
+  symptom: 'User cannot connect to company WiFi after updating OS. Other devices connect fine.',
+};
 
 export const ItTroubleshootingAssistant: React.FC = () => {
-  const [category, setCategory] = useState('network');
-  const [scope, setScope] = useState('single');
-  const [urgency, setUrgency] = useState('medium');
-  const [symptom, setSymptom] = useState('User cannot connect to company WiFi after updating OS. Other devices connect fine.');
+  const {
+    values,
+    updateField,
+    saveDraftNow,
+    clearDraft,
+    formattedLastSaved,
+    isOnline,
+    isRestored,
+    hasSavedDraft,
+    isDirty,
+    saveStatus,
+    statusMessage,
+  } = useLocalStorageDraft<TroubleshootingDraft>({
+    key: IT_TROUBLESHOOTING_STORAGE_KEY,
+    defaultValues: DEFAULT_TROUBLESHOOTING_DRAFT,
+  });
+
+  useRegisterShortcut([
+    {
+      id: 'troubleshoot-generate',
+      combo: 'mod+enter',
+      label: 'Generate Triage Checklist',
+      description: 'Generate diagnostic checklist & triage plan',
+      category: 'Troubleshooting Assistant',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        saveDraftNow();
+      },
+    },
+    {
+      id: 'troubleshoot-save',
+      combo: 'mod+s',
+      label: 'Save Triage Plan Draft',
+      description: 'Save current troubleshooting symptom draft',
+      category: 'Troubleshooting Assistant',
+      allowInInput: true,
+      overrideSystem: true,
+      action: () => {
+        saveDraftNow();
+      },
+    },
+  ]);
+
+  const { category, scope, urgency, symptom } = values;
   const [copied, setCopied] = useState(false);
 
   const getTriageFramework = () => {
@@ -119,6 +181,19 @@ ${triage.escalation}
 
         <div className="workspace">
           <div className="panel">
+            <DraftSaveToolbar
+              isOnline={isOnline}
+              hasSavedDraft={hasSavedDraft}
+              isRestored={isRestored}
+              isDirty={isDirty}
+              formattedLastSaved={formattedLastSaved}
+              statusMessage={statusMessage}
+              saveStatus={saveStatus}
+              onSaveNow={saveDraftNow}
+              onClearDraft={clearDraft}
+              toolName="IT Troubleshooting Assistant"
+            />
+
             <h2 className="section-title">Issue Parameters</h2>
             <div className="field-grid">
               <div className="field-group">
@@ -126,7 +201,7 @@ ${triage.escalation}
                 <select
                   id="category"
                   value={category}
-                  onChange={e => setCategory(e.target.value)}
+                  onChange={e => updateField('category', e.target.value)}
                 >
                   <option value="network">Network & Connectivity (WiFi, VPN, DNS)</option>
                   <option value="identity">Identity, M365 & Single Sign-On</option>
@@ -140,7 +215,7 @@ ${triage.escalation}
                 <select
                   id="scope"
                   value={scope}
-                  onChange={e => setScope(e.target.value)}
+                  onChange={e => updateField('scope', e.target.value)}
                 >
                   <option value="single">Single User / Isolated Device</option>
                   <option value="team">Team / Department</option>
@@ -153,7 +228,7 @@ ${triage.escalation}
                 <select
                   id="urgency"
                   value={urgency}
-                  onChange={e => setUrgency(e.target.value)}
+                  onChange={e => updateField('urgency', e.target.value)}
                 >
                   <option value="low">Low - General inquiry or workaround available</option>
                   <option value="medium">Medium - Productivity impaired</option>
@@ -168,18 +243,19 @@ ${triage.escalation}
                 id="symptom"
                 rows={3}
                 value={symptom}
-                onChange={e => setSymptom(e.target.value)}
+                onChange={e => updateField('symptom', e.target.value)}
                 placeholder="Describe exact symptoms, error messages, recent changes..."
               />
             </div>
           </div>
 
           <div className="panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
               <h2 className="section-title" style={{ margin: 0 }}>Diagnostic Checklist & Triage Plan</h2>
-              <button className="button button-primary" type="button" onClick={handleCopy}>
-                {copied ? 'Copied to Clipboard!' : 'Copy Triage Sheet'}
-              </button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <PdfExportButton documentTitle={`IT-Triage-Plan-${category || 'Diagnostic'}`} variant="secondary" size="sm" />
+                <CopyButton text={fullReport} label="Copy Triage Sheet" variant="primary" />
+              </div>
             </div>
 
             <pre className="tool-output">
