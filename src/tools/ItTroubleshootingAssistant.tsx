@@ -74,6 +74,59 @@ export const ItTroubleshootingAssistant: React.FC = () => {
   const { category, scope, urgency, symptom } = values;
   const [copied, setCopied] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+
+  const toggleSpeechRecording = () => {
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+      setSpeechError('Web Speech API is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+
+    if (isRecording) {
+      setIsRecording(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognitionAPI();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        setSpeechError(null);
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript.trim()) {
+          const updated = symptom ? `${symptom} ${transcript}` : transcript;
+          updateField('symptom', updated);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error);
+        setSpeechError(`Speech error: ${event.error}`);
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.start();
+    } catch (err: any) {
+      setSpeechError(`Could not start speech recognition: ${err.message || err}`);
+      setIsRecording(false);
+    }
+  };
 
   const getTriageFramework = () => {
     let steps: string[] = [];
@@ -241,13 +294,51 @@ ${triage.escalation}
             </div>
 
             <div className="field-group" style={{ marginTop: '14px' }}>
-              <label htmlFor="symptom">Symptom Description</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label htmlFor="symptom" style={{ margin: 0 }}>Symptom Description</label>
+                <button
+                  type="button"
+                  onClick={toggleSpeechRecording}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    background: isRecording ? 'rgba(244, 63, 94, 0.2)' : 'var(--surface-accent)',
+                    color: isRecording ? '#f43f5e' : 'var(--text)',
+                    border: isRecording ? '1px solid #f43f5e' : '1px solid var(--border)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  title="Click to record diagnostic symptom notes hands-free using Web Speech API"
+                >
+                  <span
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: isRecording ? '#f43f5e' : 'var(--text-muted)',
+                      boxShadow: isRecording ? '0 0 0 4px rgba(244, 63, 94, 0.3)' : 'none',
+                      animation: isRecording ? 'pulse 1.5s infinite' : 'none',
+                    }}
+                  />
+                  {isRecording ? 'Listening... (Click to Stop)' : '🎤 Record Voice Notes'}
+                </button>
+              </div>
+              {speechError && (
+                <div style={{ fontSize: '0.75rem', color: '#f43f5e', marginBottom: '6px' }}>
+                  {speechError}
+                </div>
+              )}
               <textarea
                 id="symptom"
                 rows={3}
                 value={symptom}
                 onChange={e => updateField('symptom', e.target.value)}
-                placeholder="Describe exact symptoms, error messages, recent changes..."
+                placeholder="Describe exact symptoms, error messages, recent changes (or click Record Voice Notes)..."
               />
             </div>
           </div>

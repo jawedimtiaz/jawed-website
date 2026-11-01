@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { SiteSearchBar } from './SiteSearchBar';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { ThemeToggle } from './ThemeToggle';
-import { UnitSystemToggle } from './common/UnitSystemToggle';
 
 export const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -120,7 +119,6 @@ export const Header: React.FC = () => {
             </button>
           )}
           <ThemeToggle />
-          <UnitSystemToggle compact={true} showDetails={false} />
           <Link
             className="nav-cta"
             to="/contact"

@@ -12,6 +12,103 @@ interface Message {
   userQuery?: string;
 }
 
+function parseInlineFormatting(text: string) {
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
+  return parts.map((segment, sIdx) => {
+    if (segment.startsWith('`') && segment.endsWith('`')) {
+      return (
+        <code
+          key={sIdx}
+          style={{
+            background: 'rgba(56, 189, 248, 0.15)',
+            color: '#38bdf8',
+            padding: '2px 4px',
+            borderRadius: '4px',
+            fontSize: '0.85em',
+            fontFamily: 'monospace',
+          }}
+        >
+          {segment.slice(1, -1)}
+        </code>
+      );
+    }
+    if (segment.startsWith('**') && segment.endsWith('**')) {
+      return <strong key={sIdx} style={{ fontWeight: 700 }}>{segment.slice(2, -2)}</strong>;
+    }
+    return segment;
+  });
+}
+
+function renderMarkdown(text: string) {
+  if (!text) return null;
+  const parts = text.split(/(```[\s\S]*?```)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith('```') && part.endsWith('```')) {
+      const lines = part.slice(3, -3).trim().split('\n');
+      const firstLine = lines[0].trim();
+      let codeContent = part.slice(3, -3).trim();
+      if (firstLine && !firstLine.includes(' ') && lines.length > 1) {
+        codeContent = lines.slice(1).join('\n');
+      }
+      return (
+        <pre
+          key={index}
+          style={{
+            background: '#020617',
+            color: '#38bdf8',
+            padding: '10px 12px',
+            borderRadius: '8px',
+            overflowX: 'auto',
+            fontSize: '0.8rem',
+            fontFamily: 'monospace',
+            margin: '8px 0',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <code>{codeContent}</code>
+        </pre>
+      );
+    }
+
+    const paragraphLines = part.split('\n');
+    return (
+      <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {paragraphLines.map((line, lIdx) => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            const listText = trimmed.slice(2);
+            return (
+              <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginLeft: '8px' }}>
+                <span style={{ color: 'var(--accent)', fontWeight: 700 }}>•</span>
+                <span>{parseInlineFormatting(listText)}</span>
+              </div>
+            );
+          }
+          const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+          if (numMatch) {
+            const [, num, listText] = numMatch;
+            return (
+              <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginLeft: '8px' }}>
+                <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{num}.</span>
+                <span>{parseInlineFormatting(listText)}</span>
+              </div>
+            );
+          }
+          if (!trimmed) {
+            return <div key={lIdx} style={{ height: '4px' }} />;
+          }
+          return (
+            <div key={lIdx}>
+              {parseInlineFormatting(line)}
+            </div>
+          );
+        })}
+      </div>
+    );
+  });
+}
+
 export const JawedAiWidget: React.FC = () => {
   const isOnline = useOnlineStatus();
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -405,7 +502,7 @@ export const JawedAiWidget: React.FC = () => {
           >
             {messages.map((m) => (
               <div key={m.id} className={`jawed-ai-widget-message ${m.role}`}>
-                <div>{m.content}</div>
+                <div>{renderMarkdown(m.content)}</div>
 
                 {/* Interactive Direct Contact Button on Knowledge Fallback */}
                 {m.isFallback && (
