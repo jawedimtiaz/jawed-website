@@ -336,4 +336,12 @@ export const TOOLS: ToolItem[] = [
     route: '/tools/animate-image-to-video',
     keywords: ['video', 'animate', 'image to video', 'omni flash', 'movie', 'ai', 'gemini', 'cinematic'],
   },
+  {
+    id: 'car-affordability-calculator',
+    name: 'Car Affordability & EMI Calculator (India)',
+    description: 'Check what car price you can afford based on annual income in India, calculate monthly EMI, amortization schedule, running costs, emergency fund, and compare up to 3 cars side by side.',
+    category: 'finance',
+    route: '/tools/car-affordability-calculator',
+    keywords: ['car', 'affordability', 'emi', 'loan', 'car loan', 'india', 'auto loan', 'down payment', 'amortization', 'finance', 'calculator'],
+  },
 ];

@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car Affordability &amp; EMI Calculator (India)</title>
+<meta name="description" content="Check if you can afford a car in India: income needed, EMI, existing EMI burden, running costs, emergency fund and a side-by-side comparison of up to 3 cars.">
+<style>
+:root{--bg:#f3f6fb;--card:#fff;--bd:#d5ddec;--txt:#0f172a;--mut:#475569;--g:#15803d;--y:#a16207;--o:#c2410c;--r:#b91c1c;--acc:#0ea5e9}
+:root[data-theme=dark]{--bg:#0b1220;--card:#131c2e;--bd:#2a3752;--txt:#e8eefc;--mut:#a3b2cf;--g:#4ade80;--y:#facc15;--o:#fb923c;--r:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+.w{max-width:1120px;margin:0 auto;padding:24px 16px 48px;display:flex;flex-direction:column;gap:20px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;min-width:0}
+.c.in{background:var(--bg)}
+.g{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.k{font-size:12px;color:var(--mut);letter-spacing:.05em;text-transform:uppercase;font-weight:500}
+.v{font-size:24px;font-weight:700;margin-top:6px;word-break:break-word}
+h1{margin:0;font-size:30px;line-height:1.2}h2{margin:0 0 4px;font-size:20px}h3{margin:0;font-size:16px}
+p{margin:6px 0}.m{color:var(--mut);font-size:14px}
+.fl{display:flex;flex-direction:column;gap:6px}
+input[type=text]{height:46px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--txt);padding:0 12px;font:inherit;font-size:16px;width:100%}
+input:focus-visible,button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+input[type=range]{width:100%;accent-color:var(--acc);height:44px}
+button{min-height:44px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--txt);font:inherit;font-weight:500;padding:0 16px;cursor:pointer}
+button.on{background:var(--acc);color:#04202c;border-color:var(--acc)}
+.bar{height:12px;border-radius:99px;background:var(--bd);overflow:hidden}
+.bar>div{height:100%;border-radius:99px;transition:width .4s ease}
+.sc{overflow:auto;max-height:340px;border:1px solid var(--bd);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--bd)}
+th{position:sticky;top:0;background:var(--card);color:var(--mut);font-weight:500}
+th:first-child,td:first-child{text-align:left}
+.badge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--bd);border-radius:99px;padding:6px 14px;font-weight:700;background:var(--bg)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.err{border:1px solid var(--r);border-radius:12px;padding:14px 18px;background:var(--card)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;margin-top:10px;font-size:14px}
+footer{font-size:13px;color:var(--mut)}
+@media(max-width:520px){h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="w">
+<header class="row">
+<div><h1>Car Affordability &amp; EMI Calculator</h1>
+<p class="m" style="margin:4px 0 0">India · Check what you can afford, your EMI, and the true monthly cost of ownership.</p></div>
+<button id="theme" type="button">Switch theme</button>
+</header>
+
+<div id="errs"></div>
+
+<section class="c" aria-labelledby="s1">
+<h2 id="s1">1 · Car affordability check</h2>
+<p class="m">A commonly used guideline is that a car should cost roughly 40–60% of your annual income. Spending significantly more may reduce your ability to save, invest, and maintain financial flexibility.</p>
+<div class="g" style="margin-top:12px;align-items:end">
+<label class="fl"><span class="k">Car on-road price (₹)</span><input type="text" inputmode="decimal" id="price" value="1200000"></label>
+<div id="o1"></div>
+</div>
+<div id="gauge" style="margin-top:18px"></div>
+</section>
+
+<section class="c" aria-labelledby="s2">
+<h2 id="s2">2 · EMI calculator</h2>
+<div class="g" style="margin-top:12px;align-items:end">
+<div><div class="k">Car price (from Section 1)</div><div class="v" id="p2show"></div></div>
+<div class="fl"><span class="k">Down payment</span>
+<div style="display:flex;gap:8px"><input type="text" inputmode="decimal" id="dp" value="20" aria-label="Down payment"><button type="button" id="mPct" class="on" aria-pressed="true">%</button><button type="button" id="mAmt" aria-pressed="false">₹</button></div></div>
+<label class="fl"><span class="k">Interest rate (% p.a.)</span><input type="text" inputmode="decimal" id="rate" value="9"></label>
+<label class="fl"><span class="k" id="yl">Loan tenure: 5 years</span><input type="range" id="years" min="1" max="7" step="1" value="5"></label>
+</div>
+<div id="cards" class="g" style="margin-top:18px"></div>
+<div id="charts" style="display:flex;flex-wrap:wrap;gap:24px;margin-top:22px;align-items:center"></div>
+<div class="row" style="margin:20px 0 10px"><h3>Amortization schedule</h3>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" id="csv">Download CSV</button><button type="button" id="copy">Copy results</button><span id="msg" class="m" role="status"></span></div></div>
+<div class="sc"><table><thead><tr><th>Month</th><th>EMI</th><th>Principal</th><th>Interest</th><th>Outstanding balance</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p class="m" style="font-size:13px">Estimates only; actual lender calculations may differ. See the full disclaimer below.</p>
+</section>
+
+<section class="c" aria-labelledby="s3">
+<h2 id="s3">3 · Salary &amp; existing EMI analysis</h2>
+<p class="m">Optional. Existing EMIs can include home, personal, education, bike loans and credit card EMIs.</p>
+<div class="g" style="margin-top:10px">
+<label class="fl"><span class="k">Monthly take-home salary (₹)</span><input type="text" inputmode="decimal" id="salary" placeholder="e.g. 120000"></label>
+<label class="fl"><span class="k">Existing monthly EMIs (₹)</span><input type="text" inputmode="decimal" id="existing" placeholder="0"></label>
+</div>
+<div id="o3"></div>
+</section>
+
+<section class="c" aria-labelledby="s4">
+<h2 id="s4">4 · Total cost of ownership</h2>
+<div class="g" style="margin-top:10px">
+<label class="fl"><span class="k">Fuel cost / month (₹)</span><input type="text" inputmode="decimal" id="fuel" placeholder="0"></label>
+<label class="fl"><span class="k">Insurance cost / year (₹)</span><input type="text" inputmode="decimal" id="ins" placeholder="0"></label>
+<label class="fl"><span class="k">Maintenance cost / year (₹)</span><input type="text" inputmode="decimal" id="maint" placeholder="0"></label>
+<label class="fl"><span class="k">Parking cost / month (₹)</span><input type="text" inputmode="decimal" id="park" placeholder="0"></label>
+<label class="fl"><span class="k">Toll &amp; misc / month (₹)</span><input type="text" inputmode="decimal" id="misc" placeholder="0"></label>
+</div>
+<div id="o4" style="margin-top:16px"></div>
+</section>
+
+<section class="c" aria-labelledby="s5">
+<h2 id="s5">5 · Emergency fund check</h2>
+<label class="fl" style="max-width:360px;margin-top:10px"><span class="k">Emergency savings available (₹)</span><input type="text" inputmode="decimal" id="savings" placeholder="0"></label>
+<div id="o5"></div>
+</section>
+
+<section class="c" aria-labelledby="s6">
+<h2 id="s6">6 · Multi-car comparison</h2>
+<p class="m">Car 1 uses the price above. Add up to two more prices; the same down-payment %, rate, tenure and running costs apply.</p>
+<div class="g" style="margin:10px 0;max-width:620px">
+<label class="fl"><span class="k">Car 2 on-road price (₹)</span><input type="text" inputmode="decimal" id="p2" placeholder="e.g. 900000"></label>
+<label class="fl"><span class="k">Car 3 on-road price (₹)</span><input type="text" inputmode="decimal" id="p3" placeholder="e.g. 1500000"></label>
+</div>
+<div id="o6" class="g" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))"></div>
+</section>
+
+<section class="c" aria-labelledby="s7">
+<h2 id="s7">7 · Smart recommendation</h2>
+<div id="o7"></div>
+</section>
+
+<footer class="c">
+<strong style="color:var(--txt)">Important disclaimer</strong>
+<p>This calculator is intended for educational and informational purposes only. All calculations, scores, recommendations, and risk indicators are based on simplified assumptions and general financial guidelines. They do not constitute financial, investment, tax, legal, or lending advice.</p>
+<p>Actual loan eligibility, interest rates, lender decisions, and affordability depend on factors including income, credit history, existing liabilities, expenses, taxes, insurance premiums, and lender policies.</p>
+<p>Always verify loan terms with your lender and consider consulting a qualified financial adviser before making purchasing or borrowing decisions.</p>
+<p>Results shown are estimates and may differ from actual lender calculations.</p>
+<p>AI-generated recommendations are decision-support tools only and should not be treated as personalised financial advice.</p>
+</footer>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var mode = 'pct', last = null;
+  var num = function (v) { var x = parseFloat(String(v).replace(/,/g, '')); return isNaN(x) ? 0 : x; };
+  var filled = function (id) { return $(id).value.trim() !== ''; };
+  var fmt = function (n) { return '\u20B9' + Math.round(n).toLocaleString('en-IN'); };
+  var pc = function (n) { return (n * 100).toFixed(1) + '%'; };
+  var clamp = function (n, a, b) { return Math.min(b, Math.max(a, n)); };
+  var fill = function (p, c) { return 'width:' + clamp(p, 0, 100).toFixed(1) + '%;background:' + c; };
+  var risk = function (b) { return b <= .15 ? ['Comfortable', 'var(--g)'] : b <= .25 ? ['Manageable', 'var(--y)'] : b <= .35 ? ['Stretched', 'var(--o)'] : ['High risk', 'var(--r)']; };
+  var verdictOf = function (s) { return s >= 80 ? ['Highly affordable', 'var(--g)'] : s >= 60 ? ['Affordable', 'var(--y)'] : s >= 40 ? ['Stretch purchase', 'var(--o)'] : ['Financially risky', 'var(--r)']; };
+  var badge = function (t, c) { return '<span class="badge"><span class="dot" style="background:' + c + '"></span>' + t + '</span>'; };
+  var stat = function (k, v, x) { return '<div class="c in"><div class="k">' + k + '</div><div class="v"' + (x || '') + '>' + v + '</div></div>'; };
+
+  function render() {
+    var errs = [], P = Math.max(0, num($('price').value));
+    if (!(num($('price').value) > 0)) errs.push('Enter a car on-road price greater than \u20B90.');
+    var lab = { dp: 'Down payment', rate: 'Interest rate', existing: 'Existing EMIs', fuel: 'Fuel cost', ins: 'Insurance cost', maint: 'Maintenance cost', park: 'Parking cost', misc: 'Toll & misc expenses', savings: 'Emergency savings', p2: 'Car 2 price', p3: 'Car 3 price' };
+    Object.keys(lab).forEach(function (k) { if (filled(k) && num($(k).value) < 0) errs.push(lab[k] + ' can\u2019t be negative.'); });
+    if (filled('salary') && !(num($('salary').value) > 0)) errs.push('Monthly salary must be greater than \u20B90.');
+    if (filled('rate') && num($('rate').value) > 25) errs.push('Interest rate should be between 0% and 25%.');
+    var dpRaw = Math.max(0, num($('dp').value));
+    if (mode === 'pct' ? dpRaw > 100 : dpRaw > P) errs.push('Down payment can\u2019t exceed the car price.');
+    $('errs').innerHTML = errs.length ? '<div class="err" role="alert"><strong style="color:var(--r)">Please fix the following</strong>' + errs.map(function (e) { return '<p>' + e + '</p>'; }).join('') + '</div>' : '';
+
+    var sal = num($('salary').value) > 0 ? num($('salary').value) : 0, ex = Math.max(0, num($('existing').value));
+    var rate = clamp(num($('rate').value), 0, 25), yrs = clamp(Number($('years').value) || 1, 1, 7);
+    var n = yrs * 12, r = rate / 1200;
+    var dpAmt = mode === 'pct' ? P * Math.min(100, dpRaw) / 100 : Math.min(P, dpRaw), dpFrac = P > 0 ? dpAmt / P : 0;
+    var emiOf = function (L) { return L <= 0 ? 0 : r === 0 ? L / n : L * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1); };
+    var L = P - dpAmt, emi = emiOf(L), repaid = emi * n, interest = Math.max(0, repaid - L);
+    var g = function (id) { return Math.max(0, num($(id).value)); };
+    var other = g('fuel') + g('ins') / 12 + g('maint') / 12 + g('park') + g('misc'), sav = g('savings');
+    $('yl').textContent = 'Loan tenure: ' + yrs + (yrs === 1 ? ' year' : ' years');
+
+    // Section 1
+    var ratio = sal ? P / (sal * 12) : 0;
+    $('o1').innerHTML = '<div class="g"><div><div class="k">Car price</div><div class="v">' + fmt(P) + '</div></div><div><div class="k">Recommended annual income</div><div class="v">' + fmt(P / .6) + ' – ' + fmt(P / .4) + '</div></div><div><div class="k">Recommended monthly salary</div><div class="v">' + fmt(P / .6 / 12) + ' – ' + fmt(P / .4 / 12) + '</div></div></div>';
+    $('gauge').innerHTML = '<div class="k">Affordability gauge · car price as % of your annual income</div>' +
+      '<div role="img" aria-label="' + (sal ? 'Car price is ' + pc(ratio) + ' of annual income' : 'Enter salary to see gauge position') + '" style="position:relative;margin-top:10px;height:14px;border-radius:99px;background:linear-gradient(90deg,var(--g) 0 40%,var(--y) 40% 60%,var(--r) 60% 100%)">' +
+      (sal ? '<div style="position:absolute;top:-5px;width:6px;height:24px;border-radius:3px;background:var(--txt);left:calc(' + Math.min(100, ratio * 100).toFixed(1) + '% - 3px)"></div>' : '') + '</div>' +
+      '<div class="m" style="display:flex;justify-content:space-between;font-size:13px;margin-top:6px"><span>0%</span><span>40% comfortable</span><span>60% stretched</span><span>100%+</span></div>' +
+      (sal ? '<p>This car costs <strong>' + pc(ratio) + '</strong> of your annual income.</p>' : '<p class="m">Add your take-home salary in Section 3 to place yourself on the gauge.</p>');
+
+    // Section 2
+    $('p2show').textContent = fmt(P);
+    $('cards').innerHTML = stat('Down payment', fmt(dpAmt)) + stat('Loan amount', fmt(L)) + stat('Monthly EMI', fmt(emi), ' style="color:var(--acc)"') + stat('Total interest paid', fmt(interest)) + stat('Total amount repaid', fmt(repaid)) +
+      '<div class="c in"><div class="k">Effective purchase cost</div><div class="v">' + fmt(dpAmt + repaid) + '</div><div class="m" style="font-size:13px">Down payment + all EMIs</div></div>';
+    var bal = L, rows = '', yr = '', yp = 0, yi = 0, yMax = emi * 12 || 1, csvRows = [];
+    for (var m = 1; m <= n; m++) {
+      var i = bal * r, p = Math.min(bal, emi - i); bal = Math.max(0, bal - p);
+      rows += '<tr><td>' + m + '</td><td>' + fmt(emi) + '</td><td>' + fmt(p) + '</td><td>' + fmt(i) + '</td><td>' + fmt(bal) + '</td></tr>';
+      csvRows.push([m, emi.toFixed(2), p.toFixed(2), i.toFixed(2), bal.toFixed(2)].join(','));
+      yp += p; yi += i;
+      if (m % 12 === 0) {
+        yr += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px" title="Year ' + (m / 12) + ': principal ' + fmt(yp) + ', interest ' + fmt(yi) + '"><div style="width:100%;display:flex;flex-direction:column;justify-content:flex-end;height:120px"><div style="width:100%;background:var(--o);height:' + (yi / yMax * 100).toFixed(1) + '%"></div><div style="width:100%;background:var(--acc);height:' + (yp / yMax * 100).toFixed(1) + '%"></div></div><span class="m" style="font-size:12px">Y' + (m / 12) + '</span></div>';
+        yp = 0; yi = 0;
+      }
+    }
+    $('rows').innerHTML = rows;
+    var pF = repaid > 0 ? L / repaid : 1;
+    $('charts').innerHTML = '<div style="display:flex;align-items:center;gap:16px"><div role="img" aria-label="Principal ' + pc(pF) + ', interest ' + pc(1 - pF) + '" style="width:130px;height:130px;border-radius:50%;flex:none;background:conic-gradient(var(--acc) 0 ' + (pF * 100).toFixed(1) + '%,var(--o) 0)"></div><div style="font-size:14px;display:flex;flex-direction:column;gap:6px"><span><span class="dot" style="background:var(--acc)"></span> Principal ' + pc(pF) + '</span><span><span class="dot" style="background:var(--o)"></span> Interest ' + pc(1 - pF) + '</span></div></div>' +
+      '<div style="flex:1 1 320px;min-width:0"><div class="k">Loan breakdown by year (principal vs interest)</div><div style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">' + yr + '</div></div>';
+
+    // Scoring
+    var factorsFor = function (price, e) {
+      var a = price / (sal * 12), b = (ex + e) / sal, d = ex / sal, t = (e + other) / sal, mo = sav > 0 ? sav / (e + other || 1) : -1;
+      return [
+        ['Price vs income', a <= .4 ? 25 : a <= .6 ? 18 : a <= .8 ? 10 : 3, 25],
+        ['EMI burden', b <= .15 ? 25 : b <= .25 ? 18 : b <= .35 ? 9 : 2, 25],
+        ['Existing debt', d <= .1 ? 15 : d <= .2 ? 11 : d <= .3 ? 6 : 2, 15],
+        ['Emergency fund', mo < 0 ? 8 : mo >= 6 ? 20 : mo >= 3 ? 12 : 4, 20],
+        ['Ownership cost', t <= .25 ? 15 : t <= .35 ? 11 : t <= .45 ? 6 : 2, 15]];
+    };
+    var scoreOf = function (price, e) { return factorsFor(price, e).reduce(function (a, f) { return a + f[1]; }, 0); };
+
+    // Section 3
+    var bF = sal ? (ex + emi) / sal : 0, bN = sal ? ex / sal : 0, rk = risk(bF);
+    $('o3').innerHTML = !sal ? '<p class="m">Enter your monthly take-home salary to see your EMI burden.</p>' :
+      '<div class="g" style="margin-top:14px"><div><div class="k">Current salary</div><div class="v">' + fmt(sal) + '</div></div><div><div class="k">Existing EMIs</div><div class="v">' + fmt(ex) + '</div></div><div><div class="k">New car EMI</div><div class="v">' + fmt(emi) + '</div></div><div><div class="k">Total EMIs after purchase</div><div class="v">' + fmt(ex + emi) + '</div></div></div>' +
+      '<div class="row" style="margin-top:18px"><div><div class="k">EMI as % of income</div><div class="v">' + pc(bF) + ' <span class="m" style="font-size:14px;font-weight:400">now ' + pc(bN) + '</span></div></div>' + badge(rk[0], rk[1]) + '</div>' +
+      '<div class="bar" style="margin-top:10px" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(bF * 100) + '" aria-label="EMI burden"><div style="' + fill(bF * 100, rk[1]) + '"></div></div>' +
+      '<div class="m" style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;flex-wrap:wrap;gap:4px"><span>≤15% Comfortable</span><span>15–25% Manageable</span><span>25–35% Stretched</span><span>&gt;35% High risk</span></div>';
+
+    // Section 4
+    var tco = emi + other, tr = [['EMI', emi], ['Fuel', g('fuel')], ['Insurance', g('ins') / 12], ['Maintenance', g('maint') / 12], ['Parking', g('park')], ['Miscellaneous', g('misc')]];
+    $('o4').innerHTML = '<div class="sc" style="max-height:none"><table style="min-width:320px"><thead><tr><th>Component</th><th>Monthly cost</th></tr></thead><tbody>' + tr.map(function (a) { return '<tr><td>' + a[0] + '</td><td>' + fmt(a[1]) + '</td></tr>'; }).join('') + '<tr><td><strong>Total cost</strong></td><td><strong>' + fmt(tco) + '</strong></td></tr></tbody></table></div>' +
+      (sal ? '<p>Total ownership cost is <strong>' + pc(tco / sal) + '</strong> of your monthly salary.</p>' : '');
+
+    // Section 5
+    var months = sav > 0 ? sav / (tco || 1) : 0, em = months >= 6 ? ['Healthy', 'var(--g)'] : months >= 3 ? ['Moderate', 'var(--y)'] : ['Risky', 'var(--r)'];
+    $('o5').innerHTML = sav > 0 ? '<div class="row" style="margin-top:16px"><div><div class="k">Months of ownership cost covered</div><div class="v">' + months.toFixed(1) + ' months</div></div>' + badge(em[0], em[1]) + '</div><div class="bar" style="margin-top:10px" role="progressbar" aria-valuemin="0" aria-valuemax="6" aria-valuenow="' + Math.min(6, months).toFixed(1) + '" aria-label="Savings buffer in months"><div style="' + fill(months / 6 * 100, em[1]) + '"></div></div><div class="m" style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px"><span>0</span><span>3 months</span><span>6+ months</span></div>' : '';
+
+    // Section 6
+    $('o6').innerHTML = [P, num($('p2').value), num($('p3').value)].map(function (price, i) {
+      var pr = Math.max(0, price), name = '<strong>Car ' + (i + 1) + '</strong>';
+      if (!pr) return '<div class="c in">' + name + '<p class="m">Enter a price to compare.</p></div>';
+      var loan = pr * (1 - dpFrac), e = emiOf(loan), sc = sal ? scoreOf(pr, e) : null, v = sc === null ? null : verdictOf(sc);
+      var kv = function (a, b) { return '<span class="m">' + a + '</span><span>' + b + '</span>'; };
+      return '<div class="c in">' + name + '<div class="kv">' + kv('Price', fmt(pr)) + kv('Loan amount', fmt(loan)) + kv('EMI', fmt(e)) + kv('Total interest', fmt(Math.max(0, e * n - loan))) + kv('Income required', fmt(pr / .6 / 12) + '/mo') + kv('Ownership cost', fmt(e + other) + '/mo') + kv('Affordability score', sc === null ? 'Add salary' : sc + ' / 100') + '</div><div style="margin-top:12px">' + (v ? badge(v[0], v[1]) : badge('Add salary for rating', 'var(--mut)')) + '</div></div>';
+    }).join('');
+
+    // Section 7
+    var score = sal ? scoreOf(P, emi) : 0, vd = verdictOf(score);
+    var word = score >= 80 ? 'appears highly affordable' : score >= 60 ? 'appears affordable' : score >= 40 ? 'looks like a stretch purchase' : 'looks financially risky';
+    var rng = bF <= .15 ? 'a comfortable range' : bF <= .25 ? 'a manageable range' : bF <= .35 ? 'a stretched range' : 'a high-risk range';
+    var summary = sal ? 'Based on your salary of ' + fmt(sal) + '/month, existing EMIs of ' + fmt(ex) + '/month, and a projected car EMI of ' + fmt(emi) + '/month, the vehicle ' + word + '. Total EMI obligations would consume ' + pc(bF) + ' of your income, which falls within ' + rng + '.' + (sav > 0 ? ' Your emergency fund covers about ' + months.toFixed(1) + ' months of ownership cost.' : '') : '';
+    $('o7').innerHTML = !sal ? '<p class="m">Add your monthly take-home salary in Section 3 to generate your affordability score and verdict.</p>' :
+      '<div style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;margin-top:8px"><div style="text-align:center"><div style="font-size:56px;font-weight:700;line-height:1">' + score + '</div><div class="m">out of 100</div></div><div style="flex:1 1 300px;min-width:0">' + badge(vd[0], vd[1]) + '<div class="bar" style="margin-top:12px" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + score + '" aria-label="Affordability score"><div style="' + fill(score, vd[1]) + '"></div></div></div></div><p style="margin-top:14px">' + summary + '</p>' +
+      '<div class="g" style="margin-top:10px">' + factorsFor(P, emi).map(function (f) { return '<div><div class="k">' + f[0] + '</div><div style="font-weight:700">' + f[1] + ' / ' + f[2] + '</div><div class="bar" style="height:6px;margin-top:6px"><div style="' + fill(f[1] / f[2] * 100, 'var(--acc)') + '"></div></div></div>'; }).join('') + '</div>';
+
+    last = { csv: 'Month,EMI,Principal,Interest,Balance\n' + csvRows.join('\n'),
+      text: 'Car price ' + fmt(P) + '; down payment ' + fmt(dpAmt) + '; loan ' + fmt(L) + '; ' + rate + '% for ' + yrs + ' yrs; EMI ' + fmt(emi) + '; total interest ' + fmt(interest) + '; total repaid ' + fmt(repaid) + '.' };
+  }
+
+  var say = function (t) { $('msg').textContent = t; setTimeout(function () { $('msg').textContent = ''; }, 2500); };
+  document.querySelectorAll('input').forEach(function (el) { el.addEventListener('input', render); });
+  function setMode(m) {
+    mode = m;
+    $('mPct').className = m === 'pct' ? 'on' : ''; $('mAmt').className = m === 'amt' ? 'on' : '';
+    $('mPct').setAttribute('aria-pressed', m === 'pct'); $('mAmt').setAttribute('aria-pressed', m === 'amt');
+    $('dp').value = m === 'pct' ? '20' : String(Math.round(Math.max(0, num($('price').value)) * .2));
+    render();
+  }
+  $('mPct').onclick = function () { setMode('pct'); };
+  $('mAmt').onclick = function () { setMode('amt'); };
+  $('csv').onclick = function () {
+    var save = function (d) { return d.save({ filename: 'car-loan-amortization.csv', data: last.csv }); };
+    (window.claude && claude.use ? claude.use('downloads') : Promise.resolve(null)).then(function (d) {
+      if (!d) { say('Download unavailable here'); return; }
+      return save(d).then(function () { say('CSV saved'); }, function (e) { say(e && e.code === 'declined' ? 'Download cancelled' : 'Download unavailable here'); });
+    }, function () { say('Download unavailable here'); });
+  };
+  $('copy').onclick = function () {
+    (navigator.clipboard ? navigator.clipboard.writeText(last.text) : Promise.reject()).then(function () { say('Copied'); }, function () { say('Copy not available'); });
+  };
+  var root = document.documentElement;
+  var setTheme = function (t) { root.setAttribute('data-theme', t); $('theme').textContent = t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'; };
+  setTheme(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  $('theme').onclick = function () { setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
+  render();
+})();
+</script>
+</body>
+</html>

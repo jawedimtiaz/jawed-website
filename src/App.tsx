@@ -68,6 +68,7 @@ import { HardwareStorageCalculator } from './tools/HardwareStorageCalculator';
 import { CableLengthPoeChecker } from './tools/CableLengthPoeChecker';
 import { AiAudioTranscriber } from './tools/AiAudioTranscriber';
 import { AnimateImageToVideo } from './pages/tools/AnimateImageToVideo';
+import { CarAffordabilityCalculator } from './tools/CarAffordabilityCalculator';
 
 export const TOOL_PAGE_META: Record<string, RouteMetadata> = {
   ...STATIC_METADATA,
@@ -274,6 +275,10 @@ export const App: React.FC = () => {
               <Route path="/tools/animate-image" element={<AnimateImageToVideo />} />
               <Route path="/animate-image-to-video" element={<AnimateImageToVideo />} />
               <Route path="/animate-images-to-video" element={<AnimateImageToVideo />} />
+              <Route path="/tools/car-affordability-calculator" element={<CarAffordabilityCalculator />} />
+              <Route path="/tools/car-affordability" element={<CarAffordabilityCalculator />} />
+              <Route path="/tools/car-emi-calculator" element={<CarAffordabilityCalculator />} />
+              <Route path="/car-affordability-calculator" element={<CarAffordabilityCalculator />} />
 
               {/* Services & Dispatch */}
               <Route path="/services" element={<ServicesDispatchPage />} />

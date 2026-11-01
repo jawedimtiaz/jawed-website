@@ -514,6 +514,14 @@ export const TOOL_METADATA: Record<string, RouteMetadata> = {
     canonicalPath: '/tools/animate-image-to-video',
     ogType: 'website',
   },
+  '/tools/car-affordability-calculator': {
+    title: 'Car Affordability & EMI Calculator (India) – Auto Loan & TCO Planner',
+    description: 'Check what car price you can afford in India based on annual income, calculate EMI, running costs, emergency fund, and compare up to 3 cars side by side.',
+    ogTitle: 'Car Affordability & EMI Calculator (India) | Auto Loan & Total Cost of Ownership Planner',
+    ogDescription: 'Calculate car affordability guidelines, monthly EMIs, complete amortization schedules, fuel and maintenance running costs, and multi-car comparisons.',
+    canonicalPath: '/tools/car-affordability-calculator',
+    ogType: 'website',
+  },
 };
 
 export function normalizePath(pathname: string): string {
