@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
 
 const mockLocalStorage = (() => {
   let store: Record<string, string> = {};
@@ -27,7 +28,7 @@ describe('usePersistentState Hook & Storage Sync', () => {
     const stored = localStorage.getItem(key);
     const value = stored !== null ? JSON.parse(stored) : defaultValue;
     
-    expect(value).toBe('collapsed');
+    assert.equal(value, 'collapsed');
   });
 
   it('persists component-specific UI preferences (like open/closed states or tabs) to localStorage', () => {
@@ -39,7 +40,7 @@ describe('usePersistentState Hook & Storage Sync', () => {
     const stored = localStorage.getItem(key);
     const retrieved = stored !== null ? JSON.parse(stored) : null;
 
-    expect(retrieved).toBe('expanded');
+    assert.equal(retrieved, 'expanded');
   });
 
   it('supports serializing complex object preferences across sessions', () => {
@@ -51,6 +52,6 @@ describe('usePersistentState Hook & Storage Sync', () => {
     const stored = localStorage.getItem(key);
     const retrieved = stored !== null ? JSON.parse(stored) : null;
 
-    expect(retrieved).toEqual(prefs);
+    assert.deepEqual(retrieved, prefs);
   });
 });

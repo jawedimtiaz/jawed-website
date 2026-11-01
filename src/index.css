@@ -3856,4 +3856,161 @@ select:focus-visible {
   }
 }
 
+/* ==========================================================================
+   Mobile-Optimized Touch Range Sliders & Mobile Layout Ergonomics
+   ========================================================================== */
+.touch-range-slider,
+.car-affordability-calc-root input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+  margin: 0;
+  padding: 8px 0;
+  display: block;
+  outline: none;
+}
+
+.touch-range-slider:focus-visible,
+.car-affordability-calc-root input[type="range"]:focus-visible {
+  outline: none;
+}
+
+/* WebKit / Blink Track */
+.touch-range-slider::-webkit-slider-runnable-track,
+.car-affordability-calc-root input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background-color 0.15s ease;
+}
+
+[data-theme="light"] .touch-range-slider::-webkit-slider-runnable-track,
+.light .touch-range-slider::-webkit-slider-runnable-track,
+[data-theme="light"] .car-affordability-calc-root input[type="range"]::-webkit-slider-runnable-track,
+.light .car-affordability-calc-root input[type="range"]::-webkit-slider-runnable-track {
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+}
+
+/* WebKit / Blink Thumb */
+.touch-range-slider::-webkit-slider-thumb,
+.car-affordability-calc-root input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  cursor: grab;
+  margin-top: -10px;
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s ease, background-color 0.12s ease;
+}
+
+/* Mozilla Firefox Track */
+.touch-range-slider::-moz-range-track,
+.car-affordability-calc-root input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background-color 0.15s ease;
+}
+
+[data-theme="light"] .touch-range-slider::-moz-range-track,
+.light .touch-range-slider::-moz-range-track,
+[data-theme="light"] .car-affordability-calc-root input[type="range"]::-moz-range-track,
+.light .car-affordability-calc-root input[type="range"]::-moz-range-track {
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+}
+
+/* Mozilla Firefox Thumb */
+.touch-range-slider::-moz-range-thumb,
+.car-affordability-calc-root input[type="range"]::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  cursor: grab;
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s ease, background-color 0.12s ease;
+}
+
+/* Active & Dragging Thumb Feedback */
+.touch-range-slider:active::-webkit-slider-thumb,
+.car-affordability-calc-root input[type="range"]:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.18);
+  box-shadow: 0 0 0 8px rgba(56, 189, 248, 0.28), 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.touch-range-slider:active::-moz-range-thumb,
+.car-affordability-calc-root input[type="range"]:active::-moz-range-thumb {
+  cursor: grabbing;
+  transform: scale(1.18);
+  box-shadow: 0 0 0 8px rgba(56, 189, 248, 0.28), 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* Focus Visible State */
+.touch-range-slider:focus-visible::-webkit-slider-thumb,
+.car-affordability-calc-root input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px var(--accent), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.touch-range-slider:focus-visible::-moz-range-thumb,
+.car-affordability-calc-root input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px var(--accent), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Mobile Touch Optimization (<= 640px) */
+@media (max-width: 640px) {
+  .touch-range-slider,
+  .car-affordability-calc-root input[type="range"] {
+    height: 48px;
+    min-height: 48px;
+    padding: 8px 0;
+  }
+
+  .touch-range-slider::-webkit-slider-thumb,
+  .car-affordability-calc-root input[type="range"]::-webkit-slider-thumb {
+    width: 32px;
+    height: 32px;
+    margin-top: -12px;
+    border-width: 3px;
+  }
+
+  .touch-range-slider::-moz-range-thumb,
+  .car-affordability-calc-root input[type="range"]::-moz-range-thumb {
+    width: 32px;
+    height: 32px;
+    border-width: 3px;
+  }
+
+  /* Compact 2-column scorecard for summary results on mobile */
+  .car-affordability-calc-root .calc-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+
+  .car-affordability-calc-root .calc-summary .summary-item {
+    padding: 6px 0;
+  }
+
+  .car-affordability-calc-root .calc-summary .summary-item span:last-child {
+    font-size: 1.15rem;
+  }
+}
+
 

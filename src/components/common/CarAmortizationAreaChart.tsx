@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
 export interface AmortizationRow {
@@ -12,14 +12,43 @@ export interface AmortizationRow {
 interface CarAmortizationAreaChartProps {
   data: AmortizationRow[];
   height?: number;
+  currencySymbol?: string;
+  formatCurrency?: (val: number) => string;
 }
 
 export const CarAmortizationAreaChart: React.FC<CarAmortizationAreaChartProps> = ({
   data,
   height = 280,
+  currencySymbol = '₹',
+  formatCurrency,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(700);
+
+  useEffect(() => {
+    if (!svgRef.current?.parentElement) return;
+    const updateWidth = () => {
+      const parent = svgRef.current?.parentElement;
+      if (parent && parent.clientWidth > 0) {
+        setContainerWidth(parent.clientWidth);
+      }
+    };
+
+    updateWidth();
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && svgRef.current.parentElement) {
+      ro = new ResizeObserver(() => updateWidth());
+      ro.observe(svgRef.current.parentElement);
+    }
+    window.addEventListener('resize', updateWidth);
+
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, []);
 
   useEffect(() => {
     if (!data || data.length === 0 || !svgRef.current) return;
@@ -27,10 +56,12 @@ export const CarAmortizationAreaChart: React.FC<CarAmortizationAreaChartProps> =
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const containerWidth = svgRef.current.parentElement?.clientWidth || 700;
-    const margin = { top: 20, right: 30, bottom: 40, left: 65 };
-    const width = containerWidth - margin.left - margin.right;
-    const chartHeight = height - margin.top - margin.bottom;
+    const isMobile = containerWidth < 500;
+    const margin = isMobile
+      ? { top: 16, right: 14, bottom: 36, left: 48 }
+      : { top: 20, right: 30, bottom: 40, left: 65 };
+    const width = Math.max(120, containerWidth - margin.left - margin.right);
+    const chartHeight = Math.max(100, height - margin.top - margin.bottom);
 
     svg
       .attr('width', containerWidth)
@@ -83,7 +114,7 @@ export const CarAmortizationAreaChart: React.FC<CarAmortizationAreaChartProps> =
       .curve(d3.curveMonotoneX);
 
     const xAxis = d3.axisBottom(x).ticks(6).tickFormat(d => data.length > 84 ? `Y${d}` : `M${d}`);
-    const yAxis = d3.axisLeft(y).ticks(5).tickFormat(d => `₹${(Number(d) / 1000).toFixed(0)}k`);
+    const yAxis = d3.axisLeft(y).ticks(5).tickFormat(d => `${currencySymbol}${(Number(d) / 1000).toFixed(0)}k`);
 
     g.append('g')
       .attr('transform', `translate(0,${chartHeight})`)
@@ -143,6 +174,11 @@ export const CarAmortizationAreaChart: React.FC<CarAmortizationAreaChartProps> =
       .style('stroke', '#ffffff')
       .style('stroke-width', 2);
 
+    const renderVal = (val: number) => {
+      if (formatCurrency) return formatCurrency(val);
+      return `${currencySymbol}${Math.round(val).toLocaleString()}`;
+    };
+
     svg.on('mousemove', function (event) {
       const [mouseX] = d3.pointer(event, g.node());
       const x0 = x.invert(mouseX);
@@ -172,14 +208,14 @@ export const CarAmortizationAreaChart: React.FC<CarAmortizationAreaChartProps> =
           </div>
           <div style="display:flex;align-items:center;gap:6px;color:#0ea5e9;margin-bottom:2px">
             <span style="width:8px;height:8px;border-radius:50%;background:#0ea5e9;display:inline-block"></span>
-            <span>Principal: <strong>₹${Math.round(d.principal).toLocaleString('en-IN')}</strong></span>
+            <span>Principal: <strong>${renderVal(d.principal)}</strong></span>
           </div>
           <div style="display:flex;align-items:center;gap:6px;color:#f43f5e;margin-bottom:4px">
             <span style="width:8px;height:8px;border-radius:50%;background:#f43f5e;display:inline-block"></span>
-            <span>Interest: <strong>₹${Math.round(d.interest).toLocaleString('en-IN')}</strong></span>
+            <span>Interest: <strong>${renderVal(d.interest)}</strong></span>
           </div>
           <div style="font-size:0.72rem;color:var(--text-muted);border-top:1px solid var(--border);padding-top:4px">
-            Balance: ₹${Math.round(d.balance).toLocaleString('en-IN')}
+            Balance: ${renderVal(d.balance)}
           </div>
         `);
     })
@@ -188,7 +224,7 @@ export const CarAmortizationAreaChart: React.FC<CarAmortizationAreaChartProps> =
       tooltip.style('display', 'none');
     });
 
-  }, [data, height]);
+  }, [data, height, currencySymbol, formatCurrency, containerWidth]);
 
   return (
     <div style={{ position: 'relative', width: '100%', overflowX: 'auto' }}>
