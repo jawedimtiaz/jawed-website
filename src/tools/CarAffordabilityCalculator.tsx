@@ -9,7 +9,7 @@ import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 import { PrintReportButton } from '../components/common/PrintReportButton';
 import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
-import { Car, Calculator, Wallet, ShieldAlert, CheckCircle2, TrendingUp, Download, Copy, RefreshCw } from 'lucide-react';
+import { Car, Calculator, Wallet, ShieldAlert, CheckCircle2, TrendingUp, TrendingDown, Download, Copy, RefreshCw, Sliders } from 'lucide-react';
 import { CarAmortizationAreaChart } from '../components/common/CarAmortizationAreaChart';
 
 export interface CarAffordabilityDraft {
@@ -21,6 +21,7 @@ export interface CarAffordabilityDraft {
   compareLoans: boolean;
   compareInterestRate: string;
   compareLoanYears: number;
+  sensitivityDelta: number;
   salary: string;
   existingEmis: string;
   fuel: string;
@@ -42,6 +43,7 @@ const DEFAULT_CAR_DRAFT: CarAffordabilityDraft = {
   compareLoans: false,
   compareInterestRate: '10.5',
   compareLoanYears: 4,
+  sensitivityDelta: 1.0,
   salary: '',
   existingEmis: '',
   fuel: '',
@@ -88,6 +90,7 @@ export const CarAffordabilityCalculator: React.FC = () => {
     compareLoans,
     compareInterestRate,
     compareLoanYears,
+    sensitivityDelta = 1.0,
     salary,
     existingEmis,
     fuel,
@@ -152,6 +155,43 @@ export const CarAffordabilityCalculator: React.FC = () => {
   const cEmi = cEmiOf(L);
   const cRepaid = cEmi * cN;
   const cInterest = Math.max(0, cRepaid - L);
+
+  // Sensitivity Analysis (±2% Range Adjustment)
+  const sDelta = typeof sensitivityDelta === 'number' ? sensitivityDelta : 1.0;
+  const simRate = Math.max(0.1, Math.min(25, rate + sDelta));
+  const simR = simRate / 1200;
+  const simEmi = simR === 0 ? L / n : (L * simR * Math.pow(1 + simR, n)) / (Math.pow(1 + simR, n) - 1);
+  const simRepaid = simEmi * n;
+  const simInterest = Math.max(0, simRepaid - L);
+  const diffEmi = simEmi - emi;
+  const diffInterest = simInterest - interest;
+  const pctEmiDiff = emi > 0 ? (diffEmi / emi) * 100 : 0;
+  const pctInterestDiff = interest > 0 ? (diffInterest / interest) * 100 : 0;
+
+  const sensitivityPresets = [-2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0];
+
+  const sensitivityScenarios = useMemo(() => {
+    return [-2, -1, 0, 1, 2].map((d) => {
+      const scRate = Math.max(0.1, Math.min(25, rate + d));
+      const scR = scRate / 1200;
+      const scEmi = scR === 0 ? L / n : (L * scR * Math.pow(1 + scR, n)) / (Math.pow(1 + scR, n) - 1);
+      const scRepaid = scEmi * n;
+      const scInterest = Math.max(0, scRepaid - L);
+      const scDiffEmi = scEmi - emi;
+      const scDiffInterest = scInterest - interest;
+      return {
+        delta: d,
+        rate: scRate,
+        emi: scEmi,
+        interest: scInterest,
+        repaid: scRepaid,
+        diffEmi: scDiffEmi,
+        diffInterest: scDiffInterest,
+        isBase: d === 0,
+        isSelected: Math.abs(sDelta - d) < 0.05,
+      };
+    });
+  }, [L, rate, n, emi, interest, sDelta]);
 
   const g = (val: string) => Math.max(0, num(val));
   const otherMonthly = g(fuel) + g(insurance) / 12 + g(maintenance) / 12 + g(parking) + g(misc);
@@ -252,6 +292,7 @@ export const CarAffordabilityCalculator: React.FC = () => {
       `• Total Interest: ${fmt(interest)}\n` +
       `• Total Repaid: ${fmt(repaid)}\n` +
       `• Monthly TCO (Running Costs): ${fmt(tco)}\n` +
+      (sDelta !== 0 ? `• Interest Rate Sensitivity Shift (${sDelta > 0 ? '+' : ''}${sDelta.toFixed(1)}% at ${simRate.toFixed(1)}% p.a.): EMI ${fmt(simEmi)} (${diffEmi >= 0 ? '+' : '−'}${fmt(Math.abs(diffEmi))}/mo), Total Int ${fmt(simInterest)} (${diffInterest >= 0 ? '+' : '−'}${fmt(Math.abs(diffInterest))})\n` : '') +
       (sal ? `• Salary & EMI Burden: ${pc(bF)} of income (${rk[0]})\n` : '') +
       `\nCalculated on Jawed Imtiaz Tools (https://jawed.co.in/tools/car-affordability-calculator)`;
 
@@ -601,6 +642,163 @@ export const CarAffordabilityCalculator: React.FC = () => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Sensitivity Analysis (±2% Range Adjustment & Benchmark Matrix) */}
+              <div style={{ marginTop: '20px', padding: '18px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Sliders size={18} style={{ color: 'var(--accent)' }} />
+                    <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800 }}>Interest Rate Sensitivity Analysis (±2.0%)</h3>
+                  </div>
+                  <span style={{ fontSize: '0.74rem', padding: '2px 8px', borderRadius: '999px', background: 'var(--surface-accent)', color: 'var(--accent)', fontWeight: 700 }}>
+                    Instant Rate Impact Model
+                  </span>
+                </div>
+                <p style={{ margin: '0 0 14px', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                  Visualize how interest rate fluctuations of ±1% to ±2% impact your monthly EMI and total interest paid for your {fmt(L)} loan across the {yrs}-year tenure.
+                </p>
+
+                {/* Slider Control Box */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--bg)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <label htmlFor="sensitivitySlider" style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Simulated Rate Shift:{' '}
+                      <span style={{ color: sDelta > 0 ? 'var(--rose)' : sDelta < 0 ? 'var(--emerald)' : 'var(--accent)', fontWeight: 800 }}>
+                        {sDelta > 0 ? `+${sDelta.toFixed(2)}%` : sDelta < 0 ? `${sDelta.toFixed(2)}%` : '0.00% (Baseline)'}
+                      </span>
+                    </label>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      Adjusted Rate: <strong style={{ color: 'var(--text-heading)' }}>{simRate.toFixed(2)}% p.a.</strong> (Base: {rate.toFixed(2)}%)
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--emerald)', minWidth: '40px' }}>−2.0%</span>
+                    <input
+                      id="sensitivitySlider"
+                      type="range"
+                      min="-2"
+                      max="2"
+                      step="0.25"
+                      value={sDelta}
+                      onChange={e => updateField('sensitivityDelta', parseFloat(e.target.value))}
+                      style={{ flex: 1, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                      aria-label="Interest rate sensitivity adjustment slider"
+                    />
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--rose)', minWidth: '40px', textAlign: 'right' }}>+2.0%</span>
+                  </div>
+
+                  {/* Preset Quick Chips */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: '4px' }}>Quick Shifts:</span>
+                    {sensitivityPresets.map(preset => {
+                      const isSelected = Math.abs(sDelta - preset) < 0.05;
+                      return (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => updateField('sensitivityDelta', preset)}
+                          style={{
+                            padding: '3px 9px',
+                            borderRadius: '6px',
+                            fontSize: '0.73rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
+                            background: isSelected ? 'var(--accent)' : 'var(--surface)',
+                            color: isSelected ? '#ffffff' : 'var(--text)',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {preset === 0 ? 'Base (0%)' : preset > 0 ? `+${preset}%` : `${preset}%`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Real-Time Impact Metric Cards */}
+                <div className="calc-summary" style={{ marginTop: '14px', marginBottom: '14px' }}>
+                  <div className="summary-item">
+                    <span>Simulated Monthly EMI</span>
+                    <span style={{ color: diffEmi > 0 ? 'var(--rose)' : diffEmi < 0 ? 'var(--emerald)' : 'var(--accent)' }}>
+                      {fmt(simEmi)}
+                    </span>
+                    <span style={{ fontSize: '0.73rem', color: diffEmi > 0 ? 'var(--rose)' : diffEmi < 0 ? 'var(--emerald)' : 'var(--text-muted)' }}>
+                      {diffEmi === 0 ? 'Equal to baseline' : `${diffEmi > 0 ? '+' : '−'}${fmt(Math.abs(diffEmi))}/mo (${diffEmi > 0 ? '+' : ''}${pctEmiDiff.toFixed(1)}%)`}
+                    </span>
+                  </div>
+
+                  <div className="summary-item">
+                    <span>Simulated Total Interest</span>
+                    <span style={{ color: diffInterest > 0 ? 'var(--rose)' : diffInterest < 0 ? 'var(--emerald)' : 'var(--text-heading)' }}>
+                      {fmt(simInterest)}
+                    </span>
+                    <span style={{ fontSize: '0.73rem', color: diffInterest > 0 ? 'var(--rose)' : diffInterest < 0 ? 'var(--emerald)' : 'var(--text-muted)' }}>
+                      {diffInterest === 0 ? 'Equal to baseline' : `${diffInterest > 0 ? '+' : '−'}${fmt(Math.abs(diffInterest))} (${diffInterest > 0 ? '+' : ''}${pctInterestDiff.toFixed(1)}%)`}
+                    </span>
+                  </div>
+
+                  <div className="summary-item">
+                    <span>Total Amount Repaid</span>
+                    <span>{fmt(simRepaid)}</span>
+                    <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+                      Over {yrs} years ({n} payments)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Benchmark Sensitivity Matrix Table */}
+                <div style={{ marginTop: '14px' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Rate Shift Benchmark Matrix (Select any row to test)
+                  </div>
+                  <div className="sc" style={{ maxHeight: 'none' }}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Rate Shift</th>
+                          <th>Effective Rate</th>
+                          <th>Monthly EMI</th>
+                          <th>Monthly Impact</th>
+                          <th>Total Interest</th>
+                          <th>Total Lifetime Impact</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sensitivityScenarios.map(sc => (
+                          <tr
+                            key={sc.delta}
+                            onClick={() => updateField('sensitivityDelta', sc.delta)}
+                            style={{
+                              cursor: 'pointer',
+                              background: sc.isSelected ? 'var(--surface-accent)' : undefined,
+                              fontWeight: sc.isSelected || sc.isBase ? 700 : 400,
+                              transition: 'background 0.15s ease',
+                            }}
+                          >
+                            <td>
+                              {sc.isBase ? 'Base Rate (0%)' : sc.delta > 0 ? `+${sc.delta}%` : `${sc.delta}%`}
+                              {sc.isSelected && <span style={{ marginLeft: '6px', fontSize: '0.7rem', color: 'var(--accent)' }}>◀ Active</span>}
+                            </td>
+                            <td>{sc.rate.toFixed(2)}%</td>
+                            <td style={{ color: sc.diffEmi > 0 ? 'var(--rose)' : sc.diffEmi < 0 ? 'var(--emerald)' : undefined }}>
+                              {fmt(sc.emi)}
+                            </td>
+                            <td style={{ color: sc.diffEmi > 0 ? 'var(--rose)' : sc.diffEmi < 0 ? 'var(--emerald)' : 'var(--text-muted)' }}>
+                              {sc.diffEmi === 0 ? '—' : `${sc.diffEmi > 0 ? '+' : '−'}${fmt(Math.abs(sc.diffEmi))}`}
+                            </td>
+                            <td>{fmt(sc.interest)}</td>
+                            <td style={{ color: sc.diffInterest > 0 ? 'var(--rose)' : sc.diffInterest < 0 ? 'var(--emerald)' : 'var(--text-muted)' }}>
+                              {sc.diffInterest === 0 ? '—' : `${sc.diffInterest > 0 ? '+' : '−'}${fmt(Math.abs(sc.diffInterest))}`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
 
               {/* Charts & Breakdown */}
