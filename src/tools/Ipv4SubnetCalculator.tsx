@@ -8,8 +8,30 @@ import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
 import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
+import { UnitSystemToggle } from '../components/common/UnitSystemToggle';
+import { ToolTour, TourStep } from '../components/common/ToolTour';
+import { useUnitSystem } from '../hooks/useUnitSystem';
 import { useDiagnosticToolStorage } from '../hooks/useDiagnosticToolStorage';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
+
+const IPV4_TOUR_STEPS: TourStep[] = [
+  {
+    title: 'Enter IPv4 Address',
+    description: 'Type any valid IPv4 address (e.g. 192.168.1.50) to instantly compute network boundaries and subnets.',
+  },
+  {
+    title: 'Select CIDR Prefix',
+    description: 'Slide or select the CIDR subnet mask prefix (/8 to /32) to determine host count and broadcast ranges.',
+  },
+  {
+    title: 'Review Network Geometry',
+    description: 'Inspect usable IP range, network address, broadcast address, wildcard mask, and binary octets.',
+  },
+  {
+    title: 'Keyboard Shortcuts & Export',
+    description: 'Use Ctrl+Enter to recalculate/save draft, or export your engineering report via A4 Print Preview or PDF.',
+  },
+];
 
 interface SubnetOption {
   cidr: number;
@@ -90,6 +112,8 @@ export const Ipv4SubnetCalculator: React.FC = () => {
     toolId: 'ipv4-subnet-calculator',
     defaultValues: { ipInput: '192.168.1.50', cidrPrefix: 24 },
   });
+
+  const unitSystem = useUnitSystem();
 
   const ipInput = values.ipInput;
   const cidrPrefix = values.cidrPrefix;
@@ -224,6 +248,8 @@ export const Ipv4SubnetCalculator: React.FC = () => {
           style={{ marginBottom: 0 }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <ToolTour toolId="ipv4-subnet-calculator" toolName="IPv4 Subnet Calculator" steps={IPV4_TOUR_STEPS} />
+          <UnitSystemToggle />
           <button
             type="button"
             className="button button-secondary no-print"

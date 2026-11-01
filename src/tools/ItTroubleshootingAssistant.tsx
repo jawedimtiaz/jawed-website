@@ -7,6 +7,8 @@ import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
 import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
+import { PrintReportButton } from '../components/common/PrintReportButton';
+import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 
 export interface TroubleshootingDraft {
   category: string;
@@ -71,6 +73,7 @@ export const ItTroubleshootingAssistant: React.FC = () => {
 
   const { category, scope, urgency, symptom } = values;
   const [copied, setCopied] = useState(false);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
   const getTriageFramework = () => {
     let steps: string[] = [];
@@ -253,6 +256,7 @@ ${triage.escalation}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
               <h2 className="section-title" style={{ margin: 0 }}>Diagnostic Checklist & Triage Plan</h2>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <PrintReportButton onOpenPrintPreview={() => setIsPrintPreviewOpen(true)} />
                 <PdfExportButton documentTitle={`IT-Triage-Plan-${category || 'Diagnostic'}`} variant="secondary" size="sm" />
                 <CopyButton text={fullReport} label="Copy Triage Sheet" variant="primary" />
               </div>
@@ -263,6 +267,19 @@ ${triage.escalation}
             </pre>
           </div>
         </div>
+
+        <A4PrintPreviewModal
+          isOpen={isPrintPreviewOpen}
+          onClose={() => setIsPrintPreviewOpen(false)}
+          toolTitle="IT Troubleshooting & Diagnostic Report"
+          toolSubtitle={`Category: ${category} · Scope: ${scope} · Urgency: ${urgency}`}
+          toolCategory="IT Support & Troubleshooting"
+          summaryMetrics={[
+            { label: 'Category', value: category.toUpperCase() },
+            { label: 'Scope', value: scope.toUpperCase() },
+            { label: 'Urgency', value: urgency.toUpperCase() },
+          ]}
+        />
       </div>
     </div>
   );

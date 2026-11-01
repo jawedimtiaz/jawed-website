@@ -2431,6 +2431,78 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     </div>
                   )}
 
+                  {!isShortcutDiscoveryMode && !query.trim() && recentSearches.length > 0 && (
+                    <div
+                      className="search-recent-searches-section"
+                      role="region"
+                      aria-label="Recent Searches"
+                      style={{ marginBottom: '16px' }}
+                    >
+                      <div
+                        className="search-section-header"
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        <span>🕒 Recent Searches</span>
+                        <button
+                          type="button"
+                          onClick={clearRecentSearches}
+                          style={{
+                            background: 'transparent',
+                            border: 0,
+                            color: 'var(--muted)',
+                            fontSize: '0.72rem',
+                            cursor: 'pointer',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                          }}
+                          title="Clear recent searches history"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '6px',
+                          padding: '4px 12px 6px',
+                        }}
+                      >
+                        {recentSearches.map((recSearch) => (
+                          <button
+                            key={recSearch}
+                            type="button"
+                            onClick={() => {
+                              setQuery(recSearch);
+                              inputRef.current?.focus();
+                            }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '5px 10px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--line)',
+                              background: 'var(--bg)',
+                              color: 'var(--text)',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                            title={`Search for "${recSearch}"`}
+                          >
+                            <span>🔍 {recSearch}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {!isShortcutDiscoveryMode && !query.trim() && frequentlySearchedItems.length > 0 && (
                     <div
                       className="search-frequently-searched-section"

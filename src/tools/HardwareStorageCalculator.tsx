@@ -4,7 +4,29 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { CopyButton } from '../components/common/CopyButton';
+import { UnitSystemToggle } from '../components/common/UnitSystemToggle';
+import { ToolTour, TourStep } from '../components/common/ToolTour';
+import { useUnitSystem } from '../hooks/useUnitSystem';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
+
+const HARDWARE_STORAGE_TOUR_STEPS: TourStep[] = [
+  {
+    title: 'Select Calculation Mode',
+    description: 'Choose between Target Usable Capacity (e.g. 100 TB) or Manual Drive Count (e.g. 8 drives).',
+  },
+  {
+    title: 'Choose RAID Architecture',
+    description: 'Select RAID level (RAID 5, RAID 6, RAID 10, RAID 50/60) to balance redundancy, fault tolerance, and efficiency.',
+  },
+  {
+    title: 'Set Drive Capacity & Spares',
+    description: 'Configure individual hard drive size (e.g. 16 TB or 22 TB) and dedicated hot spares.',
+  },
+  {
+    title: 'Inspect Chassis & Metrics',
+    description: 'Review physical disk count, parity overhead, binary TiB capacity, chassis bay utilization, and rebuild time estimates.',
+  },
+];
 import {
   HardDrive,
   Server,
@@ -304,6 +326,7 @@ export const SCENARIO_PRESETS = [
 ];
 
 export const HardwareStorageCalculator: React.FC = () => {
+  const unitSystem = useUnitSystem();
   // Calculator Mode: 'target-to-drives' (given target usable capacity -> calculate drives)
   // or 'drives-to-usable' (given drive count & drive size -> calculate usable storage)
   const [calcMode, setCalcMode] = useState<'target-to-drives' | 'drives-to-usable'>(() => {
@@ -907,6 +930,8 @@ Generated via Jawed Imtiaz Storage Calculator: jawed.co.in/tools/hardware-storag
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }} className="no-print">
+            <ToolTour toolId="hardware-storage-calculator" toolName="Hardware Storage & RAID Calculator" steps={HARDWARE_STORAGE_TOUR_STEPS} />
+            <UnitSystemToggle />
             <button
               type="button"
               className="button button-secondary no-print"

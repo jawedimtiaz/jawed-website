@@ -10,6 +10,9 @@ import { useDiagnosticToolStorage } from '../hooks/useDiagnosticToolStorage';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
+import { UnitSystemToggle } from '../components/common/UnitSystemToggle';
+import { ToolTour } from '../components/common/ToolTour';
+import { useUnitSystem } from '../hooks/useUnitSystem';
 
 interface DeviceItem {
   id: string;
