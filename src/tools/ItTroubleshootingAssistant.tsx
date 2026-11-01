@@ -9,6 +9,7 @@ import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 import { PrintReportButton } from '../components/common/PrintReportButton';
 import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
+import { useToolAnalytics } from '../hooks/useToolAnalytics';
 
 export interface TroubleshootingDraft {
   category: string;
@@ -72,12 +73,14 @@ export const ItTroubleshootingAssistant: React.FC = () => {
   ]);
 
   const { category, scope, urgency, symptom } = values;
+  const { trackAction } = useToolAnalytics('it-troubleshooting-assistant');
   const [copied, setCopied] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
 
   const toggleSpeechRecording = () => {
+    trackAction(isRecording ? 'stop_voice_recording' : 'start_voice_recording');
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
       setSpeechError('Web Speech API is not supported in this browser. Please use Chrome, Edge, or Safari.');

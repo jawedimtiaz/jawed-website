@@ -715,3 +715,6 @@ export const DiagnosticToolsAutoPersist: React.FC = () => {
     </>
   );
 };
+
+export { useToolInteractionLogger } from '../hooks/useToolInteractionLogger';
+
