@@ -10,6 +10,7 @@ import { PdfExportButton } from '../components/common/PdfExportButton';
 import { PrintReportButton } from '../components/common/PrintReportButton';
 import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 import { Car, Calculator, Wallet, ShieldAlert, CheckCircle2, TrendingUp, Download, Copy, RefreshCw } from 'lucide-react';
+import { CarAmortizationAreaChart } from '../components/common/CarAmortizationAreaChart';
 
 export interface CarAffordabilityDraft {
   price: string;
@@ -17,6 +18,9 @@ export interface CarAffordabilityDraft {
   isDownPaymentPercent: boolean;
   interestRate: string;
   loanYears: number;
+  compareLoans: boolean;
+  compareInterestRate: string;
+  compareLoanYears: number;
   salary: string;
   existingEmis: string;
   fuel: string;
@@ -35,6 +39,9 @@ const DEFAULT_CAR_DRAFT: CarAffordabilityDraft = {
   isDownPaymentPercent: true,
   interestRate: '9',
   loanYears: 5,
+  compareLoans: false,
+  compareInterestRate: '10.5',
+  compareLoanYears: 4,
   salary: '',
   existingEmis: '',
   fuel: '',
@@ -78,6 +85,9 @@ export const CarAffordabilityCalculator: React.FC = () => {
     isDownPaymentPercent,
     interestRate,
     loanYears,
+    compareLoans,
+    compareInterestRate,
+    compareLoanYears,
     salary,
     existingEmis,
     fuel,
@@ -129,6 +139,19 @@ export const CarAffordabilityCalculator: React.FC = () => {
   const emi = emiOf(L);
   const repaid = emi * n;
   const interest = Math.max(0, repaid - L);
+
+  const cRate = clamp(num(compareInterestRate), 0, 25);
+  const cYrs = clamp(Number(compareLoanYears) || 1, 1, 7);
+  const cN = cYrs * 12;
+  const cR = cRate / 1200;
+  const cEmiOf = (loanAmount: number) => {
+    if (loanAmount <= 0) return 0;
+    if (cR === 0) return loanAmount / cN;
+    return (loanAmount * cR * Math.pow(1 + cR, cN)) / (Math.pow(1 + cR, cN) - 1);
+  };
+  const cEmi = cEmiOf(L);
+  const cRepaid = cEmi * cN;
+  const cInterest = Math.max(0, cRepaid - L);
 
   const g = (val: string) => Math.max(0, num(val));
   const otherMonthly = g(fuel) + g(insurance) / 12 + g(maintenance) / 12 + g(parking) + g(misc);
@@ -220,6 +243,25 @@ export const CarAffordabilityCalculator: React.FC = () => {
     });
   };
 
+  const handleShareSummary = () => {
+    const text = `🚗 Car Affordability & EMI Report (India)\n` +
+      `• On-Road Price: ${fmt(P)}\n` +
+      `• Down Payment: ${fmt(dpAmt)} (${isDownPaymentPercent ? `${downPayment}%` : 'Custom'})\n` +
+      `• Loan Amount: ${fmt(L)} (${rate}% p.a. for ${loanYears} yrs)\n` +
+      `• Monthly EMI: ${fmt(emi)}\n` +
+      `• Total Interest: ${fmt(interest)}\n` +
+      `• Total Repaid: ${fmt(repaid)}\n` +
+      `• Monthly TCO (Running Costs): ${fmt(tco)}\n` +
+      (sal ? `• Salary & EMI Burden: ${pc(bF)} of income (${rk[0]})\n` : '') +
+      `\nCalculated on Jawed Imtiaz Tools (https://jawed.co.in/tools/car-affordability-calculator)`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      setCopyStatus(true);
+      logResultCopied();
+      setTimeout(() => setCopyStatus(false), 2500);
+    });
+  };
+
   const handleDownloadCsv = () => {
     const blob = new Blob([amortizationData.csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -261,18 +303,40 @@ export const CarAffordabilityCalculator: React.FC = () => {
 
         <div className="workspace">
           <div className="panel">
-            <DraftSaveToolbar
-              isOnline={true}
-              hasSavedDraft={hasSavedDraft}
-              isRestored={isRestored}
-              isDirty={isDirty}
-              formattedLastSaved={formattedLastSaved}
-              statusMessage={statusMessage}
-              saveStatus={saveStatus}
-              onSaveNow={saveDraftNow}
-              onClearDraft={clearDraft}
-              toolName="Car Affordability Calculator"
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+              <DraftSaveToolbar
+                isOnline={true}
+                hasSavedDraft={hasSavedDraft}
+                isRestored={isRestored}
+                isDirty={isDirty}
+                formattedLastSaved={formattedLastSaved}
+                statusMessage={statusMessage}
+                saveStatus={saveStatus}
+                onSaveNow={saveDraftNow}
+                onClearDraft={clearDraft}
+                toolName="Car Affordability Calculator"
+              />
+              <button
+                type="button"
+                onClick={handleShareSummary}
+                className="button button-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  background: 'var(--accent)',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <Copy size={14} /> {copyStatus ? 'Copied Summary for Email/Chat!' : 'Share / Copy Loan Summary'}
+              </button>
+            </div>
 
             {errors.length > 0 && (
               <div className="err" role="alert" style={{ marginBottom: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--rose)', borderRadius: '12px', padding: '14px' }}>
@@ -453,6 +517,92 @@ export const CarAffordabilityCalculator: React.FC = () => {
                 </div>
               </div>
 
+              {/* Compare Loans Toggle & Comparison View */}
+              <div style={{ marginTop: '20px', padding: '16px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="checkbox"
+                      id="compareLoansToggle"
+                      checked={compareLoans}
+                      onChange={e => updateField('compareLoans', e.target.checked)}
+                      style={{ width: '18px', height: '18px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="compareLoansToggle" style={{ fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
+                      Compare Loans (Side-by-Side Scenario B)
+                    </label>
+                  </div>
+                  {compareLoans && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>
+                      Comparing Option A vs. Option B
+                    </span>
+                  )}
+                </div>
+
+                {compareLoans && (
+                  <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                    <div className="field-grid" style={{ marginBottom: '16px' }}>
+                      <div className="field-group">
+                        <label htmlFor="compareInterestRate">Scenario B Interest Rate (% p.a.)</label>
+                        <input
+                          id="compareInterestRate"
+                          type="text"
+                          inputMode="decimal"
+                          value={compareInterestRate}
+                          onChange={e => updateField('compareInterestRate', e.target.value)}
+                        />
+                      </div>
+                      <div className="field-group">
+                        <label htmlFor="compareLoanYears">Scenario B Tenure: {compareLoanYears} {compareLoanYears === 1 ? 'year' : 'years'}</label>
+                        <input
+                          id="compareLoanYears"
+                          type="range"
+                          min="1"
+                          max="7"
+                          step="1"
+                          value={compareLoanYears}
+                          onChange={e => updateField('compareLoanYears', Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="g" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+                      <div className="panel" style={{ background: 'var(--bg)', padding: '14px' }}>
+                        <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--accent)', marginBottom: '8px' }}>
+                          Option A (Current: {rate}% / {yrs} yrs)
+                        </div>
+                        <div className="kv" style={{ fontSize: '0.82rem', display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px' }}>
+                          <span>Monthly EMI</span>
+                          <strong style={{ color: 'var(--text-heading)' }}>{fmt(emi)}</strong>
+                          <span>Total Interest</span>
+                          <span>{fmt(interest)}</span>
+                          <span>Total Repaid</span>
+                          <span>{fmt(repaid)}</span>
+                        </div>
+                      </div>
+
+                      <div className="panel" style={{ background: 'var(--bg)', padding: '14px' }}>
+                        <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--rose)', marginBottom: '8px' }}>
+                          Option B (Compare: {cRate}% / {cYrs} yrs)
+                        </div>
+                        <div className="kv" style={{ fontSize: '0.82rem', display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px' }}>
+                          <span>Monthly EMI</span>
+                          <strong style={{ color: 'var(--text-heading)' }}>{fmt(cEmi)}</strong>
+                          <span>Total Interest</span>
+                          <span>{fmt(cInterest)}</span>
+                          <span>Total Repaid</span>
+                          <span>{fmt(cRepaid)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      <strong>Difference (Option B vs A):</strong> Monthly EMI difference is <strong>{fmt(Math.abs(cEmi - emi))}</strong> ({cEmi > emi ? 'higher' : 'lower'}), and total interest difference is <strong>{fmt(Math.abs(cInterest - interest))}</strong>.
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Charts & Breakdown */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', marginTop: '22px', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -487,6 +637,18 @@ export const CarAffordabilityCalculator: React.FC = () => {
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* D3.js Stacked Area Chart */}
+              <div style={{ marginTop: '24px', padding: '16px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>Principal vs. Interest Payments (Stacked Area Chart)</h3>
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.78rem' }}>
+                    <span><span className="dot" style={{ background: '#0ea5e9' }} /> Principal</span>
+                    <span><span className="dot" style={{ background: '#f43f5e' }} /> Interest</span>
+                  </div>
+                </div>
+                <CarAmortizationAreaChart data={amortizationData.rows} height={260} />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '22px', flexWrap: 'wrap', gap: '10px' }}>
