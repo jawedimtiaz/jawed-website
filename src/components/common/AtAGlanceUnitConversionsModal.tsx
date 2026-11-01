@@ -1,5 +1,6 @@
-import React from 'react';
-import { X, Scale, Globe, ArrowRightLeft, BookOpen } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Scale, Globe, ArrowRightLeft, BookOpen, RefreshCw } from 'lucide-react';
+import { AUTOSYNC_OPTIONS, getStoredAutoSyncFrequency, setStoredAutoSyncFrequency, AutoSyncFrequency } from '../../utils/syncSettings';
 
 interface AtAGlanceUnitConversionsModalProps {
   isOpen: boolean;
@@ -33,7 +34,14 @@ export const AtAGlanceUnitConversionsModal: React.FC<AtAGlanceUnitConversionsMod
   isOpen,
   onClose,
 }) => {
+  const [currentFreq, setCurrentFreq] = useState<AutoSyncFrequency>(getStoredAutoSyncFrequency);
+
   if (!isOpen) return null;
+
+  const handleFreqChange = (freq: AutoSyncFrequency) => {
+    setCurrentFreq(freq);
+    setStoredAutoSyncFrequency(freq);
+  };
 
   return (
     <div
@@ -98,10 +106,10 @@ export const AtAGlanceUnitConversionsModal: React.FC<AtAGlanceUnitConversionsMod
                 id="at-a-glance-title"
                 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-heading)' }}
               >
-                At-a-Glance Unit Conversion Reference
+                Settings &amp; Unit Conversion Reference
               </h2>
               <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Common Metric to Imperial conversions for international IT field technicians &amp; engineers.
+                Configure auto-sync update frequency and reference common metric to imperial conversions.
               </p>
             </div>
           </div>
@@ -124,8 +132,55 @@ export const AtAGlanceUnitConversionsModal: React.FC<AtAGlanceUnitConversionsMod
           </button>
         </div>
 
-        {/* Content Table */}
+        {/* Content Body */}
         <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+          {/* Auto-Sync Frequency Settings Section */}
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '16px',
+              borderRadius: '12px',
+              background: 'var(--surface-accent)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <RefreshCw className="w-4 h-4 text-sky-400" />
+              <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-heading)' }}>
+                Auto-Sync Frequency (Server Updates)
+              </h3>
+            </div>
+            <p style={{ margin: '0 0 12px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Configure how often cached diagnostic tools check for server updates and cloud synchronization when online.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+              {AUTOSYNC_OPTIONS.map(opt => {
+                const isSelected = currentFreq === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleFreqChange(opt.id)}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      textAlign: 'left',
+                      background: isSelected ? 'var(--accent)' : 'var(--bg)',
+                      color: isSelected ? '#ffffff' : 'var(--text)',
+                      border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      fontSize: '0.78rem',
+                      fontWeight: isSelected ? 700 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div>{opt.label}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div
             style={{
               display: 'flex',
@@ -142,7 +197,7 @@ export const AtAGlanceUnitConversionsModal: React.FC<AtAGlanceUnitConversionsMod
           >
             <BookOpen className="w-4 h-4 text-sky-400 flex-shrink-0" />
             <span>
-              Values update automatically across all active server rack, cable length, and storage calculation tools based on your global settings toggle.
+              At-a-Glance Metric to Imperial conversion table for quick mental checking.
             </span>
           </div>
 
@@ -217,7 +272,7 @@ export const AtAGlanceUnitConversionsModal: React.FC<AtAGlanceUnitConversionsMod
               cursor: 'pointer',
             }}
           >
-            Got it, return to tools
+            Save &amp; Return to Tools
           </button>
         </div>
       </div>

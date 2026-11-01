@@ -11,6 +11,41 @@ import {
   formatComboForDisplay,
 } from '../hooks/useKeyboardShortcuts';
 
+function getCategoryToolIcon(category: string, title: string): string {
+  const t = title.toLowerCase();
+  if (category === 'tool' || category === 'calculator') {
+    if (t.includes('calc') || t.includes('growth') || t.includes('inflation') || t.includes('subnet') || t.includes('salary') || t.includes('storage') || t.includes('power')) {
+      return '🧮';
+    }
+    if (t.includes('cable') || t.includes('poe') || t.includes('cctv') || t.includes('hardware')) {
+      return '🔌';
+    }
+    if (t.includes('resume') || t.includes('cover letter') || t.includes('career') || t.includes('interview')) {
+      return '📄';
+    }
+    if (t.includes('audio') || t.includes('transcriber') || t.includes('prompt')) {
+      return '🎙️';
+    }
+    return '🛠️';
+  }
+  if (category === 'guide' || category === 'note') {
+    if (t.includes('pinout') || t.includes('cable') || t.includes('rj45')) {
+      return '🔌';
+    }
+    if (t.includes('switch') || t.includes('router') || t.includes('network')) {
+      return '🌐';
+    }
+    return '📘';
+  }
+  if (category === 'blog') {
+    return '📝';
+  }
+  if (category === 'service') {
+    return '💼';
+  }
+  return '📌';
+}
+
 export interface CommandPaletteProps {
   onNavigated?: () => void;
   defaultOpen?: boolean;
@@ -2741,8 +2776,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                               <span className={`search-category-pill ${badgeClass}`}>
                                 {badgeLabel}
                               </span>
-                              <span className="search-result-title">
-                                {highlightMatch(item.title, query)}
+                              <span className="search-result-title" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <span aria-hidden="true" style={{ fontSize: '0.9rem' }}>{getCategoryToolIcon(item.category, item.title)}</span>
+                                <span>{highlightMatch(item.title, query)}</span>
                               </span>
                               <span className="search-result-url">{item.url}</span>
                             </div>

@@ -1200,13 +1200,18 @@ select:focus-visible {
   background: var(--surface);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   overflow: hidden;
-  animation: widgetSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: widgetSpringIn 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  transform-origin: bottom right;
 }
 
-@keyframes widgetSlideUp {
+@keyframes widgetSpringIn {
   from {
     opacity: 0;
-    transform: translateY(16px) scale(0.97);
+    transform: translateY(24px) scale(0.92);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.02);
   }
   to {
     opacity: 1;
