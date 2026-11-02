@@ -9,9 +9,9 @@ for(const item of contract.checks||[]){if(typeof item.path!=="string"||!item.pat
 function parseRobotsGroups(body){
  const groups=[];let current={agents:[],directives:[]};
  const flush=()=>{if(current.agents.length)groups.push(current);current={agents:[],directives:[]};};
- for(const raw of body.split(/\\r?\\n/)){
+ for(const raw of body.split(/\r?\n/)){
   const line=raw.trim();if(!line||line.startsWith("#"))continue;
-  const agent=line.match(/^User-agent:\\s*(.+)$/i);
+  const agent=line.match(/^User-agent:\s*(.+)$/i);
   if(agent){if(current.agents.length&&current.directives.length)flush();current.agents.push(agent[1].trim().toLowerCase());continue;}
   if(current.agents.length)current.directives.push(line);
  }
