@@ -1,7 +1,20 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import viteImagemin from 'vite-plugin-imagemin';
 import { VitePWA } from 'vite-plugin-pwa';
+import { writeSitemapFiles } from './scripts/generate-sitemap';
+
+function sitemapGeneratorPlugin(): Plugin {
+  return {
+    name: 'vite-plugin-generate-sitemap',
+    buildStart() {
+      writeSitemapFiles({ writeToDist: false });
+    },
+    closeBundle() {
+      writeSitemapFiles({ writeToDist: true });
+    },
+  };
+}
 
 // GitHub Pages project URLs are served below /jawed-website/.
 // Keep local development, PR browser tests, and Cloudflare Pages at the domain root.
@@ -16,6 +29,7 @@ export default defineConfig({
   base,
   plugins: [
     react(),
+    sitemapGeneratorPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],

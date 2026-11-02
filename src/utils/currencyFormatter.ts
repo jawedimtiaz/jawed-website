@@ -324,3 +324,247 @@ export function detectBrowserCurrency(): {
 
   return { detectedCode: DEFAULT_CURRENCY_CODE, detectedLocale: userLocales[0] || 'en-IN', isRecognized: false };
 }
+
+export interface CurrencyPresetDefaults {
+  price: string;
+  salary: string;
+  downPayment: string;
+  fuel: string;
+  insurance: string;
+  maintenance: string;
+  parking: string;
+  misc: string;
+  savings: string;
+  car2Price: string;
+  car3Price: string;
+  label: string;
+  placeholderPrice: string;
+  placeholderSalary: string;
+  placeholderFuel: string;
+  placeholderInsurance: string;
+  placeholderCar2: string;
+  placeholderCar3: string;
+  placeholderDownPayment?: string;
+  placeholderMaintenance?: string;
+  placeholderParking?: string;
+  placeholderMisc?: string;
+  placeholderSavings?: string;
+  placeholderCar2Price?: string;
+  placeholderCar3Price?: string;
+}
+
+export type PopulatedCurrencyPresetDefaults = Required<CurrencyPresetDefaults>;
+
+export const CURRENCY_PRESET_DEFAULTS: Record<CurrencyCode, CurrencyPresetDefaults> = {
+  INR: {
+    price: '1200000',
+    salary: '120000',
+    downPayment: '20',
+    fuel: '6000',
+    insurance: '35000',
+    maintenance: '15000',
+    parking: '2000',
+    misc: '1500',
+    savings: '300000',
+    car2Price: '900000',
+    car3Price: '1500000',
+    label: 'Indian Rupee (₹ · Lakhs)',
+    placeholderPrice: 'e.g. 12,00,000',
+    placeholderSalary: 'e.g. 1,20,000',
+    placeholderFuel: 'e.g. 6,000',
+    placeholderInsurance: 'e.g. 35,000',
+    placeholderCar2: 'e.g. 9,00,000',
+    placeholderCar3: 'e.g. 15,00,000',
+  },
+  USD: {
+    price: '35000',
+    salary: '6500',
+    downPayment: '20',
+    fuel: '180',
+    insurance: '1500',
+    maintenance: '800',
+    parking: '150',
+    misc: '100',
+    savings: '20000',
+    car2Price: '28000',
+    car3Price: '48000',
+    label: 'US Dollar ($ · Standard)',
+    placeholderPrice: 'e.g. 35,000',
+    placeholderSalary: 'e.g. 6,500',
+    placeholderFuel: 'e.g. 180',
+    placeholderInsurance: 'e.g. 1,500',
+    placeholderCar2: 'e.g. 28,000',
+    placeholderCar3: 'e.g. 48,000',
+  },
+  EUR: {
+    price: '32000',
+    salary: '4200',
+    downPayment: '20',
+    fuel: '160',
+    insurance: '1200',
+    maintenance: '750',
+    parking: '120',
+    misc: '80',
+    savings: '18000',
+    car2Price: '24000',
+    car3Price: '45000',
+    label: 'Euro (€ · Standard)',
+    placeholderPrice: 'e.g. 32,000',
+    placeholderSalary: 'e.g. 4,200',
+    placeholderFuel: 'e.g. 160',
+    placeholderInsurance: 'e.g. 1,200',
+    placeholderCar2: 'e.g. 24,000',
+    placeholderCar3: 'e.g. 45,000',
+  },
+  GBP: {
+    price: '28000',
+    salary: '3800',
+    downPayment: '20',
+    fuel: '150',
+    insurance: '1100',
+    maintenance: '650',
+    parking: '100',
+    misc: '70',
+    savings: '15000',
+    car2Price: '22000',
+    car3Price: '40000',
+    label: 'British Pound (£ · Standard)',
+    placeholderPrice: 'e.g. 28,000',
+    placeholderSalary: 'e.g. 3,800',
+    placeholderFuel: 'e.g. 150',
+    placeholderInsurance: 'e.g. 1,100',
+    placeholderCar2: 'e.g. 22,000',
+    placeholderCar3: 'e.g. 40,000',
+  },
+  AED: {
+    price: '130000',
+    salary: '18000',
+    downPayment: '20',
+    fuel: '700',
+    insurance: '4000',
+    maintenance: '3000',
+    parking: '400',
+    misc: '300',
+    savings: '60000',
+    car2Price: '95000',
+    car3Price: '180000',
+    label: 'UAE Dirham (AED)',
+    placeholderPrice: 'e.g. 130,000',
+    placeholderSalary: 'e.g. 18,000',
+    placeholderFuel: 'e.g. 700',
+    placeholderInsurance: 'e.g. 4,000',
+    placeholderCar2: 'e.g. 95,000',
+    placeholderCar3: 'e.g. 180,000',
+  },
+  CAD: {
+    price: '45000',
+    salary: '7000',
+    downPayment: '20',
+    fuel: '220',
+    insurance: '1800',
+    maintenance: '900',
+    parking: '180',
+    misc: '120',
+    savings: '25000',
+    car2Price: '35000',
+    car3Price: '60000',
+    label: 'Canadian Dollar (CA$)',
+    placeholderPrice: 'e.g. 45,000',
+    placeholderSalary: 'e.g. 7,000',
+    placeholderFuel: 'e.g. 220',
+    placeholderInsurance: 'e.g. 1,800',
+    placeholderCar2: 'e.g. 35,000',
+    placeholderCar3: 'e.g. 60,000',
+  },
+  AUD: {
+    price: '48000',
+    salary: '7500',
+    downPayment: '20',
+    fuel: '240',
+    insurance: '1900',
+    maintenance: '950',
+    parking: '200',
+    misc: '130',
+    savings: '28000',
+    car2Price: '38000',
+    car3Price: '65000',
+    label: 'Australian Dollar (A$)',
+    placeholderPrice: 'e.g. 48,000',
+    placeholderSalary: 'e.g. 7,500',
+    placeholderFuel: 'e.g. 240',
+    placeholderInsurance: 'e.g. 1,900',
+    placeholderCar2: 'e.g. 38,000',
+    placeholderCar3: 'e.g. 65,000',
+  },
+  JPY: {
+    price: '3800000',
+    salary: '450000',
+    downPayment: '20',
+    fuel: '18000',
+    insurance: '120000',
+    maintenance: '80000',
+    parking: '15000',
+    misc: '10000',
+    savings: '1500000',
+    car2Price: '2800000',
+    car3Price: '5200000',
+    label: 'Japanese Yen (¥)',
+    placeholderPrice: 'e.g. 3,800,000',
+    placeholderSalary: 'e.g. 450,000',
+    placeholderFuel: 'e.g. 18,000',
+    placeholderInsurance: 'e.g. 120,000',
+    placeholderCar2: 'e.g. 2,800,000',
+    placeholderCar3: 'e.g. 5,200,000',
+  },
+  SGD: {
+    price: '140000',
+    salary: '9000',
+    downPayment: '20',
+    fuel: '300',
+    insurance: '2200',
+    maintenance: '1200',
+    parking: '250',
+    misc: '150',
+    savings: '40000',
+    car2Price: '110000',
+    car3Price: '190000',
+    label: 'Singapore Dollar (S$)',
+    placeholderPrice: 'e.g. 140,000',
+    placeholderSalary: 'e.g. 9,000',
+    placeholderFuel: 'e.g. 300',
+    placeholderInsurance: 'e.g. 2,200',
+    placeholderCar2: 'e.g. 110,000',
+    placeholderCar3: 'e.g. 190,000',
+  },
+};
+
+/**
+ * Returns fully populated preset defaults for any currency code
+ */
+export function getCurrencyPresetDefaults(code?: string | null): PopulatedCurrencyPresetDefaults {
+  const normalized = normalizeCurrencyCode(code);
+  const base = CURRENCY_PRESET_DEFAULTS[normalized] || CURRENCY_PRESET_DEFAULTS.INR;
+  const pNum = parseFloat(base.price) || 0;
+  const dpNum = Math.round(pNum * 0.2);
+
+  return {
+    ...base,
+    placeholderDownPayment: base.placeholderDownPayment || `e.g. ${dpNum.toLocaleString()}`,
+    placeholderMaintenance: base.placeholderMaintenance || `e.g. ${(parseFloat(base.maintenance) || 0).toLocaleString()}`,
+    placeholderParking: base.placeholderParking || `e.g. ${(parseFloat(base.parking) || 0).toLocaleString()}`,
+    placeholderMisc: base.placeholderMisc || `e.g. ${(parseFloat(base.misc) || 0).toLocaleString()}`,
+    placeholderSavings: base.placeholderSavings || `e.g. ${(parseFloat(base.savings) || 0).toLocaleString()}`,
+    placeholderCar2Price: base.placeholderCar2Price || base.placeholderCar2 || `e.g. ${(parseFloat(base.car2Price) || 0).toLocaleString()}`,
+    placeholderCar3Price: base.placeholderCar3Price || base.placeholderCar3 || `e.g. ${(parseFloat(base.car3Price) || 0).toLocaleString()}`,
+  };
+}
+
+/**
+ * Parses raw input and returns formatted currency preview for display below the input
+ */
+export function formatInputPreview(raw: string | number, currencyCode: CurrencyCode): string {
+  const n = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/[^0-9.-]/g, ''));
+  if (isNaN(n) || n <= 0) return '';
+  return formatLocalizedCurrency(n, currencyCode);
+}
+

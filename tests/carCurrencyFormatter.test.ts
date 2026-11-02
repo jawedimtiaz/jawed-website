@@ -9,6 +9,8 @@ import {
   normalizeCurrencyCode,
   SUPPORTED_CURRENCIES,
   CURRENCY_LIST,
+  getCurrencyPresetDefaults,
+  formatInputPreview,
   CurrencyCode,
 } from '../src/utils/currencyFormatter.js';
 
@@ -191,6 +193,76 @@ describe('Car Affordability & EMI Calculator - Localized Currency Formatter', ()
         assert.ok(cur.locale.length >= 2);
         assert.ok(cur.numberingSystem === 'indian' || cur.numberingSystem === 'standard');
       }
+    });
+  });
+
+  describe('getCurrencyPresetDefaults() - Realistic Regional Benchmarks & Placeholders', () => {
+    it('returns tailored benchmarks for USD', () => {
+      const usdPresets = getCurrencyPresetDefaults('USD');
+      assert.equal(usdPresets.price, '35000');
+      assert.equal(usdPresets.salary, '6500');
+      assert.equal(usdPresets.downPayment, '20');
+      assert.ok(usdPresets.placeholderPrice.includes('35,000'));
+      assert.ok(usdPresets.placeholderSalary.includes('6,500'));
+    });
+
+    it('returns tailored benchmarks for INR', () => {
+      const inrPresets = getCurrencyPresetDefaults('INR');
+      assert.equal(inrPresets.price, '1200000');
+      assert.equal(inrPresets.salary, '120000');
+      assert.ok(inrPresets.placeholderPrice.includes('12,00,000'));
+    });
+
+    it('returns tailored benchmarks for EUR and GBP', () => {
+      const eurPresets = getCurrencyPresetDefaults('EUR');
+      assert.equal(eurPresets.price, '32000');
+      assert.equal(eurPresets.salary, '4200');
+
+      const gbpPresets = getCurrencyPresetDefaults('GBP');
+      assert.equal(gbpPresets.price, '28000');
+      assert.equal(gbpPresets.salary, '3800');
+    });
+
+    it('returns valid numeric strings for every supported currency code', () => {
+      const codes: CurrencyCode[] = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'CAD', 'AUD', 'JPY', 'SGD'];
+      for (const code of codes) {
+        const p = getCurrencyPresetDefaults(code);
+        assert.ok(parseFloat(p.price) > 0, `Price for ${code} should be positive`);
+        assert.ok(parseFloat(p.salary) > 0, `Salary for ${code} should be positive`);
+        assert.ok(parseFloat(p.downPayment) > 0, `Down payment for ${code} should be positive`);
+        assert.ok(parseFloat(p.fuel) >= 0, `Fuel for ${code} should be non-negative`);
+        assert.ok(parseFloat(p.insurance) >= 0, `Insurance for ${code} should be non-negative`);
+        assert.ok(parseFloat(p.maintenance) >= 0, `Maintenance for ${code} should be non-negative`);
+        assert.ok(p.placeholderPrice.length > 0, `Placeholder price for ${code} should be non-empty`);
+      }
+    });
+
+    it('falls back safely to INR defaults when currency code is unrecognized', () => {
+      // @ts-expect-error test fallback
+      const fallback = getCurrencyPresetDefaults('XYZ');
+      assert.equal(fallback.price, '1200000');
+      assert.equal(fallback.salary, '120000');
+    });
+  });
+
+  describe('formatInputPreview() - Live Formatting Preview Badge', () => {
+    it('formats raw string input to localized display string', () => {
+      assert.equal(formatInputPreview('35000', 'USD'), '$35,000');
+      assert.equal(formatInputPreview('1200000', 'INR'), '₹12,00,000');
+      assert.equal(formatInputPreview('28000', 'GBP'), '£28,000');
+    });
+
+    it('handles comma-separated and pre-formatted strings correctly', () => {
+      assert.equal(formatInputPreview('35,000', 'USD'), '$35,000');
+      assert.equal(formatInputPreview('12,00,000', 'INR'), '₹12,00,000');
+    });
+
+    it('returns empty string for empty, non-numeric, or zero values', () => {
+      assert.equal(formatInputPreview('', 'USD'), '');
+      assert.equal(formatInputPreview('0', 'USD'), '');
+      assert.equal(formatInputPreview('abc', 'USD'), '');
+      // @ts-expect-error test invalid input
+      assert.equal(formatInputPreview(null, 'USD'), '');
     });
   });
 });

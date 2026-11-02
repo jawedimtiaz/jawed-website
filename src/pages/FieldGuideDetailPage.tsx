@@ -9,6 +9,7 @@ import { Image } from '../components/Image';
 import { calculateReadTime } from '../utils/readTimeHelper';
 import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 import { extractContentFreshness } from '../utils/contentFreshness';
+import { buildTocAnchorUrl, copyTocAnchorToClipboard } from '../utils/tocGenerator';
 
 // Reusable Visual Guide Components & Aliases
 import {
@@ -26,14 +27,53 @@ import {
 export const FieldGuideDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const guide = FIELD_GUIDES.find(g => g.slug === slug);
+  const [copiedTocId, setCopiedTocId] = React.useState<string>('');
+  const copyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    setCopiedTocId('');
+    return () => {
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, [slug]);
 
   if (!guide) {
     return <Navigate to="/guides" replace />;
   }
 
-  const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : `https://jawed.co.in/field-guides/${guide.slug}`;
   const relatedGuides = FIELD_GUIDES.filter(g => g.slug !== guide.slug);
   const freshness = extractContentFreshness(guide);
+
+  const handleCopyGuideSectionLink = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+    headingId: string
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const baseUrl =
+      typeof window !== 'undefined' && window.location?.href
+        ? window.location.href
+        : currentUrl;
+    const anchorUrl = buildTocAnchorUrl(baseUrl, headingId);
+
+    await copyTocAnchorToClipboard(anchorUrl);
+
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      window.history.replaceState(null, '', `#${headingId}`);
+    }
+
+    setCopiedTocId(headingId);
+    if (copyTimerRef.current) {
+      clearTimeout(copyTimerRef.current);
+    }
+    copyTimerRef.current = setTimeout(() => {
+      setCopiedTocId(prev => (prev === headingId ? '' : prev));
+    }, 2000);
+  };
 
   // Render guide body with embedded interactive components
   const renderGuideBodyContent = () => {
@@ -1008,18 +1048,56 @@ export const FieldGuideDetailPage: React.FC = () => {
               <h3 style={{ fontSize: '1.05rem', margin: '0 0 14px', color: 'var(--text-heading)', borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
                 📋 Table of Contents
               </h3>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '10px' }}>
-                {guide.toc.map(item => (
-                  <li key={item.id}>
-                    <a
-                      href={`#${item.id}`}
-                      style={{ fontSize: '0.875rem', color: 'var(--muted-light)', textDecoration: 'none', display: 'block', lineHeight: '1.4' }}
-                      className="toc-link"
-                    >
-                      {item.text}
-                    </a>
-                  </li>
-                ))}
+              <ul className="note-toc-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '6px' }}>
+                {guide.toc.map(item => {
+                  const isCopied = copiedTocId === item.id;
+                  return (
+                    <li key={item.id} className="note-toc-item level-2">
+                      <div className="note-toc-row">
+                        <a
+                          href={`#${item.id}`}
+                          className="note-toc-link level-2 toc-link"
+                        >
+                          {item.text}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyGuideSectionLink(e, item.id)}
+                          className={`note-toc-copy-btn${isCopied ? ' is-copied' : ''}`}
+                          title={isCopied ? 'Link copied!' : 'Copy link to clipboard'}
+                          aria-label={
+                            isCopied
+                              ? `Copied link to ${item.text}`
+                              : `Copy link to clipboard for ${item.text}`
+                          }
+                          data-testid={`field-guide-copy-toc-link-${item.id}`}
+                        >
+                          {isCopied ? (
+                            <>
+                              <span aria-hidden="true">✓</span>
+                              <span>Copied</span>
+                            </>
+                          ) : (
+                            <svg
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 

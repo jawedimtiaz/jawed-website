@@ -9,8 +9,9 @@ import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 import { PrintReportButton } from '../components/common/PrintReportButton';
 import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
-import { Car, Calculator, Wallet, ShieldAlert, CheckCircle2, TrendingUp, TrendingDown, Download, Copy, RefreshCw, Sliders, Bookmark, Plus, Trash2, Check, Layers, HeartPulse, AlertTriangle, Globe, ChevronDown, ChevronUp, BarChart2 } from 'lucide-react';
+import { Car, Calculator, Wallet, ShieldAlert, CheckCircle2, TrendingUp, TrendingDown, Download, Copy, RefreshCw, Sliders, Bookmark, Plus, Trash2, Check, Layers, HeartPulse, AlertTriangle, Globe, ChevronDown, ChevronUp, BarChart2, FileDown } from 'lucide-react';
 import { CarAmortizationAreaChart } from '../components/common/CarAmortizationAreaChart';
+import { downloadCarLoanPdfReport } from '../utils/carLoanPdfReport';
 import {
   CurrencyCode,
   CURRENCY_LIST,
@@ -20,6 +21,8 @@ import {
   getCurrencyConfig,
   getCurrencySymbol,
   detectBrowserCurrency,
+  getCurrencyPresetDefaults,
+  formatInputPreview,
 } from '../utils/currencyFormatter';
 
 export interface SavedLoanScenario {
@@ -143,6 +146,8 @@ export const CarAffordabilityCalculator: React.FC = () => {
   const [csvNotice, setCsvNotice] = useState<string | null>(null);
   const [scenarioNotice, setScenarioNotice] = useState<string | null>(null);
   const [currencyNotice, setCurrencyNotice] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfNotice, setPdfNotice] = useState<string | null>(null);
   const [isAddingScenario, setIsAddingScenario] = useState(false);
   const [newScenarioName, setNewScenarioName] = useState('');
   const [showScenarioComparison, setShowScenarioComparison] = useState(false);
@@ -192,6 +197,89 @@ export const CarAffordabilityCalculator: React.FC = () => {
   const activeCurrency = (rawCurrency || 'INR') as CurrencyCode;
   const currencyConfig = getCurrencyConfig(activeCurrency);
   const currSym = currencyConfig.symbol;
+  const currencyPresets = getCurrencyPresetDefaults(activeCurrency);
+
+  const handleCurrencyChange = (newCurrency: CurrencyCode) => {
+    updateField('currency', newCurrency);
+    const cfg = getCurrencyConfig(newCurrency);
+    setCurrencyNotice(`Switched currency format to ${cfg.name} (${cfg.symbol})`);
+    setTimeout(() => setCurrencyNotice(null), 3500);
+  };
+
+  const handleApplyCurrencyBenchmarkDefaults = () => {
+    const p = getCurrencyPresetDefaults(activeCurrency);
+    setValues(prev => ({
+      ...prev,
+      price: p.price,
+      salary: p.salary,
+      downPayment: p.downPayment,
+      fuel: p.fuel,
+      insurance: p.insurance,
+      maintenance: p.maintenance,
+      parking: p.parking,
+      misc: p.misc,
+      savings: p.savings,
+      car2Price: p.car2Price,
+      car3Price: p.car3Price,
+    }));
+    setCurrencyNotice(`Loaded benchmark values for ${currencyConfig.name} (Car: ${formatLocalizedCurrency(parseFloat(p.price), activeCurrency)})`);
+    setTimeout(() => setCurrencyNotice(null), 4000);
+  };
+
+  const renderCurrencyInput = (
+    id: string,
+    value: string,
+    onChange: (val: string) => void,
+    placeholder: string,
+    ariaLabel?: string
+  ) => {
+    const prefixWidth = currSym.length > 2 ? 52 : 36;
+    const preview = formatInputPreview(value, activeCurrency);
+    const parsedNum = parseFloat(String(value).replace(/,/g, '')) || 0;
+    return (
+      <div>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <span
+            style={{
+              position: 'absolute',
+              left: '12px',
+              fontWeight: 800,
+              fontSize: '0.88rem',
+              color: 'var(--accent)',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
+          >
+            {currSym}
+          </span>
+          <input
+            id={id}
+            type="text"
+            inputMode="decimal"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            placeholder={placeholder}
+            aria-label={ariaLabel || id}
+            style={{ paddingLeft: `${prefixWidth}px` }}
+          />
+        </div>
+        {preview && (
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>
+              Formatted: <strong style={{ color: 'var(--text-heading)' }}>{preview}</strong>
+            </span>
+            {parsedNum >= 1000 && (
+              <span style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 600 }}>
+                {formatCompactCurrency(parsedNum, activeCurrency)}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const num = (v: any) => {
     const x = parseFloat(String(v).replace(/,/g, ''));
@@ -514,6 +602,50 @@ export const CarAffordabilityCalculator: React.FC = () => {
     setTimeout(() => setCsvNotice(null), 3000);
   };
 
+  const handleDownloadPdfReport = () => {
+    setIsGeneratingPdf(true);
+    setPdfNotice('Generating professional PDF report with chart & amortization schedule...');
+
+    setTimeout(() => {
+      try {
+        downloadCarLoanPdfReport({
+          currency: activeCurrency,
+          scenarioName: activeScenario?.name,
+          price: P,
+          downPayment: dpAmt,
+          downPaymentPercent: dpFrac * 100,
+          isDownPaymentPercent,
+          loanPrincipal: L,
+          interestRate: rate,
+          loanYears: yrs,
+          loanMonths: n,
+          monthlyEmi: emi,
+          totalInterest: interest,
+          totalRepaid: repaid,
+          effectivePurchaseCost: dpAmt + repaid,
+          monthlyTco: tco,
+          salary: sal,
+          existingEmis: ex,
+          isEmiHealthPass,
+          maxRecommendedEmi,
+          sensitivityDelta: sDelta,
+          simRate,
+          simEmi,
+          simInterest,
+          amortizationRows: amortizationData.rows,
+        });
+        logPdfExported();
+        setPdfNotice('Car Loan Report PDF generated and downloaded successfully!');
+      } catch (err) {
+        console.error('Failed to generate Car Loan PDF Report:', err);
+        setPdfNotice('Failed to generate PDF report. Please try again.');
+      } finally {
+        setIsGeneratingPdf(false);
+        setTimeout(() => setPdfNotice(null), 4000);
+      }
+    }, 60);
+  };
+
   return (
     <div className="page car-affordability-calc-root">
       <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -554,27 +686,71 @@ export const CarAffordabilityCalculator: React.FC = () => {
                 onClearDraft={clearDraft}
                 toolName="Car Affordability Calculator"
               />
-              <button
-                type="button"
-                onClick={handleShareSummary}
-                className="button button-primary"
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleDownloadPdfReport}
+                  disabled={isGeneratingPdf}
+                  className="button button-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    background: 'var(--accent)',
+                    color: '#ffffff',
+                    border: 'none',
+                    cursor: isGeneratingPdf ? 'wait' : 'pointer',
+                    boxShadow: '0 2px 8px rgba(14, 165, 233, 0.25)',
+                  }}
+                  title="Download professionally formatted PDF report with loan summary, D3 chart and amortization schedule"
+                  aria-label="Download Loan Report PDF"
+                >
+                  <FileDown size={14} /> {isGeneratingPdf ? 'Generating PDF...' : 'Download Report'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareSummary}
+                  className="button button-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Copy size={14} /> {copyStatus ? 'Copied Summary!' : 'Share / Copy Loan Summary'}
+                </button>
+              </div>
+            </div>
+
+            {pdfNotice && (
+              <div
+                role="status"
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
+                  padding: '9px 14px',
+                  marginBottom: '16px',
                   borderRadius: '8px',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid var(--emerald)',
+                  color: 'var(--emerald)',
                   fontSize: '0.82rem',
-                  fontWeight: 700,
-                  background: 'var(--accent)',
-                  color: '#ffffff',
-                  border: 'none',
-                  cursor: 'pointer',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
                 }}
               >
-                <Copy size={14} /> {copyStatus ? 'Copied Summary for Email/Chat!' : 'Share / Copy Loan Summary'}
-              </button>
-            </div>
+                <Check size={14} /> {pdfNotice}
+              </div>
+            )}
 
             {/* Regional Currency Selector Bar */}
             <div
@@ -608,11 +784,8 @@ export const CarAffordabilityCalculator: React.FC = () => {
                       <button
                         key={cCode}
                         type="button"
-                        onClick={() => {
-                          updateField('currency', cCode);
-                          setCurrencyNotice(`Switched currency format to ${cfg.name} (${cfg.symbol})`);
-                          setTimeout(() => setCurrencyNotice(null), 3000);
-                        }}
+                        data-testid={`currency-pill-${cCode}`}
+                        onClick={() => handleCurrencyChange(cCode)}
                         className={isSelected ? 'button button-primary' : 'button button-secondary'}
                         style={{
                           padding: '4px 10px',
@@ -631,34 +804,38 @@ export const CarAffordabilityCalculator: React.FC = () => {
                     );
                   })}
 
-                  {/* Dropdown for all supported currencies */}
+                  {/* Primary Currency Dropdown */}
                   <select
-                    id="currencySelector"
-                    aria-label="Select Regional Currency"
+                    id="currencySelectorDropdown"
+                    data-testid="currency-selector-dropdown"
+                    aria-label="Select Currency (e.g. USD, INR, EUR)"
                     value={activeCurrency}
-                    onChange={(e) => {
-                      const selected = e.target.value as CurrencyCode;
-                      updateField('currency', selected);
-                      const cfg = getCurrencyConfig(selected);
-                      setCurrencyNotice(`Switched currency format to ${cfg.name} (${cfg.symbol})`);
-                      setTimeout(() => setCurrencyNotice(null), 3000);
-                    }}
+                    onChange={(e) => handleCurrencyChange(e.target.value as CurrencyCode)}
                     style={{
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid var(--border)',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      border: '1.5px solid var(--accent)',
                       background: 'var(--surface)',
                       color: 'var(--text)',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
+                      fontSize: '0.84rem',
+                      fontWeight: 700,
                       cursor: 'pointer',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
                     }}
                   >
-                    {CURRENCY_LIST.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.code} ({c.symbol}) · {c.name}
-                      </option>
-                    ))}
+                    <optgroup label="Common Currencies">
+                      <option value="USD">USD ($) · United States Dollar</option>
+                      <option value="INR">INR (₹) · Indian Rupee</option>
+                      <option value="EUR">EUR (€) · Euro</option>
+                      <option value="GBP">GBP (£) · British Pound</option>
+                    </optgroup>
+                    <optgroup label="Other Global Currencies">
+                      <option value="CAD">CAD (CA$) · Canadian Dollar</option>
+                      <option value="AUD">AUD (A$) · Australian Dollar</option>
+                      <option value="AED">AED (AED) · UAE Dirham</option>
+                      <option value="JPY">JPY (¥) · Japanese Yen</option>
+                      <option value="SGD">SGD (S$) · Singapore Dollar</option>
+                    </optgroup>
                   </select>
                 </div>
               </div>
@@ -666,9 +843,31 @@ export const CarAffordabilityCalculator: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
+                  data-testid="load-currency-benchmark-values"
+                  onClick={handleApplyCurrencyBenchmarkDefaults}
+                  className="button button-secondary"
+                  title={`Load realistic ${activeCurrency} benchmark figures for car price, salary, and running costs`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '5px 11px',
+                    fontSize: '0.76rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    border: '1px solid var(--accent)',
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    color: 'var(--accent)',
+                    fontWeight: 700,
+                  }}
+                >
+                  ⚡ Load {activeCurrency} Benchmarks
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
                     const detected = detectBrowserCurrency();
-                    updateField('currency', detected.detectedCode);
+                    handleCurrencyChange(detected.detectedCode);
                     const cfg = getCurrencyConfig(detected.detectedCode);
                     setCurrencyNotice(`Auto-detected: ${cfg.name} (${detected.detectedLocale})`);
                     setTimeout(() => setCurrencyNotice(null), 3500);
@@ -735,28 +934,28 @@ export const CarAffordabilityCalculator: React.FC = () => {
               </p>
               <div className="field-grid" style={{ alignItems: 'end' }}>
                 <div className="field-group">
-                  <label htmlFor="price">Car On-Road Price ({currSym})</label>
-                  <input
-                    id="price"
-                    type="text"
-                    inputMode="decimal"
-                    value={price}
-                    onChange={e => updateField('price', e.target.value)}
-                  />
+                  <label htmlFor="price">Car On-Road Price ({currencyConfig.code} · {currSym})</label>
+                  {renderCurrencyInput(
+                    'price',
+                    price,
+                    v => updateField('price', v),
+                    currencyPresets.placeholderPrice,
+                    `Car On-Road Price in ${currencyConfig.name}`
+                  )}
                 </div>
               </div>
 
               <div className="calc-summary" style={{ marginTop: '16px' }}>
                 <div className="summary-item">
-                  <span>Car Price</span>
+                  <span>Car Price ({currSym})</span>
                   <span>{fmt(P)}</span>
                 </div>
                 <div className="summary-item">
-                  <span>Recommended Annual Income (40%–60%)</span>
+                  <span>Recommended Annual Income ({currSym}) (40%–60%)</span>
                   <span>{fmt(P / 0.6)} – {fmt(P / 0.4)}</span>
                 </div>
                 <div className="summary-item">
-                  <span>Recommended Monthly Salary</span>
+                  <span>Recommended Monthly Salary ({currSym})</span>
                   <span>{fmt(P / 0.6 / 12)} – {fmt(P / 0.4 / 12)}</span>
                 </div>
               </div>
@@ -1110,19 +1309,33 @@ export const CarAffordabilityCalculator: React.FC = () => {
 
                 <div className="field-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label htmlFor="downPayment">Down Payment ({isDownPaymentPercent ? '%' : currSym})</label>
+                    <label htmlFor="downPayment">Down Payment ({isDownPaymentPercent ? '%' : `${currencyConfig.code} · ${currSym}`})</label>
                     <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                       {fmt(dpAmt)} ({pc(dpFrac)})
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                    <input
-                      id="downPayment"
-                      type="text"
-                      inputMode="decimal"
-                      value={downPayment}
-                      onChange={e => updateField('downPayment', e.target.value)}
-                    />
+                    {isDownPaymentPercent ? (
+                      <input
+                        id="downPayment"
+                        type="text"
+                        inputMode="decimal"
+                        value={downPayment}
+                        onChange={e => updateField('downPayment', e.target.value)}
+                        placeholder="20"
+                        style={{ flex: 1 }}
+                      />
+                    ) : (
+                      <div style={{ flex: 1 }}>
+                        {renderCurrencyInput(
+                          'downPayment',
+                          downPayment,
+                          v => updateField('downPayment', v),
+                          currencyPresets.placeholderDownPayment,
+                          `Down Payment in ${currencyConfig.name}`
+                        )}
+                      </div>
+                    )}
                     <button
                       type="button"
                       className={isDownPaymentPercent ? 'on' : ''}
@@ -1350,29 +1563,72 @@ export const CarAffordabilityCalculator: React.FC = () => {
 
               <div className="calc-summary" style={{ marginTop: '18px' }}>
                 <div className="summary-item">
-                  <span>Down Payment ({isDownPaymentPercent ? `${downPayment}%` : 'Amount'})</span>
+                  <span>Down Payment ({isDownPaymentPercent ? `${downPayment}%` : currSym})</span>
                   <span>{fmt(dpAmt)}</span>
                 </div>
                 <div className="summary-item">
-                  <span>Loan Amount</span>
+                  <span>Loan Amount ({currSym})</span>
                   <span>{fmt(L)}</span>
                 </div>
                 <div className="summary-item">
-                  <span>Monthly EMI</span>
+                  <span>Monthly EMI ({currSym})</span>
                   <span style={{ color: 'var(--accent)' }}>{fmt(emi)}</span>
                 </div>
                 <div className="summary-item">
-                  <span>Total Interest Paid</span>
+                  <span>Total Interest Paid ({currSym})</span>
                   <span>{fmt(interest)}</span>
                 </div>
                 <div className="summary-item">
-                  <span>Total Amount Repaid</span>
+                  <span>Total Amount Repaid ({currSym})</span>
                   <span>{fmt(repaid)}</span>
                 </div>
                 <div className="summary-item">
-                  <span>Effective Purchase Cost</span>
+                  <span>Effective Purchase Cost ({currSym})</span>
                   <span>{fmt(dpAmt + repaid)}</span>
                 </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  marginTop: '16px',
+                  padding: '12px 16px',
+                  background: 'var(--surface-accent)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-heading)' }}>
+                    Need this loan breakdown in a formal PDF document?
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Download a multi-page PDF report with financial metrics, D3 trajectory graph, and complete month-by-month schedule.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadPdfReport}
+                  disabled={isGeneratingPdf}
+                  className="button button-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: isGeneratingPdf ? 'wait' : 'pointer',
+                  }}
+                  title="Download complete PDF loan report"
+                  aria-label="Download Report as PDF"
+                >
+                  <FileDown size={14} /> {isGeneratingPdf ? 'Generating PDF...' : 'Download Report (PDF)'}
+                </button>
               </div>
 
               {/* Financial Health Check Indicator (15% Monthly Income Guideline) */}
@@ -1613,13 +1869,13 @@ export const CarAffordabilityCalculator: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 260px', maxWidth: '360px' }}>
                         <label htmlFor="healthCheckSalaryInput" style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)', whiteSpace: 'nowrap' }}>
-                          Monthly Salary ({currSym}):
+                          Monthly Salary ({currencyConfig.code} · {currSym}):
                         </label>
                         <input
                           id="healthCheckSalaryInput"
                           type="text"
                           inputMode="decimal"
-                          placeholder="e.g. 120000"
+                          placeholder={currencyPresets.placeholderSalary}
                           value={salary}
                           onChange={e => updateField('salary', e.target.value)}
                           style={{
@@ -1810,7 +2066,7 @@ export const CarAffordabilityCalculator: React.FC = () => {
                 {/* Real-Time Impact Metric Cards */}
                 <div className="calc-summary" style={{ marginTop: '14px', marginBottom: '14px' }}>
                   <div className="summary-item">
-                    <span>Simulated Monthly EMI</span>
+                    <span>Simulated Monthly EMI ({currSym})</span>
                     <span style={{ color: diffEmi > 0 ? 'var(--rose)' : diffEmi < 0 ? 'var(--emerald)' : 'var(--accent)' }}>
                       {fmt(simEmi)}
                     </span>
@@ -1820,7 +2076,7 @@ export const CarAffordabilityCalculator: React.FC = () => {
                   </div>
 
                   <div className="summary-item">
-                    <span>Simulated Total Interest</span>
+                    <span>Simulated Total Interest ({currSym})</span>
                     <span style={{ color: diffInterest > 0 ? 'var(--rose)' : diffInterest < 0 ? 'var(--emerald)' : 'var(--text-heading)' }}>
                       {fmt(simInterest)}
                     </span>
@@ -1830,7 +2086,7 @@ export const CarAffordabilityCalculator: React.FC = () => {
                   </div>
 
                   <div className="summary-item">
-                    <span>Total Amount Repaid</span>
+                    <span>Total Amount Repaid ({currSym})</span>
                     <span>{fmt(simRepaid)}</span>
                     <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
                       Over {yrs} years ({n} payments)
@@ -1849,10 +2105,10 @@ export const CarAffordabilityCalculator: React.FC = () => {
                         <tr>
                           <th>Rate Shift</th>
                           <th>Effective Rate</th>
-                          <th>Monthly EMI</th>
-                          <th>Monthly Impact</th>
-                          <th>Total Interest</th>
-                          <th>Total Lifetime Impact</th>
+                          <th>Monthly EMI ({currSym})</th>
+                          <th>Monthly Impact ({currSym})</th>
+                          <th>Total Interest ({currSym})</th>
+                          <th>Total Lifetime Impact ({currSym})</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2038,6 +2294,23 @@ export const CarAffordabilityCalculator: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '22px', flexWrap: 'wrap', gap: '10px' }}>
                 <h3 style={{ margin: 0 }}>Amortization Schedule</h3>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleDownloadPdfReport}
+                    disabled={isGeneratingPdf}
+                    className="button button-primary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontWeight: 700,
+                      cursor: isGeneratingPdf ? 'wait' : 'pointer',
+                    }}
+                    title="Download complete PDF loan report with summary, D3 chart and month-by-month schedule"
+                    aria-label="Download Report as PDF"
+                  >
+                    <FileDown size={14} /> {isGeneratingPdf ? 'Generating PDF...' : 'Download Report'}
+                  </button>
                   <button type="button" onClick={handleDownloadCsv} className="button button-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <Download size={14} /> Download CSV
                   </button>
@@ -2045,6 +2318,7 @@ export const CarAffordabilityCalculator: React.FC = () => {
                     <Copy size={14} /> {copyStatus ? 'Copied!' : 'Copy Summary'}
                   </button>
                   {csvNotice && <span style={{ fontSize: '0.8rem', color: 'var(--emerald)', fontWeight: 600 }}>{csvNotice}</span>}
+                  {pdfNotice && <span style={{ fontSize: '0.8rem', color: 'var(--emerald)', fontWeight: 600 }}>{pdfNotice}</span>}
                 </div>
               </div>
 
@@ -2053,10 +2327,10 @@ export const CarAffordabilityCalculator: React.FC = () => {
                   <thead>
                     <tr>
                       <th>Month</th>
-                      <th>EMI</th>
-                      <th>Principal</th>
-                      <th>Interest</th>
-                      <th>Outstanding Balance</th>
+                      <th>EMI ({currSym})</th>
+                      <th>Principal ({currSym})</th>
+                      <th>Interest ({currSym})</th>
+                      <th>Outstanding Balance ({currSym})</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2082,26 +2356,24 @@ export const CarAffordabilityCalculator: React.FC = () => {
               </p>
               <div className="field-grid">
                 <div className="field-group">
-                  <label htmlFor="salary">Monthly Take-Home Salary ({currSym})</label>
-                  <input
-                    id="salary"
-                    type="text"
-                    inputMode="decimal"
-                    value={salary}
-                    onChange={e => updateField('salary', e.target.value)}
-                    placeholder="e.g. 120000"
-                  />
+                  <label htmlFor="salary">Monthly Take-Home Salary ({currencyConfig.code} · {currSym})</label>
+                  {renderCurrencyInput(
+                    'salary',
+                    salary,
+                    v => updateField('salary', v),
+                    currencyPresets.placeholderSalary,
+                    `Monthly Take-Home Salary in ${currencyConfig.name}`
+                  )}
                 </div>
                 <div className="field-group">
-                  <label htmlFor="existingEmis">Existing Monthly EMIs ({currSym})</label>
-                  <input
-                    id="existingEmis"
-                    type="text"
-                    inputMode="decimal"
-                    value={existingEmis}
-                    onChange={e => updateField('existingEmis', e.target.value)}
-                    placeholder="0"
-                  />
+                  <label htmlFor="existingEmis">Existing Monthly EMIs ({currencyConfig.code} · {currSym})</label>
+                  {renderCurrencyInput(
+                    'existingEmis',
+                    existingEmis,
+                    v => updateField('existingEmis', v),
+                    '0',
+                    `Existing Monthly EMIs in ${currencyConfig.name}`
+                  )}
                 </div>
               </div>
 
@@ -2109,19 +2381,19 @@ export const CarAffordabilityCalculator: React.FC = () => {
                 <div style={{ marginTop: '18px' }}>
                   <div className="calc-summary">
                     <div className="summary-item">
-                      <span>Current Salary</span>
+                      <span>Current Salary ({currSym})</span>
                       <span>{fmt(sal)}</span>
                     </div>
                     <div className="summary-item">
-                      <span>Existing EMIs</span>
+                      <span>Existing EMIs ({currSym})</span>
                       <span>{fmt(ex)}</span>
                     </div>
                     <div className="summary-item">
-                      <span>New Car EMI</span>
+                      <span>New Car EMI ({currSym})</span>
                       <span style={{ color: 'var(--accent)' }}>{fmt(emi)}</span>
                     </div>
                     <div className="summary-item">
-                      <span>Total EMIs After Purchase</span>
+                      <span>Total EMIs After Purchase ({currSym})</span>
                       <span>{fmt(ex + emi)}</span>
                     </div>
                   </div>
@@ -2206,33 +2478,33 @@ export const CarAffordabilityCalculator: React.FC = () => {
               <div className="field-grid" style={{ marginTop: '14px' }}>
                 <div className="field-group">
                   <label htmlFor="fuel">Fuel Cost / Month ({currSym})</label>
-                  <input id="fuel" type="text" inputMode="decimal" value={fuel} onChange={e => updateField('fuel', e.target.value)} placeholder="0" />
+                  {renderCurrencyInput('fuel', fuel, v => updateField('fuel', v), currencyPresets.placeholderFuel, 'Fuel Cost per Month')}
                 </div>
                 <div className="field-group">
                   <label htmlFor="insurance">Insurance Cost / Year ({currSym})</label>
-                  <input id="insurance" type="text" inputMode="decimal" value={insurance} onChange={e => updateField('insurance', e.target.value)} placeholder="0" />
+                  {renderCurrencyInput('insurance', insurance, v => updateField('insurance', v), currencyPresets.placeholderInsurance, 'Insurance Cost per Year')}
                 </div>
                 <div className="field-group">
                   <label htmlFor="maintenance">Maintenance / Year ({currSym})</label>
-                  <input id="maintenance" type="text" inputMode="decimal" value={maintenance} onChange={e => updateField('maintenance', e.target.value)} placeholder="0" />
+                  {renderCurrencyInput('maintenance', maintenance, v => updateField('maintenance', v), currencyPresets.placeholderMaintenance, 'Maintenance Cost per Year')}
                 </div>
                 <div className="field-group">
                   <label htmlFor="parking">Parking / Month ({currSym})</label>
-                  <input id="parking" type="text" inputMode="decimal" value={parking} onChange={e => updateField('parking', e.target.value)} placeholder="0" />
+                  {renderCurrencyInput('parking', parking, v => updateField('parking', v), currencyPresets.placeholderParking, 'Parking Cost per Month')}
                 </div>
                 <div className="field-group">
                   <label htmlFor="misc">Toll &amp; Misc / Month ({currSym})</label>
-                  <input id="misc" type="text" inputMode="decimal" value={misc} onChange={e => updateField('misc', e.target.value)} placeholder="0" />
+                  {renderCurrencyInput('misc', misc, v => updateField('misc', v), currencyPresets.placeholderMisc, 'Toll and Misc Cost per Month')}
                 </div>
               </div>
 
               <div className="calc-summary" style={{ marginTop: '18px' }}>
-                <div className="summary-item"><span>Monthly EMI</span><span>{fmt(emi)}</span></div>
-                <div className="summary-item"><span>Monthly Fuel</span><span>{fmt(g(fuel))}</span></div>
-                <div className="summary-item"><span>Monthly Insurance</span><span>{fmt(g(insurance) / 12)}</span></div>
-                <div className="summary-item"><span>Monthly Maintenance</span><span>{fmt(g(maintenance) / 12)}</span></div>
-                <div className="summary-item"><span>Monthly Parking &amp; Misc</span><span>{fmt(g(parking) + g(misc))}</span></div>
-                <div className="summary-item"><span>Total Monthly TCO</span><span style={{ color: 'var(--accent)' }}>{fmt(tco)}</span></div>
+                <div className="summary-item"><span>Monthly EMI ({currSym})</span><span>{fmt(emi)}</span></div>
+                <div className="summary-item"><span>Monthly Fuel ({currSym})</span><span>{fmt(g(fuel))}</span></div>
+                <div className="summary-item"><span>Monthly Insurance ({currSym})</span><span>{fmt(g(insurance) / 12)}</span></div>
+                <div className="summary-item"><span>Monthly Maintenance ({currSym})</span><span>{fmt(g(maintenance) / 12)}</span></div>
+                <div className="summary-item"><span>Monthly Parking &amp; Misc ({currSym})</span><span>{fmt(g(parking) + g(misc))}</span></div>
+                <div className="summary-item"><span>Total Monthly TCO ({currSym})</span><span style={{ color: 'var(--accent)' }}>{fmt(tco)}</span></div>
               </div>
               {sal ? (
                 <p style={{ marginTop: '10px', fontSize: '0.88rem' }}>
@@ -2245,8 +2517,8 @@ export const CarAffordabilityCalculator: React.FC = () => {
             <section style={{ marginBottom: '28px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
               <h2 className="section-title">5 · Emergency Fund Check</h2>
               <div className="field-group" style={{ maxWidth: '360px', marginTop: '14px' }}>
-                <label htmlFor="savings">Emergency Savings Available ({currSym})</label>
-                <input id="savings" type="text" inputMode="decimal" value={savings} onChange={e => updateField('savings', e.target.value)} placeholder="0" />
+                <label htmlFor="savings">Emergency Savings Available ({currencyConfig.code} · {currSym})</label>
+                {renderCurrencyInput('savings', savings, v => updateField('savings', v), currencyPresets.placeholderSavings, 'Emergency Savings Available')}
               </div>
               {sav > 0 && (
                 <div style={{ marginTop: '16px' }}>
@@ -2287,12 +2559,12 @@ export const CarAffordabilityCalculator: React.FC = () => {
               </p>
               <div className="field-grid" style={{ maxWidth: '600px', marginBottom: '16px' }}>
                 <div className="field-group">
-                  <label htmlFor="car2Price">Car 2 On-Road Price ({currSym})</label>
-                  <input id="car2Price" type="text" inputMode="decimal" value={car2Price} onChange={e => updateField('car2Price', e.target.value)} placeholder="e.g. 900000" />
+                  <label htmlFor="car2Price">Car 2 On-Road Price ({currencyConfig.code} · {currSym})</label>
+                  {renderCurrencyInput('car2Price', car2Price, v => updateField('car2Price', v), currencyPresets.placeholderCar2Price, `Car 2 Price in ${currencyConfig.name}`)}
                 </div>
                 <div className="field-group">
-                  <label htmlFor="car3Price">Car 3 On-Road Price ({currSym})</label>
-                  <input id="car3Price" type="text" inputMode="decimal" value={car3Price} onChange={e => updateField('car3Price', e.target.value)} placeholder="e.g. 1500000" />
+                  <label htmlFor="car3Price">Car 3 On-Road Price ({currencyConfig.code} · {currSym})</label>
+                  {renderCurrencyInput('car3Price', car3Price, v => updateField('car3Price', v), currencyPresets.placeholderCar3Price, `Car 3 Price in ${currencyConfig.name}`)}
                 </div>
               </div>
 
@@ -2309,15 +2581,15 @@ export const CarAffordabilityCalculator: React.FC = () => {
                     <div key={idx} className="panel" style={{ background: 'var(--bg)' }}>
                       <div style={{ fontWeight: 800, fontSize: '1rem', marginBottom: '10px' }}>Car {idx + 1}</div>
                       <div className="kv" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px 12px', fontSize: '0.85rem' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Price</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Price ({currSym})</span>
                         <span style={{ fontWeight: 700 }}>{fmt(pr)}</span>
-                        <span style={{ color: 'var(--text-muted)' }}>Loan Amount</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Loan Amount ({currSym})</span>
                         <span>{fmt(loanAmt)}</span>
-                        <span style={{ color: 'var(--text-muted)' }}>Monthly EMI</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Monthly EMI ({currSym})</span>
                         <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{fmt(eAmt)}</span>
-                        <span style={{ color: 'var(--text-muted)' }}>Total Interest</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Total Interest ({currSym})</span>
                         <span>{fmt(Math.max(0, eAmt * n - loanAmt))}</span>
-                        <span style={{ color: 'var(--text-muted)' }}>Required Salary</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Required Salary ({currSym})</span>
                         <span>{fmt(pr / 0.6 / 12)} /mo</span>
                         <span style={{ color: 'var(--text-muted)' }}>Affordability Score</span>
                         <span style={{ fontWeight: 700 }}>{sc !== null ? `${sc} / 100` : 'Add Salary'}</span>

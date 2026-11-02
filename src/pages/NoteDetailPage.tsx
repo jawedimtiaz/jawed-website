@@ -9,8 +9,27 @@ import { SeoHead } from '../components/SeoHead';
 import { calculateReadTime } from '../utils/readTimeHelper';
 import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 import { extractContentFreshness, type NoteSchemaItem } from '../utils/contentFreshness';
+import {
+  generateTableOfContents,
+  slugifyHeading,
+  decodeHtmlEntities,
+  buildTocAnchorUrl,
+  copyTocAnchorToClipboard,
+  type TocItem,
+  type GeneratedTocResult,
+} from '../utils/tocGenerator';
 
 import { COMPONENT_MAPPER, getInteractiveComponentForSlug } from '../utils/componentMapper';
+
+export {
+  generateTableOfContents,
+  slugifyHeading,
+  decodeHtmlEntities,
+  buildTocAnchorUrl,
+  copyTocAnchorToClipboard,
+  type TocItem,
+  type GeneratedTocResult,
+};
 
 /**
  * Helper function: extractGuideMetadata
@@ -162,14 +181,82 @@ export const useSeoMetadata = (
 export const NoteDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
 
+  const fieldGuide = FIELD_GUIDES.find((g) => g.slug === slug);
+  const note = (notesData as NoteSchemaItem[]).find((n) => n.slug === slug);
+
+  // Dynamically extract frontmatter title/description & update document head (title and meta description) upon guide load
+  const guideMetadata = useSeoMetadata(note, slug);
+
+  // Strip frontmatter header block from HTML content prior to rendering
+  const cleanHtmlContent = React.useMemo(() => {
+    if (!note?.content) return '';
+    return note.content.replace(/^---\s*[\r\n]+[\s\S]*?[\r\n]+---\s*/, '');
+  }, [note?.content]);
+
+  // Extract all H2 and H3 headings and inject unique anchor IDs into the rendered HTML
+  const { htmlWithIds, tocItems, shouldShowToc } = React.useMemo(
+    () => generateTableOfContents(cleanHtmlContent),
+    [cleanHtmlContent]
+  );
+
+  const [activeHeadingId, setActiveHeadingId] = React.useState<string>('');
+  const [copiedHeadingId, setCopiedHeadingId] = React.useState<string>('');
+  const [isMobileTocOpen, setIsMobileTocOpen] = React.useState<boolean>(false);
+  const copyFeedbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup copy feedback timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (copyFeedbackTimerRef.current) {
+        clearTimeout(copyFeedbackTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Reset mobile TOC, copy feedback, and initialize active heading when note slug or TOC items change
+  React.useEffect(() => {
+    setIsMobileTocOpen(false);
+    setCopiedHeadingId('');
+    setActiveHeadingId(tocItems[0]?.id || '');
+  }, [slug, tocItems]);
+
+  // Scroll-spy: highlight the active H2/H3 heading as the reader scrolls through the guide
+  React.useEffect(() => {
+    if (!shouldShowToc || typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    const handleScrollSpy = () => {
+      const scrollThreshold = 130;
+      let currentId = tocItems[0]?.id || '';
+
+      for (const item of tocItems) {
+        const element = document.getElementById(item.id);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          if (rect.top <= scrollThreshold) {
+            currentId = item.id;
+          } else {
+            break;
+          }
+        }
+      }
+
+      setActiveHeadingId((prev) => (prev === currentId ? prev : currentId));
+    };
+
+    window.addEventListener('scroll', handleScrollSpy, { passive: true });
+    handleScrollSpy();
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollSpy);
+    };
+  }, [shouldShowToc, tocItems]);
+
   // Check if slug belongs to a Field Guide first
-  const fieldGuide = FIELD_GUIDES.find(g => g.slug === slug);
   if (fieldGuide) {
     return <FieldGuideDetailPage />;
   }
-
-  // Otherwise check notesData
-  const note = (notesData as NoteSchemaItem[]).find(n => n.slug === slug);
 
   if (!note) {
     return <Navigate to="/guides" replace />;
@@ -177,14 +264,122 @@ export const NoteDetailPage: React.FC = () => {
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : `https://jawed.co.in/notes/${note.slug}`;
 
-  // Dynamically extract frontmatter title/description & update document head (title and meta description) upon guide load
-  const guideMetadata = useSeoMetadata(note, slug);
-
-  // Strip frontmatter header block from HTML content prior to rendering
-  const cleanHtmlContent = note.content ? note.content.replace(/^---\s*[\r\n]+[\s\S]*?[\r\n]+---\s*/, '') : '';
-
   // Retrieve injected visual module from centralized componentMapper utility
   const visualModule = getInteractiveComponentForSlug(slug);
+
+  const handleTocLinkClick = (event: React.MouseEvent<HTMLAnchorElement>, headingId: string) => {
+    event.preventDefault();
+    setActiveHeadingId(headingId);
+    setIsMobileTocOpen(false);
+
+    if (typeof document !== 'undefined') {
+      const targetElement = document.getElementById(headingId);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      window.history.replaceState(null, '', `#${headingId}`);
+    }
+  };
+
+  const handleCopySectionLink = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+    headingId: string
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const currentBaseUrl =
+      typeof window !== 'undefined' && window.location?.href
+        ? window.location.href
+        : shareUrl;
+    const anchorUrl = buildTocAnchorUrl(currentBaseUrl, headingId);
+
+    await copyTocAnchorToClipboard(anchorUrl);
+
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      window.history.replaceState(null, '', `#${headingId}`);
+    }
+
+    setCopiedHeadingId(headingId);
+    if (copyFeedbackTimerRef.current) {
+      clearTimeout(copyFeedbackTimerRef.current);
+    }
+    copyFeedbackTimerRef.current = setTimeout(() => {
+      setCopiedHeadingId((prev) => (prev === headingId ? '' : prev));
+    }, 2000);
+  };
+
+  const handleScrollToTop = () => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    if (tocItems[0]?.id) {
+      setActiveHeadingId(tocItems[0].id);
+    }
+  };
+
+  const renderTocList = (idPrefix: string) => (
+    <ul className="note-toc-list" data-testid={`${idPrefix}-toc-list`}>
+      {tocItems.map((item) => {
+        const isActive = activeHeadingId === item.id;
+        const isCopied = copiedHeadingId === item.id;
+        return (
+          <li
+            key={item.id}
+            className={`note-toc-item level-${item.level}`}
+          >
+            <div className="note-toc-row">
+              <a
+                href={`#${item.id}`}
+                onClick={(e) => handleTocLinkClick(e, item.id)}
+                className={`note-toc-link level-${item.level}${isActive ? ' is-active' : ''}`}
+                aria-current={isActive ? 'location' : undefined}
+              >
+                {item.text}
+              </a>
+              <button
+                type="button"
+                onClick={(e) => handleCopySectionLink(e, item.id)}
+                className={`note-toc-copy-btn${isCopied ? ' is-copied' : ''}`}
+                title={isCopied ? 'Link copied!' : 'Copy link to clipboard'}
+                aria-label={
+                  isCopied
+                    ? `Copied link to ${item.text}`
+                    : `Copy link to clipboard for ${item.text}`
+                }
+                data-testid={`${idPrefix}-copy-toc-link-${item.id}`}
+              >
+                {isCopied ? (
+                  <>
+                    <span aria-hidden="true">✓</span>
+                    <span>Copied</span>
+                  </>
+                ) : (
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
 
   return (
     <main className="container page">
@@ -268,20 +463,72 @@ export const NoteDetailPage: React.FC = () => {
         )}
       </header>
 
-      {/* Rendered Note Content */}
-      <article className="quick-note-article card" style={{ padding: '32px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}>
-        <div
-          className="note-rendered-content"
-          dangerouslySetInnerHTML={{ __html: cleanHtmlContent }}
-        />
+      {/* Mobile / Tablet Collapsible Table of Contents Navigation */}
+      {shouldShowToc && (
+        <nav className="note-toc-mobile" aria-label="Table of Contents (Mobile)">
+          <button
+            type="button"
+            className="note-toc-mobile-toggle"
+            onClick={() => setIsMobileTocOpen((prev) => !prev)}
+            aria-expanded={isMobileTocOpen}
+            aria-controls="note-toc-mobile-panel"
+          >
+            <span>On this page · {tocItems.length} sections</span>
+            <span aria-hidden="true" style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+              {isMobileTocOpen ? 'Hide ▲' : 'Show ▼'}
+            </span>
+          </button>
+          {isMobileTocOpen && (
+            <div id="note-toc-mobile-panel" className="note-toc-mobile-panel">
+              {renderTocList('mobile')}
+            </div>
+          )}
+        </nav>
+      )}
 
-        {/* Injected Automated Visual Modules */}
-        {visualModule && (
-          <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-            {visualModule}
-          </div>
+      {/* Main Layout: Note Content + Sticky Table of Contents Sidebar */}
+      <div className={shouldShowToc ? 'note-detail-layout' : 'note-detail-layout no-toc'}>
+        {/* Rendered Note Content */}
+        <article
+          className="quick-note-article card"
+          style={{ padding: '32px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}
+        >
+          <div
+            className="note-rendered-content"
+            dangerouslySetInnerHTML={{ __html: htmlWithIds }}
+          />
+
+          {/* Injected Automated Visual Modules */}
+          {visualModule && (
+            <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
+              {visualModule}
+            </div>
+          )}
+        </article>
+
+        {/* Sticky Sidebar Table of Contents for Desktop */}
+        {shouldShowToc && (
+          <aside className="note-toc-sidebar" aria-label="Table of Contents" data-testid="note-toc-sidebar">
+            <nav aria-label="On this page">
+              <div className="note-toc-header">
+                <h2 className="note-toc-title">On this page</h2>
+                <span className="note-toc-count">{tocItems.length} sections</span>
+              </div>
+              {renderTocList('desktop')}
+              <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={handleScrollToTop}
+                  className="footer-text-btn"
+                  style={{ fontSize: '0.8rem', fontWeight: 600 }}
+                >
+                  ↑ Back to top
+                </button>
+              </div>
+            </nav>
+          </aside>
         )}
-      </article>
+      </div>
 
       {/* Newsletter Subscription Form */}
       <NewsletterSubscribeForm sourceLocation={`note-${note.slug}`} />
