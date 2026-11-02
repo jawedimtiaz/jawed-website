@@ -24,7 +24,8 @@ for(const p of contract.required_runtime_files||[]){
 }
 
 let pkg={};
-try{pkg=JSON.parse(read("package.json"));if(!pkg.name||!pkg.scripts||pkg.scripts.build!== "tsc && vite build")fail.push("package.json must declare the expected Vite build script");}
+try{pkg=JSON.parse(read("package.json"));const buildScript=pkg.scripts?.build;
+if(!pkg.name||typeof buildScript!=="string"||!buildScript.includes("tsc")||!buildScript.includes("vite build")||!buildScript.includes("scripts/generate-sitemap.ts"))fail.push("package.json build script must type-check, generate the sitemap, and run the Vite production build");}
 catch{fail.push("package.json must be valid JSON");}
 
 const headers=exists("public/_headers")?read("public/_headers"):"";
