@@ -6,6 +6,17 @@ const hasUnsafeDotSegments=value=>value.split("/").some(segment=>{const normaliz
 if(!isHttpsOrigin(contract.production_origin)) failures.push("production robots origin must be an origin-only HTTPS URL");
 if(!Array.isArray(contract.checks)||contract.checks.length<1) failures.push("robots contract must contain at least one check");
 for(const item of contract.checks||[]){if(typeof item.path!=="string"||!item.path.startsWith("/")||item.path.startsWith("//")||item.path.includes("\\")||hasUnsafeDotSegments(item.path)) failures.push("robots path must be absolute");if(!Number.isInteger(item.status)||item.status<100||item.status>599) failures.push(`${item.path}: status must be valid`);if(typeof item.content_type!=="string"||!item.content_type.trim()) failures.push(`${item.path}: content_type must be non-empty`);if(!Array.isArray(item.required_directives)||item.required_directives.length<1) failures.push(`${item.path}: required_directives must be non-empty`);}
+function parseRobotsGroups(body){
+ const groups=[];let current={agents:[],directives:[]};
+ const flush=()=>{if(current.agents.length)groups.push(current);current={agents:[],directives:[]};};
+ for(const raw of body.split(/\r?\n/)){
+  const line=raw.trim();if(!line||line.startsWith("#"))continue;
+  const agent=line.match(/^User-agent:\s*(.+)$/i);
+  if(agent){if(current.agents.length&&current.directives.length)flush();current.agents.push(agent[1].trim().toLowerCase());continue;}
+  if(current.agents.length)current.directives.push(line);
+ }
+ flush();return groups;
+}
 async function readBoundedText(response,maxBytes){
  const declared=Number(response.headers.get("content-length"));
  if(Number.isInteger(declared)&&declared>maxBytes)throw new Error("response exceeds declared body limit");
@@ -29,8 +40,14 @@ for(const item of contract.checks||[]){
   if(!type.startsWith(item.content_type)) failures.push(`${item.path}: expected content type ${item.content_type}, got ${type||"missing"}`);
   if(response.status>=300&&response.status<400) failures.push(`${item.path}: unexpected redirect`);
   for(const directive of item.required_directives) if(!body.includes(directive)) failures.push(`${item.path}: missing required directive ${directive}`);
-  const directives=new Set(body.split(/\r?\n/).map(line=>line.trim()).filter(Boolean));
-  for(const directive of item.forbidden_directives||[]) if(directives.has(directive)) failures.push(`${item.path}: contains forbidden directive ${directive}`);
+  const groups=parseRobotsGroups(body);
+  const globalGroup=groups.find(group=>group.agents.includes("*"));
+  if(!globalGroup)failures.push(`${item.path}: missing a global User-agent: * group`);
+  else{
+   const globalDirectives=new Set(globalGroup.directives);
+   if(!globalDirectives.has("Allow: /"))failures.push(`${item.path}: global crawler group must allow /`);
+   for(const directive of item.forbidden_directives||[]) if(globalDirectives.has(directive)) failures.push(`${item.path}: global crawler group contains forbidden directive ${directive}`);
+  }
   if(!body.trim()) failures.push(`${item.path}: response body is empty`);
  }catch(error){failures.push(`${item.path}: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
  finally{clearTimeout(timer)}
