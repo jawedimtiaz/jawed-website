@@ -1,5 +1,7 @@
 # Canonical host and legacy entry points
-/index.html / 301
+/index.html /
+/index.php / 301
+/Index.php / 301
 /About_Me.html /about/ 301
 /Feedback.html /contact/ 301
 /Disclaimer.html /privacy/ 301
@@ -9,18 +11,13 @@
 /MCSE.html /work/skills/ 301
 /CCNA.html /work/skills/ 301
 /Software.html /resources/ 301
-/Horoscope.html / 301
-/Games.html / 301
-/Jokes.html / 301
 /Excel.html /tools/ 301
-/SMS.html / 301
 /Interview.html /work/experience/ 301
-/Quotes.html / 301
-/Gallery.html / 301
 /CCNA /work/skills/ 301
 /Tips_&_Tricks /resources/ 301
 /Tips_&_Tricks2 /resources/ 301
-/fortune_ / 301
+/Tips_&_Tricks.html /resources/ 301
+/Tips_&_Tricks2.html /resources/ 301
 
 # React Router paths must reach the Vite application entry point on direct navigation
 /guides / 200
