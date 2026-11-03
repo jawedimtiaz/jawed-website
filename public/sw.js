@@ -234,6 +234,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // XML/text discovery endpoints must bypass the SPA navigation fallback.
+  // A timed-out navigation must never be replaced by cached index.html for these files.
+  if (url.pathname === '/sitemap.xml' || url.pathname === '/robots.txt' || url.pathname.endsWith('.xml')) {
+    return;
+  }
+
   // 1. Navigation requests (HTML documents)
   if (request.mode === 'navigate') {
     event.respondWith(
