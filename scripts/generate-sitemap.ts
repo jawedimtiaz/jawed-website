@@ -48,7 +48,10 @@ export function writeSitemapFiles(options: WriteSitemapFilesOptions = {}): Write
   const writtenPaths: string[] = [];
   for (const targetPath of targetPaths) {
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.writeFileSync(targetPath, xml, 'utf8');
+    const existing = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf8') : null;
+    if (existing !== xml) {
+      fs.writeFileSync(targetPath, xml, 'utf8');
+    }
     writtenPaths.push(targetPath);
   }
 

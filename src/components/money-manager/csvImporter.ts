@@ -5,6 +5,7 @@ import type {
   MoneyTransaction,
   TransactionType,
 } from '../../db/db';
+import { predictTransactionCategory } from './mlCategorizer';
 
 export interface ParsedCsvResult {
   headers: string[];
@@ -31,6 +32,7 @@ export interface CsvMappingOptions {
   defaultMonth?: string; // YYYY-MM
   accounts: AccountSummary[];
   categories: MoneyCategory[];
+  historicalTransactions?: MoneyTransaction[];
 }
 
 export const SAMPLE_BANK_STATEMENT_CSV = `Date,Narration,Withdrawal Amt.,Deposit Amt.,Category,Bank
@@ -258,82 +260,25 @@ function parseCurrencyNumber(raw: string | undefined): number {
 }
 
 /**
- * Infers a category & sub-category from bank narration keywords when no explicit category is present.
+ * Infers a category & sub-category from bank narration keywords and ML Naive Bayes priors
+ * when no explicit category is present.
  */
 function inferCategoryFromNarration(
   narration: string,
   txType: TransactionType,
-  categories: MoneyCategory[]
+  categories: MoneyCategory[],
+  historicalTransactions?: MoneyTransaction[]
 ): { category: string; subCategory: string; fixedOrVariable: FixedOrVariable } {
-  if (txType === 'Transfer') {
-    return {
-      category: 'Transfer',
-      subCategory: 'NEFT / IMPS Self Transfer',
-      fixedOrVariable: 'Variable',
-    };
-  }
+  const prediction = predictTransactionCategory(narration, {
+    txType,
+    categories,
+    historicalTransactions,
+  });
 
-  const text = narration.toLowerCase();
-
-  if (txType === 'Income') {
-    if (/salary|payroll|stipend/i.test(text)) {
-      return { category: 'Salary', subCategory: 'Monthly Payroll', fixedOrVariable: 'Fixed' };
-    }
-    return {
-      category: 'Freelance & Consulting',
-      subCategory: 'IT Field Advisory',
-      fixedOrVariable: 'Variable',
-    };
-  }
-
-  if (/swiggy|zomato|grocery|bigbasket|blinkit|dairy|vegetable|supermarket|food|restaurant/i.test(text)) {
-    return {
-      category: 'Food & Groceries',
-      subCategory: 'Monthly Ration & Staples',
-      fixedOrVariable: 'Variable',
-    };
-  }
-  if (/rent|maintenance|society|housing/i.test(text)) {
-    return {
-      category: 'Rent & Housing',
-      subCategory: 'Apartment Rent',
-      fixedOrVariable: 'Fixed',
-    };
-  }
-  if (/electricity|bescom|broadband|jiofiber|airtel|water|gas|utility|bill/i.test(text)) {
-    return {
-      category: 'Utilities & Broadband',
-      subCategory: 'Electricity Bill',
-      fixedOrVariable: 'Fixed',
-    };
-  }
-  if (/pharmacy|apollo|hospital|clinic|doctor|medical|diagnostic|health/i.test(text)) {
-    return {
-      category: 'Medical & Health',
-      subCategory: 'Pharmacy & Medicines',
-      fixedOrVariable: 'Variable',
-    };
-  }
-  if (/school|tuition|college|udemy|course|book|education/i.test(text)) {
-    return {
-      category: 'Education',
-      subCategory: 'School Tuition',
-      fixedOrVariable: 'Fixed',
-    };
-  }
-  if (/petrol|fuel|indian oil|hpcl|bpcl|uber|ola|metro|irctc|flight/i.test(text)) {
-    return {
-      category: 'Transport & Fuel',
-      subCategory: 'Petrol / Fuel',
-      fixedOrVariable: 'Variable',
-    };
-  }
-
-  const fallbackCat = categories.find((c) => c.type === txType);
   return {
-    category: fallbackCat?.name || (txType === 'Expense' ? 'Lifestyle & Family' : 'Salary'),
-    subCategory: fallbackCat?.subCategories?.[0] || 'General',
-    fixedOrVariable: fallbackCat?.defaultFixedOrVariable || 'Variable',
+    category: prediction.category,
+    subCategory: prediction.subCategory,
+    fixedOrVariable: prediction.fixedOrVariable,
   };
 }
 
@@ -442,7 +387,12 @@ export function mapCsvRowsToTransactions(
       }
     }
 
-    const inferred = inferCategoryFromNarration(rawNarration, txType, categories);
+    const inferred = inferCategoryFromNarration(
+      rawNarration,
+      txType,
+      categories,
+      options.historicalTransactions
+    );
     const finalCategory =
       txType === 'Transfer'
         ? 'Transfer'

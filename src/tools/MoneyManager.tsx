@@ -375,6 +375,7 @@ export const MoneyManager: React.FC = () => {
         defaultDate={defaultTxDate}
         accounts={accounts}
         categories={categories}
+        transactions={transactions}
         onClose={() => {
           setIsTxModalOpen(false);
           setEditingTransaction(null);

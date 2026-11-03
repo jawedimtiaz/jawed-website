@@ -791,6 +791,263 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       )
     );
   });
+
+  it('exports monthly budget data and real-time spending progress as a structured CSV file for external tracking', async () => {
+    const {
+      computeMonthlyBudgetPlan,
+      formatMonthlyBudgetPlanToCsv,
+      generateMonthlyBudgetCsvExport,
+      MONTHLY_BUDGET_CSV_HEADERS,
+    } = await import('../src/components/money-manager/StatsView');
+
+    const state = await initializeAndSeedDatabase();
+    const plan = computeMonthlyBudgetPlan(state.transactions, '2026-11', state.categories);
+
+    // 1. Export without summary row
+    const rawCsv = formatMonthlyBudgetPlanToCsv(plan, '2026-11');
+    const parsedRaw = parseCsvText(rawCsv);
+    assert.deepEqual(parsedRaw.headers, [...MONTHLY_BUDGET_CSV_HEADERS]);
+    assert.equal(parsedRaw.rows.length, plan.items.length);
+
+    const medicalRow = parsedRaw.rows.find((r) => r['Category'] === 'Medical & Health');
+    assert.ok(medicalRow);
+    assert.equal(medicalRow['Month'], '2026-11');
+    assert.equal(medicalRow['Monthly Limit (INR)'], '5000');
+    assert.equal(medicalRow['Actual Spent (INR)'], '7850');
+    assert.equal(medicalRow['Overage Amount (INR)'], '2850');
+    assert.equal(medicalRow['Budget Status'], 'Over Budget');
+
+    const rentRow = parsedRaw.rows.find((r) => r['Category'] === 'Rent & Housing');
+    assert.ok(rentRow);
+    assert.equal(rentRow['Expense Type'], 'Fixed');
+    assert.equal(rentRow['Monthly Limit (INR)'], '24000');
+    assert.equal(rentRow['Actual Spent (INR)'], '22000');
+    assert.equal(rentRow['Remaining Headroom (INR)'], '2000');
+    assert.equal(rentRow['Budget Status'], 'Near Limit');
+
+    // 2. Generate full export payload with summary row included
+    const exportPayload = generateMonthlyBudgetCsvExport(plan, '2026-11', {
+      includeSummaryRow: true,
+    });
+    assert.equal(
+      exportPayload.fileName,
+      'jawed-money-manager-budget-plan-2026-11.csv'
+    );
+    assert.equal(exportPayload.categoryCount, plan.items.length);
+    assert.equal(exportPayload.overBudgetCount, 1);
+    assert.equal(exportPayload.totalBudgeted, plan.totalBudgeted);
+    assert.equal(exportPayload.totalSpent, plan.totalSpent);
+
+    const parsedWithSummary = parseCsvText(exportPayload.csvContent);
+    assert.equal(parsedWithSummary.rows.length, plan.items.length + 1);
+    const summaryRow = parsedWithSummary.rows[parsedWithSummary.rows.length - 1];
+    assert.equal(summaryRow['Category ID'], 'TOTAL-SUMMARY');
+    assert.equal(summaryRow['Category'], 'Total Monthly Budget Summary');
+    assert.equal(summaryRow['Monthly Limit (INR)'], String(plan.totalBudgeted));
+    assert.equal(summaryRow['Actual Spent (INR)'], String(plan.totalSpent));
+  });
+
+  it('computes 6-month Cash Flow (Income vs. Expenses & Net Cash Flow) trend data for the StatsView Recharts visualization', async () => {
+    const { computeSixMonthCashFlowTrend } = await import(
+      '../src/components/money-manager/StatsView'
+    );
+
+    const state = await initializeAndSeedDatabase();
+    const cashFlow = computeSixMonthCashFlowTrend(state.transactions, '2026-11');
+
+    // 1. Must cover exactly the last 6 months ending at 2026-11 (2026-06 through 2026-11)
+    assert.equal(cashFlow.points.length, 6);
+    assert.equal(cashFlow.points[0].yearMonth, '2026-06');
+    assert.equal(cashFlow.points[5].yearMonth, '2026-11');
+    assert.equal(cashFlow.points[5].label, "Nov '26");
+
+    // 2. Verify aggregate 6-month totals match the sum of individual monthly points
+    const sumIncome = cashFlow.points.reduce((acc, p) => acc + p.income, 0);
+    const sumExpense = cashFlow.points.reduce((acc, p) => acc + p.expense, 0);
+    const sumNet = cashFlow.points.reduce((acc, p) => acc + p.net, 0);
+
+    assert.equal(cashFlow.totalSixMonthIncome, sumIncome);
+    assert.equal(cashFlow.totalSixMonthExpense, sumExpense);
+    assert.equal(cashFlow.totalSixMonthNet, sumNet);
+    assert.equal(cashFlow.points[5].cumulativeNet, sumNet);
+    assert.equal(cashFlow.surplusMonthsCount, 6);
+    assert.equal(cashFlow.deficitMonthsCount, 0);
+    assert.ok(cashFlow.averageSavingsRate > 40);
+    assert.ok(cashFlow.peakIncomeMonth);
+    assert.ok(cashFlow.peakExpenseMonth);
+  });
+
+  it('automatically categorizes new transactions using the ML Naive Bayes + weighted keyword-rule engine', async () => {
+    const {
+      predictTransactionCategory,
+      autoCategorizeTransactionInput,
+    } = await import('../src/components/money-manager/mlCategorizer');
+
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Keyword rule classification across common merchant & bill descriptions
+    const foodPred = predictTransactionCategory('UPI/Swiggy Instamart Fresh Groceries & Milk', {
+      txType: 'Expense',
+      historicalTransactions: state.transactions,
+      categories: state.categories,
+    });
+    assert.equal(foodPred.category, 'Food & Groceries');
+    assert.ok(foodPred.confidence >= 70);
+    assert.ok(foodPred.matchedKeywords.includes('swiggy') || foodPred.matchedKeywords.includes('groceries'));
+
+    const utilityPred = predictTransactionCategory('ACH BESCOM Electricity Bill & JioFiber Broadband', {
+      txType: 'Expense',
+      historicalTransactions: state.transactions,
+      categories: state.categories,
+    });
+    assert.equal(utilityPred.category, 'Utilities & Broadband');
+    assert.equal(utilityPred.fixedOrVariable, 'Fixed');
+    assert.ok(utilityPred.confidence >= 75);
+
+    const medicalPred = predictTransactionCategory('POS Apollo Pharmacy cough syrup and medicines', {
+      txType: 'Expense',
+      historicalTransactions: state.transactions,
+      categories: state.categories,
+    });
+    assert.equal(medicalPred.category, 'Medical & Health');
+    assert.equal(medicalPred.subCategory, 'Pharmacy & Medicines');
+
+    const fuelPred = predictTransactionCategory('Indian Oil Petrol Pump full tank fuel refill', {
+      txType: 'Expense',
+      historicalTransactions: state.transactions,
+      categories: state.categories,
+    });
+    assert.equal(fuelPred.category, 'Transport & Fuel');
+    assert.equal(fuelPred.subCategory, 'Petrol / Fuel');
+
+    // 2. Naive Bayes learning from historical transactions for novel description keywords
+    const customHistory: MoneyTransaction[] = [
+      ...state.transactions,
+      {
+        id: 'tx-ml-train-1',
+        date: '2026-11-01T10:00',
+        type: 'Expense',
+        accountId: 'acc-icici',
+        amount: 4200,
+        category: 'Education',
+        subCategory: 'Technical Certifications',
+        fixedOrVariable: 'Variable',
+        note: 'KubeCon CloudNative Kubernetes Lab Voucher',
+        receiptImages: [],
+        isAnomaly: false,
+      },
+    ];
+
+    const learnedPred = predictTransactionCategory('KubeCon CloudNative exam registration', {
+      txType: 'Expense',
+      historicalTransactions: customHistory,
+      categories: state.categories,
+    });
+    assert.equal(learnedPred.category, 'Education');
+    assert.equal(learnedPred.source, 'ml-naive-bayes');
+    assert.ok(learnedPred.matchedKeywords.includes('kubecon'));
+
+    // 3. Custom user rule priority override
+    const customRulePred = predictTransactionCategory('Decathlon badminton racquet strings', {
+      txType: 'Expense',
+      historicalTransactions: state.transactions,
+      categories: state.categories,
+      customRules: [
+        {
+          id: 'custom-sports-1',
+          type: 'Expense',
+          category: 'Medical & Health',
+          subCategory: 'Fitness & Sports',
+          fixedOrVariable: 'Variable',
+          keywords: ['decathlon', 'badminton'],
+          weight: 2.0,
+          isCustom: true,
+        },
+      ],
+    });
+    assert.equal(customRulePred.category, 'Medical & Health');
+    assert.equal(customRulePred.source, 'custom-rule');
+
+    // 4. Auto-categorize new transaction input payload
+    const autoResult = autoCategorizeTransactionInput(
+      {
+        date: '2026-11-25T14:00',
+        type: 'Expense',
+        accountId: 'acc-icici',
+        amount: 22000,
+        category: 'Lifestyle & Family',
+        subCategory: '',
+        fixedOrVariable: 'Variable',
+        note: 'Monthly apartment rent to landlord',
+        receiptImages: [],
+        isAnomaly: false,
+      },
+      {
+        historicalTransactions: state.transactions,
+        categories: state.categories,
+      }
+    );
+    assert.equal(autoResult.transaction.category, 'Rent & Housing');
+    assert.equal(autoResult.transaction.subCategory, 'Apartment Rent');
+    assert.equal(autoResult.transaction.fixedOrVariable, 'Fixed');
+  });
+
+  it('forecasts month-end Projected Spending per category based on transaction history and daily burn velocity', async () => {
+    const {
+      computeMonthlyBudgetPlan,
+      computeProjectedSpendingForecast,
+    } = await import('../src/components/money-manager/StatsView');
+
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Early-month projection at Day 5 of 30 in November 2026
+    const forecast = computeProjectedSpendingForecast(
+      state.transactions,
+      '2026-11',
+      state.categories,
+      { 'Food & Groceries': 6000 },
+      { referenceDayOfMonth: 5 }
+    );
+
+    assert.equal(forecast.daysInMonth, 30);
+    assert.equal(forecast.daysElapsed, 5);
+    assert.equal(forecast.daysRemaining, 25);
+    assert.ok(forecast.totalProjectedSpend >= forecast.totalSpent);
+    assert.ok(forecast.projectedOverBudgetCount >= 2);
+
+    // Food & Groceries: currently spent ₹3,450 vs ₹6,000 limit (status === 'on-track'),
+    // but at Day 5 of 30 pace + historical average, projected to exceed ₹6,000 by month-end
+    const foodItem = forecast.items.find((i) => i.category === 'Food & Groceries');
+    assert.ok(foodItem);
+    assert.equal(foodItem.status, 'on-track');
+    assert.ok(foodItem.dailyBurnRate > 0);
+    assert.ok(foodItem.historicalMonthlyAvg > 0);
+    assert.ok(foodItem.projectedSpend > foodItem.monthlyLimit);
+    assert.equal(foodItem.forecastStatus, 'projected-over');
+    assert.ok(foodItem.projectedOverage > 0);
+
+    // Rent & Housing (Fixed): single recurring rent payment of ₹22,000 stays within ₹24,000 limit
+    const rentItem = forecast.items.find((i) => i.category === 'Rent & Housing');
+    assert.ok(rentItem);
+    assert.equal(rentItem.defaultFixedOrVariable, 'Fixed');
+    assert.equal(rentItem.projectedSpend, 22000);
+    assert.equal(rentItem.forecastStatus, 'at-risk'); // 91.7% utilization
+
+    // 2. Late-month simulation (Day 28 of 30) against default ₹16,000 Food & Groceries limit:
+    // lower daily burn rate keeps Food & Groceries comfortably on-track
+    const lateMonthForecast = computeMonthlyBudgetPlan(
+      state.transactions,
+      '2026-11',
+      state.categories,
+      undefined,
+      { referenceDayOfMonth: 28 }
+    );
+    const lateFoodItem = lateMonthForecast.items.find((i) => i.category === 'Food & Groceries');
+    assert.ok(lateFoodItem);
+    assert.ok(lateFoodItem.projectedSpend < foodItem.projectedSpend);
+    assert.ok(lateFoodItem.projectedSpend <= lateFoodItem.monthlyLimit);
+    assert.equal(lateFoodItem.forecastStatus, 'on-track');
+  });
 });
 
 

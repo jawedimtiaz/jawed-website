@@ -283,22 +283,44 @@ app.post('/api/animate-image-to-video', async (req, res) => {
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: { overlay: false } },
-      appType: 'custom',
-    });
+    const vitePromise = import('vite')
+      .then(({ createServer: createViteServer }) =>
+        createViteServer({
+          server: { middlewareMode: true, hmr: false },
+          appType: 'custom',
+        })
+      )
+      .then(async (vite) => {
+        try {
+          const template = fs.readFileSync(path.resolve('.', 'index.html'), 'utf-8');
+          await vite.transformIndexHtml('/', template);
+        } catch {
+          // Ignore warm-up errors
+        }
+        return vite;
+      });
 
-    app.use(vite.middlewares);
+    app.use(async (req, res, next) => {
+      try {
+        const vite = await vitePromise;
+        vite.middlewares(req, res, next);
+      } catch (err) {
+        next(err);
+      }
+    });
 
     app.use(async (req, res, next) => {
       const url = req.originalUrl;
       try {
+        const vite = await vitePromise;
         let template = fs.readFileSync(path.resolve('.', 'index.html'), 'utf-8');
         template = await vite.transformIndexHtml(url, template);
         res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
       } catch (e: any) {
-        vite.ssrFixStacktrace(e);
+        const vite = await vitePromise.catch(() => null);
+        if (vite) {
+          vite.ssrFixStacktrace(e);
+        }
         next(e);
       }
     });

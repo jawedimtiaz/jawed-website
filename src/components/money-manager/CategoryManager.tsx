@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Palette,
   Plus,
@@ -6,6 +6,7 @@ import {
   RotateCcw,
   Check,
   Tag,
+  Sparkles,
 } from 'lucide-react';
 import {
   INITIAL_CATEGORIES,
@@ -14,8 +15,17 @@ import {
   deleteCategory as dbDeleteCategory,
   type FixedOrVariable,
   type MoneyCategory,
+  type MoneyTransaction,
 } from '../../db/db';
 import { renderCategoryIcon } from './categoryIcons';
+import {
+  DEFAULT_KEYWORD_CATEGORY_RULES,
+  loadCustomKeywordRules,
+  saveCustomKeywordRule,
+  deleteCustomKeywordRule,
+  predictTransactionCategory,
+  type KeywordCategoryRule,
+} from './mlCategorizer';
 
 export const CATEGORY_COLOR_PRESETS = [
   '#ef4444',
@@ -34,6 +44,7 @@ export const CATEGORY_COLOR_PRESETS = [
 
 export interface CategoryManagerProps {
   categories?: MoneyCategory[];
+  transactions?: MoneyTransaction[];
   onSaveCategory?: (category: MoneyCategory) => Promise<void>;
   onDeleteCategory?: (id: string) => Promise<void>;
 }
@@ -42,6 +53,7 @@ const DEFAULT_CATEGORY_Ids = new Set(INITIAL_CATEGORIES.map((c) => c.id));
 
 export const CategoryManager: React.FC<CategoryManagerProps> = ({
   categories = INITIAL_CATEGORIES,
+  transactions = [],
   onSaveCategory,
   onDeleteCategory,
 }) => {
@@ -56,6 +68,20 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   const [newColor, setNewColor] = useState<string>('#8b5cf6');
   const [newBudget, setNewBudget] = useState<string>('5000');
   const [newSubCategories, setNewSubCategories] = useState<string>('General, Miscellaneous');
+
+  // ML Keyword Rule Manager & Live Sandbox State
+  const [customMlRules, setCustomMlRules] = useState<KeywordCategoryRule[]>(() =>
+    loadCustomKeywordRules()
+  );
+  const [sandboxDescription, setSandboxDescription] = useState<string>(
+    'UPI/Swiggy Instamart Fresh Groceries'
+  );
+  const [ruleKeywordsInput, setRuleKeywordsInput] = useState<string>('');
+  const [ruleTargetCategory, setRuleTargetCategory] = useState<string>('Food & Groceries');
+  const [ruleTargetSubCategory, setRuleTargetSubCategory] = useState<string>(
+    'Supermarket Groceries'
+  );
+  const [showBuiltInRules, setShowBuiltInRules] = useState<boolean>(false);
 
   useEffect(() => {
     setLocalCategories(categories);
@@ -159,6 +185,46 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   const filteredCategories = localCategories.filter((cat) =>
     typeFilter === 'ALL' ? true : cat.type === typeFilter
   );
+
+  const sandboxPrediction = useMemo(
+    () =>
+      predictTransactionCategory(sandboxDescription, {
+        allowTypeInference: true,
+        historicalTransactions: transactions,
+        categories: localCategories,
+        customRules: customMlRules,
+      }),
+    [sandboxDescription, transactions, localCategories, customMlRules]
+  );
+
+  const handleAddCustomMlRule = (e: React.FormEvent) => {
+    e.preventDefault();
+    const keywords = ruleKeywordsInput
+      .split(',')
+      .map((k) => k.trim().toLowerCase())
+      .filter(Boolean);
+    if (keywords.length === 0) return;
+
+    const matchedCat =
+      localCategories.find((c) => c.name === ruleTargetCategory) || localCategories[0];
+    if (!matchedCat) return;
+
+    const updated = saveCustomKeywordRule({
+      type: matchedCat.type,
+      category: matchedCat.name,
+      subCategory:
+        ruleTargetSubCategory.trim() || matchedCat.subCategories?.[0] || 'General',
+      fixedOrVariable: matchedCat.defaultFixedOrVariable,
+      keywords,
+    });
+    setCustomMlRules(updated);
+    setRuleKeywordsInput('');
+  };
+
+  const handleDeleteCustomMlRule = (ruleId: string) => {
+    const updated = deleteCustomKeywordRule(ruleId);
+    setCustomMlRules(updated);
+  };
 
   return (
     <article
@@ -484,6 +550,260 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
             </div>
           );
         })}
+      </div>
+
+      {/* ML Auto-Categorization Rule System & Live Classifier Sandbox */}
+      <div
+        style={{
+          marginTop: 18,
+          paddingTop: 16,
+          borderTop: '1px solid var(--border)',
+        }}
+        data-testid="mm-ml-rules-section"
+      >
+        <div className="mm-stat-panel-header" style={{ marginBottom: 12 }}>
+          <div>
+            <h3 className="mm-stat-panel-title" style={{ fontSize: '1rem' }}>
+              <Sparkles
+                size={16}
+                style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--accent)' }}
+              />
+              ML Auto-Categorization Rule Engine &amp; Live Description Classifier
+            </h3>
+            <p className="mm-section-desc" style={{ margin: '3px 0 0' }}>
+              Combines Multinomial Naive Bayes trained on your ledger history with weighted keyword rules ({DEFAULT_KEYWORD_CATEGORY_RULES.length} built-in rules + {customMlRules.length} custom rules)
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowBuiltInRules((prev) => !prev)}
+            className="mm-btn mm-btn-sm mm-btn-ghost"
+            data-testid="mm-ml-toggle-builtin-rules-btn"
+          >
+            {showBuiltInRules
+              ? 'Hide Built-In Rules'
+              : `Inspect Built-In Rules (${DEFAULT_KEYWORD_CATEGORY_RULES.length})`}
+          </button>
+        </div>
+
+        <div className="mm-stats-two-col" style={{ gap: 12 }}>
+          {/* Live ML Classifier Sandbox */}
+          <div
+            className="mm-inline-form-card"
+            style={{ margin: 0 }}
+            data-testid="mm-ml-classifier-sandbox"
+          >
+            <label
+              htmlFor="mm-ml-sandbox-input"
+              style={{ fontWeight: 700, fontSize: '0.84rem', display: 'block', marginBottom: 6 }}
+            >
+              Test Transaction Description (Live ML + Keyword Prediction)
+            </label>
+            <input
+              id="mm-ml-sandbox-input"
+              type="text"
+              value={sandboxDescription}
+              onChange={(e) => setSandboxDescription(e.target.value)}
+              placeholder="Type any merchant or bank narration..."
+              className="mm-input"
+              data-testid="mm-ml-sandbox-input"
+            />
+
+            <div
+              style={{
+                marginTop: 10,
+                padding: '10px 12px',
+                borderRadius: 8,
+                background: 'rgba(6, 182, 212, 0.08)',
+                border: '1px solid rgba(6, 182, 212, 0.35)',
+                fontSize: '0.82rem',
+              }}
+              data-testid="mm-ml-sandbox-result"
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span>
+                  Predicted:{' '}
+                  <strong data-testid="mm-ml-sandbox-category">
+                    {sandboxPrediction.category}
+                  </strong>{' '}
+                  ({sandboxPrediction.subCategory}) ·{' '}
+                  <span style={{ color: 'var(--muted)' }}>
+                    {sandboxPrediction.predictedType} / {sandboxPrediction.fixedOrVariable}
+                  </span>
+                </span>
+                <span
+                  className="mm-budget-status-pill is-on-track"
+                  data-testid="mm-ml-sandbox-confidence"
+                >
+                  {sandboxPrediction.confidence}% ({sandboxPrediction.confidenceLabel})
+                </span>
+              </div>
+              {sandboxPrediction.matchedKeywords.length > 0 && (
+                <div style={{ marginTop: 6, fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  Matched keywords:{' '}
+                  <strong>{sandboxPrediction.matchedKeywords.join(', ')}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Add Custom Keyword Rule Form */}
+          <form
+            onSubmit={handleAddCustomMlRule}
+            className="mm-inline-form-card"
+            style={{ margin: 0 }}
+            data-testid="mm-ml-add-rule-form"
+          >
+            <strong style={{ fontSize: '0.84rem', display: 'block', marginBottom: 6 }}>
+              Add Custom Keyword Auto-Categorization Rule
+            </strong>
+            <div className="mm-form-grid-2" style={{ gap: 8 }}>
+              <div className="mm-field">
+                <label htmlFor="mm-ml-rule-keywords">Keywords (comma separated)</label>
+                <input
+                  id="mm-ml-rule-keywords"
+                  type="text"
+                  value={ruleKeywordsInput}
+                  onChange={(e) => setRuleKeywordsInput(e.target.value)}
+                  placeholder="e.g., decathlon, sports, badminton"
+                  className="mm-input"
+                  data-testid="mm-ml-rule-keywords-input"
+                />
+              </div>
+
+              <div className="mm-field">
+                <label htmlFor="mm-ml-rule-category">Target Category</label>
+                <select
+                  id="mm-ml-rule-category"
+                  value={ruleTargetCategory}
+                  onChange={(e) => {
+                    const nextName = e.target.value;
+                    setRuleTargetCategory(nextName);
+                    const found = localCategories.find((c) => c.name === nextName);
+                    if (found?.subCategories?.[0]) {
+                      setRuleTargetSubCategory(found.subCategories[0]);
+                    }
+                  }}
+                  className="mm-input"
+                  data-testid="mm-ml-rule-category-select"
+                >
+                  {localCategories.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name} ({c.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'space-between',
+                gap: 8,
+                marginTop: 8,
+              }}
+            >
+              <div className="mm-field" style={{ flex: 1 }}>
+                <label htmlFor="mm-ml-rule-subcat">Sub-Category</label>
+                <input
+                  id="mm-ml-rule-subcat"
+                  type="text"
+                  value={ruleTargetSubCategory}
+                  onChange={(e) => setRuleTargetSubCategory(e.target.value)}
+                  className="mm-input"
+                  data-testid="mm-ml-rule-subcategory-input"
+                />
+              </div>
+              <button
+                type="submit"
+                className="mm-btn mm-btn-sm mm-btn-primary"
+                data-testid="mm-ml-add-rule-btn"
+              >
+                <Plus size={14} />
+                <span>Add Rule</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Custom Rules List */}
+        {customMlRules.length > 0 && (
+          <div
+            style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}
+            data-testid="mm-ml-custom-rules-list"
+          >
+            {customMlRules.map((rule) => (
+              <span
+                key={rule.id}
+                className="mm-budget-status-pill is-on-track"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px' }}
+                data-testid={`mm-ml-custom-rule-${rule.id}`}
+              >
+                <span>
+                  <strong>[{rule.keywords.join(', ')}]</strong> → {rule.category} ({rule.subCategory})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteCustomMlRule(rule.id)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'inherit',
+                    cursor: 'pointer',
+                    padding: 0,
+                    display: 'inline-flex',
+                  }}
+                  aria-label={`Delete custom rule for ${rule.category}`}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Built-in Keyword Rules Reference Grid */}
+        {showBuiltInRules && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: 8,
+              marginTop: 12,
+            }}
+            data-testid="mm-ml-builtin-rules-grid"
+          >
+            {DEFAULT_KEYWORD_CATEGORY_RULES.map((rule) => (
+              <div
+                key={rule.id}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  fontSize: '0.76rem',
+                }}
+              >
+                <div>
+                  <strong>{rule.category}</strong> → {rule.subCategory} ({rule.fixedOrVariable})
+                </div>
+                <div style={{ color: 'var(--muted)', marginTop: 3 }}>
+                  Keywords: {rule.keywords.slice(0, 7).join(', ')}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </article>
   );

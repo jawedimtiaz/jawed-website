@@ -7,6 +7,7 @@ import {
   Check,
   ArrowLeftRight,
   Repeat,
+  Sparkles,
 } from 'lucide-react';
 import {
   computeNextRecurringDate,
@@ -18,6 +19,12 @@ import {
   type RecurringRule,
   type TransactionType,
 } from '../../db/db';
+import {
+  predictTransactionCategory,
+  saveCustomKeywordRule,
+  tokenizeTransactionDescription,
+  type CategoryPrediction,
+} from './mlCategorizer';
 
 export interface TransactionModalProps {
   isOpen: boolean;
@@ -31,6 +38,7 @@ export interface TransactionModalProps {
   ) => Promise<void>;
   accounts: AccountSummary[];
   categories: MoneyCategory[];
+  transactions?: MoneyTransaction[];
   editingTransaction?: MoneyTransaction | null;
   defaultDate?: string; // YYYY-MM-DD
 }
@@ -49,6 +57,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   onSaveRecurringRule,
   accounts,
   categories,
+  transactions = [],
   editingTransaction,
   defaultDate,
 }) => {
@@ -64,6 +73,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [receiptImages, setReceiptImages] = useState<string[]>([]);
   const [isAnomaly, setIsAnomaly] = useState<boolean>(false);
   const [recurringInterval, setRecurringInterval] = useState<'None' | RecurringFrequency>('None');
+  const [autoCategorizeEnabled, setAutoCategorizeEnabled] = useState<boolean>(true);
+  const [manualCategoryLock, setManualCategoryLock] = useState<boolean>(false);
+  const [ruleSavedNotice, setRuleSavedNotice] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -99,6 +111,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setNote(editingTransaction.note);
       setReceiptImages(editingTransaction.receiptImages || []);
       setIsAnomaly(Boolean(editingTransaction.isAnomaly));
+      setAutoCategorizeEnabled(false);
+      setManualCategoryLock(true);
+      setRuleSavedNotice('');
     } else {
       const initialType: TransactionType = 'Expense';
       const defaultAcc = accounts[0]?.id || 'acc-icici';
@@ -118,12 +133,75 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setNote('');
       setReceiptImages([]);
       setIsAnomaly(false);
+      setAutoCategorizeEnabled(true);
+      setManualCategoryLock(false);
+      setRuleSavedNotice('');
     }
   }, [isOpen, editingTransaction, defaultDate, accounts, categories]);
+
+  const mlPrediction = useMemo<CategoryPrediction | null>(() => {
+    const cleanNote = note.trim();
+    if (!cleanNote) return null;
+    return predictTransactionCategory(cleanNote, {
+      txType,
+      allowTypeInference: false,
+      historicalTransactions: transactions,
+      categories,
+    });
+  }, [note, txType, transactions, categories]);
+
+  const applyPredictionToFields = (prediction: CategoryPrediction) => {
+    if (prediction.predictedType === 'Transfer') {
+      setTxType('Transfer');
+      setCategory('Transfer');
+      setSubCategory(TRANSFER_SUBCATEGORIES[0]);
+      setFixedOrVariable('Variable');
+      return;
+    }
+    setCategory(prediction.category);
+    setSubCategory(prediction.subCategory);
+    setFixedOrVariable(prediction.fixedOrVariable);
+  };
+
+  const handleNoteChange = (nextNote: string) => {
+    setNote(nextNote);
+    setRuleSavedNotice('');
+    if (!autoCategorizeEnabled || manualCategoryLock || txType === 'Transfer') {
+      return;
+    }
+    const clean = nextNote.trim();
+    if (!clean) return;
+    const prediction = predictTransactionCategory(clean, {
+      txType,
+      allowTypeInference: false,
+      historicalTransactions: transactions,
+      categories,
+    });
+    if (prediction.source !== 'fallback' && prediction.confidence >= 55) {
+      applyPredictionToFields(prediction);
+    }
+  };
+
+  const handleTeachCustomRule = () => {
+    const tokens = tokenizeTransactionDescription(note).filter((t) => !t.includes(' '));
+    const keywords = tokens.length > 0 ? tokens.slice(0, 3) : [note.trim().toLowerCase()];
+    if (keywords.length === 0 || !keywords[0]) return;
+    saveCustomKeywordRule({
+      type: txType,
+      category: txType === 'Transfer' ? 'Transfer' : category,
+      subCategory,
+      fixedOrVariable,
+      keywords,
+    });
+    setRuleSavedNotice(
+      `Learned rule: [${keywords.join(', ')}] → ${category} (${subCategory})`
+    );
+  };
 
   const handleSwitchType = (nextType: TransactionType) => {
     setTxType(nextType);
     setErrorMessage('');
+    setManualCategoryLock(false);
     if (nextType === 'Transfer') {
       setCategory('Transfer');
       setSubCategory(TRANSFER_SUBCATEGORIES[0]);
@@ -134,6 +212,21 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         if (alt) setToAccountId(alt.id);
       }
     } else {
+      const clean = note.trim();
+      if (autoCategorizeEnabled && clean) {
+        const prediction = predictTransactionCategory(clean, {
+          txType: nextType,
+          allowTypeInference: false,
+          historicalTransactions: transactions,
+          categories,
+        });
+        if (prediction.source !== 'fallback' && prediction.confidence >= 55) {
+          setCategory(prediction.category);
+          setSubCategory(prediction.subCategory);
+          setFixedOrVariable(prediction.fixedOrVariable);
+          return;
+        }
+      }
       const matching = categories.filter((c) => c.type === nextType);
       const first = matching[0];
       if (first) {
@@ -145,6 +238,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const handleCategoryChange = (nextCategoryName: string) => {
+    setManualCategoryLock(true);
     setCategory(nextCategoryName);
     const matched = filteredCategories.find((c) => c.name === nextCategoryName);
     if (matched) {
@@ -495,18 +589,181 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             </div>
           )}
 
-          {/* Note Input */}
+          {/* Note Input + Real-Time ML Auto-Categorization Engine */}
           <div className="mm-field">
-            <label htmlFor="mm-tx-note">Memo / Note</label>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                flexWrap: 'wrap',
+              }}
+            >
+              <label htmlFor="mm-tx-note">Memo / Description (ML Auto-Categorizer)</label>
+              {txType !== 'Transfer' && (
+                <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: '0.76rem',
+                    color: 'var(--accent)',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={autoCategorizeEnabled}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setAutoCategorizeEnabled(enabled);
+                      if (enabled) {
+                        setManualCategoryLock(false);
+                        if (mlPrediction && mlPrediction.source !== 'fallback') {
+                          applyPredictionToFields(mlPrediction);
+                        }
+                      }
+                    }}
+                    data-testid="mm-ml-auto-categorize-toggle"
+                  />
+                  <Sparkles size={13} />
+                  <span>ML Auto-Categorize</span>
+                </label>
+              )}
+            </div>
             <input
               id="mm-tx-note"
               type="text"
-              placeholder="Describe the transaction, bill # or counterparty..."
+              placeholder="e.g., UPI Swiggy Instamart groceries, BESCOM electricity bill, Apollo pharmacy..."
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={(e) => handleNoteChange(e.target.value)}
               className="mm-input"
               data-testid="mm-tx-note-input"
             />
+
+            {/* ML Prediction & Keyword Rule Diagnostic Banner */}
+            {txType !== 'Transfer' && mlPrediction && mlPrediction.source !== 'fallback' && (
+              <div
+                data-testid="mm-ml-prediction-banner"
+                style={{
+                  marginTop: 8,
+                  padding: '9px 12px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(6, 182, 212, 0.38)',
+                  background: 'rgba(6, 182, 212, 0.07)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  fontSize: '0.79rem',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Sparkles size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                    <span>
+                      ML Categorized:{' '}
+                      <strong data-testid="mm-ml-predicted-category">
+                        {mlPrediction.category}
+                      </strong>{' '}
+                      → <span style={{ color: 'var(--muted)' }}>{mlPrediction.subCategory}</span> (
+                      {mlPrediction.fixedOrVariable})
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span
+                      className="mm-budget-status-pill is-on-track"
+                      style={{ fontSize: '0.7rem', padding: '1px 7px' }}
+                      data-testid="mm-ml-confidence-badge"
+                    >
+                      {mlPrediction.confidence}% {mlPrediction.confidenceLabel} (
+                      {mlPrediction.source === 'custom-rule'
+                        ? 'Custom Rule'
+                        : mlPrediction.source === 'hybrid-ml-rule'
+                        ? 'Hybrid ML + Rule'
+                        : mlPrediction.source === 'ml-naive-bayes'
+                        ? 'Naive Bayes ML'
+                        : 'Keyword Rule'}
+                      )
+                    </span>
+
+                    {category !== mlPrediction.category && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setManualCategoryLock(false);
+                          applyPredictionToFields(mlPrediction);
+                        }}
+                        className="mm-btn mm-btn-sm mm-btn-primary"
+                        style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                        data-testid="mm-ml-apply-suggestion-btn"
+                      >
+                        Apply
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleTeachCustomRule}
+                      className="mm-btn mm-btn-sm mm-btn-ghost"
+                      style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                      title="Save the current description keywords and selected category as a permanent custom rule"
+                      data-testid="mm-ml-teach-rule-btn"
+                    >
+                      Save Rule
+                    </button>
+                  </div>
+                </div>
+
+                {mlPrediction.matchedKeywords.length > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      flexWrap: 'wrap',
+                      fontSize: '0.73rem',
+                      color: 'var(--muted)',
+                    }}
+                    data-testid="mm-ml-matched-keywords"
+                  >
+                    <span>Matched keywords:</span>
+                    {mlPrediction.matchedKeywords.map((kw) => (
+                      <code
+                        key={kw}
+                        style={{
+                          padding: '1px 6px',
+                          borderRadius: 4,
+                          background: 'rgba(148, 163, 184, 0.16)',
+                          color: 'var(--text)',
+                        }}
+                      >
+                        {kw}
+                      </code>
+                    ))}
+                  </div>
+                )}
+
+                {ruleSavedNotice && (
+                  <div
+                    style={{ fontSize: '0.74rem', color: '#10b981', fontWeight: 600 }}
+                    data-testid="mm-ml-rule-saved-notice"
+                  >
+                    ✓ {ruleSavedNotice}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Photo Receipt Upload with Immediate Inline Thumbnail Previews */}

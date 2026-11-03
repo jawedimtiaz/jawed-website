@@ -7,6 +7,11 @@ import {
   Tooltip as RechartsTooltip,
   BarChart,
   Bar,
+  ComposedChart,
+  AreaChart,
+  Area,
+  Line,
+  ReferenceLine,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -32,6 +37,7 @@ import {
   Palette,
   Target,
   Minus,
+  Download,
 } from 'lucide-react';
 import {
   INITIAL_CATEGORIES,
@@ -67,6 +73,13 @@ export interface MonthlyBudgetPlanItem {
   shareOfTotalBudgetPercent: number;
   dailySafeSpend: number;
   status: 'over' | 'near' | 'on-track' | 'unbudgeted';
+  projectedSpend: number;
+  projectedVariance: number;
+  projectedOverage: number;
+  projectedUtilizationPercent: number;
+  dailyBurnRate: number;
+  historicalMonthlyAvg: number;
+  forecastStatus: 'on-track' | 'at-risk' | 'projected-over' | 'unbudgeted';
 }
 
 export interface MonthlyBudgetPlanSummary {
@@ -86,9 +99,28 @@ export interface MonthlyBudgetPlanSummary {
   variableBudgeted: number;
   variableSpent: number;
   variableUtilizationPercent: number;
+  daysInMonth: number;
+  daysElapsed: number;
+  daysRemaining: number;
+  totalProjectedSpend: number;
+  totalProjectedOverage: number;
+  totalProjectedRemaining: number;
+  projectedOverallUtilizationPercent: number;
+  projectedOverBudgetCount: number;
+  projectedAtRiskCount: number;
+  projectedOnTrackCount: number;
 }
 
-export type BudgetSortOption = 'utilization-desc' | 'spent-desc' | 'limit-desc' | 'name-asc';
+export interface BudgetForecastOptions {
+  referenceDayOfMonth?: number;
+}
+
+export type BudgetSortOption =
+  | 'utilization-desc'
+  | 'projected-desc'
+  | 'spent-desc'
+  | 'limit-desc'
+  | 'name-asc';
 
 export interface StatsViewProps {
   selectedMonth: string;
@@ -108,31 +140,63 @@ export interface StatsViewProps {
 }
 
 /**
- * Pure helper that computes the monthly budget plan and real-time spending progress
- * across all Expense categories for the selected month.
+ * Pure helper that computes the monthly budget plan, real-time spending progress,
+ * and month-end Projected Spending forecast across all Expense categories for the selected month.
  */
 export function computeMonthlyBudgetPlan(
   transactions: MoneyTransaction[],
   selectedMonth: string,
   categories: MoneyCategory[] = INITIAL_CATEGORIES,
-  thresholdOverrides?: Record<string, number> | number
+  thresholdOverrides?: Record<string, number> | number,
+  options?: BudgetForecastOptions
 ): MonthlyBudgetPlanSummary {
+  const [yearStr, monthStr] = selectedMonth.split('-');
+  const yearNum = Number.parseInt(yearStr, 10) || 2026;
+  const monthNum = Number.parseInt(monthStr, 10) || 11;
+  const daysInMonth = new Date(yearNum, monthNum, 0).getDate() || 30;
+
   const spentByCategory = new Map<
     string,
     { spent: number; txCount: number; fixedOrVariable: 'Fixed' | 'Variable' }
   >();
+  const historicalSpentByCategory = new Map<string, number>();
+  const priorMonthsSet = new Set<string>();
+  let maxTxDay = 0;
 
   for (const tx of transactions) {
-    if (tx.type !== 'Expense' || !tx.date.startsWith(selectedMonth)) continue;
-    const prev = spentByCategory.get(tx.category) ?? {
-      spent: 0,
-      txCount: 0,
-      fixedOrVariable: tx.fixedOrVariable,
-    };
-    prev.spent += tx.amount;
-    prev.txCount += 1;
-    spentByCategory.set(tx.category, prev);
+    if (tx.type !== 'Expense') continue;
+    const txYearMonth = tx.date.slice(0, 7);
+    if (txYearMonth === selectedMonth) {
+      const prev = spentByCategory.get(tx.category) ?? {
+        spent: 0,
+        txCount: 0,
+        fixedOrVariable: tx.fixedOrVariable,
+      };
+      prev.spent += tx.amount;
+      prev.txCount += 1;
+      spentByCategory.set(tx.category, prev);
+
+      const dayPart = Number.parseInt(tx.date.slice(8, 10), 10);
+      if (!Number.isNaN(dayPart) && dayPart > maxTxDay) {
+        maxTxDay = dayPart;
+      }
+    } else if (txYearMonth < selectedMonth) {
+      priorMonthsSet.add(txYearMonth);
+      historicalSpentByCategory.set(
+        tx.category,
+        (historicalSpentByCategory.get(tx.category) ?? 0) + tx.amount
+      );
+    }
   }
+
+  const priorMonthsCount = priorMonthsSet.size;
+  const daysElapsed =
+    typeof options?.referenceDayOfMonth === 'number' && options.referenceDayOfMonth > 0
+      ? Math.min(daysInMonth, Math.max(1, Math.round(options.referenceDayOfMonth)))
+      : maxTxDay > 0
+      ? Math.min(daysInMonth, Math.max(6, maxTxDay))
+      : Math.min(daysInMonth, 15);
+  const daysRemaining = Math.max(0, daysInMonth - daysElapsed);
 
   const expenseCategories: MoneyCategory[] = categories.filter((c) => c.type === 'Expense');
   const seenNames = new Set(expenseCategories.map((c) => c.name));
@@ -165,6 +229,12 @@ export function computeMonthlyBudgetPlan(
   let fixedSpent = 0;
   let variableBudgeted = 0;
   let variableSpent = 0;
+  let totalProjectedSpend = 0;
+  let totalProjectedOverage = 0;
+  let totalProjectedRemaining = 0;
+  let projectedOverBudgetCount = 0;
+  let projectedAtRiskCount = 0;
+  let projectedOnTrackCount = 0;
 
   const items: MonthlyBudgetPlanItem[] = expenseCategories.map((cat) => {
     const stats = spentByCategory.get(cat.name);
@@ -204,10 +274,65 @@ export function computeMonthlyBudgetPlan(
       onTrackCount += 1;
     }
 
+    const historicalTotal = historicalSpentByCategory.get(cat.name) ?? 0;
+    const historicalMonthlyAvg =
+      priorMonthsCount > 0 ? Math.round(historicalTotal / priorMonthsCount) : 0;
+    const dailyBurnRate = spent > 0 ? Math.round(spent / daysElapsed) : 0;
+    const linearPaceProjection =
+      spent > 0 ? Math.round((spent / daysElapsed) * daysInMonth) : 0;
+
+    let projectedSpend = spent;
+    if (cat.defaultFixedOrVariable === 'Fixed') {
+      if (spent > 0) {
+        projectedSpend = spent;
+      } else {
+        projectedSpend =
+          daysRemaining > 0 ? Math.max(historicalMonthlyAvg, monthlyLimit) : 0;
+      }
+    } else {
+      if (spent > 0 && historicalMonthlyAvg > 0) {
+        projectedSpend = Math.max(
+          spent,
+          Math.round(linearPaceProjection * 0.7 + historicalMonthlyAvg * 0.3)
+        );
+      } else if (spent > 0) {
+        projectedSpend = Math.max(spent, linearPaceProjection);
+      } else if (historicalMonthlyAvg > 0 && daysRemaining > 0) {
+        projectedSpend = Math.round(historicalMonthlyAvg * (daysRemaining / daysInMonth));
+      } else {
+        projectedSpend = 0;
+      }
+    }
+
+    const projectedVariance = monthlyLimit > 0 ? monthlyLimit - projectedSpend : 0;
+    const projectedOverage =
+      monthlyLimit > 0 && projectedSpend > monthlyLimit ? projectedSpend - monthlyLimit : 0;
+    const projectedRemaining =
+      monthlyLimit > 0 ? Math.max(0, monthlyLimit - projectedSpend) : 0;
+    const projectedUtilizationPercent =
+      monthlyLimit > 0 ? Number(((projectedSpend / monthlyLimit) * 100).toFixed(1)) : 0;
+
+    let forecastStatus: MonthlyBudgetPlanItem['forecastStatus'] = 'unbudgeted';
+    if (monthlyLimit <= 0) {
+      forecastStatus = 'unbudgeted';
+    } else if (projectedSpend > monthlyLimit) {
+      forecastStatus = 'projected-over';
+      projectedOverBudgetCount += 1;
+    } else if (projectedUtilizationPercent >= 85) {
+      forecastStatus = 'at-risk';
+      projectedAtRiskCount += 1;
+    } else {
+      forecastStatus = 'on-track';
+      projectedOnTrackCount += 1;
+    }
+
     totalBudgeted += monthlyLimit;
     totalSpent += spent;
     totalRemaining += remaining;
     totalOverage += overage;
+    totalProjectedSpend += projectedSpend;
+    totalProjectedOverage += projectedOverage;
+    totalProjectedRemaining += projectedRemaining;
 
     if (cat.defaultFixedOrVariable === 'Fixed') {
       fixedBudgeted += monthlyLimit;
@@ -232,6 +357,13 @@ export function computeMonthlyBudgetPlan(
       shareOfTotalBudgetPercent: 0,
       dailySafeSpend: Math.round(remaining / 10),
       status,
+      projectedSpend,
+      projectedVariance,
+      projectedOverage,
+      projectedUtilizationPercent,
+      dailyBurnRate,
+      historicalMonthlyAvg,
+      forecastStatus,
     };
   });
 
@@ -248,6 +380,10 @@ export function computeMonthlyBudgetPlan(
     fixedBudgeted > 0 ? Number(((fixedSpent / fixedBudgeted) * 100).toFixed(1)) : 0;
   const variableUtilizationPercent =
     variableBudgeted > 0 ? Number(((variableSpent / variableBudgeted) * 100).toFixed(1)) : 0;
+  const projectedOverallUtilizationPercent =
+    totalBudgeted > 0
+      ? Number(((totalProjectedSpend / totalBudgeted) * 100).toFixed(1))
+      : 0;
 
   return {
     items,
@@ -266,7 +402,37 @@ export function computeMonthlyBudgetPlan(
     variableBudgeted,
     variableSpent,
     variableUtilizationPercent,
+    daysInMonth,
+    daysElapsed,
+    daysRemaining,
+    totalProjectedSpend,
+    totalProjectedOverage,
+    totalProjectedRemaining,
+    projectedOverallUtilizationPercent,
+    projectedOverBudgetCount,
+    projectedAtRiskCount,
+    projectedOnTrackCount,
   };
+}
+
+/**
+ * Pure helper alias that computes the month-end Projected Spending forecast
+ * from current-month burn velocity and prior-month transaction history.
+ */
+export function computeProjectedSpendingForecast(
+  transactions: MoneyTransaction[],
+  selectedMonth: string,
+  categories: MoneyCategory[] = INITIAL_CATEGORIES,
+  thresholdOverrides?: Record<string, number> | number,
+  options?: BudgetForecastOptions
+): MonthlyBudgetPlanSummary {
+  return computeMonthlyBudgetPlan(
+    transactions,
+    selectedMonth,
+    categories,
+    thresholdOverrides,
+    options
+  );
 }
 
 /**
@@ -305,6 +471,179 @@ export function computeIncomeBasedBudgetAllocation(
   }
 
   return result;
+}
+
+export const MONTHLY_BUDGET_CSV_HEADERS = [
+  'Month',
+  'Category ID',
+  'Category',
+  'Expense Type',
+  'Monthly Limit (INR)',
+  'Actual Spent (INR)',
+  'Remaining Headroom (INR)',
+  'Overage Amount (INR)',
+  'Utilization (%)',
+  'Share of Total Budget (%)',
+  'Daily Safe Spend (INR)',
+  'Transaction Count',
+  'Budget Status',
+] as const;
+
+export interface MonthlyBudgetCsvExportOptions {
+  includeSummaryRow?: boolean;
+  itemsOverride?: MonthlyBudgetPlanItem[];
+}
+
+export interface MonthlyBudgetCsvExportResult {
+  fileName: string;
+  csvContent: string;
+  selectedMonth: string;
+  categoryCount: number;
+  overBudgetCount: number;
+  nearLimitCount: number;
+  onTrackCount: number;
+  unbudgetedCount: number;
+  totalBudgeted: number;
+  totalSpent: number;
+  totalRemaining: number;
+  totalOverage: number;
+  overallUtilizationPercent: number;
+}
+
+function escapeBudgetCsvCell(value: unknown): string {
+  const raw = value === null || value === undefined ? '' : String(value);
+  if (raw.includes(',') || raw.includes('"') || raw.includes('\n') || raw.includes('\r')) {
+    return `"${raw.replace(/"/g, '""')}"`;
+  }
+  return raw;
+}
+
+function formatBudgetStatusLabel(status: MonthlyBudgetPlanItem['status']): string {
+  if (status === 'over') return 'Over Budget';
+  if (status === 'near') return 'Near Limit';
+  if (status === 'on-track') return 'On Track';
+  return 'Unbudgeted';
+}
+
+/**
+ * Pure helper that formats a monthly budget plan and real-time spending progress
+ * into a standard RFC-4180 CSV string for external spreadsheets and tracking tools.
+ */
+export function formatMonthlyBudgetPlanToCsv(
+  plan: MonthlyBudgetPlanSummary,
+  selectedMonth: string,
+  options?: MonthlyBudgetCsvExportOptions
+): string {
+  const rowsToFormat = options?.itemsOverride ?? plan.items;
+  const lines: string[] = [
+    MONTHLY_BUDGET_CSV_HEADERS.map((h) => escapeBudgetCsvCell(h)).join(','),
+  ];
+
+  for (const item of rowsToFormat) {
+    const row = [
+      selectedMonth,
+      item.categoryId,
+      item.category,
+      item.defaultFixedOrVariable,
+      item.monthlyLimit,
+      item.spent,
+      item.remaining,
+      item.overage,
+      item.utilizationPercent,
+      item.shareOfTotalBudgetPercent,
+      item.dailySafeSpend,
+      item.txCount,
+      formatBudgetStatusLabel(item.status),
+    ];
+    lines.push(row.map((cell) => escapeBudgetCsvCell(cell)).join(','));
+  }
+
+  if (options?.includeSummaryRow) {
+    const totalTxCount = rowsToFormat.reduce((sum, i) => sum + i.txCount, 0);
+    const totalDailySafe = rowsToFormat.reduce((sum, i) => sum + i.dailySafeSpend, 0);
+    const overallStatus: MonthlyBudgetPlanItem['status'] =
+      plan.totalBudgeted <= 0
+        ? 'unbudgeted'
+        : plan.totalSpent > plan.totalBudgeted
+        ? 'over'
+        : plan.overallUtilizationPercent >= 85
+        ? 'near'
+        : 'on-track';
+
+    const summaryRow = [
+      selectedMonth,
+      'TOTAL-SUMMARY',
+      'Total Monthly Budget Summary',
+      'All',
+      plan.totalBudgeted,
+      plan.totalSpent,
+      plan.totalRemaining,
+      plan.totalOverage,
+      plan.overallUtilizationPercent,
+      plan.totalBudgeted > 0 ? 100 : 0,
+      totalDailySafe,
+      totalTxCount,
+      formatBudgetStatusLabel(overallStatus),
+    ];
+    lines.push(summaryRow.map((cell) => escapeBudgetCsvCell(cell)).join(','));
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Generates a complete Monthly Budget CSV export payload including metadata and filename.
+ */
+export function generateMonthlyBudgetCsvExport(
+  plan: MonthlyBudgetPlanSummary,
+  selectedMonth: string,
+  options?: MonthlyBudgetCsvExportOptions
+): MonthlyBudgetCsvExportResult {
+  const rows = options?.itemsOverride ?? plan.items;
+  const csvContent = formatMonthlyBudgetPlanToCsv(plan, selectedMonth, options);
+  const safeMonth = (selectedMonth || 'current-month').replace(/[^0-9A-Za-z_-]/g, '-');
+  return {
+    fileName: `jawed-money-manager-budget-plan-${safeMonth}.csv`,
+    csvContent,
+    selectedMonth,
+    categoryCount: rows.length,
+    overBudgetCount: rows.filter((i) => i.status === 'over').length,
+    nearLimitCount: rows.filter((i) => i.status === 'near').length,
+    onTrackCount: rows.filter((i) => i.status === 'on-track').length,
+    unbudgetedCount: rows.filter((i) => i.status === 'unbudgeted').length,
+    totalBudgeted: plan.totalBudgeted,
+    totalSpent: plan.totalSpent,
+    totalRemaining: plan.totalRemaining,
+    totalOverage: plan.totalOverage,
+    overallUtilizationPercent: plan.overallUtilizationPercent,
+  };
+}
+
+/**
+ * Triggers a browser file download of the Monthly Budget & Spending Progress CSV.
+ */
+export function triggerMonthlyBudgetCsvDownload(
+  plan: MonthlyBudgetPlanSummary,
+  selectedMonth: string,
+  options?: MonthlyBudgetCsvExportOptions
+): MonthlyBudgetCsvExportResult {
+  const exportPayload = generateMonthlyBudgetCsvExport(plan, selectedMonth, options);
+
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const blob = new Blob([`\uFEFF${exportPayload.csvContent}`], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', exportPayload.fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  return exportPayload;
 }
 
 /**
@@ -367,6 +706,123 @@ export function evaluateCategoryBudgetAlerts(
   };
 }
 
+export type CashFlowChartStyle = 'composed' | 'area' | 'bar';
+
+export interface SixMonthCashFlowPoint {
+  yearMonth: string;
+  label: string;
+  income: number;
+  expense: number;
+  net: number;
+  savingsRate: number;
+  expenseToIncomeRatio: number;
+  cumulativeNet: number;
+  status: 'surplus' | 'deficit' | 'breakeven';
+}
+
+export interface SixMonthCashFlowSummary {
+  points: SixMonthCashFlowPoint[];
+  totalSixMonthIncome: number;
+  totalSixMonthExpense: number;
+  totalSixMonthNet: number;
+  averageMonthlyIncome: number;
+  averageMonthlyExpense: number;
+  averageMonthlyNet: number;
+  averageSavingsRate: number;
+  surplusMonthsCount: number;
+  deficitMonthsCount: number;
+  peakIncomeMonth: SixMonthCashFlowPoint | null;
+  peakExpenseMonth: SixMonthCashFlowPoint | null;
+}
+
+/**
+ * Pure helper that computes the 6-month Cash Flow (Income vs. Expenses & Net Cash Flow)
+ * trend and aggregate KPI metrics ending at `referenceYearMonth`.
+ */
+export function computeSixMonthCashFlowTrend(
+  transactions: MoneyTransaction[],
+  referenceYearMonth: string
+): SixMonthCashFlowSummary {
+  const rawTrend = calculateSixMonthTrend(transactions, referenceYearMonth);
+  let cumulativeNet = 0;
+  let totalSixMonthIncome = 0;
+  let totalSixMonthExpense = 0;
+  let totalSixMonthNet = 0;
+  let surplusMonthsCount = 0;
+  let deficitMonthsCount = 0;
+
+  const points: SixMonthCashFlowPoint[] = rawTrend.map((item) => {
+    const income = Number(item.income) || 0;
+    const expense = Number(item.expense) || 0;
+    const net = income - expense;
+    cumulativeNet += net;
+    totalSixMonthIncome += income;
+    totalSixMonthExpense += expense;
+    totalSixMonthNet += net;
+
+    const savingsRate = income > 0 ? Number(((net / income) * 100).toFixed(1)) : 0;
+    const expenseToIncomeRatio =
+      income > 0 ? Number(((expense / income) * 100).toFixed(1)) : expense > 0 ? 100 : 0;
+
+    let status: SixMonthCashFlowPoint['status'] = 'breakeven';
+    if (net > 0) {
+      status = 'surplus';
+      surplusMonthsCount += 1;
+    } else if (net < 0) {
+      status = 'deficit';
+      deficitMonthsCount += 1;
+    }
+
+    return {
+      yearMonth: item.yearMonth,
+      label: item.label,
+      income,
+      expense,
+      net,
+      savingsRate,
+      expenseToIncomeRatio,
+      cumulativeNet,
+      status,
+    };
+  });
+
+  const count = points.length || 1;
+  const averageMonthlyIncome = Math.round(totalSixMonthIncome / count);
+  const averageMonthlyExpense = Math.round(totalSixMonthExpense / count);
+  const averageMonthlyNet = Math.round(totalSixMonthNet / count);
+  const averageSavingsRate =
+    totalSixMonthIncome > 0
+      ? Number(((totalSixMonthNet / totalSixMonthIncome) * 100).toFixed(1))
+      : 0;
+
+  const activeIncomeMonths = points.filter((p) => p.income > 0);
+  const activeExpenseMonths = points.filter((p) => p.expense > 0);
+
+  const peakIncomeMonth =
+    activeIncomeMonths.length > 0
+      ? [...activeIncomeMonths].sort((a, b) => b.income - a.income)[0]
+      : null;
+  const peakExpenseMonth =
+    activeExpenseMonths.length > 0
+      ? [...activeExpenseMonths].sort((a, b) => b.expense - a.expense)[0]
+      : null;
+
+  return {
+    points,
+    totalSixMonthIncome,
+    totalSixMonthExpense,
+    totalSixMonthNet,
+    averageMonthlyIncome,
+    averageMonthlyExpense,
+    averageMonthlyNet,
+    averageSavingsRate,
+    surplusMonthsCount,
+    deficitMonthsCount,
+    peakIncomeMonth,
+    peakExpenseMonth,
+  };
+}
+
 export const StatsView: React.FC<StatsViewProps> = ({
   selectedMonth,
   transactions,
@@ -385,13 +841,17 @@ export const StatsView: React.FC<StatsViewProps> = ({
 }) => {
   const [subView, setSubView] = useState<StatsSubView>('all');
   const [budgetFilterStatus, setBudgetFilterStatus] = useState<
-    'all' | 'over' | 'near' | 'on-track' | 'unbudgeted'
+    'all' | 'over' | 'projected-over' | 'near' | 'on-track' | 'unbudgeted'
   >('all');
   const [budgetSearchQuery, setBudgetSearchQuery] = useState<string>('');
   const [budgetSortBy, setBudgetSortBy] = useState<BudgetSortOption>('utilization-desc');
   const [showBudgetComparisonChart, setShowBudgetComparisonChart] = useState<boolean>(true);
+  const [forecastDayOverride, setForecastDayOverride] = useState<number | null>(null);
+  const [budgetCsvExportNotice, setBudgetCsvExportNotice] =
+    useState<MonthlyBudgetCsvExportResult | null>(null);
   const [showPausedRules, setShowPausedRules] = useState<boolean>(false);
   const [barChartMode, setBarChartMode] = useState<'category' | 'trend'>('category');
+  const [cashFlowChartStyle, setCashFlowChartStyle] = useState<CashFlowChartStyle>('composed');
   const [localCategories, setLocalCategories] = useState<MoneyCategory[]>(categories);
 
   // User-defined budget alert thresholds per category + optional uniform threshold override
@@ -456,15 +916,18 @@ export const StatsView: React.FC<StatsViewProps> = ({
         transactions,
         selectedMonth,
         localCategories,
-        activeThresholdConfig
+        activeThresholdConfig,
+        forecastDayOverride ? { referenceDayOfMonth: forecastDayOverride } : undefined
       ),
-    [transactions, selectedMonth, localCategories, activeThresholdConfig]
+    [transactions, selectedMonth, localCategories, activeThresholdConfig, forecastDayOverride]
   );
 
   const filteredBudgetPlanItems = useMemo(() => {
     const cleanQuery = budgetSearchQuery.trim().toLowerCase();
     const list = monthlyBudgetPlan.items.filter((item) => {
-      if (budgetFilterStatus !== 'all' && item.status !== budgetFilterStatus) {
+      if (budgetFilterStatus === 'projected-over') {
+        if (item.forecastStatus !== 'projected-over') return false;
+      } else if (budgetFilterStatus !== 'all' && item.status !== budgetFilterStatus) {
         return false;
       }
       if (cleanQuery) {
@@ -478,6 +941,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
     return [...list].sort((a, b) => {
       if (budgetSortBy === 'utilization-desc') {
         return b.utilizationPercent - a.utilizationPercent || b.spent - a.spent;
+      }
+      if (budgetSortBy === 'projected-desc') {
+        return (
+          b.projectedSpend - a.projectedSpend ||
+          b.projectedUtilizationPercent - a.projectedUtilizationPercent
+        );
       }
       if (budgetSortBy === 'spent-desc') {
         return b.spent - a.spent || b.monthlyLimit - a.monthlyLimit;
@@ -575,6 +1044,30 @@ export const StatsView: React.FC<StatsViewProps> = ({
     setCategoryThresholds(nextThresholds);
   };
 
+  const handleAlignBudgetsToProjected = async () => {
+    setUniformThresholdInput('');
+    const nextThresholds: Record<string, number> = { ...categoryThresholds };
+
+    for (const item of monthlyBudgetPlan.items) {
+      const targetLimit =
+        item.projectedSpend > 0
+          ? Math.max(item.monthlyLimit, Math.ceil(item.projectedSpend / 500) * 500)
+          : item.monthlyLimit > 0
+          ? item.monthlyLimit
+          : 3000;
+      nextThresholds[item.category] = targetLimit;
+
+      const existingCat = localCategories.find((c) => c.name === item.category);
+      if (existingCat) {
+        await handleSaveCategoryState({
+          ...existingCat,
+          monthlyBudget: targetLimit,
+        });
+      }
+    }
+    setCategoryThresholds(nextThresholds);
+  };
+
   const handleAutoAllocate503020 = async () => {
     setUniformThresholdInput('');
     const allocated = computeIncomeBasedBudgetAllocation(
@@ -641,8 +1134,21 @@ export const StatsView: React.FC<StatsViewProps> = ({
     }
   };
 
+  const handleExportMonthlyBudgetCsv = (useFilteredItems = false) => {
+    const payload = triggerMonthlyBudgetCsvDownload(monthlyBudgetPlan, selectedMonth, {
+      includeSummaryRow: true,
+      itemsOverride: useFilteredItems ? filteredBudgetPlanItems : undefined,
+    });
+    setBudgetCsvExportNotice(payload);
+  };
+
   const sixMonthTrend = useMemo(
     () => calculateSixMonthTrend(transactions, selectedMonth),
+    [transactions, selectedMonth]
+  );
+
+  const sixMonthCashFlow = useMemo(
+    () => computeSixMonthCashFlowTrend(transactions, selectedMonth),
     [transactions, selectedMonth]
   );
 
@@ -1128,6 +1634,16 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setBudgetFilterStatus('projected-over')}
+                  className={`mm-btn mm-btn-sm ${
+                    budgetFilterStatus === 'projected-over' ? 'mm-btn-primary' : 'mm-btn-secondary'
+                  }`}
+                  data-testid="mm-budget-filter-projected-over"
+                >
+                  Projected Over ({monthlyBudgetPlan.projectedOverBudgetCount})
+                </button>
+                <button
+                  type="button"
                   onClick={() => setBudgetFilterStatus('near')}
                   className={`mm-btn mm-btn-sm ${
                     budgetFilterStatus === 'near' ? 'mm-btn-primary' : 'mm-btn-secondary'
@@ -1184,6 +1700,17 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
               <button
                 type="button"
+                onClick={() => handleExportMonthlyBudgetCsv(false)}
+                className="mm-btn mm-btn-sm mm-btn-primary"
+                title="Export monthly budget limits and real-time spending progress as a CSV file"
+                data-testid="mm-budget-export-csv-btn"
+              >
+                <Download size={13} />
+                <span>Export Budget CSV</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleResetDefaultThresholds}
                 className="mm-btn mm-btn-sm mm-btn-ghost"
                 title="Reset all category limits to recommended defaults"
@@ -1194,6 +1721,45 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </button>
             </div>
           </div>
+
+          {budgetCsvExportNotice && (
+            <div
+              role="status"
+              data-testid="mm-budget-csv-export-feedback"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                flexWrap: 'wrap',
+                padding: '10px 14px',
+                marginBottom: 12,
+                borderRadius: 10,
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                background: 'rgba(16, 185, 129, 0.08)',
+                fontSize: '0.83rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <CheckCircle2 size={16} style={{ color: '#10b981', flexShrink: 0 }} />
+                <span>
+                  Exported <strong>{budgetCsvExportNotice.categoryCount} categories</strong> (
+                  {formatINR(budgetCsvExportNotice.totalSpent)} spent of{' '}
+                  {formatINR(budgetCsvExportNotice.totalBudgeted)} planned ·{' '}
+                  {budgetCsvExportNotice.overallUtilizationPercent}% utilized) to{' '}
+                  <code style={{ fontWeight: 600 }}>{budgetCsvExportNotice.fileName}</code>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBudgetCsvExportNotice(null)}
+                className="mm-btn mm-btn-sm mm-btn-ghost"
+                data-testid="mm-budget-csv-export-dismiss"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           {/* Top-level Monthly Budget Summary KPI Strip */}
           <div
@@ -1380,6 +1946,214 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
           </div>
 
+          {/* Month-End Projected Spending Forecast Panel */}
+          <div
+            className="mm-budget-master-bar-card"
+            style={{
+              marginBottom: 14,
+              border:
+                monthlyBudgetPlan.projectedOverBudgetCount > 0
+                  ? '1px solid rgba(245, 158, 11, 0.45)'
+                  : '1px solid rgba(16, 185, 129, 0.35)',
+              background:
+                monthlyBudgetPlan.projectedOverBudgetCount > 0
+                  ? 'rgba(245, 158, 11, 0.05)'
+                  : 'rgba(16, 185, 129, 0.05)',
+            }}
+            data-testid="mm-budget-forecast-panel"
+          >
+            <div
+              className="mm-budget-master-header"
+              style={{ flexWrap: 'wrap', gap: 10, marginBottom: 10 }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <TrendingUp
+                    size={16}
+                    style={{
+                      color:
+                        monthlyBudgetPlan.projectedOverBudgetCount > 0 ? '#f59e0b' : '#10b981',
+                    }}
+                  />
+                  <strong>Projected Month-End Spending Forecast ({selectedMonth})</strong>
+                  <span
+                    className={`mm-budget-status-pill is-${
+                      monthlyBudgetPlan.projectedOverallUtilizationPercent > 100
+                        ? 'over'
+                        : monthlyBudgetPlan.projectedOverallUtilizationPercent >= 85
+                        ? 'near'
+                        : 'on-track'
+                    }`}
+                    data-testid="mm-budget-forecast-overall-badge"
+                  >
+                    {monthlyBudgetPlan.projectedOverallUtilizationPercent > 100
+                      ? `Projected ${monthlyBudgetPlan.projectedOverallUtilizationPercent}% (Over Plan)`
+                      : monthlyBudgetPlan.projectedOverallUtilizationPercent >= 85
+                      ? `Projected ${monthlyBudgetPlan.projectedOverallUtilizationPercent}% (Near Limit)`
+                      : `On Track (${monthlyBudgetPlan.projectedOverallUtilizationPercent}% Projected)`}
+                  </span>
+                </div>
+                <p
+                  className="mm-section-desc"
+                  style={{ margin: '4px 0 0', fontSize: '0.79rem' }}
+                >
+                  Blends current-month daily burn rate (Day {monthlyBudgetPlan.daysElapsed} of{' '}
+                  {monthlyBudgetPlan.daysInMonth} · {monthlyBudgetPlan.daysRemaining} days left) with
+                  historical multi-month category averages
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: '0.78rem',
+                    color: 'var(--muted)',
+                  }}
+                >
+                  <label htmlFor="mm-budget-forecast-day-slider" style={{ fontWeight: 600 }}>
+                    Pace Day ({monthlyBudgetPlan.daysElapsed}/{monthlyBudgetPlan.daysInMonth}):
+                  </label>
+                  <input
+                    id="mm-budget-forecast-day-slider"
+                    type="range"
+                    min={1}
+                    max={monthlyBudgetPlan.daysInMonth}
+                    value={monthlyBudgetPlan.daysElapsed}
+                    onChange={(e) => setForecastDayOverride(Number(e.target.value))}
+                    style={{ width: 95, cursor: 'pointer', accentColor: 'var(--accent)' }}
+                    aria-label="Simulate elapsed day of month for spending projection"
+                    data-testid="mm-budget-forecast-day-slider"
+                  />
+                  {forecastDayOverride !== null && (
+                    <button
+                      type="button"
+                      onClick={() => setForecastDayOverride(null)}
+                      className="mm-btn mm-btn-sm mm-btn-ghost"
+                      style={{ padding: '2px 6px', fontSize: '0.72rem' }}
+                      data-testid="mm-budget-forecast-day-reset"
+                    >
+                      Auto
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAlignBudgetsToProjected}
+                  className="mm-btn mm-btn-sm mm-btn-secondary"
+                  title="Adjust category limits to cover projected month-end spend"
+                  data-testid="mm-budget-align-projected-btn"
+                >
+                  <TrendingUp size={13} />
+                  <span>Align Limits to Projected</span>
+                </button>
+              </div>
+            </div>
+
+            <div
+              className="mm-budget-planner-summary"
+              style={{ marginBottom: 10 }}
+              data-testid="mm-budget-forecast-kpi-grid"
+            >
+              <div className="mm-budget-kpi-card">
+                <span className="mm-budget-kpi-label">Projected Month-End Spend</span>
+                <strong
+                  className="mm-budget-kpi-value"
+                  style={{
+                    color:
+                      monthlyBudgetPlan.totalProjectedSpend > monthlyBudgetPlan.totalBudgeted &&
+                      monthlyBudgetPlan.totalBudgeted > 0
+                        ? '#ef4444'
+                        : '#f59e0b',
+                  }}
+                  data-testid="mm-budget-total-projected"
+                >
+                  {formatINR(monthlyBudgetPlan.totalProjectedSpend)}
+                </strong>
+                <span className="mm-budget-kpi-sub">
+                  vs {formatINR(monthlyBudgetPlan.totalBudgeted)} total planned budget
+                </span>
+              </div>
+
+              <div className="mm-budget-kpi-card">
+                <span className="mm-budget-kpi-label">Projected Month-End Headroom</span>
+                <strong
+                  className="mm-budget-kpi-value"
+                  style={{
+                    color:
+                      monthlyBudgetPlan.totalProjectedOverage > 0 ? '#ef4444' : '#10b981',
+                  }}
+                  data-testid="mm-budget-projected-headroom"
+                >
+                  {formatINR(monthlyBudgetPlan.totalProjectedRemaining)}
+                </strong>
+                <span className="mm-budget-kpi-sub">
+                  {monthlyBudgetPlan.totalProjectedOverage > 0
+                    ? `+${formatINR(monthlyBudgetPlan.totalProjectedOverage)} projected category overages`
+                    : 'Projected to finish within overall budget'}
+                </span>
+              </div>
+
+              <div className="mm-budget-kpi-card">
+                <span className="mm-budget-kpi-label">Categories On Track at Month-End</span>
+                <strong
+                  className="mm-budget-kpi-value"
+                  style={{ color: '#10b981' }}
+                  data-testid="mm-budget-projected-ontrack-count"
+                >
+                  {monthlyBudgetPlan.projectedOnTrackCount} Categories
+                </strong>
+                <span
+                  className="mm-budget-kpi-sub"
+                  data-testid="mm-budget-projected-risk-count"
+                >
+                  {monthlyBudgetPlan.projectedAtRiskCount} at risk (85–100% projected)
+                </span>
+              </div>
+
+              <div className="mm-budget-kpi-card">
+                <span className="mm-budget-kpi-label">Projected Over Limit by Month-End</span>
+                <strong
+                  className="mm-budget-kpi-value"
+                  style={{
+                    color:
+                      monthlyBudgetPlan.projectedOverBudgetCount > 0
+                        ? '#ef4444'
+                        : '#10b981',
+                  }}
+                  data-testid="mm-budget-projected-over-count"
+                >
+                  {monthlyBudgetPlan.projectedOverBudgetCount}{' '}
+                  {monthlyBudgetPlan.projectedOverBudgetCount === 1 ? 'Category' : 'Categories'}
+                </strong>
+                <span className="mm-budget-kpi-sub">
+                  {monthlyBudgetPlan.projectedOverBudgetCount > 0
+                    ? 'Click "Projected Over" filter above to inspect'
+                    : 'Zero categories projected to breach limits'}
+                </span>
+              </div>
+            </div>
+
+            <div className="mm-budget-progress-track is-master">
+              <div
+                className="mm-budget-progress-fill"
+                style={{
+                  width: `${Math.min(100, monthlyBudgetPlan.projectedOverallUtilizationPercent)}%`,
+                  backgroundColor:
+                    monthlyBudgetPlan.projectedOverallUtilizationPercent > 100
+                      ? '#ef4444'
+                      : monthlyBudgetPlan.projectedOverallUtilizationPercent >= 85
+                      ? '#f59e0b'
+                      : '#10b981',
+                }}
+                data-testid="mm-budget-forecast-master-fill"
+              />
+            </div>
+          </div>
+
           {/* Real-Time Planned Budget vs. Actual Spend Comparison Bar Chart */}
           <div
             className="mm-budget-master-bar-card"
@@ -1464,6 +2238,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
                         />
                       ))}
                     </Bar>
+                    <Bar
+                      dataKey="projectedSpend"
+                      name="Projected Month-End (₹)"
+                      fill="rgba(245, 158, 11, 0.7)"
+                      radius={[5, 5, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1521,10 +2301,24 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 data-testid="mm-budget-sort-select"
               >
                 <option value="utilization-desc">Highest Utilization %</option>
+                <option value="projected-desc">Highest Projected Month-End Spend (₹)</option>
                 <option value="spent-desc">Highest Actual Spend (₹)</option>
                 <option value="limit-desc">Highest Budget Limit (₹)</option>
                 <option value="name-asc">Category Name (A–Z)</option>
               </select>
+
+              {(budgetFilterStatus !== 'all' || Boolean(budgetSearchQuery.trim())) && (
+                <button
+                  type="button"
+                  onClick={() => handleExportMonthlyBudgetCsv(true)}
+                  className="mm-btn mm-btn-sm mm-btn-secondary"
+                  title="Export only the currently filtered budget categories to CSV"
+                  data-testid="mm-budget-export-filtered-csv-btn"
+                >
+                  <Download size={13} />
+                  <span>Export Filtered ({filteredBudgetPlanItems.length})</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1743,17 +2537,62 @@ export const StatsView: React.FC<StatsViewProps> = ({
                           Match Spent
                         </button>
                       )}
+                      {item.projectedSpend > item.monthlyLimit && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleCategoryThresholdChange(
+                              item.category,
+                              String(Math.ceil(item.projectedSpend / 500) * 500)
+                            )
+                          }
+                          className="mm-btn mm-btn-sm mm-btn-ghost"
+                          style={{
+                            padding: '2px 7px',
+                            fontSize: '0.72rem',
+                            border: '1px solid rgba(245, 158, 11, 0.5)',
+                            color: '#f59e0b',
+                          }}
+                          title="Raise limit to cover projected month-end spend"
+                          data-testid={`mm-budget-match-projected-${item.category}`}
+                        >
+                          Match Projected ({formatINR(Math.ceil(item.projectedSpend / 500) * 500)})
+                        </button>
+                      )}
                     </div>
                   </div>
 
-                  {/* Real-Time Progress Bar */}
+                  {/* Real-Time + Projected Month-End Dual Progress Bar */}
                   <div
                     className="mm-budget-progress-track"
+                    style={{ position: 'relative', overflow: 'hidden' }}
                     data-testid={`mm-budget-plan-progress-${item.category}`}
                   >
                     <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        bottom: 0,
+                        width: `${
+                          item.monthlyLimit > 0
+                            ? Math.min(100, Math.round(item.projectedUtilizationPercent))
+                            : 0
+                        }%`,
+                        backgroundColor:
+                          item.forecastStatus === 'projected-over'
+                            ? 'rgba(239, 68, 68, 0.28)'
+                            : 'rgba(245, 158, 11, 0.28)',
+                        transition: 'width 0.25s ease',
+                      }}
+                      title={`Projected month-end utilization: ${item.projectedUtilizationPercent}%`}
+                      data-testid={`mm-budget-plan-projected-fill-${item.category}`}
+                    />
+                    <div
                       className="mm-budget-progress-fill"
                       style={{
+                        position: 'relative',
+                        zIndex: 1,
                         width: `${item.monthlyLimit > 0 ? fillPct : 0}%`,
                         backgroundColor: barColor,
                       }}
@@ -1780,6 +2619,74 @@ export const StatsView: React.FC<StatsViewProps> = ({
                         : item.monthlyLimit > 0
                         ? `${formatINR(item.remaining)} remaining`
                         : 'Set a limit above'}
+                    </span>
+                  </div>
+
+                  {/* Month-End Projected Spending Forecast Row */}
+                  <div
+                    style={{
+                      marginTop: 8,
+                      paddingTop: 7,
+                      borderTop: '1px dashed var(--border)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 6,
+                      flexWrap: 'wrap',
+                      fontSize: '0.76rem',
+                    }}
+                    data-testid={`mm-budget-plan-forecast-${item.category}`}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span>
+                        Projected Month-End:{' '}
+                        <strong
+                          style={{
+                            color:
+                              item.forecastStatus === 'projected-over'
+                                ? '#ef4444'
+                                : item.forecastStatus === 'at-risk'
+                                ? '#f59e0b'
+                                : 'var(--text-heading)',
+                          }}
+                          data-testid={`mm-budget-plan-projected-amount-${item.category}`}
+                        >
+                          {formatINR(item.projectedSpend)}
+                        </strong>
+                        {item.monthlyLimit > 0
+                          ? ` (${item.projectedUtilizationPercent}%)`
+                          : ''}
+                      </span>
+                      <span style={{ color: 'var(--muted)', fontSize: '0.71rem' }}>
+                        {item.dailyBurnRate > 0
+                          ? `${formatINR(item.dailyBurnRate)}/day pace`
+                          : '₹0/day pace'}
+                        {item.historicalMonthlyAvg > 0
+                          ? ` · Hist. avg: ${formatINR(item.historicalMonthlyAvg)}`
+                          : ''}
+                      </span>
+                    </div>
+
+                    <span
+                      className={`mm-budget-status-pill is-${
+                        item.forecastStatus === 'projected-over'
+                          ? 'over'
+                          : item.forecastStatus === 'at-risk'
+                          ? 'near'
+                          : item.forecastStatus === 'on-track'
+                          ? 'on-track'
+                          : 'unbudgeted'
+                      }`}
+                      style={{ fontSize: '0.71rem', padding: '2px 8px' }}
+                      data-testid={`mm-budget-plan-forecast-status-${item.category}`}
+                    >
+                      {item.forecastStatus === 'projected-over'
+                        ? `Projected Over by ${formatINR(item.projectedOverage)}`
+                        : item.forecastStatus === 'at-risk'
+                        ? `At Risk (${item.projectedUtilizationPercent}%)`
+                        : item.forecastStatus === 'on-track'
+                        ? `On Track (${formatINR(Math.max(0, item.projectedVariance))} buffer)`
+                        : 'Unbudgeted'}
                     </span>
                   </div>
                 </div>
@@ -2191,6 +3098,369 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </article>
           </div>
 
+          {/* Dedicated 6-Month Cash Flow (Income vs. Expenses & Net Cash Flow) Recharts Panel */}
+          <article
+            className="mm-stat-panel"
+            style={{ marginTop: '8px' }}
+            data-testid="mm-cash-flow-panel"
+          >
+            <div className="mm-stat-panel-header">
+              <div>
+                <h2 className="mm-stat-panel-title">
+                  <TrendingUp
+                    size={18}
+                    style={{
+                      verticalAlign: 'middle',
+                      marginRight: 8,
+                      color: 'var(--accent)',
+                    }}
+                  />
+                  Cash Flow — 6-Month Income vs. Expenses Trend (
+                  {sixMonthCashFlow.points[0]?.label} –{' '}
+                  {sixMonthCashFlow.points[sixMonthCashFlow.points.length - 1]?.label})
+                </h2>
+                <p className="mm-section-desc" style={{ margin: '4px 0 0' }}>
+                  Visualizes monthly inflows, outflows, and net cash flow trajectory over the last 6 months (internal bank transfers excluded)
+                </p>
+              </div>
+
+              <div
+                role="group"
+                aria-label="Select Cash Flow Chart Style"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setCashFlowChartStyle('composed')}
+                  className={`mm-btn mm-btn-sm ${
+                    cashFlowChartStyle === 'composed' ? 'mm-btn-primary' : 'mm-btn-secondary'
+                  }`}
+                  data-testid="mm-cash-flow-style-composed-btn"
+                >
+                  Bars + Net Line
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCashFlowChartStyle('area')}
+                  className={`mm-btn mm-btn-sm ${
+                    cashFlowChartStyle === 'area' ? 'mm-btn-primary' : 'mm-btn-secondary'
+                  }`}
+                  data-testid="mm-cash-flow-style-area-btn"
+                >
+                  Area Trend
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCashFlowChartStyle('bar')}
+                  className={`mm-btn mm-btn-sm ${
+                    cashFlowChartStyle === 'bar' ? 'mm-btn-primary' : 'mm-btn-secondary'
+                  }`}
+                  data-testid="mm-cash-flow-style-bar-btn"
+                >
+                  Grouped Bars
+                </button>
+              </div>
+            </div>
+
+            {/* 6-Month Cash Flow Summary KPI Strip */}
+            <div
+              className="mm-budget-planner-summary"
+              style={{ marginBottom: 14 }}
+              data-testid="mm-cash-flow-kpi-strip"
+            >
+              <div className="mm-budget-kpi-card">
+                <span className="mm-budget-kpi-label">6-Month Total Income</span>
+                <strong
+                  className="mm-budget-kpi-value"
+                  style={{ color: '#10b981' }}
+                  data-testid="mm-cash-flow-total-income"
+                >
+                  {formatINR(sixMonthCashFlow.totalSixMonthIncome)}
+                </strong>
+                <span className="mm-budget-kpi-sub">
+                  Avg. {formatINR(sixMonthCashFlow.averageMonthlyIncome)} / month
+                </span>
+              </div>
+
+              <div className="mm-budget-kpi-card">
+                <span className="mm-budget-kpi-label">6-Month Total Expenses</span>
+                <strong
+                  className="mm-budget-kpi-value"
+                  style={{ color: '#ef4444' }}
+                  data-testid="mm-cash-flow-total-expense"
+                >
+                  {formatINR(sixMonthCashFlow.totalSixMonthExpense)}
+                </strong>
+                <span className="mm-budget-kpi-sub">
+                  Avg. {formatINR(sixMonthCashFlow.averageMonthlyExpense)} / month
+                </span>
+              </div>
+
+              <div className="mm-budget-kpi-card">
+                <span className="mm-budget-kpi-label">6-Month Net Cash Flow</span>
+                <strong
+                  className="mm-budget-kpi-value"
+                  style={{
+                    color: sixMonthCashFlow.totalSixMonthNet >= 0 ? '#06b6d4' : '#ef4444',
+                  }}
+                  data-testid="mm-cash-flow-total-net"
+                >
+                  {formatINR(sixMonthCashFlow.totalSixMonthNet, true)}
+                </strong>
+                <span className="mm-budget-kpi-sub">
+                  Avg. {formatINR(sixMonthCashFlow.averageMonthlyNet, true)} net / month
+                </span>
+              </div>
+
+              <div className="mm-budget-kpi-card">
+                <span className="mm-budget-kpi-label">6-Month Avg. Savings Rate</span>
+                <strong
+                  className="mm-budget-kpi-value"
+                  style={{
+                    color: sixMonthCashFlow.averageSavingsRate >= 20 ? '#10b981' : '#f59e0b',
+                  }}
+                  data-testid="mm-cash-flow-avg-savings"
+                >
+                  {sixMonthCashFlow.averageSavingsRate}%
+                </strong>
+                <span className="mm-budget-kpi-sub">
+                  {sixMonthCashFlow.surplusMonthsCount} of {sixMonthCashFlow.points.length} months net positive
+                </span>
+              </div>
+            </div>
+
+            {/* Recharts 6-Month Cash Flow Visualization */}
+            <div
+              style={{ width: '100%', height: 310, marginBottom: 14 }}
+              data-testid="mm-cash-flow-chart"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                {cashFlowChartStyle === 'composed' ? (
+                  <ComposedChart
+                    data={sixMonthCashFlow.points}
+                    margin={{ top: 12, right: 16, left: 6, bottom: 6 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.18)" />
+                    <XAxis dataKey="label" stroke="var(--muted)" fontSize={12} />
+                    <YAxis
+                      stroke="var(--muted)"
+                      fontSize={11}
+                      tickFormatter={(val: number) => `₹${Math.round(val / 1000)}k`}
+                    />
+                    <RechartsTooltip
+                      formatter={(value: number, name: string) => [formatINR(value), name]}
+                      contentStyle={{
+                        backgroundColor: 'var(--surface)',
+                        borderColor: 'var(--border)',
+                        borderRadius: '10px',
+                        color: 'var(--text)',
+                      }}
+                    />
+                    <Legend />
+                    <ReferenceLine y={0} stroke="rgba(148, 163, 184, 0.4)" />
+                    <Bar
+                      dataKey="income"
+                      name="Income (₹)"
+                      fill="#10b981"
+                      radius={[5, 5, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="expense"
+                      name="Expenses (₹)"
+                      fill="#ef4444"
+                      radius={[5, 5, 0, 0]}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="net"
+                      name="Net Cash Flow (₹)"
+                      stroke="#06b6d4"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: '#06b6d4' }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </ComposedChart>
+                ) : cashFlowChartStyle === 'area' ? (
+                  <AreaChart
+                    data={sixMonthCashFlow.points}
+                    margin={{ top: 12, right: 16, left: 6, bottom: 6 }}
+                  >
+                    <defs>
+                      <linearGradient id="mmCashFlowIncomeGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.36} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="mmCashFlowExpenseGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.32} />
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.18)" />
+                    <XAxis dataKey="label" stroke="var(--muted)" fontSize={12} />
+                    <YAxis
+                      stroke="var(--muted)"
+                      fontSize={11}
+                      tickFormatter={(val: number) => `₹${Math.round(val / 1000)}k`}
+                    />
+                    <RechartsTooltip
+                      formatter={(value: number, name: string) => [formatINR(value), name]}
+                      contentStyle={{
+                        backgroundColor: 'var(--surface)',
+                        borderColor: 'var(--border)',
+                        borderRadius: '10px',
+                        color: 'var(--text)',
+                      }}
+                    />
+                    <Legend />
+                    <ReferenceLine y={0} stroke="rgba(148, 163, 184, 0.4)" />
+                    <Area
+                      type="monotone"
+                      dataKey="income"
+                      name="Income (₹)"
+                      stroke="#10b981"
+                      strokeWidth={2.2}
+                      fillOpacity={1}
+                      fill="url(#mmCashFlowIncomeGrad)"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="expense"
+                      name="Expenses (₹)"
+                      stroke="#ef4444"
+                      strokeWidth={2.2}
+                      fillOpacity={1}
+                      fill="url(#mmCashFlowExpenseGrad)"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="net"
+                      name="Net Cash Flow (₹)"
+                      stroke="#06b6d4"
+                      strokeWidth={2}
+                      dot={{ r: 3.5, fill: '#06b6d4' }}
+                    />
+                  </AreaChart>
+                ) : (
+                  <BarChart
+                    data={sixMonthCashFlow.points}
+                    margin={{ top: 12, right: 16, left: 6, bottom: 6 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.18)" />
+                    <XAxis dataKey="label" stroke="var(--muted)" fontSize={12} />
+                    <YAxis
+                      stroke="var(--muted)"
+                      fontSize={11}
+                      tickFormatter={(val: number) => `₹${Math.round(val / 1000)}k`}
+                    />
+                    <RechartsTooltip
+                      formatter={(value: number, name: string) => [formatINR(value), name]}
+                      contentStyle={{
+                        backgroundColor: 'var(--surface)',
+                        borderColor: 'var(--border)',
+                        borderRadius: '10px',
+                        color: 'var(--text)',
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="income"
+                      name="Income (₹)"
+                      fill="#10b981"
+                      radius={[5, 5, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="expense"
+                      name="Expenses (₹)"
+                      fill="#ef4444"
+                      radius={[5, 5, 0, 0]}
+                    />
+                  </BarChart>
+                )}
+              </ResponsiveContainer>
+            </div>
+
+            {/* 6-Month Month-by-Month Cash Flow Breakdown Grid */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))',
+                gap: 8,
+              }}
+              data-testid="mm-cash-flow-monthly-grid"
+            >
+              {sixMonthCashFlow.points.map((pt) => (
+                <div
+                  key={pt.yearMonth}
+                  data-testid={`mm-cash-flow-month-card-${pt.yearMonth}`}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border:
+                      pt.yearMonth === selectedMonth
+                        ? '1.5px solid var(--accent)'
+                        : '1px solid var(--border)',
+                    background: 'var(--surface-alt, rgba(148, 163, 184, 0.04))',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                    fontSize: '0.78rem',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 4,
+                    }}
+                  >
+                    <strong style={{ fontSize: '0.84rem', color: 'var(--text-heading)' }}>
+                      {pt.label}
+                    </strong>
+                    <span
+                      className={`mm-budget-status-pill is-${
+                        pt.status === 'surplus'
+                          ? 'on-track'
+                          : pt.status === 'deficit'
+                          ? 'over'
+                          : 'near'
+                      }`}
+                      style={{ fontSize: '0.68rem', padding: '1px 6px' }}
+                    >
+                      {pt.savingsRate}% saved
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--muted)' }}>Inflow:</span>
+                    <strong style={{ color: '#10b981' }}>{formatINR(pt.income)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--muted)' }}>Outflow:</span>
+                    <strong style={{ color: '#ef4444' }}>{formatINR(pt.expense)}</strong>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      borderTop: '1px solid var(--border)',
+                      paddingTop: 4,
+                      marginTop: 2,
+                    }}
+                  >
+                    <span style={{ color: 'var(--muted)' }}>Net Flow:</span>
+                    <strong
+                      style={{
+                        color: pt.net >= 0 ? '#06b6d4' : '#ef4444',
+                      }}
+                    >
+                      {formatINR(pt.net, true)}
+                    </strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+
           {/* Row 2: Fixed vs Variable Expenditure Ratio Gauge */}
           <article
             className="mm-stat-panel"
@@ -2451,6 +3721,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
       {showCategoriesSection && (
         <CategoryManager
           categories={localCategories}
+          transactions={transactions}
           onSaveCategory={handleSaveCategoryState}
           onDeleteCategory={handleDeleteCategoryState}
         />
