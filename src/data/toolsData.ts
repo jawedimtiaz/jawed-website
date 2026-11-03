@@ -344,4 +344,13 @@ export const TOOLS: ToolItem[] = [
     route: '/tools/car-affordability-calculator',
     keywords: ['car', 'affordability', 'emi', 'loan', 'car loan', 'india', 'auto loan', 'down payment', 'amortization', 'finance', 'calculator'],
   },
+  {
+    id: 'money-manager',
+    name: 'Money Manager & Multi-Bank Ledger',
+    description: 'Realbyte-styled double-entry personal finance ledger with multi-bank tracking (ICICI, SBI, UBI, Cash), receipt photo attachments, sinking funds, and Excel/JSON backup stored 100% in browser IndexedDB.',
+    category: 'finance',
+    route: '/tools/money-manager',
+    keywords: ['money manager', 'ledger', 'expense tracker', 'budget', 'bank', 'sinking fund', 'indexeddb', 'excel', 'finance', 'realbyte'],
+  },
 ];
+

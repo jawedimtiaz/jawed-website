@@ -522,6 +522,22 @@ export const TOOL_METADATA: Record<string, RouteMetadata> = {
     canonicalPath: '/tools/car-affordability-calculator',
     ogType: 'website',
   },
+  '/tools/money-manager': {
+    title: 'Money Manager & Multi-Bank Ledger – Client-Side Personal Finance Tracker',
+    description: 'Track income, expenses, bank transfers, receipt photos, and annual sinking funds across multiple accounts (ICICI, SBI, UBI, Cash) 100% locally in your browser IndexedDB.',
+    ogTitle: 'Money Manager & Multi-Bank Ledger | Private IndexedDB Expense & Bank Tracker',
+    ogDescription: 'Realbyte-styled double-entry personal finance ledger with Daily, Calendar, Accounts, and Stats views, photo receipts, sinking funds, and SheetJS Excel export.',
+    canonicalPath: '/tools/money-manager',
+    ogType: 'website',
+  },
+  '/money-manager': {
+    title: 'Money Manager & Multi-Bank Ledger – Client-Side Personal Finance Tracker',
+    description: 'Track income, expenses, bank transfers, receipt photos, and annual sinking funds across multiple accounts (ICICI, SBI, UBI, Cash) 100% locally in your browser IndexedDB.',
+    ogTitle: 'Money Manager & Multi-Bank Ledger | Private IndexedDB Expense & Bank Tracker',
+    ogDescription: 'Realbyte-styled double-entry personal finance ledger with Daily, Calendar, Accounts, and Stats views, photo receipts, sinking funds, and SheetJS Excel export.',
+    canonicalPath: '/tools/money-manager',
+    ogType: 'website',
+  },
 };
 
 export function normalizePath(pathname: string): string {
