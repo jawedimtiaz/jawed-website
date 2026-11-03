@@ -19,6 +19,7 @@ import {
   saveRecurringRule,
   deleteRecurringRule,
   processDueRecurringRules,
+  syncRecurringTransactionsForMonth,
   triggerRecurringRuleNow,
 } from '../db/db';
 import { MoneyManagerHeader, type MoneyManagerTab } from '../components/money-manager/Header';
@@ -217,6 +218,16 @@ export const MoneyManager: React.FC = () => {
     }
   };
 
+  const handleSyncMonthRecurring = async (yearMonth: string) => {
+    const result = await syncRecurringTransactionsForMonth(yearMonth);
+    await loadDatabaseState();
+    if (result.generatedTransactions.length > 0) {
+      showToast(
+        `Synced ${result.generatedTransactions.length} recurring transaction(s) into ${yearMonth} feed.`
+      );
+    }
+  };
+
   const handleSelectAccountInDailyView = (accountId: string) => {
     setSelectedAccountIdForDaily(accountId);
     setActiveTab('daily');
@@ -262,6 +273,7 @@ export const MoneyManager: React.FC = () => {
               transactions={transactions}
               accounts={accounts}
               categories={categories}
+              recurringRules={recurringRules}
               initialAccountFilter={selectedAccountIdForDaily}
               onEditTransaction={handleOpenEditTransaction}
               onDeleteTransaction={handleDeleteTransaction}
@@ -270,6 +282,8 @@ export const MoneyManager: React.FC = () => {
                 await loadDatabaseState();
                 showToast(`Updated receipt attachments for ${updatedTx.category}.`);
               }}
+              onSaveRecurringRule={handleSaveRecurringRule}
+              onSyncMonthRecurring={handleSyncMonthRecurring}
               onOpenReceiptLightbox={handleOpenReceiptLightbox}
               onOpenAddModal={handleOpenAddTransaction}
             />
@@ -381,6 +395,7 @@ export const MoneyManager: React.FC = () => {
           setEditingTransaction(null);
         }}
         onSave={handleSaveTransaction}
+        onSaveRecurringRule={handleSaveRecurringRule}
       />
 
       {/* Full-Screen Receipt Image Lightbox Modal */}

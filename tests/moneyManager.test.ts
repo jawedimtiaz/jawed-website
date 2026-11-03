@@ -1048,6 +1048,132 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.ok(lateFoodItem.projectedSpend <= lateFoodItem.monthlyLimit);
     assert.equal(lateFoodItem.forecastStatus, 'on-track');
   });
+
+  it('defines recurring transactions across frequencies and automatically surfaces them in the monthly feed', async () => {
+    const {
+      computeRecurringOccurrencesForMonth,
+      buildRecurringFeedTransactionsForMonth,
+      syncRecurringTransactionsForMonth,
+    } = await import('../src/db/db');
+    const { filterDailyTransactions } = await import(
+      '../src/components/money-manager/DailyView'
+    );
+
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Verify extended frequencies in computeNextRecurringDate
+    assert.equal(computeNextRecurringDate('2026-11-01', 'Bi-Weekly'), '2026-11-15');
+    assert.equal(computeNextRecurringDate('2026-11-15', 'Quarterly'), '2027-02-15');
+    assert.equal(computeNextRecurringDate('2026-11-10', 'Yearly'), '2027-11-10');
+
+    // 2. Define a new Monthly subscription rule and a Bi-Weekly recurring expense rule
+    const netflixRule = await saveRecurringRule({
+      id: 'rec-monthly-netflix-cloud',
+      title: 'Netflix & Cloud Storage Subscription',
+      frequency: 'Monthly',
+      type: 'Expense',
+      accountId: 'acc-card',
+      amount: 849,
+      category: 'Lifestyle & Family',
+      subCategory: 'Subscriptions',
+      fixedOrVariable: 'Fixed',
+      note: 'Monthly streaming & cloud backup subscription',
+      startDate: '2026-11-12',
+      nextRunDate: '2026-11-12',
+      timeOfDay: '10:30',
+      active: true,
+    });
+
+    const biWeeklyRule = await saveRecurringRule({
+      id: 'rec-biweekly-cleaning',
+      title: 'Bi-Weekly Deep Home Cleaning',
+      frequency: 'Bi-Weekly',
+      type: 'Expense',
+      accountId: 'acc-cash',
+      amount: 900,
+      category: 'Rent & Housing',
+      subCategory: 'Society Maintenance',
+      fixedOrVariable: 'Fixed',
+      note: 'Bi-weekly apartment cleaning service',
+      startDate: '2026-11-03',
+      nextRunDate: '2026-11-03',
+      timeOfDay: '11:00',
+      active: true,
+    });
+
+    // 3. Verify occurrence dates within 2026-11 and 2026-12
+    assert.deepEqual(computeRecurringOccurrencesForMonth(netflixRule, '2026-11'), ['2026-11-12']);
+    assert.deepEqual(computeRecurringOccurrencesForMonth(netflixRule, '2026-12'), ['2026-12-12']);
+    assert.deepEqual(computeRecurringOccurrencesForMonth(biWeeklyRule, '2026-11'), [
+      '2026-11-03',
+      '2026-11-17',
+    ]);
+
+    // 4. Verify recurring entries automatically appear in the monthly feed (DailyView)
+    const afterRuleState = await initializeAndSeedDatabase();
+    const feedNov = filterDailyTransactions(afterRuleState.transactions, {
+      selectedMonth: '2026-11',
+      recurringRules: afterRuleState.recurringRules,
+    });
+
+    const netflixInNovFeed = feedNov.find(
+      (tx) => tx.recurringRuleId === 'rec-monthly-netflix-cloud'
+    );
+    assert.ok(netflixInNovFeed, 'Expected Monthly Netflix subscription to appear in Nov feed');
+    assert.equal(netflixInNovFeed.amount, 849);
+    assert.equal(netflixInNovFeed.date, '2026-11-12T10:30');
+
+    const cleaningInNovFeed = feedNov.filter(
+      (tx) => tx.recurringRuleId === 'rec-biweekly-cleaning'
+    );
+    assert.equal(cleaningInNovFeed.length, 2, 'Expected 2 Bi-Weekly occurrences in Nov feed');
+
+    // Also verify future month feed (2026-12) automatically displays repeating entries
+    const feedDec = buildRecurringFeedTransactionsForMonth(
+      afterRuleState.transactions,
+      afterRuleState.recurringRules,
+      '2026-12'
+    ).filter((tx) => tx.date.startsWith('2026-12'));
+    assert.ok(
+      feedDec.some((tx) => tx.recurringRuleId === 'rec-monthly-netflix-cloud'),
+      'Expected Monthly subscription to automatically repeat in Dec 2026 feed'
+    );
+    assert.ok(
+      feedDec.some((tx) => tx.recurringRuleId === 'rec-monthly-rent'),
+      'Expected Monthly rent to automatically repeat in Dec 2026 feed'
+    );
+
+    // 5. Verify RECURRING_ONLY filter in DailyView
+    const recurringOnlyNov = filterDailyTransactions(afterRuleState.transactions, {
+      selectedMonth: '2026-11',
+      recurringRules: afterRuleState.recurringRules,
+      recurringFilter: 'RECURRING_ONLY',
+    });
+    assert.ok(recurringOnlyNov.length >= 5);
+    assert.ok(
+      recurringOnlyNov.every(
+        (tx) =>
+          Boolean(tx.recurringRuleId) ||
+          tx.id.startsWith('tx-rec-') ||
+          /\[(?:Auto-)?Recurring/i.test(tx.note || '')
+      )
+    );
+
+    // 6. Sync recurring transactions for 2026-11 into IndexedDB and verify no duplicates in feed
+    const syncRes = await syncRecurringTransactionsForMonth('2026-11');
+    assert.ok(syncRes.generatedTransactions.length >= 3);
+
+    const syncedState = await initializeAndSeedDatabase();
+    const postSyncFeed = filterDailyTransactions(syncedState.transactions, {
+      selectedMonth: '2026-11',
+      recurringRules: syncedState.recurringRules,
+    });
+    assert.equal(
+      postSyncFeed.filter((tx) => tx.recurringRuleId === 'rec-monthly-netflix-cloud').length,
+      1,
+      'Expected exactly 1 Netflix entry in Nov feed after syncing to IndexedDB'
+    );
+  });
 });
 
 

@@ -41,7 +41,14 @@ export interface RecurringViewProps {
   onProcessDueRules: (cutoffDateStr: string) => Promise<void>;
 }
 
-const FREQUENCIES: RecurringFrequency[] = ['Daily', 'Weekly', 'Monthly'];
+const FREQUENCIES: RecurringFrequency[] = [
+  'Daily',
+  'Weekly',
+  'Bi-Weekly',
+  'Monthly',
+  'Quarterly',
+  'Yearly',
+];
 
 function getEndOfMonthDateString(yearMonth: string): string {
   const [yStr, mStr] = yearMonth.split('-');
@@ -111,7 +118,17 @@ export const RecurringView: React.FC<RecurringViewProps> = ({
       totalGenerated += rule.generatedCount || 0;
       if (!rule.active) continue;
       const multiplier =
-        rule.frequency === 'Daily' ? 30 : rule.frequency === 'Weekly' ? 4.33 : 1;
+        rule.frequency === 'Daily'
+          ? 30
+          : rule.frequency === 'Weekly'
+          ? 4.33
+          : rule.frequency === 'Bi-Weekly'
+          ? 2.165
+          : rule.frequency === 'Quarterly'
+          ? 1 / 3
+          : rule.frequency === 'Yearly'
+          ? 1 / 12
+          : 1;
 
       if (rule.type === 'Income') {
         monthlyEquivalentIncome += rule.amount * multiplier;
@@ -626,7 +643,9 @@ export const RecurringView: React.FC<RecurringViewProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {(['ALL', 'Daily', 'Weekly', 'Monthly'] as const).map((freq) => (
+            {(
+              ['ALL', 'Daily', 'Weekly', 'Bi-Weekly', 'Monthly', 'Quarterly', 'Yearly'] as const
+            ).map((freq) => (
               <button
                 key={freq}
                 type="button"

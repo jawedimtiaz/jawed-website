@@ -584,7 +584,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 <option value="None">One-Time Transaction (Do Not Repeat)</option>
                 <option value="Daily">Repeat Daily (Auto-generate every day)</option>
                 <option value="Weekly">Repeat Weekly (Auto-generate every 7 days)</option>
+                <option value="Bi-Weekly">Repeat Bi-Weekly (Auto-generate every 14 days)</option>
                 <option value="Monthly">Repeat Monthly (Auto-generate every month)</option>
+                <option value="Quarterly">Repeat Quarterly (Auto-generate every 3 months)</option>
+                <option value="Yearly">Repeat Yearly (Auto-generate every 12 months)</option>
               </select>
             </div>
           )}

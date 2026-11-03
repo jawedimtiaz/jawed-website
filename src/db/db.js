@@ -616,12 +616,138 @@ export function computeNextRecurringDate(currentDateStr, frequency) {
     return dt.toISOString().slice(0, 10);
   }
 
-  const targetYear = monthIdx === 11 ? year + 1 : year;
-  const targetMonthIdx = (monthIdx + 1) % 12;
+  if (frequency === 'Bi-Weekly') {
+    const dt = new Date(Date.UTC(year, monthIdx, day + 14));
+    return dt.toISOString().slice(0, 10);
+  }
+
+  const monthsToAdd =
+    frequency === 'Quarterly' ? 3 : frequency === 'Yearly' ? 12 : 1;
+  const totalMonthIdx = monthIdx + monthsToAdd;
+  const targetYear = year + Math.floor(totalMonthIdx / 12);
+  const targetMonthIdx = ((totalMonthIdx % 12) + 12) % 12;
   const daysInTargetMonth = new Date(Date.UTC(targetYear, targetMonthIdx + 1, 0)).getUTCDate();
   const clampedDay = Math.min(day, daysInTargetMonth);
   const dt = new Date(Date.UTC(targetYear, targetMonthIdx, clampedDay));
   return dt.toISOString().slice(0, 10);
+}
+
+export function computeRecurringOccurrencesForMonth(rule, yearMonth) {
+  if (!rule || !rule.active || !yearMonth) return [];
+
+  const [yStr, mStr] = String(yearMonth).split('-');
+  const year = Number.parseInt(yStr, 10);
+  const month = Number.parseInt(mStr, 10);
+  if (!year || !month) return [];
+
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const monthStart = `${yearMonth}-01`;
+  const monthEnd = `${yearMonth}-${String(lastDay).padStart(2, '0')}`;
+
+  const anchorDate = String(rule.startDate || rule.nextRunDate || monthStart).slice(0, 10);
+  if (anchorDate > monthEnd) return [];
+  if (rule.endDate && String(rule.endDate).slice(0, 10) < monthStart) return [];
+
+  const occurrences = [];
+  let cursor = anchorDate;
+  let safety = 0;
+
+  while (cursor <= monthEnd && safety < 1500) {
+    safety += 1;
+    if (cursor >= monthStart && cursor <= monthEnd) {
+      if (!rule.endDate || cursor <= String(rule.endDate).slice(0, 10)) {
+        occurrences.push(cursor);
+      }
+    }
+    const nextCursor = computeNextRecurringDate(cursor, rule.frequency);
+    if (nextCursor <= cursor) break;
+    cursor = nextCursor;
+  }
+
+  return occurrences;
+}
+
+export function buildRecurringFeedTransactionsForMonth(
+  transactions,
+  recurringRules,
+  yearMonth
+) {
+  const baseTransactions = Array.isArray(transactions) ? [...transactions] : [];
+  if (!Array.isArray(recurringRules) || recurringRules.length === 0 || !yearMonth) {
+    return baseTransactions;
+  }
+
+  const existingIds = new Set(baseTransactions.map((tx) => tx.id));
+  const synthesized = [];
+
+  for (const rule of recurringRules) {
+    if (!rule.active) continue;
+    const occurrences = computeRecurringOccurrencesForMonth(rule, yearMonth);
+
+    for (const occDate of occurrences) {
+      const deterministicTxId = `tx-rec-${rule.id}-${occDate}`;
+      if (existingIds.has(deterministicTxId)) continue;
+
+      const alreadyLoggedForRuleDate = baseTransactions.some((tx) => {
+        const txDate = String(tx.date || '').slice(0, 10);
+        if (tx.recurringRuleId === rule.id && txDate === occDate) {
+          return true;
+        }
+        if (
+          txDate === occDate &&
+          tx.type === rule.type &&
+          tx.accountId === rule.accountId &&
+          tx.category === (rule.type === 'Transfer' ? 'Transfer' : rule.category) &&
+          Number(tx.amount) === Number(rule.amount)
+        ) {
+          return true;
+        }
+        return false;
+      });
+
+      if (alreadyLoggedForRuleDate) continue;
+
+      const timePart =
+        rule.timeOfDay && /^\d{2}:\d{2}$/.test(rule.timeOfDay) ? rule.timeOfDay : '09:00';
+      const baseNote = rule.note || rule.title;
+      const formattedNote =
+        baseNote.includes('[Auto-Recurring:') || baseNote.includes('[Recurring')
+          ? baseNote
+          : `${baseNote} [Auto-Recurring: ${rule.frequency}]`;
+
+      const autoEntry = {
+        id: deterministicTxId,
+        date: `${occDate}T${timePart}`,
+        type: rule.type,
+        accountId: rule.accountId,
+        toAccountId: rule.type === 'Transfer' ? rule.toAccountId : undefined,
+        amount: Number(rule.amount) || 0,
+        category: rule.type === 'Transfer' ? 'Transfer' : rule.category,
+        subCategory: rule.subCategory || rule.title,
+        fixedOrVariable: rule.fixedOrVariable,
+        note: formattedNote,
+        receiptImages: [],
+        isAnomaly: false,
+        recurringRuleId: rule.id,
+      };
+
+      existingIds.add(autoEntry.id);
+      synthesized.push(autoEntry);
+    }
+  }
+
+  return [...baseTransactions, ...synthesized].sort((a, b) =>
+    String(b.date).localeCompare(String(a.date))
+  );
+}
+
+export async function syncRecurringTransactionsForMonth(yearMonth) {
+  const [yStr, mStr] = String(yearMonth).split('-');
+  const year = Number.parseInt(yStr, 10) || 2026;
+  const month = Number.parseInt(mStr, 10) || 11;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const monthEndDate = `${yearMonth}-${String(lastDay).padStart(2, '0')}`;
+  return processDueRecurringRules(monthEndDate);
 }
 
 export async function processDueRecurringRules(referenceDateStr) {

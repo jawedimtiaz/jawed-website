@@ -6,7 +6,13 @@ export const DB_VERSION = 2;
 export type AccountType = 'Bank' | 'Cash' | 'Card';
 export type TransactionType = 'Expense' | 'Income' | 'Transfer';
 export type FixedOrVariable = 'Fixed' | 'Variable';
-export type RecurringFrequency = 'Daily' | 'Weekly' | 'Monthly';
+export type RecurringFrequency =
+  | 'Daily'
+  | 'Weekly'
+  | 'Bi-Weekly'
+  | 'Monthly'
+  | 'Quarterly'
+  | 'Yearly';
 
 export interface MoneyAccount {
   id: string;
@@ -736,7 +742,8 @@ export async function getMoneyManagerDB(): Promise<IDBPDatabase | null> {
 }
 
 /**
- * Computes the next YYYY-MM-DD run date given a current YYYY-MM-DD and frequency ('Daily' | 'Weekly' | 'Monthly').
+ * Computes the next YYYY-MM-DD run date given a current YYYY-MM-DD and frequency
+ * ('Daily' | 'Weekly' | 'Bi-Weekly' | 'Monthly' | 'Quarterly' | 'Yearly').
  */
 export function computeNextRecurringDate(
   currentDateStr: string,
@@ -757,13 +764,155 @@ export function computeNextRecurringDate(
     return dt.toISOString().slice(0, 10);
   }
 
-  // Monthly: advance by 1 month and clamp to last day of target month
-  const targetYear = monthIdx === 11 ? year + 1 : year;
-  const targetMonthIdx = (monthIdx + 1) % 12;
+  if (frequency === 'Bi-Weekly') {
+    const dt = new Date(Date.UTC(year, monthIdx, day + 14));
+    return dt.toISOString().slice(0, 10);
+  }
+
+  const monthsToAdd =
+    frequency === 'Quarterly' ? 3 : frequency === 'Yearly' ? 12 : 1;
+  const totalMonthIdx = monthIdx + monthsToAdd;
+  const targetYear = year + Math.floor(totalMonthIdx / 12);
+  const targetMonthIdx = ((totalMonthIdx % 12) + 12) % 12;
   const daysInTargetMonth = new Date(Date.UTC(targetYear, targetMonthIdx + 1, 0)).getUTCDate();
   const clampedDay = Math.min(day, daysInTargetMonth);
   const dt = new Date(Date.UTC(targetYear, targetMonthIdx, clampedDay));
   return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * Computes all YYYY-MM-DD occurrence dates for an active RecurringRule within a target YYYY-MM month.
+ */
+export function computeRecurringOccurrencesForMonth(
+  rule: RecurringRule,
+  yearMonth: string
+): string[] {
+  if (!rule || !rule.active || !yearMonth) return [];
+
+  const [yStr, mStr] = yearMonth.split('-');
+  const year = Number.parseInt(yStr, 10);
+  const month = Number.parseInt(mStr, 10);
+  if (!year || !month) return [];
+
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const monthStart = `${yearMonth}-01`;
+  const monthEnd = `${yearMonth}-${String(lastDay).padStart(2, '0')}`;
+
+  const anchorDate = (rule.startDate || rule.nextRunDate || monthStart).slice(0, 10);
+  if (anchorDate > monthEnd) return [];
+  if (rule.endDate && rule.endDate.slice(0, 10) < monthStart) return [];
+
+  const occurrences: string[] = [];
+  let cursor = anchorDate;
+  let safety = 0;
+
+  while (cursor <= monthEnd && safety < 1500) {
+    safety += 1;
+    if (cursor >= monthStart && cursor <= monthEnd) {
+      if (!rule.endDate || cursor <= rule.endDate.slice(0, 10)) {
+        occurrences.push(cursor);
+      }
+    }
+    const nextCursor = computeNextRecurringDate(cursor, rule.frequency);
+    if (nextCursor <= cursor) break;
+    cursor = nextCursor;
+  }
+
+  return occurrences;
+}
+
+/**
+ * Pure helper that returns the monthly transaction feed for `yearMonth` with all active
+ * recurring rules' scheduled occurrences for that month automatically merged in (without duplicates).
+ */
+export function buildRecurringFeedTransactionsForMonth(
+  transactions: MoneyTransaction[],
+  recurringRules: RecurringRule[],
+  yearMonth: string
+): MoneyTransaction[] {
+  const baseTransactions = [...transactions];
+  if (!Array.isArray(recurringRules) || recurringRules.length === 0 || !yearMonth) {
+    return baseTransactions;
+  }
+
+  const existingIds = new Set(baseTransactions.map((tx) => tx.id));
+  const synthesized: MoneyTransaction[] = [];
+
+  for (const rule of recurringRules) {
+    if (!rule.active) continue;
+    const occurrences = computeRecurringOccurrencesForMonth(rule, yearMonth);
+
+    for (const occDate of occurrences) {
+      const deterministicTxId = `tx-rec-${rule.id}-${occDate}`;
+      if (existingIds.has(deterministicTxId)) continue;
+
+      const alreadyLoggedForRuleDate = baseTransactions.some((tx) => {
+        const txDate = String(tx.date || '').slice(0, 10);
+        if (tx.recurringRuleId === rule.id && txDate === occDate) {
+          return true;
+        }
+        // Match seeded or manually logged entry for the same date, type, category, account, and amount
+        if (
+          txDate === occDate &&
+          tx.type === rule.type &&
+          tx.accountId === rule.accountId &&
+          tx.category === (rule.type === 'Transfer' ? 'Transfer' : rule.category) &&
+          Number(tx.amount) === Number(rule.amount)
+        ) {
+          return true;
+        }
+        return false;
+      });
+
+      if (alreadyLoggedForRuleDate) continue;
+
+      const timePart =
+        rule.timeOfDay && /^\d{2}:\d{2}$/.test(rule.timeOfDay) ? rule.timeOfDay : '09:00';
+      const baseNote = rule.note || rule.title;
+      const formattedNote = baseNote.includes('[Auto-Recurring:') || baseNote.includes('[Recurring')
+        ? baseNote
+        : `${baseNote} [Auto-Recurring: ${rule.frequency}]`;
+
+      const autoEntry: MoneyTransaction = {
+        id: deterministicTxId,
+        date: `${occDate}T${timePart}`,
+        type: rule.type,
+        accountId: rule.accountId,
+        toAccountId: rule.type === 'Transfer' ? rule.toAccountId : undefined,
+        amount: Number(rule.amount) || 0,
+        category: rule.type === 'Transfer' ? 'Transfer' : rule.category,
+        subCategory: rule.subCategory || rule.title,
+        fixedOrVariable: rule.fixedOrVariable,
+        note: formattedNote,
+        receiptImages: [],
+        isAnomaly: false,
+        recurringRuleId: rule.id,
+      };
+
+      existingIds.add(autoEntry.id);
+      synthesized.push(autoEntry);
+    }
+  }
+
+  return [...baseTransactions, ...synthesized].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/**
+ * Materializes all active recurring transaction occurrences for `yearMonth` into the IndexedDB
+ * `transactions` store so they are permanently persisted in the monthly ledger.
+ */
+export async function syncRecurringTransactionsForMonth(
+  yearMonth: string
+): Promise<{
+  generatedTransactions: MoneyTransaction[];
+  updatedRules: RecurringRule[];
+}> {
+  const [yStr, mStr] = yearMonth.split('-');
+  const year = Number.parseInt(yStr, 10) || 2026;
+  const month = Number.parseInt(mStr, 10) || 11;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const monthEndDate = `${yearMonth}-${String(lastDay).padStart(2, '0')}`;
+  return processDueRecurringRules(monthEndDate);
 }
 
 /**

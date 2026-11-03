@@ -14,16 +14,27 @@ import {
   Eye,
   Upload,
   Sparkles,
+  Repeat,
+  CalendarClock,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   formatINR,
   SAMPLE_RECEIPT_DATA_URL,
   saveTransaction as dbSaveTransaction,
+  saveRecurringRule as dbSaveRecurringRule,
+  syncRecurringTransactionsForMonth as dbSyncRecurringTransactionsForMonth,
+  buildRecurringFeedTransactionsForMonth,
+  computeNextRecurringDate,
   removeReceiptFromTransaction as dbRemoveReceiptFromTransaction,
   attachReceiptToTransaction as dbAttachReceiptToTransaction,
   type AccountSummary,
+  type FixedOrVariable,
   type MoneyCategory,
   type MoneyTransaction,
+  type RecurringFrequency,
+  type RecurringRule,
+  type TransactionType,
 } from '../../db/db';
 import { renderCategoryIcon } from './categoryIcons';
 
@@ -53,10 +64,18 @@ export interface DailyViewProps {
   transactions: MoneyTransaction[];
   accounts: AccountSummary[];
   categories: MoneyCategory[];
+  recurringRules?: RecurringRule[];
   initialAccountFilter?: string;
   onEditTransaction: (tx: MoneyTransaction) => void;
   onDeleteTransaction: (txId: string) => void;
   onUpdateTransaction?: (tx: MoneyTransaction) => Promise<void>;
+  onSaveRecurringRule?: (
+    rule: Omit<RecurringRule, 'id' | 'generatedCount'> & {
+      id?: string;
+      generatedCount?: number;
+    }
+  ) => Promise<void>;
+  onSyncMonthRecurring?: (yearMonth: string) => Promise<void>;
   onOpenReceiptLightbox: (images: string[], title: string) => void;
   onOpenAddModal: (defaultDate?: string) => void;
 }
@@ -68,6 +87,8 @@ export interface DailyFilterCriteria {
   categoryFilter?: string;
   typeFilter?: string;
   natureFilter?: string;
+  recurringFilter?: 'ALL' | 'RECURRING_ONLY' | 'ONE_TIME_ONLY';
+  recurringRules?: RecurringRule[];
   accountNameMap?: Map<string, string>;
 }
 
@@ -119,13 +140,32 @@ export function filterDailyTransactions(
     categoryFilter = 'ALL',
     typeFilter = 'ALL',
     natureFilter = 'ALL',
+    recurringFilter = 'ALL',
+    recurringRules,
     accountNameMap,
   } = criteria;
 
+  const sourceList =
+    Array.isArray(recurringRules) && recurringRules.length > 0 && selectedMonth
+      ? buildRecurringFeedTransactionsForMonth(transactions, recurringRules, selectedMonth)
+      : transactions;
+
   const q = searchQuery.trim().toLowerCase();
 
-  return transactions.filter((tx) => {
+  return sourceList.filter((tx) => {
     if (selectedMonth && !tx.date?.startsWith(selectedMonth)) return false;
+
+    const isRecurringTx =
+      Boolean(tx.recurringRuleId) ||
+      tx.id.startsWith('tx-rec-') ||
+      /\[(?:Auto-)?Recurring/i.test(tx.note || '');
+
+    if (recurringFilter === 'RECURRING_ONLY' && !isRecurringTx) {
+      return false;
+    }
+    if (recurringFilter === 'ONE_TIME_ONLY' && isRecurringTx) {
+      return false;
+    }
 
     if (accountFilter !== 'ALL') {
       const matchesSource = tx.accountId === accountFilter;
@@ -268,27 +308,53 @@ export const DailyView: React.FC<DailyViewProps> = ({
   transactions,
   accounts,
   categories,
+  recurringRules = [],
   initialAccountFilter = 'ALL',
   onEditTransaction,
   onDeleteTransaction,
   onUpdateTransaction,
+  onSaveRecurringRule,
+  onSyncMonthRecurring,
   onOpenReceiptLightbox,
   onOpenAddModal,
 }) => {
   const [dailySubView, setDailySubView] = useState<DailySubView>('feed');
   const [includeAllMonthsInGallery, setIncludeAllMonthsInGallery] = useState<boolean>(false);
   const [localTransactions, setLocalTransactions] = useState<MoneyTransaction[]>(transactions);
+  const [localRecurringRules, setLocalRecurringRules] = useState<RecurringRule[]>(recurringRules);
   const [accountFilter, setAccountFilter] = useState<string>(initialAccountFilter);
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [natureFilter, setNatureFilter] = useState<string>('ALL');
+  const [recurringFilter, setRecurringFilter] = useState<'ALL' | 'RECURRING_ONLY' | 'ONE_TIME_ONLY'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTxIdForAttach, setSelectedTxIdForAttach] = useState<string>('');
   const receiptUploadInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Quick Recurring Creator State inside Daily Feed
+  const [showRecurringQuickForm, setShowRecurringQuickForm] = useState<boolean>(false);
+  const [recTitle, setRecTitle] = useState<string>('');
+  const [recFrequency, setRecFrequency] = useState<RecurringFrequency>('Monthly');
+  const [recType, setRecType] = useState<TransactionType>('Expense');
+  const [recAmount, setRecAmount] = useState<string>('');
+  const [recCategory, setRecCategory] = useState<string>(
+    categories.find((c) => c.type === 'Expense')?.name || 'Rent & Housing'
+  );
+  const [recAccountId, setRecAccountId] = useState<string>(accounts[0]?.id || 'acc-icici');
+  const [recStartDate, setRecStartDate] = useState<string>(`${selectedMonth}-05`);
+  const [recNotice, setRecNotice] = useState<string>('');
+
   useEffect(() => {
     setLocalTransactions(transactions);
   }, [transactions]);
+
+  useEffect(() => {
+    setLocalRecurringRules(recurringRules);
+  }, [recurringRules]);
+
+  useEffect(() => {
+    setRecStartDate(`${selectedMonth}-05`);
+  }, [selectedMonth]);
 
   useEffect(() => {
     setAccountFilter(initialAccountFilter);
@@ -302,9 +368,35 @@ export const DailyView: React.FC<DailyViewProps> = ({
     return new Map(categories.map((cat) => [cat.name, cat.iconName]));
   }, [categories]);
 
+  const recurringRuleById = useMemo(() => {
+    return new Map(localRecurringRules.map((r) => [r.id, r]));
+  }, [localRecurringRules]);
+
+  // Automatically merge active recurring rules' occurrences for selectedMonth into the monthly feed
+  const mergedMonthFeedTransactions = useMemo(
+    () =>
+      buildRecurringFeedTransactionsForMonth(
+        localTransactions,
+        localRecurringRules,
+        selectedMonth
+      ),
+    [localTransactions, localRecurringRules, selectedMonth]
+  );
+
   const monthTransactions = useMemo(
-    () => localTransactions.filter((tx) => tx.date?.startsWith(selectedMonth)),
-    [localTransactions, selectedMonth]
+    () => mergedMonthFeedTransactions.filter((tx) => tx.date?.startsWith(selectedMonth)),
+    [mergedMonthFeedTransactions, selectedMonth]
+  );
+
+  const monthRecurringEntriesCount = useMemo(
+    () =>
+      monthTransactions.filter(
+        (tx) =>
+          Boolean(tx.recurringRuleId) ||
+          tx.id.startsWith('tx-rec-') ||
+          /\[(?:Auto-)?Recurring/i.test(tx.note || '')
+      ).length,
+    [monthTransactions]
   );
 
   const monthTransactionsCount = monthTransactions.length;
@@ -324,16 +416,20 @@ export const DailyView: React.FC<DailyViewProps> = ({
         categoryFilter,
         typeFilter,
         natureFilter,
+        recurringFilter,
+        recurringRules: localRecurringRules,
         accountNameMap,
       }),
     [
       localTransactions,
+      localRecurringRules,
       selectedMonth,
       searchQuery,
       accountFilter,
       categoryFilter,
       typeFilter,
       natureFilter,
+      recurringFilter,
       accountNameMap,
     ]
   );
@@ -489,6 +585,7 @@ export const DailyView: React.FC<DailyViewProps> = ({
     categoryFilter !== 'ALL' ||
     typeFilter !== 'ALL' ||
     natureFilter !== 'ALL' ||
+    recurringFilter !== 'ALL' ||
     searchQuery.trim() !== '';
 
   const resetFilters = () => {
@@ -496,7 +593,76 @@ export const DailyView: React.FC<DailyViewProps> = ({
     setCategoryFilter('ALL');
     setTypeFilter('ALL');
     setNatureFilter('ALL');
+    setRecurringFilter('ALL');
     setSearchQuery('');
+  };
+
+  const handleCreateQuickRecurring = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const numericAmount = Number.parseFloat(recAmount);
+    if (!recTitle.trim() || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return;
+    }
+
+    const start = recStartDate || `${selectedMonth}-01`;
+    const matchedCat = categories.find((c) => c.name === recCategory);
+    const fixedOrVar: FixedOrVariable = matchedCat?.defaultFixedOrVariable || 'Fixed';
+
+    const newRulePayload: Omit<RecurringRule, 'id' | 'generatedCount'> & {
+      id?: string;
+      generatedCount?: number;
+    } = {
+      title: recTitle.trim(),
+      frequency: recFrequency,
+      type: recType,
+      accountId: recAccountId,
+      toAccountId:
+        recType === 'Transfer'
+          ? accounts.find((a) => a.id !== recAccountId)?.id || 'acc-sbi'
+          : undefined,
+      amount: numericAmount,
+      category: recType === 'Transfer' ? 'Transfer' : recCategory,
+      subCategory: recTitle.trim(),
+      fixedOrVariable: fixedOrVar,
+      note: `${recTitle.trim()} [Auto-Recurring: ${recFrequency}]`,
+      startDate: start,
+      nextRunDate: start,
+      timeOfDay: '09:30',
+      active: true,
+      generatedCount: 0,
+    };
+
+    if (onSaveRecurringRule) {
+      await onSaveRecurringRule(newRulePayload);
+    } else {
+      const savedRule = await dbSaveRecurringRule(newRulePayload);
+      setLocalRecurringRules((prev) => [...prev, savedRule]);
+    }
+
+    if (onSyncMonthRecurring) {
+      await onSyncMonthRecurring(selectedMonth);
+    } else {
+      await dbSyncRecurringTransactionsForMonth(selectedMonth);
+    }
+
+    setRecNotice(
+      `Added ${recFrequency} recurring rule "${recTitle.trim()}" (${formatINR(numericAmount)}) — now appearing in ${selectedMonth} feed.`
+    );
+    setRecTitle('');
+    setRecAmount('');
+    setShowRecurringQuickForm(false);
+  };
+
+  const handleSyncRecurringToLedger = async () => {
+    if (onSyncMonthRecurring) {
+      await onSyncMonthRecurring(selectedMonth);
+    } else {
+      const res = await dbSyncRecurringTransactionsForMonth(selectedMonth);
+      if (res.generatedTransactions.length > 0) {
+        setLocalTransactions((prev) => [...prev, ...res.generatedTransactions]);
+      }
+    }
+    setRecNotice(`Synced all due ${selectedMonth} recurring transactions into the ledger.`);
   };
 
   return (
@@ -512,7 +678,8 @@ export const DailyView: React.FC<DailyViewProps> = ({
             <ListFilter size={17} style={{ color: 'var(--accent)' }} />
             <strong>Daily Ledger &amp; Receipt Vault</strong>
             <span className="mm-stat-panel-sub" style={{ margin: 0 }}>
-              ({monthTransactionsCount} entries in {selectedMonth} · {totalMonthReceiptsCount}{' '}
+              ({monthTransactionsCount} entries in {selectedMonth} · {monthRecurringEntriesCount}{' '}
+              recurring · {totalMonthReceiptsCount}{' '}
               {totalMonthReceiptsCount === 1 ? 'receipt' : 'receipts'} attached)
             </span>
           </div>
@@ -550,6 +717,266 @@ export const DailyView: React.FC<DailyViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Recurring Transactions Monthly Feed Bar & Inline Creator */}
+      {dailySubView === 'feed' && (
+        <div
+          className="mm-filter-bar"
+          style={{
+            padding: '10px 16px',
+            borderColor: 'rgba(6, 182, 212, 0.35)',
+            background: 'rgba(6, 182, 212, 0.05)',
+          }}
+          data-testid="mm-daily-recurring-bar"
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+              flexWrap: 'wrap',
+              width: '100%',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Repeat size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.84rem' }}>
+                <strong>Recurring Transactions in {selectedMonth} Feed:</strong>{' '}
+                <span data-testid="mm-daily-recurring-count">
+                  {monthRecurringEntriesCount} auto-repeating{' '}
+                  {monthRecurringEntriesCount === 1 ? 'entry' : 'entries'}
+                </span>{' '}
+                from {localRecurringRules.filter((r) => r.active).length} active schedules
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() =>
+                  setRecurringFilter((prev) =>
+                    prev === 'RECURRING_ONLY' ? 'ALL' : 'RECURRING_ONLY'
+                  )
+                }
+                className={`mm-btn mm-btn-sm ${
+                  recurringFilter === 'RECURRING_ONLY' ? 'mm-btn-primary' : 'mm-btn-secondary'
+                }`}
+                data-testid="mm-daily-filter-recurring-btn"
+              >
+                <Repeat size={13} />
+                <span>
+                  {recurringFilter === 'RECURRING_ONLY'
+                    ? 'Showing Recurring Only'
+                    : `Filter Recurring (${monthRecurringEntriesCount})`}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSyncRecurringToLedger}
+                className="mm-btn mm-btn-sm mm-btn-secondary"
+                title="Persist all scheduled recurring transactions for this month to IndexedDB"
+                data-testid="mm-daily-sync-recurring-btn"
+              >
+                <CalendarClock size={13} />
+                <span>Sync Month to Ledger</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowRecurringQuickForm((prev) => !prev)}
+                className="mm-btn mm-btn-sm mm-btn-primary"
+                data-testid="mm-daily-add-recurring-btn"
+              >
+                <Plus size={13} />
+                <span>
+                  {showRecurringQuickForm ? 'Close Form' : 'Define Recurring Transaction'}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {recNotice && (
+            <div
+              role="status"
+              data-testid="mm-daily-recurring-notice"
+              style={{
+                marginTop: 8,
+                padding: '6px 10px',
+                borderRadius: 8,
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                color: '#10b981',
+                fontSize: '0.78rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircle2 size={14} />
+                {recNotice}
+              </span>
+              <button
+                type="button"
+                onClick={() => setRecNotice('')}
+                className="mm-btn mm-btn-sm mm-btn-ghost"
+                style={{ padding: '1px 6px', fontSize: '0.72rem' }}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {showRecurringQuickForm && (
+            <form
+              onSubmit={handleCreateQuickRecurring}
+              data-testid="mm-daily-recurring-quick-form"
+              style={{
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: '1px solid var(--border)',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))',
+                gap: 8,
+                alignItems: 'end',
+                width: '100%',
+              }}
+            >
+              <div className="mm-field">
+                <label htmlFor="mm-quick-rec-title">Recurring Title *</label>
+                <input
+                  id="mm-quick-rec-title"
+                  type="text"
+                  required
+                  placeholder="e.g., Monthly Rent, Netflix, Cloud Lab"
+                  value={recTitle}
+                  onChange={(e) => setRecTitle(e.target.value)}
+                  className="mm-input"
+                  data-testid="mm-quick-rec-title-input"
+                />
+              </div>
+
+              <div className="mm-field">
+                <label htmlFor="mm-quick-rec-frequency">Frequency *</label>
+                <select
+                  id="mm-quick-rec-frequency"
+                  value={recFrequency}
+                  onChange={(e) => setRecFrequency(e.target.value as RecurringFrequency)}
+                  className="mm-select"
+                  data-testid="mm-quick-rec-frequency-select"
+                >
+                  <option value="Daily">Daily</option>
+                  <option value="Weekly">Weekly</option>
+                  <option value="Bi-Weekly">Bi-Weekly</option>
+                  <option value="Monthly">Monthly</option>
+                  <option value="Quarterly">Quarterly</option>
+                  <option value="Yearly">Yearly</option>
+                </select>
+              </div>
+
+              <div className="mm-field">
+                <label htmlFor="mm-quick-rec-type">Type</label>
+                <select
+                  id="mm-quick-rec-type"
+                  value={recType}
+                  onChange={(e) => {
+                    const nextT = e.target.value as TransactionType;
+                    setRecType(nextT);
+                    if (nextT !== 'Transfer') {
+                      const firstMatch = categories.find((c) => c.type === nextT);
+                      if (firstMatch) setRecCategory(firstMatch.name);
+                    }
+                  }}
+                  className="mm-select"
+                  data-testid="mm-quick-rec-type-select"
+                >
+                  <option value="Expense">Expense</option>
+                  <option value="Income">Income</option>
+                  <option value="Transfer">Transfer</option>
+                </select>
+              </div>
+
+              <div className="mm-field">
+                <label htmlFor="mm-quick-rec-amount">Amount (₹) *</label>
+                <input
+                  id="mm-quick-rec-amount"
+                  type="number"
+                  min="1"
+                  step="any"
+                  required
+                  placeholder="e.g., 1499"
+                  value={recAmount}
+                  onChange={(e) => setRecAmount(e.target.value)}
+                  className="mm-input"
+                  data-testid="mm-quick-rec-amount-input"
+                />
+              </div>
+
+              {recType !== 'Transfer' && (
+                <div className="mm-field">
+                  <label htmlFor="mm-quick-rec-category">Category</label>
+                  <select
+                    id="mm-quick-rec-category"
+                    value={recCategory}
+                    onChange={(e) => setRecCategory(e.target.value)}
+                    className="mm-select"
+                    data-testid="mm-quick-rec-category-select"
+                  >
+                    {categories
+                      .filter((c) => c.type === recType)
+                      .map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="mm-field">
+                <label htmlFor="mm-quick-rec-account">Account</label>
+                <select
+                  id="mm-quick-rec-account"
+                  value={recAccountId}
+                  onChange={(e) => setRecAccountId(e.target.value)}
+                  className="mm-select"
+                  data-testid="mm-quick-rec-account-select"
+                >
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mm-field">
+                <label htmlFor="mm-quick-rec-start">Start Date</label>
+                <input
+                  id="mm-quick-rec-start"
+                  type="date"
+                  value={recStartDate}
+                  onChange={(e) => setRecStartDate(e.target.value)}
+                  className="mm-input"
+                  data-testid="mm-quick-rec-start-input"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="mm-btn mm-btn-primary"
+                data-testid="mm-quick-rec-submit-btn"
+              >
+                <CheckCircle2 size={14} />
+                <span>Add to Feed</span>
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* Multi-Facet Search & Filter Bar */}
       <div className="mm-filter-bar">
@@ -975,6 +1402,13 @@ export const DailyView: React.FC<DailyViewProps> = ({
                     tx.type === 'Transfer' ? 'ArrowLeftRight' : categoryIconMap.get(tx.category);
                   const hasReceipts = Array.isArray(tx.receiptImages) && tx.receiptImages.length > 0;
                   const categoryLabel = tx.type === 'Transfer' ? 'Self Transfer' : tx.category;
+                  const matchedRule = tx.recurringRuleId
+                    ? recurringRuleById.get(tx.recurringRuleId)
+                    : undefined;
+                  const isRecurringEntry =
+                    Boolean(tx.recurringRuleId) ||
+                    tx.id.startsWith('tx-rec-') ||
+                    /\[(?:Auto-)?Recurring/i.test(tx.note || '');
 
                   return (
                     <div key={tx.id} className="mm-tx-row" data-testid={`mm-tx-row-${tx.id}`}>
@@ -996,6 +1430,29 @@ export const DailyView: React.FC<DailyViewProps> = ({
                             )}
                             <span className="mm-tx-meta-sep">·</span>
                             <span className="mm-tx-nature">{tx.fixedOrVariable}</span>
+                            {isRecurringEntry && (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  padding: '1px 7px',
+                                  borderRadius: 999,
+                                  fontSize: '0.69rem',
+                                  fontWeight: 600,
+                                  background: 'rgba(6, 182, 212, 0.14)',
+                                  color: 'var(--accent)',
+                                  border: '1px solid rgba(6, 182, 212, 0.35)',
+                                }}
+                                title="Automatically repeating recurring transaction"
+                                data-testid={`mm-tx-recurring-badge-${tx.id}`}
+                              >
+                                <Repeat size={10} />
+                                <span>
+                                  {matchedRule ? `Recurring · ${matchedRule.frequency}` : 'Recurring'}
+                                </span>
+                              </span>
+                            )}
                             {tx.isAnomaly && (
                               <span
                                 className="mm-tx-anomaly-flag"
