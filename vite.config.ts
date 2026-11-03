@@ -65,6 +65,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Sitemap and crawler directives are real static files, not SPA routes.
+        // Keep service-worker navigation fallback from replacing them with index.html.
+        navigateFallbackDenylist: [/^\/sitemap\.xml$/, /^\/robots\.txt$/],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,json}'],
         runtimeCaching: [
