@@ -78,6 +78,7 @@ export interface DailyViewProps {
   onSyncMonthRecurring?: (yearMonth: string) => Promise<void>;
   onOpenReceiptLightbox: (images: string[], title: string) => void;
   onOpenAddModal: (defaultDate?: string) => void;
+  onOpenAddModalWithReceipt?: (receiptDataUrl: string) => void;
 }
 
 export interface DailyFilterCriteria {
@@ -317,6 +318,7 @@ export const DailyView: React.FC<DailyViewProps> = ({
   onSyncMonthRecurring,
   onOpenReceiptLightbox,
   onOpenAddModal,
+  onOpenAddModalWithReceipt,
 }) => {
   const [dailySubView, setDailySubView] = useState<DailySubView>('feed');
   const [includeAllMonthsInGallery, setIncludeAllMonthsInGallery] = useState<boolean>(false);
@@ -1215,6 +1217,23 @@ export const DailyView: React.FC<DailyViewProps> = ({
               <Sparkles size={14} />
               <span>Attach Sample Receipt</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenAddModalWithReceipt) {
+                  onOpenAddModalWithReceipt(SAMPLE_RECEIPT_DATA_URL);
+                } else {
+                  onOpenAddModal();
+                }
+              }}
+              className="mm-btn mm-btn-primary mm-btn-sm"
+              data-testid="mm-gallery-scan-new-tx-btn"
+              title="Scan a receipt directly to auto-fill a new ledger transaction"
+            >
+              <Sparkles size={14} />
+              <span>Scan Receipt → New Tx</span>
+            </button>
           </div>
 
           {receiptGalleryItems.length === 0 ? (
@@ -1323,6 +1342,23 @@ export const DailyView: React.FC<DailyViewProps> = ({
                       >
                         <Pencil size={13} />
                         <span>Manage</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onOpenAddModalWithReceipt) {
+                            onOpenAddModalWithReceipt(item.imageUrl);
+                          } else {
+                            onOpenAddModal(item.dateKey);
+                          }
+                        }}
+                        className="mm-btn mm-btn-sm mm-btn-secondary"
+                        title="Scan this receipt to auto-fill a new transaction"
+                        data-testid={`mm-receipt-scan-new-tx-btn-${item.transactionId}-${item.receiptIndex}`}
+                      >
+                        <Sparkles size={13} />
+                        <span>Scan New</span>
                       </button>
 
                       <button

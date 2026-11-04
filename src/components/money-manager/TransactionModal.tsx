@@ -8,9 +8,11 @@ import {
   ArrowLeftRight,
   Repeat,
   Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   computeNextRecurringDate,
+  SAMPLE_RECEIPT_DATA_URL,
   type AccountSummary,
   type FixedOrVariable,
   type MoneyCategory,
@@ -25,6 +27,10 @@ import {
   tokenizeTransactionDescription,
   type CategoryPrediction,
 } from './mlCategorizer';
+import {
+  scanReceiptImage,
+  type ScannedReceiptResult,
+} from './receiptScanner';
 
 export interface TransactionModalProps {
   isOpen: boolean;
@@ -41,6 +47,7 @@ export interface TransactionModalProps {
   transactions?: MoneyTransaction[];
   editingTransaction?: MoneyTransaction | null;
   defaultDate?: string; // YYYY-MM-DD
+  initialReceiptImage?: string;
 }
 
 const TRANSFER_SUBCATEGORIES = [
@@ -60,6 +67,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   transactions = [],
   editingTransaction,
   defaultDate,
+  initialReceiptImage,
 }) => {
   const [txType, setTxType] = useState<TransactionType>('Expense');
   const [dateTime, setDateTime] = useState<string>('2026-11-02T12:00');
@@ -79,6 +87,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Automated Receipt Scanning State
+  const [isScanningReceipt, setIsScanningReceipt] = useState<boolean>(false);
+  const [scannedReceiptResult, setScannedReceiptResult] = useState<ScannedReceiptResult | null>(null);
+  const [receiptScanFeedback, setReceiptScanFeedback] = useState<string>('');
+
   const filteredCategories = useMemo(() => {
     if (txType === 'Transfer') return [];
     return categories.filter((c) => c.type === txType);
@@ -90,10 +103,91 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     return found?.subCategories || [];
   }, [txType, filteredCategories, category]);
 
+  const applyScannedReceipt = (result: ScannedReceiptResult, imageDataUrl?: string) => {
+    if (result.amount > 0) {
+      setAmount(String(result.amount));
+    }
+    if (result.date) {
+      const normalized = result.date.includes('T') ? result.date.slice(0, 16) : `${result.date}T12:00`;
+      setDateTime(normalized);
+    }
+    if (result.note || result.merchant) {
+      setNote(result.note || result.merchant);
+    }
+    if (result.suggestedType) {
+      setTxType(result.suggestedType);
+    }
+    if (result.suggestedCategory) {
+      setCategory(result.suggestedCategory);
+      setSubCategory(result.suggestedSubCategory || '');
+      setFixedOrVariable(result.suggestedFixedOrVariable || 'Variable');
+      setManualCategoryLock(true);
+    }
+    if (result.suggestedAccountId) {
+      setAccountId(result.suggestedAccountId);
+    }
+    if (imageDataUrl) {
+      setReceiptImages((prev) => (prev.includes(imageDataUrl) ? prev : [imageDataUrl, ...prev]));
+    }
+    setScannedReceiptResult(result);
+    setReceiptScanFeedback(
+      `Extracted ${result.merchant} · ${result.date} · ₹${result.amount}`
+    );
+  };
+
+  const handleScanReceiptDataUrl = async (dataUrl: string) => {
+    setIsScanningReceipt(true);
+    setErrorMessage('');
+    try {
+      const result = await scanReceiptImage(dataUrl, {
+        categories,
+        accounts,
+      });
+      applyScannedReceipt(result, dataUrl);
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Failed to scan receipt image.'
+      );
+    } finally {
+      setIsScanningReceipt(false);
+    }
+  };
+
+  const handleScanReceiptFileInput = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsScanningReceipt(true);
+    setErrorMessage('');
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => reject(new Error('Failed to read receipt image file'));
+        reader.readAsDataURL(file);
+      });
+      if (dataUrl) {
+        await handleScanReceiptDataUrl(dataUrl);
+      }
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Could not scan selected receipt.'
+      );
+      setIsScanningReceipt(false);
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const handleScanSampleReceipt = async () => {
+    await handleScanReceiptDataUrl(SAMPLE_RECEIPT_DATA_URL);
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     setErrorMessage('');
     setRecurringInterval('None');
+    setScannedReceiptResult(null);
+    setReceiptScanFeedback('');
 
     if (editingTransaction) {
       setTxType(editingTransaction.type);
@@ -136,8 +230,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setAutoCategorizeEnabled(true);
       setManualCategoryLock(false);
       setRuleSavedNotice('');
+
+      if (initialReceiptImage) {
+        handleScanReceiptDataUrl(initialReceiptImage);
+      }
     }
-  }, [isOpen, editingTransaction, defaultDate, accounts, categories]);
+  }, [isOpen, editingTransaction, defaultDate, accounts, categories, initialReceiptImage]);
 
   const mlPrediction = useMemo<CategoryPrediction | null>(() => {
     const cleanNote = note.trim();
@@ -405,6 +503,272 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="mm-modal-form">
+          {/* Automated Receipt Scanner & Auto-Fill Section */}
+          <div
+            className="mm-receipt-scanner-card"
+            data-testid="mm-receipt-scanner-section"
+            style={{
+              marginBottom: '1rem',
+              padding: '12px 14px',
+              borderRadius: 12,
+              background:
+                'linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                flexWrap: 'wrap',
+                marginBottom: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
+                    background: 'var(--accent)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Sparkles size={16} />
+                </div>
+                <div>
+                  <strong style={{ fontSize: '0.88rem', color: 'var(--text-heading)' }}>
+                    Automated Receipt Scanner &amp; Auto-Fill
+                  </strong>
+                  <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--muted)' }}>
+                    Upload any receipt (PNG, JPG, WebP, SVG) or test with sample receipt to auto-fill.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <label
+                  className={`mm-btn mm-btn-sm mm-btn-primary${isScanningReceipt ? ' is-loading' : ''}`}
+                  style={{ cursor: isScanningReceipt ? 'not-allowed' : 'pointer' }}
+                  data-testid="mm-scan-receipt-autofill-btn"
+                  title="Select receipt image to scan and auto-fill transaction"
+                >
+                  <Upload size={13} />
+                  <span>{isScanningReceipt ? 'Scanning...' : 'Scan Receipt & Auto-Fill'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={isScanningReceipt}
+                    onChange={handleScanReceiptFileInput}
+                    style={{ display: 'none' }}
+                    data-testid="mm-scan-receipt-file-input"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleScanSampleReceipt}
+                  disabled={isScanningReceipt}
+                  className="mm-btn mm-btn-sm mm-btn-secondary"
+                  data-testid="mm-scan-sample-receipt-btn"
+                  title="Scan standard test receipt (Metro Fresh Supermarket, ₹3,450)"
+                >
+                  <Sparkles size={13} />
+                  <span>Scan Sample Receipt</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Scanning In-Progress Feedback */}
+            {isScanningReceipt && (
+              <div
+                className="mm-receipt-scanning-state"
+                data-testid="mm-receipt-scanning-spinner"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  color: 'var(--accent)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                }}
+              >
+                <div
+                  style={{
+                    width: 14,
+                    height: 14,
+                    border: '2px solid var(--accent)',
+                    borderTopColor: 'transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite',
+                  }}
+                />
+                <span>Scanning receipt OCR &amp; extracting merchant, date, amount...</span>
+              </div>
+            )}
+
+            {/* Scanned Result Banner */}
+            {scannedReceiptResult && !isScanningReceipt && (
+              <div
+                className="mm-scanned-receipt-banner"
+                data-testid="mm-scanned-receipt-banner"
+                style={{
+                  marginTop: 8,
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'rgba(16, 185, 129, 0.09)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <CheckCircle2 size={15} style={{ color: '#10b981', flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)' }}>
+                      Receipt Extracted &amp; Auto-Filled:
+                    </span>
+                    <span
+                      className="mm-budget-status-pill is-on-track"
+                      style={{ fontSize: '0.7rem', padding: '1px 8px' }}
+                      data-testid="mm-scanned-confidence-badge"
+                    >
+                      {scannedReceiptResult.confidence}% confidence · {scannedReceiptResult.source}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => applyScannedReceipt(scannedReceiptResult)}
+                      className="mm-btn mm-btn-sm mm-btn-secondary"
+                      style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                      data-testid="mm-reapply-scanned-btn"
+                      title="Re-populate form with extracted values"
+                    >
+                      Re-apply
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScannedReceiptResult(null);
+                        setReceiptScanFeedback('');
+                      }}
+                      className="mm-btn mm-btn-sm mm-btn-ghost"
+                      style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                      data-testid="mm-clear-scanned-btn"
+                      title="Dismiss extracted receipt details"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+
+                {/* Extracted Key Fields Grid */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: 8,
+                    fontSize: '0.78rem',
+                  }}
+                >
+                  <div style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)' }}>
+                    <span style={{ color: 'var(--muted)', display: 'block', fontSize: '0.7rem' }}>
+                      Merchant
+                    </span>
+                    <strong data-testid="mm-scanned-merchant" style={{ color: 'var(--text-heading)' }}>
+                      {scannedReceiptResult.merchant}
+                    </strong>
+                  </div>
+
+                  <div style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)' }}>
+                    <span style={{ color: 'var(--muted)', display: 'block', fontSize: '0.7rem' }}>
+                      Date
+                    </span>
+                    <strong data-testid="mm-scanned-date" style={{ color: 'var(--text-heading)' }}>
+                      {scannedReceiptResult.date}
+                    </strong>
+                  </div>
+
+                  <div style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)' }}>
+                    <span style={{ color: 'var(--muted)', display: 'block', fontSize: '0.7rem' }}>
+                      Extracted Amount
+                    </span>
+                    <strong data-testid="mm-scanned-amount" style={{ color: '#10b981' }}>
+                      ₹{scannedReceiptResult.amount.toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+
+                  <div style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)' }}>
+                    <span style={{ color: 'var(--muted)', display: 'block', fontSize: '0.7rem' }}>
+                      Category
+                    </span>
+                    <strong data-testid="mm-scanned-category" style={{ color: 'var(--text-heading)' }}>
+                      {scannedReceiptResult.suggestedCategory}
+                      {scannedReceiptResult.suggestedSubCategory
+                        ? ` · ${scannedReceiptResult.suggestedSubCategory}`
+                        : ''}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Line items if any */}
+                {scannedReceiptResult.items && scannedReceiptResult.items.length > 0 && (
+                  <div
+                    style={{
+                      fontSize: '0.73rem',
+                      color: 'var(--muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      flexWrap: 'wrap',
+                    }}
+                    data-testid="mm-scanned-line-items"
+                  >
+                    <span style={{ fontWeight: 600 }}>
+                      Extracted Items ({scannedReceiptResult.items.length}):
+                    </span>
+                    {scannedReceiptResult.items.slice(0, 4).map((item, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          padding: '1px 6px',
+                          borderRadius: 4,
+                          background: 'rgba(148, 163, 184, 0.14)',
+                          color: 'var(--text)',
+                        }}
+                      >
+                        {item.name} {item.price ? `(₹${item.price})` : ''}
+                      </span>
+                    ))}
+                    {scannedReceiptResult.items.length > 4 && (
+                      <span>+{scannedReceiptResult.items.length - 4} more</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="mm-form-grid-2">
             <div className="mm-field">
               <label htmlFor="mm-tx-datetime">Date &amp; Time</label>
@@ -795,12 +1159,39 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             {receiptImages.length > 0 && (
               <div className="mm-receipt-thumbs-grid" data-testid="mm-receipt-thumbs-grid">
                 {receiptImages.map((src, idx) => (
-                  <div key={idx} className="mm-receipt-thumb-item">
+                  <div key={idx} className="mm-receipt-thumb-item" style={{ position: 'relative' }}>
                     <img
                       src={src}
                       alt={`Receipt preview ${idx + 1}`}
                       className="mm-receipt-thumb-img"
                     />
+                    <button
+                      type="button"
+                      onClick={() => handleScanReceiptDataUrl(src)}
+                      className="mm-receipt-thumb-scan"
+                      title="Scan this receipt to auto-fill"
+                      aria-label={`Scan receipt ${idx + 1} to auto-fill`}
+                      data-testid={`mm-receipt-thumb-scan-btn-${idx}`}
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        left: 4,
+                        background: 'rgba(15, 23, 42, 0.85)',
+                        border: '1px solid rgba(56, 189, 248, 0.4)',
+                        color: 'var(--accent)',
+                        borderRadius: 4,
+                        padding: '2px 6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        fontSize: '0.68rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Sparkles size={11} />
+                      <span>Scan</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleRemoveReceipt(idx)}

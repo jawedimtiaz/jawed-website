@@ -89,6 +89,8 @@ export interface MonthlyBudgetPlanSummary {
   totalRemaining: number;
   totalOverage: number;
   overallUtilizationPercent: number;
+  totalMonthlyBurnRatePercent: number;
+  totalMonthlyBurnRate: number;
   overBudgetCount: number;
   nearLimitCount: number;
   onTrackCount: number;
@@ -392,6 +394,8 @@ export function computeMonthlyBudgetPlan(
     totalRemaining,
     totalOverage,
     overallUtilizationPercent,
+    totalMonthlyBurnRatePercent: overallUtilizationPercent,
+    totalMonthlyBurnRate: overallUtilizationPercent,
     overBudgetCount,
     nearLimitCount,
     onTrackCount,
@@ -1835,43 +1839,171 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
           </div>
 
-          {/* Master Overall Monthly Budget Utilization Bar */}
-          <div
-            className="mm-budget-master-bar-card"
-            data-testid="mm-budget-master-progress"
-          >
-            <div className="mm-budget-master-header">
-              <span>
-                <strong>Overall Monthly Budget Execution</strong> — {formatINR(monthlyBudgetPlan.totalSpent)} spent of{' '}
-                {formatINR(monthlyBudgetPlan.totalBudgeted)} planned
-              </span>
-              <span
-                className={`mm-budget-status-pill is-${
-                  monthlyBudgetPlan.overallUtilizationPercent > 100
-                    ? 'over'
-                    : monthlyBudgetPlan.overallUtilizationPercent >= 85
-                    ? 'near'
-                    : 'on-track'
-                }`}
-              >
-                {monthlyBudgetPlan.overallUtilizationPercent}% Utilized
-              </span>
-            </div>
-            <div className="mm-budget-progress-track is-master">
+          {/* Total Monthly Burn Rate Visual Summary Card */}
+          {(() => {
+            const burnRatePercent = monthlyBudgetPlan.overallUtilizationPercent;
+            const isOverBudget =
+              monthlyBudgetPlan.totalSpent > monthlyBudgetPlan.totalBudgeted &&
+              monthlyBudgetPlan.totalBudgeted > 0;
+            const isNearLimit = !isOverBudget && burnRatePercent >= 85;
+            const daysInMonth = monthlyBudgetPlan.daysInMonth || 30;
+            const daysElapsed = monthlyBudgetPlan.daysElapsed || 1;
+            const monthPacePercent = Number(((daysElapsed / daysInMonth) * 100).toFixed(1));
+            const dailyBurnRate =
+              daysElapsed > 0 ? Math.round(monthlyBudgetPlan.totalSpent / daysElapsed) : 0;
+
+            return (
               <div
-                className="mm-budget-progress-fill"
-                style={{
-                  width: `${Math.min(100, monthlyBudgetPlan.overallUtilizationPercent)}%`,
-                  backgroundColor:
-                    monthlyBudgetPlan.overallUtilizationPercent > 100
-                      ? '#ef4444'
-                      : monthlyBudgetPlan.overallUtilizationPercent >= 85
-                      ? '#f59e0b'
-                      : '#10b981',
-                }}
-              />
-            </div>
-          </div>
+                className={`mm-burn-rate-card ${
+                  isOverBudget ? 'is-over' : isNearLimit ? 'is-near' : 'is-on-track'
+                }`}
+                data-testid="mm-total-monthly-burn-rate-card"
+              >
+                <div className="mm-burn-rate-header">
+                  <div className="mm-burn-rate-title-cluster">
+                    <div
+                      className={`mm-burn-rate-icon-badge ${
+                        isOverBudget ? 'is-over' : isNearLimit ? 'is-near' : 'is-on-track'
+                      }`}
+                      data-testid="mm-burn-rate-icon"
+                    >
+                      <Target size={18} />
+                    </div>
+                    <div>
+                      <h3 className="mm-burn-rate-title" data-testid="mm-burn-rate-title">
+                        Total Monthly Burn Rate
+                      </h3>
+                      <p className="mm-burn-rate-subtitle">
+                        Calculated as current spending ({formatINR(monthlyBudgetPlan.totalSpent)})
+                        against the sum of all set monthly budgets ({formatINR(monthlyBudgetPlan.totalBudgeted)})
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span
+                      className={`mm-budget-status-pill is-${
+                        isOverBudget ? 'over' : isNearLimit ? 'near' : 'on-track'
+                      }`}
+                      data-testid="mm-burn-rate-status-pill"
+                      style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                    >
+                      <strong data-testid="mm-burn-rate-percent">
+                        {burnRatePercent}%
+                      </strong>{' '}
+                      Burn Rate
+                    </span>
+                  </div>
+                </div>
+
+                {/* Primary Progress Bar Section */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '0.8rem',
+                      flexWrap: 'wrap',
+                      gap: 6,
+                    }}
+                  >
+                    <span>
+                      Spent{' '}
+                      <strong
+                        style={{ color: 'var(--text-heading)' }}
+                        data-testid="mm-burn-rate-spent"
+                      >
+                        {formatINR(monthlyBudgetPlan.totalSpent)}
+                      </strong>{' '}
+                      of{' '}
+                      <strong
+                        style={{ color: 'var(--text-heading)' }}
+                        data-testid="mm-burn-rate-budget"
+                      >
+                        {formatINR(monthlyBudgetPlan.totalBudgeted)}
+                      </strong>{' '}
+                      total set budget
+                    </span>
+
+                    <span
+                      style={{ fontSize: '0.74rem', color: 'var(--muted)' }}
+                      data-testid="mm-burn-rate-calendar-pace"
+                    >
+                      Day {daysElapsed} of {daysInMonth} ({monthPacePercent}% of month elapsed)
+                    </span>
+                  </div>
+
+                  {/* Progress Bar Track */}
+                  <div
+                    className="mm-burn-rate-track"
+                    data-testid="mm-burn-rate-progress-bar"
+                    title={`Burn Rate: ${burnRatePercent}% (${formatINR(monthlyBudgetPlan.totalSpent)} / ${formatINR(monthlyBudgetPlan.totalBudgeted)})`}
+                  >
+                    <div
+                      className="mm-burn-rate-fill"
+                      data-testid="mm-burn-rate-progress-fill"
+                      style={{
+                        width: `${Math.min(100, burnRatePercent)}%`,
+                        backgroundColor: isOverBudget
+                          ? '#ef4444'
+                          : isNearLimit
+                          ? '#f59e0b'
+                          : '#10b981',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Supporting Financial Burn Breakdown Grid */}
+                <div className="mm-burn-rate-stats-grid">
+                  <div className="mm-burn-rate-stat-box">
+                    <span className="mm-burn-rate-stat-label">Current Spending</span>
+                    <strong
+                      className="mm-burn-rate-stat-val"
+                      style={{
+                        color: isOverBudget ? '#ef4444' : 'var(--text-heading)',
+                      }}
+                    >
+                      {formatINR(monthlyBudgetPlan.totalSpent)}
+                    </strong>
+                  </div>
+
+                  <div className="mm-burn-rate-stat-box">
+                    <span className="mm-burn-rate-stat-label">Sum of Set Budgets</span>
+                    <strong className="mm-burn-rate-stat-val">
+                      {formatINR(monthlyBudgetPlan.totalBudgeted)}
+                    </strong>
+                  </div>
+
+                  <div className="mm-burn-rate-stat-box">
+                    <span className="mm-burn-rate-stat-label">Daily Burn Velocity</span>
+                    <strong
+                      className="mm-burn-rate-stat-val"
+                      data-testid="mm-burn-rate-daily-velocity"
+                    >
+                      {formatINR(dailyBurnRate)} / day
+                    </strong>
+                  </div>
+
+                  <div className="mm-burn-rate-stat-box">
+                    <span className="mm-burn-rate-stat-label">
+                      {isOverBudget ? 'Total Budget Overage' : 'Remaining Budget Headroom'}
+                    </span>
+                    <strong
+                      className="mm-burn-rate-stat-val"
+                      style={{ color: isOverBudget ? '#ef4444' : '#10b981' }}
+                      data-testid="mm-burn-rate-headroom"
+                    >
+                      {isOverBudget
+                        ? `+${formatINR(monthlyBudgetPlan.totalOverage)}`
+                        : formatINR(monthlyBudgetPlan.totalRemaining)}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Fixed Needs vs. Variable Wants Real-Time Budget Split */}
           <div

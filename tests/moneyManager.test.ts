@@ -22,6 +22,7 @@ import {
   exportDatabaseBackup,
   restoreDatabaseBackup,
   formatINR,
+  SAMPLE_RECEIPT_DATA_URL,
   type MoneyTransaction,
 } from '../src/db/db';
 import { buildMoneyManagerWorkbook } from '../src/components/money-manager/excelExporter';
@@ -31,6 +32,18 @@ import {
   mapCsvRowsToTransactions,
   SAMPLE_BANK_STATEMENT_CSV,
 } from '../src/components/money-manager/csvImporter';
+import {
+  normalizeReceiptDate,
+  parseCurrencyAmount,
+  extractMerchantFromReceiptText,
+  extractDateFromReceiptText,
+  extractAmountFromReceiptText,
+  extractLineItemsFromReceiptText,
+  parseReceiptFromText,
+  parseSvgReceipt,
+  scanReceiptImage,
+} from '../src/components/money-manager/receiptScanner';
+import { filterDailyTransactions } from '../src/components/money-manager/DailyView';
 
 describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
   beforeEach(async () => {
@@ -1174,7 +1187,188 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       'Expected exactly 1 Netflix entry in Nov feed after syncing to IndexedDB'
     );
   });
+
+  it('extracts merchant, date, and amount accurately using receipt normalization heuristics', () => {
+    // 1. Date normalization across formats
+    assert.equal(normalizeReceiptDate('2026-11-02 18:40'), '2026-11-02T18:40');
+    assert.equal(normalizeReceiptDate('02-11-2026 18:40'), '2026-11-02T18:40');
+    assert.equal(normalizeReceiptDate('15/08/2026'), '2026-08-15');
+    assert.equal(normalizeReceiptDate('invalid-date-string'), null);
+
+    // 2. Currency and amount parsing
+    assert.equal(parseCurrencyAmount('₹3,450.00'), 3450);
+    assert.equal(parseCurrencyAmount('Rs. 1,299.50'), 1299.5);
+    assert.equal(parseCurrencyAmount('INR 850'), 850);
+    assert.equal(parseCurrencyAmount('Total: 499'), 499);
+    assert.equal(parseCurrencyAmount('No numbers here'), null);
+
+    // 3. OCR text heuristics for merchant, date, and amount
+    const rawReceiptText = `
+      TAX INVOICE
+      BLUE TOKAI COFFEE ROASTERS
+      Date: 2026-11-04 09:15
+      Flat White           ₹260.00
+      Almond Croissant     ₹220.00
+      Subtotal:            ₹480.00
+      CGST 2.5% + SGST 2.5% ₹24.00
+      Total Amount: ₹504.00
+      Paid via UPI SBI
+    `;
+
+    assert.equal(extractMerchantFromReceiptText(rawReceiptText), 'BLUE TOKAI COFFEE ROASTERS');
+    assert.equal(extractDateFromReceiptText(rawReceiptText), '2026-11-04T09:15');
+    assert.equal(extractAmountFromReceiptText(rawReceiptText), 504);
+
+    const items = extractLineItemsFromReceiptText(`
+      Item Qty Amount
+      Flat White 1 260
+      Almond Croissant 1 220
+      Total: 480
+    `);
+    assert.ok(items.length >= 2);
+    assert.equal(items[0].name, 'Flat White');
+    assert.equal(items[0].price, 260);
+  });
+
+  it('scans SVG receipt data URL and extracts merchant, date, amount, items, and predicts category', async () => {
+    const state = await initializeAndSeedDatabase();
+    const result = parseSvgReceipt(SAMPLE_RECEIPT_DATA_URL, {
+      categories: state.categories,
+      accounts: state.accounts,
+    });
+
+    assert.equal(result.merchant, 'METRO FRESH SUPERMARKET');
+    assert.equal(result.date, '2026-11-02T18:40');
+    assert.equal(result.amount, 3450);
+    assert.equal(result.suggestedCategory, 'Food & Groceries');
+    assert.equal(result.suggestedAccountId, 'acc-icici');
+    assert.ok(result.items.length >= 5);
+    assert.ok(result.items.some((item) => item.name.includes('Basmati Rice')));
+    assert.ok(result.confidence >= 90);
+  });
+
+  it('automatically scans receipt images to auto-fill and persist ledger transactions in IndexedDB', async () => {
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Run full receipt scanning engine
+    const scanOutput = await scanReceiptImage(SAMPLE_RECEIPT_DATA_URL, {
+      categories: state.categories,
+      accounts: state.accounts,
+      skipServerAi: true, // Test local/svg engine
+    });
+
+    assert.equal(scanOutput.merchant, 'METRO FRESH SUPERMARKET');
+    assert.equal(scanOutput.date, '2026-11-02T18:40');
+    assert.equal(scanOutput.amount, 3450);
+    assert.equal(scanOutput.suggestedCategory, 'Food & Groceries');
+
+    // 2. Simulate transaction form auto-fill and submission into JawedMoneyManagerDB
+    const savedTx = await saveTransaction({
+      date: scanOutput.date,
+      type: scanOutput.suggestedType,
+      accountId: scanOutput.suggestedAccountId || 'acc-icici',
+      amount: scanOutput.amount,
+      category: scanOutput.suggestedCategory,
+      subCategory: scanOutput.suggestedSubCategory,
+      fixedOrVariable: scanOutput.suggestedFixedOrVariable,
+      note: scanOutput.note,
+      receiptImages: [SAMPLE_RECEIPT_DATA_URL],
+      isAnomaly: false,
+    });
+
+    assert.ok(savedTx.id);
+    assert.equal(savedTx.amount, 3450);
+    assert.equal(savedTx.date, '2026-11-02T18:40');
+    assert.ok(savedTx.note.includes('METRO FRESH SUPERMARKET'));
+    assert.equal(savedTx.receiptImages.length, 1);
+
+    // 3. Verify it is reflected in monthly metrics and daily feed
+    const updatedState = await initializeAndSeedDatabase();
+    const metrics = calculateMonthlyMetrics(updatedState.transactions, '2026-11');
+    assert.ok(metrics.expense >= 3450);
+
+    const feedNov = filterDailyTransactions(updatedState.transactions, {
+      selectedMonth: '2026-11',
+      searchQuery: 'METRO FRESH',
+    });
+    assert.ok(feedNov.length >= 1);
+    assert.equal(feedNov[0].amount, 3450);
+    assert.equal(feedNov[0].receiptImages[0], SAMPLE_RECEIPT_DATA_URL);
+  });
+
+  it('calculates the Total Monthly Burn Rate progress bar metrics as current spending against the sum of all set monthly budgets', async () => {
+    const { computeMonthlyBudgetPlan } = await import(
+      '../src/components/money-manager/StatsView'
+    );
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Calculate baseline budget plan
+    const plan = computeMonthlyBudgetPlan(state.transactions, '2026-11', state.categories);
+
+    // Sum of all set monthly budgets
+    assert.ok(plan.totalBudgeted > 0, 'Expected positive total budgeted sum');
+    // Current spending against set monthly budgets
+    assert.ok(plan.totalSpent > 0, 'Expected positive total spent in baseline month');
+
+    // Expected burn rate calculation: current spending / sum of all set monthly budgets * 100
+    const expectedBurnRate = Number(
+      ((plan.totalSpent / plan.totalBudgeted) * 100).toFixed(1)
+    );
+    assert.equal(plan.overallUtilizationPercent, expectedBurnRate);
+    assert.equal(plan.totalMonthlyBurnRatePercent, expectedBurnRate);
+    assert.equal(plan.totalMonthlyBurnRate, expectedBurnRate);
+
+    // 2. Test exact synthetic scenario: current spending against set limits
+    const customThresholds: Record<string, number> = {
+      'Food & Groceries': 20000,
+      'Rent & Housing': 30000,
+    };
+    const syntheticTransactions: MoneyTransaction[] = [
+      {
+        id: 'tx-burn-1',
+        date: '2026-11-05T12:00',
+        type: 'Expense',
+        accountId: 'acc-icici',
+        amount: 15000,
+        category: 'Food & Groceries',
+        subCategory: 'Groceries',
+        fixedOrVariable: 'Variable',
+        note: 'Supermarket test',
+        receiptImages: [],
+        isAnomaly: false,
+      },
+      {
+        id: 'tx-burn-2',
+        date: '2026-11-05T14:00',
+        type: 'Expense',
+        accountId: 'acc-icici',
+        amount: 10000,
+        category: 'Rent & Housing',
+        subCategory: 'Apartment Rent',
+        fixedOrVariable: 'Fixed',
+        note: 'Rent test',
+        receiptImages: [],
+        isAnomaly: false,
+      },
+    ];
+
+    const syntheticPlan = computeMonthlyBudgetPlan(
+      syntheticTransactions,
+      '2026-11',
+      state.categories,
+      customThresholds
+    );
+
+    assert.equal(syntheticPlan.totalSpent, 25000);
+    const expectedSyntheticBurnRate = Number(
+      ((syntheticPlan.totalSpent / syntheticPlan.totalBudgeted) * 100).toFixed(1)
+    );
+    assert.equal(syntheticPlan.totalMonthlyBurnRatePercent, expectedSyntheticBurnRate);
+    assert.equal(syntheticPlan.overallUtilizationPercent, expectedSyntheticBurnRate);
+    assert.ok(syntheticPlan.totalRemaining >= 0);
+  });
 });
+
 
 
 

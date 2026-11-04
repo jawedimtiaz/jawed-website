@@ -7779,6 +7779,125 @@ select:focus-visible {
   gap: 8px;
 }
 
+.mm-burn-rate-card {
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-darker);
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mm-burn-rate-card.is-over {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, var(--bg-darker) 100%);
+}
+
+.mm-burn-rate-card.is-near {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.07) 0%, var(--bg-darker) 100%);
+}
+
+.mm-burn-rate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mm-burn-rate-title-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mm-burn-rate-icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mm-burn-rate-icon-badge.is-on-track {
+  background: rgba(16, 185, 129, 0.16);
+  color: #10b981;
+}
+
+.mm-burn-rate-icon-badge.is-near {
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+}
+
+.mm-burn-rate-icon-badge.is-over {
+  background: rgba(239, 68, 68, 0.16);
+  color: #ef4444;
+}
+
+.mm-burn-rate-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.mm-burn-rate-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.mm-burn-rate-track {
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.mm-burn-rate-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.35s ease, background-color 0.35s ease;
+}
+
+.mm-burn-rate-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.mm-burn-rate-stat-box {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mm-burn-rate-stat-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.mm-burn-rate-stat-val {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
 .mm-budget-master-header {
   display: flex;
   align-items: center;

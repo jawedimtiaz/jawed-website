@@ -49,6 +49,7 @@ export const MoneyManager: React.FC = () => {
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false);
   const [editingTransaction, setEditingTransaction] = useState<MoneyTransaction | null>(null);
   const [defaultTxDate, setDefaultTxDate] = useState<string | undefined>(undefined);
+  const [initialReceiptImageForModal, setInitialReceiptImageForModal] = useState<string | undefined>(undefined);
 
   // Receipt Lightbox State
   const [lightboxState, setLightboxState] = useState<{
@@ -114,15 +115,17 @@ export const MoneyManager: React.FC = () => {
   );
 
   // Handlers
-  const handleOpenAddTransaction = (dateStr?: string) => {
+  const handleOpenAddTransaction = (dateStr?: string, receiptImage?: string) => {
     setEditingTransaction(null);
     setDefaultTxDate(dateStr);
+    setInitialReceiptImageForModal(receiptImage);
     setIsTxModalOpen(true);
   };
 
   const handleOpenEditTransaction = (tx: MoneyTransaction) => {
     setEditingTransaction(tx);
     setDefaultTxDate(undefined);
+    setInitialReceiptImageForModal(undefined);
     setIsTxModalOpen(true);
   };
 
@@ -286,6 +289,7 @@ export const MoneyManager: React.FC = () => {
               onSyncMonthRecurring={handleSyncMonthRecurring}
               onOpenReceiptLightbox={handleOpenReceiptLightbox}
               onOpenAddModal={handleOpenAddTransaction}
+              onOpenAddModalWithReceipt={(receiptImg) => handleOpenAddTransaction(undefined, receiptImg)}
             />
           )}
 
@@ -390,9 +394,11 @@ export const MoneyManager: React.FC = () => {
         accounts={accounts}
         categories={categories}
         transactions={transactions}
+        initialReceiptImage={initialReceiptImageForModal}
         onClose={() => {
           setIsTxModalOpen(false);
           setEditingTransaction(null);
+          setInitialReceiptImageForModal(undefined);
         }}
         onSave={handleSaveTransaction}
         onSaveRecurringRule={handleSaveRecurringRule}
