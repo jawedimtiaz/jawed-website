@@ -1367,6 +1367,183 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.equal(syntheticPlan.overallUtilizationPercent, expectedSyntheticBurnRate);
     assert.ok(syntheticPlan.totalRemaining >= 0);
   });
+
+  it('triggers visual warnings when a spending category exceeds 90% of its defined limit', async () => {
+    const { computeMonthlyBudgetPlan } = await import(
+      '../src/components/money-manager/StatsView'
+    );
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Scenario with one category at 92% (>= 90%) and one at 75% (< 90%)
+    const customThresholds: Record<string, number> = {
+      'Food & Groceries': 10000,
+      'Entertainment & Leisure': 8000,
+      'Shopping & Personal': 5000,
+    };
+
+    const syntheticTransactions: MoneyTransaction[] = [
+      {
+        id: 'tx-warn-1',
+        date: '2026-11-08T11:00',
+        type: 'Expense',
+        accountId: 'acc-icici',
+        amount: 9200, // 92% of 10,000 -> Exceeds 90%
+        category: 'Food & Groceries',
+        subCategory: 'Groceries',
+        fixedOrVariable: 'Variable',
+        note: 'Supermarket spend hitting 92%',
+        receiptImages: [],
+        isAnomaly: false,
+      },
+      {
+        id: 'tx-warn-2',
+        date: '2026-11-09T15:00',
+        type: 'Expense',
+        accountId: 'acc-icici',
+        amount: 6000, // 75% of 8,000 -> Under 90%
+        category: 'Entertainment & Leisure',
+        subCategory: 'Dining Out',
+        fixedOrVariable: 'Variable',
+        note: 'Weekend dining',
+        receiptImages: [],
+        isAnomaly: false,
+      },
+      {
+        id: 'tx-warn-3',
+        date: '2026-11-10T19:00',
+        type: 'Expense',
+        accountId: 'acc-icici',
+        amount: 4500, // 90.0% of 5,000 -> Exactly 90%
+        category: 'Shopping & Personal',
+        subCategory: 'Apparel',
+        fixedOrVariable: 'Variable',
+        note: 'Clothing purchase hitting exactly 90%',
+        receiptImages: [],
+        isAnomaly: false,
+      },
+    ];
+
+    const plan = computeMonthlyBudgetPlan(
+      syntheticTransactions,
+      '2026-11',
+      state.categories,
+      customThresholds
+    );
+
+    // Verify Food & Groceries item
+    const foodItem = plan.items.find((i) => i.category === 'Food & Groceries');
+    assert.ok(foodItem, 'Food & Groceries item should exist');
+    assert.equal(foodItem.monthlyLimit, 10000);
+    assert.equal(foodItem.spent, 9200);
+    assert.equal(foodItem.utilizationPercent, 92);
+    assert.equal(foodItem.isExceeding90Percent, true);
+
+    // Verify Shopping & Personal item (exactly 90%)
+    const shoppingItem = plan.items.find((i) => i.category === 'Shopping & Personal');
+    assert.ok(shoppingItem, 'Shopping & Personal item should exist');
+    assert.equal(shoppingItem.monthlyLimit, 5000);
+    assert.equal(shoppingItem.spent, 4500);
+    assert.equal(shoppingItem.utilizationPercent, 90);
+    assert.equal(shoppingItem.isExceeding90Percent, true);
+
+    // Verify Entertainment & Leisure item (75% - below 90%)
+    const entertainmentItem = plan.items.find((i) => i.category === 'Entertainment & Leisure');
+    assert.ok(entertainmentItem, 'Entertainment & Leisure item should exist');
+    assert.equal(entertainmentItem.monthlyLimit, 8000);
+    assert.equal(entertainmentItem.spent, 6000);
+    assert.equal(entertainmentItem.utilizationPercent, 75);
+    assert.equal(entertainmentItem.isExceeding90Percent, false);
+
+    // Verify summary warning calculations
+    assert.equal(plan.has90PercentWarning, true);
+    assert.equal(plan.warning90Count, 2);
+    assert.equal(plan.warning90Categories.length, 2);
+    const warningNames = plan.warning90Categories.map((c) => c.category);
+    assert.ok(warningNames.includes('Food & Groceries'));
+    assert.ok(warningNames.includes('Shopping & Personal'));
+    assert.ok(!warningNames.includes('Entertainment & Leisure'));
+
+    // 2. Scenario where no category exceeds 90%
+    const safeTransactions: MoneyTransaction[] = [
+      {
+        id: 'tx-safe-1',
+        date: '2026-11-08T11:00',
+        type: 'Expense',
+        accountId: 'acc-icici',
+        amount: 5000, // 50% of 10,000
+        category: 'Food & Groceries',
+        subCategory: 'Groceries',
+        fixedOrVariable: 'Variable',
+        note: 'Low spend',
+        receiptImages: [],
+        isAnomaly: false,
+      },
+    ];
+
+    const safePlan = computeMonthlyBudgetPlan(
+      safeTransactions,
+      '2026-11',
+      state.categories,
+      customThresholds
+    );
+
+    assert.equal(safePlan.has90PercentWarning, false);
+    assert.equal(safePlan.warning90Count, 0);
+    assert.equal(safePlan.warning90Categories.length, 0);
+  });
+
+  it('provides storage persistence helpers and accurate 30-day backup alert detection in src/db.js', async () => {
+    const dbModule = await import('../src/db.js');
+
+    assert.ok(dbModule.DB_NAME, 'Expected DB_NAME in src/db.js');
+    assert.ok(typeof dbModule.enableStoragePersistence === 'function');
+    assert.ok(typeof dbModule.isStoragePersisted === 'function');
+    assert.ok(typeof dbModule.shouldShowBackupAlert === 'function');
+    assert.ok(typeof dbModule.getDaysSinceLastBackup === 'function');
+    assert.ok(typeof dbModule.recordBackupTaken === 'function');
+
+    // Test backup due detection when no backup was taken
+    dbModule.clearBackupDate();
+    assert.equal(dbModule.getLastBackupDate(), null);
+    assert.equal(dbModule.getDaysSinceLastBackup(), null);
+    assert.equal(dbModule.shouldShowBackupAlert(30), true, 'Should trigger backup alert if never backed up');
+
+    // Test backup taken just now (0 days elapsed)
+    dbModule.recordBackupTaken();
+    assert.ok(dbModule.getLastBackupDate());
+    assert.equal(dbModule.getDaysSinceLastBackup(), 0);
+    assert.equal(dbModule.shouldShowBackupAlert(30), false, 'Should not trigger backup alert immediately after backup');
+
+    // Test backup taken 35 days ago (overdue)
+    const thirtyFiveDaysAgo = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString();
+    dbModule.recordBackupTaken(thirtyFiveDaysAgo);
+    assert.ok(dbModule.getDaysSinceLastBackup()! >= 35);
+    assert.equal(dbModule.shouldShowBackupAlert(30), true, 'Should trigger backup alert after 35 days');
+
+    // Reset back to fresh state
+    dbModule.recordBackupTaken();
+    assert.equal(dbModule.shouldShowBackupAlert(30), false);
+  });
+
+  it('exports all 8 required standalone Money Manager modules cleanly', async () => {
+    const db = await import('../src/db.js');
+    const BackupBanner = await import('../src/components/BackupBanner.jsx');
+    const TransactionModal = await import('../src/components/TransactionModal.jsx');
+    const DailyView = await import('../src/components/DailyView.jsx');
+    const CalendarView = await import('../src/components/CalendarView.jsx');
+    const AccountsView = await import('../src/components/AccountsView.jsx');
+    const StatsView = await import('../src/components/StatsView.jsx');
+    const App = await import('../src/App.jsx');
+
+    assert.ok(db.initializeAndSeedDatabase, 'Expected db helpers in src/db.js');
+    assert.ok(BackupBanner.BackupBanner || BackupBanner.default, 'Expected BackupBanner component');
+    assert.ok(TransactionModal.TransactionModal || TransactionModal.default, 'Expected TransactionModal component');
+    assert.ok(DailyView.DailyView || DailyView.default, 'Expected DailyView component');
+    assert.ok(CalendarView.CalendarView || CalendarView.default, 'Expected CalendarView component');
+    assert.ok(AccountsView.AccountsView || AccountsView.default, 'Expected AccountsView component');
+    assert.ok(StatsView.StatsView || StatsView.default, 'Expected StatsView component');
+    assert.ok(App.App || App.default, 'Expected App component in src/App.jsx');
+  });
 });
 
 

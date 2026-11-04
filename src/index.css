@@ -7779,6 +7779,12 @@ select:focus-visible {
   gap: 8px;
 }
 
+.mm-budget-kpi-card.is-warning-90 {
+  border-color: rgba(245, 158, 11, 0.65);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.09) 0%, var(--bg-darker) 100%);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2);
+}
+
 .mm-burn-rate-card {
   padding: 16px 18px;
   border-radius: 14px;
@@ -7795,6 +7801,12 @@ select:focus-visible {
 .mm-burn-rate-card.is-over {
   border-color: rgba(239, 68, 68, 0.55);
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, var(--bg-darker) 100%);
+}
+
+.mm-burn-rate-card.is-warning-90 {
+  border-color: rgba(245, 158, 11, 0.75);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, var(--bg-darker) 100%);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3), 0 4px 18px rgba(245, 158, 11, 0.12);
 }
 
 .mm-burn-rate-card.is-near {
@@ -7829,6 +7841,11 @@ select:focus-visible {
 .mm-burn-rate-icon-badge.is-on-track {
   background: rgba(16, 185, 129, 0.16);
   color: #10b981;
+}
+
+.mm-burn-rate-icon-badge.is-warning-90 {
+  background: rgba(245, 158, 11, 0.24);
+  color: #f59e0b;
 }
 
 .mm-burn-rate-icon-badge.is-near {
@@ -7930,6 +7947,12 @@ select:focus-visible {
   background: rgba(239, 68, 68, 0.05);
 }
 
+.mm-budget-plan-card.is-warning-90 {
+  border-color: rgba(245, 158, 11, 0.65);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, var(--bg-darker) 100%);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25), 0 2px 10px rgba(245, 158, 11, 0.08);
+}
+
 .mm-budget-plan-card.is-near {
   border-color: rgba(245, 158, 11, 0.45);
   background: rgba(245, 158, 11, 0.04);
@@ -7975,6 +7998,12 @@ select:focus-visible {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.mm-budget-status-pill.is-warning-90 {
+  background: rgba(245, 158, 11, 0.2);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.55);
 }
 
 .mm-budget-status-pill.is-near {

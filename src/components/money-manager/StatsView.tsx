@@ -80,6 +80,7 @@ export interface MonthlyBudgetPlanItem {
   dailyBurnRate: number;
   historicalMonthlyAvg: number;
   forecastStatus: 'on-track' | 'at-risk' | 'projected-over' | 'unbudgeted';
+  isExceeding90Percent: boolean;
 }
 
 export interface MonthlyBudgetPlanSummary {
@@ -93,6 +94,9 @@ export interface MonthlyBudgetPlanSummary {
   totalMonthlyBurnRate: number;
   overBudgetCount: number;
   nearLimitCount: number;
+  warning90Count: number;
+  warning90Categories: MonthlyBudgetPlanItem[];
+  has90PercentWarning: boolean;
   onTrackCount: number;
   unbudgetedCount: number;
   fixedBudgeted: number;
@@ -344,6 +348,9 @@ export function computeMonthlyBudgetPlan(
       variableSpent += spent;
     }
 
+    const isExceeding90Percent =
+      monthlyLimit > 0 && (spent / monthlyLimit >= 0.9 || utilizationPercent >= 90);
+
     return {
       categoryId: cat.id,
       category: cat.name,
@@ -366,6 +373,7 @@ export function computeMonthlyBudgetPlan(
       dailyBurnRate,
       historicalMonthlyAvg,
       forecastStatus,
+      isExceeding90Percent,
     };
   });
 
@@ -387,6 +395,10 @@ export function computeMonthlyBudgetPlan(
       ? Number(((totalProjectedSpend / totalBudgeted) * 100).toFixed(1))
       : 0;
 
+  const warning90Categories = items.filter((item) => item.isExceeding90Percent);
+  const warning90Count = warning90Categories.length;
+  const has90PercentWarning = warning90Count > 0;
+
   return {
     items,
     totalBudgeted,
@@ -398,6 +410,9 @@ export function computeMonthlyBudgetPlan(
     totalMonthlyBurnRate: overallUtilizationPercent,
     overBudgetCount,
     nearLimitCount,
+    warning90Count,
+    warning90Categories,
+    has90PercentWarning,
     onTrackCount,
     unbudgetedCount,
     fixedBudgeted,
@@ -845,7 +860,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 }) => {
   const [subView, setSubView] = useState<StatsSubView>('all');
   const [budgetFilterStatus, setBudgetFilterStatus] = useState<
-    'all' | 'over' | 'projected-over' | 'near' | 'on-track' | 'unbudgeted'
+    'all' | 'over' | 'projected-over' | 'warning-90' | 'near' | 'on-track' | 'unbudgeted'
   >('all');
   const [budgetSearchQuery, setBudgetSearchQuery] = useState<string>('');
   const [budgetSortBy, setBudgetSortBy] = useState<BudgetSortOption>('utilization-desc');
@@ -929,7 +944,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const filteredBudgetPlanItems = useMemo(() => {
     const cleanQuery = budgetSearchQuery.trim().toLowerCase();
     const list = monthlyBudgetPlan.items.filter((item) => {
-      if (budgetFilterStatus === 'projected-over') {
+      if (budgetFilterStatus === 'warning-90') {
+        if (!item.isExceeding90Percent) return false;
+      } else if (budgetFilterStatus === 'projected-over') {
         if (item.forecastStatus !== 'projected-over') return false;
       } else if (budgetFilterStatus !== 'all' && item.status !== budgetFilterStatus) {
         return false;
@@ -1658,6 +1675,22 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setBudgetFilterStatus('warning-90')}
+                  className={`mm-btn mm-btn-sm ${
+                    budgetFilterStatus === 'warning-90' ? 'mm-btn-primary' : 'mm-btn-secondary'
+                  }`}
+                  data-testid="mm-budget-filter-90"
+                >
+                  <AlertTriangle
+                    size={12}
+                    style={{
+                      color: monthlyBudgetPlan.warning90Count > 0 ? '#f59e0b' : undefined,
+                    }}
+                  />
+                  <span>≥90% Limit ({monthlyBudgetPlan.warning90Count})</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setBudgetFilterStatus('on-track')}
                   className={`mm-btn mm-btn-sm ${
                     budgetFilterStatus === 'on-track' ? 'mm-btn-primary' : 'mm-btn-secondary'
@@ -1783,7 +1816,18 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </span>
             </div>
 
-            <div className="mm-budget-kpi-card">
+            <div
+              className={`mm-budget-kpi-card ${
+                monthlyBudgetPlan.has90PercentWarning &&
+                !(
+                  monthlyBudgetPlan.totalSpent > monthlyBudgetPlan.totalBudgeted &&
+                  monthlyBudgetPlan.totalBudgeted > 0
+                )
+                  ? 'is-warning-90'
+                  : ''
+              }`}
+              data-testid="mm-budget-kpi-spent-card"
+            >
               <span className="mm-budget-kpi-label">Actual Spent vs Budget</span>
               <strong
                 className="mm-budget-kpi-value"
@@ -1792,6 +1836,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     monthlyBudgetPlan.totalSpent > monthlyBudgetPlan.totalBudgeted &&
                     monthlyBudgetPlan.totalBudgeted > 0
                       ? '#ef4444'
+                      : monthlyBudgetPlan.has90PercentWarning
+                      ? '#f59e0b'
                       : 'var(--text-heading)',
                 }}
                 data-testid="mm-budget-total-spent"
@@ -1804,8 +1850,28 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <span className="mm-budget-kpi-sub">
                 {monthlyBudgetPlan.overBudgetCount > 0
                   ? `${monthlyBudgetPlan.overBudgetCount} category limit(s) exceeded`
+                  : monthlyBudgetPlan.warning90Count > 0
+                  ? `${monthlyBudgetPlan.warning90Count} category limit(s) ≥90% utilized`
                   : 'All categories within planned limits'}
               </span>
+              {monthlyBudgetPlan.has90PercentWarning && (
+                <div
+                  className="mm-budget-kpi-warning-notice"
+                  data-testid="mm-budget-kpi-90-warning"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: '0.73rem',
+                    color: '#f59e0b',
+                    fontWeight: 600,
+                    marginTop: 4,
+                  }}
+                >
+                  <AlertTriangle size={12} />
+                  <span>{monthlyBudgetPlan.warning90Count} category limit(s) ≥90%</span>
+                </div>
+              )}
             </div>
 
             <div className="mm-budget-kpi-card">
@@ -1845,7 +1911,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
             const isOverBudget =
               monthlyBudgetPlan.totalSpent > monthlyBudgetPlan.totalBudgeted &&
               monthlyBudgetPlan.totalBudgeted > 0;
-            const isNearLimit = !isOverBudget && burnRatePercent >= 85;
+            const has90Warning = monthlyBudgetPlan.has90PercentWarning;
+            const isNearLimit = !isOverBudget && !has90Warning && burnRatePercent >= 85;
             const daysInMonth = monthlyBudgetPlan.daysInMonth || 30;
             const daysElapsed = monthlyBudgetPlan.daysElapsed || 1;
             const monthPacePercent = Number(((daysElapsed / daysInMonth) * 100).toFixed(1));
@@ -1855,7 +1922,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
             return (
               <div
                 className={`mm-burn-rate-card ${
-                  isOverBudget ? 'is-over' : isNearLimit ? 'is-near' : 'is-on-track'
+                  isOverBudget
+                    ? 'is-over'
+                    : has90Warning
+                    ? 'is-warning-90'
+                    : isNearLimit
+                    ? 'is-near'
+                    : 'is-on-track'
                 }`}
                 data-testid="mm-total-monthly-burn-rate-card"
               >
@@ -1863,7 +1936,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   <div className="mm-burn-rate-title-cluster">
                     <div
                       className={`mm-burn-rate-icon-badge ${
-                        isOverBudget ? 'is-over' : isNearLimit ? 'is-near' : 'is-on-track'
+                        isOverBudget
+                          ? 'is-over'
+                          : has90Warning
+                          ? 'is-warning-90'
+                          : isNearLimit
+                          ? 'is-near'
+                          : 'is-on-track'
                       }`}
                       data-testid="mm-burn-rate-icon"
                     >
@@ -1881,6 +1960,25 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {has90Warning && (
+                      <span
+                        className="mm-budget-status-pill is-warning-90"
+                        data-testid="mm-burn-rate-90-warning-badge"
+                        style={{
+                          fontSize: '0.8rem',
+                          padding: '4px 10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                        }}
+                      >
+                        <AlertTriangle size={13} />
+                        <span>
+                          {monthlyBudgetPlan.warning90Count} Category{' '}
+                          {monthlyBudgetPlan.warning90Count === 1 ? 'Exceeds' : 'Exceed'} 90% Limit
+                        </span>
+                      </span>
+                    )}
                     <span
                       className={`mm-budget-status-pill is-${
                         isOverBudget ? 'over' : isNearLimit ? 'near' : 'on-track'
@@ -1895,6 +1993,78 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {/* 90% Limit Warning Callout Banner */}
+                {has90Warning && (
+                  <div
+                    className="mm-burn-rate-warning-callout"
+                    data-testid="mm-budget-summary-90-warning"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      background: 'rgba(245, 158, 11, 0.1)',
+                      border: '1px solid rgba(245, 158, 11, 0.45)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          fontSize: '0.83rem',
+                          fontWeight: 700,
+                          color: '#f59e0b',
+                        }}
+                      >
+                        <AlertTriangle size={15} />
+                        <span>
+                          Warning: {monthlyBudgetPlan.warning90Count}{' '}
+                          {monthlyBudgetPlan.warning90Count === 1
+                            ? 'category exceeds'
+                            : 'categories exceed'}{' '}
+                          90% of defined monthly limit
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setBudgetFilterStatus('warning-90')}
+                        className="mm-btn mm-btn-sm mm-btn-secondary"
+                        style={{ padding: '2px 8px', fontSize: '0.74rem' }}
+                        data-testid="mm-budget-summary-filter-90-btn"
+                      >
+                        View ≥90% Categories ({monthlyBudgetPlan.warning90Count})
+                      </button>
+                    </div>
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
+                      data-testid="mm-budget-summary-90-chips"
+                    >
+                      {monthlyBudgetPlan.warning90Categories.map((c) => (
+                        <span
+                          key={c.category}
+                          className="mm-budget-status-pill is-warning-90"
+                          data-testid={`mm-budget-summary-90-chip-${c.category}`}
+                          style={{ fontSize: '0.74rem' }}
+                        >
+                          <strong>{c.category}:</strong> {formatINR(c.spent)} / {formatINR(c.monthlyLimit)} (
+                          {c.utilizationPercent}%)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Primary Progress Bar Section */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -2475,6 +2645,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   className={`mm-budget-plan-card ${
                     item.status === 'over'
                       ? 'is-over'
+                      : item.isExceeding90Percent
+                      ? 'is-warning-90'
                       : item.status === 'near'
                       ? 'is-near'
                       : ''
@@ -2527,24 +2699,35 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       </div>
                     </div>
 
-                    <span
-                      className={`mm-budget-status-pill is-${item.status}`}
-                      data-testid={`mm-budget-plan-status-${item.category}`}
-                    >
-                      {item.status === 'over' ? (
-                        <>
-                          <AlertTriangle size={11} /> Over by {formatINR(item.overage)}
-                        </>
-                      ) : item.status === 'near' ? (
-                        <>Near Limit ({item.utilizationPercent}%)</>
-                      ) : item.status === 'on-track' ? (
-                        <>
-                          <CheckCircle2 size={11} /> On Track ({item.utilizationPercent}%)
-                        </>
-                      ) : (
-                        <>Unbudgeted</>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {item.isExceeding90Percent && (
+                        <span
+                          className="mm-budget-status-pill is-warning-90"
+                          data-testid={`mm-budget-card-90-warning-${item.category}`}
+                          title={`${item.category} has utilized ${item.utilizationPercent}% of its limit (≥90%)`}
+                        >
+                          <AlertTriangle size={11} /> ≥90% Limit ({item.utilizationPercent}%)
+                        </span>
                       )}
-                    </span>
+                      <span
+                        className={`mm-budget-status-pill is-${item.status}`}
+                        data-testid={`mm-budget-plan-status-${item.category}`}
+                      >
+                        {item.status === 'over' ? (
+                          <>
+                            <AlertTriangle size={11} /> Over by {formatINR(item.overage)}
+                          </>
+                        ) : item.status === 'near' ? (
+                          <>Near Limit ({item.utilizationPercent}%)</>
+                        ) : item.status === 'on-track' ? (
+                          <>
+                            <CheckCircle2 size={11} /> On Track ({item.utilizationPercent}%)
+                          </>
+                        ) : (
+                          <>Unbudgeted</>
+                        )}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Editable Monetary Limit Controls */}

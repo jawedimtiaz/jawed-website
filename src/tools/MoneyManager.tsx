@@ -31,6 +31,8 @@ import { RecurringView } from '../components/money-manager/RecurringView';
 import { TransactionModal } from '../components/money-manager/TransactionModal';
 import { ReceiptLightboxModal } from '../components/money-manager/ReceiptLightboxModal';
 import { BackupRestoreModal } from '../components/money-manager/BackupRestoreModal';
+import { BackupBanner } from '../components/BackupBanner';
+import { enableStoragePersistence } from '../db';
 
 export const MoneyManager: React.FC = () => {
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
@@ -89,6 +91,7 @@ export const MoneyManager: React.FC = () => {
 
   useEffect(() => {
     loadDatabaseState();
+    enableStoragePersistence();
   }, [loadDatabaseState]);
 
   // Derived Monthly Metrics (Strictly excluding Transfers from Income & Expense)
@@ -254,6 +257,12 @@ export const MoneyManager: React.FC = () => {
             <span>{toastMessage}</span>
           </div>
         )}
+
+        {/* 30-Day Routine Backup Alert Banner */}
+        <BackupBanner
+          onOpenBackupModal={() => setIsBackupModalOpen(true)}
+          onBackupDownloaded={() => showToast('Backup JSON downloaded successfully & timer reset!')}
+        />
 
         {/* Prominent Realbyte-Styled Header */}
         <MoneyManagerHeader
