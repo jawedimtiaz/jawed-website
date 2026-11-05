@@ -8,6 +8,7 @@ import {
   calculateMonthlyMetrics,
   calculateCategoryBreakdown,
   calculateSixMonthTrend,
+  calculateTwelveMonthTrend,
   saveTransaction,
   deleteTransaction,
   saveAccount,
@@ -304,6 +305,11 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     const trend = calculateSixMonthTrend(state.transactions, '2026-11');
     assert.equal(trend.length, 6);
     assert.equal(trend[5].yearMonth, '2026-11');
+
+    const twelveTrend = calculateTwelveMonthTrend(state.transactions, '2026-11');
+    assert.equal(twelveTrend.length, 12);
+    assert.equal(twelveTrend[0].yearMonth, '2025-12');
+    assert.equal(twelveTrend[11].yearMonth, '2026-11');
     assert.ok(formatINR(118000).includes('1,18,000'));
   });
 
@@ -361,6 +367,43 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
 
     const afterState = await initializeAndSeedDatabase();
     assert.equal(afterState.transactions.length, initialTxCount + 5);
+  });
+
+  it('automatically infers category and matches bank accounts when CSV statements lack explicit category columns', async () => {
+    const state = await initializeAndSeedDatabase();
+
+    const csvWithoutCategories = `Date,Narration,Withdrawal Amt.,Deposit Amt.,Bank
+2026-11-20,UPI/Swiggy Instamart Fresh Groceries,845,,ICICI
+2026-11-21,POS/Apollo Pharmacy Medicines,640,,UBI
+2026-11-22,ACH/BESCOM Electricity Utility Bill,2180,,SBI`;
+
+    const parsed = parseCsvText(csvWithoutCategories);
+    const mapping = autoDetectCsvMapping(parsed.headers);
+
+    const mapped = mapCsvRowsToTransactions(parsed.rows, mapping, {
+      defaultAccountId: 'acc-icici',
+      defaultMonth: '2026-11',
+      accounts: state.accounts,
+      categories: state.categories,
+      historicalTransactions: state.transactions,
+    });
+
+    assert.equal(mapped.length, 3);
+
+    // Row 1: Swiggy Instamart -> Food & Groceries, ICICI -> acc-icici
+    assert.equal(mapped[0].category, 'Food & Groceries');
+    assert.equal(mapped[0].accountId, 'acc-icici');
+
+    // Row 2: Apollo Pharmacy -> Medical & Health, UBI -> acc-ubi
+    assert.equal(mapped[1].category, 'Medical & Health');
+    assert.equal(mapped[1].accountId, 'acc-ubi');
+
+    // Row 3: BESCOM Electricity -> Utilities & Broadband, SBI -> acc-sbi
+    assert.equal(mapped[2].category, 'Utilities & Broadband');
+    assert.equal(mapped[2].accountId, 'acc-sbi');
+
+    const imported = await bulkImportTransactions(mapped);
+    assert.equal(imported.length, 3);
   });
 
   it('instantly filters Daily View transactions by note text or category name', async () => {
@@ -483,6 +526,69 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.equal(resolvedAlerts.exceededCategories.length, 0);
     assert.equal(resolvedAlerts.totalOverBudgetAmount, 0);
     assert.equal(resolvedAlerts.alertSeverity, 'warning');
+  });
+
+  it('triggers automatic 95% budget limit alerts when category spending approaches or exceeds 95% threshold', async () => {
+    const { evaluate95PercentBudgetAlerts, computeMonthlyBudgetPlan } = await import(
+      '../src/components/money-manager/StatsView'
+    );
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Initial seeded state: Medical & Health is at 157% (>95%) and Rent & Housing is at 91.7% (<95%)
+    const initial95 = evaluate95PercentBudgetAlerts(
+      state.transactions,
+      '2026-11',
+      state.categories
+    );
+    assert.ok(initial95.has95PercentWarning);
+    assert.ok(
+      initial95.warning95Categories.some((i) => i.category === 'Medical & Health')
+    );
+    assert.ok(
+      initial95.alertMessages.some((msg) => msg.includes('Medical & Health'))
+    );
+    assert.ok(
+      !initial95.warning95Categories.some((i) => i.category === 'Rent & Housing')
+    );
+
+    // 2. Record an additional expense of ₹1,000 in Rent & Housing (pushing spend from ₹22,000 to ₹23,000 / ₹24,000 = 95.8%)
+    await saveTransaction({
+      id: 'tx-rent-topup-95',
+      date: '2026-11-20T11:00',
+      type: 'Expense',
+      accountId: 'acc-icici',
+      amount: 1000,
+      category: 'Rent & Housing',
+      subCategory: 'Apartment Maintenance Top-up',
+      fixedOrVariable: 'Fixed',
+      note: 'Additional maintenance charge',
+      receiptImages: [],
+      isAnomaly: false,
+    });
+
+    const updatedState = await initializeAndSeedDatabase();
+    const updated95 = evaluate95PercentBudgetAlerts(
+      updatedState.transactions,
+      '2026-11',
+      updatedState.categories
+    );
+
+    assert.ok(updated95.has95PercentWarning);
+    const rentItem = updated95.warning95Categories.find(
+      (i) => i.category === 'Rent & Housing'
+    );
+    assert.ok(rentItem);
+    assert.equal(rentItem.spent, 23000);
+    assert.equal(rentItem.monthlyLimit, 24000);
+    assert.equal(rentItem.utilizationPercent, 95.8);
+    assert.equal(rentItem.isExceeding95Percent, true);
+
+    const rentAlertMsg = updated95.alertMessages.find((msg) =>
+      msg.includes('Rent & Housing')
+    );
+    assert.ok(rentAlertMsg);
+    assert.ok(rentAlertMsg.includes('95.8%'));
+    assert.ok(rentAlertMsg.includes('23,000'));
   });
 
   it('formats all ledger transactions into a standard accounting CSV table for Download CSV', async () => {
@@ -1543,6 +1649,334 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.ok(AccountsView.AccountsView || AccountsView.default, 'Expected AccountsView component');
     assert.ok(StatsView.StatsView || StatsView.default, 'Expected StatsView component');
     assert.ok(App.App || App.default, 'Expected App component in src/App.jsx');
+  });
+
+  it('generates a formatted monthly spending report PDF summary cleanly without unicode errors', async () => {
+    const {
+      generateMonthlySpendingPdf,
+      formatPdfINR,
+      getFullMonthYearLabel,
+    } = await import('../src/components/money-manager/spendingPdfReport');
+    const { computeMonthlyBudgetPlan } = await import(
+      '../src/components/money-manager/StatsView'
+    );
+    const { calculateMonthlyMetrics } = await import('../src/db/db');
+
+    const state = await initializeAndSeedDatabase();
+    const metrics = calculateMonthlyMetrics(state.transactions, '2026-11');
+    const plan = computeMonthlyBudgetPlan(
+      state.transactions,
+      '2026-11',
+      state.categories,
+      {}
+    );
+
+    // 1. Verify ASCII-safe currency formatting
+    assert.equal(formatPdfINR(125000), 'Rs. 1,25,000');
+    assert.equal(formatPdfINR(0), 'Rs. 0');
+    assert.equal(formatPdfINR(4500, true), '+Rs. 4,500');
+    assert.equal(formatPdfINR(-3200, true), '-Rs. 3,200');
+
+    // 2. Verify month label formatter
+    assert.equal(getFullMonthYearLabel('2026-11'), 'November 2026');
+    assert.equal(getFullMonthYearLabel('2025-01'), 'January 2025');
+
+    // 3. Generate PDF document in-memory
+    const doc = generateMonthlySpendingPdf({
+      selectedMonth: '2026-11',
+      plan,
+      metrics,
+      transactions: state.transactions,
+      sinkingFunds: state.sinkingFunds,
+      reportTitle: 'Executive Monthly Financial Health Summary',
+      includeCategoryBreakdown: true,
+      includeTopTransactions: true,
+      topTransactionsLimit: 5,
+      includeSinkingFunds: true,
+      customNotes: 'All critical spending targets were maintained within authorized thresholds for November.',
+    });
+
+    assert.ok(doc, 'Expected generateMonthlySpendingPdf to return a jsPDF instance');
+    const pageCount = doc.getNumberOfPages();
+    assert.ok(pageCount >= 1, `Expected at least 1 page, got ${pageCount}`);
+
+    // Verify PDF binary output header starts with %PDF
+    const pdfDataUri = doc.output('datauristring');
+    assert.ok(pdfDataUri.startsWith('data:application/pdf;filename=generated.pdf;base64,'), 'Expected valid PDF data URI');
+    const pdfArrayBuffer = doc.output('arraybuffer');
+    assert.ok(pdfArrayBuffer.byteLength > 1000, 'Expected non-trivial PDF byte size');
+
+    // Test with optional sections toggled off
+    const minimalDoc = generateMonthlySpendingPdf({
+      selectedMonth: '2026-11',
+      plan,
+      metrics,
+      transactions: state.transactions,
+      includeCategoryBreakdown: false,
+      includeTopTransactions: false,
+      includeSinkingFunds: false,
+    });
+    assert.ok(minimalDoc.getNumberOfPages() >= 1);
+  });
+
+  it('mines historical spending trends from IndexedDB to project end-of-month category totals and compares against defined budgets', async () => {
+    const { calculateBudgetProjections } = await import(
+      '../src/components/money-manager/BudgetProjectionSection'
+    );
+    const { BudgetProjectionSection } = await import('../src/components/StatsView.jsx');
+    assert.ok(BudgetProjectionSection, 'Expected BudgetProjectionSection re-export from StatsView.jsx');
+
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Run projection engine for 2026-11 with default hybrid pace model
+    const projection = calculateBudgetProjections(
+      state.transactions,
+      state.categories,
+      '2026-11'
+    );
+
+    assert.ok(projection, 'Expected calculateBudgetProjections to return a summary object');
+    assert.ok(projection.items.length >= 7, 'Expected projection items for all expense categories');
+    assert.ok(
+      projection.historicalMonthsAnalyzed >= 1,
+      `Expected historical months analyzed from IndexedDB records, got ${projection.historicalMonthsAnalyzed}`
+    );
+    assert.ok(projection.totalDefinedBudget > 0, 'Expected positive total defined budget');
+    assert.ok(projection.totalCurrentSpent > 0, 'Expected current spent to date');
+    assert.ok(projection.totalEstimatedMonthEnd > 0, 'Expected positive estimated month-end total');
+
+    // 2. Verify individual category projection comparison against defined budget
+    // Rent & Housing: Defined limit ₹24,000, current spend ₹22,000 -> Fixed expense projected to finish at ₹22,000 (Safe Headroom)
+    const rentItem = projection.items.find((i) => i.category === 'Rent & Housing');
+    assert.ok(rentItem, 'Expected Rent & Housing category item');
+    assert.equal(rentItem.definedBudget, 24000);
+    assert.equal(rentItem.currentSpent, 22000);
+    assert.equal(rentItem.estimatedMonthEndTotal, 22000);
+    assert.equal(rentItem.comparisonStatus, 'at-risk');
+    assert.equal(rentItem.projectedHeadroom, 2000);
+    assert.equal(rentItem.projectedOverage, 0);
+
+    // Medical & Health: Defined limit ₹5,000, current spend ₹7,850 -> Already exceeds defined limit (Projected Over)
+    const medicalItem = projection.items.find((i) => i.category === 'Medical & Health');
+    assert.ok(medicalItem, 'Expected Medical & Health category item');
+    assert.equal(medicalItem.definedBudget, 5000);
+    assert.equal(medicalItem.currentSpent, 7850);
+    assert.ok(
+      medicalItem.estimatedMonthEndTotal >= 7850,
+      'Estimated total should be at least current spent'
+    );
+    assert.equal(medicalItem.comparisonStatus, 'projected-over');
+    assert.ok(medicalItem.projectedOverage >= 2850);
+    assert.equal(medicalItem.projectedHeadroom, 0);
+
+    // Food & Groceries: Variable category with current spent ₹3,450
+    const foodItem = projection.items.find((i) => i.category === 'Food & Groceries');
+    assert.ok(foodItem, 'Expected Food & Groceries category item');
+    assert.equal(foodItem.definedBudget, 16000);
+    assert.equal(foodItem.currentSpent, 3450);
+    assert.ok(
+      foodItem.estimatedMonthEndTotal > foodItem.currentSpent,
+      'Variable category should project additional spend for remaining days'
+    );
+
+    // 3. Test different projection models: historical trend vs linear daily run-rate
+    const histModelProj = calculateBudgetProjections(
+      state.transactions,
+      state.categories,
+      '2026-11',
+      { model: 'historical' }
+    );
+    assert.equal(histModelProj.modelUsed, 'historical');
+    assert.ok(histModelProj.totalEstimatedMonthEnd > 0);
+
+    const runRateProj = calculateBudgetProjections(
+      state.transactions,
+      state.categories,
+      '2026-11',
+      { model: 'run-rate', referenceDayOfMonth: 10 }
+    );
+    assert.equal(runRateProj.modelUsed, 'run-rate');
+    assert.equal(runRateProj.daysElapsed, 10);
+    assert.equal(runRateProj.daysRemaining, 20);
+
+    // 4. Test user threshold overrides (e.g. uniform limit of ₹10,000)
+    const uniformOverrideProj = calculateBudgetProjections(
+      state.transactions,
+      state.categories,
+      '2026-11',
+      { thresholdOverrides: 10000 }
+    );
+    assert.ok(
+      uniformOverrideProj.items.every((i) => i.definedBudget === 10000),
+      'Expected all categories to reflect uniform threshold override'
+    );
+  });
+
+  it('accurately identifies budget overrun categories, computes overage amounts, and reflects in summary table', async () => {
+    const { computeMonthlyBudgetPlan } = await import(
+      '../src/components/money-manager/StatsView'
+    );
+    const { BudgetOverrunAlertList } = await import('../src/components/StatsView.jsx');
+    assert.ok(BudgetOverrunAlertList, 'Expected BudgetOverrunAlertList export');
+
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Initial seeded state: Medical & Health has ₹5,000 budget vs ₹7,850 spent -> Overrun of ₹2,850 (157.0%)
+    const plan = computeMonthlyBudgetPlan(
+      state.transactions,
+      '2026-11',
+      state.categories
+    );
+
+    const overrunCategories = plan.items.filter(
+      (item) => item.status === 'over' || (item.monthlyLimit > 0 && item.spent > item.monthlyLimit)
+    );
+
+    assert.equal(overrunCategories.length, 1, 'Expected exactly 1 overrun category');
+    const medicalOverrun = overrunCategories[0];
+    assert.equal(medicalOverrun.category, 'Medical & Health');
+    assert.equal(medicalOverrun.monthlyLimit, 5000);
+    assert.equal(medicalOverrun.spent, 7850);
+    assert.equal(medicalOverrun.overage, 2850);
+    assert.equal(medicalOverrun.utilizationPercent, 157.0);
+
+    // Sum of overages in the alert summary
+    const totalOverrunAmount = overrunCategories.reduce((sum, item) => sum + item.overage, 0);
+    assert.equal(totalOverrunAmount, 2850);
+
+    // 2. Simulate resolving the overrun by raising Medical & Health budget to ₹8,000
+    const resolvedCategories = state.categories.map((cat) =>
+      cat.name === 'Medical & Health' ? { ...cat, monthlyBudget: 8000 } : cat
+    );
+
+    const resolvedPlan = computeMonthlyBudgetPlan(
+      state.transactions,
+      '2026-11',
+      resolvedCategories
+    );
+
+    const resolvedOverruns = resolvedPlan.items.filter(
+      (item) => item.status === 'over' || (item.monthlyLimit > 0 && item.spent > item.monthlyLimit)
+    );
+    assert.equal(resolvedOverruns.length, 0, 'Expected 0 overrun categories after limit adjustment');
+    assert.equal(resolvedPlan.overBudgetCount, 0);
+
+    // Medical is now within limit (₹7,850 / ₹8,000 = 98.1%)
+    const resolvedMedical = resolvedPlan.items.find((i) => i.category === 'Medical & Health');
+    assert.ok(resolvedMedical);
+    assert.equal(resolvedMedical.status, 'near');
+    assert.equal(resolvedMedical.overage, 0);
+    assert.equal(resolvedMedical.remaining, 150);
+  });
+
+  it('tracks progress against user-defined monthly savings target and persists target preferences', async () => {
+    const {
+      MonthlySavingsGoalsSection,
+      getStoredSavingsTarget,
+    } = await import('../src/components/StatsView.jsx');
+    const { calculateMonthlyMetrics } = await import('../src/db/db');
+
+    assert.ok(MonthlySavingsGoalsSection, 'Expected MonthlySavingsGoalsSection export');
+
+    const state = await initializeAndSeedDatabase();
+    const metrics = calculateMonthlyMetrics(state.transactions, '2026-11');
+
+    // 1. Initial metrics for 2026-11:
+    // Income: ₹1,32,500, Expense: ₹48,230 -> Net Savings: ₹84,270 (63.6% savings rate)
+    assert.ok(metrics.income > 100000);
+    assert.ok(metrics.expense > 40000);
+    const netSavings = metrics.netBalance;
+    assert.equal(netSavings, metrics.income - metrics.expense);
+
+    // 2. Default target derived or stored
+    const defaultTarget = getStoredSavingsTarget('2026-11', metrics.income);
+    assert.ok(defaultTarget > 0);
+
+    // 3. Store custom target of ₹50,000 for 2026-11
+    const { storeSavingsTarget } = await import(
+      '../src/components/money-manager/MonthlySavingsGoalsSection'
+    );
+    storeSavingsTarget('2026-11', 50000);
+    const loadedTarget = getStoredSavingsTarget('2026-11', metrics.income);
+    assert.equal(loadedTarget, 50000);
+
+    // 4. Target Progress calculation: ₹84,270 achieved vs ₹50,000 target -> 168.5% progress (Target Achieved)
+    const progressPercent = Number(((netSavings / loadedTarget) * 100).toFixed(1));
+    assert.ok(progressPercent >= 100, `Expected >= 100% progress, got ${progressPercent}%`);
+    assert.ok(netSavings >= loadedTarget);
+  });
+
+  it('supports dashboard card reordering configuration, default order, and custom labels', async () => {
+    const {
+      DEFAULT_SUMMARY_CARD_ORDER,
+      SUMMARY_CARD_LABELS,
+    } = await import('../src/components/money-manager/StatsView');
+
+    assert.deepEqual(DEFAULT_SUMMARY_CARD_ORDER, [
+      'burn-rate',
+      'budget-forecast',
+      'budget-overrun',
+      'savings-goals',
+      'projections',
+    ]);
+
+    assert.equal(SUMMARY_CARD_LABELS['burn-rate'], 'Burn Rate Summary');
+    assert.equal(SUMMARY_CARD_LABELS['budget-forecast'], 'Budget Forecast (Velocity)');
+    assert.equal(SUMMARY_CARD_LABELS['budget-overrun'], 'Budget Overrun Alerts');
+    assert.equal(SUMMARY_CARD_LABELS['savings-goals'], 'Monthly Savings Goals');
+    assert.equal(SUMMARY_CARD_LABELS['projections'], 'Budget Projections');
+  });
+
+  it('uses current month spending velocity to predict total month-end expenditures for each category compared to set limits', async () => {
+    const { calculateVelocityBudgetForecast } = await import(
+      '../src/components/money-manager/BudgetForecastCard'
+    );
+    const { BudgetForecastCard } = await import('../src/components/StatsView.jsx');
+    assert.ok(BudgetForecastCard, 'Expected BudgetForecastCard export');
+
+    const state = await initializeAndSeedDatabase();
+
+    // Calculate forecast for 2026-11 with reference day 15 (halfway through 30-day month)
+    const forecast = calculateVelocityBudgetForecast(
+      state.transactions,
+      state.categories,
+      '2026-11',
+      { referenceDayOfMonth: 15 }
+    );
+
+    assert.ok(forecast);
+    assert.equal(forecast.daysInMonth, 30);
+    assert.equal(forecast.daysElapsed, 15);
+    assert.equal(forecast.daysRemaining, 15);
+    assert.ok(forecast.totalCurrentSpent > 0);
+    assert.ok(forecast.totalDailyVelocity > 0);
+    assert.ok(forecast.totalPredictedMonthEnd > 0);
+
+    // Food & Groceries: Variable category with spend extrapolated based on daily velocity
+    const foodItem = forecast.items.find((i) => i.category === 'Food & Groceries');
+    assert.ok(foodItem, 'Expected Food & Groceries category item');
+    assert.equal(foodItem.dailyVelocity, Math.round(foodItem.currentSpent / 15));
+    assert.equal(foodItem.predictedMonthEndTotal, Math.round((foodItem.currentSpent / 15) * 30));
+  });
+
+  it('triggers a JSON backup download of the entire financial ledger for safekeeping', async () => {
+    const { triggerJsonBackupDownload, exportDatabaseBackup } = await import(
+      '../src/db/db'
+    );
+
+    await initializeAndSeedDatabase();
+
+    const backupPayload = await exportDatabaseBackup();
+    assert.ok(backupPayload);
+    assert.ok(backupPayload.accounts.length > 0);
+    assert.ok(backupPayload.categories.length > 0);
+    assert.ok(backupPayload.transactions.length > 0);
+
+    const downloadResult = await triggerJsonBackupDownload();
+    assert.ok(downloadResult);
+    assert.ok(downloadResult.fileName.startsWith('jawed-money-manager-backup-'));
+    assert.ok(downloadResult.fileName.endsWith('.json'));
+    assert.ok(downloadResult.recordCount > 0);
   });
 });
 

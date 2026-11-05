@@ -11,6 +11,7 @@ import {
   AreaChart,
   Area,
   Line,
+  LineChart,
   ReferenceLine,
   XAxis,
   YAxis,
@@ -38,11 +39,17 @@ import {
   Target,
   Minus,
   Download,
+  FileText,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
+  LayoutGrid,
 } from 'lucide-react';
 import {
   INITIAL_CATEGORIES,
   calculateCategoryBreakdown,
   calculateSixMonthTrend,
+  calculateTwelveMonthTrend,
   formatINR,
   saveCategory as dbSaveCategory,
   deleteCategory as dbDeleteCategory,
@@ -53,10 +60,65 @@ import {
   type SinkingFund,
   type RecurringRule,
   type AccountSummary,
+  triggerJsonBackupDownload,
 } from '../../db/db';
 import { CategoryManager } from './CategoryManager';
+import {
+  generateMonthlySpendingPdf,
+  downloadMonthlySpendingPdf,
+  type SpendingPdfReportOptions,
+} from './spendingPdfReport';
+import { SpendingPdfModal } from './SpendingPdfModal';
+import {
+  BudgetProjectionSection,
+  calculateBudgetProjections,
+  type BudgetProjectionSummary,
+  type CategoryBudgetProjectionItem,
+  type ProjectionModelType,
+} from './BudgetProjectionSection';
+import { BudgetOverrunAlertList } from './BudgetOverrunAlertList';
+import {
+  MonthlySavingsGoalsSection,
+  getStoredSavingsTarget,
+} from './MonthlySavingsGoalsSection';
+import {
+  BudgetForecastCard,
+  calculateVelocityBudgetForecast,
+  type BudgetForecastSummary,
+  type CategoryVelocityForecastItem,
+} from './BudgetForecastCard';
 
-export type StatsSubView = 'all' | 'budgets' | 'analytics' | 'categories' | 'scheduled';
+export { BudgetForecastCard, calculateVelocityBudgetForecast };
+export type { BudgetForecastSummary, CategoryVelocityForecastItem };
+
+export const DEFAULT_SUMMARY_CARD_ORDER = [
+  'burn-rate',
+  'budget-forecast',
+  'budget-overrun',
+  'savings-goals',
+  'projections',
+] as const;
+
+export type SummaryCardId = (typeof DEFAULT_SUMMARY_CARD_ORDER)[number];
+
+export const SUMMARY_CARD_LABELS: Record<SummaryCardId, string> = {
+  'burn-rate': 'Burn Rate Summary',
+  'budget-forecast': 'Budget Forecast (Velocity)',
+  'budget-overrun': 'Budget Overrun Alerts',
+  'savings-goals': 'Monthly Savings Goals',
+  'projections': 'Budget Projections',
+};
+
+export type StatsSubView =
+  | 'all'
+  | 'budgets'
+  | 'savings'
+  | 'projections'
+  | 'analytics'
+  | 'categories'
+  | 'scheduled';
+
+
 
 export interface MonthlyBudgetPlanItem {
   categoryId: string;
@@ -81,6 +143,7 @@ export interface MonthlyBudgetPlanItem {
   historicalMonthlyAvg: number;
   forecastStatus: 'on-track' | 'at-risk' | 'projected-over' | 'unbudgeted';
   isExceeding90Percent: boolean;
+  isExceeding95Percent: boolean;
 }
 
 export interface MonthlyBudgetPlanSummary {
@@ -97,6 +160,9 @@ export interface MonthlyBudgetPlanSummary {
   warning90Count: number;
   warning90Categories: MonthlyBudgetPlanItem[];
   has90PercentWarning: boolean;
+  warning95Count: number;
+  warning95Categories: MonthlyBudgetPlanItem[];
+  has95PercentWarning: boolean;
   onTrackCount: number;
   unbudgetedCount: number;
   fixedBudgeted: number;
@@ -350,6 +416,8 @@ export function computeMonthlyBudgetPlan(
 
     const isExceeding90Percent =
       monthlyLimit > 0 && (spent / monthlyLimit >= 0.9 || utilizationPercent >= 90);
+    const isExceeding95Percent =
+      monthlyLimit > 0 && (spent / monthlyLimit >= 0.95 || utilizationPercent >= 95);
 
     return {
       categoryId: cat.id,
@@ -374,6 +442,7 @@ export function computeMonthlyBudgetPlan(
       historicalMonthlyAvg,
       forecastStatus,
       isExceeding90Percent,
+      isExceeding95Percent,
     };
   });
 
@@ -399,6 +468,10 @@ export function computeMonthlyBudgetPlan(
   const warning90Count = warning90Categories.length;
   const has90PercentWarning = warning90Count > 0;
 
+  const warning95Categories = items.filter((item) => item.isExceeding95Percent);
+  const warning95Count = warning95Categories.length;
+  const has95PercentWarning = warning95Count > 0;
+
   return {
     items,
     totalBudgeted,
@@ -413,6 +486,9 @@ export function computeMonthlyBudgetPlan(
     warning90Count,
     warning90Categories,
     has90PercentWarning,
+    warning95Count,
+    warning95Categories,
+    has95PercentWarning,
     onTrackCount,
     unbudgetedCount,
     fixedBudgeted,
@@ -725,6 +801,41 @@ export function evaluateCategoryBudgetAlerts(
   };
 }
 
+/**
+ * Pure helper that checks the current ledger state for categories approaching or exceeding 95% of their monthly budget
+ * and generates user-friendly alert messages for automatic toast notifications.
+ */
+export function evaluate95PercentBudgetAlerts(
+  transactions: MoneyTransaction[],
+  selectedMonth: string,
+  categories: MoneyCategory[] = INITIAL_CATEGORIES,
+  thresholdOverrides?: Record<string, number> | number
+): {
+  warning95Categories: MonthlyBudgetPlanItem[];
+  alertMessages: string[];
+  has95PercentWarning: boolean;
+} {
+  const plan = computeMonthlyBudgetPlan(
+    transactions,
+    selectedMonth,
+    categories,
+    thresholdOverrides
+  );
+  const warning95Categories = plan.warning95Categories;
+  const alertMessages = warning95Categories.map((item) => {
+    if (item.spent > item.monthlyLimit) {
+      return `⚠️ Budget Exceeded: ${item.category} is at ${item.utilizationPercent}% of its ${formatINR(item.monthlyLimit)} monthly limit (Spent: ${formatINR(item.spent)})!`;
+    }
+    return `⚠️ Budget Warning: ${item.category} has reached ${item.utilizationPercent}% of its ${formatINR(item.monthlyLimit)} monthly limit (Spent: ${formatINR(item.spent)})!`;
+  });
+
+  return {
+    warning95Categories,
+    alertMessages,
+    has95PercentWarning: warning95Categories.length > 0,
+  };
+}
+
 export type CashFlowChartStyle = 'composed' | 'area' | 'bar';
 
 export interface SixMonthCashFlowPoint {
@@ -868,10 +979,103 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [forecastDayOverride, setForecastDayOverride] = useState<number | null>(null);
   const [budgetCsvExportNotice, setBudgetCsvExportNotice] =
     useState<MonthlyBudgetCsvExportResult | null>(null);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState<boolean>(false);
+  const [pdfExportNotice, setPdfExportNotice] = useState<string | null>(null);
+  const [backupExportNotice, setBackupExportNotice] = useState<{
+    fileName: string;
+    recordCount: number;
+  } | null>(null);
+
+  const handleExportFullJsonBackup = async () => {
+    const res = await triggerJsonBackupDownload();
+    setBackupExportNotice(res);
+  };
   const [showPausedRules, setShowPausedRules] = useState<boolean>(false);
   const [barChartMode, setBarChartMode] = useState<'category' | 'trend'>('category');
   const [cashFlowChartStyle, setCashFlowChartStyle] = useState<CashFlowChartStyle>('composed');
   const [localCategories, setLocalCategories] = useState<MoneyCategory[]>(categories);
+
+  // Dashboard Summary Card Drag & Drop / Reordering State
+  const [summaryCardOrder, setSummaryCardOrder] = useState<SummaryCardId[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('jawed_mm_dashboard_summary_card_order');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length === DEFAULT_SUMMARY_CARD_ORDER.length) {
+            const isValid = parsed.every((item) =>
+              DEFAULT_SUMMARY_CARD_ORDER.includes(item as SummaryCardId)
+            );
+            if (isValid) return parsed as SummaryCardId[];
+          }
+        }
+      } catch (e) {
+        // Storage fallback
+      }
+    }
+    return [...DEFAULT_SUMMARY_CARD_ORDER];
+  });
+  const [isCustomizingDashboard, setIsCustomizingDashboard] = useState<boolean>(false);
+  const [draggedCardIndex, setDraggedCardIndex] = useState<number | null>(null);
+  const [dragOverCardIndex, setDragOverCardIndex] = useState<number | null>(null);
+
+  const updateSummaryCardOrder = (nextOrder: SummaryCardId[]) => {
+    setSummaryCardOrder(nextOrder);
+    try {
+      localStorage.setItem('jawed_mm_dashboard_summary_card_order', JSON.stringify(nextOrder));
+    } catch (e) {
+      // Storage fallback
+    }
+  };
+
+  const handleResetCardOrder = () => {
+    updateSummaryCardOrder([...DEFAULT_SUMMARY_CARD_ORDER]);
+  };
+
+  const moveSummaryCard = (id: SummaryCardId, direction: 'up' | 'down') => {
+    const index = summaryCardOrder.indexOf(id);
+    if (index === -1) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= summaryCardOrder.length) return;
+    const next = [...summaryCardOrder];
+    const [moved] = next.splice(index, 1);
+    next.splice(targetIndex, 0, moved);
+    updateSummaryCardOrder(next);
+  };
+
+  const handleCardDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedCardIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleCardDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverCardIndex !== index) {
+      setDragOverCardIndex(index);
+    }
+  };
+
+  const handleCardDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedCardIndex === null || draggedCardIndex === targetIndex) {
+      setDraggedCardIndex(null);
+      setDragOverCardIndex(null);
+      return;
+    }
+    const next = [...summaryCardOrder];
+    const [moved] = next.splice(draggedCardIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    updateSummaryCardOrder(next);
+    setDraggedCardIndex(null);
+    setDragOverCardIndex(null);
+  };
+
+  const handleCardDragEnd = () => {
+    setDraggedCardIndex(null);
+    setDragOverCardIndex(null);
+  };
 
   // User-defined budget alert thresholds per category + optional uniform threshold override
   const [categoryThresholds, setCategoryThresholds] = useState<Record<string, number>>(() => {
@@ -1173,6 +1377,39 @@ export const StatsView: React.FC<StatsViewProps> = ({
     [transactions, selectedMonth]
   );
 
+  const twelveMonthTrend = useMemo(
+    () => calculateTwelveMonthTrend(transactions, selectedMonth),
+    [transactions, selectedMonth]
+  );
+
+  const twelveMonthSummary = useMemo(() => {
+    let totalIncome = 0;
+    let totalExpense = 0;
+    let totalNet = 0;
+
+    for (const p of twelveMonthTrend) {
+      totalIncome += p.income;
+      totalExpense += p.expense;
+      totalNet += p.net;
+    }
+
+    const count = twelveMonthTrend.length || 1;
+    const avgIncome = Math.round(totalIncome / count);
+    const avgExpense = Math.round(totalExpense / count);
+    const avgNet = Math.round(totalNet / count);
+
+    return {
+      totalIncome,
+      totalExpense,
+      totalNet,
+      avgIncome,
+      avgExpense,
+      avgNet,
+      startLabel: twelveMonthTrend[0]?.label || '',
+      endLabel: twelveMonthTrend[twelveMonthTrend.length - 1]?.label || '',
+    };
+  }, [twelveMonthTrend]);
+
   const accountMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const acc of accounts) {
@@ -1224,6 +1461,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
   };
 
   const showBudgetPlanningSection = subView === 'all' || subView === 'budgets';
+  const showSavingsGoalsSection =
+    subView === 'all' || subView === 'budgets' || subView === 'savings';
+  const showBudgetProjectionSection =
+    subView === 'all' || subView === 'budgets' || subView === 'projections';
   const showAnalyticsSections = subView === 'all' || subView === 'analytics';
   const showCategoriesSection = subView === 'all' || subView === 'analytics' || subView === 'categories';
   const showScheduledSection = subView === 'all' || subView === 'scheduled';
@@ -1281,6 +1522,28 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </button>
             <button
               type="button"
+              onClick={() => setSubView('savings')}
+              className={`mm-btn mm-btn-sm ${
+                subView === 'savings' ? 'mm-btn-primary' : 'mm-btn-secondary'
+              }`}
+              data-testid="mm-stats-view-savings-btn"
+            >
+              <PiggyBank size={14} />
+              <span>Monthly Savings Goals</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSubView('projections')}
+              className={`mm-btn mm-btn-sm ${
+                subView === 'projections' ? 'mm-btn-primary' : 'mm-btn-secondary'
+              }`}
+              data-testid="mm-stats-view-projections-btn"
+            >
+              <TrendingUp size={14} />
+              <span>Budget Projections</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setSubView('analytics')}
               className={`mm-btn mm-btn-sm ${
                 subView === 'analytics' ? 'mm-btn-primary' : 'mm-btn-secondary'
@@ -1310,6 +1573,16 @@ export const StatsView: React.FC<StatsViewProps> = ({
             >
               <CalendarClock size={14} />
               <span>Scheduled Transactions ({activeRecurringRules.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPdfModalOpen(true)}
+              className="mm-btn mm-btn-sm mm-btn-secondary"
+              title="Export formatted monthly spending report as an A4 PDF summary"
+              data-testid="mm-stats-export-pdf-bar-btn"
+            >
+              <FileText size={14} style={{ color: 'var(--accent)' }} />
+              <span>Export PDF Summary</span>
             </button>
           </div>
         </div>
@@ -1748,6 +2021,17 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
               <button
                 type="button"
+                onClick={() => setIsPdfModalOpen(true)}
+                className="mm-btn mm-btn-sm mm-btn-secondary"
+                title="Export formatted monthly spending report as an A4 PDF summary"
+                data-testid="mm-budget-export-pdf-btn"
+              >
+                <FileText size={13} style={{ color: 'var(--accent)' }} />
+                <span>Export PDF Summary</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleResetDefaultThresholds}
                 className="mm-btn mm-btn-sm mm-btn-ghost"
                 title="Reset all category limits to recommended defaults"
@@ -1758,6 +2042,41 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </button>
             </div>
           </div>
+
+          {pdfExportNotice && (
+            <div
+              role="status"
+              data-testid="mm-spending-pdf-export-feedback"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                flexWrap: 'wrap',
+                padding: '10px 14px',
+                marginBottom: 12,
+                borderRadius: 10,
+                border: '1px solid rgba(59, 130, 246, 0.4)',
+                background: 'rgba(59, 130, 246, 0.08)',
+                fontSize: '0.83rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <CheckCircle2 size={16} style={{ color: '#3b82f6', flexShrink: 0 }} />
+                <span>
+                  Generated PDF Summary: <strong style={{ color: 'var(--text-main)' }}>{pdfExportNotice}</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPdfExportNotice(null)}
+                className="mm-btn mm-btn-sm mm-btn-ghost"
+                data-testid="mm-pdf-export-feedback-dismiss"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           {budgetCsvExportNotice && (
             <div
@@ -1905,275 +2224,470 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
           </div>
 
-          {/* Total Monthly Burn Rate Visual Summary Card */}
-          {(() => {
-            const burnRatePercent = monthlyBudgetPlan.overallUtilizationPercent;
-            const isOverBudget =
-              monthlyBudgetPlan.totalSpent > monthlyBudgetPlan.totalBudgeted &&
-              monthlyBudgetPlan.totalBudgeted > 0;
-            const has90Warning = monthlyBudgetPlan.has90PercentWarning;
-            const isNearLimit = !isOverBudget && !has90Warning && burnRatePercent >= 85;
-            const daysInMonth = monthlyBudgetPlan.daysInMonth || 30;
-            const daysElapsed = monthlyBudgetPlan.daysElapsed || 1;
-            const monthPacePercent = Number(((daysElapsed / daysInMonth) * 100).toFixed(1));
-            const dailyBurnRate =
-              daysElapsed > 0 ? Math.round(monthlyBudgetPlan.totalSpent / daysElapsed) : 0;
-
-            return (
-              <div
-                className={`mm-burn-rate-card ${
-                  isOverBudget
-                    ? 'is-over'
-                    : has90Warning
-                    ? 'is-warning-90'
-                    : isNearLimit
-                    ? 'is-near'
-                    : 'is-on-track'
+          {/* Dashboard Summary Cards Control Bar & Dynamic Reorderable Cards Container */}
+          <div
+            className="mm-dashboard-reorder-bar"
+            data-testid="mm-dashboard-reorder-bar"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap',
+              padding: '10px 14px',
+              marginTop: 12,
+              marginBottom: 14,
+              borderRadius: 10,
+              background: 'var(--surface-muted)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setIsCustomizingDashboard((prev) => !prev)}
+                className={`mm-btn mm-btn-sm ${
+                  isCustomizingDashboard ? 'mm-btn-primary' : 'mm-btn-secondary'
                 }`}
-                data-testid="mm-total-monthly-burn-rate-card"
+                data-testid="mm-dashboard-customize-toggle"
               >
-                <div className="mm-burn-rate-header">
-                  <div className="mm-burn-rate-title-cluster">
-                    <div
-                      className={`mm-burn-rate-icon-badge ${
-                        isOverBudget
-                          ? 'is-over'
-                          : has90Warning
-                          ? 'is-warning-90'
-                          : isNearLimit
-                          ? 'is-near'
-                          : 'is-on-track'
-                      }`}
-                      data-testid="mm-burn-rate-icon"
-                    >
-                      <Target size={18} />
-                    </div>
-                    <div>
-                      <h3 className="mm-burn-rate-title" data-testid="mm-burn-rate-title">
-                        Total Monthly Burn Rate
-                      </h3>
-                      <p className="mm-burn-rate-subtitle">
-                        Calculated as current spending ({formatINR(monthlyBudgetPlan.totalSpent)})
-                        against the sum of all set monthly budgets ({formatINR(monthlyBudgetPlan.totalBudgeted)})
-                      </p>
-                    </div>
-                  </div>
+                <LayoutGrid size={14} />
+                <span>{isCustomizingDashboard ? 'Done Customizing' : 'Customize Summary Layout'}</span>
+              </button>
+              <span
+                className="mm-dashboard-order-status"
+                data-testid="mm-dashboard-order-status"
+                style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 500 }}
+              >
+                {summaryCardOrder.map((id) => SUMMARY_CARD_LABELS[id]).join(' → ')}
+              </span>
+            </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    {has90Warning && (
-                      <span
-                        className="mm-budget-status-pill is-warning-90"
-                        data-testid="mm-burn-rate-90-warning-badge"
-                        style={{
-                          fontSize: '0.8rem',
-                          padding: '4px 10px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 5,
-                        }}
-                      >
-                        <AlertTriangle size={13} />
-                        <span>
-                          {monthlyBudgetPlan.warning90Count} Category{' '}
-                          {monthlyBudgetPlan.warning90Count === 1 ? 'Exceeds' : 'Exceed'} 90% Limit
-                        </span>
-                      </span>
-                    )}
-                    <span
-                      className={`mm-budget-status-pill is-${
-                        isOverBudget ? 'over' : isNearLimit ? 'near' : 'on-track'
-                      }`}
-                      data-testid="mm-burn-rate-status-pill"
-                      style={{ fontSize: '0.8rem', padding: '4px 10px' }}
-                    >
-                      <strong data-testid="mm-burn-rate-percent">
-                        {burnRatePercent}%
-                      </strong>{' '}
-                      Burn Rate
-                    </span>
-                  </div>
-                </div>
+            <button
+              type="button"
+              onClick={handleResetCardOrder}
+              className="mm-btn mm-btn-sm mm-btn-ghost"
+              data-testid="mm-dashboard-card-order-reset"
+            >
+              <RotateCcw size={13} />
+              <span>Reset Layout</span>
+            </button>
+          </div>
 
-                {/* 90% Limit Warning Callout Banner */}
-                {has90Warning && (
-                  <div
-                    className="mm-burn-rate-warning-callout"
-                    data-testid="mm-budget-summary-90-warning"
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8,
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      background: 'rgba(245, 158, 11, 0.1)',
-                      border: '1px solid rgba(245, 158, 11, 0.45)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          fontSize: '0.83rem',
-                          fontWeight: 700,
-                          color: '#f59e0b',
-                        }}
-                      >
-                        <AlertTriangle size={15} />
-                        <span>
-                          Warning: {monthlyBudgetPlan.warning90Count}{' '}
-                          {monthlyBudgetPlan.warning90Count === 1
-                            ? 'category exceeds'
-                            : 'categories exceed'}{' '}
-                          90% of defined monthly limit
-                        </span>
-                      </div>
+          <div
+            className="mm-dashboard-cards-container"
+            style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 14 }}
+          >
+            {summaryCardOrder.map((cardId, index) => {
+              let isVisible = true;
+              if (subView === 'budgets') {
+                isVisible = cardId !== 'savings-goals';
+              }
+
+              if (!isVisible) return null;
+
+              return (
+                <div
+                  key={cardId}
+                  data-testid={`mm-dashboard-card-${cardId}`}
+                  className={`mm-dashboard-card-wrapper ${
+                    draggedCardIndex === index ? 'is-dragging' : ''
+                  } ${dragOverCardIndex === index ? 'is-drag-over' : ''}`}
+                  draggable
+                  onDragStart={(e) => handleCardDragStart(e, index)}
+                  onDragOver={(e) => handleCardDragOver(e, index)}
+                  onDrop={(e) => handleCardDrop(e, index)}
+                  onDragEnd={handleCardDragEnd}
+                >
+                  <div className="mm-dashboard-card-handle-bar">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <button
                         type="button"
-                        onClick={() => setBudgetFilterStatus('warning-90')}
-                        className="mm-btn mm-btn-sm mm-btn-secondary"
-                        style={{ padding: '2px 8px', fontSize: '0.74rem' }}
-                        data-testid="mm-budget-summary-filter-90-btn"
+                        className="mm-dashboard-drag-grip"
+                        data-testid={`mm-dashboard-drag-handle-${cardId}`}
+                        title="Drag handle to reorder summary card"
                       >
-                        View ≥90% Categories ({monthlyBudgetPlan.warning90Count})
+                        <GripVertical size={16} />
+                      </button>
+                      <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                        {SUMMARY_CARD_LABELS[cardId]}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => moveSummaryCard(cardId, 'up')}
+                        disabled={index === 0}
+                        className="mm-btn mm-btn-sm mm-btn-ghost"
+                        style={{ padding: '2px 6px' }}
+                        data-testid={`mm-dashboard-move-up-${cardId}`}
+                        title="Move Card Up"
+                      >
+                        <ChevronUp size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveSummaryCard(cardId, 'down')}
+                        disabled={index === summaryCardOrder.length - 1}
+                        className="mm-btn mm-btn-sm mm-btn-ghost"
+                        style={{ padding: '2px 6px' }}
+                        data-testid={`mm-dashboard-move-down-${cardId}`}
+                        title="Move Card Down"
+                      >
+                        <ChevronDown size={16} />
                       </button>
                     </div>
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
-                      data-testid="mm-budget-summary-90-chips"
-                    >
-                      {monthlyBudgetPlan.warning90Categories.map((c) => (
-                        <span
-                          key={c.category}
-                          className="mm-budget-status-pill is-warning-90"
-                          data-testid={`mm-budget-summary-90-chip-${c.category}`}
-                          style={{ fontSize: '0.74rem' }}
+                  </div>
+
+                  {cardId === 'burn-rate' &&
+                    (() => {
+                      const burnRatePercent = monthlyBudgetPlan.overallUtilizationPercent;
+                      const isOverBudget =
+                        monthlyBudgetPlan.totalSpent > monthlyBudgetPlan.totalBudgeted &&
+                        monthlyBudgetPlan.totalBudgeted > 0;
+                      const has90Warning = monthlyBudgetPlan.has90PercentWarning;
+                      const isNearLimit = !isOverBudget && !has90Warning && burnRatePercent >= 85;
+                      const daysInMonth = monthlyBudgetPlan.daysInMonth || 30;
+                      const daysElapsed = monthlyBudgetPlan.daysElapsed || 1;
+                      const monthPacePercent = Number(
+                        ((daysElapsed / daysInMonth) * 100).toFixed(1)
+                      );
+                      const dailyBurnRate =
+                        daysElapsed > 0
+                          ? Math.round(monthlyBudgetPlan.totalSpent / daysElapsed)
+                          : 0;
+
+                      return (
+                        <div
+                          className={`mm-burn-rate-card ${
+                            isOverBudget
+                              ? 'is-over'
+                              : has90Warning
+                              ? 'is-warning-90'
+                              : isNearLimit
+                              ? 'is-near'
+                              : 'is-on-track'
+                          }`}
+                          data-testid="mm-total-monthly-burn-rate-card"
                         >
-                          <strong>{c.category}:</strong> {formatINR(c.spent)} / {formatINR(c.monthlyLimit)} (
-                          {c.utilizationPercent}%)
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                          <div className="mm-burn-rate-header">
+                            <div className="mm-burn-rate-title-cluster">
+                              <div
+                                className={`mm-burn-rate-icon-badge ${
+                                  isOverBudget
+                                    ? 'is-over'
+                                    : has90Warning
+                                    ? 'is-warning-90'
+                                    : isNearLimit
+                                    ? 'is-near'
+                                    : 'is-on-track'
+                                }`}
+                                data-testid="mm-burn-rate-icon"
+                              >
+                                <Target size={18} />
+                              </div>
+                              <div>
+                                <h3
+                                  className="mm-burn-rate-title"
+                                  data-testid="mm-burn-rate-title"
+                                >
+                                  Total Monthly Burn Rate
+                                </h3>
+                                <p className="mm-burn-rate-subtitle">
+                                  Calculated as current spending (
+                                  {formatINR(monthlyBudgetPlan.totalSpent)}) against the sum of all
+                                  set monthly budgets ({formatINR(monthlyBudgetPlan.totalBudgeted)})
+                                </p>
+                              </div>
+                            </div>
 
-                {/* Primary Progress Bar Section */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '0.8rem',
-                      flexWrap: 'wrap',
-                      gap: 6,
-                    }}
-                  >
-                    <span>
-                      Spent{' '}
-                      <strong
-                        style={{ color: 'var(--text-heading)' }}
-                        data-testid="mm-burn-rate-spent"
-                      >
-                        {formatINR(monthlyBudgetPlan.totalSpent)}
-                      </strong>{' '}
-                      of{' '}
-                      <strong
-                        style={{ color: 'var(--text-heading)' }}
-                        data-testid="mm-burn-rate-budget"
-                      >
-                        {formatINR(monthlyBudgetPlan.totalBudgeted)}
-                      </strong>{' '}
-                      total set budget
-                    </span>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              {has90Warning && (
+                                <span
+                                  className="mm-budget-status-pill is-warning-90"
+                                  data-testid="mm-burn-rate-90-warning-badge"
+                                  style={{
+                                    fontSize: '0.8rem',
+                                    padding: '4px 10px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                  }}
+                                >
+                                  <AlertTriangle size={13} />
+                                  <span>
+                                    {monthlyBudgetPlan.warning90Count} Category{' '}
+                                    {monthlyBudgetPlan.warning90Count === 1
+                                      ? 'Exceeds'
+                                      : 'Exceed'}{' '}
+                                    90% Limit
+                                  </span>
+                                </span>
+                              )}
+                              <span
+                                className={`mm-budget-status-pill is-${
+                                  isOverBudget ? 'over' : isNearLimit ? 'near' : 'on-track'
+                                }`}
+                                data-testid="mm-burn-rate-status-pill"
+                                style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                              >
+                                <strong data-testid="mm-burn-rate-percent">
+                                  {burnRatePercent}%
+                                </strong>{' '}
+                                Burn Rate
+                              </span>
+                            </div>
+                          </div>
 
-                    <span
-                      style={{ fontSize: '0.74rem', color: 'var(--muted)' }}
-                      data-testid="mm-burn-rate-calendar-pace"
-                    >
-                      Day {daysElapsed} of {daysInMonth} ({monthPacePercent}% of month elapsed)
-                    </span>
-                  </div>
+                          {/* 90% Limit Warning Callout Banner */}
+                          {has90Warning && (
+                            <div
+                              className="mm-burn-rate-warning-callout"
+                              data-testid="mm-budget-summary-90-warning"
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 8,
+                                padding: '10px 14px',
+                                borderRadius: '10px',
+                                background: 'rgba(245, 158, 11, 0.1)',
+                                border: '1px solid rgba(245, 158, 11, 0.45)',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: 8,
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    fontSize: '0.83rem',
+                                    fontWeight: 700,
+                                    color: '#f59e0b',
+                                  }}
+                                >
+                                  <AlertTriangle size={15} />
+                                  <span>
+                                    Warning: {monthlyBudgetPlan.warning90Count}{' '}
+                                    {monthlyBudgetPlan.warning90Count === 1
+                                      ? 'category exceeds'
+                                      : 'categories exceed'}{' '}
+                                    90% of defined monthly limit
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setBudgetFilterStatus('warning-90')}
+                                  className="mm-btn mm-btn-sm mm-btn-secondary"
+                                  style={{ padding: '2px 8px', fontSize: '0.74rem' }}
+                                  data-testid="mm-budget-summary-filter-90-btn"
+                                >
+                                  View ≥90% Categories ({monthlyBudgetPlan.warning90Count})
+                                </button>
+                              </div>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  flexWrap: 'wrap',
+                                }}
+                                data-testid="mm-budget-summary-90-chips"
+                              >
+                                {monthlyBudgetPlan.warning90Categories.map((c) => (
+                                  <span
+                                    key={c.category}
+                                    className="mm-budget-status-pill is-warning-90"
+                                    data-testid={`mm-budget-summary-90-chip-${c.category}`}
+                                    style={{ fontSize: '0.74rem' }}
+                                  >
+                                    <strong>{c.category}:</strong> {formatINR(c.spent)} /{' '}
+                                    {formatINR(c.monthlyLimit)} ({c.utilizationPercent}%)
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-                  {/* Progress Bar Track */}
-                  <div
-                    className="mm-burn-rate-track"
-                    data-testid="mm-burn-rate-progress-bar"
-                    title={`Burn Rate: ${burnRatePercent}% (${formatINR(monthlyBudgetPlan.totalSpent)} / ${formatINR(monthlyBudgetPlan.totalBudgeted)})`}
-                  >
-                    <div
-                      className="mm-burn-rate-fill"
-                      data-testid="mm-burn-rate-progress-fill"
-                      style={{
-                        width: `${Math.min(100, burnRatePercent)}%`,
-                        backgroundColor: isOverBudget
-                          ? '#ef4444'
-                          : isNearLimit
-                          ? '#f59e0b'
-                          : '#10b981',
+                          {/* Primary Progress Bar Section */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                fontSize: '0.8rem',
+                                flexWrap: 'wrap',
+                                gap: 6,
+                              }}
+                            >
+                              <span>
+                                Spent{' '}
+                                <strong
+                                  style={{ color: 'var(--text-heading)' }}
+                                  data-testid="mm-burn-rate-spent"
+                                >
+                                  {formatINR(monthlyBudgetPlan.totalSpent)}
+                                </strong>{' '}
+                                of{' '}
+                                <strong
+                                  style={{ color: 'var(--text-heading)' }}
+                                  data-testid="mm-burn-rate-budget"
+                                >
+                                  {formatINR(monthlyBudgetPlan.totalBudgeted)}
+                                </strong>{' '}
+                                total set budget
+                              </span>
+
+                              <span
+                                style={{ fontSize: '0.74rem', color: 'var(--muted)' }}
+                                data-testid="mm-burn-rate-calendar-pace"
+                              >
+                                Day {daysElapsed} of {daysInMonth} ({monthPacePercent}% of month
+                                elapsed)
+                              </span>
+                            </div>
+
+                            {/* Progress Bar Track */}
+                            <div
+                              className="mm-burn-rate-track"
+                              data-testid="mm-burn-rate-progress-bar"
+                              title={`Burn Rate: ${burnRatePercent}% (${formatINR(
+                                monthlyBudgetPlan.totalSpent
+                              )} / ${formatINR(monthlyBudgetPlan.totalBudgeted)})`}
+                            >
+                              <div
+                                className="mm-burn-rate-fill"
+                                data-testid="mm-burn-rate-progress-fill"
+                                style={{
+                                  width: `${Math.min(100, burnRatePercent)}%`,
+                                  backgroundColor: isOverBudget
+                                    ? '#ef4444'
+                                    : isNearLimit
+                                    ? '#f59e0b'
+                                    : '#10b981',
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Supporting Financial Burn Breakdown Grid */}
+                          <div className="mm-burn-rate-stats-grid">
+                            <div className="mm-burn-rate-stat-box">
+                              <span className="mm-burn-rate-stat-label">Current Spending</span>
+                              <strong
+                                className="mm-burn-rate-stat-val"
+                                style={{
+                                  color: isOverBudget ? '#ef4444' : 'var(--text-heading)',
+                                }}
+                              >
+                                {formatINR(monthlyBudgetPlan.totalSpent)}
+                              </strong>
+                            </div>
+
+                            <div className="mm-burn-rate-stat-box">
+                              <span className="mm-burn-rate-stat-label">Sum of Set Budgets</span>
+                              <strong className="mm-burn-rate-stat-val">
+                                {formatINR(monthlyBudgetPlan.totalBudgeted)}
+                              </strong>
+                            </div>
+
+                            <div className="mm-burn-rate-stat-box">
+                              <span className="mm-burn-rate-stat-label">Daily Burn Velocity</span>
+                              <strong
+                                className="mm-burn-rate-stat-val"
+                                data-testid="mm-burn-rate-daily-velocity"
+                              >
+                                {formatINR(dailyBurnRate)} / day
+                              </strong>
+                            </div>
+
+                            <div className="mm-burn-rate-stat-box">
+                              <span className="mm-burn-rate-stat-label">
+                                {isOverBudget
+                                  ? 'Total Budget Overage'
+                                  : 'Remaining Budget Headroom'}
+                              </span>
+                              <strong
+                                className="mm-burn-rate-stat-val"
+                                style={{ color: isOverBudget ? '#ef4444' : '#10b981' }}
+                                data-testid="mm-burn-rate-headroom"
+                              >
+                                {isOverBudget
+                                  ? `+${formatINR(monthlyBudgetPlan.totalOverage)}`
+                                  : formatINR(monthlyBudgetPlan.totalRemaining)}
+                              </strong>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                  {cardId === 'budget-forecast' && (
+                    <BudgetForecastCard
+                      transactions={transactions}
+                      categories={localCategories}
+                      selectedMonth={selectedMonth}
+                      metrics={metrics}
+                      onAlignCategoryBudget={async (catName, newLimit) => {
+                        handleCategoryThresholdChange(catName, String(newLimit));
                       }}
                     />
-                  </div>
-                </div>
+                  )}
 
-                {/* Supporting Financial Burn Breakdown Grid */}
-                <div className="mm-burn-rate-stats-grid">
-                  <div className="mm-burn-rate-stat-box">
-                    <span className="mm-burn-rate-stat-label">Current Spending</span>
-                    <strong
-                      className="mm-burn-rate-stat-val"
-                      style={{
-                        color: isOverBudget ? '#ef4444' : 'var(--text-heading)',
+                  {cardId === 'budget-overrun' && (
+                    <BudgetOverrunAlertList
+                      plan={monthlyBudgetPlan}
+                      selectedMonth={selectedMonth}
+                      onAdjustCategoryBudget={async (catName, newLimit) => {
+                        handleCategoryThresholdChange(catName, String(newLimit));
                       }}
-                    >
-                      {formatINR(monthlyBudgetPlan.totalSpent)}
-                    </strong>
-                  </div>
+                      onSelectCategoryFilter={(catName) => {
+                        setBudgetSearchQuery(catName);
+                      }}
+                    />
+                  )}
 
-                  <div className="mm-burn-rate-stat-box">
-                    <span className="mm-burn-rate-stat-label">Sum of Set Budgets</span>
-                    <strong className="mm-burn-rate-stat-val">
-                      {formatINR(monthlyBudgetPlan.totalBudgeted)}
-                    </strong>
-                  </div>
+                  {cardId === 'savings-goals' && (
+                    <MonthlySavingsGoalsSection
+                      selectedMonth={selectedMonth}
+                      metrics={metrics}
+                      transactions={transactions}
+                      sinkingFunds={sinkingFunds}
+                    />
+                  )}
 
-                  <div className="mm-burn-rate-stat-box">
-                    <span className="mm-burn-rate-stat-label">Daily Burn Velocity</span>
-                    <strong
-                      className="mm-burn-rate-stat-val"
-                      data-testid="mm-burn-rate-daily-velocity"
-                    >
-                      {formatINR(dailyBurnRate)} / day
-                    </strong>
-                  </div>
-
-                  <div className="mm-burn-rate-stat-box">
-                    <span className="mm-burn-rate-stat-label">
-                      {isOverBudget ? 'Total Budget Overage' : 'Remaining Budget Headroom'}
-                    </span>
-                    <strong
-                      className="mm-burn-rate-stat-val"
-                      style={{ color: isOverBudget ? '#ef4444' : '#10b981' }}
-                      data-testid="mm-burn-rate-headroom"
-                    >
-                      {isOverBudget
-                        ? `+${formatINR(monthlyBudgetPlan.totalOverage)}`
-                        : formatINR(monthlyBudgetPlan.totalRemaining)}
-                    </strong>
-                  </div>
+                  {cardId === 'projections' && (
+                    <BudgetProjectionSection
+                      transactions={transactions}
+                      categories={localCategories}
+                      selectedMonth={selectedMonth}
+                      metrics={metrics}
+                      onSaveCategory={handleSaveCategoryState}
+                      onAlignCategoryBudget={async (categoryName, newLimit) => {
+                        handleCategoryThresholdChange(categoryName, String(newLimit));
+                      }}
+                    />
+                  )}
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })}
+          </div>
 
           {/* Fixed Needs vs. Variable Wants Real-Time Budget Split */}
           <div
@@ -3776,6 +4290,174 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
           </article>
 
+          {/* Dedicated 12-Month Multi-Line Historical Trend Chart Card (Recharts) */}
+          <article
+            className="mm-stat-panel"
+            style={{ marginTop: '12px' }}
+            data-testid="mm-12-month-historical-trend-panel"
+          >
+            <div className="mm-stat-panel-header">
+              <div>
+                <h2 className="mm-stat-panel-title">
+                  <TrendingUp
+                    size={18}
+                    style={{
+                      verticalAlign: 'middle',
+                      marginRight: 8,
+                      color: 'var(--accent)',
+                    }}
+                  />
+                  12-Month Historical Trend — Income vs. Expenses ({twelveMonthSummary.startLabel} – {twelveMonthSummary.endLabel})
+                </h2>
+                <p className="mm-section-desc" style={{ margin: '4px 0 0' }}>
+                  Multi-line Recharts visualization comparing monthly income, expenses, and net cash flow trajectory across the trailing 12 months
+                </p>
+              </div>
+
+              <div className="mm-filter-pills" style={{ margin: 0 }}>
+                <span className="mm-pill mm-pill-income" data-testid="mm-12m-avg-income-pill">
+                  12m Avg Income: {formatINR(twelveMonthSummary.avgIncome)}
+                </span>
+                <span className="mm-pill mm-pill-expense" data-testid="mm-12m-avg-expense-pill">
+                  12m Avg Expense: {formatINR(twelveMonthSummary.avgExpense)}
+                </span>
+                <span
+                  className="mm-pill"
+                  style={{
+                    background: 'rgba(6, 182, 212, 0.12)',
+                    color: 'var(--accent)',
+                    border: '1px solid rgba(6, 182, 212, 0.35)',
+                  }}
+                  data-testid="mm-12m-net-pill"
+                >
+                  12m Net Flow: {formatINR(twelveMonthSummary.totalNet, true)}
+                </span>
+              </div>
+            </div>
+
+            {/* Recharts 12-Month LineChart */}
+            <div style={{ width: '100%', height: 340, marginTop: 12 }} data-testid="mm-12-month-line-chart">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={twelveMonthTrend}
+                  margin={{ top: 16, right: 20, left: 10, bottom: 8 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.18)" />
+                  <XAxis dataKey="label" stroke="var(--muted)" fontSize={11} tickMargin={6} />
+                  <YAxis
+                    stroke="var(--muted)"
+                    fontSize={11}
+                    tickFormatter={(val: number) => `₹${Math.round(val / 1000)}k`}
+                  />
+                  <RechartsTooltip
+                    formatter={(value: number, name: string) => [formatINR(value), name]}
+                    contentStyle={{
+                      backgroundColor: 'var(--surface)',
+                      borderColor: 'var(--border)',
+                      borderRadius: '10px',
+                      color: 'var(--text)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                    }}
+                  />
+                  <Legend verticalAlign="top" height={36} />
+                  <ReferenceLine y={0} stroke="rgba(148, 163, 184, 0.35)" strokeDasharray="2 2" />
+
+                  {/* Multi-Line Visual Streams */}
+                  <Line
+                    type="monotone"
+                    dataKey="income"
+                    name="Monthly Income"
+                    stroke="#10b981"
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: '#10b981', strokeWidth: 1.5, stroke: '#ffffff' }}
+                    activeDot={{ r: 7, fill: '#10b981' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="expense"
+                    name="Monthly Expenses"
+                    stroke="#ef4444"
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: '#ef4444', strokeWidth: 1.5, stroke: '#ffffff' }}
+                    activeDot={{ r: 7, fill: '#ef4444' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="net"
+                    name="Net Cash Flow"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    strokeDasharray="4 4"
+                    dot={{ r: 3, fill: '#06b6d4' }}
+                    activeDot={{ r: 6, fill: '#06b6d4' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Trailing 12-Month KPI Summary Cards */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                gap: 10,
+                marginTop: 14,
+              }}
+              data-testid="mm-12-month-kpi-grid"
+            >
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                }}
+              >
+                <span className="mm-stat-label" style={{ fontSize: '0.74rem' }}>12m Total Income</span>
+                <strong style={{ display: 'block', fontSize: '1rem', color: '#10b981', marginTop: 2 }}>
+                  {formatINR(twelveMonthSummary.totalIncome)}
+                </strong>
+                <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                  Avg: {formatINR(twelveMonthSummary.avgIncome)}/mo
+                </span>
+              </div>
+
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                }}
+              >
+                <span className="mm-stat-label" style={{ fontSize: '0.74rem' }}>12m Total Expenses</span>
+                <strong style={{ display: 'block', fontSize: '1rem', color: '#ef4444', marginTop: 2 }}>
+                  {formatINR(twelveMonthSummary.totalExpense)}
+                </strong>
+                <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                  Avg: {formatINR(twelveMonthSummary.avgExpense)}/mo
+                </span>
+              </div>
+
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'rgba(6, 182, 212, 0.08)',
+                  border: '1px solid rgba(6, 182, 212, 0.25)',
+                }}
+              >
+                <span className="mm-stat-label" style={{ fontSize: '0.74rem' }}>12m Net Surplus</span>
+                <strong style={{ display: 'block', fontSize: '1rem', color: 'var(--accent)', marginTop: 2 }}>
+                  {formatINR(twelveMonthSummary.totalNet, true)}
+                </strong>
+                <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                  Avg Net: {formatINR(twelveMonthSummary.avgNet)}/mo
+                </span>
+              </div>
+            </div>
+          </article>
+
           {/* Row 2: Fixed vs Variable Expenditure Ratio Gauge */}
           <article
             className="mm-stat-panel"
@@ -4262,8 +4944,118 @@ export const StatsView: React.FC<StatsViewProps> = ({
           )}
         </article>
       )}
+
+      <SpendingPdfModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        selectedMonth={selectedMonth}
+        plan={monthlyBudgetPlan}
+        metrics={metrics}
+        transactions={transactions}
+        sinkingFunds={sinkingFunds}
+        onPdfGenerated={(fileName) => {
+          setPdfExportNotice(fileName);
+        }}
+      />
+
+      {/* Floating 'Export Data' Action Button & Toast Notification */}
+      <div
+        className="mm-stats-floating-fab-container"
+        style={{
+          position: 'sticky',
+          bottom: 20,
+          right: 20,
+          zIndex: 90,
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          gap: 12,
+          paddingTop: 16,
+          paddingBottom: 8,
+          pointerEvents: 'none',
+        }}
+      >
+        {backupExportNotice && (
+          <div
+            role="status"
+            data-testid="mm-stats-export-json-toast"
+            style={{
+              pointerEvents: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 14px',
+              borderRadius: 12,
+              background: 'var(--surface)',
+              border: '1px solid rgba(16, 185, 129, 0.45)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+              fontSize: '0.83rem',
+              color: 'var(--text-main)',
+            }}
+          >
+            <CheckCircle2 size={16} style={{ color: '#10b981', flexShrink: 0 }} />
+            <span>
+              Exported <strong>{backupExportNotice.recordCount} records</strong> to{' '}
+              <code style={{ fontWeight: 600 }}>{backupExportNotice.fileName}</code>
+            </span>
+            <button
+              type="button"
+              onClick={() => setBackupExportNotice(null)}
+              className="mm-btn mm-btn-sm mm-btn-ghost"
+              style={{ padding: '2px 6px', fontSize: '0.74rem' }}
+              data-testid="mm-stats-export-json-toast-dismiss"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleExportFullJsonBackup}
+          className="mm-btn mm-btn-primary"
+          style={{
+            pointerEvents: 'auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 18px',
+            borderRadius: 24,
+            boxShadow: '0 6px 20px rgba(37, 99, 235, 0.4)',
+            fontWeight: 600,
+            fontSize: '0.88rem',
+            cursor: 'pointer',
+          }}
+          title="Trigger a JSON backup download of your entire financial ledger"
+          data-testid="mm-stats-floating-export-btn"
+        >
+          <Download size={16} />
+          <span>Export Data (JSON)</span>
+        </button>
+      </div>
     </section>
   );
 };
 
 export default StatsView;
+
+export {
+  BudgetProjectionSection,
+  calculateBudgetProjections,
+  type BudgetProjectionSummary,
+  type CategoryBudgetProjectionItem,
+} from './BudgetProjectionSection';
+
+export {
+  BudgetOverrunAlertList,
+  type BudgetOverrunAlertListProps,
+} from './BudgetOverrunAlertList';
+
+export {
+  MonthlySavingsGoalsSection,
+  getStoredSavingsTarget,
+  type MonthlySavingsGoalsSectionProps,
+} from './MonthlySavingsGoalsSection';
+
+
+

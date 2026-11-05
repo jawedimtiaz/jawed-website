@@ -1425,6 +1425,39 @@ export function calculateSixMonthTrend(
 }
 
 /**
+ * Computes the 12-month Income vs Expense trend ending at the specified YYYY-MM month.
+ */
+export function calculateTwelveMonthTrend(
+  transactions: MoneyTransaction[],
+  referenceYearMonth: string
+): MonthlyTrendItem[] {
+  const [yearStr, monthStr] = referenceYearMonth.split('-');
+  const baseYear = Number.parseInt(yearStr, 10) || 2026;
+  const baseMonth = Number.parseInt(monthStr, 10) || 11;
+
+  const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const items: MonthlyTrendItem[] = [];
+
+  for (let offset = 11; offset >= 0; offset -= 1) {
+    const dateObj = new Date(baseYear, baseMonth - 1 - offset, 1);
+    const y = dateObj.getFullYear();
+    const m = dateObj.getMonth() + 1;
+    const ym = `${y}-${String(m).padStart(2, '0')}`;
+    const metrics = calculateMonthlyMetrics(transactions, ym);
+
+    items.push({
+      yearMonth: ym,
+      label: `${shortMonths[m - 1]} '${String(y).slice(-2)}`,
+      income: metrics.income,
+      expense: metrics.expense,
+      net: metrics.netBalance,
+    });
+  }
+
+  return items;
+}
+
+/**
  * Retrieves all stores from IndexedDB (or memory store) and computes derived account balances.
  */
 export async function getAllLedgerState(): Promise<{
@@ -1727,6 +1760,37 @@ export async function exportDatabaseBackup(): Promise<MoneyManagerBackupPayload>
     sinkingFunds: state.sinkingFunds,
     recurringRules: state.recurringRules,
   };
+}
+
+/**
+ * Triggers a browser JSON file download containing the full JawedMoneyManagerDB database.
+ */
+export async function triggerJsonBackupDownload(): Promise<{ fileName: string; recordCount: number }> {
+  const payload = await exportDatabaseBackup();
+  const jsonContent = JSON.stringify(payload, null, 2);
+  const isoDate = new Date().toISOString().slice(0, 10);
+  const fileName = `jawed-money-manager-backup-${isoDate}.json`;
+
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  const recordCount =
+    (payload.accounts?.length || 0) +
+    (payload.categories?.length || 0) +
+    (payload.transactions?.length || 0) +
+    (payload.sinkingFunds?.length || 0) +
+    (payload.recurringRules?.length || 0);
+
+  return { fileName, recordCount };
 }
 
 /**

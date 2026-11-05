@@ -17,7 +17,9 @@ import {
   Repeat,
   CalendarClock,
   CheckCircle2,
+  FileSpreadsheet,
 } from 'lucide-react';
+import { CsvImportModal } from './CsvImportModal';
 import {
   formatINR,
   SAMPLE_RECEIPT_DATA_URL,
@@ -79,6 +81,7 @@ export interface DailyViewProps {
   onOpenReceiptLightbox: (images: string[], title: string) => void;
   onOpenAddModal: (defaultDate?: string) => void;
   onOpenAddModalWithReceipt?: (receiptDataUrl: string) => void;
+  onBulkImportComplete?: (imported: MoneyTransaction[]) => Promise<void> | void;
 }
 
 export interface DailyFilterCriteria {
@@ -319,8 +322,10 @@ export const DailyView: React.FC<DailyViewProps> = ({
   onOpenReceiptLightbox,
   onOpenAddModal,
   onOpenAddModalWithReceipt,
+  onBulkImportComplete,
 }) => {
   const [dailySubView, setDailySubView] = useState<DailySubView>('feed');
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState<boolean>(false);
   const [includeAllMonthsInGallery, setIncludeAllMonthsInGallery] = useState<boolean>(false);
   const [localTransactions, setLocalTransactions] = useState<MoneyTransaction[]>(transactions);
   const [localRecurringRules, setLocalRecurringRules] = useState<RecurringRule[]>(recurringRules);
@@ -715,6 +720,17 @@ export const DailyView: React.FC<DailyViewProps> = ({
                 Receipt Gallery (
                 {includeAllMonthsInGallery ? totalAllReceiptsCount : totalMonthReceiptsCount})
               </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCsvModalOpen(true)}
+              className="mm-btn mm-btn-sm mm-btn-secondary"
+              title="Import bank statement CSV with auto category & account matching"
+              data-testid="mm-daily-import-csv-btn"
+            >
+              <FileSpreadsheet size={14} style={{ color: '#10b981' }} />
+              <span>Import Bank CSV</span>
             </button>
           </div>
         </div>
@@ -1593,6 +1609,22 @@ export const DailyView: React.FC<DailyViewProps> = ({
           ))}
         </div>
       )}
+
+      {/* CSV Bank Statement Importer Modal */}
+      <CsvImportModal
+        isOpen={isCsvModalOpen}
+        selectedMonth={selectedMonth}
+        accounts={accounts}
+        categories={categories}
+        transactions={localTransactions}
+        onClose={() => setIsCsvModalOpen(false)}
+        onImportComplete={async (importedRecords) => {
+          setLocalTransactions((prev) => [...importedRecords, ...prev]);
+          if (onBulkImportComplete) {
+            await onBulkImportComplete(importedRecords);
+          }
+        }}
+      />
     </section>
   );
 };

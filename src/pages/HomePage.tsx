@@ -267,6 +267,21 @@ export const HomePage: React.FC = () => {
               </Link>
             </div>
           </article>
+
+          <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>Personal Finance</span>
+              <h3 style={{ fontSize: '1.1rem', margin: '6px 0 8px' }}>Money Manager &amp; Ledger</h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 14px' }}>
+                Multi-bank account tracking, monthly budget planning, spending velocity forecasts, and receipt OCR scanning.
+              </p>
+            </div>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+              <Link to="/tools/money-manager" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>
+                Open Money Manager →
+              </Link>
+            </div>
+          </article>
         </div>
       </section>
 

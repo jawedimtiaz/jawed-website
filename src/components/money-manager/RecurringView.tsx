@@ -431,6 +431,142 @@ export const RecurringView: React.FC<RecurringViewProps> = ({
             ))}
           </div>
 
+          {/* Quick Bill & Subscription Templates Palette */}
+          <div
+            style={{
+              marginBottom: 14,
+              padding: '12px 14px',
+              borderRadius: 10,
+              background: 'var(--bg-darker)',
+              border: '1px solid var(--border)',
+            }}
+            data-testid="mm-rec-templates-palette"
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                color: 'var(--text-heading)',
+                marginBottom: 8,
+              }}
+            >
+              <Sparkles size={14} style={{ color: 'var(--accent)' }} />
+              <span>1-Click Monthly Bill &amp; Subscription Templates:</span>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                flexWrap: 'wrap',
+              }}
+            >
+              {[
+                {
+                  key: 'rent',
+                  label: '🏢 Rent & Maintenance (1st)',
+                  title: 'Apartment Rent & Maintenance',
+                  type: 'Expense' as TransactionType,
+                  category: 'Rent & Housing',
+                  amount: '22000',
+                  day: '01',
+                  fv: 'Fixed' as FixedOrVariable,
+                },
+                {
+                  key: 'ott',
+                  label: '📺 OTT Subscriptions (5th)',
+                  title: 'Netflix & Streaming Subscriptions',
+                  type: 'Expense' as TransactionType,
+                  category: 'Lifestyle & Family',
+                  amount: '999',
+                  day: '05',
+                  fv: 'Fixed' as FixedOrVariable,
+                },
+                {
+                  key: 'broadband',
+                  label: '🌐 Fiber Broadband (7th)',
+                  title: 'Dual-WAN Fiber Broadband Bill',
+                  type: 'Expense' as TransactionType,
+                  category: 'Utilities & Broadband',
+                  amount: '1499',
+                  day: '07',
+                  fv: 'Fixed' as FixedOrVariable,
+                },
+                {
+                  key: 'mobile',
+                  label: '📱 Postpaid Mobile (10th)',
+                  title: 'Postpaid Mobile & Utility Bill',
+                  type: 'Expense' as TransactionType,
+                  category: 'Utilities & Broadband',
+                  amount: '1200',
+                  day: '10',
+                  fv: 'Fixed' as FixedOrVariable,
+                },
+                {
+                  key: 'emi',
+                  label: '🚗 Car EMI / Servicing (15th)',
+                  title: 'Car Loan EMI Installment',
+                  type: 'Expense' as TransactionType,
+                  category: 'Transport & Fuel',
+                  amount: '12500',
+                  day: '15',
+                  fv: 'Fixed' as FixedOrVariable,
+                },
+                {
+                  key: 'electricity',
+                  label: '⚡ Electricity Bill (20th)',
+                  title: 'CESC Electricity Bill Auto-Pay',
+                  type: 'Expense' as TransactionType,
+                  category: 'Utilities & Broadband',
+                  amount: '3500',
+                  day: '20',
+                  fv: 'Fixed' as FixedOrVariable,
+                },
+                {
+                  key: 'sip',
+                  label: '📈 Wealth SIP Transfer (25th)',
+                  title: 'Monthly Mutual Fund SIP',
+                  type: 'Transfer' as TransactionType,
+                  category: 'Transfer',
+                  amount: '15000',
+                  day: '25',
+                  fv: 'Fixed' as FixedOrVariable,
+                },
+              ].map((tpl) => (
+                <button
+                  key={tpl.key}
+                  type="button"
+                  onClick={() => {
+                    handleTypeChange(tpl.type);
+                    setTitle(tpl.title);
+                    setFrequency('Monthly');
+                    setAmount(tpl.amount);
+                    if (tpl.type !== 'Transfer') {
+                      setCategory(tpl.category);
+                    }
+                    setFixedOrVariable(tpl.fv);
+                    setNextRunDate(`${selectedMonth}-${tpl.day}`);
+                    setStartDate(`${selectedMonth}-${tpl.day}`);
+                  }}
+                  className="mm-btn mm-btn-sm mm-btn-ghost"
+                  style={{
+                    padding: '3px 9px',
+                    fontSize: '0.74rem',
+                    border: '1px solid var(--border)',
+                  }}
+                  title={`Apply template for ${tpl.title}`}
+                  data-testid={`mm-rec-template-${tpl.key}`}
+                >
+                  {tpl.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="mm-form-grid-3">
             <div className="mm-field">
               <label htmlFor="mm-rec-title">Schedule Title *</label>
@@ -561,6 +697,37 @@ export const RecurringView: React.FC<RecurringViewProps> = ({
                 required
                 data-testid="mm-rec-next-date-input"
               />
+              {/* Specified Day of Month Picker for Monthly Bills */}
+              {frequency === 'Monthly' && (
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginTop: 6 }}
+                  data-testid="mm-rec-day-picker"
+                >
+                  <span style={{ fontSize: '0.71rem', color: 'var(--muted)', fontWeight: 600 }}>
+                    Day of month:
+                  </span>
+                  {['01', '05', '07', '10', '15', '20', '25', '28'].map((day) => {
+                    const activeDay = nextRunDate.slice(8, 10) === day;
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          const [y, m] = nextRunDate.split('-');
+                          const currentYM = y && m ? `${y}-${m}` : selectedMonth;
+                          setNextRunDate(`${currentYM}-${day}`);
+                        }}
+                        className={`mm-btn mm-btn-sm ${activeDay ? 'mm-btn-primary' : 'mm-btn-ghost'}`}
+                        style={{ padding: '1px 6px', fontSize: '0.71rem' }}
+                        title={`Schedule for day ${day} of month`}
+                        data-testid={`mm-rec-day-btn-${day}`}
+                      >
+                        {Number.parseInt(day, 10)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="mm-field">

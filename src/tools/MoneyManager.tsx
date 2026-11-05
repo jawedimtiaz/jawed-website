@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Plus, Shield, Database, Sparkles, CheckCircle2 } from 'lucide-react';
 import {
   type AccountSummary,
@@ -21,12 +21,17 @@ import {
   processDueRecurringRules,
   syncRecurringTransactionsForMonth,
   triggerRecurringRuleNow,
+  formatINR,
 } from '../db/db';
 import { MoneyManagerHeader, type MoneyManagerTab } from '../components/money-manager/Header';
 import { DailyView } from '../components/money-manager/DailyView';
 import { CalendarView } from '../components/money-manager/CalendarView';
 import { AccountsView } from '../components/money-manager/AccountsView';
-import { StatsView, evaluateCategoryBudgetAlerts } from '../components/money-manager/StatsView';
+import {
+  StatsView,
+  evaluateCategoryBudgetAlerts,
+  evaluate95PercentBudgetAlerts,
+} from '../components/money-manager/StatsView';
 import { RecurringView } from '../components/money-manager/RecurringView';
 import { TransactionModal } from '../components/money-manager/TransactionModal';
 import { ReceiptLightboxModal } from '../components/money-manager/ReceiptLightboxModal';
@@ -116,6 +121,35 @@ export const MoneyManager: React.FC = () => {
       ).exceededCategories.length,
     [transactions, selectedMonth, categories]
   );
+
+  // Automatic 95% Category Budget Alert System: Sends toast notification when user approaches/exceeds 95% of a monthly category budget
+  const notified95PercentCategoriesRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (isLoading || transactions.length === 0) return;
+
+    const alertResult = evaluate95PercentBudgetAlerts(
+      transactions,
+      selectedMonth,
+      categories.length > 0 ? categories : undefined
+    );
+
+    for (const item of alertResult.warning95Categories) {
+      const alertKey = `${selectedMonth}:${item.category}:${item.spent}:${item.monthlyLimit}`;
+      if (!notified95PercentCategoriesRef.current.has(alertKey)) {
+        notified95PercentCategoriesRef.current.add(alertKey);
+        const msg =
+          item.spent > item.monthlyLimit
+            ? `⚠️ Budget Exceeded: ${item.category} is at ${item.utilizationPercent}% of limit (${formatINR(item.spent)} / ${formatINR(item.monthlyLimit)})`
+            : `⚠️ Budget Warning: ${item.category} has reached ${item.utilizationPercent}% of limit (${formatINR(item.spent)} / ${formatINR(item.monthlyLimit)})`;
+
+        setTimeout(() => {
+          showToast(msg);
+        }, 500);
+        break;
+      }
+    }
+  }, [transactions, selectedMonth, categories, isLoading, showToast]);
 
   // Handlers
   const handleOpenAddTransaction = (dateStr?: string, receiptImage?: string) => {
@@ -299,6 +333,10 @@ export const MoneyManager: React.FC = () => {
               onOpenReceiptLightbox={handleOpenReceiptLightbox}
               onOpenAddModal={handleOpenAddTransaction}
               onOpenAddModalWithReceipt={(receiptImg) => handleOpenAddTransaction(undefined, receiptImg)}
+              onBulkImportComplete={async (imported) => {
+                await loadDatabaseState();
+                showToast(`Imported ${imported.length} bank transactions into ledger.`);
+              }}
             />
           )}
 
