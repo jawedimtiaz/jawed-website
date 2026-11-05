@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { Plus, Shield, Database, Sparkles, CheckCircle2 } from 'lucide-react';
+import { SeoHead } from '../components/SeoHead';
 import {
   type AccountSummary,
   type MoneyAccount,
@@ -38,6 +40,19 @@ import { ReceiptLightboxModal } from '../components/money-manager/ReceiptLightbo
 import { BackupRestoreModal } from '../components/money-manager/BackupRestoreModal';
 import { BackupBanner } from '../components/BackupBanner';
 import { enableStoragePersistence } from '../db';
+
+export const MONEY_MANAGER_SEO = {
+  route: '/tools/money-manager',
+  canonicalUrl: 'https://jawed.co.in/tools/money-manager',
+  title: 'Money Manager & Multi-Bank Ledger – Client-Side Personal Finance Tracker | Jawed Imtiaz',
+  description:
+    'Track income, expenses, bank transfers, receipt photos, and annual sinking funds across multiple accounts (ICICI, SBI, UBI, Cash) 100% locally in your browser IndexedDB.',
+  ogTitle: 'Money Manager & Multi-Bank Ledger | Private IndexedDB Expense & Bank Tracker',
+  ogDescription:
+    'Realbyte-styled double-entry personal finance ledger with Daily, Calendar, Accounts, and Stats views, photo receipts, sinking funds, and SheetJS Excel export.',
+  keywords:
+    'money manager, personal finance ledger, multi-bank expense tracker, indexeddb finance app, budget forecast, sinking funds, jawed imtiaz tools',
+} as const;
 
 export const MoneyManager: React.FC = () => {
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
@@ -281,9 +296,57 @@ export const MoneyManager: React.FC = () => {
     });
   };
 
+  const jsonLdSchema = useMemo(
+    () => ({
+      '@context': 'https://schema.org',
+      '@type': 'WebApplication',
+      name: 'Money Manager & Multi-Bank Ledger',
+      url: MONEY_MANAGER_SEO.canonicalUrl,
+      applicationCategory: 'FinanceApplication',
+      operatingSystem: 'All',
+      description: MONEY_MANAGER_SEO.description,
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'INR',
+      },
+      author: {
+        '@type': 'Person',
+        name: 'Jawed Imtiaz',
+        url: 'https://jawed.co.in/',
+      },
+    }),
+    []
+  );
+
   return (
-    <main className="mm-page-shell">
-      <div className="mm-container">
+    <HelmetProvider>
+      <main className="mm-page-shell">
+        <Helmet prioritizeSeoTags>
+          <title>{MONEY_MANAGER_SEO.title}</title>
+          <meta name="description" content={MONEY_MANAGER_SEO.description} />
+          <meta name="keywords" content={MONEY_MANAGER_SEO.keywords} />
+          <meta name="robots" content="index, follow" />
+          <link rel="canonical" href={MONEY_MANAGER_SEO.canonicalUrl} />
+          <meta property="og:type" content="website" />
+          <meta property="og:site_name" content="Jawed Imtiaz" />
+          <meta property="og:title" content={MONEY_MANAGER_SEO.ogTitle} />
+          <meta property="og:description" content={MONEY_MANAGER_SEO.ogDescription} />
+          <meta property="og:url" content={MONEY_MANAGER_SEO.canonicalUrl} />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content={MONEY_MANAGER_SEO.ogTitle} />
+          <meta name="twitter:description" content={MONEY_MANAGER_SEO.ogDescription} />
+          <script type="application/ld+json">{JSON.stringify(jsonLdSchema)}</script>
+        </Helmet>
+        <SeoHead
+          title={MONEY_MANAGER_SEO.title}
+          description={MONEY_MANAGER_SEO.description}
+          ogTitle={MONEY_MANAGER_SEO.ogTitle}
+          ogDescription={MONEY_MANAGER_SEO.ogDescription}
+          canonicalUrl={MONEY_MANAGER_SEO.canonicalUrl}
+          ogType="website"
+        />
+        <div className="mm-container">
         {/* Toast Notification */}
         {toastMessage && (
           <div className="mm-toast" role="status" aria-live="polite">
@@ -459,18 +522,19 @@ export const MoneyManager: React.FC = () => {
         onClose={() => setLightboxState({ isOpen: false, images: [], title: '' })}
       />
 
-      {/* Backup, Restore & SheetJS Excel Export Modal */}
-      <BackupRestoreModal
-        isOpen={isBackupModalOpen}
-        accounts={accounts}
-        categories={categories}
-        transactions={transactions}
-        sinkingFunds={sinkingFunds}
-        selectedMonth={selectedMonth}
-        onClose={() => setIsBackupModalOpen(false)}
-        onDataRestored={loadDatabaseState}
-      />
-    </main>
+        {/* Backup, Restore & SheetJS Excel Export Modal */}
+        <BackupRestoreModal
+          isOpen={isBackupModalOpen}
+          accounts={accounts}
+          categories={categories}
+          transactions={transactions}
+          sinkingFunds={sinkingFunds}
+          selectedMonth={selectedMonth}
+          onClose={() => setIsBackupModalOpen(false)}
+          onDataRestored={loadDatabaseState}
+        />
+      </main>
+    </HelmetProvider>
   );
 };
 
