@@ -2100,7 +2100,108 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.equal(mappedA[1].type, 'Income');
     assert.equal(mappedA[1].amount, 85000);
   });
+
+  it('integrates browser SpeechRecognition API into the Money Manager search bar for dictating category or note queries', async () => {
+    const {
+      getSpeechRecognitionConstructor,
+      normalizeVoiceSearchTranscript,
+      startVoiceSearchDictation,
+      filterDailyTransactions,
+    } = await import('../src/components/money-manager/DailyView');
+
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Transcript normalization strips trailing punctuation from dictated voice queries
+    assert.equal(normalizeVoiceSearchTranscript('  Food & Groceries.  '), 'Food & Groceries');
+    assert.equal(normalizeVoiceSearchTranscript('Swiggy   Instamart!'), 'Swiggy Instamart');
+
+    // 2. Mock SpeechRecognition constructor and verify live dictation lifecycle
+    let activeInstance: any = null;
+    class MockSpeechRecognition {
+      continuous = false;
+      interimResults = false;
+      lang = '';
+      maxAlternatives = 1;
+      onstart: (() => void) | null = null;
+      onresult: ((event: any) => void) | null = null;
+      onerror: ((event: any) => void) | null = null;
+      onend: (() => void) | null = null;
+      started = false;
+      stopped = false;
+
+      constructor() {
+        activeInstance = this;
+      }
+      start() {
+        this.started = true;
+        this.onstart?.();
+      }
+      stop() {
+        this.stopped = true;
+        this.onend?.();
+      }
+    }
+
+    const mockWindow = { webkitSpeechRecognition: MockSpeechRecognition };
+    assert.equal(getSpeechRecognitionConstructor(mockWindow), MockSpeechRecognition);
+
+    const transcripts: Array<{ text: string; isFinal: boolean }> = [];
+    let didStart = false;
+    let didEnd = false;
+
+    const session = startVoiceSearchDictation({
+      win: mockWindow,
+      onStart: () => {
+        didStart = true;
+      },
+      onTranscript: (text, isFinal) => {
+        transcripts.push({ text, isFinal });
+      },
+      onEnd: () => {
+        didEnd = true;
+      },
+    });
+
+    assert.ok(session);
+    assert.equal(didStart, true);
+    assert.equal(session.interimResults, true);
+    assert.equal(session.lang, 'en-IN');
+
+    // Simulate interim and final voice dictation result for "Groceries."
+    activeInstance!.onresult?.({
+      results: {
+        length: 1,
+        0: {
+          length: 1,
+          isFinal: true,
+          0: { transcript: 'Groceries.', confidence: 0.96 },
+        },
+      },
+    });
+
+    assert.equal(transcripts.length, 1);
+    assert.equal(transcripts[0].text, 'Groceries');
+    assert.equal(transcripts[0].isFinal, true);
+
+    // 3. Verify dictated query filters Daily Ledger transactions by category or note
+    const matched = filterDailyTransactions(state.transactions, {
+      selectedMonth: '2026-11',
+      searchQuery: transcripts[0].text,
+    });
+    assert.ok(matched.length > 0);
+    assert.ok(
+      matched.every(
+        (tx) =>
+          tx.category.toLowerCase().includes('groceries') ||
+          tx.note.toLowerCase().includes('groceries')
+      )
+    );
+
+    session.stop();
+    assert.equal(didEnd, true);
+  });
 });
+
 
 
 

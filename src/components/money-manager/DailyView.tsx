@@ -19,6 +19,8 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   Download,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import { CsvImportModal } from './CsvImportModal';
 import { formatTransactionsToCsv } from './excelExporter';
@@ -208,6 +210,175 @@ export function filterDailyTransactions(
 
     return true;
   });
+}
+
+export interface SpeechRecognitionAlternativeLike {
+  transcript: string;
+  confidence?: number;
+}
+
+export interface SpeechRecognitionResultLike {
+  readonly isFinal?: boolean;
+  readonly length: number;
+  [index: number]: SpeechRecognitionAlternativeLike;
+}
+
+export interface SpeechRecognitionEventLike {
+  readonly resultIndex?: number;
+  readonly results: {
+    readonly length: number;
+    [index: number]: SpeechRecognitionResultLike;
+  };
+}
+
+export interface SpeechRecognitionErrorEventLike {
+  readonly error?: string;
+  readonly message?: string;
+}
+
+export interface SpeechRecognitionInstanceLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives?: number;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+}
+
+export type SpeechRecognitionConstructorLike = new () => SpeechRecognitionInstanceLike;
+
+/**
+ * Resolves the browser's SpeechRecognition constructor (`SpeechRecognition` or `webkitSpeechRecognition`).
+ */
+export function getSpeechRecognitionConstructor(
+  win: unknown = typeof window !== 'undefined' ? window : undefined
+): SpeechRecognitionConstructorLike | null {
+  if (!win || typeof win !== 'object') return null;
+  const record = win as Record<string, unknown>;
+  const ctor = record.SpeechRecognition || record.webkitSpeechRecognition;
+  return typeof ctor === 'function' ? (ctor as SpeechRecognitionConstructorLike) : null;
+}
+
+/**
+ * Normalizes a dictated voice search transcript by collapsing whitespace and stripping
+ * trailing sentence punctuation (e.g. "Food & Groceries." -> "Food & Groceries") so it
+ * cleanly matches category names and transaction notes.
+ */
+export function normalizeVoiceSearchTranscript(rawTranscript: string): string {
+  if (!rawTranscript || typeof rawTranscript !== 'string') return '';
+  return rawTranscript
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.,!?;:]+$/g, '')
+    .trim();
+}
+
+/**
+ * Extracts the combined dictated search query and finality flag from a SpeechRecognition result event.
+ */
+export function extractVoiceSearchTranscriptFromEvent(
+  event: SpeechRecognitionEventLike
+): { transcript: string; isFinal: boolean } {
+  if (!event || !event.results || typeof event.results.length !== 'number') {
+    return { transcript: '', isFinal: false };
+  }
+
+  const pieces: string[] = [];
+  let isFinal = false;
+
+  for (let i = 0; i < event.results.length; i += 1) {
+    const result = event.results[i];
+    if (!result) continue;
+    const alt = result[0];
+    if (alt && typeof alt.transcript === 'string') {
+      pieces.push(alt.transcript);
+    }
+    if (result.isFinal) {
+      isFinal = true;
+    }
+  }
+
+  return {
+    transcript: normalizeVoiceSearchTranscript(pieces.join(' ')),
+    isFinal,
+  };
+}
+
+export interface VoiceSearchSessionOptions {
+  onStart?: () => void;
+  onTranscript: (transcript: string, isFinal: boolean) => void;
+  onError?: (userMessage: string, errorCode?: string) => void;
+  onEnd?: () => void;
+  lang?: string;
+  win?: unknown;
+}
+
+/**
+ * Starts a browser SpeechRecognition session for dictating search queries into the Money Manager search bar.
+ */
+export function startVoiceSearchDictation(
+  options: VoiceSearchSessionOptions
+): SpeechRecognitionInstanceLike | null {
+  const Ctor = getSpeechRecognitionConstructor(options.win);
+  if (!Ctor) {
+    options.onError?.(
+      'Voice dictation is not supported in this browser. Please use Chrome, Edge, or Safari.',
+      'not-supported'
+    );
+    return null;
+  }
+
+  const recognition = new Ctor();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = options.lang || 'en-IN';
+  if ('maxAlternatives' in recognition) {
+    recognition.maxAlternatives = 1;
+  }
+
+  recognition.onstart = () => {
+    options.onStart?.();
+  };
+
+  recognition.onresult = (event: SpeechRecognitionEventLike) => {
+    const { transcript, isFinal } = extractVoiceSearchTranscriptFromEvent(event);
+    if (transcript) {
+      options.onTranscript(transcript, isFinal);
+    }
+  };
+
+  recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+    const code = event?.error || 'unknown';
+    let message = 'Could not capture voice query. Please try again.';
+    if (code === 'not-allowed' || code === 'service-not-allowed') {
+      message = 'Microphone permission was denied. Allow microphone access to dictate search queries.';
+    } else if (code === 'no-speech') {
+      message = 'No speech detected. Tap the microphone and speak a category or transaction note.';
+    } else if (code === 'network') {
+      message = 'Network error occurred during speech recognition.';
+    }
+    options.onError?.(message, code);
+  };
+
+  recognition.onend = () => {
+    options.onEnd?.();
+  };
+
+  try {
+    recognition.start();
+    return recognition;
+  } catch (err) {
+    options.onError?.(
+      err instanceof Error ? err.message : 'Unable to start microphone voice recognition.',
+      'start-error'
+    );
+    return null;
+  }
 }
 
 export interface FilteredDailyCsvExportResult {
@@ -433,6 +604,27 @@ export const DailyView: React.FC<DailyViewProps> = ({
   const [recStartDate, setRecStartDate] = useState<string>(`${selectedMonth}-05`);
   const [recNotice, setRecNotice] = useState<string>('');
   const [csvExportNotice, setCsvExportNotice] = useState<string>('');
+  const [isListeningVoiceSearch, setIsListeningVoiceSearch] = useState<boolean>(false);
+  const [voiceSearchStatus, setVoiceSearchStatus] = useState<string>('');
+  const [voiceSearchError, setVoiceSearchError] = useState<boolean>(false);
+  const voiceRecognitionRef = useRef<SpeechRecognitionInstanceLike | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (voiceRecognitionRef.current) {
+        try {
+          if (typeof voiceRecognitionRef.current.abort === 'function') {
+            voiceRecognitionRef.current.abort();
+          } else {
+            voiceRecognitionRef.current.stop();
+          }
+        } catch {
+          // Ignore teardown errors on unmount
+        }
+        voiceRecognitionRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setLocalTransactions(transactions);
@@ -685,6 +877,59 @@ export const DailyView: React.FC<DailyViewProps> = ({
     setNatureFilter('ALL');
     setRecurringFilter('ALL');
     setSearchQuery('');
+    setVoiceSearchStatus('');
+    setVoiceSearchError(false);
+  };
+
+  const handleToggleVoiceSearch = () => {
+    if (isListeningVoiceSearch && voiceRecognitionRef.current) {
+      try {
+        voiceRecognitionRef.current.stop();
+      } catch {
+        // Ignore stop errors
+      }
+      voiceRecognitionRef.current = null;
+      setIsListeningVoiceSearch(false);
+      setVoiceSearchStatus('');
+      return;
+    }
+
+    setVoiceSearchError(false);
+    const session = startVoiceSearchDictation({
+      onStart: () => {
+        setIsListeningVoiceSearch(true);
+        setVoiceSearchError(false);
+        setVoiceSearchStatus('Listening… Speak a category or transaction note');
+      },
+      onTranscript: (transcript, isFinal) => {
+        setSearchQuery(transcript);
+        setVoiceSearchError(false);
+        setVoiceSearchStatus(
+          isFinal
+            ? `Voice search: "${transcript}"`
+            : `Hearing: "${transcript}"…`
+        );
+      },
+      onError: (userMessage, errorCode) => {
+        setIsListeningVoiceSearch(false);
+        voiceRecognitionRef.current = null;
+        if (errorCode === 'aborted') {
+          setVoiceSearchStatus('');
+          return;
+        }
+        setVoiceSearchError(true);
+        setVoiceSearchStatus(userMessage);
+      },
+      onEnd: () => {
+        setIsListeningVoiceSearch(false);
+        voiceRecognitionRef.current = null;
+      },
+    });
+
+    if (session) {
+      voiceRecognitionRef.current = session;
+      setIsListeningVoiceSearch(true);
+    }
   };
 
   const handleCreateQuickRecurring = async (e: React.FormEvent) => {
@@ -1130,18 +1375,39 @@ export const DailyView: React.FC<DailyViewProps> = ({
             <input
               type="search"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Instant filter by note text, category, or sub-category..."
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (!e.target.value) {
+                  setVoiceSearchStatus('');
+                  setVoiceSearchError(false);
+                }
+              }}
+              placeholder={
+                isListeningVoiceSearch
+                  ? 'Listening… Speak a category or transaction note...'
+                  : 'Instant filter by note text, category, or sub-category...'
+              }
               className="mm-filter-input"
-              style={{ paddingRight: searchQuery ? '34px' : '12px' }}
+              style={{
+                paddingRight: searchQuery ? '66px' : '40px',
+                borderColor: isListeningVoiceSearch ? '#10b981' : undefined,
+                boxShadow: isListeningVoiceSearch
+                  ? '0 0 0 2px rgba(16, 185, 129, 0.2)'
+                  : undefined,
+              }}
               aria-label="Search transactions by note or category"
               data-testid="mm-daily-search-input"
             />
             {searchQuery && (
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
+                onClick={() => {
+                  setSearchQuery('');
+                  setVoiceSearchStatus('');
+                  setVoiceSearchError(false);
+                }}
                 className="mm-filter-clear-icon"
+                style={{ right: '34px' }}
                 aria-label="Clear search query"
                 title="Clear search"
                 data-testid="mm-daily-search-clear-btn"
@@ -1149,6 +1415,46 @@ export const DailyView: React.FC<DailyViewProps> = ({
                 <X size={14} />
               </button>
             )}
+            <button
+              type="button"
+              onClick={handleToggleVoiceSearch}
+              aria-label={
+                isListeningVoiceSearch
+                  ? 'Stop voice search dictation'
+                  : 'Dictate search query by voice'
+              }
+              aria-pressed={isListeningVoiceSearch}
+              title={
+                isListeningVoiceSearch
+                  ? 'Listening… Tap to stop voice dictation'
+                  : 'Tap microphone to dictate category or transaction note'
+              }
+              data-testid="mm-daily-voice-search-btn"
+              style={{
+                position: 'absolute',
+                right: '6px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '26px',
+                height: '26px',
+                borderRadius: '6px',
+                border: isListeningVoiceSearch
+                  ? '1px solid rgba(244, 63, 94, 0.5)'
+                  : '1px solid transparent',
+                background: isListeningVoiceSearch
+                  ? 'rgba(244, 63, 94, 0.16)'
+                  : 'rgba(148, 163, 184, 0.12)',
+                color: isListeningVoiceSearch ? '#f43f5e' : 'var(--accent, #38bdf8)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                padding: 0,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {isListeningVoiceSearch ? <MicOff size={14} /> : <Mic size={14} />}
+            </button>
           </div>
 
           <select
@@ -1221,6 +1527,49 @@ export const DailyView: React.FC<DailyViewProps> = ({
             </button>
           )}
         </div>
+
+        {(isListeningVoiceSearch || voiceSearchStatus) && (
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="mm-daily-voice-search-status"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontSize: '0.78rem',
+              background: voiceSearchError
+                ? 'rgba(244, 63, 94, 0.12)'
+                : 'rgba(16, 185, 129, 0.12)',
+              border: voiceSearchError
+                ? '1px solid rgba(244, 63, 94, 0.35)'
+                : '1px solid rgba(16, 185, 129, 0.35)',
+              color: voiceSearchError ? '#fb7185' : '#10b981',
+            }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Mic size={13} />
+              <span>{voiceSearchStatus || 'Listening… Speak a category or transaction note'}</span>
+            </span>
+            {!isListeningVoiceSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setVoiceSearchStatus('');
+                  setVoiceSearchError(false);
+                }}
+                className="mm-btn mm-btn-sm mm-btn-ghost"
+                style={{ padding: '1px 6px', fontSize: '0.72rem' }}
+                aria-label="Dismiss voice search status"
+              >
+                Dismiss
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Instant Search / Filter Summary Strip */}
         <div className="mm-filter-summary-strip" data-testid="mm-daily-filter-summary">
