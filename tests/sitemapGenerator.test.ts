@@ -140,7 +140,12 @@ test('writeSitemapFiles writes identical XML to root, public/, and dist/ output 
     assert.equal(result.summary.byCategory.tool, TOOLS.length);
     assert.equal(result.summary.byCategory.note, notesData.length);
     assert.equal(result.summary.byCategory.blog, blogData.length);
+    assert.ok(
+      result.xml.includes('<loc>https://jawed.co.in/tools/money-manager</loc>'),
+      'Generated sitemap XML must include https://jawed.co.in/tools/money-manager'
+    );
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 });
+
