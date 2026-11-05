@@ -1631,7 +1631,9 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.equal(dbModule.shouldShowBackupAlert(30), false);
   });
 
-  it('exports all 8 required standalone Money Manager modules cleanly', async () => {
+  it('exports all required Money Manager modules cleanly and keeps App.tsx as the root website router', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
     const db = await import('../src/db.js');
     const BackupBanner = await import('../src/components/BackupBanner.jsx');
     const TransactionModal = await import('../src/components/TransactionModal.jsx');
@@ -1639,8 +1641,15 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     const CalendarView = await import('../src/components/CalendarView.jsx');
     const AccountsView = await import('../src/components/AccountsView.jsx');
     const StatsView = await import('../src/components/StatsView.jsx');
-    const App = await import('../src/App.jsx');
+    const MoneyManagerPage = await import('../src/pages/tools/MoneyManager');
+    const RootApp = await import('../src/App');
+    const { TOOLS, determineToolCategory } = await import('../src/data/toolsData');
 
+    assert.equal(
+      fs.existsSync(path.resolve(process.cwd(), 'src/App.jsx')),
+      false,
+      'src/App.jsx must not exist so it never shadows src/App.tsx'
+    );
     assert.ok(db.initializeAndSeedDatabase, 'Expected db helpers in src/db.js');
     assert.ok(BackupBanner.BackupBanner || BackupBanner.default, 'Expected BackupBanner component');
     assert.ok(TransactionModal.TransactionModal || TransactionModal.default, 'Expected TransactionModal component');
@@ -1648,7 +1657,13 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.ok(CalendarView.CalendarView || CalendarView.default, 'Expected CalendarView component');
     assert.ok(AccountsView.AccountsView || AccountsView.default, 'Expected AccountsView component');
     assert.ok(StatsView.StatsView || StatsView.default, 'Expected StatsView component');
-    assert.ok(App.App || App.default, 'Expected App component in src/App.jsx');
+    assert.ok(MoneyManagerPage.MoneyManager || MoneyManagerPage.default, 'Expected MoneyManager page component');
+    assert.ok(RootApp.App || RootApp.default, 'Expected RootApp in src/App.tsx');
+
+    const mmTool = TOOLS.find((t) => t.id === 'money-manager');
+    assert.ok(mmTool, 'Expected money-manager entry in TOOLS');
+    assert.equal(mmTool.route, '/tools/money-manager');
+    assert.equal(determineToolCategory(mmTool), 'Finance & Calculators');
   });
 
   it('generates a formatted monthly spending report PDF summary cleanly without unicode errors', async () => {

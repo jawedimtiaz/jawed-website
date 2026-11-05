@@ -27,6 +27,9 @@ const base = isGitHubPagesMainBuild ? '/jawed-website/' : '/';
 
 export default defineConfig({
   base,
+  resolve: {
+    extensions: ['.tsx', '.ts', '.mts', '.jsx', '.js', '.mjs', '.json'],
+  },
   plugins: [
     react(),
     sitemapGeneratorPlugin(),

@@ -69,7 +69,7 @@ import { CableLengthPoeChecker } from './tools/CableLengthPoeChecker';
 import { AiAudioTranscriber } from './tools/AiAudioTranscriber';
 import { AnimateImageToVideo } from './pages/tools/AnimateImageToVideo';
 import { CarAffordabilityCalculator } from './tools/CarAffordabilityCalculator';
-import { MoneyManager } from './tools/MoneyManager';
+import MoneyManager from './pages/tools/MoneyManager';
 
 export const TOOL_PAGE_META: Record<string, RouteMetadata> = {
   ...STATIC_METADATA,
@@ -280,8 +280,8 @@ export const App: React.FC = () => {
               <Route path="/tools/car-affordability" element={<CarAffordabilityCalculator />} />
               <Route path="/tools/car-emi-calculator" element={<CarAffordabilityCalculator />} />
               <Route path="/car-affordability-calculator" element={<CarAffordabilityCalculator />} />
+              {/* Money Manager - ONLY mounted on its dedicated sub-route */}
               <Route path="/tools/money-manager" element={<MoneyManager />} />
-              <Route path="/money-manager" element={<MoneyManager />} />
 
               {/* Services & Dispatch */}
               <Route path="/services" element={<ServicesDispatchPage />} />
