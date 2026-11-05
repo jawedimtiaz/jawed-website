@@ -696,6 +696,56 @@ export const COMPONENT_MAPPER: Record<string, React.ReactNode> = {
     <div style={{ marginTop: '28px' }}>
       <MacOSRecoveryFieldGuide />
     </div>
+  ),
+
+  'money-manager-csv-import-formatting-guide': (
+    <div style={{ marginTop: '28px' }}>
+      <CalloutBlock type="tip" title="100% Local Browser Parsing & Privacy Guarantee">
+        The Money Manager CSV Importer processes your bank statement files entirely inside your browser memory using an RFC-4180 compliant parser and local IndexedDB storage. Zero financial rows are ever uploaded to an external server.
+      </CalloutBlock>
+      <CopyableCliBlock
+        label="Sample Bank Statement CSV Template (Split Debit/Credit Columns)"
+        promptSymbol="#"
+        command={`Date,Narration,Withdrawal Amt.,Deposit Amt.,Category,Sub-Category,Bank\n05/11/2026,"UPI-SWIGGY INSTAMART-ORDER",640.00,,Groceries,Swiggy Instamart,ICICI\n04/11/2026,"NEFT CR-ACME CORP SALARY",,85000.00,Salary,Monthly Payroll,ICICI`}
+      />
+      <InteractiveChecklist
+        id="money_manager_csv_import_checklist"
+        title="Money Manager CSV Pre-Import Checklist"
+        subtitle="Complete these 5 checks to guarantee clean transaction mapping and zero duplicate entries."
+        items={[
+          {
+            id: 'mm_csv_1',
+            label: 'Export Spreadsheet as UTF-8 Comma-Separated Values (.csv)',
+            description: 'In Excel or Google Sheets, choose File -> Download / Save As -> Comma-Separated Values (.csv).',
+            critical: true
+          },
+          {
+            id: 'mm_csv_2',
+            label: 'Confirm Header Row Contains Clear Column Labels',
+            description: 'Ensure Row 1 includes Date, Narration/Description, and either Withdrawal/Deposit or Amount columns.',
+            critical: true
+          },
+          {
+            id: 'mm_csv_3',
+            label: 'Verify Date Consistency Across All Rows',
+            description: 'Use YYYY-MM-DD (e.g., 2026-11-05) or DD/MM/YYYY (e.g., 05/11/2026) consistently throughout the file.',
+            critical: true
+          },
+          {
+            id: 'mm_csv_4',
+            label: 'Select Default Bank Account for Single-Bank Exports',
+            description: 'If your bank CSV does not include an Account/Bank column, choose the target bank (ICICI, SBI, UBI, Cash) in the import modal.',
+            critical: false
+          },
+          {
+            id: 'mm_csv_5',
+            label: 'Review Staged Rows & Auto-Predicted Categories Before Committing',
+            description: 'Spot-check high-value transactions and self-transfers in the preview table before clicking Import.',
+            critical: false
+          }
+        ]}
+      />
+    </div>
   )
 };
 

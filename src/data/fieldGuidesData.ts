@@ -675,5 +675,40 @@ export const FIELD_GUIDES: FieldGuide[] = [
       <h2>5. Critical Field Warnings & Troubleshooting</h2>
       <p>Handling Activation Lock roadblocks, T2 chip firmware passwords, and DFU mode revive options.</p>
     `
+  },
+  {
+    slug: 'money-manager-csv-import-formatting-guide',
+    title: 'How to Format & Import Bank Statement CSV Files in Money Manager',
+    description: 'Complete reference guide for formatting, mapping, and importing bank statement CSV exports into the Money Manager tool, covering RFC-4180 delimiters, supported date formats, split Debit/Credit vs single Amount columns, and automated Naive Bayes category prediction.',
+    category: 'Service Desk & ITSM',
+    readTime: '7 min read',
+    publishedDate: 'November 5, 2026',
+    updatedDate: 'November 5, 2026',
+    author: 'Jawed Imtiaz',
+    keywords: ['Money Manager', 'CSV Import', 'Bank Statement CSV', 'Data Mapping', 'Personal Finance Ledger', 'RFC-4180 CSV', 'Auto-Categorization'],
+    toc: [
+      { id: 'csv-structure-overview', text: '1. CSV File Structure & RFC-4180 Requirements' },
+      { id: 'column-header-mapping', text: '2. Supported Column Headers & Auto-Detection Rules' },
+      { id: 'date-amount-formats', text: '3. Date Formats & Split vs. Single Amount Columns' },
+      { id: 'sample-csv-template', text: '4. Ready-to-Use CSV Template & Import Workflow' },
+      { id: 'troubleshooting-checklist', text: '5. Pre-Import Verification Checklist & Troubleshooting' }
+    ],
+    contentHtml: `
+      <h2 id="csv-structure-overview">1. CSV File Structure & RFC-4180 Requirements</h2>
+      <p>The Money Manager CSV importer runs 100% locally in your browser using an RFC-4180 compliant parser. Save your spreadsheet or bank statement export as a UTF-8 encoded <code>.csv</code> file with a header row on Line 1. Fields containing commas (such as bank narrations or formatted currency figures like <code>"1,250.00"</code>) must be wrapped in double quotes.</p>
+
+      <h2 id="column-header-mapping">2. Supported Column Headers & Auto-Detection Rules</h2>
+      <p>When you upload a CSV file in the Money Manager tool, the importer automatically inspects your first row and maps columns to <strong>Date</strong>, <strong>Narration / Description</strong>, <strong>Withdrawal (Debit)</strong>, <strong>Deposit (Credit)</strong>, <strong>Single Amount</strong>, <strong>Category</strong>, and <strong>Bank Account</strong>. You can also manually override any mapped column in the interactive preview step before committing transactions.</p>
+
+      <h2 id="date-amount-formats">3. Date Formats & Split vs. Single Amount Columns</h2>
+      <p>Both Indian bank statements (with separate <code>Withdrawal Amt.</code> and <code>Deposit Amt.</code> columns) and modern fintech exports (with a single <code>Amount</code> column plus a <code>Type</code> indicator) are natively supported alongside <code>YYYY-MM-DD</code>, <code>DD/MM/YYYY</code>, <code>DD-MM-YYYY</code>, and <code>DD MMM YYYY</code> date formats.</p>
+
+      <h2 id="sample-csv-template">4. Ready-to-Use CSV Template & Import Workflow</h2>
+      <p>Copy our standardized CSV header template to quickly prepare custom ledgers or clean up multi-bank statement exports prior to bulk import.</p>
+
+      <h2 id="troubleshooting-checklist">5. Pre-Import Verification Checklist & Troubleshooting</h2>
+      <p>Verify header alignment, remove summary footer rows from raw bank downloads, and review predicted categories in the staging table before importing.</p>
+    `
   }
 ];
+

@@ -589,6 +589,33 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.ok(rentAlertMsg);
     assert.ok(rentAlertMsg.includes('95.8%'));
     assert.ok(rentAlertMsg.includes('23,000'));
+
+    // 3. Verify real-time session deduplication via detectNew95PercentBudgetToasts
+    const { detectNew95PercentBudgetToasts } = await import(
+      '../src/components/money-manager/StatsView'
+    );
+    const notifiedKeys = new Set<string>();
+    const initialToasts = detectNew95PercentBudgetToasts(
+      state.transactions,
+      '2026-11',
+      state.categories,
+      notifiedKeys
+    );
+    assert.equal(initialToasts.length, 1);
+    assert.equal(initialToasts[0].category, 'Medical & Health');
+    assert.equal(initialToasts[0].severity, 'critical');
+
+    // Subsequent evaluation with updated transactions only returns the newly triggered Rent & Housing 95.8% toast
+    const deltaToasts = detectNew95PercentBudgetToasts(
+      updatedState.transactions,
+      '2026-11',
+      updatedState.categories,
+      notifiedKeys
+    );
+    assert.equal(deltaToasts.length, 1);
+    assert.equal(deltaToasts[0].category, 'Rent & Housing');
+    assert.equal(deltaToasts[0].utilizationPercent, 95.8);
+    assert.equal(deltaToasts[0].severity, 'warning');
   });
 
   it('formats all ledger transactions into a standard accounting CSV table for Download CSV', async () => {
@@ -1993,7 +2020,89 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.ok(downloadResult.fileName.endsWith('.json'));
     assert.ok(downloadResult.recordCount > 0);
   });
+
+  it('exports the filtered Daily Ledger transaction list as a formatted CSV file', async () => {
+    const {
+      exportFilteredDailyTransactionsToCsv,
+      triggerFilteredDailyCsvDownload,
+    } = await import('../src/components/money-manager/DailyView');
+
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Export all November 2026 transactions
+    const novExport = exportFilteredDailyTransactionsToCsv(
+      state.transactions,
+      { selectedMonth: '2026-11' },
+      state.accounts
+    );
+    assert.equal(novExport.fileName, 'jawed-money-manager-daily-ledger-2026-11.csv');
+    assert.ok(novExport.transactionCount > 0);
+    assert.ok(novExport.csvContent.includes('Transaction ID,Date,Time,Type'));
+
+    // 2. Export filtered subset (only Food & Groceries in 2026-11)
+    const filteredExport = triggerFilteredDailyCsvDownload(
+      state.transactions,
+      {
+        selectedMonth: '2026-11',
+        categoryFilter: 'Food & Groceries',
+      },
+      state.accounts
+    );
+    assert.equal(
+      filteredExport.fileName,
+      'jawed-money-manager-daily-ledger-2026-11-filtered.csv'
+    );
+    assert.equal(filteredExport.transactionCount, 1);
+    assert.ok(filteredExport.csvContent.includes('Food & Groceries'));
+    assert.ok(!filteredExport.csvContent.includes('Rent & Housing'));
+  });
+
+  it('registers the Money Manager CSV import formatting guide on /guides and maps its documented CSV templates cleanly', async () => {
+    const { FIELD_GUIDES } = await import('../src/data/fieldGuidesData');
+    const {
+      parseCsvText,
+      autoDetectCsvMapping,
+      mapCsvRowsToTransactions,
+    } = await import('../src/components/money-manager/csvImporter');
+
+    const csvGuide = FIELD_GUIDES.find(
+      (g) => g.slug === 'money-manager-csv-import-formatting-guide'
+    );
+    assert.ok(csvGuide, 'Expected money-manager-csv-import-formatting-guide in FIELD_GUIDES');
+    assert.ok(csvGuide.title.includes('CSV'));
+    assert.equal(csvGuide.toc.length, 5);
+
+    const state = await initializeAndSeedDatabase();
+
+    // Verify Template A (Split Withdrawal & Deposit columns) from the guide
+    const templateACsv = `Date,Narration,Withdrawal Amt.,Deposit Amt.,Category,Sub-Category,Bank
+05/11/2026,"UPI-SWIGGY INSTAMART-ORDER",640.00,,Groceries,Swiggy Instamart,ICICI
+04/11/2026,"NEFT CR-ACME CORP SALARY",,85000.00,Salary,Monthly Payroll,ICICI`;
+
+    const parsedA = parseCsvText(templateACsv);
+    assert.equal(parsedA.rows.length, 2);
+    const mappingA = autoDetectCsvMapping(parsedA.headers);
+    assert.equal(mappingA.dateColumn, 'Date');
+    assert.equal(mappingA.debitColumn, 'Withdrawal Amt.');
+    assert.equal(mappingA.creditColumn, 'Deposit Amt.');
+
+    const mappedA = mapCsvRowsToTransactions(parsedA.rows, mappingA, {
+      defaultAccountId: 'acc-icici',
+      defaultToAccountId: 'acc-sbi',
+      defaultMonth: '2026-11',
+      accounts: state.accounts,
+      categories: state.categories,
+      historicalTransactions: state.transactions,
+    });
+    assert.equal(mappedA.length, 2);
+    assert.equal(mappedA[0].type, 'Expense');
+    assert.equal(mappedA[0].amount, 640);
+    assert.equal(mappedA[1].type, 'Income');
+    assert.equal(mappedA[1].amount, 85000);
+  });
 });
+
+
 
 
 

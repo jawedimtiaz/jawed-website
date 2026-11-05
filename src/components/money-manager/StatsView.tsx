@@ -801,9 +801,26 @@ export function evaluateCategoryBudgetAlerts(
   };
 }
 
+export interface Budget95ToastAlert {
+  id: string;
+  selectedMonth: string;
+  category: string;
+  categoryId: string;
+  color: string;
+  spent: number;
+  monthlyLimit: number;
+  remaining: number;
+  overage: number;
+  utilizationPercent: number;
+  severity: 'critical' | 'warning';
+  title: string;
+  message: string;
+  timestamp: string;
+}
+
 /**
  * Pure helper that checks the current ledger state for categories approaching or exceeding 95% of their monthly budget
- * and generates user-friendly alert messages for automatic toast notifications.
+ * and generates user-friendly alert messages and structured toast payloads for real-time notifications.
  */
 export function evaluate95PercentBudgetAlerts(
   transactions: MoneyTransaction[],
@@ -813,6 +830,7 @@ export function evaluate95PercentBudgetAlerts(
 ): {
   warning95Categories: MonthlyBudgetPlanItem[];
   alertMessages: string[];
+  toastAlerts: Budget95ToastAlert[];
   has95PercentWarning: boolean;
 } {
   const plan = computeMonthlyBudgetPlan(
@@ -821,19 +839,76 @@ export function evaluate95PercentBudgetAlerts(
     categories,
     thresholdOverrides
   );
-  const warning95Categories = plan.warning95Categories;
-  const alertMessages = warning95Categories.map((item) => {
-    if (item.spent > item.monthlyLimit) {
-      return `⚠️ Budget Exceeded: ${item.category} is at ${item.utilizationPercent}% of its ${formatINR(item.monthlyLimit)} monthly limit (Spent: ${formatINR(item.spent)})!`;
-    }
-    return `⚠️ Budget Warning: ${item.category} has reached ${item.utilizationPercent}% of its ${formatINR(item.monthlyLimit)} monthly limit (Spent: ${formatINR(item.spent)})!`;
+  const warning95Categories = [...plan.warning95Categories].sort(
+    (a, b) => b.utilizationPercent - a.utilizationPercent || b.spent - a.spent
+  );
+
+  const nowIso = new Date().toISOString();
+  const toastAlerts: Budget95ToastAlert[] = warning95Categories.map((item) => {
+    const isExceeded = item.spent > item.monthlyLimit;
+    const severity: 'critical' | 'warning' = isExceeded ? 'critical' : 'warning';
+    const title = isExceeded
+      ? `Budget Limit Exceeded: ${item.category} (${item.utilizationPercent}%)`
+      : `95% Budget Alert: ${item.category} (${item.utilizationPercent}%)`;
+    const message = isExceeded
+      ? `⚠️ Budget Exceeded: ${item.category} is at ${item.utilizationPercent}% of its ${formatINR(item.monthlyLimit)} monthly limit (Spent: ${formatINR(item.spent)})!`
+      : `⚠️ Budget Warning: ${item.category} has reached ${item.utilizationPercent}% of its ${formatINR(item.monthlyLimit)} monthly limit (Spent: ${formatINR(item.spent)})!`;
+
+    return {
+      id: `${selectedMonth}:${item.category}:${item.spent}:${item.monthlyLimit}`,
+      selectedMonth,
+      category: item.category,
+      categoryId: item.categoryId,
+      color: item.color,
+      spent: item.spent,
+      monthlyLimit: item.monthlyLimit,
+      remaining: item.remaining,
+      overage: item.overage,
+      utilizationPercent: item.utilizationPercent,
+      severity,
+      title,
+      message,
+      timestamp: nowIso,
+    };
   });
+
+  const alertMessages = toastAlerts.map((t) => t.message);
 
   return {
     warning95Categories,
     alertMessages,
+    toastAlerts,
     has95PercentWarning: warning95Categories.length > 0,
   };
+}
+
+/**
+ * Evaluates current ledger transactions and returns only newly triggered 95% category budget toast alerts
+ * that have not yet been shown in the current session, recording their keys in `notifiedKeys`.
+ */
+export function detectNew95PercentBudgetToasts(
+  transactions: MoneyTransaction[],
+  selectedMonth: string,
+  categories: MoneyCategory[] = INITIAL_CATEGORIES,
+  notifiedKeys: Set<string> = new Set(),
+  thresholdOverrides?: Record<string, number> | number
+): Budget95ToastAlert[] {
+  const { toastAlerts } = evaluate95PercentBudgetAlerts(
+    transactions,
+    selectedMonth,
+    categories,
+    thresholdOverrides
+  );
+
+  const newlyTriggered: Budget95ToastAlert[] = [];
+  for (const alert of toastAlerts) {
+    if (!notifiedKeys.has(alert.id)) {
+      notifiedKeys.add(alert.id);
+      newlyTriggered.push(alert);
+    }
+  }
+
+  return newlyTriggered;
 }
 
 export type CashFlowChartStyle = 'composed' | 'area' | 'bar';

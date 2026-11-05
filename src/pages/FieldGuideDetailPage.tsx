@@ -902,6 +902,295 @@ export const FieldGuideDetailPage: React.FC = () => {
           </div>
         );
 
+      case 'money-manager-csv-import-formatting-guide':
+        return (
+          <div className="guide-embedded-body" data-testid="money-manager-csv-guide-body">
+            <CalloutBlock type="tip" title="100% Local Browser Parsing & Privacy Guarantee">
+              The Money Manager CSV Importer processes your bank statement files entirely inside your browser memory using an RFC-4180 compliant parser and local IndexedDB storage. Zero financial rows are ever uploaded to an external server.{' '}
+              <Link to="/tools/money-manager" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'underline' }}>
+                Open Money Manager (/tools/money-manager) →
+              </Link>
+            </CalloutBlock>
+
+            <h2 id="csv-structure-overview">1. CSV File Structure &amp; RFC-4180 Requirements</h2>
+            <p>
+              To ensure 100% accurate data mapping when importing bank statements or exported spreadsheets into the{' '}
+              <Link to="/tools/money-manager" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                Money Manager tool
+              </Link>
+              , format your file as a standard <strong>UTF-8 Comma-Separated Values (<code>.csv</code>)</strong> document with column headers on the very first non-empty row.
+            </p>
+            <ul>
+              <li>
+                <strong>Header Row Required (Row 1):</strong> The first non-blank line must contain human-readable column names (for example: <code>Date,Narration,Withdrawal Amt.,Deposit Amt.,Category,Bank</code>).
+              </li>
+              <li>
+                <strong>RFC-4180 Double-Quote Escaping:</strong> Any field that contains a comma—such as a detailed UPI narration or a thousands-formatted amount like <code>"12,500.00"</code>—must be enclosed in double quotes (<code>"..."</code>). Literal quotes inside a quoted string are escaped by doubling them (<code>""</code>).
+              </li>
+              <li>
+                <strong>Currency Symbols &amp; Commas Stripped Automatically:</strong> Values such as <code>₹1,450.50</code>, <code>INR 2500</code>, or <code>"45,000.00"</code> are automatically normalized to numeric floating-point amounts.
+              </li>
+            </ul>
+
+            <h2 id="column-header-mapping">2. Supported Column Headers &amp; Auto-Detection Rules</h2>
+            <p>
+              As soon as you select a <code>.csv</code> file, the importer runs <code>autoDetectCsvMapping()</code> against your header row. The table below lists every target ledger field, the recognized header aliases, and fallback behavior when a column is omitted:
+            </p>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Money Manager Field</th>
+                    <th>Auto-Detected CSV Header Names (Case-Insensitive)</th>
+                    <th>Required?</th>
+                    <th>Fallback / Mapping Behavior</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Date</strong></td>
+                    <td><code>Date</code>, <code>Txn Date</code>, <code>Transaction Date</code>, <code>Value Date</code>, <code>Posting Date</code></td>
+                    <td><strong>Required</strong></td>
+                    <td>Defaults to Column 0 if not matched; rows without a valid date or amount are skipped.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Narration / Note</strong></td>
+                    <td><code>Narration</code>, <code>Description</code>, <code>Particulars</code>, <code>Remarks</code>, <code>Note</code>, <code>Details</code>, <code>Memo</code></td>
+                    <td><strong>Recommended</strong></td>
+                    <td>Stored as the transaction note and analyzed by the Naive Bayes + keyword engine to predict the category.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Debit / Withdrawal</strong></td>
+                    <td><code>Withdrawal Amt.</code>, <code>Withdrawal</code>, <code>Debit</code>, <code>Debit Amount</code>, <code>Dr</code>, <code>Outflow</code>, <code>Expense</code></td>
+                    <td><strong>Mode A (Split)</strong></td>
+                    <td>Positive numbers in this column map to <code>type: "expense"</code> (or <code>"transfer"</code> if narration indicates self-transfer).</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Credit / Deposit</strong></td>
+                    <td><code>Deposit Amt.</code>, <code>Deposit</code>, <code>Credit</code>, <code>Credit Amount</code>, <code>Cr</code>, <code>Inflow</code>, <code>Income</code></td>
+                    <td><strong>Mode A (Split)</strong></td>
+                    <td>Positive numbers in this column map to <code>type: "income"</code>.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Single Amount</strong></td>
+                    <td><code>Amount</code>, <code>Amount (INR)</code>, <code>Transaction Amount</code>, <code>Txn Amount</code>, <code>Value</code>, <code>Net Amount</code></td>
+                    <td><strong>Mode B (Single)</strong></td>
+                    <td>Used when Debit and Credit share one column. Negative numbers (<code>-450.00</code>) or <code>Dr</code> suffixes become expenses.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Transaction Type</strong></td>
+                    <td><code>Type</code>, <code>Txn Type</code>, <code>Transaction Type</code>, <code>Dr/Cr</code>, <code>Debit/Credit</code>, <code>Entry Type</code></td>
+                    <td>Optional</td>
+                    <td>Disambiguates Single Amount rows: <code>Expense</code> / <code>Dr</code> / <code>Debit</code> vs <code>Income</code> / <code>Cr</code> / <code>Credit</code> vs <code>Transfer</code>.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Category</strong></td>
+                    <td><code>Category</code>, <code>Expense Category</code>, <code>Spend Category</code>, <code>Group</code></td>
+                    <td>Optional</td>
+                    <td>Matched against your configured categories; if blank or unmapped, auto-categorized from the narration text.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Sub-Category</strong></td>
+                    <td><code>Sub-Category</code>, <code>Subcategory</code>, <code>Sub Category</code>, <code>Tag</code>, <code>Merchant</code>, <code>Payee</code></td>
+                    <td>Optional</td>
+                    <td>Populates the sub-category / merchant tag for granular filtering in Daily &amp; Monthly views.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Account / Bank</strong></td>
+                    <td><code>Bank</code>, <code>Account</code>, <code>Account / Bank</code>, <code>Account Name</code>, <code>Bank Name</code>, <code>Source Account</code></td>
+                    <td>Optional</td>
+                    <td>Matches <code>ICICI</code>, <code>SBI</code>, <code>UBI</code>, or <code>Cash</code>; falls back to the default Bank selected in the import toolbar.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Target Account</strong></td>
+                    <td><code>Target Account</code>, <code>To Account</code>, <code>Destination Account</code>, <code>Transfer To</code></td>
+                    <td>Optional</td>
+                    <td>Used when <code>Type = Transfer</code> to credit the destination account automatically.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h2 id="date-amount-formats">3. Date Formats &amp; Split vs. Single Amount Columns</h2>
+            <p>
+              Different banks export dates and transaction amounts in distinct layouts. The Money Manager parser normalizes all supported formats into ISO <code>YYYY-MM-DD</code> dates and positive numeric amounts:
+            </p>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Format Type</th>
+                    <th>Supported Patterns &amp; Examples</th>
+                    <th>Parser Normalization Output</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>ISO 8601 Date / Timestamp</strong></td>
+                    <td><code>2026-11-05</code> or <code>2026-11-05T14:30</code></td>
+                    <td>Normalized to <code>2026-11-05</code> (preserves time if provided, defaults to <code>12:00</code>).</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Indian Bank Slash / Dash Date</strong></td>
+                    <td><code>05/11/2026</code>, <code>05-11-2026</code>, <code>05.11.2026</code>, <code>05/11/26</code></td>
+                    <td>Interpreted as <code>DD/MM/YYYY</code> by default (auto-flips if second token &gt; 12) → <code>2026-11-05</code>.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Textual Month Date</strong></td>
+                    <td><code>05 Nov 2026</code>, <code>5-Nov-2026</code>, <code>15 January 2026</code></td>
+                    <td>Month name mapped to 2-digit month → <code>2026-11-05</code>.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Split Columns (Mode A)</strong></td>
+                    <td><code>Withdrawal Amt. = 850.00</code>, <code>Deposit Amt. = ""</code></td>
+                    <td><code>amount: 850</code>, <code>type: "expense"</code>.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Single Column (Mode B)</strong></td>
+                    <td><code>Amount (INR) = -1200.50</code> or <code>Amount = 1200.50</code> with <code>Type = Expense</code></td>
+                    <td><code>amount: 1200.5</code>, <code>type: "expense"</code>.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <DoAndDontCard
+              title="CSV Formatting Best Practices vs Common Pitfalls"
+              dos={{
+                title: 'Recommended CSV Formatting Standards',
+                points: [
+                  'Keep the column header row on Row 1 (or remove multi-line bank address banners above the table header).',
+                  'Wrap narrations or amounts that contain commas inside double quotes (e.g., "UPI/SWIGGY, BANGALORE").',
+                  'Use either Split Columns (Withdrawal Amt. + Deposit Amt.) OR a Single Amount column with Type/sign—both are auto-detected.',
+                  'Review the interactive staging table in Money Manager to tweak any predicted Category or Bank before clicking Import.'
+                ]
+              }}
+              donts={{
+                title: 'Common Import Pitfalls to Avoid',
+                points: [
+                  'Do not upload raw .xls, .xlsx, or password-protected PDF files directly—export or "Save As -> CSV UTF-8 (.csv)" first.',
+                  'Do not leave summary footer rows with valid dates at the bottom of your sheet if you do not want totals imported as transactions.',
+                  'Do not mix DD/MM/YYYY and MM/DD/YYYY ambiguous dates (like 04/05/2026) in the same file; prefer YYYY-MM-DD or DD/MM/YYYY.'
+                ]
+              }}
+            />
+
+            <h2 id="sample-csv-template">4. Ready-to-Use CSV Template &amp; Import Workflow</h2>
+            <p>
+              Copy either of the templates below into a plain text file saved as <code>transactions-import.csv</code>, or use the exact column headers in Excel / Google Sheets before exporting to CSV:
+            </p>
+
+            <CopyableCliBlock
+              label="Template A: Standard Bank Statement Format (Split Withdrawal & Deposit Columns)"
+              promptSymbol="#"
+              command={`Date,Narration,Withdrawal Amt.,Deposit Amt.,Category,Sub-Category,Bank
+05/11/2026,"UPI-SWIGGY INSTAMART-ORDER",640.00,,Groceries,Swiggy Instamart,ICICI
+04/11/2026,"NEFT CR-ACME CORP SALARY",,85000.00,Salary,Monthly Payroll,ICICI
+03/11/2026,"UPI-INDIAN OIL PETROL PUMP",2150.00,,Fuel / Petrol,Fuel Station,SBI
+02/11/2026,"ATM CASH WITHDRAWAL SELF",5000.00,,Transfer,ATM Withdrawal,SBI`}
+            />
+
+            <CopyableCliBlock
+              label="Template B: Money Manager Ledger Format (Single Amount + Type & Target Account)"
+              promptSymbol="#"
+              command={`Date,Type,Category,Sub-Category,Account / Bank,Target Account,Amount (INR),Note
+2026-11-05T09:30,Expense,Food & Dining,Morning Coffee,Cash,,180.00,"Filter coffee & breakfast"
+2026-11-04T19:15,Expense,Bills & Utilities,Broadband Fiber,ICICI,,1178.82,"Monthly fiber bill"
+2026-11-01T10:00,Transfer,Transfer,Self Transfer,ICICI,SBI,15000.00,"Monthly savings transfer to SBI"`}
+            />
+
+            <WorkflowDiagram
+              title="4-Stage CSV Import & Auto-Categorization Pipeline"
+              subtitle="How Money Manager parses, maps, classifies, and commits your CSV rows locally in the browser."
+              stages={[
+                {
+                  step: 1,
+                  title: 'Upload UTF-8 CSV File',
+                  badge: 'RFC-4180 Parser',
+                  description: 'Open /tools/money-manager, click Import CSV in the header bar, and select your .csv statement export.',
+                  checklist: [
+                    'Reads UTF-8 text entirely in browser memory.',
+                    'Strips optional UTF-8 BOM and parses quoted fields.',
+                    'Extracts Row 1 headers and raw data rows.'
+                  ]
+                },
+                {
+                  step: 2,
+                  title: 'Verify Auto-Detected Column Mapping',
+                  badge: 'Header Mapper',
+                  description: 'Confirm Date, Narration, Debit/Credit (or Single Amount), Category, and Bank dropdown mappings.',
+                  checklist: [
+                    'Auto-detects Split Debit/Credit vs Single Amount mode.',
+                    'Allows manual dropdown override for any column.',
+                    'Supports fallback default Bank selection (ICICI, SBI, UBI, Cash).'
+                  ]
+                },
+                {
+                  step: 3,
+                  title: 'Inspect Naive Bayes Category Predictions',
+                  badge: 'Smart Classifier',
+                  description: 'Every row without an explicit category is scored using your past ledger history + built-in merchant keywords.',
+                  checklist: [
+                    'Matches UPI/NEFT merchant tokens (Swiggy, Zomato, Uber, Bescom, etc.).',
+                    'Detects self-transfers and ATM withdrawals automatically.',
+                    'Flags high-confidence vs medium-confidence predictions.'
+                  ]
+                },
+                {
+                  step: 4,
+                  title: 'Commit Selected Rows to Ledger',
+                  badge: 'IndexedDB Sync',
+                  description: 'Toggle checkboxes on individual rows, adjust any category or bank inline, and click Import Selected Rows.',
+                  checklist: [
+                    'Saves selected transactions into local IndexedDB ledger.',
+                    'Updates account balances and monthly budget velocity in real time.',
+                    'Supports immediate JSON or CSV backup export.'
+                  ]
+                }
+              ]}
+            />
+
+            <h2 id="troubleshooting-checklist">5. Pre-Import Verification Checklist &amp; Troubleshooting</h2>
+            <InteractiveChecklist
+              id="money_manager_csv_import_checklist"
+              title="Money Manager CSV Pre-Import Checklist"
+              subtitle="Complete these 5 checks to guarantee clean transaction mapping and zero duplicate entries."
+              items={[
+                {
+                  id: 'mm_csv_1',
+                  label: 'Export Spreadsheet as UTF-8 Comma-Separated Values (.csv)',
+                  description: 'In Excel or Google Sheets, choose File -> Download / Save As -> Comma-Separated Values (.csv).',
+                  critical: true
+                },
+                {
+                  id: 'mm_csv_2',
+                  label: 'Confirm Header Row Contains Clear Column Labels',
+                  description: 'Ensure Row 1 includes Date, Narration/Description, and either Withdrawal/Deposit or Amount columns.',
+                  critical: true
+                },
+                {
+                  id: 'mm_csv_3',
+                  label: 'Verify Date Consistency Across All Rows',
+                  description: 'Use YYYY-MM-DD (e.g., 2026-11-05) or DD/MM/YYYY (e.g., 05/11/2026) consistently throughout the file.',
+                  critical: true
+                },
+                {
+                  id: 'mm_csv_4',
+                  label: 'Select Default Bank Account for Single-Bank Exports',
+                  description: 'If your bank CSV does not include an Account/Bank column, choose the target bank (ICICI, SBI, UBI, Cash) in the import modal.',
+                  critical: false
+                },
+                {
+                  id: 'mm_csv_5',
+                  label: 'Review Staged Rows & Auto-Predicted Categories Before Committing',
+                  description: 'Spot-check high-value transactions and self-transfers in the preview table before clicking Import.',
+                  critical: false
+                }
+              ]}
+            />
+          </div>
+        );
+
       default:
         return (
           <div
@@ -1032,11 +1321,17 @@ export const FieldGuideDetailPage: React.FC = () => {
                 <strong>Keywords:</strong> {guide.keywords.join(' • ')}
               </p>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <Link className="button button-primary" to="/tools/it-troubleshooting-assistant">
-                  Launch IT Troubleshooting Assistant →
-                </Link>
-                <Link className="button button-secondary" to="/field-guides">
-                  ← Back to Field Guides List
+                {guide.slug === 'money-manager-csv-import-formatting-guide' ? (
+                  <Link className="button button-primary" to="/tools/money-manager" data-testid="launch-money-manager-cta">
+                    Launch Money Manager Tool →
+                  </Link>
+                ) : (
+                  <Link className="button button-primary" to="/tools/it-troubleshooting-assistant">
+                    Launch IT Troubleshooting Assistant →
+                  </Link>
+                )}
+                <Link className="button button-secondary" to="/guides">
+                  ← Back to Guides List
                 </Link>
               </div>
             </div>

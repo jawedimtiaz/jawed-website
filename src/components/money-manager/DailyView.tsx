@@ -18,8 +18,10 @@ import {
   CalendarClock,
   CheckCircle2,
   FileSpreadsheet,
+  Download,
 } from 'lucide-react';
 import { CsvImportModal } from './CsvImportModal';
+import { formatTransactionsToCsv } from './excelExporter';
 import {
   formatINR,
   SAMPLE_RECEIPT_DATA_URL,
@@ -208,6 +210,86 @@ export function filterDailyTransactions(
   });
 }
 
+export interface FilteredDailyCsvExportResult {
+  csvContent: string;
+  fileName: string;
+  transactionCount: number;
+  totalIncome: number;
+  totalExpense: number;
+}
+
+/**
+ * Pure helper that filters Daily Ledger transactions using `filterDailyTransactions`
+ * (or accepts an already-filtered list when `criteria` is omitted) and formats them
+ * into a standard RFC-4180 accounting CSV payload.
+ */
+export function exportFilteredDailyTransactionsToCsv(
+  transactions: MoneyTransaction[],
+  criteria?: DailyFilterCriteria,
+  accounts: AccountSummary[] = []
+): FilteredDailyCsvExportResult {
+  const accountNameMap =
+    criteria?.accountNameMap || new Map(accounts.map((acc) => [acc.id, acc.name]));
+  const filtered = criteria
+    ? filterDailyTransactions(transactions, { ...criteria, accountNameMap })
+    : transactions;
+
+  const csvContent = formatTransactionsToCsv(filtered, accounts);
+  let totalIncome = 0;
+  let totalExpense = 0;
+  for (const tx of filtered) {
+    if (tx.type === 'Income') totalIncome += tx.amount;
+    if (tx.type === 'Expense') totalExpense += tx.amount;
+  }
+
+  const safeMonth = (criteria?.selectedMonth || 'all-months').replace(/[^0-9A-Za-z_-]/g, '-');
+  const hasSubFilter = Boolean(
+    (criteria?.searchQuery && criteria.searchQuery.trim() !== '') ||
+      (criteria?.accountFilter && criteria.accountFilter !== 'ALL') ||
+      (criteria?.categoryFilter && criteria.categoryFilter !== 'ALL') ||
+      (criteria?.typeFilter && criteria.typeFilter !== 'ALL') ||
+      (criteria?.natureFilter && criteria.natureFilter !== 'ALL') ||
+      (criteria?.recurringFilter && criteria.recurringFilter !== 'ALL')
+  );
+  const suffix = hasSubFilter ? '-filtered' : '';
+  const fileName = `jawed-money-manager-daily-ledger-${safeMonth}${suffix}.csv`;
+
+  return {
+    csvContent,
+    fileName,
+    transactionCount: filtered.length,
+    totalIncome,
+    totalExpense,
+  };
+}
+
+/**
+ * Triggers a browser CSV download of the filtered Daily Ledger transactions.
+ */
+export function triggerFilteredDailyCsvDownload(
+  transactions: MoneyTransaction[],
+  criteria?: DailyFilterCriteria,
+  accounts: AccountSummary[] = []
+): FilteredDailyCsvExportResult {
+  const exportResult = exportFilteredDailyTransactionsToCsv(transactions, criteria, accounts);
+
+  if (typeof window !== 'undefined' && typeof document !== 'undefined' && typeof URL !== 'undefined') {
+    const blob = new Blob([`\uFEFF${exportResult.csvContent}`], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', exportResult.fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  return exportResult;
+}
+
 /**
  * Pure helper that aggregates all attached transaction receipts into a searchable list
  * of ReceiptGalleryItem objects, sorted newest first.
@@ -350,6 +432,7 @@ export const DailyView: React.FC<DailyViewProps> = ({
   const [recAccountId, setRecAccountId] = useState<string>(accounts[0]?.id || 'acc-icici');
   const [recStartDate, setRecStartDate] = useState<string>(`${selectedMonth}-05`);
   const [recNotice, setRecNotice] = useState<string>('');
+  const [csvExportNotice, setCsvExportNotice] = useState<string>('');
 
   useEffect(() => {
     setLocalTransactions(transactions);
@@ -672,6 +755,29 @@ export const DailyView: React.FC<DailyViewProps> = ({
     setRecNotice(`Synced all due ${selectedMonth} recurring transactions into the ledger.`);
   };
 
+  const handleExportFilteredCsv = () => {
+    const result = triggerFilteredDailyCsvDownload(
+      localTransactions,
+      {
+        selectedMonth,
+        searchQuery,
+        accountFilter,
+        categoryFilter,
+        typeFilter,
+        natureFilter,
+        recurringFilter,
+        recurringRules: localRecurringRules,
+        accountNameMap,
+      },
+      accounts
+    );
+    setCsvExportNotice(
+      `Exported ${result.transactionCount} filtered ${
+        result.transactionCount === 1 ? 'transaction' : 'transactions'
+      } to ${result.fileName}`
+    );
+  };
+
   return (
     <section className="mm-view-section" aria-label="Daily Ledger View">
       {/* Daily Feed vs Receipt Gallery View Switcher Bar */}
@@ -731,6 +837,18 @@ export const DailyView: React.FC<DailyViewProps> = ({
             >
               <FileSpreadsheet size={14} style={{ color: '#10b981' }} />
               <span>Import Bank CSV</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportFilteredCsv}
+              disabled={filteredTransactions.length === 0}
+              className="mm-btn mm-btn-sm mm-btn-secondary"
+              title="Download currently filtered Daily Ledger transactions as a formatted CSV file"
+              data-testid="mm-daily-export-csv-btn"
+            >
+              <Download size={14} style={{ color: '#38bdf8' }} />
+              <span>Export to CSV ({filteredTransactions.length})</span>
             </button>
           </div>
         </div>
@@ -1117,15 +1235,62 @@ export const DailyView: React.FC<DailyViewProps> = ({
             ) : null}
           </span>
 
-          <div className="mm-filter-pills">
+          <div className="mm-filter-pills" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span className="mm-pill mm-pill-income">
               Filtered Income: +{formatINR(filteredTotals.income)}
             </span>
             <span className="mm-pill mm-pill-expense">
               Filtered Expense: -{formatINR(filteredTotals.expense)}
             </span>
+            <button
+              type="button"
+              onClick={handleExportFilteredCsv}
+              disabled={filteredTransactions.length === 0}
+              className="mm-btn mm-btn-sm mm-btn-secondary"
+              style={{ padding: '4px 10px', fontSize: '0.76rem' }}
+              title="Export filtered transaction list to CSV"
+              data-testid="mm-filter-summary-export-csv-btn"
+            >
+              <Download size={13} />
+              <span>Export to CSV</span>
+            </button>
           </div>
         </div>
+
+        {csvExportNotice && (
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="mm-daily-csv-export-notice"
+            style={{
+              marginTop: 8,
+              padding: '6px 10px',
+              borderRadius: 8,
+              background: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              color: '#38bdf8',
+              fontSize: '0.78rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+              width: '100%',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckCircle2 size={14} />
+              {csvExportNotice}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCsvExportNotice('')}
+              className="mm-btn mm-btn-sm mm-btn-ghost"
+              style={{ padding: '1px 6px', fontSize: '0.72rem' }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Receipt Gallery View vs Grouped Daily Transaction Feed */}

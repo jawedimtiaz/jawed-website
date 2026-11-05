@@ -1,6 +1,8 @@
 export {
   StatsView,
   evaluateCategoryBudgetAlerts,
+  evaluate95PercentBudgetAlerts,
+  detectNew95PercentBudgetToasts,
   computeMonthlyBudgetPlan,
   default,
 } from './money-manager/StatsView';

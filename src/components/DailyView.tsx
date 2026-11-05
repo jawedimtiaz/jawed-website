@@ -1,14 +1,15 @@
 export {
   DailyView,
   filterDailyTransactions,
+  exportFilteredDailyTransactionsToCsv,
+  triggerFilteredDailyCsvDownload,
   aggregateTransactionReceipts,
   formatDayHeaderParts,
   default,
   type DailyViewProps,
   type DailyFilterCriteria,
+  type FilteredDailyCsvExportResult,
   type ReceiptGalleryFilterCriteria,
   type ReceiptGalleryItem,
   type DailySubView,
 } from './money-manager/DailyView';
-
-

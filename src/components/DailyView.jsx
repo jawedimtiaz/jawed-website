@@ -1,6 +1,8 @@
 export {
   DailyView,
   filterDailyTransactions,
+  exportFilteredDailyTransactionsToCsv,
+  triggerFilteredDailyCsvDownload,
   aggregateTransactionReceipts,
   formatDayHeaderParts,
   default,

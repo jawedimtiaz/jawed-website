@@ -235,7 +235,14 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                 Import Bank Statement CSV
               </h2>
               <p className="mm-section-desc" style={{ margin: '2px 0 0', fontSize: '0.8rem' }}>
-                Onboard bank statements effortlessly with automatic category matching &amp; account routing
+                Onboard bank statements effortlessly with automatic category matching &amp; account routing.{' '}
+                <a
+                  href="/guides/money-manager-csv-import-formatting-guide"
+                  style={{ color: '#10b981', fontWeight: 600, textDecoration: 'underline' }}
+                  data-testid="mm-csv-guide-link"
+                >
+                  Read CSV Formatting &amp; Mapping Guide →
+                </a>
               </p>
             </div>
           </div>

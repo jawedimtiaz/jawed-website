@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
-import { Plus, Shield, Database, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Plus, Shield, Database, Sparkles, CheckCircle2, AlertTriangle, BellRing, X, ArrowRight } from 'lucide-react';
 import { SeoHead } from '../components/SeoHead';
 import {
   type AccountSummary,
@@ -33,6 +33,8 @@ import {
   StatsView,
   evaluateCategoryBudgetAlerts,
   evaluate95PercentBudgetAlerts,
+  detectNew95PercentBudgetToasts,
+  type Budget95ToastAlert,
 } from '../components/money-manager/StatsView';
 import { RecurringView } from '../components/money-manager/RecurringView';
 import { TransactionModal } from '../components/money-manager/TransactionModal';
@@ -137,34 +139,59 @@ export const MoneyManager: React.FC = () => {
     [transactions, selectedMonth, categories]
   );
 
-  // Automatic 95% Category Budget Alert System: Sends toast notification when user approaches/exceeds 95% of a monthly category budget
+  // Real-time 95% Category Budget Alert System: Triggers browser toast when category spending hits/exceeds 95% of monthly limit
+  const [budget95Toasts, setBudget95Toasts] = useState<Budget95ToastAlert[]>([]);
   const notified95PercentCategoriesRef = useRef<Set<string>>(new Set());
+
+  const dismissBudget95Toast = useCallback((toastId: string) => {
+    setBudget95Toasts((prev) => prev.filter((item) => item.id !== toastId));
+  }, []);
 
   useEffect(() => {
     if (isLoading || transactions.length === 0) return;
 
-    const alertResult = evaluate95PercentBudgetAlerts(
+    const newlyTriggered = detectNew95PercentBudgetToasts(
       transactions,
       selectedMonth,
-      categories.length > 0 ? categories : undefined
+      categories.length > 0 ? categories : undefined,
+      notified95PercentCategoriesRef.current
     );
 
-    for (const item of alertResult.warning95Categories) {
-      const alertKey = `${selectedMonth}:${item.category}:${item.spent}:${item.monthlyLimit}`;
-      if (!notified95PercentCategoriesRef.current.has(alertKey)) {
-        notified95PercentCategoriesRef.current.add(alertKey);
-        const msg =
-          item.spent > item.monthlyLimit
-            ? `⚠️ Budget Exceeded: ${item.category} is at ${item.utilizationPercent}% of limit (${formatINR(item.spent)} / ${formatINR(item.monthlyLimit)})`
-            : `⚠️ Budget Warning: ${item.category} has reached ${item.utilizationPercent}% of limit (${formatINR(item.spent)} / ${formatINR(item.monthlyLimit)})`;
+    if (newlyTriggered.length > 0) {
+      setBudget95Toasts((prev) => {
+        const existingIds = new Set(prev.map((t) => t.id));
+        const additions = newlyTriggered.filter((t) => !existingIds.has(t.id));
+        return [...additions, ...prev].slice(0, 4);
+      });
 
-        setTimeout(() => {
-          showToast(msg);
-        }, 500);
-        break;
+      const primaryAlert = newlyTriggered[0];
+      showToast(primaryAlert.message);
+
+      // Trigger native browser Notification API if permission has already been granted
+      if (
+        typeof window !== 'undefined' &&
+        'Notification' in window &&
+        window.Notification.permission === 'granted'
+      ) {
+        try {
+          new window.Notification(primaryAlert.title, {
+            body: primaryAlert.message,
+          });
+        } catch {
+          // Ignore browser Notification constructor errors in restricted contexts
+        }
       }
     }
   }, [transactions, selectedMonth, categories, isLoading, showToast]);
+
+  // Auto-dismiss individual 95% budget toasts after 8 seconds
+  useEffect(() => {
+    if (budget95Toasts.length === 0) return;
+    const timer = setTimeout(() => {
+      setBudget95Toasts((prev) => prev.slice(0, -1));
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [budget95Toasts]);
 
   // Handlers
   const handleOpenAddTransaction = (dateStr?: string, receiptImage?: string) => {
@@ -349,9 +376,197 @@ export const MoneyManager: React.FC = () => {
         <div className="mm-container">
         {/* Toast Notification */}
         {toastMessage && (
-          <div className="mm-toast" role="status" aria-live="polite">
+          <div className="mm-toast" role="status" aria-live="polite" data-testid="mm-status-toast">
             <CheckCircle2 size={16} />
             <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* Real-Time 95% Category Budget Alert Browser Toast Stack */}
+        {budget95Toasts.length > 0 && (
+          <div
+            className="mm-budget-95-toast-stack"
+            data-testid="mm-budget-95-toast-stack"
+            role="region"
+            aria-label="Real-time budget threshold notifications"
+            style={{
+              position: 'fixed',
+              top: '76px',
+              right: '20px',
+              zIndex: 1200,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              maxWidth: '400px',
+              width: 'calc(100vw - 32px)',
+              pointerEvents: 'none',
+            }}
+          >
+            {budget95Toasts.map((alert) => {
+              const isCritical = alert.severity === 'critical';
+              const accentColor = isCritical ? '#ef4444' : '#f59e0b';
+              const progressPct = Math.min(100, Math.max(0, alert.utilizationPercent));
+
+              return (
+                <div
+                  key={alert.id}
+                  role="alert"
+                  aria-live="assertive"
+                  data-testid="mm-budget-95-toast-item"
+                  data-category={alert.category}
+                  data-utilization={alert.utilizationPercent}
+                  style={{
+                    pointerEvents: 'auto',
+                    background: 'var(--surface, #0f172a)',
+                    border: `1.5px solid ${accentColor}`,
+                    borderLeft: `5px solid ${accentColor}`,
+                    borderRadius: '12px',
+                    padding: '12px 14px',
+                    boxShadow: '0 14px 34px rgba(0, 0, 0, 0.45)',
+                    color: 'var(--text, #f8fafc)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '8px',
+                          background: isCritical
+                            ? 'rgba(239, 68, 68, 0.16)'
+                            : 'rgba(245, 158, 11, 0.16)',
+                          color: accentColor,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isCritical ? <AlertTriangle size={16} /> : <BellRing size={16} />}
+                      </span>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <strong style={{ fontSize: '0.86rem', color: 'var(--text-heading, #fff)' }}>
+                            {alert.title}
+                          </strong>
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              padding: '1px 6px',
+                              borderRadius: '6px',
+                              background: isCritical
+                                ? 'rgba(239, 68, 68, 0.2)'
+                                : 'rgba(245, 158, 11, 0.2)',
+                              color: accentColor,
+                            }}
+                          >
+                            {alert.utilizationPercent}% Used
+                          </span>
+                        </div>
+                        <p
+                          style={{
+                            margin: '3px 0 0',
+                            fontSize: '0.78rem',
+                            color: 'var(--muted, #94a3b8)',
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          Spent <strong>{formatINR(alert.spent)}</strong> of{' '}
+                          <strong>{formatINR(alert.monthlyLimit)}</strong> limit
+                          {alert.overage > 0
+                            ? ` (Over by ${formatINR(alert.overage)})`
+                            : ` (${formatINR(alert.remaining)} remaining)`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => dismissBudget95Toast(alert.id)}
+                      aria-label={`Dismiss ${alert.category} budget alert`}
+                      data-testid="mm-budget-95-toast-dismiss"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--muted, #94a3b8)',
+                        cursor: 'pointer',
+                        padding: '2px',
+                        lineHeight: 1,
+                      }}
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+
+                  {/* Utilization Progress Bar */}
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      height: '6px',
+                      borderRadius: '999px',
+                      background: 'rgba(148, 163, 184, 0.18)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${progressPct}%`,
+                        height: '100%',
+                        background: accentColor,
+                        transition: 'width 0.3s ease',
+                      }}
+                    />
+                  </div>
+
+                  {/* Action Footer */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: '8px',
+                      fontSize: '0.74rem',
+                    }}
+                  >
+                    <span style={{ color: 'var(--muted, #94a3b8)' }}>
+                      95% Threshold Triggered · {alert.selectedMonth}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('stats');
+                        dismissBudget95Toast(alert.id);
+                      }}
+                      data-testid="mm-budget-95-toast-inspect"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: accentColor,
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      <span>View Budget</span>
+                      <ArrowRight size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
