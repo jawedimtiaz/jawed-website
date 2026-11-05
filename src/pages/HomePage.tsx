@@ -1,8 +1,224 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { SeoHead } from '../components/SeoHead';
-import { Image } from '../components/Image';
+import {
+  Image,
+  DEFAULT_LQIP_DATA_URL,
+  ensureImagePreloadLink,
+} from '../components/Image';
 import { ShareButton } from '../components/ShareButton';
+
+export const HERO_MAIN_IMAGE_SRC = '/assets/images/social-preview.png';
+export const HERO_MAIN_IMAGE_WEBP_SRC = '/assets/images/social-preview.webp';
+export const HERO_LQIP_PLACEHOLDER = DEFAULT_LQIP_DATA_URL;
+
+/**
+ * Preloads the main hero background image into the browser cache and injects
+ * a high-priority <link rel="preload" as="image"> tag for optimal LCP performance.
+ */
+export function preloadHeroMainImage(
+  onReady?: (resolvedSrc: string) => void
+): () => void {
+  ensureImagePreloadLink(HERO_MAIN_IMAGE_WEBP_SRC, 'image/webp');
+
+  if (typeof window === 'undefined' || typeof window.Image === 'undefined') {
+    return () => {};
+  }
+
+  let cancelled = false;
+  const preloader = new window.Image();
+  preloader.decoding = 'sync';
+  if ('fetchPriority' in preloader) {
+    (preloader as HTMLImageElement & { fetchPriority?: string }).fetchPriority = 'high';
+  }
+
+  const handleDone = (resolved: string) => {
+    if (!cancelled && onReady) {
+      onReady(resolved);
+    }
+  };
+
+  preloader.onload = () => handleDone(HERO_MAIN_IMAGE_WEBP_SRC);
+  preloader.onerror = () => {
+    const fallbackLoader = new window.Image();
+    fallbackLoader.onload = () => handleDone(HERO_MAIN_IMAGE_SRC);
+    fallbackLoader.onerror = () => handleDone(HERO_MAIN_IMAGE_SRC);
+    fallbackLoader.src = HERO_MAIN_IMAGE_SRC;
+  };
+  preloader.src = HERO_MAIN_IMAGE_WEBP_SRC;
+
+  if (preloader.complete && preloader.naturalWidth > 0) {
+    handleDone(HERO_MAIN_IMAGE_WEBP_SRC);
+  }
+
+  return () => {
+    cancelled = true;
+  };
+}
+
+export const HeroSection: React.FC = () => {
+  const [bgLoadedSrc, setBgLoadedSrc] = useState<string | null>(null);
+  const [isLcpVisualLoaded, setIsLcpVisualLoaded] = useState<boolean>(false);
+
+  useEffect(() => {
+    return preloadHeroMainImage((resolvedSrc) => {
+      setBgLoadedSrc(resolvedSrc);
+    });
+  }, []);
+
+  const isProgressiveReady = Boolean(bgLoadedSrc) || isLcpVisualLoaded;
+
+  return (
+    <section
+      className="hero container"
+      data-testid="homepage-hero"
+      data-lcp-preloaded={isProgressiveReady ? 'true' : 'false'}
+      style={{ position: 'relative', overflow: 'hidden' }}
+    >
+      {/* Progressive Ambient Background Layer (LQIP -> Preloaded High-Res WebP) */}
+      <div
+        aria-hidden="true"
+        data-testid="hero-progressive-bg"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          zIndex: 0,
+          borderRadius: '20px',
+          overflow: 'hidden',
+          backgroundImage: `url("${HERO_LQIP_PLACEHOLDER}")`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.14,
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: bgLoadedSrc ? `url("${bgLoadedSrc}")` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'blur(28px) saturate(1.15)',
+            transform: 'scale(1.06)',
+            opacity: bgLoadedSrc ? 0.35 : 0,
+            transition: 'opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1)',
+          }}
+        />
+      </div>
+
+      <div className="hero-content" style={{ position: 'relative', zIndex: 1 }}>
+        <p className="eyebrow">Enterprise Workplace Infrastructure · IT Field Engineering</p>
+        <h1>Enterprise IT Support, Technical Field Guides &amp; Practical Utilities</h1>
+        <p className="lead">
+          I’m <strong>Jawed Imtiaz</strong>, a Senior IT Field Tech supporting enterprise workplace infrastructure at <strong>Uber</strong> (via Milestone Technologies). I specialize in high-SLA workplace technology, macOS/Jamf fleets, network cabling diagnostics, and practical IT utilities.
+        </p>
+
+        {/* Proof & Credentials Strip */}
+        <div className="hero-proof-strip">
+          <span className="proof-item">10+ Years IT Experience</span>
+          <span className="proof-sep">·</span>
+          <span className="proof-item">Uber (Milestone Technologies)</span>
+          <span className="proof-sep">·</span>
+          <span className="proof-item">Microsoft AZ-900 Certified</span>
+        </div>
+
+        {/* Primary High-Intent Actions (Recruiters / Hiring Managers / Clients) */}
+        <div className="actions primary-actions">
+          <Link className="button button-primary" to="/contact">
+            Get in Touch / Hire Jawed →
+          </Link>
+          <Link className="button button-secondary" to="/about">
+            View Career Profile
+          </Link>
+          <ShareButton
+            title="Jawed Imtiaz - Senior IT Field Tech & Workplace Engineering Lead"
+            text="Senior IT Field Tech supporting enterprise workplace infrastructure at Uber. High-SLA workplace technology, macOS/Jamf fleets, network cabling diagnostics, and practical IT utilities."
+            url="https://jawed.co.in"
+            label="Share Profile"
+            hashtags={['ITFieldTech', 'EnterpriseIT', 'JawedImtiaz', 'Uber']}
+          />
+        </div>
+
+        {/* Secondary Exploration Ribbon (Tools / Guides / AI) */}
+        <div className="hero-secondary-ribbon">
+          <span className="ribbon-label">Interactive Resources:</span>
+          <div className="ribbon-links">
+            <Link className="ribbon-link" to="/guides">
+              📖 Guides
+            </Link>
+            <Link className="ribbon-link" to="/tools">
+              🛠️ Tools
+            </Link>
+            <Link className="ribbon-link" to="/ai">
+              🤖 Ask AI
+            </Link>
+          </div>
+        </div>
+
+        {/* Hero Visual Card (LCP Optimized with Progressive Blur-Up, Preload & WebP) */}
+        <div
+          className="hero-image-wrapper"
+          data-testid="hero-lcp-image-container"
+          data-progressive-state={isProgressiveReady ? 'loaded' : 'loading'}
+          style={{
+            position: 'relative',
+            marginTop: '36px',
+            maxWidth: '920px',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            border: '1px solid var(--border)',
+            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.22)',
+            background: 'var(--surface)',
+            aspectRatio: '16 / 9',
+          }}
+        >
+          {/* Low-Quality Image Placeholder (LQIP) layer for instant zero-CLS first paint */}
+          <div
+            aria-hidden="true"
+            data-testid="hero-lqip-placeholder"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundImage: `url("${HERO_LQIP_PLACEHOLDER}")`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(12px)',
+              transform: 'scale(1.03)',
+              opacity: isProgressiveReady ? 0 : 1,
+              transition: 'opacity 0.35s ease-out',
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          />
+
+          <Image
+            src={HERO_MAIN_IMAGE_SRC}
+            webpSrc={HERO_MAIN_IMAGE_WEBP_SRC}
+            alt="Jawed Imtiaz Enterprise IT Support, Field Engineering & Utilities Overview"
+            width={1200}
+            height={630}
+            priority={true}
+            progressive={true}
+            preload={true}
+            placeholderSrc={HERO_LQIP_PLACEHOLDER}
+            aspectRatio="16 / 9"
+            className="img-aspect-16-9"
+            onLoad={() => setIsLcpVisualLoaded(true)}
+            style={{
+              position: 'relative',
+              zIndex: 2,
+              width: '100%',
+              height: 'auto',
+              display: 'block',
+              objectFit: 'cover',
+            }}
+          />
+        </div>
+      </div>
+    </section>
+  );
+};
 
 export const HomePage: React.FC = () => {
   return (
@@ -14,83 +230,8 @@ export const HomePage: React.FC = () => {
         ogType="website"
       />
 
-      {/* Hero Section - High-Intent CRO & Resource Navigation */}
-      <section className="hero container">
-        <div className="hero-content">
-          <p className="eyebrow">Enterprise Workplace Infrastructure · IT Field Engineering</p>
-          <h1>Enterprise IT Support, Technical Field Guides &amp; Practical Utilities</h1>
-          <p className="lead">
-            I’m <strong>Jawed Imtiaz</strong>, a Senior IT Field Tech supporting enterprise workplace infrastructure at <strong>Uber</strong> (via Milestone Technologies). I specialize in high-SLA workplace technology, macOS/Jamf fleets, network cabling diagnostics, and practical IT utilities.
-          </p>
-
-          {/* Proof & Credentials Strip */}
-          <div className="hero-proof-strip">
-            <span className="proof-item">10+ Years IT Experience</span>
-            <span className="proof-sep">·</span>
-            <span className="proof-item">Uber (Milestone Technologies)</span>
-            <span className="proof-sep">·</span>
-            <span className="proof-item">Microsoft AZ-900 Certified</span>
-          </div>
-
-          {/* Primary High-Intent Actions (Recruiters / Hiring Managers / Clients) */}
-          <div className="actions primary-actions">
-            <Link className="button button-primary" to="/contact">
-              Get in Touch / Hire Jawed →
-            </Link>
-            <Link className="button button-secondary" to="/about">
-              View Career Profile
-            </Link>
-            <ShareButton
-              title="Jawed Imtiaz - Senior IT Field Tech & Workplace Engineering Lead"
-              text="Senior IT Field Tech supporting enterprise workplace infrastructure at Uber. High-SLA workplace technology, macOS/Jamf fleets, network cabling diagnostics, and practical IT utilities."
-              url="https://jawed.co.in"
-              label="Share Profile"
-              hashtags={['ITFieldTech', 'EnterpriseIT', 'JawedImtiaz', 'Uber']}
-            />
-          </div>
-
-          {/* Secondary Exploration Ribbon (Tools / Guides / AI) */}
-          <div className="hero-secondary-ribbon">
-            <span className="ribbon-label">Interactive Resources:</span>
-            <div className="ribbon-links">
-              <Link className="ribbon-link" to="/guides">
-                📖 Guides
-              </Link>
-              <Link className="ribbon-link" to="/tools">
-                🛠️ Tools
-              </Link>
-              <Link className="ribbon-link" to="/ai">
-                🤖 Ask AI
-              </Link>
-            </div>
-          </div>
-
-          {/* Hero Visual Card (LCP Optimized with Priority & WebP) */}
-          <div
-            className="hero-image-wrapper"
-            style={{
-              marginTop: '36px',
-              maxWidth: '920px',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              border: '1px solid var(--border)',
-              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.22)',
-              background: 'var(--surface)',
-            }}
-          >
-            <Image
-              src="/assets/images/social-preview.png"
-              alt="Jawed Imtiaz Enterprise IT Support, Field Engineering & Utilities Overview"
-              width={1200}
-              height={630}
-              priority={true}
-              aspectRatio="16 / 9"
-              className="img-aspect-16-9"
-              style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
-            />
-          </div>
-        </div>
-      </section>
+      {/* Hero Section - Progressive Image Loading & LCP Preloaded */}
+      <HeroSection />
 
       {/* Featured Technical Guides Section */}
       <section className="container page-section">
