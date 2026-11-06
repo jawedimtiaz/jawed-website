@@ -2463,5 +2463,187 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.equal(parsed.savingsProgress.netSavings, parsed.overview.netBalance);
     assert.equal(parsed.savingsProgress.sinkingFundsCount, state.sinkingFunds.length);
   });
+
+  it('computes all categories with percentage-based color-coded progress bar tiers for the CategoryBudgetProgressCard visual card', async () => {
+    const {
+      CategoryBudgetProgressCard,
+      resolveCategoryProgressColor,
+      computeCategoryBudgetProgressItems,
+      computeMonthlyBudgetPlan,
+    } = await import('../src/components/money-manager/StatsView');
+
+    assert.ok(CategoryBudgetProgressCard, 'Expected CategoryBudgetProgressCard component export');
+
+    // Verify percentage-based color-coding tiers
+    const healthyTier = resolveCategoryProgressColor(42.5, 10000, 4250);
+    assert.equal(healthyTier.tier, 'healthy');
+    assert.equal(healthyTier.barColor, '#10b981');
+
+    const moderateTier = resolveCategoryProgressColor(78.0, 10000, 7800);
+    assert.equal(moderateTier.tier, 'moderate');
+    assert.equal(moderateTier.barColor, '#f59e0b');
+
+    const warningTier = resolveCategoryProgressColor(94.2, 10000, 9420);
+    assert.equal(warningTier.tier, 'warning');
+    assert.equal(warningTier.barColor, '#f97316');
+
+    const overBudgetTier = resolveCategoryProgressColor(125.0, 10000, 12500);
+    assert.equal(overBudgetTier.tier, 'over-budget');
+    assert.equal(overBudgetTier.barColor, '#ef4444');
+
+    const unbudgetedTier = resolveCategoryProgressColor(0, 0, 500);
+    assert.equal(unbudgetedTier.tier, 'unbudgeted');
+    assert.equal(unbudgetedTier.barColor, '#64748b');
+
+    const state = await initializeAndSeedDatabase();
+    const plan = computeMonthlyBudgetPlan(state.transactions, '2026-11', state.categories);
+    const items = computeCategoryBudgetProgressItems(plan, '2026-11');
+
+    assert.equal(items.length, plan.items.length);
+
+    // Medical & Health is 157% utilized -> over-budget (#ef4444), clamped width 100%
+    const medicalItem = items.find((i) => i.category === 'Medical & Health');
+    assert.ok(medicalItem);
+    assert.equal(medicalItem.tier, 'over-budget');
+    assert.equal(medicalItem.barColor, '#ef4444');
+    assert.equal(medicalItem.clampedProgressWidthPercent, 100);
+
+    // Rent & Housing is ₹22,000 / ₹24,000 = 91.7% -> warning (#f97316)
+    const rentItem = items.find((i) => i.category === 'Rent & Housing');
+    assert.ok(rentItem);
+    assert.equal(rentItem.tier, 'warning');
+    assert.equal(rentItem.barColor, '#f97316');
+    assert.equal(rentItem.clampedProgressWidthPercent, 91.7);
+
+    // Food & Groceries is ₹3,450 / ₹18,000 = 19.2% -> healthy (#10b981)
+    const foodItem = items.find((i) => i.category === 'Food & Groceries');
+    assert.ok(foodItem);
+    assert.equal(foodItem.tier, 'healthy');
+    assert.equal(foodItem.barColor, '#10b981');
+  });
+
+  it('extends the Money Manager data model with currency codes and converts multi-currency transactions in Daily Ledger and Stats using daily exchange rate APIs', async () => {
+    const {
+      SUPPORTED_CURRENCIES,
+      FALLBACK_RATES_TO_INR,
+      fetchDailyExchangeRates,
+      convertCurrencyAmount,
+      resolveTransactionAmountInCurrency,
+      summarizeMultiCurrencyTransactions,
+      formatCurrencyAmount,
+      saveTransaction,
+      calculateMonthlyMetrics,
+      calculateCategoryBreakdown,
+    } = await import('../src/db/db');
+    const { computeMonthlyBudgetPlan } = await import('../src/components/money-manager/StatsView');
+
+    assert.ok(SUPPORTED_CURRENCIES.includes('INR'));
+    assert.ok(SUPPORTED_CURRENCIES.includes('USD'));
+    assert.ok(SUPPORTED_CURRENCIES.includes('EUR'));
+    assert.ok(SUPPORTED_CURRENCIES.includes('GBP'));
+
+    // 1. Test daily exchange rate API utility with mock fetch response
+    const mockApiSnap = await fetchDailyExchangeRates({
+      baseCurrency: 'INR',
+      forceRefresh: true,
+      date: '2026-11-06',
+      fetchImpl: (async () => ({
+        ok: true,
+        json: async () => ({
+          date: '2026-11-06',
+          rates: {
+            INR: 1,
+            USD: 0.0117647, // ~85.00 INR per USD
+            EUR: 0.0108695, // ~92.00 INR per EUR
+            GBP: 0.0090909, // ~110.00 INR per GBP
+          },
+        }),
+      })) as unknown as typeof fetch,
+    });
+
+    assert.equal(mockApiSnap.source, 'api');
+    assert.equal(mockApiSnap.date, '2026-11-06');
+    assert.equal(Math.round(mockApiSnap.ratesToINR.USD), 85);
+    assert.equal(Math.round(mockApiSnap.ratesToINR.EUR), 92);
+    assert.equal(Math.round(mockApiSnap.ratesToINR.GBP), 110);
+
+    // 2. Test convertCurrencyAmount & formatCurrencyAmount
+    const customRates = { ...FALLBACK_RATES_TO_INR, USD: 85, EUR: 92 };
+    assert.equal(convertCurrencyAmount(100, 'USD', 'INR', customRates), 8500);
+    assert.equal(convertCurrencyAmount(8500, 'INR', 'USD', customRates), 100);
+    assert.ok(formatCurrencyAmount(100, 'USD').includes('$100.00'));
+    assert.ok(formatCurrencyAmount(8500, 'INR').includes('₹8,500'));
+
+    // 3. Test saving a foreign-currency transaction in db.ts and resolving its multi-currency values
+    const savedUsdTx = await saveTransaction({
+      date: '2026-11-18T14:00',
+      type: 'Expense',
+      accountId: 'acc-icici',
+      amount: 100,
+      currency: 'USD',
+      exchangeRateToINR: 85,
+      rateDate: '2026-11-18',
+      category: 'Shopping & Lifestyle',
+      subCategory: 'Electronics & SaaS',
+      fixedOrVariable: 'Variable',
+      note: 'Cloud Hosting Subscription in USD',
+      receiptImages: [],
+      isAnomaly: false,
+    });
+
+    assert.equal(savedUsdTx.currency, 'USD');
+    assert.equal(savedUsdTx.originalAmount, 100);
+    assert.equal(savedUsdTx.exchangeRateToINR, 85);
+    assert.equal(savedUsdTx.amount, 8500); // Normalized to base INR in ledger
+
+    const resolvedInUsd = resolveTransactionAmountInCurrency(savedUsdTx, 'USD', customRates);
+    assert.equal(resolvedInUsd.originalCurrency, 'USD');
+    assert.equal(resolvedInUsd.originalAmount, 100);
+    assert.equal(resolvedInUsd.amountInINR, 8500);
+    assert.equal(resolvedInUsd.amountInTarget, 100);
+    assert.equal(resolvedInUsd.isForeignCurrency, true);
+
+    // 4. Verify multi-currency aggregation in Stats (calculateMonthlyMetrics, calculateCategoryBreakdown, computeMonthlyBudgetPlan)
+    const sampleMultiCurrencyTxs = [
+      savedUsdTx,
+      {
+        id: 'tx-eur-freelance',
+        date: '2026-11-19T10:00',
+        type: 'Income' as const,
+        accountId: 'acc-sbi',
+        amount: 200,
+        currency: 'EUR' as const,
+        exchangeRateToINR: 90,
+        category: 'Freelance & Consulting',
+        subCategory: 'EU Client',
+        fixedOrVariable: 'Variable' as const,
+        note: 'EU Client Invoice',
+        receiptImages: [],
+        isAnomaly: false,
+      },
+    ];
+
+    const metrics = calculateMonthlyMetrics(sampleMultiCurrencyTxs, '2026-11');
+    assert.equal(metrics.expense, 8500); // 100 USD * 85
+    assert.equal(metrics.income, 18000); // 200 EUR * 90
+    assert.equal(metrics.netBalance, 9500);
+
+    const breakdown = calculateCategoryBreakdown(sampleMultiCurrencyTxs, '2026-11');
+    assert.equal(breakdown.length, 1);
+    assert.equal(breakdown[0].category, 'Shopping & Lifestyle');
+    assert.equal(breakdown[0].amount, 8500);
+
+    const budgetPlan = computeMonthlyBudgetPlan(sampleMultiCurrencyTxs, '2026-11');
+    const shoppingPlan = budgetPlan.items.find((i) => i.category === 'Shopping & Lifestyle');
+    assert.ok(shoppingPlan);
+    assert.equal(shoppingPlan.spent, 8500);
+
+    const exposureRows = summarizeMultiCurrencyTransactions(sampleMultiCurrencyTxs, customRates);
+    assert.equal(exposureRows.length, 2);
+    const usdRow = exposureRows.find((r) => r.currency === 'USD');
+    assert.ok(usdRow);
+    assert.equal(usdRow.originalExpense, 100);
+    assert.equal(usdRow.convertedExpenseINR, 8500);
+  });
 });
 

@@ -13,6 +13,15 @@ import {
 import {
   computeNextRecurringDate,
   SAMPLE_RECEIPT_DATA_URL,
+  SUPPORTED_CURRENCIES,
+  CURRENCY_METADATA,
+  FALLBACK_RATES_TO_INR,
+  fetchDailyExchangeRates,
+  convertCurrencyAmount,
+  formatCurrencyAmount,
+  normalizeCurrencyCode,
+  type CurrencyCode,
+  type DailyExchangeRateSnapshot,
   type AccountSummary,
   type FixedOrVariable,
   type MoneyCategory,
@@ -72,6 +81,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [txType, setTxType] = useState<TransactionType>('Expense');
   const [dateTime, setDateTime] = useState<string>('2026-11-02T12:00');
   const [amount, setAmount] = useState<string>('');
+  const [currency, setCurrency] = useState<CurrencyCode>('INR');
+  const [rateSnapshot, setRateSnapshot] = useState<DailyExchangeRateSnapshot | null>(null);
   const [accountId, setAccountId] = useState<string>('');
   const [toAccountId, setToAccountId] = useState<string>('');
   const [category, setCategory] = useState<string>('');
@@ -184,15 +195,38 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    let isMounted = true;
+    fetchDailyExchangeRates({ baseCurrency: 'INR' })
+      .then((snap) => {
+        if (isMounted) setRateSnapshot(snap);
+      })
+      .catch(() => {
+        // Fallback handled inside fetchDailyExchangeRates
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
     setErrorMessage('');
     setRecurringInterval('None');
     setScannedReceiptResult(null);
     setReceiptScanFeedback('');
 
     if (editingTransaction) {
+      const txCurrency = normalizeCurrencyCode(editingTransaction.currency, 'INR');
       setTxType(editingTransaction.type);
       setDateTime(editingTransaction.date.slice(0, 16));
-      setAmount(String(editingTransaction.amount));
+      setCurrency(txCurrency);
+      setAmount(
+        String(
+          txCurrency !== 'INR' && editingTransaction.originalAmount
+            ? editingTransaction.originalAmount
+            : editingTransaction.amount
+        )
+      );
       setAccountId(editingTransaction.accountId);
       setToAccountId(
         editingTransaction.toAccountId ||
@@ -218,6 +252,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       const baseDate = defaultDate || '2026-11-02';
       setTxType(initialType);
       setDateTime(`${baseDate}T12:00`);
+      setCurrency('INR');
       setAmount('');
       setAccountId(defaultAcc);
       setToAccountId(secondAcc);
@@ -373,11 +408,20 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setReceiptImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
+  const activeRatesToInr = rateSnapshot?.ratesToINR ?? FALLBACK_RATES_TO_INR;
+  const selectedRateToInr =
+    currency === 'INR' ? 1 : activeRatesToInr[currency] ?? FALLBACK_RATES_TO_INR[currency] ?? 1;
+  const parsedAmountPreview = Number.parseFloat(amount) || 0;
+  const convertedInrPreview =
+    currency === 'INR'
+      ? parsedAmountPreview
+      : convertCurrencyAmount(parsedAmountPreview, currency, 'INR', activeRatesToInr);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const numericAmount = Number.parseFloat(amount);
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setErrorMessage('Please enter a valid positive amount in INR (₹).');
+      setErrorMessage(`Please enter a valid positive amount in ${currency}.`);
       return;
     }
 
@@ -396,13 +440,22 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setIsSubmitting(true);
     try {
       const resolvedCategory = txType === 'Transfer' ? 'Transfer' : category;
+      const inrEquivalent =
+        currency === 'INR'
+          ? numericAmount
+          : convertCurrencyAmount(numericAmount, currency, 'INR', activeRatesToInr);
+
       await onSave({
         id: editingTransaction?.id,
         date: dateTime,
         type: txType,
         accountId,
         toAccountId: txType === 'Transfer' ? toAccountId : undefined,
-        amount: numericAmount,
+        amount: inrEquivalent,
+        currency,
+        originalAmount: currency !== 'INR' ? numericAmount : undefined,
+        exchangeRateToINR: currency !== 'INR' ? selectedRateToInr : 1,
+        rateDate: rateSnapshot?.date || dateTime.slice(0, 10),
         category: resolvedCategory,
         subCategory,
         fixedOrVariable,
@@ -424,7 +477,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           type: txType,
           accountId,
           toAccountId: txType === 'Transfer' ? toAccountId : undefined,
-          amount: numericAmount,
+          amount: inrEquivalent,
+          currency,
           category: resolvedCategory,
           subCategory,
           fixedOrVariable,
@@ -784,19 +838,63 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             </div>
 
             <div className="mm-field">
-              <label htmlFor="mm-tx-amount">Amount (INR ₹)</label>
-              <input
-                id="mm-tx-amount"
-                type="number"
-                required
-                min="1"
-                step="any"
-                placeholder="e.g. 3450"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="mm-input"
-                data-testid="mm-tx-amount-input"
-              />
+              <label htmlFor="mm-tx-amount">
+                Amount ({currency} {CURRENCY_METADATA[currency].symbol})
+              </label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select
+                  id="mm-tx-currency"
+                  aria-label="Transaction Currency"
+                  value={currency}
+                  onChange={(e) => setCurrency(normalizeCurrencyCode(e.target.value, 'INR'))}
+                  className="mm-input"
+                  style={{ width: 105, flexShrink: 0, fontWeight: 600 }}
+                  data-testid="mm-tx-currency-select"
+                >
+                  {SUPPORTED_CURRENCIES.map((code) => (
+                    <option key={code} value={code}>
+                      {code} ({CURRENCY_METADATA[code].symbol})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  id="mm-tx-amount"
+                  type="number"
+                  required
+                  min="0.01"
+                  step="any"
+                  placeholder="e.g. 3450"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="mm-input"
+                  style={{ flex: 1 }}
+                  data-testid="mm-tx-amount-input"
+                />
+              </div>
+              {currency !== 'INR' && (
+                <div
+                  style={{
+                    marginTop: 5,
+                    fontSize: '0.75rem',
+                    color: 'var(--accent)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                  data-testid="mm-tx-currency-conversion-preview"
+                >
+                  <span>
+                    1 {currency} = ₹{selectedRateToInr.toFixed(2)} INR ({rateSnapshot?.source || 'daily'} rate)
+                  </span>
+                  {parsedAmountPreview > 0 && (
+                    <strong>
+                      ≈ {formatCurrencyAmount(convertedInrPreview, 'INR')} base ledger value
+                    </strong>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

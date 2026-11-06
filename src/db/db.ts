@@ -1,4 +1,47 @@
 import { openDB, type IDBPDatabase } from 'idb';
+import {
+  SUPPORTED_CURRENCIES,
+  CURRENCY_METADATA,
+  FALLBACK_RATES_TO_INR,
+  fetchDailyExchangeRates,
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  resolveTransactionAmountInCurrency,
+  resolveTransactionInrAmount,
+  formatCurrencyAmount,
+  summarizeMultiCurrencyTransactions,
+  normalizeCurrencyCode,
+  isSupportedCurrency,
+  getActiveRatesToINR,
+  getCachedExchangeRateSnapshot,
+  type CurrencyCode,
+  type CurrencyMetadata,
+  type DailyExchangeRateSnapshot,
+  type ResolvedTransactionCurrencyValue,
+  type CurrencyBreakdownRow,
+} from '../components/money-manager/currencyConverter';
+
+export {
+  SUPPORTED_CURRENCIES,
+  CURRENCY_METADATA,
+  FALLBACK_RATES_TO_INR,
+  fetchDailyExchangeRates,
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  resolveTransactionAmountInCurrency,
+  resolveTransactionInrAmount,
+  formatCurrencyAmount,
+  summarizeMultiCurrencyTransactions,
+  normalizeCurrencyCode,
+  isSupportedCurrency,
+  getActiveRatesToINR,
+  getCachedExchangeRateSnapshot,
+  type CurrencyCode,
+  type CurrencyMetadata,
+  type DailyExchangeRateSnapshot,
+  type ResolvedTransactionCurrencyValue,
+  type CurrencyBreakdownRow,
+};
 
 export const DB_NAME = 'JawedMoneyManagerDB';
 export const DB_VERSION = 2;
@@ -20,6 +63,8 @@ export interface MoneyAccount {
   type: AccountType;
   openingBalance: number;
   currentBalance: number;
+  /** ISO 4217 account currency code (defaults to 'INR') */
+  currency?: CurrencyCode;
   reconciled?: boolean;
   lastReconciledAt?: string;
 }
@@ -33,6 +78,7 @@ export interface MoneyCategory {
   subCategories: string[];
   monthlyBudget?: number;
   color?: string;
+  currency?: CurrencyCode;
 }
 
 export interface MoneyTransaction {
@@ -42,6 +88,14 @@ export interface MoneyTransaction {
   accountId: string;
   toAccountId?: string;
   amount: number;
+  /** ISO 4217 currency code of the transaction (defaults to 'INR') */
+  currency?: CurrencyCode;
+  /** Original amount in the native transaction currency when currency !== 'INR' */
+  originalAmount?: number;
+  /** Exchange rate used at transaction time (1 unit of currency = exchangeRateToINR INR) */
+  exchangeRateToINR?: number;
+  /** Exchange rate reference date (YYYY-MM-DD) */
+  rateDate?: string;
   category: string;
   subCategory: string;
   fixedOrVariable: FixedOrVariable;
@@ -67,6 +121,7 @@ export interface RecurringRule {
   accountId: string;
   toAccountId?: string;
   amount: number;
+  currency?: CurrencyCode;
   category: string;
   subCategory: string;
   fixedOrVariable: FixedOrVariable;
@@ -1168,7 +1223,7 @@ export function calculateAccountSummaries(
     let transactionCount = 0;
 
     for (const tx of transactions) {
-      const amount = Number(tx.amount) || 0;
+      const amount = resolveTransactionInrAmount(tx);
       if (tx.type === 'Income' && tx.accountId === account.id) {
         totalCredits += amount;
         transactionCount += 1;
@@ -1217,7 +1272,7 @@ export function calculateMonthlyMetrics(
 
   for (const tx of transactions) {
     if (!tx.date || !tx.date.startsWith(yearMonth)) continue;
-    const amount = Number(tx.amount) || 0;
+    const amount = resolveTransactionInrAmount(tx);
 
     if (tx.type === 'Income') {
       income += amount;
@@ -1351,7 +1406,7 @@ export function calculateCategoryBreakdown(
 
   for (const tx of transactions) {
     if (!tx.date?.startsWith(yearMonth) || tx.type !== 'Expense') continue;
-    const amount = Number(tx.amount) || 0;
+    const amount = resolveTransactionInrAmount(tx);
     totalExpense += amount;
     const current = map.get(tx.category) || { amount: 0, count: 0 };
     map.set(tx.category, {
@@ -1555,10 +1610,25 @@ export async function saveTransaction(
     transactionInput.id ||
     `tx-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+  const normalizedCurrency = normalizeCurrencyCode(transactionInput.currency, 'INR');
+  const resolved = resolveTransactionAmountInCurrency(transactionInput, 'INR');
+
   const record: MoneyTransaction = {
     ...transactionInput,
     id,
-    amount: Math.max(0, Number(transactionInput.amount) || 0),
+    amount: Math.max(0, resolved.amountInINR),
+    currency: normalizedCurrency,
+    originalAmount:
+      normalizedCurrency !== 'INR'
+        ? Math.max(0, resolved.originalAmount)
+        : transactionInput.originalAmount,
+    exchangeRateToINR:
+      normalizedCurrency !== 'INR'
+        ? resolved.exchangeRateToINR
+        : transactionInput.exchangeRateToINR,
+    rateDate:
+      transactionInput.rateDate ||
+      (normalizedCurrency !== 'INR' ? transactionInput.date.slice(0, 10) : undefined),
     receiptImages: Array.isArray(transactionInput.receiptImages)
       ? transactionInput.receiptImages
       : [],

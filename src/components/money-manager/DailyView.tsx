@@ -27,6 +27,17 @@ import { formatTransactionsToCsv } from './excelExporter';
 import {
   formatINR,
   SAMPLE_RECEIPT_DATA_URL,
+  SUPPORTED_CURRENCIES,
+  CURRENCY_METADATA,
+  FALLBACK_RATES_TO_INR,
+  fetchDailyExchangeRates,
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  resolveTransactionAmountInCurrency,
+  resolveTransactionInrAmount,
+  formatCurrencyAmount,
+  summarizeMultiCurrencyTransactions,
+  normalizeCurrencyCode,
   saveTransaction as dbSaveTransaction,
   saveRecurringRule as dbSaveRecurringRule,
   syncRecurringTransactionsForMonth as dbSyncRecurringTransactionsForMonth,
@@ -34,6 +45,8 @@ import {
   computeNextRecurringDate,
   removeReceiptFromTransaction as dbRemoveReceiptFromTransaction,
   attachReceiptToTransaction as dbAttachReceiptToTransaction,
+  type CurrencyCode,
+  type DailyExchangeRateSnapshot,
   type AccountSummary,
   type FixedOrVariable,
   type MoneyCategory,
@@ -43,6 +56,21 @@ import {
   type TransactionType,
 } from '../../db/db';
 import { renderCategoryIcon } from './categoryIcons';
+
+export {
+  SUPPORTED_CURRENCIES,
+  CURRENCY_METADATA,
+  FALLBACK_RATES_TO_INR,
+  fetchDailyExchangeRates,
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  resolveTransactionAmountInCurrency,
+  resolveTransactionInrAmount,
+  formatCurrencyAmount,
+  summarizeMultiCurrencyTransactions,
+  normalizeCurrencyCode,
+};
+export type { CurrencyCode, DailyExchangeRateSnapshot };
 
 export type DailySubView = 'feed' | 'gallery';
 
@@ -635,10 +663,37 @@ export const DailyView: React.FC<DailyViewProps> = ({
   const [recStartDate, setRecStartDate] = useState<string>(`${selectedMonth}-05`);
   const [recNotice, setRecNotice] = useState<string>('');
   const [csvExportNotice, setCsvExportNotice] = useState<string>('');
+  const [displayCurrency, setDisplayCurrency] = useState<CurrencyCode>('INR');
+  const [rateSnapshot, setRateSnapshot] = useState<DailyExchangeRateSnapshot | null>(null);
+  const [isRefreshingRates, setIsRefreshingRates] = useState<boolean>(false);
   const [isListeningVoiceSearch, setIsListeningVoiceSearch] = useState<boolean>(false);
   const [voiceSearchStatus, setVoiceSearchStatus] = useState<string>('');
   const [voiceSearchError, setVoiceSearchError] = useState<boolean>(false);
   const voiceRecognitionRef = useRef<SpeechRecognitionInstanceLike | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchDailyExchangeRates({ baseCurrency: 'INR' })
+      .then((snap) => {
+        if (isMounted) setRateSnapshot(snap);
+      })
+      .catch(() => {
+        // Fallback rates handled automatically
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleRefreshExchangeRates = async () => {
+    setIsRefreshingRates(true);
+    try {
+      const snap = await fetchDailyExchangeRates({ baseCurrency: 'INR', forceRefresh: true });
+      setRateSnapshot(snap);
+    } finally {
+      setIsRefreshingRates(false);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -850,15 +905,26 @@ export const DailyView: React.FC<DailyViewProps> = ({
     }
   };
 
+  const activeRatesToInr = rateSnapshot?.ratesToINR ?? FALLBACK_RATES_TO_INR;
+
   const filteredTotals = useMemo(() => {
     let income = 0;
     let expense = 0;
     for (const tx of filteredTransactions) {
-      if (tx.type === 'Income') income += tx.amount;
-      if (tx.type === 'Expense') expense += tx.amount;
+      const resolved = resolveTransactionAmountInCurrency(tx, displayCurrency, activeRatesToInr);
+      if (tx.type === 'Income') income += resolved.amountInTarget;
+      if (tx.type === 'Expense') expense += resolved.amountInTarget;
     }
-    return { income, expense };
-  }, [filteredTransactions]);
+    return {
+      income: Number(income.toFixed(2)),
+      expense: Number(expense.toFixed(2)),
+    };
+  }, [filteredTransactions, displayCurrency, activeRatesToInr]);
+
+  const multiCurrencyBreakdown = useMemo(
+    () => summarizeMultiCurrencyTransactions(filteredTransactions, activeRatesToInr),
+    [filteredTransactions, activeRatesToInr]
+  );
 
   const dayGroups = useMemo<DayGroup[]>(() => {
     const groupsMap = new Map<string, MoneyTransaction[]>();
@@ -877,8 +943,9 @@ export const DailyView: React.FC<DailyViewProps> = ({
       let dailyExpense = 0;
 
       for (const tx of items) {
-        if (tx.type === 'Income') dailyIncome += tx.amount;
-        if (tx.type === 'Expense') dailyExpense += tx.amount;
+        const resolved = resolveTransactionAmountInCurrency(tx, displayCurrency, activeRatesToInr);
+        if (tx.type === 'Income') dailyIncome += resolved.amountInTarget;
+        if (tx.type === 'Expense') dailyExpense += resolved.amountInTarget;
       }
 
       const parts = formatDayHeaderParts(dateKey);
@@ -886,12 +953,12 @@ export const DailyView: React.FC<DailyViewProps> = ({
       return {
         dateKey,
         ...parts,
-        dailyIncome,
-        dailyExpense,
+        dailyIncome: Number(dailyIncome.toFixed(2)),
+        dailyExpense: Number(dailyExpense.toFixed(2)),
         items,
       };
     });
-  }, [filteredTransactions]);
+  }, [filteredTransactions, displayCurrency, activeRatesToInr]);
 
   const hasActiveFilters =
     accountFilter !== 'ALL' ||
@@ -1138,6 +1205,92 @@ export const DailyView: React.FC<DailyViewProps> = ({
               <span>Export to CSV ({filteredTransactions.length})</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Multi-Currency Daily Exchange Rate & Display Switcher Bar */}
+      <div
+        className="mm-filter-bar"
+        data-testid="mm-daily-currency-bar"
+        style={{
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <strong style={{ fontSize: '0.82rem', color: 'var(--text-heading)' }}>
+            Multi-Currency Ledger Rates:
+          </strong>
+          {(['USD', 'EUR', 'GBP', 'AED', 'SGD'] as CurrencyCode[]).map((code) => (
+            <span
+              key={code}
+              style={{
+                fontSize: '0.74rem',
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: 'rgba(148, 163, 184, 0.12)',
+                color: 'var(--text)',
+                fontWeight: 600,
+              }}
+              data-testid={`mm-daily-rate-pill-${code}`}
+            >
+              1 {code} = ₹{(activeRatesToInr[code] ?? FALLBACK_RATES_TO_INR[code]).toFixed(2)}
+            </span>
+          ))}
+          {multiCurrencyBreakdown.length > 1 && (
+            <span
+              style={{
+                fontSize: '0.74rem',
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: 'rgba(16, 185, 129, 0.14)',
+                color: '#10b981',
+                fontWeight: 600,
+              }}
+              data-testid="mm-daily-active-currencies-count"
+            >
+              {multiCurrencyBreakdown.length} active currencies in view
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <label
+            htmlFor="mm-daily-display-currency"
+            style={{ fontSize: '0.78rem', color: 'var(--muted)', fontWeight: 600 }}
+          >
+            Display Currency:
+          </label>
+          <select
+            id="mm-daily-display-currency"
+            aria-label="Daily Ledger Display Currency"
+            value={displayCurrency}
+            onChange={(e) => setDisplayCurrency(normalizeCurrencyCode(e.target.value, 'INR'))}
+            className="mm-select"
+            style={{ width: 'auto', minWidth: 118, padding: '4px 10px', fontSize: '0.8rem' }}
+            data-testid="mm-daily-display-currency-select"
+          >
+            {SUPPORTED_CURRENCIES.map((code) => (
+              <option key={code} value={code}>
+                {code} ({CURRENCY_METADATA[code].symbol}) — {CURRENCY_METADATA[code].name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={handleRefreshExchangeRates}
+            disabled={isRefreshingRates}
+            className="mm-btn mm-btn-sm mm-btn-secondary"
+            data-testid="mm-daily-refresh-rates-btn"
+            title="Fetch latest daily exchange rates"
+          >
+            <span>{isRefreshingRates ? 'Updating Rates…' : 'Sync Daily Rates'}</span>
+          </button>
         </div>
       </div>
 
@@ -1990,10 +2143,10 @@ export const DailyView: React.FC<DailyViewProps> = ({
 
                 <div className="mm-day-totals">
                   <span className="mm-day-income" title="Daily Income">
-                    +{formatINR(group.dailyIncome)}
+                    +{formatCurrencyAmount(group.dailyIncome, displayCurrency)}
                   </span>
                   <span className="mm-day-expense" title="Daily Expense">
-                    -{formatINR(group.dailyExpense)}
+                    -{formatCurrencyAmount(group.dailyExpense, displayCurrency)}
                   </span>
                 </div>
               </div>
@@ -2017,6 +2170,11 @@ export const DailyView: React.FC<DailyViewProps> = ({
                     Boolean(tx.recurringRuleId) ||
                     tx.id.startsWith('tx-rec-') ||
                     /\[(?:Auto-)?Recurring/i.test(tx.note || '');
+                  const resolvedCurrency = resolveTransactionAmountInCurrency(
+                    tx,
+                    displayCurrency,
+                    activeRatesToInr
+                  );
 
                   return (
                     <div key={tx.id} className="mm-tx-row" data-testid={`mm-tx-row-${tx.id}`}>
@@ -2038,6 +2196,33 @@ export const DailyView: React.FC<DailyViewProps> = ({
                             )}
                             <span className="mm-tx-meta-sep">·</span>
                             <span className="mm-tx-nature">{tx.fixedOrVariable}</span>
+                            {resolvedCurrency.isForeignCurrency && (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  padding: '1px 7px',
+                                  borderRadius: 999,
+                                  fontSize: '0.69rem',
+                                  fontWeight: 700,
+                                  background: 'rgba(139, 92, 246, 0.14)',
+                                  color: '#8b5cf6',
+                                  border: '1px solid rgba(139, 92, 246, 0.35)',
+                                }}
+                                title={`Recorded in ${resolvedCurrency.originalCurrency} (${formatCurrencyAmount(
+                                  resolvedCurrency.originalAmount,
+                                  resolvedCurrency.originalCurrency
+                                )} @ ₹${resolvedCurrency.exchangeRateToINR})`}
+                                data-testid={`mm-tx-currency-badge-${tx.id}`}
+                              >
+                                {resolvedCurrency.originalCurrency}{' '}
+                                {formatCurrencyAmount(
+                                  resolvedCurrency.originalAmount,
+                                  resolvedCurrency.originalCurrency
+                                )}
+                              </span>
+                            )}
                             {isRecurringEntry && (
                               <span
                                 style={{
@@ -2100,7 +2285,7 @@ export const DailyView: React.FC<DailyViewProps> = ({
                                 onClick={() =>
                                   onOpenReceiptLightbox(
                                     tx.receiptImages,
-                                    `${tx.category} (${formatINR(tx.amount)}) — ${group.dateKey}`
+                                    `${tx.category} (${formatINR(resolvedCurrency.amountInINR)}) — ${group.dateKey}`
                                   )
                                 }
                                 className="mm-receipt-trigger-btn"
@@ -2120,21 +2305,39 @@ export const DailyView: React.FC<DailyViewProps> = ({
 
                       {/* Right: Amount + Row Actions */}
                       <div className="mm-tx-right">
-                        <strong
-                          className={`mm-tx-amount ${
-                            tx.type === 'Income'
-                              ? 'mm-text-income'
+                        <div style={{ textAlign: 'right' }}>
+                          <strong
+                            className={`mm-tx-amount ${
+                              tx.type === 'Income'
+                                ? 'mm-text-income'
+                                : tx.type === 'Expense'
+                                ? 'mm-text-expense'
+                                : 'mm-text-transfer'
+                            }`}
+                          >
+                            {tx.type === 'Income'
+                              ? `+${formatCurrencyAmount(resolvedCurrency.amountInTarget, displayCurrency)}`
                               : tx.type === 'Expense'
-                              ? 'mm-text-expense'
-                              : 'mm-text-transfer'
-                          }`}
-                        >
-                          {tx.type === 'Income'
-                            ? `+${formatINR(tx.amount)}`
-                            : tx.type === 'Expense'
-                            ? `-${formatINR(tx.amount)}`
-                            : formatINR(tx.amount)}
-                        </strong>
+                              ? `-${formatCurrencyAmount(resolvedCurrency.amountInTarget, displayCurrency)}`
+                              : formatCurrencyAmount(resolvedCurrency.amountInTarget, displayCurrency)}
+                          </strong>
+                          {resolvedCurrency.originalCurrency !== displayCurrency && (
+                            <div
+                              style={{
+                                fontSize: '0.7rem',
+                                color: 'var(--muted)',
+                                marginTop: 2,
+                              }}
+                              data-testid={`mm-tx-converted-sub-${tx.id}`}
+                            >
+                              {formatCurrencyAmount(
+                                resolvedCurrency.originalAmount,
+                                resolvedCurrency.originalCurrency
+                              )}{' '}
+                              ({resolvedCurrency.originalCurrency})
+                            </div>
+                          )}
+                        </div>
 
                         <div className="mm-tx-actions">
                           <button

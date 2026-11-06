@@ -34,7 +34,33 @@ export {
 export {
   BudgetForecastCard,
   calculateVelocityBudgetForecast,
-} from './money-manager/BudgetForecastCard';export {
+} from './money-manager/BudgetForecastCard';
+
+export {
+  CategoryBudgetProgressCard,
+  resolveCategoryProgressColor,
+  computeCategoryBudgetProgressItems,
+} from './money-manager/CategoryBudgetProgressCard';
+
+export {
+  generateMonthlyReportJson,
+  triggerMonthlyReportJsonDownload,
+} from './money-manager/StatsView';
+
+export {
   triggerJsonBackupDownload,
   exportDatabaseBackup,
+  SUPPORTED_CURRENCIES,
+  CURRENCY_METADATA,
+  FALLBACK_RATES_TO_INR,
+  fetchDailyExchangeRates,
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  resolveTransactionAmountInCurrency,
+  resolveTransactionInrAmount,
+  formatCurrencyAmount,
+  summarizeMultiCurrencyTransactions,
+  normalizeCurrencyCode,
 } from '../db/db';
+
+

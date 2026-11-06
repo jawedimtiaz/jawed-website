@@ -62,6 +62,20 @@ import {
   type RecurringRule,
   type AccountSummary,
   triggerJsonBackupDownload,
+  SUPPORTED_CURRENCIES,
+  CURRENCY_METADATA,
+  FALLBACK_RATES_TO_INR,
+  fetchDailyExchangeRates,
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  resolveTransactionAmountInCurrency,
+  resolveTransactionInrAmount,
+  formatCurrencyAmount,
+  summarizeMultiCurrencyTransactions,
+  normalizeCurrencyCode,
+  type CurrencyCode,
+  type DailyExchangeRateSnapshot,
+  type CurrencyBreakdownRow,
 } from '../../db/db';
 import { CategoryManager } from './CategoryManager';
 import {
@@ -88,9 +102,43 @@ import {
   type BudgetForecastSummary,
   type CategoryVelocityForecastItem,
 } from './BudgetForecastCard';
+import {
+  CategoryBudgetProgressCard,
+  resolveCategoryProgressColor,
+  computeCategoryBudgetProgressItems,
+  type CategoryProgressColorTier,
+  type CategoryProgressColorConfig,
+  type CategoryBudgetProgressEntry,
+} from './CategoryBudgetProgressCard';
 
-export { BudgetForecastCard, calculateVelocityBudgetForecast };
-export type { BudgetForecastSummary, CategoryVelocityForecastItem };
+export {
+  BudgetForecastCard,
+  calculateVelocityBudgetForecast,
+  CategoryBudgetProgressCard,
+  resolveCategoryProgressColor,
+  computeCategoryBudgetProgressItems,
+  SUPPORTED_CURRENCIES,
+  CURRENCY_METADATA,
+  FALLBACK_RATES_TO_INR,
+  fetchDailyExchangeRates,
+  convertCurrencyAmount,
+  convertToBaseCurrency,
+  resolveTransactionAmountInCurrency,
+  resolveTransactionInrAmount,
+  formatCurrencyAmount,
+  summarizeMultiCurrencyTransactions,
+  normalizeCurrencyCode,
+};
+export type {
+  BudgetForecastSummary,
+  CategoryVelocityForecastItem,
+  CategoryProgressColorTier,
+  CategoryProgressColorConfig,
+  CategoryBudgetProgressEntry,
+  CurrencyCode,
+  DailyExchangeRateSnapshot,
+  CurrencyBreakdownRow,
+};
 
 export const DEFAULT_SUMMARY_CARD_ORDER = [
   'burn-rate',
@@ -238,6 +286,7 @@ export function computeMonthlyBudgetPlan(
 
   for (const tx of transactions) {
     if (tx.type !== 'Expense') continue;
+    const txAmountInr = resolveTransactionInrAmount(tx);
     const txYearMonth = tx.date.slice(0, 7);
     if (txYearMonth === selectedMonth) {
       const prev = spentByCategory.get(tx.category) ?? {
@@ -245,7 +294,7 @@ export function computeMonthlyBudgetPlan(
         txCount: 0,
         fixedOrVariable: tx.fixedOrVariable,
       };
-      prev.spent += tx.amount;
+      prev.spent += txAmountInr;
       prev.txCount += 1;
       spentByCategory.set(tx.category, prev);
 
@@ -257,7 +306,7 @@ export function computeMonthlyBudgetPlan(
       priorMonthsSet.add(txYearMonth);
       historicalSpentByCategory.set(
         tx.category,
-        (historicalSpentByCategory.get(tx.category) ?? 0) + tx.amount
+        (historicalSpentByCategory.get(tx.category) ?? 0) + txAmountInr
       );
     }
   }
@@ -1446,6 +1495,43 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [fundTarget, setFundTarget] = useState('50000');
   const [fundMonthly, setFundMonthly] = useState('4000');
   const [fundAccrued, setFundAccrued] = useState('10000');
+  const [statsDisplayCurrency, setStatsDisplayCurrency] = useState<CurrencyCode>('INR');
+  const [statsRateSnapshot, setStatsRateSnapshot] = useState<DailyExchangeRateSnapshot | null>(null);
+  const [isRefreshingStatsRates, setIsRefreshingStatsRates] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchDailyExchangeRates({ baseCurrency: 'INR' })
+      .then((snap) => {
+        if (isMounted) setStatsRateSnapshot(snap);
+      })
+      .catch(() => {
+        // Fallback rates handled automatically
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleRefreshStatsRates = async () => {
+    setIsRefreshingStatsRates(true);
+    try {
+      const snap = await fetchDailyExchangeRates({ baseCurrency: 'INR', forceRefresh: true });
+      setStatsRateSnapshot(snap);
+    } finally {
+      setIsRefreshingStatsRates(false);
+    }
+  };
+
+  const activeStatsRatesToInr = statsRateSnapshot?.ratesToINR ?? FALLBACK_RATES_TO_INR;
+  const monthMultiCurrencyRows = useMemo(
+    () =>
+      summarizeMultiCurrencyTransactions(
+        transactions.filter((tx) => tx.date?.startsWith(selectedMonth)),
+        activeStatsRatesToInr
+      ),
+    [transactions, selectedMonth, activeStatsRatesToInr]
+  );
 
   const activeThresholdConfig = useMemo<Record<string, number> | number>(() => {
     const uniformVal = Number.parseFloat(uniformThresholdInput);
@@ -1990,6 +2076,105 @@ export const StatsView: React.FC<StatsViewProps> = ({
           </button>
         </div>
       )}
+
+      {/* Multi-Currency Exchange Rate & Exposure Summary Bar */}
+      <div
+        className="mm-filter-bar"
+        data-testid="mm-stats-multi-currency-bar"
+        style={{
+          padding: '10px 16px',
+          marginBottom: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <strong style={{ fontSize: '0.82rem', color: 'var(--text-heading)' }}>
+            Multi-Currency Stats ({selectedMonth}):
+          </strong>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text)' }} data-testid="mm-stats-converted-summary">
+            Income:{' '}
+            <strong className="mm-text-income">
+              {formatCurrencyAmount(
+                convertCurrencyAmount(metrics.income, 'INR', statsDisplayCurrency, activeStatsRatesToInr),
+                statsDisplayCurrency
+              )}
+            </strong>{' '}
+            · Expense:{' '}
+            <strong className="mm-text-expense">
+              {formatCurrencyAmount(
+                convertCurrencyAmount(metrics.expense, 'INR', statsDisplayCurrency, activeStatsRatesToInr),
+                statsDisplayCurrency
+              )}
+            </strong>{' '}
+            · Net:{' '}
+            <strong>
+              {formatCurrencyAmount(
+                convertCurrencyAmount(metrics.netBalance, 'INR', statsDisplayCurrency, activeStatsRatesToInr),
+                statsDisplayCurrency
+              )}
+            </strong>
+          </span>
+          {monthMultiCurrencyRows.map((row) => (
+            <span
+              key={row.currency}
+              style={{
+                fontSize: '0.73rem',
+                padding: '2px 8px',
+                borderRadius: 999,
+                background:
+                  row.currency === 'INR'
+                    ? 'rgba(148, 163, 184, 0.14)'
+                    : 'rgba(139, 92, 246, 0.14)',
+                color: row.currency === 'INR' ? 'var(--text)' : '#8b5cf6',
+                fontWeight: 600,
+              }}
+              data-testid={`mm-stats-currency-chip-${row.currency}`}
+            >
+              {row.currency} ({row.transactionCount} tx):{' '}
+              {formatCurrencyAmount(row.originalExpense, row.currency)} spent
+              {row.currency !== 'INR' ? ` ≈ ${formatINR(row.convertedExpenseINR)}` : ''}
+            </span>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <label
+            htmlFor="mm-stats-display-currency"
+            style={{ fontSize: '0.78rem', color: 'var(--muted)', fontWeight: 600 }}
+          >
+            Display Currency:
+          </label>
+          <select
+            id="mm-stats-display-currency"
+            aria-label="Stats Display Currency"
+            value={statsDisplayCurrency}
+            onChange={(e) => setStatsDisplayCurrency(normalizeCurrencyCode(e.target.value, 'INR'))}
+            className="mm-select"
+            style={{ width: 'auto', minWidth: 118, padding: '4px 10px', fontSize: '0.8rem' }}
+            data-testid="mm-stats-display-currency-select"
+          >
+            {SUPPORTED_CURRENCIES.map((code) => (
+              <option key={code} value={code}>
+                {code} ({CURRENCY_METADATA[code].symbol}) — {CURRENCY_METADATA[code].name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={handleRefreshStatsRates}
+            disabled={isRefreshingStatsRates}
+            className="mm-btn mm-btn-sm mm-btn-secondary"
+            data-testid="mm-stats-refresh-rates-btn"
+          >
+            <span>{isRefreshingStatsRates ? 'Syncing…' : 'Sync Exchange Rates'}</span>
+          </button>
+        </div>
+      </div>
 
       {/* Real-Time Visual Budget Alert System Center */}
       {(exceededCategories.length > 0 || nearLimitCategories.length > 0) && (
@@ -2637,6 +2822,15 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Dedicated Visual Card: Category List with Percentage-Based Color-Coded Progress Bars */}
+          <CategoryBudgetProgressCard
+            plan={monthlyBudgetPlan}
+            selectedMonth={selectedMonth}
+            onAdjustCategoryBudget={async (catName, newLimit) => {
+              await handleCategoryThresholdChange(catName, String(newLimit));
+            }}
+          />
 
           {/* Dashboard Summary Cards Control Bar & Dynamic Reorderable Cards Container */}
           <div
