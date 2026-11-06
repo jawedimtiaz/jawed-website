@@ -2422,5 +2422,46 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.equal(darkTokens.borderColor, 'rgba(56, 189, 248, 0.55)');
     assert.notEqual(lightTokens.textColor, darkTokens.textColor);
   });
+
+  it('generates a summary JSON file of all current month category spending, budget limits, and savings progress via Export Monthly Report', async () => {
+    const {
+      generateMonthlyReportJson,
+      triggerMonthlyReportJsonDownload,
+    } = await import('../src/components/money-manager/StatsView');
+
+    const state = await initializeAndSeedDatabase();
+    const result = triggerMonthlyReportJsonDownload({
+      selectedMonth: '2026-11',
+      transactions: state.transactions,
+      categories: state.categories,
+      sinkingFunds: state.sinkingFunds,
+      savingsTargetOverride: 45000,
+    });
+
+    assert.equal(result.fileName, 'jawed-money-manager-monthly-report-2026-11.json');
+    assert.equal(result.selectedMonth, '2026-11');
+    assert.ok(result.categoryCount > 0, 'Expected expense categories in monthly report');
+    assert.ok(result.totalSpent > 0, 'Expected positive monthly spend');
+    assert.ok(result.totalBudgeted > 0, 'Expected positive monthly budgeted total');
+
+    const parsed = JSON.parse(result.jsonContent);
+    assert.equal(parsed.reportType, 'jawed-money-manager-monthly-report');
+    assert.equal(parsed.selectedMonth, '2026-11');
+    assert.ok(Array.isArray(parsed.categorySpending));
+    assert.equal(parsed.categorySpending.length, result.categoryCount);
+
+    const housingReport = parsed.categorySpending.find(
+      (c: any) => c.category === 'Rent & Housing'
+    );
+    assert.ok(housingReport, 'Expected Rent & Housing in categorySpending');
+    assert.equal(housingReport.spent, 22000);
+    assert.equal(housingReport.budgetLimit, 24000);
+    assert.equal(parsed.budgetLimits['Rent & Housing'], 24000);
+
+    assert.ok(parsed.savingsProgress, 'Expected savingsProgress section in JSON report');
+    assert.equal(parsed.savingsProgress.savingsTarget, 45000);
+    assert.equal(parsed.savingsProgress.netSavings, parsed.overview.netBalance);
+    assert.equal(parsed.savingsProgress.sinkingFundsCount, state.sinkingFunds.length);
+  });
 });
 

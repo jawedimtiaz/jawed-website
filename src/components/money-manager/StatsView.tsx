@@ -48,6 +48,7 @@ import {
 import {
   INITIAL_CATEGORIES,
   calculateCategoryBreakdown,
+  calculateMonthlyMetrics,
   calculateSixMonthTrend,
   calculateTwelveMonthTrend,
   formatINR,
@@ -741,6 +742,267 @@ export function triggerMonthlyBudgetCsvDownload(
   return exportPayload;
 }
 
+export interface MonthlyReportCategoryItem {
+  categoryId: string;
+  category: string;
+  expenseType: 'Fixed' | 'Variable';
+  spent: number;
+  budgetLimit: number;
+  monthlyLimit: number;
+  remaining: number;
+  overage: number;
+  utilizationPercent: number;
+  shareOfTotalBudgetPercent: number;
+  txCount: number;
+  status: 'over' | 'near' | 'on-track' | 'unbudgeted';
+  projectedSpend: number;
+  projectedUtilizationPercent: number;
+}
+
+export interface MonthlyReportSavingsProgress {
+  monthlyIncome: number;
+  monthlyExpense: number;
+  netSavings: number;
+  savingsRatePercent: number;
+  savingsTarget: number;
+  targetProgressPercent: number;
+  targetVariance: number;
+  targetDeficit: number;
+  isTargetAchieved: boolean;
+  sinkingFundsCount: number;
+  totalSinkingFundsTarget: number;
+  totalSinkingFundsAccrued: number;
+  totalSinkingFundsMonthlyContribution: number;
+  sinkingFunds: Array<{
+    id: string;
+    name: string;
+    targetAmount: number;
+    monthlyTarget: number;
+    currentAccrued: number;
+    progressPercent: number;
+  }>;
+}
+
+export interface MonthlySummaryReportJson {
+  reportType: 'jawed-money-manager-monthly-report';
+  version: 1;
+  selectedMonth: string;
+  generatedAt: string;
+  overview: {
+    income: number;
+    expense: number;
+    netBalance: number;
+    savingsRatePercent: number;
+    totalBudgeted: number;
+    totalSpent: number;
+    totalRemaining: number;
+    totalOverage: number;
+    overallUtilizationPercent: number;
+    overBudgetCount: number;
+    nearLimitCount: number;
+    onTrackCount: number;
+    unbudgetedCount: number;
+  };
+  categorySpending: MonthlyReportCategoryItem[];
+  budgetLimits: Record<string, number>;
+  savingsProgress: MonthlyReportSavingsProgress;
+}
+
+export interface MonthlyReportJsonExportOptions {
+  selectedMonth: string;
+  transactions: MoneyTransaction[];
+  categories?: MoneyCategory[];
+  metrics?: MonthlyMetrics;
+  sinkingFunds?: SinkingFund[];
+  thresholdOverrides?: Record<string, number> | number;
+  savingsTargetOverride?: number;
+  planOverride?: MonthlyBudgetPlanSummary;
+}
+
+export interface MonthlyReportJsonExportResult {
+  fileName: string;
+  jsonContent: string;
+  report: MonthlySummaryReportJson;
+  selectedMonth: string;
+  categoryCount: number;
+  totalSpent: number;
+  totalBudgeted: number;
+  netSavings: number;
+  savingsTarget: number;
+  targetProgressPercent: number;
+}
+
+/**
+ * Pure helper that generates a structured summary JSON payload containing the current month's
+ * category spending, budget limits, and savings progress.
+ */
+export function generateMonthlyReportJson(
+  options: MonthlyReportJsonExportOptions
+): MonthlyReportJsonExportResult {
+  const {
+    selectedMonth,
+    transactions,
+    categories = INITIAL_CATEGORIES,
+    sinkingFunds = [],
+    thresholdOverrides,
+    savingsTargetOverride,
+    planOverride,
+  } = options;
+
+  const computedMetrics =
+    options.metrics ?? calculateMonthlyMetrics(transactions, selectedMonth);
+
+  const plan =
+    planOverride ??
+    computeMonthlyBudgetPlan(
+      transactions,
+      selectedMonth,
+      categories,
+      thresholdOverrides
+    );
+
+  const budgetLimits: Record<string, number> = {};
+  const categorySpending: MonthlyReportCategoryItem[] = plan.items.map((item) => {
+    budgetLimits[item.category] = item.monthlyLimit;
+    return {
+      categoryId: item.categoryId,
+      category: item.category,
+      expenseType: item.defaultFixedOrVariable,
+      spent: item.spent,
+      budgetLimit: item.monthlyLimit,
+      monthlyLimit: item.monthlyLimit,
+      remaining: item.remaining,
+      overage: item.overage,
+      utilizationPercent: item.utilizationPercent,
+      shareOfTotalBudgetPercent: item.shareOfTotalBudgetPercent,
+      txCount: item.txCount,
+      status: item.status,
+      projectedSpend: item.projectedSpend,
+      projectedUtilizationPercent: item.projectedUtilizationPercent,
+    };
+  });
+
+  const savingsTarget =
+    typeof savingsTargetOverride === 'number' && savingsTargetOverride >= 0
+      ? savingsTargetOverride
+      : getStoredSavingsTarget(selectedMonth, computedMetrics.income);
+
+  const netSavings = computedMetrics.netBalance;
+  const targetProgressPercent =
+    savingsTarget > 0
+      ? Number(((netSavings / savingsTarget) * 100).toFixed(1))
+      : 0;
+  const isTargetAchieved = savingsTarget > 0 && netSavings >= savingsTarget;
+  const targetVariance = netSavings - savingsTarget;
+  const targetDeficit = !isTargetAchieved ? Math.max(0, savingsTarget - netSavings) : 0;
+
+  const totalSinkingFundsTarget = sinkingFunds.reduce(
+    (sum, sf) => sum + (Number(sf.targetAmount) || 0),
+    0
+  );
+  const totalSinkingFundsAccrued = sinkingFunds.reduce(
+    (sum, sf) => sum + (Number(sf.currentAccrued) || 0),
+    0
+  );
+  const totalSinkingFundsMonthlyContribution = sinkingFunds.reduce(
+    (sum, sf) => sum + (Number(sf.monthlyTarget) || 0),
+    0
+  );
+
+  const report: MonthlySummaryReportJson = {
+    reportType: 'jawed-money-manager-monthly-report',
+    version: 1,
+    selectedMonth,
+    generatedAt: new Date().toISOString(),
+    overview: {
+      income: computedMetrics.income,
+      expense: computedMetrics.expense,
+      netBalance: computedMetrics.netBalance,
+      savingsRatePercent: computedMetrics.savingsRate,
+      totalBudgeted: plan.totalBudgeted,
+      totalSpent: plan.totalSpent,
+      totalRemaining: plan.totalRemaining,
+      totalOverage: plan.totalOverage,
+      overallUtilizationPercent: plan.overallUtilizationPercent,
+      overBudgetCount: plan.overBudgetCount,
+      nearLimitCount: plan.nearLimitCount,
+      onTrackCount: plan.onTrackCount,
+      unbudgetedCount: plan.unbudgetedCount,
+    },
+    categorySpending,
+    budgetLimits,
+    savingsProgress: {
+      monthlyIncome: computedMetrics.income,
+      monthlyExpense: computedMetrics.expense,
+      netSavings,
+      savingsRatePercent: computedMetrics.savingsRate,
+      savingsTarget,
+      targetProgressPercent,
+      targetVariance,
+      targetDeficit,
+      isTargetAchieved,
+      sinkingFundsCount: sinkingFunds.length,
+      totalSinkingFundsTarget,
+      totalSinkingFundsAccrued,
+      totalSinkingFundsMonthlyContribution,
+      sinkingFunds: sinkingFunds.map((sf) => ({
+        id: sf.id,
+        name: sf.name,
+        targetAmount: sf.targetAmount,
+        monthlyTarget: sf.monthlyTarget,
+        currentAccrued: sf.currentAccrued,
+        progressPercent:
+          sf.targetAmount > 0
+            ? Number(((sf.currentAccrued / sf.targetAmount) * 100).toFixed(1))
+            : 0,
+      })),
+    },
+  };
+
+  const safeMonth = (selectedMonth || 'current-month').replace(/[^0-9A-Za-z_-]/g, '-');
+  const fileName = `jawed-money-manager-monthly-report-${safeMonth}.json`;
+  const jsonContent = JSON.stringify(report, null, 2);
+
+  return {
+    fileName,
+    jsonContent,
+    report,
+    selectedMonth,
+    categoryCount: categorySpending.length,
+    totalSpent: plan.totalSpent,
+    totalBudgeted: plan.totalBudgeted,
+    netSavings,
+    savingsTarget,
+    targetProgressPercent,
+  };
+}
+
+/**
+ * Triggers a browser download of the summary JSON file containing the current month's
+ * category spending, budget limits, and savings progress.
+ */
+export function triggerMonthlyReportJsonDownload(
+  options: MonthlyReportJsonExportOptions
+): MonthlyReportJsonExportResult {
+  const exportPayload = generateMonthlyReportJson(options);
+
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const blob = new Blob([exportPayload.jsonContent], {
+      type: 'application/json;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', exportPayload.fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  return exportPayload;
+}
+
 /**
  * Pure helper that evaluates monthly category spending against user-defined thresholds
  * and returns the enriched breakdown (including custom category colors) along with exceeded and near-limit categories.
@@ -1054,6 +1316,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [forecastDayOverride, setForecastDayOverride] = useState<number | null>(null);
   const [budgetCsvExportNotice, setBudgetCsvExportNotice] =
     useState<MonthlyBudgetCsvExportResult | null>(null);
+  const [monthlyReportExportNotice, setMonthlyReportExportNotice] =
+    useState<MonthlyReportJsonExportResult | null>(null);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState<boolean>(false);
   const [pdfExportNotice, setPdfExportNotice] = useState<string | null>(null);
   const [backupExportNotice, setBackupExportNotice] = useState<{
@@ -1442,6 +1706,19 @@ export const StatsView: React.FC<StatsViewProps> = ({
     setBudgetCsvExportNotice(payload);
   };
 
+  const handleExportMonthlyReportJson = () => {
+    const payload = triggerMonthlyReportJsonDownload({
+      selectedMonth,
+      transactions,
+      categories: localCategories,
+      metrics,
+      sinkingFunds,
+      thresholdOverrides: activeThresholdConfig,
+      planOverride: monthlyBudgetPlan,
+    });
+    setMonthlyReportExportNotice(payload);
+  };
+
   const sixMonthTrend = useMemo(
     () => calculateSixMonthTrend(transactions, selectedMonth),
     [transactions, selectedMonth]
@@ -1651,6 +1928,16 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </button>
             <button
               type="button"
+              onClick={handleExportMonthlyReportJson}
+              className="mm-btn mm-btn-sm mm-btn-emerald"
+              title="Download a summary JSON file of all current month's category spending, budget limits, and savings progress"
+              data-testid="mm-stats-export-monthly-report-btn"
+            >
+              <Download size={14} />
+              <span>Export Monthly Report</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setIsPdfModalOpen(true)}
               className="mm-btn mm-btn-sm mm-btn-secondary"
               title="Export formatted monthly spending report as an A4 PDF summary"
@@ -1662,6 +1949,47 @@ export const StatsView: React.FC<StatsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {monthlyReportExportNotice && (
+        <div
+          role="status"
+          data-testid="mm-monthly-report-json-export-feedback"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            flexWrap: 'wrap',
+            padding: '10px 14px',
+            marginBottom: 12,
+            borderRadius: 10,
+            border: '1px solid rgba(16, 185, 129, 0.45)',
+            background: 'rgba(16, 185, 129, 0.1)',
+            fontSize: '0.83rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <CheckCircle2 size={16} style={{ color: '#10b981', flexShrink: 0 }} />
+            <span>
+              Exported Monthly Report JSON (<strong>{monthlyReportExportNotice.categoryCount} categories</strong> ·{' '}
+              {formatINR(monthlyReportExportNotice.totalSpent)} spent of{' '}
+              {formatINR(monthlyReportExportNotice.totalBudgeted)} limit · Savings:{' '}
+              {formatINR(monthlyReportExportNotice.netSavings)} /{' '}
+              {formatINR(monthlyReportExportNotice.savingsTarget)} target [
+              {monthlyReportExportNotice.targetProgressPercent}%]) to{' '}
+              <code style={{ fontWeight: 600 }}>{monthlyReportExportNotice.fileName}</code>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMonthlyReportExportNotice(null)}
+            className="mm-btn mm-btn-sm mm-btn-ghost"
+            data-testid="mm-monthly-report-json-export-dismiss"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Real-Time Visual Budget Alert System Center */}
       {(exceededCategories.length > 0 || nearLimitCategories.length > 0) && (
@@ -2081,6 +2409,17 @@ export const StatsView: React.FC<StatsViewProps> = ({
               >
                 <TrendingUp size={13} />
                 <span>Auto-Fit +10% Buffer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportMonthlyReportJson}
+                className="mm-btn mm-btn-sm mm-btn-emerald"
+                title="Download a summary JSON file of all current month's category spending, budget limits, and savings progress"
+                data-testid="mm-budget-export-monthly-report-btn"
+              >
+                <Download size={13} />
+                <span>Export Monthly Report</span>
               </button>
 
               <button

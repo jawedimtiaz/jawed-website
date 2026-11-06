@@ -39,6 +39,8 @@ import {
   evaluateCategoryBudgetAlerts,
   evaluate95PercentBudgetAlerts,
   detectNew95PercentBudgetToasts,
+  generateMonthlyReportJson,
+  triggerMonthlyReportJsonDownload,
   type Budget95ToastAlert,
 } from '../components/money-manager/StatsView';
 import { RecurringView } from '../components/money-manager/RecurringView';
@@ -67,6 +69,8 @@ export {
   syncLedgerWithEncryptedDrive,
   listDriveLedgerBackups,
   deleteDriveLedgerBackup,
+  generateMonthlyReportJson,
+  triggerMonthlyReportJsonDownload,
 };
 
 export const MONEY_MANAGER_SEO = {
