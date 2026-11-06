@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,6 +16,109 @@ import {
 import { formatINR, type MonthlyMetrics } from '../../db/db';
 
 export type MoneyManagerTab = 'daily' | 'calendar' | 'accounts' | 'stats' | 'recurring';
+
+export const SWIPEABLE_MONEY_MANAGER_TABS: readonly MoneyManagerTab[] = [
+  'daily',
+  'calendar',
+  'accounts',
+  'stats',
+] as const;
+
+export const ALL_MONEY_MANAGER_TABS: readonly MoneyManagerTab[] = [
+  'daily',
+  'calendar',
+  'accounts',
+  'stats',
+  'recurring',
+] as const;
+
+export interface SwipeTabOptions {
+  minSwipeDistance?: number;
+  maxVerticalDriftRatio?: number;
+  includeRecurring?: boolean;
+  wrapAround?: boolean;
+}
+
+/**
+ * Pure helper that resolves the next MoneyManagerTab given a horizontal touch swipe gesture (`deltaX = endX - startX`, `deltaY = endY - startY`).
+ * - Swiping left (`deltaX < 0`) advances to the next tab (Daily -> Calendar -> Accounts -> Stats).
+ * - Swiping right (`deltaX > 0`) moves to the previous tab (Stats -> Accounts -> Calendar -> Daily).
+ * - Ignores short taps or vertical scroll gestures.
+ */
+export function getNextTabBySwipe(
+  currentTab: MoneyManagerTab,
+  deltaX: number,
+  deltaY: number = 0,
+  options: SwipeTabOptions = {}
+): MoneyManagerTab {
+  const minSwipeDistance = options.minSwipeDistance ?? 44;
+  const maxVerticalDriftRatio = options.maxVerticalDriftRatio ?? 0.75;
+  const tabSequence = options.includeRecurring
+    ? ALL_MONEY_MANAGER_TABS
+    : SWIPEABLE_MONEY_MANAGER_TABS;
+
+  const absX = Math.abs(deltaX);
+  const absY = Math.abs(deltaY);
+
+  if (!Number.isFinite(deltaX) || absX < minSwipeDistance) {
+    return currentTab;
+  }
+  if (Number.isFinite(deltaY) && absY > absX * maxVerticalDriftRatio) {
+    return currentTab;
+  }
+
+  const currentIdx = tabSequence.indexOf(currentTab);
+  if (currentIdx === -1) {
+    return deltaX < 0 ? tabSequence[0] : tabSequence[tabSequence.length - 1];
+  }
+
+  // Swipe left (deltaX < 0) -> next tab; Swipe right (deltaX > 0) -> previous tab
+  const step = deltaX < 0 ? 1 : -1;
+  const targetIdx = currentIdx + step;
+
+  if (targetIdx < 0) {
+    return options.wrapAround ? tabSequence[tabSequence.length - 1] : tabSequence[0];
+  }
+  if (targetIdx >= tabSequence.length) {
+    return options.wrapAround
+      ? tabSequence[0]
+      : tabSequence[tabSequence.length - 1];
+  }
+
+  return tabSequence[targetIdx];
+}
+
+export interface ActiveTabContrastTokens {
+  mode: 'light' | 'dark';
+  textColor: string;
+  indicatorColor: string;
+  backgroundColor: string;
+  borderColor: string;
+}
+
+/**
+ * Returns WCAG high-contrast visual indicator tokens for the active Money Manager tab in both light and dark modes.
+ */
+export function resolveActiveTabContrastTokens(
+  mode: 'light' | 'dark' = 'dark'
+): ActiveTabContrastTokens {
+  if (mode === 'light') {
+    return {
+      mode: 'light',
+      textColor: '#1e3a8a',
+      indicatorColor: '#1d4ed8',
+      backgroundColor: 'rgba(37, 99, 235, 0.14)',
+      borderColor: 'rgba(29, 78, 216, 0.45)',
+    };
+  }
+  return {
+    mode: 'dark',
+    textColor: '#f8fafc',
+    indicatorColor: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    borderColor: 'rgba(56, 189, 248, 0.55)',
+  };
+}
 
 export interface MoneyManagerHeaderProps {
   selectedMonth: string; // YYYY-MM
@@ -70,13 +173,47 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
   onOpenAddModal,
   onOpenBackupModal,
 }) => {
-  const tabs: Array<{ id: MoneyManagerTab; label: string; icon: React.ReactNode }> = [
-    { id: 'daily', label: 'Daily View', icon: <ListFilter size={16} /> },
-    { id: 'calendar', label: 'Calendar View', icon: <Calendar size={16} /> },
-    { id: 'accounts', label: 'Accounts View', icon: <Landmark size={16} /> },
-    { id: 'stats', label: 'Stats & Budgets', icon: <PieChart size={16} /> },
-    { id: 'recurring', label: 'Recurring Transactions', icon: <Repeat size={16} /> },
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const tabs: Array<{ id: MoneyManagerTab; label: string; shortLabel: string; icon: React.ReactNode }> = [
+    { id: 'daily', label: 'Daily View', shortLabel: 'Daily', icon: <ListFilter size={16} /> },
+    { id: 'calendar', label: 'Calendar View', shortLabel: 'Calendar', icon: <Calendar size={16} /> },
+    { id: 'accounts', label: 'Accounts View', shortLabel: 'Accounts', icon: <Landmark size={16} /> },
+    { id: 'stats', label: 'Stats & Budgets', shortLabel: 'Stats', icon: <PieChart size={16} /> },
+    { id: 'recurring', label: 'Recurring Transactions', shortLabel: 'Recurring', icon: <Repeat size={16} /> },
   ];
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLElement>) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    const nextTab = getNextTabBySwipe(activeTab, deltaX, deltaY);
+    if (nextTab !== activeTab) {
+      onSelectTab(nextTab);
+    }
+  };
+
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const next = getNextTabBySwipe(activeTab, -80, 0, { includeRecurring: true, wrapAround: true });
+      onSelectTab(next);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = getNextTabBySwipe(activeTab, 80, 0, { includeRecurring: true, wrapAround: true });
+      onSelectTab(prev);
+    }
+  };
 
   return (
     <header className="mm-header-card">
@@ -95,7 +232,7 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
             data-testid="mm-open-backup-btn"
           >
             <Download size={15} />
-            <span>Backup / Excel (.xlsx)</span>
+            <span>Cloud Sync / Backup (.xlsx)</span>
           </button>
           <button
             type="button"
@@ -188,17 +325,26 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
         </div>
       )}
 
-      {/* 4 Primary Navigation Tabs */}
-      <nav className="mm-tabs-nav" aria-label="Money Manager Views">
+      {/* Primary Navigation Tabs with Touch Swipe Support & High-Contrast Active Indicator */}
+      <nav
+        className="mm-tabs-nav"
+        aria-label="Money Manager Views"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onKeyDown={handleTabKeyDown}
+        data-testid="mm-header-tabs-nav"
+      >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
-              onClick={() => onSelectTab(tab.id)}
-              className={`mm-tab-btn${isActive ? ' is-active' : ''}`}
+              role="tab"
+              aria-selected={isActive}
               aria-current={isActive ? 'page' : undefined}
+              onClick={() => onSelectTab(tab.id)}
+              className={`mm-tab-btn${isActive ? ' is-active active' : ''}`}
               data-testid={`mm-tab-${tab.id}`}
             >
               {tab.icon}
@@ -214,6 +360,13 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
                   <span>{overBudgetAlertCount}</span>
                 </span>
               )}
+              {isActive && (
+                <span
+                  className="mm-active-tab-indicator"
+                  aria-hidden="true"
+                  data-testid={`mm-active-tab-indicator-${tab.id}`}
+                />
+              )}
             </button>
           );
         })}
@@ -221,3 +374,127 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
     </header>
   );
 };
+
+export interface MoneyManagerBottomNavProps {
+  activeTab: MoneyManagerTab;
+  onSelectTab: (tab: MoneyManagerTab) => void;
+  overBudgetAlertCount?: number;
+}
+
+/**
+ * Touch-friendly bottom tab navigation bar for switching between Daily, Calendar, Accounts, and Stats views
+ * with horizontal swipe gestures and high-contrast light/dark active indicators.
+ */
+export const MoneyManagerBottomNav: React.FC<MoneyManagerBottomNavProps> = ({
+  activeTab,
+  onSelectTab,
+  overBudgetAlertCount = 0,
+}) => {
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [swipeFeedbackDelta, setSwipeFeedbackDelta] = useState<number>(0);
+
+  const bottomTabs: Array<{
+    id: MoneyManagerTab;
+    label: string;
+    icon: React.ReactNode;
+  }> = [
+    { id: 'daily', label: 'Daily', icon: <ListFilter size={18} /> },
+    { id: 'calendar', label: 'Calendar', icon: <Calendar size={18} /> },
+    { id: 'accounts', label: 'Accounts', icon: <Landmark size={18} /> },
+    { id: 'stats', label: 'Stats', icon: <PieChart size={18} /> },
+  ];
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    setSwipeFeedbackDelta(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLElement>) => {
+    if (!touchStartRef.current) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dx = touch.clientX - touchStartRef.current.x;
+    setSwipeFeedbackDelta(Math.max(-36, Math.min(36, dx * 0.25)));
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLElement>) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+    setSwipeFeedbackDelta(0);
+
+    const nextTab = getNextTabBySwipe(activeTab, deltaX, deltaY);
+    if (nextTab !== activeTab) {
+      onSelectTab(nextTab);
+    }
+  };
+
+  return (
+    <nav
+      className="mm-bottom-tab-nav"
+      aria-label="Money Manager Bottom View Switcher"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      data-testid="mm-bottom-tab-nav"
+      style={{
+        transform: swipeFeedbackDelta ? `translateX(${swipeFeedbackDelta}px)` : undefined,
+        transition: swipeFeedbackDelta ? 'none' : 'transform 0.2s ease',
+      }}
+    >
+      <div className="mm-bottom-tab-swipe-hint" aria-hidden="true">
+        <span>← Swipe left or right to switch views (Daily · Calendar · Accounts · Stats) →</span>
+      </div>
+      <div className="mm-bottom-tab-grid" role="tablist">
+        {bottomTabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-current={isActive ? 'page' : undefined}
+              onClick={() => onSelectTab(tab.id)}
+              className={`mm-bottom-tab-btn${isActive ? ' is-active active' : ''}`}
+              data-testid={`mm-bottom-tab-${tab.id}`}
+            >
+              <span className="mm-bottom-tab-icon-wrap">
+                {tab.icon}
+                {tab.id === 'stats' && overBudgetAlertCount > 0 && (
+                  <span
+                    className="mm-budget-alert-badge is-over"
+                    style={{
+                      position: 'absolute',
+                      top: -5,
+                      right: -10,
+                      padding: '0 5px',
+                      fontSize: '0.65rem',
+                    }}
+                    data-testid="mm-bottom-tab-stats-alert-badge"
+                  >
+                    {overBudgetAlertCount}
+                  </span>
+                )}
+              </span>
+              <span className="mm-bottom-tab-label">{tab.label}</span>
+              {isActive && (
+                <span
+                  className="mm-active-tab-indicator"
+                  aria-hidden="true"
+                  data-testid="mm-active-tab-indicator"
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+};
+

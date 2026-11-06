@@ -25,7 +25,12 @@ import {
   triggerRecurringRuleNow,
   formatINR,
 } from '../db/db';
-import { MoneyManagerHeader, type MoneyManagerTab } from '../components/money-manager/Header';
+import {
+  MoneyManagerHeader,
+  MoneyManagerBottomNav,
+  getNextTabBySwipe,
+  type MoneyManagerTab,
+} from '../components/money-manager/Header';
 import { DailyView } from '../components/money-manager/DailyView';
 import { CalendarView } from '../components/money-manager/CalendarView';
 import { AccountsView } from '../components/money-manager/AccountsView';
@@ -40,8 +45,29 @@ import { RecurringView } from '../components/money-manager/RecurringView';
 import { TransactionModal } from '../components/money-manager/TransactionModal';
 import { ReceiptLightboxModal } from '../components/money-manager/ReceiptLightboxModal';
 import { BackupRestoreModal } from '../components/money-manager/BackupRestoreModal';
+import {
+  SCOPES,
+  encryptLedgerPayload,
+  decryptLedgerPayload,
+  exportDatabaseToEncryptedDrive,
+  importDatabaseFromEncryptedDrive,
+  syncLedgerWithEncryptedDrive,
+  listDriveLedgerBackups,
+  deleteDriveLedgerBackup,
+} from '../components/money-manager/googleDriveSync';
 import { BackupBanner } from '../components/BackupBanner';
 import { enableStoragePersistence } from '../db';
+
+export {
+  SCOPES,
+  encryptLedgerPayload,
+  decryptLedgerPayload,
+  exportDatabaseToEncryptedDrive,
+  importDatabaseFromEncryptedDrive,
+  syncLedgerWithEncryptedDrive,
+  listDriveLedgerBackups,
+  deleteDriveLedgerBackup,
+};
 
 export const MONEY_MANAGER_SEO = {
   route: '/tools/money-manager',
@@ -68,6 +94,29 @@ export const MoneyManager: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-11');
   const [activeTab, setActiveTab] = useState<MoneyManagerTab>('daily');
   const [selectedAccountIdForDaily, setSelectedAccountIdForDaily] = useState<string>('ALL');
+  const stageTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleStageTouchStart = (e: React.TouchEvent<HTMLElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    stageTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleStageTouchEnd = (e: React.TouchEvent<HTMLElement>) => {
+    if (!stageTouchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - stageTouchStartRef.current.x;
+    const deltaY = touch.clientY - stageTouchStartRef.current.y;
+    stageTouchStartRef.current = null;
+
+    const nextTab = getNextTabBySwipe(activeTab, deltaX, deltaY, {
+      minSwipeDistance: 56,
+    });
+    if (nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  };
 
   // Transaction Modal State
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false);
@@ -589,8 +638,14 @@ export const MoneyManager: React.FC = () => {
           onOpenBackupModal={() => setIsBackupModalOpen(true)}
         />
 
-        {/* Active View Body */}
-        <section className="mm-main-stage" aria-busy={isLoading}>
+        {/* Active View Body (Supports Horizontal Touch Swipe Between Daily, Calendar, Accounts & Stats) */}
+        <section
+          className="mm-main-stage"
+          aria-busy={isLoading}
+          onTouchStart={handleStageTouchStart}
+          onTouchEnd={handleStageTouchEnd}
+          data-testid="mm-main-stage"
+        >
           {activeTab === 'daily' && (
             <DailyView
               selectedMonth={selectedMonth}
@@ -676,6 +731,13 @@ export const MoneyManager: React.FC = () => {
             />
           )}
         </section>
+
+        {/* Touch-Friendly Bottom Tab Navigation Bar (Daily · Calendar · Accounts · Stats) */}
+        <MoneyManagerBottomNav
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          overBudgetAlertCount={overBudgetAlertCount}
+        />
 
         {/* Bottom Privacy & Double-Entry Architecture Footer Note */}
         <footer className="mm-footer-bar">

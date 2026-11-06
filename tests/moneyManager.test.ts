@@ -2106,6 +2106,7 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       getSpeechRecognitionConstructor,
       normalizeVoiceSearchTranscript,
       startVoiceSearchDictation,
+      applyDictatedVoiceSearchFilter,
       filterDailyTransactions,
     } = await import('../src/components/money-manager/DailyView');
 
@@ -2183,14 +2184,23 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.equal(transcripts[0].text, 'Groceries');
     assert.equal(transcripts[0].isFinal, true);
 
-    // 3. Verify dictated query filters Daily Ledger transactions by category or note
-    const matched = filterDailyTransactions(state.transactions, {
-      selectedMonth: '2026-11',
-      searchQuery: transcripts[0].text,
-    });
-    assert.ok(matched.length > 0);
+    // 3. Verify applyDictatedVoiceSearchFilter automatically triggers filtered ledger results
+    const autoFilterResult = applyDictatedVoiceSearchFilter(
+      'Groceries.',
+      state.transactions,
+      { selectedMonth: '2026-11' }
+    );
+    assert.equal(autoFilterResult.normalizedQuery, 'Groceries');
+    assert.ok(autoFilterResult.matchCount > 0);
+    assert.equal(
+      autoFilterResult.matchCount,
+      filterDailyTransactions(state.transactions, {
+        selectedMonth: '2026-11',
+        searchQuery: 'Groceries',
+      }).length
+    );
     assert.ok(
-      matched.every(
+      autoFilterResult.filteredTransactions.every(
         (tx) =>
           tx.category.toLowerCase().includes('groceries') ||
           tx.note.toLowerCase().includes('groceries')
@@ -2200,16 +2210,217 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     session.stop();
     assert.equal(didEnd, true);
   });
+
+  it('encrypts and syncs the Money Manager ledger via the Google Drive API with AES-256-GCM and PBKDF2', async () => {
+    const {
+      SCOPES,
+      encryptLedgerPayload,
+      decryptLedgerPayload,
+      isEncryptedDriveLedgerEnvelope,
+      exportDatabaseToEncryptedDrive,
+      importDatabaseFromEncryptedDrive,
+      syncLedgerWithEncryptedDrive,
+      listDriveLedgerBackups,
+      deleteDriveLedgerBackup,
+    } = await import('../src/components/money-manager/googleDriveSync');
+    const { exportDatabaseBackup, saveTransaction } = await import('../src/db/db');
+
+    // 1. Verify least-privilege Google Drive scope is configured
+    assert.ok(SCOPES.includes('https://www.googleapis.com/auth/drive.file'));
+
+    await initializeAndSeedDatabase();
+    const initialBackup = await exportDatabaseBackup();
+    const passphrase = 'CorrectHorseBatteryStaple!2026';
+
+    // 2. Encrypt and decrypt payload round-trip via Web Crypto API (AES-256-GCM + PBKDF2-SHA256)
+    const envelope = await encryptLedgerPayload(initialBackup, passphrase);
+    assert.equal(isEncryptedDriveLedgerEnvelope(envelope), true);
+    assert.equal(envelope.cipher, 'AES-256-GCM');
+    assert.equal(envelope.kdf, 'PBKDF2-SHA256');
+    assert.equal(envelope.metadata.transactionCount, initialBackup.transactions.length);
+
+    const decrypted = await decryptLedgerPayload(envelope, passphrase);
+    assert.equal(decrypted.transactions.length, initialBackup.transactions.length);
+    assert.equal(decrypted.accounts.length, initialBackup.accounts.length);
+
+    // Wrong passphrase must fail decryption cleanly
+    await assert.rejects(
+      () => decryptLedgerPayload(envelope, 'WrongPassphrase999'),
+      /Decryption failed/
+    );
+
+    // 3. Simulate Google Drive v3 REST API endpoints for upload, list, download/decrypt, and delete
+    const mockDriveStore = new Map<
+      string,
+      { metadata: any; encryptedContent: string }
+    >();
+
+    const mockDriveFetch: typeof fetch = async (input: any, init?: any) => {
+      const url = typeof input === 'string' ? input : input.url;
+      const method = (init?.method || 'GET').toUpperCase();
+
+      if (url.startsWith('https://www.googleapis.com/upload/drive/v3/files')) {
+        const rawBody = String(init?.body || '');
+        const parts = rawBody.split('---------JawedMoneyManagerDriveSyncBoundary314159');
+        const metaPart = parts[1] || '';
+        const mediaPart = parts[2] || '';
+        const metaJson = JSON.parse(metaPart.split('\r\n\r\n')[1].trim());
+        const mediaJsonText = mediaPart.split('\r\n\r\n')[1].trim();
+        const fileId = method === 'PATCH' ? 'drive-file-1' : `drive-file-${mockDriveStore.size + 1}`;
+        const fileMeta = {
+          id: fileId,
+          name: metaJson.name,
+          modifiedTime: '2026-11-05T12:00:00.000Z',
+          size: String(mediaJsonText.length),
+          appProperties: metaJson.appProperties,
+        };
+        mockDriveStore.set(fileId, {
+          metadata: fileMeta,
+          encryptedContent: mediaJsonText,
+        });
+        return new Response(JSON.stringify(fileMeta), { status: 200 });
+      }
+
+      if (url.includes('?alt=media')) {
+        const match = url.match(/\/files\/([^?]+)\?alt=media/);
+        const fileId = decodeURIComponent(match?.[1] || '');
+        const stored = mockDriveStore.get(fileId);
+        if (!stored) {
+          return new Response('Not Found', { status: 404 });
+        }
+        return new Response(stored.encryptedContent, { status: 200 });
+      }
+
+      if (url.startsWith('https://www.googleapis.com/drive/v3/files') && method === 'GET') {
+        const files = [...mockDriveStore.values()].map((item) => item.metadata);
+        return new Response(JSON.stringify({ files }), { status: 200 });
+      }
+
+      if (url.startsWith('https://www.googleapis.com/drive/v3/files/') && method === 'DELETE') {
+        const fileId = decodeURIComponent(url.split('/files/')[1] || '');
+        mockDriveStore.delete(fileId);
+        return new Response(null, { status: 204 });
+      }
+
+      return new Response('Unhandled URL', { status: 500 });
+    };
+
+    // Export current IndexedDB ledger to encrypted Google Drive file
+    const uploadResult = await exportDatabaseToEncryptedDrive(passphrase, {
+      accessToken: 'ya29.mock-drive-token',
+      fetchImpl: mockDriveFetch,
+    });
+    assert.equal(uploadResult.file.id, 'drive-file-1');
+    assert.equal(uploadResult.transactionCount, initialBackup.transactions.length);
+
+    // List backups from Google Drive
+    const listedFiles = await listDriveLedgerBackups({
+      accessToken: 'ya29.mock-drive-token',
+      fetchImpl: mockDriveFetch,
+    });
+    assert.equal(listedFiles.length, 1);
+    assert.equal(listedFiles[0].id, 'drive-file-1');
+
+    // Add a new local transaction, then perform bidirectional smart-merge sync with Google Drive
+    await saveTransaction({
+      date: '2026-11-28T10:00',
+      type: 'Expense',
+      accountId: 'acc-icici',
+      amount: 999,
+      category: 'Food & Groceries',
+      subCategory: 'Temp Snack',
+      fixedOrVariable: 'Variable',
+      note: 'Cross-device synced entry',
+      receiptImages: [],
+      isAnomaly: false,
+    });
+
+    const smartSyncResult = await syncLedgerWithEncryptedDrive(passphrase, {
+      accessToken: 'ya29.mock-drive-token',
+      fetchImpl: mockDriveFetch,
+    });
+    assert.equal(smartSyncResult.syncAction, 'merged-and-updated');
+    assert.equal(smartSyncResult.transactionCount, initialBackup.transactions.length + 1);
+
+    // Restore (replace) from the updated encrypted Google Drive backup
+    const importResult = await importDatabaseFromEncryptedDrive(
+      'drive-file-1',
+      passphrase,
+      'replace',
+      {
+        accessToken: 'ya29.mock-drive-token',
+        fetchImpl: mockDriveFetch,
+      }
+    );
+    assert.equal(
+      importResult.restored.transactions.length,
+      initialBackup.transactions.length + 1
+    );
+
+    // Delete backup file from Google Drive
+    await deleteDriveLedgerBackup('drive-file-1', {
+      accessToken: 'ya29.mock-drive-token',
+      fetchImpl: mockDriveFetch,
+    });
+    const afterDelete = await listDriveLedgerBackups({
+      accessToken: 'ya29.mock-drive-token',
+      fetchImpl: mockDriveFetch,
+    });
+    assert.equal(afterDelete.length, 0);
+  });
+
+  it('supports touch-friendly swipe gestures across Daily, Calendar, Accounts, and Stats tabs and enforces high-contrast active tab tokens in light and dark modes', async () => {
+    const {
+      SWIPEABLE_MONEY_MANAGER_TABS,
+      getNextTabBySwipe,
+      resolveActiveTabContrastTokens,
+    } = await import('../src/components/money-manager/Header');
+
+    assert.deepEqual(SWIPEABLE_MONEY_MANAGER_TABS, [
+      'daily',
+      'calendar',
+      'accounts',
+      'stats',
+    ]);
+
+    // Swiping left (negative deltaX < -44) advances forward through Daily -> Calendar -> Accounts -> Stats
+    assert.equal(getNextTabBySwipe('daily', -75, 4), 'calendar');
+    assert.equal(getNextTabBySwipe('calendar', -68, -6), 'accounts');
+    assert.equal(getNextTabBySwipe('accounts', -82, 10), 'stats');
+    // Clamps at last swipeable view by default
+    assert.equal(getNextTabBySwipe('stats', -90, 0), 'stats');
+    // Wraps around when wrapAround is enabled
+    assert.equal(
+      getNextTabBySwipe('stats', -90, 0, { wrapAround: true }),
+      'daily'
+    );
+
+    // Swiping right (positive deltaX > 44) moves backward through Stats -> Accounts -> Calendar -> Daily
+    assert.equal(getNextTabBySwipe('stats', 70, 5), 'accounts');
+    assert.equal(getNextTabBySwipe('accounts', 60, -8), 'calendar');
+    assert.equal(getNextTabBySwipe('calendar', 65, 2), 'daily');
+    assert.equal(getNextTabBySwipe('daily', 80, 0), 'daily');
+
+    // Short horizontal movements (< 44px) or predominantly vertical scrolling gestures do not switch tabs
+    assert.equal(getNextTabBySwipe('daily', -24, 2), 'daily');
+    assert.equal(getNextTabBySwipe('calendar', -80, 95), 'calendar');
+
+    // High-contrast visual tokens for light and dark modes
+    const lightTokens = resolveActiveTabContrastTokens('light');
+    const darkTokens = resolveActiveTabContrastTokens('dark');
+
+    assert.equal(lightTokens.mode, 'light');
+    assert.equal(lightTokens.textColor, '#1e3a8a');
+    assert.equal(lightTokens.indicatorColor, '#1d4ed8');
+    assert.equal(lightTokens.backgroundColor, 'rgba(37, 99, 235, 0.14)');
+    assert.equal(lightTokens.borderColor, 'rgba(29, 78, 216, 0.45)');
+
+    assert.equal(darkTokens.mode, 'dark');
+    assert.equal(darkTokens.textColor, '#f8fafc');
+    assert.equal(darkTokens.indicatorColor, '#38bdf8');
+    assert.equal(darkTokens.backgroundColor, 'rgba(56, 189, 248, 0.2)');
+    assert.equal(darkTokens.borderColor, 'rgba(56, 189, 248, 0.55)');
+    assert.notEqual(lightTokens.textColor, darkTokens.textColor);
+  });
 });
-
-
-
-
-
-
-
-
-
-
-
 

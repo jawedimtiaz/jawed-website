@@ -204,8 +204,13 @@ export function filterDailyTransactions(
       const targetAccountLabel = tx.toAccountId
         ? accountNameMap?.get(tx.toAccountId) || tx.toAccountId
         : '';
-      const haystack = `${tx.category || ''} ${tx.subCategory || ''} ${tx.note || ''} ${accountLabel} ${targetAccountLabel}`.toLowerCase();
-      if (!haystack.includes(q)) return false;
+      const haystack = `${tx.category || ''} ${tx.subCategory || ''} ${tx.note || ''} ${tx.type || ''} ${tx.fixedOrVariable || ''} ${tx.amount ?? ''} ${accountLabel} ${targetAccountLabel}`.toLowerCase();
+      if (!haystack.includes(q)) {
+        const tokens = q.split(/\s+/).filter(Boolean);
+        if (tokens.length === 0 || !tokens.every((token) => haystack.includes(token))) {
+          return false;
+        }
+      }
     }
 
     return true;
@@ -379,6 +384,32 @@ export function startVoiceSearchDictation(
     );
     return null;
   }
+}
+
+export interface DictatedVoiceFilterResult {
+  normalizedQuery: string;
+  filteredTransactions: MoneyTransaction[];
+  matchCount: number;
+}
+
+/**
+ * Normalizes a dictated Web Speech API query and automatically computes the filtered ledger transactions.
+ */
+export function applyDictatedVoiceSearchFilter(
+  rawTranscript: string,
+  transactions: MoneyTransaction[],
+  criteria: Omit<DailyFilterCriteria, 'searchQuery'>
+): DictatedVoiceFilterResult {
+  const normalizedQuery = normalizeVoiceSearchTranscript(rawTranscript);
+  const filteredTransactions = filterDailyTransactions(transactions, {
+    ...criteria,
+    searchQuery: normalizedQuery,
+  });
+  return {
+    normalizedQuery,
+    filteredTransactions,
+    matchCount: filteredTransactions.length,
+  };
 }
 
 export interface FilteredDailyCsvExportResult {
@@ -902,12 +933,23 @@ export const DailyView: React.FC<DailyViewProps> = ({
         setVoiceSearchStatus('Listening… Speak a category or transaction note');
       },
       onTranscript: (transcript, isFinal) => {
-        setSearchQuery(transcript);
+        const result = applyDictatedVoiceSearchFilter(transcript, localTransactions, {
+          selectedMonth,
+          accountFilter,
+          categoryFilter,
+          typeFilter,
+          natureFilter,
+          recurringFilter,
+          recurringRules: localRecurringRules,
+          accountNameMap,
+        });
+        setSearchQuery(result.normalizedQuery);
         setVoiceSearchError(false);
+        const countLabel = `${result.matchCount} ${result.matchCount === 1 ? 'result' : 'results'}`;
         setVoiceSearchStatus(
           isFinal
-            ? `Voice search: "${transcript}"`
-            : `Hearing: "${transcript}"…`
+            ? `Voice search: "${result.normalizedQuery}" (${countLabel})`
+            : `Hearing: "${result.normalizedQuery}"… (${countLabel})`
         );
       },
       onError: (userMessage, errorCode) => {

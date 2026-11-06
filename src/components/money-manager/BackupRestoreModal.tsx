@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   X,
   Download,
@@ -12,6 +12,13 @@ import {
   FileText,
   ArrowRight,
   Sparkles,
+  Cloud,
+  Lock,
+  KeyRound,
+  Trash2,
+  LogOut,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   type AccountSummary,
@@ -44,6 +51,21 @@ import {
   SAMPLE_BANK_STATEMENT_CSV,
   type CsvColumnMapping,
 } from './csvImporter';
+import {
+  SCOPES,
+  initGoogleDriveAuth,
+  googleDriveSignIn,
+  googleDriveLogout,
+  getGoogleDriveAccessToken,
+  listDriveLedgerBackups,
+  exportDatabaseToEncryptedDrive,
+  importDatabaseFromEncryptedDrive,
+  syncLedgerWithEncryptedDrive,
+  deleteDriveLedgerBackup,
+  encryptLedgerPayload,
+  decryptLedgerPayload,
+  type DriveBackupFileMetadata,
+} from './googleDriveSync';
 
 export {
   formatTransactionsToCsv,
@@ -51,8 +73,17 @@ export {
   exportTransactionsCsvFromDb,
   generateBulkLedgerCsvExport,
   exportBulkLedgerHistoryCsvFromDb,
+  SCOPES,
+  encryptLedgerPayload,
+  decryptLedgerPayload,
+  exportDatabaseToEncryptedDrive,
+  importDatabaseFromEncryptedDrive,
+  syncLedgerWithEncryptedDrive,
+  listDriveLedgerBackups,
+  deleteDriveLedgerBackup,
   type BulkCsvExportOptions,
   type BulkCsvExportSummary,
+  type DriveBackupFileMetadata,
 };
 
 export interface BackupRestoreModalProps {
@@ -86,6 +117,210 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+
+  // Encrypted Google Drive Cloud Sync State
+  const [needsDriveAuth, setNeedsDriveAuth] = useState<boolean>(true);
+  const [driveAccessToken, setDriveAccessToken] = useState<string | null>(null);
+  const [driveUserEmail, setDriveUserEmail] = useState<string>('');
+  const [isDriveLoggingIn, setIsDriveLoggingIn] = useState<boolean>(false);
+  const [drivePassphrase, setDrivePassphrase] = useState<string>('');
+  const [showDrivePassphrase, setShowDrivePassphrase] = useState<boolean>(false);
+  const [driveBackups, setDriveBackups] = useState<DriveBackupFileMetadata[]>([]);
+  const [isLoadingDriveFiles, setIsLoadingDriveFiles] = useState<boolean>(false);
+  const [pendingDriveConfirmation, setPendingDriveConfirmation] = useState<{
+    type: 'overwrite' | 'import' | 'delete' | 'smart-sync';
+    file: DriveBackupFileMetadata;
+    description: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = initGoogleDriveAuth(
+      (user, token) => {
+        setDriveAccessToken(token);
+        setDriveUserEmail(user.email || user.displayName || 'Connected Google Account');
+        setNeedsDriveAuth(false);
+      },
+      () => {
+        setDriveAccessToken(null);
+        setDriveUserEmail('');
+        setNeedsDriveAuth(true);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  const refreshDriveBackupList = async (explicitToken?: string) => {
+    const activeToken = explicitToken || driveAccessToken || (await getGoogleDriveAccessToken());
+    if (!activeToken) {
+      setNeedsDriveAuth(true);
+      return;
+    }
+    try {
+      setIsLoadingDriveFiles(true);
+      const files = await listDriveLedgerBackups({ accessToken: activeToken });
+      setDriveBackups(files);
+    } catch (err) {
+      setStatusMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Unable to list Google Drive backups.',
+      });
+    } finally {
+      setIsLoadingDriveFiles(false);
+    }
+  };
+
+  const handleGoogleDriveSignIn = async () => {
+    try {
+      setIsDriveLoggingIn(true);
+      setStatusMessage(null);
+      const authResult = await googleDriveSignIn();
+      if (authResult) {
+        setDriveAccessToken(authResult.accessToken);
+        setDriveUserEmail(
+          authResult.user.email || authResult.user.displayName || 'Connected Google Account'
+        );
+        setNeedsDriveAuth(false);
+        await refreshDriveBackupList(authResult.accessToken);
+        setStatusMessage({
+          type: 'success',
+          text: `Connected to Google Drive as ${
+            authResult.user.email || authResult.user.displayName || 'Google User'
+          }.`,
+        });
+      }
+    } catch (err) {
+      setStatusMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Google Drive sign-in was cancelled or failed.',
+      });
+    } finally {
+      setIsDriveLoggingIn(false);
+    }
+  };
+
+  const handleGoogleDriveSignOut = async () => {
+    await googleDriveLogout();
+    setDriveAccessToken(null);
+    setDriveUserEmail('');
+    setDriveBackups([]);
+    setNeedsDriveAuth(true);
+    setPendingDriveConfirmation(null);
+    setStatusMessage({
+      type: 'success',
+      text: 'Disconnected from Google Drive and cleared in-memory access token.',
+    });
+  };
+
+  const handleExportNewEncryptedDriveBackup = async () => {
+    if (drivePassphrase.trim().length < 4) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Enter an encryption passphrase (at least 4 characters) before exporting to Google Drive.',
+      });
+      return;
+    }
+    const token = driveAccessToken || (await getGoogleDriveAccessToken());
+    if (!token) {
+      setNeedsDriveAuth(true);
+      return;
+    }
+    try {
+      setIsProcessing(true);
+      setStatusMessage(null);
+      const result = await exportDatabaseToEncryptedDrive(drivePassphrase, {
+        accessToken: token,
+      });
+      await refreshDriveBackupList(token);
+      setStatusMessage({
+        type: 'success',
+        text: `Encrypted and uploaded ${result.transactionCount} transactions & ${result.accountCount} accounts to Google Drive ("${result.file.name}").`,
+      });
+    } catch (err) {
+      setStatusMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to upload encrypted backup to Google Drive.',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleExecuteConfirmedDriveAction = async () => {
+    if (!pendingDriveConfirmation) return;
+    const { type, file } = pendingDriveConfirmation;
+    const token = driveAccessToken || (await getGoogleDriveAccessToken());
+    if (!token) {
+      setNeedsDriveAuth(true);
+      setPendingDriveConfirmation(null);
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setStatusMessage(null);
+
+      if (type === 'overwrite') {
+        if (drivePassphrase.trim().length < 4) {
+          throw new Error('Enter your encryption passphrase (at least 4 characters) to update the cloud backup.');
+        }
+        const result = await exportDatabaseToEncryptedDrive(drivePassphrase, {
+          accessToken: token,
+          existingFileId: file.id,
+          customFileName: file.name,
+        });
+        await refreshDriveBackupList(token);
+        setStatusMessage({
+          type: 'success',
+          text: `Updated encrypted Google Drive backup "${result.file.name}" (${result.transactionCount} transactions).`,
+        });
+      } else if (type === 'import') {
+        if (drivePassphrase.trim().length < 4) {
+          throw new Error('Enter the encryption passphrase used when creating this backup to decrypt it.');
+        }
+        const { restored } = await importDatabaseFromEncryptedDrive(
+          file.id,
+          drivePassphrase,
+          restoreMode,
+          { accessToken: token }
+        );
+        await onDataRestored();
+        setStatusMessage({
+          type: 'success',
+          text: `Decrypted & restored "${file.name}" (${restoreMode.toUpperCase()}): ${restored.transactions.length} transactions and ${restored.accounts.length} accounts synced.`,
+        });
+      } else if (type === 'smart-sync') {
+        if (drivePassphrase.trim().length < 4) {
+          throw new Error('Enter your encryption passphrase (at least 4 characters) to sync with Google Drive.');
+        }
+        const syncResult = await syncLedgerWithEncryptedDrive(drivePassphrase, {
+          accessToken: token,
+          existingFileId: file.id,
+          customFileName: file.name,
+        });
+        await onDataRestored();
+        await refreshDriveBackupList(token);
+        setStatusMessage({
+          type: 'success',
+          text: `Cross-device cloud sync complete ("${syncResult.file.name}"): merged and encrypted ${syncResult.transactionCount} transactions across ${syncResult.accountCount} accounts.`,
+        });
+      } else if (type === 'delete') {
+        await deleteDriveLedgerBackup(file.id, { accessToken: token });
+        await refreshDriveBackupList(token);
+        setStatusMessage({
+          type: 'success',
+          text: `Deleted encrypted backup "${file.name}" from Google Drive.`,
+        });
+      }
+    } catch (err) {
+      setStatusMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Google Drive cloud sync operation failed.',
+      });
+    } finally {
+      setIsProcessing(false);
+      setPendingDriveConfirmation(null);
+    }
+  };
 
   // Bulk CSV Export Configuration State
   const [bulkExportScope, setBulkExportScope] = useState<'full-history' | 'selected-month'>(
@@ -453,6 +688,473 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
               <span>{statusMessage.text}</span>
             </div>
           )}
+
+          {/* Encrypted Google Drive Cloud Sync Section */}
+          <div
+            className="mm-backup-card mm-backup-card-wide"
+            style={{
+              borderColor: 'rgba(56, 189, 248, 0.4)',
+              background:
+                'linear-gradient(180deg, rgba(56, 189, 248, 0.06) 0%, rgba(15, 23, 42, 0.5) 100%)',
+            }}
+            data-testid="mm-google-drive-sync-section"
+          >
+            <div className="mm-backup-card-head">
+              <span className="mm-backup-icon mm-backup-icon-blue">
+                <Cloud size={20} />
+              </span>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <h4>Encrypted Google Drive Cloud Sync (Cross-Device Ledger Sync)</h4>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      fontSize: '0.73rem',
+                      padding: '3px 8px',
+                      borderRadius: 999,
+                      background: 'rgba(16, 185, 129, 0.14)',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      color: '#10b981',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Lock size={12} />
+                    <span>AES-256-GCM + PBKDF2 Encrypted</span>
+                  </span>
+                </div>
+                <p>
+                  Export and import your entire Money Manager ledger across devices via Google Drive. Your ledger is encrypted locally in your browser with your passphrase before upload.
+                </p>
+              </div>
+            </div>
+
+            {needsDriveAuth || !driveAccessToken ? (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: '14px 16px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                }}
+                data-testid="mm-drive-auth-prompt"
+              >
+                <div style={{ fontSize: '0.84rem', color: 'var(--muted)' }}>
+                  <strong style={{ color: 'var(--text-heading)', display: 'block', marginBottom: 2 }}>
+                    Connect Google Drive for Encrypted Cloud Sync
+                  </strong>
+                  Sign in with your Google account to create, list, or restore encrypted Money Manager backup files created by this app.
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleGoogleDriveSignIn}
+                  disabled={isDriveLoggingIn}
+                  className="gsi-material-button"
+                  data-testid="mm-google-signin-btn"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 16px',
+                    borderRadius: 20,
+                    border: '1px solid #747775',
+                    background: '#ffffff',
+                    color: '#1f1f1f',
+                    fontWeight: 600,
+                    fontSize: '0.86rem',
+                    cursor: isDriveLoggingIn ? 'wait' : 'pointer',
+                  }}
+                >
+                  <div className="gsi-material-button-state" />
+                  <div
+                    className="gsi-material-button-content-wrapper"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}
+                  >
+                    <div
+                      className="gsi-material-button-icon"
+                      style={{ width: 18, height: 18, display: 'inline-flex' }}
+                    >
+                      <svg
+                        version="1.1"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 48 48"
+                        style={{ display: 'block', width: 18, height: 18 }}
+                      >
+                        <path
+                          fill="#EA4335"
+                          d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+                        />
+                        <path
+                          fill="#4285F4"
+                          d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+                        />
+                        <path fill="none" d="M0 0h48v48H0z" />
+                      </svg>
+                    </div>
+                    <span className="gsi-material-button-contents">
+                      {isDriveLoggingIn ? 'Signing in…' : 'Sign in with Google'}
+                    </span>
+                  </div>
+                </button>
+              </div>
+            ) : (
+              <div
+                style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}
+                data-testid="mm-drive-connected-panel"
+              >
+                {/* Connected Account & Sign-Out Bar */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    fontSize: '0.8rem',
+                  }}
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#10b981' }}>
+                    <CheckCircle2 size={14} />
+                    <span>
+                      Connected to Google Drive: <strong>{driveUserEmail}</strong>
+                    </span>
+                  </span>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => refreshDriveBackupList()}
+                      disabled={isLoadingDriveFiles || isProcessing}
+                      className="mm-btn mm-btn-sm mm-btn-secondary"
+                      data-testid="mm-drive-refresh-btn"
+                    >
+                      <RefreshCw size={13} />
+                      <span>{isLoadingDriveFiles ? 'Refreshing…' : 'Refresh Files'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGoogleDriveSignOut}
+                      disabled={isProcessing}
+                      className="mm-btn mm-btn-sm mm-btn-ghost"
+                      data-testid="mm-drive-signout-btn"
+                    >
+                      <LogOut size={13} />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Encryption Passphrase + Export Action Controls */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div className="mm-field" style={{ flex: '1 1 240px', position: 'relative' }}>
+                    <label htmlFor="mm-drive-passphrase">
+                      <KeyRound size={12} style={{ display: 'inline', marginRight: 4 }} />
+                      Zero-Knowledge Encryption Passphrase *
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        id="mm-drive-passphrase"
+                        type={showDrivePassphrase ? 'text' : 'password'}
+                        value={drivePassphrase}
+                        onChange={(e) => setDrivePassphrase(e.target.value)}
+                        placeholder="Enter passphrase (min 4 chars) to encrypt or decrypt..."
+                        className="mm-input"
+                        style={{ paddingRight: 36 }}
+                        data-testid="mm-drive-passphrase-input"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDrivePassphrase((prev) => !prev)}
+                        aria-label={showDrivePassphrase ? 'Hide passphrase' : 'Show passphrase'}
+                        style={{
+                          position: 'absolute',
+                          right: 8,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--muted)',
+                          cursor: 'pointer',
+                          padding: 2,
+                        }}
+                      >
+                        {showDrivePassphrase ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleExportNewEncryptedDriveBackup}
+                    disabled={isProcessing || drivePassphrase.trim().length < 4}
+                    className="mm-btn mm-btn-primary"
+                    data-testid="mm-drive-export-btn"
+                  >
+                    <Cloud size={15} />
+                    <span>Export &amp; Encrypt to Google Drive</span>
+                  </button>
+
+                  {driveBackups.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPendingDriveConfirmation({
+                            type: 'smart-sync',
+                            file: driveBackups[0],
+                            description: `Download, decrypt, and merge "${driveBackups[0].name}" with your local ledger, then re-encrypt and update the unified ledger on Google Drive?`,
+                          })
+                        }
+                        disabled={isProcessing || drivePassphrase.trim().length < 4}
+                        className="mm-btn mm-btn-emerald"
+                        data-testid="mm-drive-smart-sync-btn"
+                      >
+                        <RefreshCw size={15} />
+                        <span>Smart Merge Sync</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPendingDriveConfirmation({
+                            type: 'overwrite',
+                            file: driveBackups[0],
+                            description: `Overwrite existing Google Drive backup "${driveBackups[0].name}" with your current ${transactions.length} ledger transactions and ${accounts.length} accounts?`,
+                          })
+                        }
+                        disabled={isProcessing || drivePassphrase.trim().length < 4}
+                        className="mm-btn mm-btn-secondary"
+                        data-testid="mm-drive-overwrite-latest-btn"
+                      >
+                        <Upload size={15} />
+                        <span>Update Latest Cloud File</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Mandatory Confirmation Dialog for Mutating / Destructive Operations */}
+                {pendingDriveConfirmation && (
+                  <div
+                    role="alertdialog"
+                    aria-labelledby="mm-drive-confirm-title"
+                    data-testid="mm-drive-confirm-dialog"
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 10,
+                      background: 'rgba(245, 158, 11, 0.12)',
+                      border: '1px solid rgba(245, 158, 11, 0.45)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <AlertTriangle size={17} style={{ color: '#f59e0b', flexShrink: 0, marginTop: 2 }} />
+                      <div>
+                        <strong
+                          id="mm-drive-confirm-title"
+                          style={{ color: 'var(--text-heading)', fontSize: '0.86rem', display: 'block' }}
+                        >
+                          Confirm Google Drive Cloud Sync Action
+                        </strong>
+                        <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--muted-light)' }}>
+                          {pendingDriveConfirmation.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => setPendingDriveConfirmation(null)}
+                        disabled={isProcessing}
+                        className="mm-btn mm-btn-sm mm-btn-secondary"
+                        data-testid="mm-drive-confirm-cancel-btn"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExecuteConfirmedDriveAction}
+                        disabled={isProcessing}
+                        className={`mm-btn mm-btn-sm ${
+                          pendingDriveConfirmation.type === 'delete'
+                            ? 'mm-btn-danger'
+                            : 'mm-btn-emerald'
+                        }`}
+                        data-testid="mm-drive-confirm-proceed-btn"
+                      >
+                        {pendingDriveConfirmation.type === 'delete'
+                          ? 'Confirm Delete from Drive'
+                          : pendingDriveConfirmation.type === 'overwrite'
+                          ? 'Confirm Overwrite on Drive'
+                          : pendingDriveConfirmation.type === 'smart-sync'
+                          ? 'Confirm Smart Merge Sync'
+                          : `Confirm Import (${restoreMode.toUpperCase()})`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Saved Encrypted Cloud Backups Table */}
+                <div
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 10,
+                    background: 'var(--surface)',
+                    overflow: 'hidden',
+                  }}
+                  data-testid="mm-drive-files-list"
+                >
+                  <div
+                    style={{
+                      padding: '8px 12px',
+                      borderBottom: '1px solid var(--border)',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: 'var(--muted)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span>Encrypted Ledger Backups in Google Drive ({driveBackups.length})</span>
+                    <span>Restore Mode: {restoreMode.toUpperCase()}</span>
+                  </div>
+
+                  {driveBackups.length === 0 ? (
+                    <div
+                      style={{
+                        padding: '14px 12px',
+                        fontSize: '0.8rem',
+                        color: 'var(--muted)',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {isLoadingDriveFiles
+                        ? 'Loading encrypted backups from Google Drive…'
+                        : 'No encrypted Money Manager backups found in your Google Drive yet. Enter a passphrase above and click "Export & Encrypt to Google Drive".'}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      {driveBackups.map((file) => (
+                        <div
+                          key={file.id}
+                          style={{
+                            padding: '10px 12px',
+                            borderBottom: '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: 10,
+                            fontSize: '0.8rem',
+                          }}
+                          data-testid={`mm-drive-file-row-${file.id}`}
+                        >
+                          <div>
+                            <strong style={{ color: 'var(--text-heading)', display: 'block' }}>
+                              {file.name}
+                            </strong>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>
+                              Modified: {new Date(file.modifiedTime).toLocaleString()}
+                              {file.appProperties?.transactionCount
+                                ? ` · ${file.appProperties.transactionCount} transactions`
+                                : ''}
+                              {file.appProperties?.accountCount
+                                ? ` · ${file.appProperties.accountCount} accounts`
+                                : ''}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingDriveConfirmation({
+                                  type: 'import',
+                                  file,
+                                  description: `Download, decrypt, and ${
+                                    restoreMode === 'replace'
+                                      ? 'replace your entire local ledger with'
+                                      : 'merge your local ledger with'
+                                  } "${file.name}" from Google Drive?`,
+                                })
+                              }
+                              disabled={isProcessing || drivePassphrase.trim().length < 4}
+                              className="mm-btn mm-btn-sm mm-btn-emerald"
+                              title={
+                                drivePassphrase.trim().length < 4
+                                  ? 'Enter your encryption passphrase above first'
+                                  : 'Decrypt and import this cloud backup'
+                              }
+                              data-testid={`mm-drive-import-btn-${file.id}`}
+                            >
+                              <Download size={13} />
+                              <span>Import &amp; Decrypt</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingDriveConfirmation({
+                                  type: 'delete',
+                                  file,
+                                  description: `Permanently delete encrypted backup "${file.name}" from your Google Drive? This action cannot be undone.`,
+                                })
+                              }
+                              disabled={isProcessing}
+                              className="mm-btn mm-btn-sm mm-btn-ghost-danger"
+                              title="Delete backup file from Google Drive"
+                              data-testid={`mm-drive-delete-btn-${file.id}`}
+                            >
+                              <Trash2 size={13} />
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* CSV Import & Bank Statement Column Mapper */}
           <div
