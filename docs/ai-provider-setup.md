@@ -60,3 +60,6 @@ Workers AI errors are normalized so provider-specific error details are not expo
 ## Audio transcription (local-first)
 
 The audio transcriber uses Transformers.js with the open-source `onnx-community/whisper-tiny` model in the visitor’s browser. Audio is decoded and transcribed locally; the site does not send audio to a transcription API, and no Workers AI binding or paid transcription key is required. The JavaScript module is loaded from `https://esm.sh`, and model files are downloaded from Hugging Face on first use and may be cached by the browser. Processing speed and memory use depend on the visitor’s device. The tool provides transcript text and simple formatting; it does not run a separate generative model to summarize or follow custom instructions.
+
+
+> **Historical / not current production configuration.** This document describes an earlier server-side `/api/ai` / Cloudflare Pages Functions design. The current production runtime is the browser-side knowledge assistant described in [AI Current Runtime](./ai-current-runtime.md). Do not use the endpoint, binding, or credential instructions below to change production settings unless that architecture is explicitly reintroduced, reviewed, and deployed.

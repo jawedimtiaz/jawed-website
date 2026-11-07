@@ -30,3 +30,6 @@ A provider-backed pass requires:
 
 The deterministic CI regression matrix does not execute this provider-backed harness because it would consume remote Workers AI allocation and depend on deployment availability. A real provider-backed E2E run must therefore be performed manually from a network that can reach `jawed.co.in`.
 
+
+
+> **Historical / not current production configuration.** This document describes an earlier server-side `/api/ai` / Cloudflare Pages Functions design. The current production runtime is the browser-side knowledge assistant described in [AI Current Runtime](./ai-current-runtime.md). Do not use the endpoint, binding, or credential instructions below to change production settings unless that architecture is explicitly reintroduced, reviewed, and deployed.
