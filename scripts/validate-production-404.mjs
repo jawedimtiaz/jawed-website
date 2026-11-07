@@ -34,7 +34,7 @@ try{
   const markerIndex=body.toLowerCase().indexOf(marker.toLowerCase());
   if(markerIndex!==-1){
    const start=Math.max(0,markerIndex-100),end=Math.min(body.length,markerIndex+marker.length+100);
-   const context=body.slice(start,end).replace(/\\s+/g," ").replace(/[\\r\\n\\t]/g," ");
+   const context=body.slice(start,end).replace(/\s+/g," ");
    console.error(`404 diagnostic: forbidden marker=${JSON.stringify(marker)} index=${markerIndex} context=${JSON.stringify(context)}`);
    failures.push(`404 probe: platform/error marker detected ${marker}`);
   }
