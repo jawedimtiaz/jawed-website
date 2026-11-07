@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   X,
   Upload,
@@ -9,15 +9,23 @@ import {
   Repeat,
   Sparkles,
   CheckCircle2,
+  Layers,
+  Plus,
 } from 'lucide-react';
 import {
   computeNextRecurringDate,
   SAMPLE_RECEIPT_DATA_URL,
+  INITIAL_ACCOUNTS,
+  INITIAL_CATEGORIES,
+  initializeAndSeedDatabase,
+  saveTransaction,
+  saveRecurringRule,
   SUPPORTED_CURRENCIES,
   CURRENCY_METADATA,
   FALLBACK_RATES_TO_INR,
   fetchDailyExchangeRates,
   convertCurrencyAmount,
+  resolveTransactionAmountInCurrency,
   formatCurrencyAmount,
   normalizeCurrencyCode,
   type CurrencyCode,
@@ -41,6 +49,165 @@ import {
   type ScannedReceiptResult,
 } from './receiptScanner';
 
+export interface BatchLoggedTransactionItem {
+  id: string;
+  date: string;
+  type: TransactionType;
+  category: string;
+  subCategory: string;
+  amount: number;
+  currency: CurrencyCode;
+  originalAmount: number;
+  accountId: string;
+  note: string;
+  savedAt: number;
+}
+
+export interface BatchSessionSummary {
+  count: number;
+  totalIncomeINR: number;
+  totalExpenseINR: number;
+  totalTransferINR: number;
+  netDeltaINR: number;
+  items: BatchLoggedTransactionItem[];
+}
+
+export interface SequentialFormStateSnapshot {
+  txType: TransactionType;
+  dateTime: string;
+  accountId: string;
+  toAccountId: string;
+  category: string;
+  subCategory: string;
+  fixedOrVariable: FixedOrVariable;
+  currency: CurrencyCode;
+  amount: string;
+  note: string;
+  receiptImages: string[];
+  isAnomaly: boolean;
+  recurringInterval: 'None' | RecurringFrequency;
+  manualCategoryLock: boolean;
+}
+
+/**
+ * Computes the next form state after logging an entry in Batch Mode.
+ * Preserves sticky context (date/time, transaction type, account, category, sub-category, nature, currency)
+ * while clearing per-entry fields (amount, memo/note, receipts, anomaly flag, recurring rule) for rapid sequential logging.
+ */
+export function computeNextSequentialFormState(
+  prev: SequentialFormStateSnapshot,
+  options?: { advanceMinutes?: number }
+): SequentialFormStateSnapshot {
+  let nextDateTime = prev.dateTime;
+  if (typeof options?.advanceMinutes === 'number' && options.advanceMinutes !== 0 && prev.dateTime) {
+    const parsed = new Date(prev.dateTime);
+    if (!Number.isNaN(parsed.getTime())) {
+      const bumped = new Date(parsed.getTime() + options.advanceMinutes * 60_000);
+      const yyyy = bumped.getFullYear();
+      const mm = String(bumped.getMonth() + 1).padStart(2, '0');
+      const dd = String(bumped.getDate()).padStart(2, '0');
+      const hh = String(bumped.getHours()).padStart(2, '0');
+      const min = String(bumped.getMinutes()).padStart(2, '0');
+      nextDateTime = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+    }
+  }
+
+  return {
+    txType: prev.txType,
+    dateTime: nextDateTime,
+    accountId: prev.accountId,
+    toAccountId: prev.toAccountId,
+    category: prev.category,
+    subCategory: prev.subCategory,
+    fixedOrVariable: prev.fixedOrVariable,
+    currency: prev.currency,
+    amount: '',
+    note: '',
+    receiptImages: [],
+    isAnomaly: false,
+    recurringInterval: 'None',
+    manualCategoryLock: false,
+  };
+}
+
+/**
+ * Aggregates all transactions logged during a single Batch Mode modal session.
+ */
+export function summarizeBatchSession(
+  items: BatchLoggedTransactionItem[]
+): BatchSessionSummary {
+  let totalIncomeINR = 0;
+  let totalExpenseINR = 0;
+  let totalTransferINR = 0;
+
+  for (const item of items) {
+    const val = Number(item.amount) || 0;
+    if (item.type === 'Income') {
+      totalIncomeINR += val;
+    } else if (item.type === 'Expense') {
+      totalExpenseINR += val;
+    } else if (item.type === 'Transfer') {
+      totalTransferINR += val;
+    }
+  }
+
+  return {
+    count: items.length,
+    totalIncomeINR: Number(totalIncomeINR.toFixed(2)),
+    totalExpenseINR: Number(totalExpenseINR.toFixed(2)),
+    totalTransferINR: Number(totalTransferINR.toFixed(2)),
+    netDeltaINR: Number((totalIncomeINR - totalExpenseINR).toFixed(2)),
+    items,
+  };
+}
+
+/**
+ * Executes a sequential batch of transaction saves without closing the session,
+ * returning the aggregated BatchSessionSummary.
+ */
+export async function executeSequentialBatchSave(
+  entries: Array<Omit<MoneyTransaction, 'id'> & { id?: string }>,
+  saveFn: (txData: Omit<MoneyTransaction, 'id'> & { id?: string }) => Promise<MoneyTransaction | void>
+): Promise<BatchSessionSummary> {
+  const loggedItems: BatchLoggedTransactionItem[] = [];
+
+  for (let idx = 0; idx < entries.length; idx += 1) {
+    const entry = entries[idx];
+    const resolved = resolveTransactionAmountInCurrency(entry, 'INR');
+    const normalizedPayload: Omit<MoneyTransaction, 'id'> & { id?: string } = {
+      ...entry,
+      amount: resolved.amountInINR,
+      currency: resolved.originalCurrency,
+      originalAmount:
+        resolved.originalCurrency !== 'INR' ? resolved.originalAmount : entry.originalAmount,
+      exchangeRateToINR:
+        resolved.originalCurrency !== 'INR' ? resolved.exchangeRateToINR : 1,
+    };
+
+    const maybeSaved = await saveFn(normalizedPayload);
+    const savedId =
+      (maybeSaved && typeof maybeSaved === 'object' && 'id' in maybeSaved && maybeSaved.id) ||
+      entry.id ||
+      `tx-batch-${Date.now()}-${idx}`;
+
+    loggedItems.push({
+      id: savedId,
+      date: entry.date,
+      type: entry.type,
+      category: entry.type === 'Transfer' ? 'Transfer' : entry.category,
+      subCategory: entry.subCategory || '',
+      amount: resolved.amountInINR,
+      currency: resolved.originalCurrency,
+      originalAmount: resolved.originalAmount,
+      accountId: entry.accountId,
+      note: entry.note || '',
+      savedAt: Date.now() + idx,
+    });
+  }
+
+  return summarizeBatchSession(loggedItems);
+}
+
 export interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -57,6 +224,7 @@ export interface TransactionModalProps {
   editingTransaction?: MoneyTransaction | null;
   defaultDate?: string; // YYYY-MM-DD
   initialReceiptImage?: string;
+  initialBatchMode?: boolean;
 }
 
 const TRANSFER_SUBCATEGORIES = [
@@ -77,6 +245,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   editingTransaction,
   defaultDate,
   initialReceiptImage,
+  initialBatchMode = false,
 }) => {
   const [txType, setTxType] = useState<TransactionType>('Expense');
   const [dateTime, setDateTime] = useState<string>('2026-11-02T12:00');
@@ -97,6 +266,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [ruleSavedNotice, setRuleSavedNotice] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Batch Mode Sequential Logging State
+  const [batchMode, setBatchMode] = useState<boolean>(Boolean(initialBatchMode));
+  const [batchSessionItems, setBatchSessionItems] = useState<BatchLoggedTransactionItem[]>([]);
+  const [batchLastSavedNotice, setBatchLastSavedNotice] = useState<string>('');
+  const amountInputRef = useRef<HTMLInputElement | null>(null);
+  const initializedSessionKeyRef = useRef<string>('');
 
   // Automated Receipt Scanning State
   const [isScanningReceipt, setIsScanningReceipt] = useState<boolean>(false);
@@ -209,14 +385,27 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      initializedSessionKeyRef.current = '';
+      return;
+    }
+
+    const sessionKey = `${editingTransaction?.id || 'NEW'}::${defaultDate || ''}::${initialReceiptImage || ''}`;
+    if (initializedSessionKeyRef.current === sessionKey) {
+      return;
+    }
+    initializedSessionKeyRef.current = sessionKey;
+
     setErrorMessage('');
     setRecurringInterval('None');
     setScannedReceiptResult(null);
     setReceiptScanFeedback('');
+    setBatchSessionItems([]);
+    setBatchLastSavedNotice('');
 
     if (editingTransaction) {
       const txCurrency = normalizeCurrencyCode(editingTransaction.currency, 'INR');
+      setBatchMode(false);
       setTxType(editingTransaction.type);
       setDateTime(editingTransaction.date.slice(0, 16));
       setCurrency(txCurrency);
@@ -250,6 +439,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       const firstCat = expenseCats[0];
 
       const baseDate = defaultDate || '2026-11-02';
+      setBatchMode(Boolean(initialBatchMode));
       setTxType(initialType);
       setDateTime(`${baseDate}T12:00`);
       setCurrency('INR');
@@ -270,7 +460,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         handleScanReceiptDataUrl(initialReceiptImage);
       }
     }
-  }, [isOpen, editingTransaction, defaultDate, accounts, categories, initialReceiptImage]);
+  }, [isOpen, editingTransaction, defaultDate, accounts, categories, initialReceiptImage, initialBatchMode]);
 
   const mlPrediction = useMemo<CategoryPrediction | null>(() => {
     const cleanNote = note.trim();
@@ -417,8 +607,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       ? parsedAmountPreview
       : convertCurrencyAmount(parsedAmountPreview, currency, 'INR', activeRatesToInr);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const batchSummary = useMemo(
+    () => summarizeBatchSession(batchSessionItems),
+    [batchSessionItems]
+  );
+
+  const performSaveTransaction = async (keepModalOpenForNext: boolean) => {
+    setErrorMessage('');
     const numericAmount = Number.parseFloat(amount);
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       setErrorMessage(`Please enter a valid positive amount in ${currency}.`);
@@ -492,12 +687,72 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         });
       }
 
-      onClose();
+      if (!editingTransaction && keepModalOpenForNext) {
+        const newBatchItem: BatchLoggedTransactionItem = {
+          id: `batch-${Date.now()}-${batchSessionItems.length + 1}`,
+          date: dateTime,
+          type: txType,
+          category: resolvedCategory,
+          subCategory,
+          amount: inrEquivalent,
+          currency,
+          originalAmount: numericAmount,
+          accountId,
+          note: note.trim(),
+          savedAt: Date.now(),
+        };
+
+        setBatchSessionItems((prev) => [...prev, newBatchItem]);
+        setBatchLastSavedNotice(
+          `Logged #${batchSessionItems.length + 1}: ${resolvedCategory} (${formatCurrencyAmount(
+            numericAmount,
+            currency
+          )}) — ready for next entry`
+        );
+
+        const nextState = computeNextSequentialFormState({
+          txType,
+          dateTime,
+          accountId,
+          toAccountId,
+          category,
+          subCategory,
+          fixedOrVariable,
+          currency,
+          amount,
+          note,
+          receiptImages,
+          isAnomaly,
+          recurringInterval,
+          manualCategoryLock,
+        });
+
+        setAmount(nextState.amount);
+        setNote(nextState.note);
+        setReceiptImages(nextState.receiptImages);
+        setIsAnomaly(nextState.isAnomaly);
+        setRecurringInterval(nextState.recurringInterval);
+        setManualCategoryLock(nextState.manualCategoryLock);
+        setScannedReceiptResult(null);
+        setReceiptScanFeedback('');
+        setRuleSavedNotice('');
+
+        setTimeout(() => {
+          amountInputRef.current?.focus();
+        }, 15);
+      } else {
+        onClose();
+      }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to save transaction.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    await performSaveTransaction(!editingTransaction && batchMode);
   };
 
   if (!isOpen) return null;
@@ -516,19 +771,187 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         data-testid="mm-transaction-modal"
       >
         {/* Modal Header */}
-        <div className="mm-modal-header">
-          <h2 className="mm-modal-title">
-            {editingTransaction ? 'Edit Ledger Entry' : 'Record New Transaction'}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="mm-icon-action-btn"
-            aria-label="Close transaction modal"
-          >
-            <X size={18} />
-          </button>
+        <div className="mm-modal-header" style={{ gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h2 className="mm-modal-title" style={{ margin: 0 }}>
+              {editingTransaction ? 'Edit Ledger Entry' : 'Record New Transaction'}
+            </h2>
+            <kbd
+              data-testid="mm-tx-modal-shortcut-badge"
+              style={{
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                padding: '2px 7px',
+                borderRadius: 6,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-darker, rgba(15, 23, 42, 0.45))',
+                color: 'var(--muted)',
+                fontFamily: 'var(--font-mono, monospace)',
+              }}
+              title="Global keyboard shortcut to open Money Manager Transaction Modal from anywhere in the tool suite"
+            >
+              Alt + N
+            </kbd>
+            {!editingTransaction && batchSummary.count > 0 && (
+              <span
+                className="mm-budget-status-pill is-on-track"
+                style={{ fontSize: '0.73rem', padding: '2px 9px' }}
+                data-testid="mm-batch-session-count-badge"
+              >
+                {batchSummary.count} {batchSummary.count === 1 ? 'entry' : 'entries'} logged
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {!editingTransaction && (
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '5px 10px',
+                  borderRadius: 999,
+                  fontSize: '0.77rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: batchMode
+                    ? '1px solid rgba(16, 185, 129, 0.5)'
+                    : '1px solid rgba(148, 163, 184, 0.3)',
+                  background: batchMode
+                    ? 'rgba(16, 185, 129, 0.14)'
+                    : 'rgba(148, 163, 184, 0.08)',
+                  color: batchMode ? '#10b981' : 'var(--text)',
+                }}
+                title="Keep modal open after saving to log multiple daily transactions sequentially"
+                data-testid="mm-batch-mode-toggle"
+              >
+                <input
+                  type="checkbox"
+                  checked={batchMode}
+                  onChange={(e) => setBatchMode(e.target.checked)}
+                  data-testid="mm-batch-mode-checkbox"
+                />
+                <Layers size={14} />
+                <span>Batch Mode</span>
+              </label>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="mm-icon-action-btn"
+              aria-label="Close transaction modal"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
+
+        {/* Batch Mode Sequential Session Progress Banner */}
+        {!editingTransaction && (batchMode || batchSummary.count > 0) && (
+          <div
+            data-testid="mm-batch-session-banner"
+            style={{
+              marginBottom: 12,
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid rgba(16, 185, 129, 0.38)',
+              background: 'rgba(16, 185, 129, 0.07)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              fontSize: '0.79rem',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <Layers size={14} style={{ color: '#10b981', flexShrink: 0 }} />
+                <strong>Sequential Batch Logging Active:</strong>
+                <span style={{ color: 'var(--muted)' }}>
+                  Date, account &amp; category stay pre-selected after each save for rapid entry.
+                </span>
+              </div>
+
+              {batchSummary.count > 0 && (
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}
+                  data-testid="mm-batch-session-totals"
+                >
+                  <span>{batchSummary.count} saved</span>
+                  {batchSummary.totalIncomeINR > 0 && (
+                    <span className="mm-text-income">
+                      +{formatCurrencyAmount(batchSummary.totalIncomeINR, 'INR')}
+                    </span>
+                  )}
+                  {batchSummary.totalExpenseINR > 0 && (
+                    <span className="mm-text-expense">
+                      -{formatCurrencyAmount(batchSummary.totalExpenseINR, 'INR')}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {batchLastSavedNotice && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  color: '#10b981',
+                  fontWeight: 600,
+                  fontSize: '0.76rem',
+                }}
+                data-testid="mm-batch-last-saved-notice"
+              >
+                <CheckCircle2 size={13} />
+                <span>{batchLastSavedNotice}</span>
+              </div>
+            )}
+
+            {batchSummary.items.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  flexWrap: 'wrap',
+                  marginTop: 2,
+                }}
+                data-testid="mm-batch-session-items-list"
+              >
+                {batchSummary.items.slice(-5).map((item, idx) => (
+                  <span
+                    key={item.id}
+                    style={{
+                      fontSize: '0.71rem',
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      background: 'rgba(15, 23, 42, 0.25)',
+                      border: '1px solid rgba(148, 163, 184, 0.25)',
+                      color: 'var(--text)',
+                    }}
+                    data-testid={`mm-batch-session-item-${idx}`}
+                  >
+                    #{idx + 1} {item.category}:{' '}
+                    <strong>
+                      {formatCurrencyAmount(item.originalAmount, item.currency)}
+                    </strong>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Fast Type Segmented Toggle: [Income] | [Expense] | [Transfer] */}
         <div className="mm-type-segmented" role="group" aria-label="Transaction Type">
@@ -858,6 +1281,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   ))}
                 </select>
                 <input
+                  ref={amountInputRef}
                   id="mm-tx-amount"
                   type="number"
                   required
@@ -1306,19 +1730,49 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           </div>
 
           {/* Modal Footer Actions */}
-          <div className="mm-modal-footer">
-            <button type="button" onClick={onClose} className="mm-btn mm-btn-ghost">
-              Cancel
-            </button>
+          <div className="mm-modal-footer" style={{ gap: 8, flexWrap: 'wrap' }}>
             <button
-              type="submit"
-              disabled={isSubmitting}
-              className="mm-btn mm-btn-primary"
-              data-testid="mm-tx-submit-btn"
+              type="button"
+              onClick={onClose}
+              className="mm-btn mm-btn-ghost"
+              data-testid="mm-tx-cancel-or-done-btn"
             >
-              <Check size={16} />
-              <span>{editingTransaction ? 'Update Transaction' : 'Save Transaction'}</span>
+              {batchSummary.count > 0
+                ? `Done (${batchSummary.count} Saved)`
+                : 'Cancel'}
             </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {!editingTransaction && !batchMode && (
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => performSaveTransaction(true)}
+                  className="mm-btn mm-btn-secondary"
+                  title="Save this transaction and keep the modal open to log the next entry immediately"
+                  data-testid="mm-tx-save-and-next-btn"
+                >
+                  <Plus size={15} />
+                  <span>Save &amp; Add Next</span>
+                </button>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="mm-btn mm-btn-primary"
+                data-testid="mm-tx-submit-btn"
+              >
+                <Check size={16} />
+                <span>
+                  {editingTransaction
+                    ? 'Update Transaction'
+                    : batchMode
+                    ? 'Log & Next Entry (Batch)'
+                    : 'Save Transaction'}
+                </span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -1326,4 +1780,219 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   );
 };
 
+export const MONEY_MANAGER_NEW_TX_SHORTCUT_COMBO = 'alt+n' as const;
+export const MONEY_MANAGER_NEW_TX_SHORTCUT_ID = 'money-manager-new-tx' as const;
+export const MONEY_MANAGER_NEW_TX_EVENT = 'open-money-manager-tx-modal' as const;
+export const MONEY_MANAGER_LEDGER_UPDATED_EVENT = 'money-manager-ledger-updated' as const;
+const PENDING_MODAL_STORAGE_KEY = 'mm_pending_tx_modal_payload_v1';
+
+export interface OpenMoneyManagerModalPayload {
+  defaultDate?: string;
+  initialDate?: string;
+  initialType?: 'income' | 'expense' | 'transfer' | TransactionType;
+  initialBatchMode?: boolean;
+  initialReceiptImage?: string;
+  source?: string;
+  triggeredAt?: number;
+  timestamp?: number;
+}
+
+let inMemoryPendingModalPayload: OpenMoneyManagerModalPayload | null = null;
+
+/**
+ * Checks whether a KeyboardEvent matches the Money Manager 'Alt + N' new transaction shortcut.
+ * Supports both `event.key === 'n'` / `'N'` and `event.code === 'KeyN'` (including macOS Option+N dead-key behavior).
+ */
+export function isMoneyManagerNewTransactionShortcut(
+  event:
+    | {
+        key?: string;
+        code?: string;
+        altKey?: boolean;
+        ctrlKey?: boolean;
+        metaKey?: boolean;
+        shiftKey?: boolean;
+        repeat?: boolean;
+      }
+    | null
+    | undefined
+): boolean {
+  if (
+    !event ||
+    event.repeat ||
+    !event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey
+  ) {
+    return false;
+  }
+  const keyLower = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+  const codeLower = typeof event.code === 'string' ? event.code.toLowerCase() : '';
+  return keyLower === 'n' || codeLower === 'keyn';
+}
+
+/**
+ * Programmatically triggers the Money Manager Transaction Modal from anywhere in the tool suite.
+ * Dispatches the global `open-money-manager-tx-modal` event and records a pending request for route transitions.
+ */
+export function triggerMoneyManagerTransactionModal(
+  payload: OpenMoneyManagerModalPayload = {}
+): OpenMoneyManagerModalPayload {
+  const now = payload.triggeredAt ?? payload.timestamp ?? Date.now();
+  const resolvedDate = payload.defaultDate ?? payload.initialDate;
+  const enriched: OpenMoneyManagerModalPayload = {
+    ...payload,
+    defaultDate: resolvedDate,
+    initialDate: resolvedDate,
+    source: payload.source || 'alt+n',
+    triggeredAt: now,
+    timestamp: now,
+  };
+
+  inMemoryPendingModalPayload = enriched;
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage?.setItem(PENDING_MODAL_STORAGE_KEY, JSON.stringify(enriched));
+    } catch {
+      // Ignore storage errors in restricted environments
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<OpenMoneyManagerModalPayload>(MONEY_MANAGER_NEW_TX_EVENT, {
+        detail: enriched,
+      })
+    );
+  }
+
+  return enriched;
+}
+
+/**
+ * Consumes and clears any pending Money Manager Transaction Modal open request.
+ */
+export function consumePendingMoneyManagerModalRequest(): OpenMoneyManagerModalPayload | null {
+  let payload = inMemoryPendingModalPayload;
+  inMemoryPendingModalPayload = null;
+
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.sessionStorage?.getItem(PENDING_MODAL_STORAGE_KEY);
+      if (raw) {
+        window.sessionStorage?.removeItem(PENDING_MODAL_STORAGE_KEY);
+        if (!payload) {
+          payload = JSON.parse(raw) as OpenMoneyManagerModalPayload;
+        }
+      }
+    } catch {
+      // Ignore storage parse errors
+    }
+  }
+
+  return payload;
+}
+
+const DEFAULT_FALLBACK_ACCOUNT_SUMMARIES: AccountSummary[] = INITIAL_ACCOUNTS.map((acc) => ({
+  ...acc,
+  totalCredits: 0,
+  totalDebits: 0,
+  currentBalance: acc.openingBalance,
+  transactionCount: 0,
+}));
+
+/**
+ * Global Money Manager Quick Transaction Modal host mounted at the app suite level.
+ * Allows pressing `Alt + N` from any tool or page outside `/tools/money-manager` to directly open
+ * the Money Manager TransactionModal and persist new entries into IndexedDB (`JawedMoneyManagerDB`).
+ */
+export const GlobalMoneyManagerQuickModal: React.FC<{ currentPathname?: string }> = ({
+  currentPathname,
+}) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [modalOptions, setModalOptions] = useState<OpenMoneyManagerModalPayload>({});
+  const [accounts, setAccounts] = useState<AccountSummary[]>(DEFAULT_FALLBACK_ACCOUNT_SUMMARIES);
+  const [categories, setCategories] = useState<MoneyCategory[]>(INITIAL_CATEGORIES);
+  const [transactions, setTransactions] = useState<MoneyTransaction[]>([]);
+
+  const isOnDedicatedMoneyManagerRoute = useMemo(() => {
+    const path =
+      currentPathname ??
+      (typeof window !== 'undefined' ? window.location.pathname : '');
+    return path === '/tools/money-manager' || path.startsWith('/tools/money-manager/');
+  }, [currentPathname]);
+
+  const hydrateFromDatabase = async () => {
+    try {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const state = await initializeAndSeedDatabase(todayIso);
+      setAccounts(state.accounts);
+      setCategories(state.categories);
+      setTransactions(state.transactions);
+    } catch {
+      // Fallback defaults remain active if IndexedDB is unavailable
+    }
+  };
+
+  useEffect(() => {
+    if (isOnDedicatedMoneyManagerRoute) {
+      setIsOpen(false);
+      return;
+    }
+
+    const handleOpenEvent = (evt: Event) => {
+      const currentPath =
+        currentPathname ??
+        (typeof window !== 'undefined' ? window.location.pathname : '');
+      if (currentPath === '/tools/money-manager' || currentPath.startsWith('/tools/money-manager/')) {
+        return;
+      }
+      consumePendingMoneyManagerModalRequest();
+      const customEvt = evt as CustomEvent<OpenMoneyManagerModalPayload>;
+      setModalOptions(customEvt.detail || {});
+      setIsOpen(true);
+      void hydrateFromDatabase();
+    };
+
+    window.addEventListener(MONEY_MANAGER_NEW_TX_EVENT, handleOpenEvent);
+    return () => {
+      window.removeEventListener(MONEY_MANAGER_NEW_TX_EVENT, handleOpenEvent);
+    };
+  }, [isOnDedicatedMoneyManagerRoute, currentPathname]);
+
+  if (isOnDedicatedMoneyManagerRoute || !isOpen) {
+    return null;
+  }
+
+  return (
+    <div className="mm-page-shell" style={{ minHeight: 0, padding: 0 }}>
+      <TransactionModal
+        isOpen={isOpen}
+        accounts={accounts}
+        categories={categories}
+        transactions={transactions}
+        defaultDate={modalOptions.defaultDate}
+        initialBatchMode={modalOptions.initialBatchMode}
+        initialReceiptImage={modalOptions.initialReceiptImage}
+        onClose={() => setIsOpen(false)}
+        onSave={async (txData) => {
+          await saveTransaction(txData);
+          await hydrateFromDatabase();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(MONEY_MANAGER_LEDGER_UPDATED_EVENT));
+          }
+        }}
+        onSaveRecurringRule={async (ruleData) => {
+          await saveRecurringRule(ruleData);
+          await hydrateFromDatabase();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(MONEY_MANAGER_LEDGER_UPDATED_EVENT));
+          }
+        }}
+      />
+    </div>
+  );
+};
+
 export default TransactionModal;
+

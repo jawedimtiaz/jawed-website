@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   KeyboardShortcutContext,
   ShortcutItem,
@@ -11,6 +11,12 @@ import {
   matchHotkey,
 } from '../hooks/useKeyboardShortcuts';
 import { KeyboardShortcutModal } from './KeyboardShortcutModal';
+import {
+  GlobalMoneyManagerQuickModal,
+  MONEY_MANAGER_NEW_TX_SHORTCUT_COMBO,
+  MONEY_MANAGER_NEW_TX_SHORTCUT_ID,
+  triggerMoneyManagerTransactionModal,
+} from './money-manager/TransactionModal';
 
 interface KeyboardShortcutManagerProps {
   children: ReactNode;
@@ -164,6 +170,19 @@ export const VOICE_COMMAND_RULES: VoiceCommandRule[] = [
       'close dialog',
       'dismiss',
       'close',
+    ],
+  },
+  {
+    id: MONEY_MANAGER_NEW_TX_SHORTCUT_ID,
+    label: 'New Money Manager Transaction',
+    shortcutCombo: MONEY_MANAGER_NEW_TX_SHORTCUT_COMBO,
+    phrases: [
+      'new transaction',
+      'add transaction',
+      'new money manager transaction',
+      'open transaction modal',
+      'log expense',
+      'log income',
     ],
   },
 ];
@@ -325,6 +344,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
   const modalWrapperRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const clearPrefix = useCallback(() => {
     if (prefixTimeoutRef.current !== null) {
@@ -604,6 +624,14 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     triggerToastNotification('nav-resources', 'Go to Resources Library (G + R)');
   }, [navigate, triggerToastNotification]);
 
+  const handleOpenMoneyManagerTransactionModal = useCallback(() => {
+    triggerMoneyManagerTransactionModal({ source: 'alt+n' });
+    triggerToastNotification(
+      MONEY_MANAGER_NEW_TX_SHORTCUT_ID,
+      'Money Manager: New Transaction (Alt+N)'
+    );
+  }, [triggerToastNotification]);
+
   // List of active global default shortcuts
   const defaultShortcuts: ShortcutItem[] = useMemo(
     () => [
@@ -760,6 +788,15 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
         allowInInput: false,
         action: handleGoContact,
       },
+      {
+        id: MONEY_MANAGER_NEW_TX_SHORTCUT_ID,
+        combo: MONEY_MANAGER_NEW_TX_SHORTCUT_COMBO,
+        label: 'New Money Manager Transaction',
+        description: 'Alt + N -> Directly open Money Manager transaction modal from anywhere in the tool suite',
+        category: 'Global Controls',
+        allowInInput: true,
+        action: handleOpenMoneyManagerTransactionModal,
+      },
     ],
     [
       handleGoHome,
@@ -779,6 +816,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
       handleToggleAiWidget,
       handleGoServices,
       handleGoContact,
+      handleOpenMoneyManagerTransactionModal,
     ]
   );
 
@@ -1747,6 +1785,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
           </ul>
         </aside>
       )}
+      <GlobalMoneyManagerQuickModal currentPathname={location.pathname} />
     </KeyboardShortcutContext.Provider>
   );
 };

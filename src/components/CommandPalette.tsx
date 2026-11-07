@@ -308,6 +308,14 @@ export const FALLBACK_SHORTCUTS: PaletteShortcutDisplayItem[] = [
     category: 'AI Assistant',
     scope: 'Global',
   },
+  {
+    id: 'money-manager-new-tx',
+    combo: 'alt+n',
+    label: 'New Money Manager Transaction',
+    description: 'Alt + N -> Directly open Money Manager transaction modal from anywhere in the tool suite',
+    category: 'Global Controls',
+    scope: 'Global',
+  },
 ];
 
 export const LOCAL_PALETTE_SHORTCUTS: PaletteShortcutDisplayItem[] = [

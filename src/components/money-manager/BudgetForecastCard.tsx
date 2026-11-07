@@ -4,10 +4,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   TrendingUp,
-  RotateCcw,
 } from 'lucide-react';
 import {
   formatINR,
+  resolveTransactionInrAmount,
   type MoneyCategory,
   type MoneyTransaction,
   type MonthlyMetrics,
@@ -21,8 +21,12 @@ export interface CategoryVelocityForecastItem {
   defaultFixedOrVariable: 'Fixed' | 'Variable';
   definedBudget: number;
   currentSpent: number;
+  currentUtilizationPercent: number;
   txCount: number;
   dailyVelocity: number;
+  safeDailySpendLimit: number;
+  remainingDailyAllowance: number;
+  velocityDeltaPerDay: number;
   predictedMonthEndTotal: number;
   predictedVariance: number;
   predictedOverage: number;
@@ -41,9 +45,11 @@ export interface BudgetForecastSummary {
   totalCurrentSpent: number;
   totalPredictedMonthEnd: number;
   totalDailyVelocity: number;
+  totalSafeDailySpendLimit: number;
   totalPredictedVariance: number;
   totalPredictedOverage: number;
   totalPredictedHeadroom: number;
+  overallCurrentUtilizationPercent: number;
   overallForecastUtilizationPercent: number;
   overallForecastStatus: 'predicted-over' | 'at-risk' | 'on-track' | 'unbudgeted';
   predictedOverCount: number;
@@ -61,8 +67,8 @@ export interface CalculateVelocityForecastOptions {
 }
 
 /**
- * Pure helper function that calculates spending velocity per day for the current month
- * and projects total month-end expenditure for each category against defined limits.
+ * Pure helper function that calculates current-month spending velocity per day
+ * and predicts total month-end expenditure for each category compared to its set budget limit.
  */
 export function calculateVelocityBudgetForecast(
   transactions: MoneyTransaction[],
@@ -72,41 +78,82 @@ export function calculateVelocityBudgetForecast(
 ): BudgetForecastSummary {
   const [yearStr, monthStr] = (selectedMonth || '').split('-');
   const year = Number.parseInt(yearStr, 10) || new Date().getFullYear();
-  const monthIdx = Number.parseInt(monthStr, 10) ? Number.parseInt(monthStr, 10) - 1 : new Date().getMonth();
+  const monthIdx = Number.parseInt(monthStr, 10)
+    ? Number.parseInt(monthStr, 10) - 1
+    : new Date().getMonth();
 
-  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-
-  const now = new Date();
-  const isCurrentMonth =
-    now.getFullYear() === year && now.getMonth() === monthIdx;
-
-  let daysElapsed = isCurrentMonth ? Math.max(1, now.getDate()) : daysInMonth;
-  if (options?.referenceDayOfMonth && options.referenceDayOfMonth > 0) {
-    daysElapsed = Math.min(daysInMonth, Math.max(1, options.referenceDayOfMonth));
-  }
-
-  const daysRemaining = Math.max(0, daysInMonth - daysElapsed);
+  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate() || 30;
 
   const monthTxs = transactions.filter(
     (tx) => tx.type === 'Expense' && (tx.date || '').startsWith(selectedMonth)
   );
 
-  const categorySpendMap = new Map<string, { total: number; count: number }>();
+  let maxTxDay = 0;
+  const categorySpendMap = new Map<
+    string,
+    { total: number; count: number; fixedOrVariable: 'Fixed' | 'Variable' }
+  >();
+
   for (const tx of monthTxs) {
     const catName = tx.category || 'Uncategorized';
-    const existing = categorySpendMap.get(catName) || { total: 0, count: 0 };
+    const amountInr = Math.abs(resolveTransactionInrAmount(tx));
+    const existing = categorySpendMap.get(catName) || {
+      total: 0,
+      count: 0,
+      fixedOrVariable: tx.fixedOrVariable || 'Variable',
+    };
     categorySpendMap.set(catName, {
-      total: existing.total + Math.abs(tx.amount),
+      total: existing.total + amountInr,
       count: existing.count + 1,
+      fixedOrVariable: existing.fixedOrVariable,
     });
+
+    const dayNum = Number.parseInt((tx.date || '').slice(8, 10), 10);
+    if (!Number.isNaN(dayNum) && dayNum > maxTxDay) {
+      maxTxDay = dayNum;
+    }
   }
 
-  const expenseCategories = categories.filter((c) => c.type === 'Expense');
+  const now = new Date();
+  const isCurrentMonth = now.getFullYear() === year && now.getMonth() === monthIdx;
+
+  let daysElapsed = isCurrentMonth
+    ? Math.max(1, now.getDate(), maxTxDay)
+    : maxTxDay > 0
+    ? Math.min(daysInMonth, Math.max(1, maxTxDay))
+    : daysInMonth;
+
+  if (options?.referenceDayOfMonth && options.referenceDayOfMonth > 0) {
+    daysElapsed = Math.min(daysInMonth, Math.max(1, Math.round(options.referenceDayOfMonth)));
+  }
+
+  const daysRemaining = Math.max(0, daysInMonth - daysElapsed);
+
+  const expenseCategories: MoneyCategory[] = categories
+    .filter((c) => c.type === 'Expense')
+    .map((c) => ({ ...c }));
+  const seenCategoryNames = new Set(expenseCategories.map((c) => c.name));
+
+  for (const [catName, spendInfo] of categorySpendMap.entries()) {
+    if (!seenCategoryNames.has(catName)) {
+      seenCategoryNames.add(catName);
+      expenseCategories.push({
+        id: `cat-forecast-${catName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        name: catName,
+        type: 'Expense',
+        defaultFixedOrVariable: spendInfo.fixedOrVariable,
+        iconName: 'Tag',
+        color: '#06b6d4',
+        subCategories: [],
+      });
+    }
+  }
 
   let totalDefinedBudget = 0;
   let totalCurrentSpent = 0;
   let totalPredictedMonthEnd = 0;
   let totalDailyVelocity = 0;
+  let totalSafeDailySpendLimit = 0;
   let totalPredictedOverage = 0;
   let totalPredictedHeadroom = 0;
 
@@ -117,19 +164,35 @@ export function calculateVelocityBudgetForecast(
 
   const items: CategoryVelocityForecastItem[] = expenseCategories.map((cat) => {
     let definedBudget = cat.monthlyBudget || 0;
-    if (options?.thresholdOverrides) {
-      if (typeof options.thresholdOverrides === 'number') {
+    if (options?.thresholdOverrides !== undefined) {
+      if (typeof options.thresholdOverrides === 'number' && options.thresholdOverrides > 0) {
         definedBudget = options.thresholdOverrides;
-      } else if (typeof options.thresholdOverrides[cat.name] === 'number') {
-        definedBudget = options.thresholdOverrides[cat.name];
+      } else if (
+        options.thresholdOverrides &&
+        typeof options.thresholdOverrides === 'object' &&
+        typeof options.thresholdOverrides[cat.name] === 'number'
+      ) {
+        definedBudget = Math.max(0, options.thresholdOverrides[cat.name]);
       }
     }
 
-    const spendData = categorySpendMap.get(cat.name) || { total: 0, count: 0 };
-    const currentSpent = spendData.total;
+    const spendData = categorySpendMap.get(cat.name) || {
+      total: 0,
+      count: 0,
+      fixedOrVariable: cat.defaultFixedOrVariable || 'Variable',
+    };
+    const currentSpent = Number(spendData.total.toFixed(2));
     const txCount = spendData.count;
 
     const dailyVelocity = currentSpent > 0 ? Math.round(currentSpent / daysElapsed) : 0;
+    const safeDailySpendLimit =
+      definedBudget > 0 ? Math.round(definedBudget / daysInMonth) : 0;
+    const remainingDailyAllowance =
+      definedBudget > 0 && daysRemaining > 0
+        ? Math.max(0, Math.round(Math.max(0, definedBudget - currentSpent) / daysRemaining))
+        : 0;
+    const velocityDeltaPerDay =
+      definedBudget > 0 ? dailyVelocity - safeDailySpendLimit : 0;
 
     let predictedMonthEndTotal = currentSpent;
     if (cat.defaultFixedOrVariable === 'Fixed') {
@@ -146,6 +209,8 @@ export function calculateVelocityBudgetForecast(
       }
     }
 
+    const currentUtilizationPercent =
+      definedBudget > 0 ? Number(((currentSpent / definedBudget) * 100).toFixed(1)) : 0;
     const predictedVariance = definedBudget > 0 ? definedBudget - predictedMonthEndTotal : 0;
     const predictedOverage =
       definedBudget > 0 && predictedMonthEndTotal > definedBudget
@@ -158,7 +223,9 @@ export function calculateVelocityBudgetForecast(
       definedBudget > 0 ? Number(((predictedMonthEndTotal / definedBudget) * 100).toFixed(1)) : 0;
 
     const velocityPaceRatio =
-      definedBudget > 0 ? Number((((dailyVelocity * daysInMonth) / definedBudget) * 100).toFixed(1)) : 0;
+      definedBudget > 0
+        ? Number((((dailyVelocity * daysInMonth) / definedBudget) * 100).toFixed(1))
+        : 0;
 
     let comparisonStatus: CategoryVelocityForecastItem['comparisonStatus'] = 'unbudgeted';
     if (definedBudget <= 0) {
@@ -179,6 +246,7 @@ export function calculateVelocityBudgetForecast(
     totalCurrentSpent += currentSpent;
     totalPredictedMonthEnd += predictedMonthEndTotal;
     totalDailyVelocity += dailyVelocity;
+    totalSafeDailySpendLimit += safeDailySpendLimit;
     totalPredictedOverage += predictedOverage;
     totalPredictedHeadroom += predictedHeadroom;
 
@@ -190,8 +258,12 @@ export function calculateVelocityBudgetForecast(
       defaultFixedOrVariable: cat.defaultFixedOrVariable || 'Variable',
       definedBudget,
       currentSpent,
+      currentUtilizationPercent,
       txCount,
       dailyVelocity,
+      safeDailySpendLimit,
+      remainingDailyAllowance,
+      velocityDeltaPerDay,
       predictedMonthEndTotal,
       predictedVariance,
       predictedOverage,
@@ -204,6 +276,11 @@ export function calculateVelocityBudgetForecast(
       daysInMonth,
     };
   });
+
+  const overallCurrentUtilizationPercent =
+    totalDefinedBudget > 0
+      ? Number(((totalCurrentSpent / totalDefinedBudget) * 100).toFixed(1))
+      : 0;
 
   const overallForecastUtilizationPercent =
     totalDefinedBudget > 0
@@ -229,9 +306,11 @@ export function calculateVelocityBudgetForecast(
     totalCurrentSpent,
     totalPredictedMonthEnd,
     totalDailyVelocity,
+    totalSafeDailySpendLimit,
     totalPredictedVariance,
     totalPredictedOverage,
     totalPredictedHeadroom,
+    overallCurrentUtilizationPercent,
     overallForecastUtilizationPercent,
     overallForecastStatus,
     predictedOverCount,
@@ -249,6 +328,7 @@ export interface BudgetForecastCardProps {
   categories: MoneyCategory[];
   selectedMonth: string;
   metrics?: MonthlyMetrics;
+  thresholdOverrides?: Record<string, number> | number;
   onAlignCategoryBudget?: (categoryName: string, newLimit: number) => Promise<void> | void;
 }
 
@@ -256,24 +336,28 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
   transactions,
   categories,
   selectedMonth,
-  metrics,
+  thresholdOverrides,
   onAlignCategoryBudget,
 }) => {
   const [filterStatus, setFilterStatus] = useState<
     'all' | 'predicted-over' | 'at-risk' | 'on-track' | 'unbudgeted'
   >('all');
+  const [sortBy, setSortBy] = useState<'predicted-desc' | 'velocity-desc' | 'utilization-desc' | 'name-asc'>(
+    'predicted-desc'
+  );
   const [referenceDayOverride, setReferenceDayOverride] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const forecastSummary = useMemo(() => {
     return calculateVelocityBudgetForecast(transactions, categories, selectedMonth, {
       referenceDayOfMonth: referenceDayOverride ?? undefined,
+      thresholdOverrides,
     });
-  }, [transactions, categories, selectedMonth, referenceDayOverride]);
+  }, [transactions, categories, selectedMonth, referenceDayOverride, thresholdOverrides]);
 
   const filteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return forecastSummary.items.filter((item) => {
+    const matching = forecastSummary.items.filter((item) => {
       if (filterStatus !== 'all' && item.comparisonStatus !== filterStatus) {
         return false;
       }
@@ -285,7 +369,26 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
       }
       return true;
     });
-  }, [forecastSummary.items, filterStatus, searchQuery]);
+
+    return [...matching].sort((a, b) => {
+      if (sortBy === 'velocity-desc') {
+        return b.dailyVelocity - a.dailyVelocity || b.predictedMonthEndTotal - a.predictedMonthEndTotal;
+      }
+      if (sortBy === 'utilization-desc') {
+        return (
+          b.predictedUtilizationPercent - a.predictedUtilizationPercent ||
+          b.predictedMonthEndTotal - a.predictedMonthEndTotal
+        );
+      }
+      if (sortBy === 'name-asc') {
+        return a.category.localeCompare(b.category);
+      }
+      return (
+        b.predictedMonthEndTotal - a.predictedMonthEndTotal ||
+        b.predictedUtilizationPercent - a.predictedUtilizationPercent
+      );
+    });
+  }, [forecastSummary.items, filterStatus, searchQuery, sortBy]);
 
   return (
     <article
@@ -349,15 +452,24 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
               </span>
             </div>
             <p className="mm-section-desc" style={{ margin: '3px 0 0', fontSize: '0.8rem' }}>
-              Extrapolates daily spending velocity (Day {forecastSummary.daysElapsed} of{' '}
-              {forecastSummary.daysInMonth} · {forecastSummary.daysRemaining} days remaining) to predict total month-end expenditures compared to set category limits.
+              Extrapolates current month&apos;s daily spending velocity (Day {forecastSummary.daysElapsed}{' '}
+              of {forecastSummary.daysInMonth} · {forecastSummary.daysRemaining} days remaining) to
+              predict total month-end expenditures for each category compared to set limits.
             </p>
           </div>
         </div>
 
         {/* Velocity Pace Day Slider Control */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: 'var(--muted)' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: '0.78rem',
+              color: 'var(--muted)',
+            }}
+          >
             <label htmlFor="mm-budget-forecast-day-slider" style={{ fontWeight: 600 }}>
               Velocity Pace Day ({forecastSummary.daysElapsed}/{forecastSummary.daysInMonth}):
             </label>
@@ -403,7 +515,9 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
             {formatINR(forecastSummary.totalDailyVelocity)} / day
           </strong>
           <span className="mm-budget-kpi-sub">
-            Based on {formatINR(forecastSummary.totalCurrentSpent)} spent over {forecastSummary.daysElapsed} days
+            Based on {formatINR(forecastSummary.totalCurrentSpent)} spent over{' '}
+            {forecastSummary.daysElapsed} days (Safe pace:{' '}
+            {formatINR(forecastSummary.totalSafeDailySpendLimit)}/day)
           </span>
         </div>
 
@@ -423,7 +537,8 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
             {formatINR(forecastSummary.totalPredictedMonthEnd)}
           </strong>
           <span className="mm-budget-kpi-sub">
-            vs {formatINR(forecastSummary.totalDefinedBudget)} total set limit
+            vs {formatINR(forecastSummary.totalDefinedBudget)} total set limit (
+            {forecastSummary.overallForecastUtilizationPercent}%)
           </span>
         </div>
 
@@ -432,8 +547,7 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
           <strong
             className="mm-budget-kpi-value"
             style={{
-              color:
-                forecastSummary.totalPredictedOverage > 0 ? '#ef4444' : '#10b981',
+              color: forecastSummary.totalPredictedOverage > 0 ? '#ef4444' : '#10b981',
             }}
             data-testid="mm-budget-forecast-headroom"
           >
@@ -466,7 +580,7 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
+      {/* Filter, Sort and Search Bar */}
       <div
         style={{
           display: 'flex',
@@ -521,15 +635,32 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
           </button>
         </div>
 
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search forecast categories..."
-          className="mm-input"
-          style={{ maxWidth: 220, padding: '5px 10px', fontSize: '0.82rem' }}
-          aria-label="Search forecast categories"
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="mm-select"
+            style={{ width: 'auto', padding: '5px 10px', fontSize: '0.8rem' }}
+            aria-label="Sort Budget Forecast Categories"
+            data-testid="mm-budget-forecast-sort-select"
+          >
+            <option value="predicted-desc">Sort: Highest Predicted Spend</option>
+            <option value="velocity-desc">Sort: Highest Daily Velocity</option>
+            <option value="utilization-desc">Sort: Highest % of Limit</option>
+            <option value="name-asc">Sort: Category Name (A–Z)</option>
+          </select>
+
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search forecast categories..."
+            className="mm-input"
+            style={{ maxWidth: 210, padding: '5px 10px', fontSize: '0.82rem' }}
+            aria-label="Search forecast categories"
+            data-testid="mm-budget-forecast-search-input"
+          />
+        </div>
       </div>
 
       {/* Category Velocity Grid Table */}
@@ -541,7 +672,7 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
               <th>Type</th>
               <th>Current Spend</th>
               <th>Spending Velocity</th>
-              <th>Predicted Month-End</th>
+              <th>Predicted Month-End vs Limit</th>
               <th>Budget Limit</th>
               <th>Forecast Status</th>
               {onAlignCategoryBudget && <th style={{ textAlign: 'right' }}>Actions</th>}
@@ -550,7 +681,10 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
           <tbody>
             {filteredItems.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--muted)' }}>
+                <td
+                  colSpan={8}
+                  style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--muted)' }}
+                >
                   No categories match the selected forecast filter.
                 </td>
               </tr>
@@ -558,6 +692,14 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
               filteredItems.map((item) => {
                 const isOver = item.comparisonStatus === 'predicted-over';
                 const isRisk = item.comparisonStatus === 'at-risk';
+                const currentFillPct =
+                  item.definedBudget > 0
+                    ? Math.min(100, Math.round(item.currentUtilizationPercent))
+                    : 0;
+                const predictedFillPct =
+                  item.definedBudget > 0
+                    ? Math.min(100, Math.round(item.predictedUtilizationPercent))
+                    : 0;
 
                 return (
                   <tr
@@ -588,8 +730,11 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
 
                     <td>
                       <strong>{formatINR(item.currentSpent)}</strong>
-                      <span style={{ fontSize: '0.74rem', color: 'var(--muted)', display: 'block' }}>
+                      <span
+                        style={{ fontSize: '0.73rem', color: 'var(--muted)', display: 'block' }}
+                      >
                         {item.txCount} {item.txCount === 1 ? 'tx' : 'txs'}
+                        {item.definedBudget > 0 ? ` · ${item.currentUtilizationPercent}%` : ''}
                       </span>
                     </td>
 
@@ -597,28 +742,95 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
                       <span data-testid={`mm-budget-forecast-velocity-${item.category}`}>
                         <strong>{formatINR(item.dailyVelocity)}</strong> / day
                       </span>
+                      {item.definedBudget > 0 && (
+                        <span
+                          style={{ fontSize: '0.72rem', color: 'var(--muted)', display: 'block' }}
+                        >
+                          Safe pace: {formatINR(item.safeDailySpendLimit)}/day
+                        </span>
+                      )}
                     </td>
 
-                    <td>
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          color: isOver ? '#ef4444' : isRisk ? '#f59e0b' : 'var(--text-heading)',
-                        }}
-                        data-testid={`mm-budget-forecast-predicted-${item.category}`}
-                      >
-                        {formatINR(item.predictedMonthEndTotal)}
-                      </span>
-                      {item.definedBudget > 0 && (
-                        <span style={{ fontSize: '0.74rem', color: 'var(--muted)', display: 'block' }}>
-                          {item.predictedUtilizationPercent}% of limit
+                    <td style={{ minWidth: 195 }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            color: isOver
+                              ? '#ef4444'
+                              : isRisk
+                              ? '#f59e0b'
+                              : 'var(--text-heading)',
+                          }}
+                          data-testid={`mm-budget-forecast-predicted-${item.category}`}
+                        >
+                          {formatINR(item.predictedMonthEndTotal)}
                         </span>
+                        {item.definedBudget > 0 && (
+                          <span style={{ fontSize: '0.73rem', color: 'var(--muted)' }}>
+                            {item.predictedUtilizationPercent}% of limit
+                          </span>
+                        )}
+                      </div>
+
+                      {item.definedBudget > 0 && (
+                        <div
+                          className="mm-budget-progress-track"
+                          style={{
+                            height: 6,
+                            marginTop: 5,
+                            position: 'relative',
+                            overflow: 'hidden',
+                          }}
+                          data-testid={`mm-budget-forecast-progress-${item.category}`}
+                        >
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              bottom: 0,
+                              width: `${predictedFillPct}%`,
+                              backgroundColor: isOver
+                                ? 'rgba(239, 68, 68, 0.35)'
+                                : isRisk
+                                ? 'rgba(245, 158, 11, 0.35)'
+                                : 'rgba(16, 185, 129, 0.3)',
+                            }}
+                          />
+                          <div
+                            className="mm-budget-progress-fill"
+                            style={{
+                              position: 'relative',
+                              zIndex: 1,
+                              width: `${currentFillPct}%`,
+                              backgroundColor: isOver
+                                ? '#ef4444'
+                                : isRisk
+                                ? '#f59e0b'
+                                : item.color,
+                            }}
+                          />
+                        </div>
                       )}
                     </td>
 
                     <td>
                       {item.definedBudget > 0 ? (
-                        formatINR(item.definedBudget)
+                        <>
+                          <strong>{formatINR(item.definedBudget)}</strong>
+                          {item.daysRemaining > 0 && (
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                color: 'var(--muted)',
+                                display: 'block',
+                              }}
+                            >
+                              {formatINR(item.remainingDailyAllowance)}/day left
+                            </span>
+                          )}
+                        </>
                       ) : (
                         <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
                           Unbudgeted
@@ -638,10 +850,13 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
                             <AlertTriangle size={11} /> Over by {formatINR(item.predictedOverage)}
                           </>
                         ) : isRisk ? (
-                          <>At Risk ({item.predictedUtilizationPercent}%)</>
+                          <>
+                            <TrendingUp size={11} /> At Risk ({item.predictedUtilizationPercent}%)
+                          </>
                         ) : item.definedBudget > 0 ? (
                           <>
-                            <CheckCircle2 size={11} /> On Pace ({formatINR(item.predictedHeadroom)} headroom)
+                            <CheckCircle2 size={11} /> On Pace ({formatINR(item.predictedHeadroom)}{' '}
+                            headroom)
                           </>
                         ) : (
                           <>Unbudgeted</>
@@ -682,3 +897,5 @@ export const BudgetForecastCard: React.FC<BudgetForecastCardProps> = ({
     </article>
   );
 };
+
+export default BudgetForecastCard;

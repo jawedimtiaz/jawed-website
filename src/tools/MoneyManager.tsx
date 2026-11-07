@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
-import { Plus, Shield, Database, Sparkles, CheckCircle2, AlertTriangle, BellRing, X, ArrowRight } from 'lucide-react';
+import { Shield, Database, Sparkles, CheckCircle2, AlertTriangle, BellRing, X, ArrowRight } from 'lucide-react';
 import { SeoHead } from '../components/SeoHead';
 import {
   type AccountSummary,
@@ -35,6 +35,14 @@ import { DailyView } from '../components/money-manager/DailyView';
 import { CalendarView } from '../components/money-manager/CalendarView';
 import { AccountsView } from '../components/money-manager/AccountsView';
 import {
+  QuickAddFloatingButton,
+  QUICK_ADD_VISIBLE_TABS,
+  shouldRenderQuickAddFab,
+  triggerQuickAddTransactionModal,
+  type QuickAddSupportedTab,
+  type QuickAddFloatingButtonProps,
+} from '../components/money-manager/QuickAddFab';
+import {
   StatsView,
   evaluateCategoryBudgetAlerts,
   evaluate95PercentBudgetAlerts,
@@ -44,6 +52,11 @@ import {
   CategoryBudgetProgressCard,
   resolveCategoryProgressColor,
   computeCategoryBudgetProgressItems,
+  SixMonthCategoryComparisonCard,
+  computeSixMonthCategoryComparison,
+  buildSixMonthWindow,
+  BudgetForecastCard,
+  calculateVelocityBudgetForecast,
   SUPPORTED_CURRENCIES,
   CURRENCY_METADATA,
   FALLBACK_RATES_TO_INR,
@@ -56,9 +69,31 @@ import {
   summarizeMultiCurrencyTransactions,
   normalizeCurrencyCode,
   type Budget95ToastAlert,
+  type BudgetForecastSummary,
+  type CategoryVelocityForecastItem,
+  type SixMonthCategoryComparisonRow,
+  type SixMonthCategoryComparisonSummary,
+  type SixMonthWindowPoint,
 } from '../components/money-manager/StatsView';
 import { RecurringView } from '../components/money-manager/RecurringView';
-import { TransactionModal } from '../components/money-manager/TransactionModal';
+import {
+  TransactionModal,
+  computeNextSequentialFormState,
+  summarizeBatchSession,
+  executeSequentialBatchSave,
+  MONEY_MANAGER_NEW_TX_SHORTCUT_COMBO,
+  MONEY_MANAGER_NEW_TX_SHORTCUT_ID,
+  MONEY_MANAGER_NEW_TX_EVENT,
+  MONEY_MANAGER_LEDGER_UPDATED_EVENT,
+  isMoneyManagerNewTransactionShortcut,
+  triggerMoneyManagerTransactionModal,
+  consumePendingMoneyManagerModalRequest,
+  GlobalMoneyManagerQuickModal,
+  type OpenMoneyManagerModalPayload,
+  type BatchLoggedTransactionItem,
+  type BatchSessionSummary,
+  type SequentialFormStateSnapshot,
+} from '../components/money-manager/TransactionModal';
 import { ReceiptLightboxModal } from '../components/money-manager/ReceiptLightboxModal';
 import { BackupRestoreModal } from '../components/money-manager/BackupRestoreModal';
 import {
@@ -73,6 +108,7 @@ import {
 } from '../components/money-manager/googleDriveSync';
 import { BackupBanner } from '../components/BackupBanner';
 import { enableStoragePersistence } from '../db';
+import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 export {
   SCOPES,
@@ -88,6 +124,11 @@ export {
   CategoryBudgetProgressCard,
   resolveCategoryProgressColor,
   computeCategoryBudgetProgressItems,
+  SixMonthCategoryComparisonCard,
+  computeSixMonthCategoryComparison,
+  buildSixMonthWindow,
+  BudgetForecastCard,
+  calculateVelocityBudgetForecast,
   SUPPORTED_CURRENCIES,
   CURRENCY_METADATA,
   FALLBACK_RATES_TO_INR,
@@ -99,7 +140,259 @@ export {
   formatCurrencyAmount,
   summarizeMultiCurrencyTransactions,
   normalizeCurrencyCode,
+  TransactionModal,
+  computeNextSequentialFormState,
+  summarizeBatchSession,
+  executeSequentialBatchSave,
+  MONEY_MANAGER_NEW_TX_SHORTCUT_COMBO,
+  MONEY_MANAGER_NEW_TX_SHORTCUT_ID,
+  MONEY_MANAGER_NEW_TX_EVENT,
+  MONEY_MANAGER_LEDGER_UPDATED_EVENT,
+  isMoneyManagerNewTransactionShortcut,
+  triggerMoneyManagerTransactionModal,
+  consumePendingMoneyManagerModalRequest,
+  GlobalMoneyManagerQuickModal,
+  QuickAddFloatingButton,
+  QUICK_ADD_VISIBLE_TABS,
+  shouldRenderQuickAddFab,
+  triggerQuickAddTransactionModal,
 };
+export type {
+  OpenMoneyManagerModalPayload,
+  BatchLoggedTransactionItem,
+  BatchSessionSummary,
+  SequentialFormStateSnapshot,
+  BudgetForecastSummary,
+  CategoryVelocityForecastItem,
+  SixMonthCategoryComparisonRow,
+  SixMonthCategoryComparisonSummary,
+  SixMonthWindowPoint,
+  QuickAddSupportedTab,
+  QuickAddFloatingButtonProps,
+};
+
+export type MoneyManagerThemeMode = 'dark' | 'light';
+
+export interface SiteThemeVariableMap {
+  '--bg': string;
+  '--surface': string;
+  '--surface-header': string;
+  '--border': string;
+  '--text': string;
+  '--text-muted': string;
+  '--nav-link': string;
+  '--nav-link-hover': string;
+  '--card': string;
+  '--bg-darker': string;
+  '--surface-hover': string;
+  '--text-heading': string;
+  '--muted': string;
+  '--muted-light': string;
+  '--line': string;
+  '--line-subtle': string;
+  '--accent': string;
+  '--accent-hover': string;
+  '--accent-dark': string;
+  '--teal': string;
+  '--indigo': string;
+  '--emerald': string;
+  '--amber': string;
+  '--rose': string;
+  '--surface-accent': string;
+  '--surface-muted': string;
+  '--surface-alt': string;
+  '--text-main': string;
+  '--mm-bg': string;
+  '--mm-surface': string;
+  '--mm-surface-header': string;
+  '--mm-surface-muted': string;
+  '--mm-surface-hover': string;
+  '--mm-border': string;
+  '--mm-text': string;
+  '--mm-text-main': string;
+  '--mm-text-heading': string;
+  '--mm-text-muted': string;
+  '--mm-muted': string;
+  '--mm-accent': string;
+}
+
+export const SITE_DARK_THEME_VARIABLES: SiteThemeVariableMap = {
+  '--bg': '#0f172a',
+  '--surface': '#1e293b',
+  '--surface-header': 'rgba(15, 23, 42, 0.92)',
+  '--border': '#334155',
+  '--text': '#f8fafc',
+  '--text-muted': '#94a3b8',
+  '--nav-link': '#cbd5e1',
+  '--nav-link-hover': '#38bdf8',
+  '--card': '#1e293b',
+  '--bg-darker': '#020617',
+  '--surface-hover': '#334155',
+  '--text-heading': '#ffffff',
+  '--muted': '#94a3b8',
+  '--muted-light': '#cbd5e1',
+  '--line': '#334155',
+  '--line-subtle': '#1e293b',
+  '--accent': '#38bdf8',
+  '--accent-hover': '#7dd3fc',
+  '--accent-dark': '#0369a1',
+  '--teal': '#2dd4bf',
+  '--indigo': '#818cf8',
+  '--emerald': '#34d399',
+  '--amber': '#fbbf24',
+  '--rose': '#f43f5e',
+  '--surface-accent': 'rgba(56, 189, 248, 0.12)',
+  '--surface-muted': '#020617',
+  '--surface-alt': '#020617',
+  '--text-main': '#f8fafc',
+  '--mm-bg': '#0f172a',
+  '--mm-surface': '#1e293b',
+  '--mm-surface-header': 'rgba(15, 23, 42, 0.92)',
+  '--mm-surface-muted': '#020617',
+  '--mm-surface-hover': '#334155',
+  '--mm-border': '#334155',
+  '--mm-text': '#f8fafc',
+  '--mm-text-main': '#f8fafc',
+  '--mm-text-heading': '#ffffff',
+  '--mm-text-muted': '#94a3b8',
+  '--mm-muted': '#94a3b8',
+  '--mm-accent': '#38bdf8',
+};
+
+export const SITE_LIGHT_THEME_VARIABLES: SiteThemeVariableMap = {
+  '--bg': '#f8fafc',
+  '--surface': '#ffffff',
+  '--surface-header': 'rgba(255, 255, 255, 0.92)',
+  '--border': '#e2e8f0',
+  '--text': '#0f172a',
+  '--text-muted': '#64748b',
+  '--nav-link': '#334155',
+  '--nav-link-hover': '#075985',
+  '--card': '#ffffff',
+  '--bg-darker': '#f1f5f9',
+  '--surface-hover': '#f1f5f9',
+  '--text-heading': '#0f172a',
+  '--muted': '#64748b',
+  '--muted-light': '#334155',
+  '--line': '#e2e8f0',
+  '--line-subtle': '#e2e8f0',
+  '--accent': '#0284c7',
+  '--accent-hover': '#0369a1',
+  '--accent-dark': '#075985',
+  '--teal': '#0f766e',
+  '--indigo': '#4f46e5',
+  '--emerald': '#047857',
+  '--amber': '#b45309',
+  '--rose': '#e11d48',
+  '--surface-accent': 'rgba(2, 132, 199, 0.1)',
+  '--surface-muted': '#f1f5f9',
+  '--surface-alt': '#f1f5f9',
+  '--text-main': '#0f172a',
+  '--mm-bg': '#f8fafc',
+  '--mm-surface': '#ffffff',
+  '--mm-surface-header': 'rgba(255, 255, 255, 0.92)',
+  '--mm-surface-muted': '#f1f5f9',
+  '--mm-surface-hover': '#f1f5f9',
+  '--mm-border': '#e2e8f0',
+  '--mm-text': '#0f172a',
+  '--mm-text-main': '#0f172a',
+  '--mm-text-heading': '#0f172a',
+  '--mm-text-muted': '#64748b',
+  '--mm-muted': '#64748b',
+  '--mm-accent': '#0284c7',
+};
+
+/**
+ * Returns the site-wide CSS variable dictionary for the specified Money Manager theme mode ('dark' | 'light').
+ */
+export function resolveSiteThemeVariables(
+  mode: MoneyManagerThemeMode = 'dark'
+): SiteThemeVariableMap {
+  return mode === 'light' ? { ...SITE_LIGHT_THEME_VARIABLES } : { ...SITE_DARK_THEME_VARIABLES };
+}
+
+/**
+ * Detects the active site-wide theme ('dark' | 'light') from DOM attributes/classes, localStorage, or OS media query.
+ */
+export function detectActiveSiteTheme(
+  rootDoc?: Document | null,
+  win?: Window | null
+): MoneyManagerThemeMode {
+  const doc = rootDoc !== undefined ? rootDoc : typeof document !== 'undefined' ? document : null;
+  const w = win !== undefined ? win : typeof window !== 'undefined' ? window : null;
+
+  if (doc?.documentElement) {
+    const htmlAttr = doc.documentElement.getAttribute('data-theme');
+    if (htmlAttr === 'light' || htmlAttr === 'dark') {
+      return htmlAttr;
+    }
+    if (doc.documentElement.classList.contains('light')) {
+      return 'light';
+    }
+    if (doc.documentElement.classList.contains('dark')) {
+      return 'dark';
+    }
+  }
+
+  if (doc?.body) {
+    const bodyAttr = doc.body.getAttribute('data-theme');
+    if (bodyAttr === 'light' || bodyAttr === 'dark') {
+      return bodyAttr;
+    }
+    if (doc.body.classList.contains('light')) {
+      return 'light';
+    }
+    if (doc.body.classList.contains('dark')) {
+      return 'dark';
+    }
+  }
+
+  if (w) {
+    try {
+      const saved = w.localStorage?.getItem('theme');
+      if (saved === 'light' || saved === 'dark') {
+        return saved;
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+
+    if (typeof w.matchMedia === 'function') {
+      try {
+        if (w.matchMedia('(prefers-color-scheme: light)').matches) {
+          return 'light';
+        }
+      } catch {
+        // Ignore matchMedia errors
+      }
+    }
+  }
+
+  return 'dark';
+}
+
+/**
+ * Synchronizes a Money Manager root container element with the site-wide dark/light theme variables and DOM attributes.
+ */
+export function syncMoneyManagerThemeWithSite(
+  targetElement?: HTMLElement | null,
+  modeOverride?: MoneyManagerThemeMode
+): { mode: MoneyManagerThemeMode; variables: SiteThemeVariableMap } {
+  const resolvedMode = modeOverride ?? detectActiveSiteTheme();
+  const variables = resolveSiteThemeVariables(resolvedMode);
+
+  if (targetElement) {
+    targetElement.setAttribute('data-theme', resolvedMode);
+    targetElement.classList.remove('dark', 'light', 'theme-dark', 'theme-light');
+    targetElement.classList.add(resolvedMode, `theme-${resolvedMode}`);
+
+    for (const [cssVar, value] of Object.entries(variables)) {
+      targetElement.style.setProperty(cssVar, value);
+    }
+  }
+
+  return { mode: resolvedMode, variables };
+}
 
 export const MONEY_MANAGER_SEO = {
   route: '/tools/money-manager',
@@ -121,6 +414,74 @@ export const MoneyManager: React.FC = () => {
   const [sinkingFunds, setSinkingFunds] = useState<SinkingFund[]>([]);
   const [recurringRules, setRecurringRules] = useState<RecurringRule[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [siteTheme, setSiteTheme] = useState<MoneyManagerThemeMode>(() => detectActiveSiteTheme());
+  const pageShellRef = useRef<HTMLElement | null>(null);
+  const activeThemeVariables = useMemo(() => resolveSiteThemeVariables(siteTheme), [siteTheme]);
+
+  // Synchronize with site-wide theme toggles from main app header (CustomEvent, MutationObserver, storage, OS media query)
+  useEffect(() => {
+    const syncCurrentTheme = () => {
+      const detected = detectActiveSiteTheme();
+      setSiteTheme((prev) => (prev === detected ? prev : detected));
+      if (pageShellRef.current) {
+        syncMoneyManagerThemeWithSite(pageShellRef.current, detected);
+      }
+    };
+
+    syncCurrentTheme();
+
+    const handleThemeEvent = (e: Event) => {
+      const customEvt = e as CustomEvent<{ theme?: string }>;
+      const rawTheme = customEvt.detail?.theme;
+      if (rawTheme === 'light' || rawTheme === 'dark') {
+        setSiteTheme(rawTheme);
+        if (pageShellRef.current) {
+          syncMoneyManagerThemeWithSite(pageShellRef.current, rawTheme);
+        }
+        return;
+      }
+      syncCurrentTheme();
+    };
+
+    window.addEventListener('theme-changed', handleThemeEvent);
+    window.addEventListener('storage', syncCurrentTheme);
+
+    let observer: MutationObserver | null = null;
+    if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
+      observer = new MutationObserver(() => {
+        syncCurrentTheme();
+      });
+      if (document.documentElement) {
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['data-theme', 'class'],
+        });
+      }
+      if (document.body) {
+        observer.observe(document.body, {
+          attributes: true,
+          attributeFilter: ['data-theme', 'class'],
+        });
+      }
+    }
+
+    const mediaQuery =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-color-scheme: light)')
+        : null;
+    if (mediaQuery?.addEventListener) {
+      mediaQuery.addEventListener('change', syncCurrentTheme);
+    }
+
+    return () => {
+      window.removeEventListener('theme-changed', handleThemeEvent);
+      window.removeEventListener('storage', syncCurrentTheme);
+      observer?.disconnect();
+      if (mediaQuery?.removeEventListener) {
+        mediaQuery.removeEventListener('change', syncCurrentTheme);
+      }
+    };
+  }, []);
 
   // Default to '2026-11' matching the Realbyte `< 2026 Nov >` specification & sample seed entries
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-11');
@@ -275,12 +636,67 @@ export const MoneyManager: React.FC = () => {
   }, [budget95Toasts]);
 
   // Handlers
-  const handleOpenAddTransaction = (dateStr?: string, receiptImage?: string) => {
+  const handleOpenAddTransaction = useCallback((dateStr?: string, receiptImage?: string) => {
     setEditingTransaction(null);
     setDefaultTxDate(dateStr);
     setInitialReceiptImageForModal(receiptImage);
     setIsTxModalOpen(true);
-  };
+  }, []);
+
+  // Register 'Alt + N' shortcut with KeyboardShortcutManager & listen for global open-money-manager-tx-modal / Alt+N keydown
+  useRegisterShortcut(
+    {
+      id: MONEY_MANAGER_NEW_TX_SHORTCUT_ID,
+      combo: MONEY_MANAGER_NEW_TX_SHORTCUT_COMBO,
+      label: 'New Money Manager Transaction',
+      description: 'Alt + N -> Directly open Money Manager transaction modal from anywhere in the tool suite',
+      category: 'Global Controls',
+      allowInInput: true,
+      isToolSpecific: false,
+      action: () => {
+        handleOpenAddTransaction();
+      },
+    },
+    [handleOpenAddTransaction]
+  );
+
+  useEffect(() => {
+    const pending = consumePendingMoneyManagerModalRequest();
+    if (pending) {
+      handleOpenAddTransaction(pending.defaultDate, pending.initialReceiptImage);
+    }
+
+    const handleGlobalOpenEvent = (evt: Event) => {
+      consumePendingMoneyManagerModalRequest();
+      const customEvt = evt as CustomEvent<OpenMoneyManagerModalPayload>;
+      handleOpenAddTransaction(
+        customEvt.detail?.defaultDate,
+        customEvt.detail?.initialReceiptImage
+      );
+    };
+
+    const handleDirectAltNKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if (isMoneyManagerNewTransactionShortcut(e)) {
+        e.preventDefault();
+        handleOpenAddTransaction();
+      }
+    };
+
+    const handleLedgerUpdatedEvent = () => {
+      void loadDatabaseState();
+    };
+
+    window.addEventListener(MONEY_MANAGER_NEW_TX_EVENT, handleGlobalOpenEvent);
+    window.addEventListener('keydown', handleDirectAltNKeyDown);
+    window.addEventListener(MONEY_MANAGER_LEDGER_UPDATED_EVENT, handleLedgerUpdatedEvent);
+
+    return () => {
+      window.removeEventListener(MONEY_MANAGER_NEW_TX_EVENT, handleGlobalOpenEvent);
+      window.removeEventListener('keydown', handleDirectAltNKeyDown);
+      window.removeEventListener(MONEY_MANAGER_LEDGER_UPDATED_EVENT, handleLedgerUpdatedEvent);
+    };
+  }, [handleOpenAddTransaction, loadDatabaseState]);
 
   const handleOpenEditTransaction = (tx: MoneyTransaction) => {
     setEditingTransaction(tx);
@@ -429,7 +845,13 @@ export const MoneyManager: React.FC = () => {
 
   return (
     <HelmetProvider>
-      <main className="mm-page-shell">
+      <main
+        ref={pageShellRef}
+        className={`mm-page-shell theme-${siteTheme} ${siteTheme}`}
+        data-theme={siteTheme}
+        data-testid="mm-page-shell"
+        style={activeThemeVariables as unknown as React.CSSProperties}
+      >
         <Helmet prioritizeSeoTags>
           <title>{MONEY_MANAGER_SEO.title}</title>
           <meta name="description" content={MONEY_MANAGER_SEO.description} />
@@ -666,6 +1088,7 @@ export const MoneyManager: React.FC = () => {
           metrics={monthlyMetrics}
           totalNetWorth={totalNetWorth}
           overBudgetAlertCount={overBudgetAlertCount}
+          themeMode={siteTheme}
           onOpenAddModal={handleOpenAddTransaction}
           onOpenBackupModal={() => setIsBackupModalOpen(true)}
         />
@@ -723,6 +1146,7 @@ export const MoneyManager: React.FC = () => {
               accounts={accounts}
               onSaveAccount={handleSaveAccount}
               onSelectAccountInDailyView={handleSelectAccountInDailyView}
+              onOpenAddModal={handleOpenAddTransaction}
             />
           )}
 
@@ -769,6 +1193,7 @@ export const MoneyManager: React.FC = () => {
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           overBudgetAlertCount={overBudgetAlertCount}
+          themeMode={siteTheme}
         />
 
         {/* Bottom Privacy & Double-Entry Architecture Footer Note */}
@@ -791,19 +1216,6 @@ export const MoneyManager: React.FC = () => {
           </div>
         </footer>
       </div>
-
-      {/* Floating Action Button (+) */}
-      <button
-        type="button"
-        className="mm-fab"
-        onClick={() => handleOpenAddTransaction()}
-        aria-label="Add new transaction"
-        title="Add Income, Expense, or Bank Transfer (+)"
-        data-testid="mm-fab-add-btn"
-      >
-        <Plus size={26} />
-        <span className="mm-fab-label">Add Entry</span>
-      </button>
 
       {/* Add / Edit Transaction Modal */}
       <TransactionModal

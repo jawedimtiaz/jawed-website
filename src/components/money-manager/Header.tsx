@@ -128,6 +128,7 @@ export interface MoneyManagerHeaderProps {
   metrics: MonthlyMetrics;
   totalNetWorth: number;
   overBudgetAlertCount?: number;
+  themeMode?: 'light' | 'dark';
   onOpenAddModal: (defaultDate?: string) => void;
   onOpenBackupModal: () => void;
 }
@@ -170,10 +171,12 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
   metrics,
   totalNetWorth,
   overBudgetAlertCount = 0,
+  themeMode = 'dark',
   onOpenAddModal,
   onOpenBackupModal,
 }) => {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const contrastTokens = resolveActiveTabContrastTokens(themeMode);
 
   const tabs: Array<{ id: MoneyManagerTab; label: string; shortLabel: string; icon: React.ReactNode }> = [
     { id: 'daily', label: 'Daily View', shortLabel: 'Daily', icon: <ListFilter size={16} /> },
@@ -216,7 +219,7 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
   };
 
   return (
-    <header className="mm-header-card">
+    <header className="mm-header-card" data-theme={themeMode} data-testid="mm-header-card">
       {/* Top Privacy & Action Bar */}
       <div className="mm-top-bar">
         <div className="mm-privacy-banner" role="status">
@@ -238,10 +241,28 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
             type="button"
             onClick={() => onOpenAddModal()}
             className="mm-btn mm-btn-primary"
+            aria-keyshortcuts="Alt+N"
+            title="Add New Transaction (Shortcut: Alt + N)"
             data-testid="mm-header-add-btn"
           >
             <Plus size={16} />
             <span>Add Transaction</span>
+            <kbd
+              style={{
+                marginLeft: 4,
+                padding: '1px 5px',
+                borderRadius: 4,
+                background: 'rgba(255, 255, 255, 0.18)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                fontFamily: 'var(--font-mono, monospace)',
+                color: '#ffffff',
+              }}
+              aria-hidden="true"
+            >
+              Alt+N
+            </kbd>
           </button>
         </div>
       </div>
@@ -360,10 +381,11 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
                   <span>{overBudgetAlertCount}</span>
                 </span>
               )}
-              {isActive && (
+               {isActive && (
                 <span
                   className="mm-active-tab-indicator"
                   aria-hidden="true"
+                  style={{ backgroundColor: contrastTokens.indicatorColor }}
                   data-testid={`mm-active-tab-indicator-${tab.id}`}
                 />
               )}
@@ -379,6 +401,7 @@ export interface MoneyManagerBottomNavProps {
   activeTab: MoneyManagerTab;
   onSelectTab: (tab: MoneyManagerTab) => void;
   overBudgetAlertCount?: number;
+  themeMode?: 'light' | 'dark';
 }
 
 /**
@@ -389,9 +412,11 @@ export const MoneyManagerBottomNav: React.FC<MoneyManagerBottomNavProps> = ({
   activeTab,
   onSelectTab,
   overBudgetAlertCount = 0,
+  themeMode = 'dark',
 }) => {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [swipeFeedbackDelta, setSwipeFeedbackDelta] = useState<number>(0);
+  const contrastTokens = resolveActiveTabContrastTokens(themeMode);
 
   const bottomTabs: Array<{
     id: MoneyManagerTab;
@@ -441,6 +466,7 @@ export const MoneyManagerBottomNav: React.FC<MoneyManagerBottomNavProps> = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      data-theme={themeMode}
       data-testid="mm-bottom-tab-nav"
       style={{
         transform: swipeFeedbackDelta ? `translateX(${swipeFeedbackDelta}px)` : undefined,
@@ -487,6 +513,7 @@ export const MoneyManagerBottomNav: React.FC<MoneyManagerBottomNavProps> = ({
                 <span
                   className="mm-active-tab-indicator"
                   aria-hidden="true"
+                  style={{ backgroundColor: contrastTokens.indicatorColor }}
                   data-testid="mm-active-tab-indicator"
                 />
               )}

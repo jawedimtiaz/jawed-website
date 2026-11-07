@@ -56,6 +56,14 @@ import {
   type TransactionType,
 } from '../../db/db';
 import { renderCategoryIcon } from './categoryIcons';
+import {
+  QuickAddFloatingButton,
+  QUICK_ADD_VISIBLE_TABS,
+  shouldRenderQuickAddFab,
+  triggerQuickAddTransactionModal,
+  type QuickAddSupportedTab,
+  type QuickAddFloatingButtonProps,
+} from './QuickAddFab';
 
 export {
   SUPPORTED_CURRENCIES,
@@ -69,8 +77,17 @@ export {
   formatCurrencyAmount,
   summarizeMultiCurrencyTransactions,
   normalizeCurrencyCode,
+  QuickAddFloatingButton,
+  QUICK_ADD_VISIBLE_TABS,
+  shouldRenderQuickAddFab,
+  triggerQuickAddTransactionModal,
 };
-export type { CurrencyCode, DailyExchangeRateSnapshot };
+export type {
+  CurrencyCode,
+  DailyExchangeRateSnapshot,
+  QuickAddSupportedTab,
+  QuickAddFloatingButtonProps,
+};
 
 export type DailySubView = 'feed' | 'gallery';
 
@@ -2383,6 +2400,12 @@ export const DailyView: React.FC<DailyViewProps> = ({
             await onBulkImportComplete(importedRecords);
           }
         }}
+      />
+
+      {/* Floating '+' Quick-Add Button in Bottom-Right Corner of Daily Ledger Tab */}
+      <QuickAddFloatingButton
+        tab="daily"
+        onOpenAddModal={onOpenAddModal}
       />
     </section>
   );

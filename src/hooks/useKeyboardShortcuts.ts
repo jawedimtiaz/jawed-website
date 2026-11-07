@@ -409,16 +409,21 @@ export function matchHotkey(e: KeyboardEvent, combo: string): boolean {
   if (needsAlt && !e.altKey) return false;
   if (needsShift && !e.shiftKey) return false;
 
+  if (!needsMod && !needsCtrl && e.ctrlKey) return false;
+  if (!needsMod && !needsCmd && e.metaKey) return false;
+  if (!needsAlt && e.altKey) return false;
+
   const keyPart = parts.find(
     (p) => !['ctrl', 'control', 'cmd', 'meta', 'mod', 'alt', 'option', 'shift'].includes(p)
   );
 
   if (!keyPart) return true;
 
-  const actualKey = e.key.toLowerCase();
+  const actualKey = (e.key || '').toLowerCase();
+  const actualCode = (e.code || '').toLowerCase();
 
   if (keyPart === 'esc' || keyPart === 'escape') {
-    return actualKey === 'escape';
+    return actualKey === 'escape' || actualCode === 'escape';
   }
   if (keyPart === '/') {
     return actualKey === '/';
@@ -427,10 +432,15 @@ export function matchHotkey(e: KeyboardEvent, combo: string): boolean {
     return actualKey === '?' || (e.shiftKey && actualKey === '/');
   }
   if (keyPart === 'space') {
-    return actualKey === ' ' || actualKey === 'spacebar';
+    return actualKey === ' ' || actualKey === 'spacebar' || actualCode === 'space';
   }
 
-  return actualKey === keyPart;
+  if (!needsShift && e.shiftKey) return false;
+
+  if (actualKey === keyPart) return true;
+  if (keyPart.length === 1 && actualCode === `key${keyPart}`) return true;
+
+  return false;
 }
 
 export const formatComboForDisplay = (combo: string): { keys: string[]; isMac: boolean } => {

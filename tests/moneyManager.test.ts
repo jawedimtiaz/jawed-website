@@ -2645,5 +2645,560 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.equal(usdRow.originalExpense, 100);
     assert.equal(usdRow.convertedExpenseINR, 8500);
   });
-});
 
+  it('supports Batch Mode in TransactionModal to log multiple transactions sequentially without closing and reopening the modal', async () => {
+    const {
+      computeNextSequentialFormState,
+      summarizeBatchSession,
+      executeSequentialBatchSave,
+    } = await import('../src/components/money-manager/TransactionModal');
+    const { saveTransaction, getAllLedgerState } = await import('../src/db/db');
+
+    // 1. Verify computeNextSequentialFormState preserves sticky context while resetting transient per-entry fields
+    const currentSnapshot = {
+      txType: 'Expense' as const,
+      dateTime: '2026-11-20T09:15',
+      accountId: 'acc-icici',
+      toAccountId: 'acc-cash',
+      category: 'Food & Groceries',
+      subCategory: 'Supermarket & Daily',
+      fixedOrVariable: 'Variable' as const,
+      currency: 'INR' as const,
+      amount: '480',
+      note: 'Morning milk and bread',
+      receiptImages: ['data:image/png;base64,abc'],
+      isAnomaly: true,
+      recurringInterval: 'Monthly' as const,
+      manualCategoryLock: true,
+    };
+
+    const nextSnapshot = computeNextSequentialFormState(currentSnapshot);
+    assert.equal(nextSnapshot.txType, 'Expense');
+    assert.equal(nextSnapshot.dateTime, '2026-11-20T09:15');
+    assert.equal(nextSnapshot.accountId, 'acc-icici');
+    assert.equal(nextSnapshot.category, 'Food & Groceries');
+    assert.equal(nextSnapshot.subCategory, 'Supermarket & Daily');
+    assert.equal(nextSnapshot.fixedOrVariable, 'Variable');
+    assert.equal(nextSnapshot.currency, 'INR');
+    // Transient entry fields are cleared for immediate next entry
+    assert.equal(nextSnapshot.amount, '');
+    assert.equal(nextSnapshot.note, '');
+    assert.deepEqual(nextSnapshot.receiptImages, []);
+    assert.equal(nextSnapshot.isAnomaly, false);
+    assert.equal(nextSnapshot.recurringInterval, 'None');
+    assert.equal(nextSnapshot.manualCategoryLock, false);
+
+    // 2. Verify sequential batch save persists multiple transactions in a single session without closing
+    const batchSummary = await executeSequentialBatchSave(
+      [
+        {
+          date: '2026-11-20T09:15',
+          type: 'Expense',
+          accountId: 'acc-icici',
+          amount: 450,
+          currency: 'INR',
+          category: 'Food & Groceries',
+          subCategory: 'Supermarket & Daily',
+          fixedOrVariable: 'Variable',
+          note: 'Batch Entry 1: Fresh vegetables',
+          receiptImages: [],
+          isAnomaly: false,
+        },
+        {
+          date: '2026-11-20T09:30',
+          type: 'Expense',
+          accountId: 'acc-icici',
+          amount: 250,
+          currency: 'INR',
+          category: 'Transport & Fuel',
+          subCategory: 'Metro & Auto',
+          fixedOrVariable: 'Variable',
+          note: 'Batch Entry 2: Metro card recharge',
+          receiptImages: [],
+          isAnomaly: false,
+        },
+        {
+          date: '2026-11-20T10:00',
+          type: 'Income',
+          accountId: 'acc-sbi',
+          amount: 1500,
+          currency: 'INR',
+          category: 'Freelance & Consulting',
+          subCategory: 'Advisory',
+          fixedOrVariable: 'Variable',
+          note: 'Batch Entry 3: Quick consulting payout',
+          receiptImages: [],
+          isAnomaly: false,
+        },
+      ],
+      saveTransaction
+    );
+
+    assert.equal(batchSummary.count, 3);
+    assert.equal(batchSummary.totalExpenseINR, 700);
+    assert.equal(batchSummary.totalIncomeINR, 1500);
+    assert.equal(batchSummary.netDeltaINR, 800);
+    assert.equal(batchSummary.items.length, 3);
+
+    const recomputedSummary = summarizeBatchSession(batchSummary.items);
+    assert.equal(recomputedSummary.count, 3);
+    assert.equal(recomputedSummary.totalExpenseINR, 700);
+    assert.equal(recomputedSummary.totalIncomeINR, 1500);
+
+    const state = await getAllLedgerState();
+    for (const logged of batchSummary.items) {
+      assert.ok(
+        state.transactions.some((tx) => tx.id === logged.id),
+        `Expected batch transaction ${logged.id} to be persisted in ledger`
+      );
+    }
+  });
+
+  it('predicts total month-end expenditures for each category compared to set limits in BudgetForecastCard using current month spending velocity', async () => {
+    const {
+      BudgetForecastCard,
+      calculateVelocityBudgetForecast,
+    } = await import('../src/components/money-manager/StatsView');
+
+    assert.ok(BudgetForecastCard, 'Expected BudgetForecastCard component export');
+
+    const state = await initializeAndSeedDatabase();
+
+    // Evaluate at Day 10 of 30 in 2026-11 (3x multiplier for Variable categories)
+    const forecast = calculateVelocityBudgetForecast(
+      state.transactions,
+      state.categories,
+      '2026-11',
+      {
+        referenceDayOfMonth: 10,
+        thresholdOverrides: {
+          'Food & Groceries': 10000,
+        },
+      }
+    );
+
+    assert.equal(forecast.daysInMonth, 30);
+    assert.equal(forecast.daysElapsed, 10);
+    assert.equal(forecast.daysRemaining, 20);
+    assert.ok(forecast.totalSafeDailySpendLimit > 0);
+
+    const foodForecast = forecast.items.find((i) => i.category === 'Food & Groceries');
+    assert.ok(foodForecast, 'Expected Food & Groceries forecast item');
+    assert.equal(foodForecast.definedBudget, 10000);
+    assert.equal(foodForecast.safeDailySpendLimit, Math.round(10000 / 30));
+    assert.equal(foodForecast.dailyVelocity, Math.round(foodForecast.currentSpent / 10));
+    assert.equal(
+      foodForecast.predictedMonthEndTotal,
+      Math.round((foodForecast.currentSpent / 10) * 30)
+    );
+    assert.equal(
+      foodForecast.comparisonStatus,
+      foodForecast.predictedUtilizationPercent > 100
+        ? 'predicted-over'
+        : foodForecast.predictedUtilizationPercent >= 85
+        ? 'at-risk'
+        : 'on-track'
+    );
+  });
+
+  it('applies site-wide dark and light mode theme variables to Money Manager when toggled from the main app interface', async () => {
+    const {
+      SITE_DARK_THEME_VARIABLES,
+      SITE_LIGHT_THEME_VARIABLES,
+      resolveSiteThemeVariables,
+      detectActiveSiteTheme,
+      syncMoneyManagerThemeWithSite,
+    } = await import('../src/tools/MoneyManager');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    // 1. Verify dark and light theme variable dictionaries match site-wide CSS tokens
+    const darkVars = resolveSiteThemeVariables('dark');
+    assert.equal(darkVars['--bg'], '#0f172a');
+    assert.equal(darkVars['--surface'], '#1e293b');
+    assert.equal(darkVars['--border'], '#334155');
+    assert.equal(darkVars['--text'], '#f8fafc');
+    assert.equal(darkVars['--text-heading'], '#ffffff');
+    assert.equal(darkVars['--accent'], '#38bdf8');
+    assert.equal(darkVars['--mm-bg'], SITE_DARK_THEME_VARIABLES['--bg']);
+    assert.equal(darkVars['--mm-surface'], SITE_DARK_THEME_VARIABLES['--surface']);
+
+    const lightVars = resolveSiteThemeVariables('light');
+    assert.equal(lightVars['--bg'], '#f8fafc');
+    assert.equal(lightVars['--surface'], '#ffffff');
+    assert.equal(lightVars['--border'], '#e2e8f0');
+    assert.equal(lightVars['--text'], '#0f172a');
+    assert.equal(lightVars['--text-heading'], '#0f172a');
+    assert.equal(lightVars['--accent'], '#0284c7');
+    assert.equal(lightVars['--mm-bg'], SITE_LIGHT_THEME_VARIABLES['--bg']);
+    assert.equal(lightVars['--mm-surface'], SITE_LIGHT_THEME_VARIABLES['--surface']);
+
+    // 2. Verify detectActiveSiteTheme reads data-theme and classes from documentElement
+    const mockDarkDoc = {
+      documentElement: {
+        getAttribute: (attr: string) => (attr === 'data-theme' ? 'dark' : null),
+        classList: { contains: (cls: string) => cls === 'dark' },
+      },
+      body: {
+        getAttribute: () => null,
+        classList: { contains: () => false },
+      },
+    } as unknown as Document;
+    assert.equal(detectActiveSiteTheme(mockDarkDoc, null), 'dark');
+
+    const mockLightDoc = {
+      documentElement: {
+        getAttribute: (attr: string) => (attr === 'data-theme' ? 'light' : null),
+        classList: { contains: (cls: string) => cls === 'light' },
+      },
+      body: {
+        getAttribute: () => null,
+        classList: { contains: () => false },
+      },
+    } as unknown as Document;
+    assert.equal(detectActiveSiteTheme(mockLightDoc, null), 'light');
+
+    // 3. Verify syncMoneyManagerThemeWithSite applies data-theme, classes, and CSS variables to target element
+    const appliedAttrs: Record<string, string> = {};
+    const appliedProps: Record<string, string> = {};
+    const activeClasses = new Set<string>();
+    const mockShellEl = {
+      setAttribute: (k: string, v: string) => {
+        appliedAttrs[k] = v;
+      },
+      classList: {
+        remove: (...tokens: string[]) => tokens.forEach((t) => activeClasses.delete(t)),
+        add: (...tokens: string[]) => tokens.forEach((t) => activeClasses.add(t)),
+      },
+      style: {
+        setProperty: (k: string, v: string) => {
+          appliedProps[k] = v;
+        },
+      },
+    } as unknown as HTMLElement;
+
+    const syncedDark = syncMoneyManagerThemeWithSite(mockShellEl, 'dark');
+    assert.equal(syncedDark.mode, 'dark');
+    assert.equal(appliedAttrs['data-theme'], 'dark');
+    assert.ok(activeClasses.has('dark'));
+    assert.ok(activeClasses.has('theme-dark'));
+    assert.equal(appliedProps['--bg'], '#0f172a');
+    assert.equal(appliedProps['--surface'], '#1e293b');
+    assert.equal(appliedProps['--mm-accent'], '#38bdf8');
+
+    const syncedLight = syncMoneyManagerThemeWithSite(mockShellEl, 'light');
+    assert.equal(syncedLight.mode, 'light');
+    assert.equal(appliedAttrs['data-theme'], 'light');
+    assert.ok(activeClasses.has('light'));
+    assert.ok(activeClasses.has('theme-light'));
+    assert.ok(!activeClasses.has('dark'));
+    assert.equal(appliedProps['--bg'], '#f8fafc');
+    assert.equal(appliedProps['--surface'], '#ffffff');
+    assert.equal(appliedProps['--mm-accent'], '#0284c7');
+
+    // 4. Verify index.css includes site-wide theme variable mappings on .mm-page-shell
+    const cssSource = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
+    assert.ok(cssSource.includes('[data-theme="dark"] .mm-page-shell'));
+    assert.ok(cssSource.includes('[data-theme="light"] .mm-page-shell'));
+    assert.ok(cssSource.includes('--mm-bg: var(--bg)'));
+    assert.ok(cssSource.includes('--mm-surface: var(--surface)'));
+  });
+
+  it('supports the Alt + N keyboard shortcut to directly open the Money Manager transaction modal from anywhere in the tool suite', async () => {
+    const {
+      MONEY_MANAGER_NEW_TX_SHORTCUT_COMBO,
+      MONEY_MANAGER_NEW_TX_SHORTCUT_ID,
+      MONEY_MANAGER_NEW_TX_EVENT,
+      MONEY_MANAGER_LEDGER_UPDATED_EVENT,
+      isMoneyManagerNewTransactionShortcut,
+      triggerMoneyManagerTransactionModal,
+      consumePendingMoneyManagerModalRequest,
+      GlobalMoneyManagerQuickModal,
+    } = await import('../src/tools/MoneyManager');
+    const { matchHotkey } = await import('../src/hooks/useKeyboardShortcuts');
+
+    // 1. Verify exported shortcut constants
+    assert.equal(MONEY_MANAGER_NEW_TX_SHORTCUT_COMBO, 'alt+n');
+    assert.equal(MONEY_MANAGER_NEW_TX_SHORTCUT_ID, 'money-manager-new-tx');
+    assert.equal(MONEY_MANAGER_NEW_TX_EVENT, 'open-money-manager-tx-modal');
+    assert.equal(MONEY_MANAGER_LEDGER_UPDATED_EVENT, 'money-manager-ledger-updated');
+    assert.equal(typeof GlobalMoneyManagerQuickModal, 'function');
+
+    // 2. Verify keyboard event matcher for Alt + N (including uppercase N and macOS Option + N dead key with KeyN code)
+    assert.equal(
+      isMoneyManagerNewTransactionShortcut({
+        key: 'n',
+        code: 'KeyN',
+        altKey: true,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      }),
+      true
+    );
+    assert.equal(
+      isMoneyManagerNewTransactionShortcut({
+        key: 'N',
+        code: 'KeyN',
+        altKey: true,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      }),
+      true
+    );
+    assert.equal(
+      isMoneyManagerNewTransactionShortcut({
+        key: 'Dead',
+        code: 'KeyN',
+        altKey: true,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      }),
+      true
+    );
+    // Reject plain 'n', Ctrl+Alt+N, Shift+Alt+N, or repeat events
+    assert.equal(
+      isMoneyManagerNewTransactionShortcut({
+        key: 'n',
+        code: 'KeyN',
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      }),
+      false
+    );
+    assert.equal(
+      isMoneyManagerNewTransactionShortcut({
+        key: 'n',
+        code: 'KeyN',
+        altKey: true,
+        ctrlKey: true,
+        metaKey: false,
+        shiftKey: false,
+      }),
+      false
+    );
+    assert.equal(
+      isMoneyManagerNewTransactionShortcut({
+        key: 'n',
+        code: 'KeyN',
+        altKey: true,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+        repeat: true,
+      }),
+      false
+    );
+
+    // 3. Verify global matchHotkey also matches 'alt+n' accurately
+    assert.equal(
+      matchHotkey(
+        {
+          key: 'n',
+          code: 'KeyN',
+          altKey: true,
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: false,
+        } as unknown as KeyboardEvent,
+        'alt+n'
+      ),
+      true
+    );
+
+    // 4. Verify triggerMoneyManagerTransactionModal queues and dispatches request payload
+    consumePendingMoneyManagerModalRequest(); // Clear any prior state
+    const payload = triggerMoneyManagerTransactionModal({
+      initialType: 'expense',
+      initialDate: '2026-11-15',
+      source: 'alt+n',
+    });
+    assert.equal(payload.source, 'alt+n');
+    assert.equal(payload.initialType, 'expense');
+    assert.equal(payload.initialDate, '2026-11-15');
+    assert.equal(typeof payload.timestamp, 'number');
+
+    const consumed = consumePendingMoneyManagerModalRequest();
+    assert.ok(consumed);
+    assert.equal(consumed?.source, 'alt+n');
+    assert.equal(consumed?.initialType, 'expense');
+    assert.equal(consumed?.initialDate, '2026-11-15');
+
+    // Second consume returns null after queue is drained
+    assert.equal(consumePendingMoneyManagerModalRequest(), null);
+  });
+
+  it('renders a floating + Quick-Add button in the bottom-right corner of the Daily Ledger and Accounts tabs to trigger the transaction modal without navigating away', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      QuickAddFloatingButton,
+      QUICK_ADD_VISIBLE_TABS,
+      shouldRenderQuickAddFab,
+      triggerQuickAddTransactionModal,
+      consumePendingMoneyManagerModalRequest,
+    } = await import('../src/tools/MoneyManager');
+    const DailyViewMod = await import('../src/components/money-manager/DailyView');
+    const AccountsViewMod = await import('../src/components/money-manager/AccountsView');
+
+    // 1. Verify Quick-Add FAB is exported across MoneyManager, DailyView, and AccountsView
+    assert.equal(typeof QuickAddFloatingButton, 'function');
+    assert.equal(typeof DailyViewMod.QuickAddFloatingButton, 'function');
+    assert.equal(typeof AccountsViewMod.QuickAddFloatingButton, 'function');
+    assert.deepEqual([...QUICK_ADD_VISIBLE_TABS], ['daily', 'accounts']);
+
+    // 2. Verify tab visibility rules: enabled on Daily Ledger ('daily') and Accounts ('accounts'), disabled on other tabs
+    assert.equal(shouldRenderQuickAddFab('daily'), true);
+    assert.equal(shouldRenderQuickAddFab('accounts'), true);
+    assert.equal(shouldRenderQuickAddFab('calendar'), false);
+    assert.equal(shouldRenderQuickAddFab('stats'), false);
+    assert.equal(shouldRenderQuickAddFab('recurring'), false);
+
+    // 3. Verify triggering Quick-Add from 'daily' and 'accounts' opens the modal callback in-place without navigating away
+    let openedFromDailyCount = 0;
+    let openedDateFromDaily: string | undefined;
+    const dailyResult = triggerQuickAddTransactionModal({
+      tab: 'daily',
+      defaultDate: '2026-11-06',
+      onOpenAddModal: (date) => {
+        openedFromDailyCount += 1;
+        openedDateFromDaily = date;
+      },
+    });
+    assert.equal(dailyResult.triggered, true);
+    assert.equal(dailyResult.tab, 'daily');
+    assert.equal(dailyResult.navigatedAway, false);
+    assert.equal(openedFromDailyCount, 1);
+    assert.equal(openedDateFromDaily, '2026-11-06');
+
+    let openedFromAccountsCount = 0;
+    const accountsResult = triggerQuickAddTransactionModal({
+      tab: 'accounts',
+      onOpenAddModal: () => {
+        openedFromAccountsCount += 1;
+      },
+    });
+    assert.equal(accountsResult.triggered, true);
+    assert.equal(accountsResult.tab, 'accounts');
+    assert.equal(accountsResult.navigatedAway, false);
+    assert.equal(openedFromAccountsCount, 1);
+
+    // 4. Verify fallback global modal dispatch when onOpenAddModal is omitted
+    consumePendingMoneyManagerModalRequest();
+    const fallbackResult = triggerQuickAddTransactionModal({
+      tab: 'accounts',
+      defaultDate: '2026-11-10',
+    });
+    assert.equal(fallbackResult.triggered, true);
+    assert.equal(fallbackResult.navigatedAway, false);
+    const pendingPayload = consumePendingMoneyManagerModalRequest();
+    assert.ok(pendingPayload);
+    assert.equal(pendingPayload?.source, 'quick-add-accounts');
+    assert.equal(pendingPayload?.defaultDate, '2026-11-10');
+
+    // 5. Verify DailyView.tsx and AccountsView.tsx mount <QuickAddFloatingButton /> and index.css defines bottom-right positioning
+    const dailySource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/DailyView.tsx'),
+      'utf8'
+    );
+    const accountsSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/AccountsView.tsx'),
+      'utf8'
+    );
+    const cssSource = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
+
+    assert.ok(dailySource.includes('<QuickAddFloatingButton'));
+    assert.ok(dailySource.includes('tab="daily"'));
+    assert.ok(accountsSource.includes('<QuickAddFloatingButton'));
+    assert.ok(accountsSource.includes('tab="accounts"'));
+    assert.ok(cssSource.includes('.mm-quick-add-fab'));
+  });
+
+  it('compares total spending across all categories for the last 6 months in SixMonthCategoryComparisonCard using Recharts', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      SixMonthCategoryComparisonCard,
+      computeSixMonthCategoryComparison,
+      buildSixMonthWindow,
+    } = await import('../src/tools/MoneyManager');
+    const StatsViewMod = await import('../src/components/money-manager/StatsView');
+
+    // 1. Verify exports across MoneyManager and StatsView
+    assert.equal(typeof SixMonthCategoryComparisonCard, 'function');
+    assert.equal(typeof StatsViewMod.SixMonthCategoryComparisonCard, 'function');
+    assert.equal(typeof computeSixMonthCategoryComparison, 'function');
+    assert.equal(typeof buildSixMonthWindow, 'function');
+
+    // 2. Verify 6-month window construction ending at 2026-11
+    const windowPoints = buildSixMonthWindow('2026-11');
+    assert.equal(windowPoints.length, 6);
+    assert.equal(windowPoints[0].yearMonth, '2026-06');
+    assert.equal(windowPoints[0].label, "Jun '26");
+    assert.equal(windowPoints[5].yearMonth, '2026-11');
+    assert.equal(windowPoints[5].label, "Nov '26");
+
+    // 3. Compute 6-month category comparison on seeded database state
+    const state = await initializeAndSeedDatabase();
+    const summary = computeSixMonthCategoryComparison(
+      state.transactions,
+      '2026-11',
+      state.categories
+    );
+
+    assert.equal(summary.referenceYearMonth, '2026-11');
+    assert.equal(summary.startYearMonth, '2026-06');
+    assert.equal(summary.periodLabel, "Jun '26 – Nov '26");
+    assert.equal(summary.months.length, 6);
+    assert.equal(summary.monthlyStackedData.length, 6);
+    assert.ok(summary.categories.length >= state.categories.length);
+    assert.ok(summary.grandTotalSixMonthSpent > 0);
+
+    // Sum of all category 6-month totals must equal grandTotalSixMonthSpent
+    const summedCategoryTotals = summary.categories.reduce(
+      (acc, row) => acc + row.totalSixMonthSpent,
+      0
+    );
+    assert.equal(summedCategoryTotals, summary.grandTotalSixMonthSpent);
+
+    // Rent & Housing should have all 6 monthly breakdown points summing to totalSixMonthSpent
+    const rentRow = summary.categories.find((c) => c.category === 'Rent & Housing');
+    assert.ok(rentRow);
+    const rentBreakdownSum = rentRow.monthlyBreakdown.reduce((acc, m) => acc + m.spent, 0);
+    assert.equal(rentRow.totalSixMonthSpent, rentBreakdownSum);
+    assert.ok(rentRow.totalSixMonthSpent >= 132000);
+    assert.equal(rentRow.averageMonthlySpent, Math.round(rentRow.totalSixMonthSpent / 6));
+    assert.equal(rentRow.monthlyLimit, 24000);
+    assert.equal(rentRow.sixMonthBudgetLimit, 144000);
+    assert.equal(rentRow.monthlyBreakdown.length, 6);
+
+    // Categories are sorted descending by totalSixMonthSpent
+    for (let i = 1; i < summary.categories.length; i += 1) {
+      assert.ok(
+        summary.categories[i - 1].totalSixMonthSpent >= summary.categories[i].totalSixMonthSpent
+      );
+    }
+
+    // 4. Verify StatsView.tsx mounts <SixMonthCategoryComparisonCard /> and SixMonthCategoryComparisonCard.tsx uses Recharts BarChart
+    const statsSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/StatsView.tsx'),
+      'utf8'
+    );
+    const cardSource = fs.readFileSync(
+      path.resolve(
+        process.cwd(),
+        'src/components/money-manager/SixMonthCategoryComparisonCard.tsx'
+      ),
+      'utf8'
+    );
+
+    assert.ok(statsSource.includes('<SixMonthCategoryComparisonCard'));
+    assert.ok(cardSource.includes('<ResponsiveContainer'));
+    assert.ok(cardSource.includes('<BarChart'));
+    assert.ok(cardSource.includes('dataKey="totalSixMonthSpent"'));
+  });
+});

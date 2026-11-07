@@ -15,17 +15,35 @@ import {
   type MoneyAccount,
 } from '../../db/db';
 import { renderAccountTypeIcon } from './categoryIcons';
+import {
+  QuickAddFloatingButton,
+  QUICK_ADD_VISIBLE_TABS,
+  shouldRenderQuickAddFab,
+  triggerQuickAddTransactionModal,
+  type QuickAddSupportedTab,
+  type QuickAddFloatingButtonProps,
+} from './QuickAddFab';
+
+export {
+  QuickAddFloatingButton,
+  QUICK_ADD_VISIBLE_TABS,
+  shouldRenderQuickAddFab,
+  triggerQuickAddTransactionModal,
+};
+export type { QuickAddSupportedTab, QuickAddFloatingButtonProps };
 
 export interface AccountsViewProps {
   accounts: AccountSummary[];
   onSaveAccount: (account: MoneyAccount) => Promise<void>;
   onSelectAccountInDailyView: (accountId: string) => void;
+  onOpenAddModal?: (defaultDate?: string) => void;
 }
 
 export const AccountsView: React.FC<AccountsViewProps> = ({
   accounts,
   onSaveAccount,
   onSelectAccountInDailyView,
+  onOpenAddModal,
 }) => {
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editOpeningValue, setEditOpeningValue] = useState<string>('0');
@@ -387,6 +405,14 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
           );
         })}
       </div>
+
+      {/* Floating '+' Quick-Add Button in Bottom-Right Corner of Accounts Tab */}
+      <QuickAddFloatingButton
+        tab="accounts"
+        onOpenAddModal={onOpenAddModal}
+      />
     </section>
   );
 };
+
+export default AccountsView;

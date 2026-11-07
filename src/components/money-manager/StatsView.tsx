@@ -110,6 +110,15 @@ import {
   type CategoryProgressColorConfig,
   type CategoryBudgetProgressEntry,
 } from './CategoryBudgetProgressCard';
+import {
+  SixMonthCategoryComparisonCard,
+  computeSixMonthCategoryComparison,
+  buildSixMonthWindow,
+  type SixMonthCategoryComparisonRow,
+  type SixMonthCategoryComparisonSummary,
+  type SixMonthWindowPoint,
+  type CategoryMonthSpendPoint,
+} from './SixMonthCategoryComparisonCard';
 
 export {
   BudgetForecastCard,
@@ -117,6 +126,9 @@ export {
   CategoryBudgetProgressCard,
   resolveCategoryProgressColor,
   computeCategoryBudgetProgressItems,
+  SixMonthCategoryComparisonCard,
+  computeSixMonthCategoryComparison,
+  buildSixMonthWindow,
   SUPPORTED_CURRENCIES,
   CURRENCY_METADATA,
   FALLBACK_RATES_TO_INR,
@@ -135,6 +147,10 @@ export type {
   CategoryProgressColorTier,
   CategoryProgressColorConfig,
   CategoryBudgetProgressEntry,
+  SixMonthCategoryComparisonRow,
+  SixMonthCategoryComparisonSummary,
+  SixMonthWindowPoint,
+  CategoryMonthSpendPoint,
   CurrencyCode,
   DailyExchangeRateSnapshot,
   CurrencyBreakdownRow,
@@ -2832,6 +2848,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
             }}
           />
 
+          {/* Dedicated Visual Card: Recharts 6-Month Category Spending Comparison Bar Chart */}
+          <SixMonthCategoryComparisonCard
+            transactions={transactions}
+            selectedMonth={selectedMonth}
+            categories={categories}
+          />
+
           {/* Dashboard Summary Cards Control Bar & Dynamic Reorderable Cards Container */}
           <div
             className="mm-dashboard-reorder-bar"
@@ -3252,6 +3275,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       categories={localCategories}
                       selectedMonth={selectedMonth}
                       metrics={metrics}
+                      thresholdOverrides={activeThresholdConfig}
                       onAlignCategoryBudget={async (catName, newLimit) => {
                         handleCategoryThresholdChange(catName, String(newLimit));
                       }}
@@ -4131,6 +4155,42 @@ export const StatsView: React.FC<StatsViewProps> = ({
             })}
           </div>
         </article>
+      )}
+
+      {!showBudgetPlanningSection && showBudgetProjectionSection && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 12 }}>
+          <BudgetForecastCard
+            transactions={transactions}
+            categories={localCategories}
+            selectedMonth={selectedMonth}
+            metrics={metrics}
+            thresholdOverrides={activeThresholdConfig}
+            onAlignCategoryBudget={async (catName, newLimit) => {
+              handleCategoryThresholdChange(catName, String(newLimit));
+            }}
+          />
+          <BudgetProjectionSection
+            transactions={transactions}
+            categories={localCategories}
+            selectedMonth={selectedMonth}
+            metrics={metrics}
+            onSaveCategory={handleSaveCategoryState}
+            onAlignCategoryBudget={async (categoryName, newLimit) => {
+              handleCategoryThresholdChange(categoryName, String(newLimit));
+            }}
+          />
+        </div>
+      )}
+
+      {!showBudgetPlanningSection && showSavingsGoalsSection && (
+        <div style={{ marginBottom: 12 }}>
+          <MonthlySavingsGoalsSection
+            selectedMonth={selectedMonth}
+            metrics={metrics}
+            transactions={transactions}
+            sinkingFunds={sinkingFunds}
+          />
+        </div>
       )}
 
       {showAnalyticsSections && (

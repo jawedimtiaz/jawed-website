@@ -43,6 +43,12 @@ export {
 } from './money-manager/CategoryBudgetProgressCard';
 
 export {
+  SixMonthCategoryComparisonCard,
+  computeSixMonthCategoryComparison,
+  buildSixMonthWindow,
+} from './money-manager/SixMonthCategoryComparisonCard';
+
+export {
   generateMonthlyReportJson,
   triggerMonthlyReportJsonDownload,
 } from './money-manager/StatsView';
