@@ -30,7 +30,15 @@ try{
  if(!type.startsWith("text/html")) failures.push(`404 probe: expected text/html, got ${type||"missing"}`);
  if(response.status>=300&&response.status<400) failures.push("404 probe: unexpected redirect");
  for(const marker of contract.required_markers) if(!body.includes(marker)) failures.push(`404 probe: missing marker ${marker}`);
- for(const marker of contract.forbidden_markers||[]) if(body.toLowerCase().includes(marker.toLowerCase())) failures.push(`404 probe: platform/error marker detected ${marker}`);
+ for(const marker of contract.forbidden_markers||[]){
+  const markerIndex=body.toLowerCase().indexOf(marker.toLowerCase());
+  if(markerIndex!==-1){
+   const start=Math.max(0,markerIndex-100),end=Math.min(body.length,markerIndex+marker.length+100);
+   const context=body.slice(start,end).replace(/\s+/g," ");
+   console.error(`404 diagnostic: forbidden marker=${JSON.stringify(marker)} index=${markerIndex} context=${JSON.stringify(context)}`);
+   failures.push(`404 probe: platform/error marker detected ${marker}`);
+  }
+ }
  if(body.length<500) failures.push("404 probe: response body is unexpectedly small");
 }catch(error){failures.push(`404 probe: ${error?.name==="AbortError"?"request timed out":error?.message||"request failed"}`)}
 finally{clearTimeout(timer)}
