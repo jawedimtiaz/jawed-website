@@ -13,6 +13,7 @@ import {
   calculateMonthlyMetrics,
   saveTransaction,
   deleteTransaction,
+  bulkImportTransactions,
   saveAccount,
   saveCategory,
   deleteCategory,
@@ -102,7 +103,36 @@ import {
   type SequentialFormStateSnapshot,
 } from '../components/money-manager/TransactionModal';
 import { ReceiptLightboxModal } from '../components/money-manager/ReceiptLightboxModal';
-import { BackupRestoreModal } from '../components/money-manager/BackupRestoreModal';
+import {
+  BackupRestoreModal,
+  formatTransactionsToCsv,
+  formatLedgerTransactionsToParityCsv,
+  downloadMoneyManagerCsv,
+  exportTransactionsCsvFromDb,
+  generateBulkLedgerCsvExport,
+  exportBulkLedgerHistoryCsvFromDb,
+  exportIndexedDbLedgerToCsv,
+  type BulkCsvExportOptions,
+  type BulkCsvExportSummary,
+  type BackupRestoreModalProps,
+} from '../components/money-manager/BackupRestoreModal';
+import {
+  CsvImportModal,
+  parseCsvText,
+  autoDetectCsvMapping,
+  mapCsvRowsToTransactions,
+  bulkImportCsvToLedger,
+  bulkImportCsvFileToLedger,
+  summarizeMappedCsvTransactions,
+  normalizeBankDateToIso,
+  SAMPLE_BANK_STATEMENT_CSV,
+  type CsvColumnMapping,
+  type CsvMappingOptions,
+  type ParsedCsvResult,
+  type BulkCsvImportLedgerResult,
+  type BulkCsvImportSummaryMetrics,
+  type CsvImportModalProps,
+} from '../components/money-manager/CsvImportModal';
 import {
   signInWithRedirect,
   getRedirectResult,
@@ -191,6 +221,24 @@ export {
   computeRecurringOccurrencesForMonth,
   buildRecurringFeedTransactionsForMonth,
   computeNextRecurringDate,
+  bulkImportTransactions,
+  BackupRestoreModal,
+  formatTransactionsToCsv,
+  formatLedgerTransactionsToParityCsv,
+  downloadMoneyManagerCsv,
+  exportTransactionsCsvFromDb,
+  generateBulkLedgerCsvExport,
+  exportBulkLedgerHistoryCsvFromDb,
+  exportIndexedDbLedgerToCsv,
+  CsvImportModal,
+  parseCsvText,
+  autoDetectCsvMapping,
+  mapCsvRowsToTransactions,
+  bulkImportCsvToLedger,
+  bulkImportCsvFileToLedger,
+  summarizeMappedCsvTransactions,
+  normalizeBankDateToIso,
+  SAMPLE_BANK_STATEMENT_CSV,
 };
 export type {
   OpenMoneyManagerModalPayload,
@@ -207,6 +255,15 @@ export type {
   RecurringRule,
   RecurringFrequency,
   RecurringTemplatePreset,
+  CsvColumnMapping,
+  CsvMappingOptions,
+  ParsedCsvResult,
+  BulkCsvImportLedgerResult,
+  BulkCsvImportSummaryMetrics,
+  CsvImportModalProps,
+  BulkCsvExportOptions,
+  BulkCsvExportSummary,
+  BackupRestoreModalProps,
 };
 
 export type MoneyManagerThemeMode = 'dark' | 'light';
@@ -562,8 +619,9 @@ export const MoneyManager: React.FC = () => {
     title: string;
   }>({ isOpen: false, images: [], title: '' });
 
-  // Backup / Restore Modal State & Google Redirect Auth State
+  // Backup / Restore & CSV Import Modal State + Google Redirect Auth State
   const [isBackupModalOpen, setIsBackupModalOpen] = useState<boolean>(false);
+  const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState<boolean>(false);
   const auth = useMemo(() => getMoneyManagerAuth(), []);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -1171,6 +1229,7 @@ export const MoneyManager: React.FC = () => {
           themeMode={siteTheme}
           onOpenAddModal={handleOpenAddTransaction}
           onOpenBackupModal={() => setIsBackupModalOpen(true)}
+          onOpenCsvImportModal={() => setIsCsvImportModalOpen(true)}
         />
 
         {/* Active View Body (Supports Horizontal Touch Swipe Between Daily, Calendar, Accounts & Stats) */}
@@ -1337,6 +1396,26 @@ export const MoneyManager: React.FC = () => {
           onGoogleSignIn={handleGoogleSignIn}
           onClose={() => setIsBackupModalOpen(false)}
           onDataRestored={loadDatabaseState}
+        />
+
+        {/* Bulk CSV Bank Statement Import Modal (Accessible from Header across all tabs) */}
+        <CsvImportModal
+          isOpen={isCsvImportModalOpen}
+          selectedMonth={selectedMonth}
+          accounts={accounts}
+          categories={categories}
+          transactions={transactions}
+          onClose={() => setIsCsvImportModalOpen(false)}
+          onImportComplete={async (imported) => {
+            await loadDatabaseState();
+            if (imported.length > 0) {
+              const firstMonth = String(imported[0].date || '').slice(0, 7);
+              if (firstMonth && firstMonth !== selectedMonth) {
+                setSelectedMonth(firstMonth);
+              }
+            }
+            showToast(`Imported ${imported.length} bank transactions into ledger.`);
+          }}
         />
       </main>
     </HelmetProvider>

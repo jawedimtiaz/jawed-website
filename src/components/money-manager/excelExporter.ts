@@ -247,7 +247,10 @@ export interface BulkCsvExportOptions {
   scope?: 'full-history' | 'selected-month';
   selectedMonth?: string;
   accountId?: string;
+  typeFilter?: 'ALL' | 'Income' | 'Expense' | 'Transfer';
   sortOrder?: 'asc' | 'desc';
+  formatMode?: 'split-debit-credit' | 'single-signed-amount';
+  includeMultiCurrencyColumns?: boolean;
   fallbackTransactions?: MoneyTransaction[];
   fallbackAccounts?: AccountSummary[];
 }
@@ -256,17 +259,143 @@ export interface BulkCsvExportSummary {
   csvContent: string;
   fileName: string;
   transactionCount: number;
+  incomeCount: number;
+  expenseCount: number;
+  transferCount: number;
   totalIncome: number;
   totalExpense: number;
   totalTransfers: number;
   earliestDate: string | null;
   latestDate: string | null;
+  headers: string[];
+}
+
+/**
+ * Formats ledger transactions into an RFC-4180 CSV with full import parity.
+ * Supports both split Debit/Credit columns (default) and single signed Amount columns,
+ * plus optional multi-currency metadata columns (`Currency`, `Original Amount`, `Exchange Rate to INR`).
+ */
+export function formatLedgerTransactionsToParityCsv(
+  transactions: MoneyTransaction[],
+  accounts: AccountSummary[] = [],
+  options: Pick<BulkCsvExportOptions, 'formatMode' | 'includeMultiCurrencyColumns'> = {}
+): string {
+  const formatMode = options.formatMode || 'split-debit-credit';
+  const hasMultiCurrencyTx = transactions.some(
+    (tx) => tx.currency && tx.currency !== 'INR' && tx.originalAmount
+  );
+  const includeCurrencyCols =
+    options.includeMultiCurrencyColumns ?? hasMultiCurrencyTx;
+
+  if (formatMode === 'split-debit-credit' && !includeCurrencyCols) {
+    return formatTransactionsToCsv(transactions, accounts);
+  }
+
+  const accountMap = new Map(accounts.map((acc) => [acc.id, acc.name]));
+
+  const headers =
+    formatMode === 'single-signed-amount'
+      ? [
+          'Transaction ID',
+          'Date',
+          'Time',
+          'Type',
+          'Account / Bank',
+          'Target Account',
+          'Category',
+          'Sub-Category',
+          'Fixed / Variable',
+          'Amount',
+          'Amount (INR)',
+          ...(includeCurrencyCols
+            ? ['Currency', 'Original Amount', 'Exchange Rate to INR']
+            : []),
+          'Narration',
+          'Anomaly Flag',
+        ]
+      : [
+          'Transaction ID',
+          'Date',
+          'Time',
+          'Type',
+          'Account / Bank',
+          'Target Account',
+          'Category',
+          'Sub-Category',
+          'Fixed / Variable',
+          'Withdrawal Amt.',
+          'Deposit Amt.',
+          'Amount (INR)',
+          ...(includeCurrencyCols
+            ? ['Currency', 'Original Amount', 'Exchange Rate to INR']
+            : []),
+          'Narration',
+          'Anomaly Flag',
+        ];
+
+  const rows = transactions.map((tx) => {
+    const [datePart = '', timePart = ''] = String(tx.date || '').split('T');
+    const sourceAccount = accountMap.get(tx.accountId) || tx.accountId || '';
+    const targetAccount =
+      tx.type === 'Transfer' && tx.toAccountId
+        ? accountMap.get(tx.toAccountId) || tx.toAccountId
+        : '';
+    const amount = Number(tx.amount) || 0;
+    const withdrawalAmt = tx.type === 'Expense' || tx.type === 'Transfer' ? amount : '';
+    const depositAmt = tx.type === 'Income' ? amount : '';
+    const signedAmt = tx.type === 'Income' ? amount : -amount;
+    const currency = tx.currency || 'INR';
+    const originalAmt =
+      currency !== 'INR' && tx.originalAmount ? tx.originalAmount : amount;
+    const exchangeRate =
+      currency !== 'INR' && tx.exchangeRateToINR ? tx.exchangeRateToINR : 1;
+
+    const cells =
+      formatMode === 'single-signed-amount'
+        ? [
+            tx.id,
+            datePart,
+            timePart.slice(0, 5),
+            tx.type,
+            sourceAccount,
+            targetAccount,
+            tx.category || '',
+            tx.subCategory || '',
+            tx.fixedOrVariable || 'Variable',
+            signedAmt,
+            amount,
+            ...(includeCurrencyCols ? [currency, originalAmt, exchangeRate] : []),
+            tx.note || '',
+            tx.isAnomaly ? 'YES' : 'NO',
+          ]
+        : [
+            tx.id,
+            datePart,
+            timePart.slice(0, 5),
+            tx.type,
+            sourceAccount,
+            targetAccount,
+            tx.category || '',
+            tx.subCategory || '',
+            tx.fixedOrVariable || 'Variable',
+            withdrawalAmt,
+            depositAmt,
+            amount,
+            ...(includeCurrencyCols ? [currency, originalAmt, exchangeRate] : []),
+            tx.note || '',
+            tx.isAnomaly ? 'YES' : 'NO',
+          ];
+
+    return cells.map(escapeCsvCell).join(',');
+  });
+
+  return [headers.map(escapeCsvCell).join(','), ...rows].join('\r\n');
 }
 
 /**
  * Generates a Bulk CSV Export containing the full history of ledger transactions
  * (or filtered subset when configured) formatted for external accounting software
- * (Tally Prime, Zoho Books, QuickBooks, Xero, Excel).
+ * (Tally Prime, Zoho Books, QuickBooks, Xero, Excel) and lossless Money Manager CSV re-import.
  */
 export function generateBulkLedgerCsvExport(
   transactions: MoneyTransaction[],
@@ -275,6 +404,7 @@ export function generateBulkLedgerCsvExport(
 ): BulkCsvExportSummary {
   const scope = options.scope || 'full-history';
   const accountId = options.accountId || 'ALL';
+  const typeFilter = options.typeFilter || 'ALL';
   const sortOrder = options.sortOrder || 'asc';
 
   const filtered = transactions.filter((tx) => {
@@ -290,6 +420,9 @@ export function generateBulkLedgerCsvExport(
         return false;
       }
     }
+    if (typeFilter !== 'ALL' && tx.type !== typeFilter) {
+      return false;
+    }
     return true;
   });
 
@@ -303,6 +436,9 @@ export function generateBulkLedgerCsvExport(
       : String(b.id || '').localeCompare(String(a.id || ''));
   });
 
+  let incomeCount = 0;
+  let expenseCount = 0;
+  let transferCount = 0;
   let totalIncome = 0;
   let totalExpense = 0;
   let totalTransfers = 0;
@@ -311,9 +447,16 @@ export function generateBulkLedgerCsvExport(
 
   for (const tx of sorted) {
     const amt = Number(tx.amount) || 0;
-    if (tx.type === 'Income') totalIncome += amt;
-    else if (tx.type === 'Expense') totalExpense += amt;
-    else if (tx.type === 'Transfer') totalTransfers += amt;
+    if (tx.type === 'Income') {
+      incomeCount += 1;
+      totalIncome += amt;
+    } else if (tx.type === 'Expense') {
+      expenseCount += 1;
+      totalExpense += amt;
+    } else if (tx.type === 'Transfer') {
+      transferCount += 1;
+      totalTransfers += amt;
+    }
 
     const dateOnly = String(tx.date || '').slice(0, 10);
     if (dateOnly) {
@@ -322,7 +465,13 @@ export function generateBulkLedgerCsvExport(
     }
   }
 
-  const csvContent = formatTransactionsToCsv(sorted, accounts);
+  const csvContent = formatLedgerTransactionsToParityCsv(sorted, accounts, {
+    formatMode: options.formatMode,
+    includeMultiCurrencyColumns: options.includeMultiCurrencyColumns,
+  });
+  const firstLine = csvContent.split(/\r?\n/)[0] || '';
+  const headers = firstLine ? firstLine.split(',') : [];
+
   const scopeSlug =
     scope === 'selected-month' && options.selectedMonth
       ? options.selectedMonth
@@ -333,11 +482,15 @@ export function generateBulkLedgerCsvExport(
     csvContent,
     fileName,
     transactionCount: sorted.length,
+    incomeCount,
+    expenseCount,
+    transferCount,
     totalIncome,
     totalExpense,
     totalTransfers,
     earliestDate,
     latestDate,
+    headers,
   };
 }
 
@@ -382,6 +535,17 @@ export async function exportBulkLedgerHistoryCsvFromDb(
 
   return summary;
 }
+
+/**
+ * Exports the current local IndexedDB (`JawedMoneyManagerDB`) transaction ledger
+ * into a downloadable CSV file with full column parity for re-importing via `bulkImportCsvToLedger`.
+ */
+export async function exportIndexedDbLedgerToCsv(
+  options: BulkCsvExportOptions = {}
+): Promise<BulkCsvExportSummary> {
+  return exportBulkLedgerHistoryCsvFromDb(options);
+}
+
 
 
 

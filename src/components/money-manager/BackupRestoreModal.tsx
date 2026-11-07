@@ -38,9 +38,11 @@ import {
   downloadMoneyManagerExcel,
   downloadMoneyManagerCsv,
   formatTransactionsToCsv,
+  formatLedgerTransactionsToParityCsv,
   exportTransactionsCsvFromDb,
   generateBulkLedgerCsvExport,
   exportBulkLedgerHistoryCsvFromDb,
+  exportIndexedDbLedgerToCsv,
   type BulkCsvExportOptions,
   type BulkCsvExportSummary,
 } from './excelExporter';
@@ -78,10 +80,12 @@ import {
 
 export {
   formatTransactionsToCsv,
+  formatLedgerTransactionsToParityCsv,
   downloadMoneyManagerCsv,
   exportTransactionsCsvFromDb,
   generateBulkLedgerCsvExport,
   exportBulkLedgerHistoryCsvFromDb,
+  exportIndexedDbLedgerToCsv,
   SCOPES,
   DRIVE_APPDATA_SCOPE,
   encryptLedgerPayload,
@@ -409,12 +413,19 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     }
   };
 
-  // Bulk CSV Export Configuration State
+  // Bulk CSV Export Configuration State (Settings Panel)
   const [bulkExportScope, setBulkExportScope] = useState<'full-history' | 'selected-month'>(
     'full-history'
   );
   const [bulkExportAccountId, setBulkExportAccountId] = useState<string>('ALL');
+  const [bulkExportTypeFilter, setBulkExportTypeFilter] = useState<
+    'ALL' | 'Income' | 'Expense' | 'Transfer'
+  >('ALL');
+  const [bulkExportFormatMode, setBulkExportFormatMode] = useState<
+    'split-debit-credit' | 'single-signed-amount'
+  >('split-debit-credit');
   const [bulkExportSortOrder, setBulkExportSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [showCsvExportPreview, setShowCsvExportPreview] = useState<boolean>(true);
 
   // CSV Import & Column Mapper State
   const [csvFileName, setCsvFileName] = useState<string>('');
@@ -452,9 +463,25 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
         scope: bulkExportScope,
         selectedMonth,
         accountId: bulkExportAccountId,
+        typeFilter: bulkExportTypeFilter,
+        formatMode: bulkExportFormatMode,
         sortOrder: bulkExportSortOrder,
       }),
-    [transactions, accounts, bulkExportScope, selectedMonth, bulkExportAccountId, bulkExportSortOrder]
+    [
+      transactions,
+      accounts,
+      bulkExportScope,
+      selectedMonth,
+      bulkExportAccountId,
+      bulkExportTypeFilter,
+      bulkExportFormatMode,
+      bulkExportSortOrder,
+    ]
+  );
+
+  const parsedCsvExportPreview = useMemo(
+    () => parseCsvText(bulkExportSummary.csvContent),
+    [bulkExportSummary.csvContent]
   );
 
   const accountNameMap = useMemo(() => {
@@ -664,10 +691,12 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     try {
       setIsProcessing(true);
       setStatusMessage(null);
-      const summary = await exportBulkLedgerHistoryCsvFromDb({
+      const summary = await exportIndexedDbLedgerToCsv({
         scope: bulkExportScope,
         selectedMonth,
         accountId: bulkExportAccountId,
+        typeFilter: bulkExportTypeFilter,
+        formatMode: bulkExportFormatMode,
         sortOrder: bulkExportSortOrder,
         fallbackTransactions: transactions,
         fallbackAccounts: accounts,
@@ -724,15 +753,15 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         data-testid="mm-backup-restore-modal"
       >
-        <div className="mm-modal-header">
+        <div className="mm-modal-header" data-testid="mm-settings-panel-header">
           <div className="mm-modal-title-group">
             <Database size={20} className="mm-text-blue" />
             <div>
               <h3 id="mm-backup-modal-title" className="mm-modal-title">
-                Data Portability, CSV Import &amp; Excel Export
+                Settings, Data Portability, CSV Import &amp; Export
               </h3>
               <p className="mm-modal-subtitle">
-                Manage your local IndexedDB (<code>JawedMoneyManagerDB</code>) ledger data
+                Manage, import, and export your local IndexedDB (<code>JawedMoneyManagerDB</code>) transaction ledger
               </p>
             </div>
           </div>
@@ -1608,7 +1637,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
             )}
           </div>
 
-          {/* Bulk CSV Export (Full History of Ledger Transactions) */}
+          {/* Settings — Local IndexedDB Transaction Ledger CSV Export (Import-Parity Format) */}
           <div
             className="mm-backup-card mm-backup-card-wide"
             data-testid="mm-bulk-csv-export-section"
@@ -1618,9 +1647,36 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
                 <FileText size={20} />
               </span>
               <div style={{ flex: 1 }}>
-                <h4>Bulk CSV Export (Full Ledger History for Accounting Software)</h4>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <h4>Settings: Export Local IndexedDB Ledger to CSV (Import-Parity Format)</h4>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      fontSize: '0.72rem',
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      background: 'rgba(16, 185, 129, 0.14)',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      color: '#10b981',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <CheckCircle2 size={12} />
+                    <span>100% CSV Import Parity</span>
+                  </span>
+                </div>
                 <p>
-                  Generate a downloadable RFC-4180 CSV file containing the complete history of ledger transactions with split Withdrawal/Deposit columns for Tally Prime, Zoho Books, QuickBooks, Xero, and Excel.
+                  Export your local IndexedDB (<code>JawedMoneyManagerDB</code>) transaction ledger into a downloadable RFC-4180 <code>.csv</code> file with full column parity for re-importing into Money Manager, Tally Prime, Zoho Books, QuickBooks, or Excel.
                 </p>
               </div>
             </div>
@@ -1665,6 +1721,48 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
               </div>
 
               <div className="mm-field">
+                <label htmlFor="mm-bulk-csv-type">Transaction Type Filter</label>
+                <select
+                  id="mm-bulk-csv-type"
+                  value={bulkExportTypeFilter}
+                  onChange={(e) =>
+                    setBulkExportTypeFilter(
+                      e.target.value as 'ALL' | 'Income' | 'Expense' | 'Transfer'
+                    )
+                  }
+                  className="mm-select"
+                  data-testid="mm-bulk-csv-type-select"
+                >
+                  <option value="ALL">All Types (Income, Expense &amp; Transfer)</option>
+                  <option value="Expense">Expenses Only</option>
+                  <option value="Income">Income Only</option>
+                  <option value="Transfer">Transfers Only</option>
+                </select>
+              </div>
+
+              <div className="mm-field">
+                <label htmlFor="mm-bulk-csv-format">CSV Column Layout (Import Parity)</label>
+                <select
+                  id="mm-bulk-csv-format"
+                  value={bulkExportFormatMode}
+                  onChange={(e) =>
+                    setBulkExportFormatMode(
+                      e.target.value as 'split-debit-credit' | 'single-signed-amount'
+                    )
+                  }
+                  className="mm-select"
+                  data-testid="mm-bulk-csv-format-select"
+                >
+                  <option value="split-debit-credit">
+                    Split Withdrawal / Deposit Columns (Standard Bank &amp; Accounting Parity)
+                  </option>
+                  <option value="single-signed-amount">
+                    Single Signed Amount Column (-Expense / +Income Parity)
+                  </option>
+                </select>
+              </div>
+
+              <div className="mm-field">
                 <label htmlFor="mm-bulk-csv-sort">Chronological Sort Order</label>
                 <select
                   id="mm-bulk-csv-sort"
@@ -1677,7 +1775,94 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
                   <option value="desc">Newest to Oldest (Recent First)</option>
                 </select>
               </div>
+
+              <div
+                className="mm-field"
+                style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}
+              >
+                <button
+                  type="button"
+                  className="mm-btn mm-btn-secondary mm-btn-sm"
+                  onClick={() => setShowCsvExportPreview((prev) => !prev)}
+                  data-testid="mm-toggle-csv-export-preview-btn"
+                >
+                  {showCsvExportPreview ? <EyeOff size={14} /> : <Eye size={14} />}
+                  <span>
+                    {showCsvExportPreview ? 'Hide CSV Preview' : 'Preview Exported CSV Rows'}
+                  </span>
+                </button>
+              </div>
             </div>
+
+            {showCsvExportPreview && parsedCsvExportPreview.rows.length > 0 && (
+              <div
+                style={{
+                  marginTop: 12,
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  overflowX: 'auto',
+                  background: 'var(--surface)',
+                }}
+                data-testid="mm-settings-csv-export-preview"
+              >
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    fontSize: '0.76rem',
+                    textAlign: 'left',
+                  }}
+                >
+                  <thead>
+                    <tr
+                      style={{
+                        borderBottom: '1px solid var(--border)',
+                        color: 'var(--muted)',
+                      }}
+                    >
+                      <th style={{ padding: '7px 10px' }}>Date &amp; Time</th>
+                      <th style={{ padding: '7px 10px' }}>Type</th>
+                      <th style={{ padding: '7px 10px' }}>Account / Bank</th>
+                      <th style={{ padding: '7px 10px' }}>Category &amp; Sub-Category</th>
+                      <th style={{ padding: '7px 10px' }}>Narration</th>
+                      <th style={{ padding: '7px 10px', textAlign: 'right' }}>Amount (INR)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedCsvExportPreview.rows.slice(0, 5).map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '6px 10px', whiteSpace: 'nowrap' }}>
+                          {row['Date']} {row['Time']}
+                        </td>
+                        <td style={{ padding: '6px 10px', fontWeight: 700 }}>{row['Type']}</td>
+                        <td style={{ padding: '6px 10px' }}>
+                          {row['Account / Bank']}
+                          {row['Target Account'] ? ` → ${row['Target Account']}` : ''}
+                        </td>
+                        <td style={{ padding: '6px 10px' }}>
+                          {row['Category']}
+                          {row['Sub-Category'] ? ` · ${row['Sub-Category']}` : ''}
+                        </td>
+                        <td
+                          style={{
+                            padding: '6px 10px',
+                            maxWidth: 220,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {row['Narration']}
+                        </td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700 }}>
+                          {formatINR(Number(row['Amount (INR)']) || 0)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             <div
               style={{
@@ -1731,7 +1916,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
               >
                 <Download size={16} />
                 <span>
-                  Bulk CSV Export ({bulkExportSummary.transactionCount} Transactions)
+                  Export Ledger CSV ({bulkExportSummary.transactionCount} Transactions)
                 </span>
               </button>
             </div>

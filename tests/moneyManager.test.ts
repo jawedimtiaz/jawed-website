@@ -31,6 +31,9 @@ import {
   parseCsvText,
   autoDetectCsvMapping,
   mapCsvRowsToTransactions,
+  summarizeMappedCsvTransactions,
+  bulkImportCsvToLedger,
+  bulkImportCsvFileToLedger,
   SAMPLE_BANK_STATEMENT_CSV,
 } from '../src/components/money-manager/csvImporter';
 import {
@@ -3497,7 +3500,222 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     });
     assert.ok(wb.SheetNames.includes('Transactions Ledger'));
   });
+
+  it('bulk-imports transactions from a CSV file directly into the local IndexedDB ledger with duplicate prevention and multi-currency conversion', async () => {
+    const initialState = await initializeAndSeedDatabase();
+    const initialCount = initialState.transactions.length;
+
+    // 1. Bulk import sample bank statement CSV directly into IndexedDB via bulkImportCsvToLedger
+    const result1 = await bulkImportCsvToLedger(SAMPLE_BANK_STATEMENT_CSV, {
+      defaultAccountId: 'acc-icici',
+      skipDuplicates: true,
+    });
+
+    assert.equal(result1.summary.totalCount, 5);
+    assert.equal(result1.summary.expenseCount, 3);
+    assert.equal(result1.summary.incomeCount, 1);
+    assert.equal(result1.summary.transferCount, 1);
+    assert.equal(result1.importedTransactions.length, 5);
+    assert.equal(result1.parsedRowCount, 5);
+    assert.equal(result1.skippedRowCount, 0);
+
+    const stateAfterFirstImport = await initializeAndSeedDatabase();
+    assert.equal(stateAfterFirstImport.transactions.length, initialCount + 5);
+
+    // 2. Re-importing the exact same CSV with skipDuplicates: true skips all 5 already-persisted transactions
+    const resultDuplicate = await bulkImportCsvToLedger(SAMPLE_BANK_STATEMENT_CSV, {
+      defaultAccountId: 'acc-icici',
+      skipDuplicates: true,
+    });
+    assert.equal(resultDuplicate.skippedRowCount, 5);
+    assert.equal(resultDuplicate.summary.totalCount, 0);
+    assert.equal(resultDuplicate.importedTransactions.length, 0);
+
+    const stateAfterDuplicateImport = await initializeAndSeedDatabase();
+    assert.equal(stateAfterDuplicateImport.transactions.length, initialCount + 5);
+
+    // 3. Test bulkImportCsvFileToLedger with a File-like object containing single-amount + Currency columns
+    const customCsvContent = [
+      'Date,Narration,Amount,Currency,Category,Account',
+      '2026-11-21,GitHub Copilot Subscription,-10,USD,Utilities & Bills,ICICI',
+      '2026-11-22,Stripe Freelance Payout,500,EUR,Salary & Consulting,SBI',
+    ].join('\n');
+
+    const mockCsvFile = {
+      name: 'international-statement.csv',
+      text: async () => customCsvContent,
+    };
+
+    const resultFile = await bulkImportCsvFileToLedger(mockCsvFile, {
+      defaultAccountId: 'acc-icici',
+      skipDuplicates: true,
+    });
+
+    assert.equal(resultFile.summary.totalCount, 2);
+    assert.equal(resultFile.importedTransactions.length, 2);
+
+    const usdExpense = resultFile.importedTransactions.find((tx) => tx.note.includes('GitHub Copilot'));
+    assert.ok(usdExpense, 'Expected USD expense row to be imported into IndexedDB');
+    assert.equal(usdExpense.type, 'Expense');
+    assert.equal(usdExpense.currency, 'USD');
+    assert.equal(usdExpense.originalAmount, 10);
+    assert.ok(usdExpense.amount > 800, 'Expected USD amount to be converted to INR');
+
+    const eurIncome = resultFile.importedTransactions.find((tx) => tx.note.includes('Stripe Freelance'));
+    assert.ok(eurIncome, 'Expected EUR income row to be imported into IndexedDB');
+    assert.equal(eurIncome.type, 'Income');
+    assert.equal(eurIncome.accountId, 'acc-sbi');
+    assert.equal(eurIncome.currency, 'EUR');
+    assert.equal(eurIncome.originalAmount, 500);
+
+    const finalState = await initializeAndSeedDatabase();
+    assert.equal(finalState.transactions.length, initialCount + 7);
+
+    // 4. Verify Header and MoneyManager expose top-level Import CSV button and modal
+    const fs = await import('node:fs');
+    const headerSource = fs.readFileSync('src/components/money-manager/Header.tsx', 'utf8');
+    const mmToolSource = fs.readFileSync('src/tools/MoneyManager.tsx', 'utf8');
+    const csvModalSource = fs.readFileSync('src/components/money-manager/CsvImportModal.tsx', 'utf8');
+
+    assert.ok(headerSource.includes('mm-header-import-csv-btn'));
+    assert.ok(headerSource.includes('onOpenCsvImportModal'));
+    assert.ok(mmToolSource.includes('CsvImportModal'));
+    assert.ok(mmToolSource.includes('bulkImportCsvToLedger'));
+    assert.ok(csvModalSource.includes('mm-csv-skip-duplicates-checkbox'));
+  });
+
+  it('extends the Money Manager Settings panel to export the local IndexedDB transaction ledger into a downloadable CSV file with full round-trip import parity', async () => {
+    const {
+      exportIndexedDbLedgerToCsv,
+      formatLedgerTransactionsToParityCsv,
+      generateBulkLedgerCsvExport,
+    } = await import('../src/components/money-manager/BackupRestoreModal');
+
+    await initializeAndSeedDatabase();
+
+    // Add a multi-currency anomaly expense to verify multi-currency, timestamp, Fixed/Variable, and Anomaly Flag parity
+    await saveTransaction({
+      id: 'tx-2026-11-24-aws-cloud',
+      date: '2026-11-24T16:45',
+      type: 'Expense',
+      accountId: 'acc-icici',
+      amount: 4225,
+      currency: 'USD',
+      originalAmount: 50,
+      exchangeRateToINR: 84.5,
+      rateDate: '2026-11-24',
+      category: 'Utilities & Broadband',
+      subCategory: 'Cloud & Server Hosting',
+      fixedOrVariable: 'Fixed',
+      note: 'AWS Production Infrastructure Invoice',
+      receiptImages: [],
+      isAnomaly: true,
+    });
+
+    // 1. Export current local IndexedDB ledger to CSV from Settings helper
+    const exportedSummary = await exportIndexedDbLedgerToCsv({
+      scope: 'full-history',
+      sortOrder: 'asc',
+      formatMode: 'split-debit-credit',
+    });
+
+    assert.ok(exportedSummary.transactionCount >= 9);
+    assert.ok(exportedSummary.incomeCount >= 2);
+    assert.ok(exportedSummary.expenseCount >= 5);
+    assert.ok(exportedSummary.transferCount >= 1);
+    assert.equal(exportedSummary.fileName, 'jawed-money-manager-bulk-ledger-full-history.csv');
+    assert.ok(exportedSummary.headers.includes('Currency'));
+    assert.ok(exportedSummary.headers.includes('Original Amount'));
+    assert.ok(exportedSummary.headers.includes('Exchange Rate to INR'));
+
+    // 2. Round-Trip Parity Test: Re-import the exported CSV into mapCsvRowsToTransactions & bulkImportCsvToLedger
+    // First, verify duplicate protection recognizes all existing IndexedDB rows as duplicates of the exported CSV
+    const duplicateCheck = await bulkImportCsvToLedger(exportedSummary.csvContent, {
+      defaultAccountId: 'acc-icici',
+      skipDuplicates: true,
+    });
+    assert.equal(duplicateCheck.importedTransactions.length, 0);
+    assert.equal(duplicateCheck.skippedRowCount, exportedSummary.transactionCount);
+
+    // Next, import with skipDuplicates: false to verify every field round-trips identically
+    const roundTripParsed = parseCsvText(exportedSummary.csvContent);
+    const roundTripMapping = autoDetectCsvMapping(roundTripParsed.headers);
+    const currentDbState = await initializeAndSeedDatabase();
+    const roundTripMapped = mapCsvRowsToTransactions(roundTripParsed.rows, roundTripMapping, {
+      defaultAccountId: 'acc-icici',
+      accounts: currentDbState.accounts,
+      categories: currentDbState.categories,
+      skipDuplicates: false,
+    });
+
+    assert.equal(roundTripMapped.length, exportedSummary.transactionCount);
+
+    const restoredAws = roundTripMapped.find((tx) =>
+      tx.note.includes('AWS Production Infrastructure Invoice')
+    );
+    assert.ok(restoredAws, 'Expected multi-currency AWS transaction to round-trip cleanly');
+    assert.equal(restoredAws.date, '2026-11-24T16:45');
+    assert.equal(restoredAws.type, 'Expense');
+    assert.equal(restoredAws.accountId, 'acc-icici');
+    assert.equal(restoredAws.amount, 4225);
+    assert.equal(restoredAws.currency, 'USD');
+    assert.equal(restoredAws.originalAmount, 50);
+    assert.equal(restoredAws.exchangeRateToINR, 84.5);
+    assert.equal(restoredAws.category, 'Utilities & Broadband');
+    assert.equal(restoredAws.subCategory, 'Cloud & Server Hosting');
+    assert.equal(restoredAws.fixedOrVariable, 'Fixed');
+    assert.equal(restoredAws.isAnomaly, true);
+
+    const restoredTransfer = roundTripMapped.find((tx) => tx.type === 'Transfer');
+    assert.ok(restoredTransfer, 'Expected Transfer transaction to round-trip cleanly');
+    assert.equal(restoredTransfer.category, 'Transfer');
+    assert.ok(restoredTransfer.toAccountId, 'Expected Transfer target account to be preserved');
+
+    // 3. Verify single-signed-amount format mode (-Expense / +Income) round-trips cleanly
+    const singleSignedExport = generateBulkLedgerCsvExport(
+      currentDbState.transactions,
+      currentDbState.accounts,
+      {
+        scope: 'selected-month',
+        selectedMonth: '2026-11',
+        formatMode: 'single-signed-amount',
+        typeFilter: 'Expense',
+      }
+    );
+    assert.ok(singleSignedExport.headers.includes('Amount'));
+    assert.equal(singleSignedExport.incomeCount, 0);
+    assert.equal(singleSignedExport.transferCount, 0);
+    assert.ok(singleSignedExport.expenseCount > 0);
+
+    const parsedSigned = parseCsvText(singleSignedExport.csvContent);
+    const mappedSigned = mapCsvRowsToTransactions(
+      parsedSigned.rows,
+      autoDetectCsvMapping(parsedSigned.headers),
+      {
+        defaultAccountId: 'acc-icici',
+        accounts: currentDbState.accounts,
+        categories: currentDbState.categories,
+      }
+    );
+    assert.equal(mappedSigned.length, singleSignedExport.transactionCount);
+    assert.ok(mappedSigned.every((tx) => tx.type === 'Expense'));
+
+    // 4. Verify Settings panel UI elements in BackupRestoreModal.tsx
+    const fs = await import('node:fs');
+    const settingsSource = fs.readFileSync(
+      'src/components/money-manager/BackupRestoreModal.tsx',
+      'utf8'
+    );
+    assert.ok(settingsSource.includes('mm-settings-panel-header'));
+    assert.ok(settingsSource.includes('mm-bulk-csv-type-select'));
+    assert.ok(settingsSource.includes('mm-bulk-csv-format-select'));
+    assert.ok(settingsSource.includes('mm-settings-csv-export-preview'));
+    assert.ok(settingsSource.includes('100% CSV Import Parity'));
+    assert.ok( typeof formatLedgerTransactionsToParityCsv === 'function');
+  });
 });
+
+
 
 
 

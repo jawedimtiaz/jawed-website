@@ -23,9 +23,33 @@ import {
   parseCsvText,
   autoDetectCsvMapping,
   mapCsvRowsToTransactions,
+  bulkImportCsvToLedger,
+  bulkImportCsvFileToLedger,
+  summarizeMappedCsvTransactions,
+  normalizeBankDateToIso,
   SAMPLE_BANK_STATEMENT_CSV,
   type CsvColumnMapping,
+  type CsvMappingOptions,
+  type ParsedCsvResult,
+  type BulkCsvImportLedgerResult,
+  type BulkCsvImportSummaryMetrics,
 } from './csvImporter';
+
+export {
+  parseCsvText,
+  autoDetectCsvMapping,
+  mapCsvRowsToTransactions,
+  bulkImportCsvToLedger,
+  bulkImportCsvFileToLedger,
+  summarizeMappedCsvTransactions,
+  normalizeBankDateToIso,
+  SAMPLE_BANK_STATEMENT_CSV,
+  type CsvColumnMapping,
+  type CsvMappingOptions,
+  type ParsedCsvResult,
+  type BulkCsvImportLedgerResult,
+  type BulkCsvImportSummaryMetrics,
+};
 
 export interface CsvImportModalProps {
   isOpen: boolean;
@@ -52,6 +76,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   const [defaultToAccountId, setDefaultToAccountId] = useState<string>(
     accounts[1]?.id || 'acc-sbi'
   );
+  const [skipDuplicates, setSkipDuplicates] = useState<boolean>(true);
+  const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const [importNotice, setImportNotice] = useState<string | null>(null);
 
@@ -108,6 +134,20 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     reader.readAsText(file);
   };
 
+  const handleDropCsvFile = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
+      handleLoadCsvContent(text, file.name);
+    };
+    reader.readAsText(file);
+  };
+
   const handleLoadSampleCsv = () => {
     handleLoadCsvContent(SAMPLE_BANK_STATEMENT_CSV, 'sample_bank_statement.csv');
   };
@@ -123,6 +163,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       accounts,
       categories,
       historicalTransactions: transactions,
+      skipDuplicates,
     });
 
     // Apply manual user row overrides from preview table
@@ -145,6 +186,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     accounts,
     categories,
     transactions,
+    skipDuplicates,
     rowCategoryOverrides,
     rowAccountOverrides,
   ]);
@@ -261,24 +303,33 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
         <div className="mm-modal-body" style={{ display: 'grid', gap: 16 }}>
           {/* Top CSV File Selector / Drop Zone */}
           <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDraggingOver(true);
+            }}
+            onDragLeave={() => setIsDraggingOver(false)}
+            onDrop={handleDropCsvFile}
             style={{
-              border: '2px dashed var(--border)',
+              border: `2px dashed ${isDraggingOver ? 'var(--accent)' : 'var(--border)'}`,
               borderRadius: '12px',
               padding: '20px',
               textAlign: 'center',
-              background: 'var(--bg-card-subtle, rgba(255,255,255,0.02))',
+              background: isDraggingOver
+                ? 'rgba(56, 189, 248, 0.08)'
+                : 'var(--bg-card-subtle, rgba(255,255,255,0.02))',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 10,
+              transition: 'border-color 0.2s ease, background 0.2s ease',
             }}
             data-testid="mm-csv-upload-zone"
           >
             <Upload size={32} style={{ color: 'var(--accent)' }} />
             <div>
               <strong style={{ display: 'block', fontSize: '0.95rem' }}>
-                {fileName ? `File Selected: ${fileName}` : 'Select a Bank Statement CSV file'}
+                {fileName ? `File Selected: ${fileName}` : 'Select or Drag & Drop a Bank Statement CSV file'}
               </strong>
               <span className="mm-section-desc" style={{ fontSize: '0.8rem' }}>
                 Supports ICICI, SBI, HDFC, UBI, Axis Bank &amp; custom CSV statements
@@ -351,24 +402,45 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
               }}
               data-testid="mm-csv-settings-box"
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                 <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>
                   <Sparkles size={15} style={{ color: 'var(--accent)', verticalAlign: 'middle', marginRight: 6 }} />
                   Auto-Detected Column Mapping &amp; Account Settings
                 </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const auto = autoDetectCsvMapping(parsedCsv.headers);
-                    setColumnMapping(auto);
-                  }}
-                  className="mm-btn mm-btn-ghost mm-btn-sm"
-                  title="Re-run auto detection"
-                  style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-                >
-                  <RefreshCw size={12} />
-                  <span>Re-detect</span>
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <label
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: '0.78rem',
+                      color: 'var(--text)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={skipDuplicates}
+                      onChange={(e) => setSkipDuplicates(e.target.checked)}
+                      data-testid="mm-csv-skip-duplicates-checkbox"
+                    />
+                    <span>Skip duplicate entries</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const auto = autoDetectCsvMapping(parsedCsv.headers);
+                      setColumnMapping(auto);
+                    }}
+                    className="mm-btn mm-btn-ghost mm-btn-sm"
+                    title="Re-run auto detection"
+                    style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                  >
+                    <RefreshCw size={12} />
+                    <span>Re-detect</span>
+                  </button>
+                </div>
               </div>
 
               <div
@@ -388,6 +460,24 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                     data-testid="mm-csv-col-date-select"
                   >
                     <option value="">-- None / Default --</option>
+                    {parsedCsv.headers.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mm-field">
+                  <label htmlFor="mm-csv-col-amount">Single Amount Column</label>
+                  <select
+                    id="mm-csv-col-amount"
+                    value={columnMapping.amountColumn}
+                    onChange={(e) => setColumnMapping({ ...columnMapping, amountColumn: e.target.value })}
+                    className="mm-select"
+                    data-testid="mm-csv-col-amount-select"
+                  >
+                    <option value="">-- None (Use Debit/Credit) --</option>
                     {parsedCsv.headers.map((h) => (
                       <option key={h} value={h}>
                         {h}
@@ -442,6 +532,24 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                     data-testid="mm-csv-col-note-select"
                   >
                     <option value="">-- None --</option>
+                    {parsedCsv.headers.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mm-field">
+                  <label htmlFor="mm-csv-col-category">Category Column</label>
+                  <select
+                    id="mm-csv-col-category"
+                    value={columnMapping.categoryColumn}
+                    onChange={(e) => setColumnMapping({ ...columnMapping, categoryColumn: e.target.value })}
+                    className="mm-select"
+                    data-testid="mm-csv-col-category-select"
+                  >
+                    <option value="">-- Auto-Infer from Narration --</option>
                     {parsedCsv.headers.map((h) => (
                       <option key={h} value={h}>
                         {h}

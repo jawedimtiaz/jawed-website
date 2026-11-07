@@ -7,6 +7,7 @@ import {
   Landmark,
   PieChart,
   Download,
+  Upload,
   Plus,
   ShieldCheck,
   ArrowLeftRight,
@@ -131,6 +132,7 @@ export interface MoneyManagerHeaderProps {
   themeMode?: 'light' | 'dark';
   onOpenAddModal: (defaultDate?: string) => void;
   onOpenBackupModal: () => void;
+  onOpenCsvImportModal?: () => void;
 }
 
 const MONTH_NAMES = [
@@ -174,6 +176,7 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
   themeMode = 'dark',
   onOpenAddModal,
   onOpenBackupModal,
+  onOpenCsvImportModal,
 }) => {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const contrastTokens = resolveActiveTabContrastTokens(themeMode);
@@ -228,6 +231,18 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
         </div>
 
         <div className="mm-top-actions">
+          {onOpenCsvImportModal && (
+            <button
+              type="button"
+              onClick={onOpenCsvImportModal}
+              className="mm-btn mm-btn-secondary"
+              title="Bulk-import transactions from a bank statement CSV file into IndexedDB"
+              data-testid="mm-header-import-csv-btn"
+            >
+              <Upload size={15} />
+              <span>Import CSV</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={onOpenBackupModal}
