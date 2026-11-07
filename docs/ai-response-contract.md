@@ -29,3 +29,6 @@ Error bodies include `error`, `code`, and `request_id`. Provider failures may ad
 The browser validates the relative-URL invariant before creating source links.
 
 The provider's markdown links are separate from the structured `sources` contract; the structured source list is the canonical UI navigation mechanism.
+
+
+> **Historical / not current production configuration.** This document describes an earlier server-side `/api/ai` / Cloudflare Pages Functions design. The current production runtime is the browser-side knowledge assistant described in [AI Current Runtime](./ai-current-runtime.md). Do not use the endpoint, binding, or credential instructions below to change production settings unless that architecture is explicitly reintroduced, reviewed, and deployed.
