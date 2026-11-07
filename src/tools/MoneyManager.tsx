@@ -23,7 +23,14 @@ import {
   processDueRecurringRules,
   syncRecurringTransactionsForMonth,
   triggerRecurringRuleNow,
+  defineAndScheduleRecurringTransaction,
+  RECURRING_TEMPLATE_PRESETS,
+  computeRecurringOccurrencesForMonth,
+  buildRecurringFeedTransactionsForMonth,
+  computeNextRecurringDate,
   formatINR,
+  type RecurringFrequency,
+  type RecurringTemplatePreset,
 } from '../db/db';
 import {
   MoneyManagerHeader,
@@ -97,7 +104,19 @@ import {
 import { ReceiptLightboxModal } from '../components/money-manager/ReceiptLightboxModal';
 import { BackupRestoreModal } from '../components/money-manager/BackupRestoreModal';
 import {
+  signInWithRedirect,
+  getRedirectResult,
+  GoogleAuthProvider,
+  type User,
+} from 'firebase/auth';
+import {
   SCOPES,
+  DRIVE_APPDATA_SCOPE,
+  getMoneyManagerAuth,
+  setCachedGoogleAccessToken,
+  checkGoogleRedirectResult,
+  createGoogleDriveAuthProvider,
+  googleDriveSignIn,
   encryptLedgerPayload,
   decryptLedgerPayload,
   exportDatabaseToEncryptedDrive,
@@ -112,6 +131,12 @@ import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 export {
   SCOPES,
+  DRIVE_APPDATA_SCOPE,
+  getMoneyManagerAuth,
+  setCachedGoogleAccessToken,
+  checkGoogleRedirectResult,
+  createGoogleDriveAuthProvider,
+  googleDriveSignIn,
   encryptLedgerPayload,
   decryptLedgerPayload,
   exportDatabaseToEncryptedDrive,
@@ -156,6 +181,16 @@ export {
   QUICK_ADD_VISIBLE_TABS,
   shouldRenderQuickAddFab,
   triggerQuickAddTransactionModal,
+  saveRecurringRule,
+  deleteRecurringRule,
+  processDueRecurringRules,
+  syncRecurringTransactionsForMonth,
+  triggerRecurringRuleNow,
+  defineAndScheduleRecurringTransaction,
+  RECURRING_TEMPLATE_PRESETS,
+  computeRecurringOccurrencesForMonth,
+  buildRecurringFeedTransactionsForMonth,
+  computeNextRecurringDate,
 };
 export type {
   OpenMoneyManagerModalPayload,
@@ -169,6 +204,9 @@ export type {
   SixMonthWindowPoint,
   QuickAddSupportedTab,
   QuickAddFloatingButtonProps,
+  RecurringRule,
+  RecurringFrequency,
+  RecurringTemplatePreset,
 };
 
 export type MoneyManagerThemeMode = 'dark' | 'light';
@@ -524,8 +562,47 @@ export const MoneyManager: React.FC = () => {
     title: string;
   }>({ isOpen: false, images: [], title: '' });
 
-  // Backup / Restore Modal State
+  // Backup / Restore Modal State & Google Redirect Auth State
   const [isBackupModalOpen, setIsBackupModalOpen] = useState<boolean>(false);
+  const auth = useMemo(() => getMoneyManagerAuth(), []);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkRedirect = async () => {
+      if (!auth) return;
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          // Successfully authenticated after redirect
+          setCurrentUser(result.user);
+          const credential = GoogleAuthProvider.credentialFromResult(result);
+          if (credential?.accessToken) {
+            setCachedGoogleAccessToken(credential.accessToken);
+          }
+        }
+      } catch (error: any) {
+        console.error('Redirect auth error:', error);
+        setSyncError(error.message || 'Failed to complete Google Sign-In redirect.');
+      }
+    };
+    checkRedirect();
+  }, [auth]);
+
+  const handleGoogleSignIn = async () => {
+    setSyncError(null);
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/drive.appdata');
+
+    try {
+      if (!auth) {
+        throw new Error('Sign-in initialization failed.');
+      }
+      await signInWithRedirect(auth, provider);
+    } catch (err: any) {
+      setSyncError(err.message || 'Sign-in initialization failed.');
+    }
+  };
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -761,8 +838,11 @@ export const MoneyManager: React.FC = () => {
     }
   ) => {
     const saved = await saveRecurringRule(ruleInput);
+    await syncRecurringTransactionsForMonth(selectedMonth);
     await loadDatabaseState();
-    showToast(`Saved recurring schedule: ${saved.title} (${saved.frequency}).`);
+    showToast(
+      `Saved recurring schedule: ${saved.title} (${saved.frequency}) — synced to ${selectedMonth} ledger.`
+    );
   };
 
   const handleDeleteRecurringRule = async (id: string) => {
@@ -1251,6 +1331,10 @@ export const MoneyManager: React.FC = () => {
           transactions={transactions}
           sinkingFunds={sinkingFunds}
           selectedMonth={selectedMonth}
+          currentUser={currentUser}
+          syncError={syncError}
+          onClearSyncError={() => setSyncError(null)}
+          onGoogleSignIn={handleGoogleSignIn}
           onClose={() => setIsBackupModalOpen(false)}
           onDataRestored={loadDatabaseState}
         />

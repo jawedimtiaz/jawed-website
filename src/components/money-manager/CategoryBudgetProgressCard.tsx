@@ -382,41 +382,47 @@ export const CategoryBudgetProgressCard: React.FC<CategoryBudgetProgressCardProp
         }}
         data-testid="mm-category-budget-progress-list"
       >
-        {displayedItems.map((item) => (
-          <div
-            key={item.categoryId}
-            data-testid={`mm-category-progress-row-${item.category}`}
-            data-category={item.category}
-            data-tier={item.tier}
-            style={{
-              padding: '12px 14px',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--surface-muted)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            {/* Top Row: Category Name & Percentage / Spend Readout */}
+        {displayedItems.map((item) => {
+          const isOver = item.tier === 'over-budget' || (item.spent > item.monthlyLimit && item.monthlyLimit > 0);
+
+          return (
             <div
+              key={item.categoryId}
+              className={`mm-category-progress-row ${isOver ? 'is-over-budget' : ''}`}
+              data-testid={`mm-category-progress-row-${item.category}`}
+              data-category={item.category}
+              data-tier={item.tier}
+              data-over-budget={isOver ? 'true' : 'false'}
               style={{
+                padding: '12px 14px',
+                borderRadius: 10,
+                border: isOver ? '1.5px solid rgba(239, 68, 68, 0.65)' : '1px solid var(--border)',
+                borderLeft: isOver ? '4px solid #ef4444' : undefined,
+                background: isOver ? 'rgba(239, 68, 68, 0.09)' : 'var(--surface-muted)',
                 display: 'flex',
-                alignItems: 'baseline',
-                justifyContent: 'space-between',
+                flexDirection: 'column',
                 gap: 8,
-                flexWrap: 'wrap',
               }}
             >
-              <div>
-                <strong
-                  style={{
-                    fontSize: '0.9rem',
-                    color: 'var(--text-heading)',
-                  }}
-                >
-                  {item.category}
-                </strong>
+              {/* Top Row: Category Name & Percentage / Spend Readout */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div>
+                  <strong
+                    style={{
+                      fontSize: '0.9rem',
+                      color: isOver ? '#ef4444' : 'var(--text-heading)',
+                    }}
+                  >
+                    {item.category}
+                  </strong>
                 <div
                   style={{
                     fontSize: '0.74rem',
@@ -541,8 +547,9 @@ export const CategoryBudgetProgressCard: React.FC<CategoryBudgetProgressCardProp
               )}
             </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
+    </div>
     </article>
   );
 };

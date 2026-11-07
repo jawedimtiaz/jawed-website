@@ -41,6 +41,9 @@ import {
   saveTransaction as dbSaveTransaction,
   saveRecurringRule as dbSaveRecurringRule,
   syncRecurringTransactionsForMonth as dbSyncRecurringTransactionsForMonth,
+  defineAndScheduleRecurringTransaction,
+  RECURRING_TEMPLATE_PRESETS,
+  computeRecurringOccurrencesForMonth,
   buildRecurringFeedTransactionsForMonth,
   computeNextRecurringDate,
   removeReceiptFromTransaction as dbRemoveReceiptFromTransaction,
@@ -53,6 +56,7 @@ import {
   type MoneyTransaction,
   type RecurringFrequency,
   type RecurringRule,
+  type RecurringTemplatePreset,
   type TransactionType,
 } from '../../db/db';
 import { renderCategoryIcon } from './categoryIcons';
@@ -81,12 +85,18 @@ export {
   QUICK_ADD_VISIBLE_TABS,
   shouldRenderQuickAddFab,
   triggerQuickAddTransactionModal,
+  defineAndScheduleRecurringTransaction,
+  RECURRING_TEMPLATE_PRESETS,
+  computeRecurringOccurrencesForMonth,
+  buildRecurringFeedTransactionsForMonth,
+  computeNextRecurringDate,
 };
 export type {
   CurrencyCode,
   DailyExchangeRateSnapshot,
   QuickAddSupportedTab,
   QuickAddFloatingButtonProps,
+  RecurringTemplatePreset,
 };
 
 export type DailySubView = 'feed' | 'gallery';
@@ -1096,14 +1106,21 @@ export const DailyView: React.FC<DailyViewProps> = ({
     if (onSaveRecurringRule) {
       await onSaveRecurringRule(newRulePayload);
     } else {
-      const savedRule = await dbSaveRecurringRule(newRulePayload);
-      setLocalRecurringRules((prev) => [...prev, savedRule]);
+      const scheduled = await defineAndScheduleRecurringTransaction(
+        newRulePayload,
+        selectedMonth
+      );
+      setLocalRecurringRules((prev) => [
+        ...prev.filter((r) => r.id !== scheduled.rule.id),
+        scheduled.rule,
+      ]);
+      if (scheduled.generatedTransactions.length > 0) {
+        setLocalTransactions((prev) => [...prev, ...scheduled.generatedTransactions]);
+      }
     }
 
     if (onSyncMonthRecurring) {
       await onSyncMonthRecurring(selectedMonth);
-    } else {
-      await dbSyncRecurringTransactionsForMonth(selectedMonth);
     }
 
     setRecNotice(
@@ -1112,6 +1129,17 @@ export const DailyView: React.FC<DailyViewProps> = ({
     setRecTitle('');
     setRecAmount('');
     setShowRecurringQuickForm(false);
+  };
+
+  const handleApplyRecurringPreset = (preset: RecurringTemplatePreset) => {
+    setRecTitle(preset.title);
+    setRecFrequency(preset.frequency);
+    setRecType(preset.type);
+    setRecAmount(String(preset.amount));
+    setRecCategory(preset.category);
+    const dayPadded = String(preset.dayOfMonth).padStart(2, '0');
+    setRecStartDate(`${selectedMonth}-${dayPadded}`);
+    setShowRecurringQuickForm(true);
   };
 
   const handleSyncRecurringToLedger = async () => {
@@ -1191,10 +1219,11 @@ export const DailyView: React.FC<DailyViewProps> = ({
                 dailySubView === 'gallery' ? 'mm-btn-primary' : 'mm-btn-secondary'
               }`}
               data-testid="mm-daily-mode-gallery-btn"
+              data-tab="receipts"
             >
               <LayoutGrid size={14} />
               <span>
-                Receipt Gallery (
+                Receipts (
                 {includeAllMonthsInGallery ? totalAllReceiptsCount : totalMonthReceiptsCount})
               </span>
             </button>
@@ -1423,21 +1452,108 @@ export const DailyView: React.FC<DailyViewProps> = ({
             </div>
           )}
 
-          {showRecurringQuickForm && (
-            <form
-              onSubmit={handleCreateQuickRecurring}
-              data-testid="mm-daily-recurring-quick-form"
+          {/* Active Recurring Schedules Strip in Daily Ledger */}
+          {localRecurringRules.filter((r) => r.active).length > 0 && (
+            <div
+              data-testid="mm-daily-active-recurring-strip"
               style={{
-                marginTop: 10,
-                paddingTop: 10,
-                borderTop: '1px solid var(--border)',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))',
-                gap: 8,
-                alignItems: 'end',
-                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                flexWrap: 'wrap',
+                marginTop: 8,
+                paddingTop: 8,
+                borderTop: '1px dashed rgba(148, 163, 184, 0.25)',
               }}
             >
+              <span style={{ fontSize: '0.74rem', color: 'var(--muted)', fontWeight: 600 }}>
+                Active Schedules:
+              </span>
+              {localRecurringRules
+                .filter((r) => r.active)
+                .map((rule) => (
+                  <span
+                    key={rule.id}
+                    data-testid={`mm-daily-recurring-schedule-pill-${rule.id}`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      fontSize: '0.73rem',
+                      fontWeight: 600,
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text)',
+                    }}
+                  >
+                    <Repeat size={11} style={{ color: 'var(--accent)' }} />
+                    <span>{rule.title}</span>
+                    <span style={{ color: 'var(--muted)' }}>({rule.frequency})</span>
+                    <strong
+                      className={
+                        rule.type === 'Income'
+                          ? 'mm-text-income'
+                          : rule.type === 'Expense'
+                          ? 'mm-text-expense'
+                          : 'mm-text-transfer'
+                      }
+                    >
+                      {formatINR(rule.amount)}
+                    </strong>
+                  </span>
+                ))}
+            </div>
+          )}
+
+          {showRecurringQuickForm && (
+            <div style={{ width: '100%' }}>
+              {/* 1-Click Recurring Template Presets (Monthly Rent, Subscriptions, Utilities, Salary) */}
+              <div
+                data-testid="mm-daily-recurring-presets-bar"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  flexWrap: 'wrap',
+                  marginTop: 10,
+                  paddingTop: 8,
+                  borderTop: '1px solid var(--border)',
+                }}
+              >
+                <span style={{ fontSize: '0.74rem', color: 'var(--muted)', fontWeight: 600 }}>
+                  Quick Presets:
+                </span>
+                {RECURRING_TEMPLATE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleApplyRecurringPreset(preset)}
+                    className="mm-btn mm-btn-sm mm-btn-secondary"
+                    style={{ padding: '2px 8px', fontSize: '0.73rem' }}
+                    data-testid={`mm-daily-recurring-preset-${preset.id}`}
+                  >
+                    <Sparkles size={11} />
+                    <span>
+                      {preset.label} ({formatINR(preset.amount)})
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <form
+                onSubmit={handleCreateQuickRecurring}
+                data-testid="mm-daily-recurring-quick-form"
+                style={{
+                  marginTop: 8,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))',
+                  gap: 8,
+                  alignItems: 'end',
+                  width: '100%',
+                }}
+              >
               <div className="mm-field">
                 <label htmlFor="mm-quick-rec-title">Recurring Title *</label>
                 <input
@@ -1566,7 +1682,8 @@ export const DailyView: React.FC<DailyViewProps> = ({
                 <CheckCircle2 size={14} />
                 <span>Add to Feed</span>
               </button>
-            </form>
+              </form>
+            </div>
           )}
         </div>
       )}
@@ -1990,135 +2107,141 @@ export const DailyView: React.FC<DailyViewProps> = ({
             </div>
           ) : (
             <div
-              className="mm-receipt-gallery-grid"
-              data-testid="mm-receipt-gallery-grid"
+              className="mm-receipt-gallery-scroll-container"
+              style={{ maxHeight: '75vh', overflowY: 'auto', paddingRight: '4px' }}
+              data-testid="mm-receipt-gallery-scroll-container"
             >
-              {receiptGalleryItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="mm-receipt-gallery-card"
-                  data-testid={`mm-receipt-card-${item.transactionId}-${item.receiptIndex}`}
-                >
-                  <button
-                    type="button"
-                    className="mm-receipt-thumb-btn"
-                    onClick={() =>
-                      onOpenReceiptLightbox(
-                        item.transaction.receiptImages,
-                        `${item.category} (${formatINR(item.amount)}) — ${item.dateKey}`
-                      )
-                    }
-                    title="Click to inspect full-size receipt"
-                    data-testid={`mm-receipt-thumb-${item.transactionId}-${item.receiptIndex}`}
+              <div
+                className="mm-receipt-gallery-grid"
+                data-testid="mm-receipt-gallery-grid"
+              >
+                {receiptGalleryItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="mm-receipt-gallery-card"
+                    data-testid={`mm-receipt-card-${item.transactionId}-${item.receiptIndex}`}
                   >
-                    <img
-                      src={item.imageUrl}
-                      alt={`Receipt for ${item.category} on ${item.dateKey}`}
-                      className="mm-receipt-thumb-img"
-                    />
-                    <span className="mm-receipt-thumb-badge">
-                      Receipt #{item.receiptIndex + 1} of {item.totalReceiptsOnTx}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      className="mm-receipt-thumb-btn"
+                      onClick={() =>
+                        onOpenReceiptLightbox(
+                          item.transaction.receiptImages,
+                          `${item.category} (${formatINR(item.amount)}) — ${item.dateKey}`
+                        )
+                      }
+                      title="Click to inspect full-size receipt in lightbox"
+                      data-testid={`mm-receipt-thumb-${item.transactionId}-${item.receiptIndex}`}
+                    >
+                      <img
+                        src={item.imageUrl}
+                        alt={`Receipt for ${item.category} on ${item.dateKey}`}
+                        className="mm-receipt-thumb-img"
+                      />
+                      <span className="mm-receipt-thumb-badge">
+                        Receipt #{item.receiptIndex + 1} of {item.totalReceiptsOnTx}
+                      </span>
+                    </button>
 
-                  <div className="mm-receipt-card-body">
-                    <div className="mm-receipt-card-top">
-                      <div>
-                        <strong className="mm-receipt-card-category">
-                          {highlightMatch(item.category, searchQuery)}
+                    <div className="mm-receipt-card-body">
+                      <div className="mm-receipt-card-top">
+                        <div>
+                          <strong className="mm-receipt-card-category">
+                            {highlightMatch(item.category, searchQuery)}
+                          </strong>
+                          {item.subCategory && (
+                            <span className="mm-receipt-card-subcat">
+                              {' '}
+                              · {highlightMatch(item.subCategory, searchQuery)}
+                            </span>
+                          )}
+                        </div>
+                        <strong
+                          className={`mm-receipt-card-amount ${
+                            item.type === 'Income'
+                              ? 'mm-text-income'
+                              : item.type === 'Expense'
+                              ? 'mm-text-expense'
+                              : 'mm-text-transfer'
+                          }`}
+                        >
+                          {formatINR(item.amount)}
                         </strong>
-                        {item.subCategory && (
-                          <span className="mm-receipt-card-subcat">
-                            {' '}
-                            · {highlightMatch(item.subCategory, searchQuery)}
-                          </span>
-                        )}
                       </div>
-                      <strong
-                        className={`mm-receipt-card-amount ${
-                          item.type === 'Income'
-                            ? 'mm-text-income'
-                            : item.type === 'Expense'
-                            ? 'mm-text-expense'
-                            : 'mm-text-transfer'
-                        }`}
-                      >
-                        {formatINR(item.amount)}
-                      </strong>
-                    </div>
 
-                    <p className="mm-receipt-card-note">
-                      {item.note ? highlightMatch(item.note, searchQuery) : 'No memo attached'}
-                    </p>
+                      <p className="mm-receipt-card-note">
+                        {item.note ? highlightMatch(item.note, searchQuery) : 'No memo attached'}
+                      </p>
 
-                    <div className="mm-receipt-card-meta">
-                      <span className="mm-tx-account-name">{item.accountName}</span>
-                      <span>·</span>
-                      <span>{item.dateKey}</span>
-                      <span>·</span>
-                      <span>{item.fixedOrVariable}</span>
-                    </div>
+                      <div className="mm-receipt-card-meta">
+                        <span className="mm-tx-account-name">{item.accountName}</span>
+                        <span>·</span>
+                        <span>{item.dateKey}</span>
+                        <span>·</span>
+                        <span>{item.fixedOrVariable}</span>
+                      </div>
 
-                    <div className="mm-receipt-card-actions">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onOpenReceiptLightbox(
-                            item.transaction.receiptImages,
-                            `${item.category} (${formatINR(item.amount)}) — ${item.dateKey}`
-                          )
-                        }
-                        className="mm-btn mm-btn-sm mm-btn-secondary"
-                        data-testid={`mm-receipt-view-btn-${item.transactionId}-${item.receiptIndex}`}
-                      >
-                        <Eye size={13} />
-                        <span>View</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onEditTransaction(item.transaction)}
-                        className="mm-btn mm-btn-sm mm-btn-secondary"
-                        title="Manage transaction & receipts"
-                        data-testid={`mm-receipt-edit-tx-btn-${item.transactionId}-${item.receiptIndex}`}
-                      >
-                        <Pencil size={13} />
-                        <span>Manage</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onOpenAddModalWithReceipt) {
-                            onOpenAddModalWithReceipt(item.imageUrl);
-                          } else {
-                            onOpenAddModal(item.dateKey);
+                      <div className="mm-receipt-card-actions">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onOpenReceiptLightbox(
+                              item.transaction.receiptImages,
+                              `${item.category} (${formatINR(item.amount)}) — ${item.dateKey}`
+                            )
                           }
-                        }}
-                        className="mm-btn mm-btn-sm mm-btn-secondary"
-                        title="Scan this receipt to auto-fill a new transaction"
-                        data-testid={`mm-receipt-scan-new-tx-btn-${item.transactionId}-${item.receiptIndex}`}
-                      >
-                        <Sparkles size={13} />
-                        <span>Scan New</span>
-                      </button>
+                          className="mm-btn mm-btn-sm mm-btn-secondary"
+                          data-testid={`mm-receipt-view-btn-${item.transactionId}-${item.receiptIndex}`}
+                        >
+                          <Eye size={13} />
+                          <span>View</span>
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleDeleteReceiptImage(item.transactionId, item.receiptIndex)
-                        }
-                        className="mm-icon-action-btn is-danger"
-                        title="Delete this receipt image"
-                        aria-label={`Delete receipt #${item.receiptIndex + 1} for ${item.category}`}
-                        data-testid={`mm-receipt-delete-btn-${item.transactionId}-${item.receiptIndex}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => onEditTransaction(item.transaction)}
+                          className="mm-btn mm-btn-sm mm-btn-secondary"
+                          title="Manage transaction & receipts"
+                          data-testid={`mm-receipt-edit-tx-btn-${item.transactionId}-${item.receiptIndex}`}
+                        >
+                          <Pencil size={13} />
+                          <span>Manage</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onOpenAddModalWithReceipt) {
+                              onOpenAddModalWithReceipt(item.imageUrl);
+                            } else {
+                              onOpenAddModal(item.dateKey);
+                            }
+                          }}
+                          className="mm-btn mm-btn-sm mm-btn-secondary"
+                          title="Scan this receipt to auto-fill a new transaction"
+                          data-testid={`mm-receipt-scan-new-tx-btn-${item.transactionId}-${item.receiptIndex}`}
+                        >
+                          <Sparkles size={13} />
+                          <span>Scan New</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDeleteReceiptImage(item.transactionId, item.receiptIndex)
+                          }
+                          className="mm-icon-action-btn is-danger"
+                          title="Delete this receipt image"
+                          aria-label={`Delete receipt #${item.receiptIndex + 1} for ${item.category}`}
+                          data-testid={`mm-receipt-delete-btn-${item.transactionId}-${item.receiptIndex}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </article>

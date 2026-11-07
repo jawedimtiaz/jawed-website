@@ -3201,4 +3201,303 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.ok(cardSource.includes('<BarChart'));
     assert.ok(cardSource.includes('dataKey="totalSixMonthSpent"'));
   });
+
+  it('provides a Receipts tab in Daily Ledger with a scrollable grid gallery of transactions with photos that open directly in the existing lightbox', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { aggregateTransactionReceipts } = await import('../src/components/money-manager/DailyView');
+
+    // 1. Seed database state containing transactions with receipt images
+    const state = await initializeAndSeedDatabase();
+    const receiptsAll = aggregateTransactionReceipts(state.transactions, {
+      includeAllMonths: true,
+    });
+    assert.ok(receiptsAll.length >= 1, 'Expected at least 1 receipt in seeded dataset');
+
+    const firstReceipt = receiptsAll[0];
+    assert.ok(firstReceipt.imageUrl);
+    assert.ok(firstReceipt.transactionId);
+    assert.ok(firstReceipt.category);
+
+    // 2. Verify aggregateTransactionReceipts filters by search query and category
+    const medicalReceipts = aggregateTransactionReceipts(state.transactions, {
+      includeAllMonths: true,
+      categoryFilter: 'Medical & Health',
+    });
+    assert.ok(medicalReceipts.every((r) => r.category === 'Medical & Health'));
+
+    // 3. Verify DailyView.tsx includes Receipts tab switcher, scrollable gallery container, and lightbox invocation
+    const dailySource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/DailyView.tsx'),
+      'utf8'
+    );
+    assert.ok(dailySource.includes('data-tab="receipts"'));
+    assert.ok(dailySource.includes('mm-receipt-gallery-scroll-container'));
+    assert.ok(dailySource.includes('onOpenReceiptLightbox('));
+  });
+
+  it('highlights spending categories in red in Stats & Budgets tab if total expenses for current month exceed a user-defined threshold', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      evaluateCategoryBudgetAlerts,
+      computeMonthlyBudgetPlan,
+      resolveCategoryProgressColor,
+      computeCategoryBudgetProgressItems,
+    } = await import('../src/components/money-manager/StatsView');
+
+    const state = await initializeAndSeedDatabase();
+
+    // 1. Evaluate with a low user-defined threshold of ₹2,000 across all categories
+    const customThreshold = 2000;
+    const alertResults = evaluateCategoryBudgetAlerts(
+      state.transactions,
+      '2026-11',
+      customThreshold,
+      state.categories
+    );
+
+    assert.ok(alertResults.exceededCategories.length >= 1, 'Expected categories to exceed ₹2,000 threshold');
+    const medicalExceeded = alertResults.exceededCategories.find(
+      (c) => c.category === 'Medical & Health'
+    );
+    assert.ok(medicalExceeded);
+    assert.equal(medicalExceeded.isOverBudget, true);
+    assert.equal(medicalExceeded.monthlyBudget, 2000);
+    assert.ok(medicalExceeded.overBudgetAmount > 0);
+
+    // 2. Verify computeCategoryBudgetProgressItems resolves tier 'over-budget' and red color #ef4444
+    const plan = computeMonthlyBudgetPlan(
+      state.transactions,
+      '2026-11',
+      state.categories,
+      customThreshold
+    );
+    const progressItems = computeCategoryBudgetProgressItems(plan, '2026-11');
+    const medicalItem = progressItems.find((item) => item.category === 'Medical & Health');
+    assert.ok(medicalItem);
+    assert.equal(medicalItem.tier, 'over-budget');
+    assert.equal(medicalItem.barColor, '#ef4444');
+    assert.equal(medicalItem.textColor, '#ef4444');
+    assert.equal(medicalItem.statusLabel, 'Over Budget');
+
+    // 3. Verify CategoryBudgetProgressCard and StatsView styling includes red highlight for over-budget items
+    const progressCardSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/CategoryBudgetProgressCard.tsx'),
+      'utf8'
+    );
+    const cssSource = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
+
+    assert.ok(progressCardSource.includes('data-over-budget'));
+    assert.ok(progressCardSource.includes('#ef4444'));
+    assert.ok(cssSource.includes('.mm-category-legend-row.is-over-budget'));
+  });
+
+  it('defines and automatically schedules recurring transactions (e.g., monthly rent, subscriptions) that appear in the Daily Ledger automatically', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      defineAndScheduleRecurringTransaction,
+      RECURRING_TEMPLATE_PRESETS,
+      computeRecurringOccurrencesForMonth,
+      buildRecurringFeedTransactionsForMonth,
+    } = await import('../src/db/db');
+    const { filterDailyTransactions } = await import('../src/components/money-manager/DailyView');
+
+    await initializeAndSeedDatabase();
+
+    // 1. Verify built-in presets include Monthly Rent and Subscriptions
+    assert.ok(Array.isArray(RECURRING_TEMPLATE_PRESETS));
+    assert.ok(RECURRING_TEMPLATE_PRESETS.length >= 4);
+    const rentPreset = RECURRING_TEMPLATE_PRESETS.find((p) => p.id === 'preset-monthly-rent');
+    const subPreset = RECURRING_TEMPLATE_PRESETS.find((p) => p.id === 'preset-subscriptions');
+    assert.ok(rentPreset, 'Expected Monthly Rent preset');
+    assert.equal(rentPreset.frequency, 'Monthly');
+    assert.equal(rentPreset.type, 'Expense');
+    assert.ok(subPreset, 'Expected Subscriptions preset');
+    assert.equal(subPreset.frequency, 'Monthly');
+
+    // 2. Define and schedule a new recurring transaction for November 2026
+    const result = await defineAndScheduleRecurringTransaction(
+      {
+        title: 'Bandra Apartment Monthly Rent',
+        frequency: 'Monthly',
+        type: 'Expense',
+        accountId: 'acc-hdfc',
+        amount: 42000,
+        category: 'Rent & Housing',
+        subCategory: 'House Rent',
+        fixedOrVariable: 'Fixed',
+        note: 'Automated monthly apartment rent lease',
+        startDate: '2026-11-05',
+      },
+      '2026-11'
+    );
+
+    assert.ok(result.rule.id, 'Expected newly created rule ID');
+    assert.equal(result.rule.title, 'Bandra Apartment Monthly Rent');
+    assert.equal(result.rule.active, true);
+    assert.equal(result.rule.frequency, 'Monthly');
+
+    // 3. Verify occurrences for 2026-11 and automatic inclusion in the Daily Ledger feed
+    const occurrences = computeRecurringOccurrencesForMonth(result.rule, '2026-11');
+    assert.deepEqual(occurrences, ['2026-11-05']);
+
+    const scheduledInFeed = result.monthlyFeedTransactions.find(
+      (tx) =>
+        tx.recurringRuleId === result.rule.id ||
+        tx.note.includes('Bandra Apartment Monthly Rent')
+    );
+    assert.ok(
+      scheduledInFeed,
+      'Expected newly defined recurring transaction to appear automatically in the monthly Daily Ledger feed'
+    );
+    assert.equal(scheduledInFeed.amount, 42000);
+    assert.equal(scheduledInFeed.category, 'Rent & Housing');
+    assert.ok(scheduledInFeed.date.startsWith('2026-11-05'));
+
+    // 4. Verify future-dated recurring subscription within the month also appears automatically in DailyView via buildRecurringFeedTransactionsForMonth & filterDailyTransactions
+    const subResult = await defineAndScheduleRecurringTransaction(
+      {
+        title: 'Enterprise AI Suite Subscription',
+        frequency: 'Monthly',
+        type: 'Expense',
+        accountId: 'acc-icici',
+        amount: 2499,
+        category: 'Subscriptions & Cloud',
+        subCategory: 'SaaS & Streaming',
+        fixedOrVariable: 'Fixed',
+        note: 'Monthly AI & Cloud Pro Subscription',
+        startDate: '2026-11-28',
+      },
+      '2026-11'
+    );
+
+    const feedForNov = buildRecurringFeedTransactionsForMonth(
+      subResult.monthlyFeedTransactions,
+      subResult.updatedRules,
+      '2026-11'
+    );
+    const filteredDailyNov = filterDailyTransactions(feedForNov, {
+      selectedMonth: '2026-11',
+      searchQuery: 'Enterprise AI Suite Subscription',
+    });
+    assert.equal(filteredDailyNov.length, 1);
+    assert.equal(filteredDailyNov[0].amount, 2499);
+    assert.equal(filteredDailyNov[0].recurringRuleId, subResult.rule.id);
+
+    // 5. Verify UI wiring in DailyView.tsx and MoneyManager.tsx
+    const dailySource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/DailyView.tsx'),
+      'utf8'
+    );
+    const mmSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/tools/MoneyManager.tsx'),
+      'utf8'
+    );
+    assert.ok(dailySource.includes('mm-daily-recurring-presets-bar'));
+    assert.ok(dailySource.includes('mm-daily-active-recurring-strip'));
+    assert.ok(mmSource.includes('await syncRecurringTransactionsForMonth(selectedMonth)'));
+  });
+
+  it('refactors Google Auth in MoneyManager.tsx to use signInWithRedirect and getRedirectResult with drive.appdata scope while maintaining full offline IndexedDB, JSON, and Excel persistence', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      SCOPES,
+      DRIVE_APPDATA_SCOPE,
+      createGoogleDriveAuthProvider,
+      getGoogleDriveAccessToken,
+      setMockAccessTokenForTest,
+    } = await import('../src/components/money-manager/googleDriveSync');
+    const {
+      exportDatabaseBackup,
+      saveTransaction,
+      initializeAndSeedDatabase,
+    } = await import('../src/db/db');
+    const { buildMoneyManagerWorkbook } = await import(
+      '../src/components/money-manager/excelExporter'
+    );
+
+    // 1. Verify drive.appdata scope is configured
+    assert.equal(DRIVE_APPDATA_SCOPE, 'https://www.googleapis.com/auth/drive.appdata');
+    assert.ok(SCOPES.includes('https://www.googleapis.com/auth/drive.appdata'));
+
+    const provider = createGoogleDriveAuthProvider();
+    assert.ok(provider, 'Expected GoogleAuthProvider instance');
+
+    // 2. Verify MoneyManager.tsx, pages/tools/MoneyManager.tsx, BackupRestoreModal.tsx, and googleDriveSync.ts use signInWithRedirect & getRedirectResult without signInWithPopup
+    const mmToolSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/tools/MoneyManager.tsx'),
+      'utf8'
+    );
+    const mmPageSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/tools/MoneyManager.tsx'),
+      'utf8'
+    );
+    const driveSyncSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/googleDriveSync.ts'),
+      'utf8'
+    );
+    const backupModalSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/BackupRestoreModal.tsx'),
+      'utf8'
+    );
+
+    assert.ok(mmToolSource.includes('signInWithRedirect'));
+    assert.ok(mmToolSource.includes('getRedirectResult'));
+    assert.ok(mmToolSource.includes('GoogleAuthProvider'));
+    assert.ok(mmToolSource.includes("provider.addScope('https://www.googleapis.com/auth/drive.appdata')"));
+    assert.ok(mmToolSource.includes('const checkRedirect = async () =>'));
+    assert.ok(mmToolSource.includes('const handleGoogleSignIn = async () =>'));
+    assert.equal(mmToolSource.includes('signInWithPopup'), false);
+
+    assert.ok(mmPageSource.includes('signInWithRedirect'));
+    assert.ok(mmPageSource.includes('getRedirectResult'));
+    assert.ok(mmPageSource.includes('GoogleAuthProvider'));
+
+    assert.ok(driveSyncSource.includes('signInWithRedirect'));
+    assert.ok(driveSyncSource.includes('getRedirectResult'));
+    assert.equal(driveSyncSource.includes('signInWithPopup'), false);
+
+    assert.ok(backupModalSource.includes('signInWithRedirect'));
+    assert.ok(backupModalSource.includes('getRedirectResult'));
+
+    // 3. Verify offline persistence (IndexedDB ledger, JSON backup, and Excel workbook generation) works 100% without Google login
+    setMockAccessTokenForTest(null);
+    assert.equal(await getGoogleDriveAccessToken(), null);
+
+    const state = await initializeAndSeedDatabase();
+    const savedOfflineTx = await saveTransaction({
+      date: '2026-11-18T14:30',
+      type: 'Expense',
+      accountId: 'acc-icici',
+      amount: 1850,
+      category: 'Food & Groceries',
+      subCategory: 'Supermarket Groceries',
+      fixedOrVariable: 'Variable',
+      note: 'Offline InPrivate transaction without Google login',
+      receiptImages: [],
+      isAnomaly: false,
+    });
+    assert.ok(savedOfflineTx.id);
+
+    const jsonBackup = await exportDatabaseBackup();
+    assert.ok(
+      jsonBackup.transactions.some((tx) => tx.id === savedOfflineTx.id),
+      'Expected offline transaction in JSON backup without Google auth'
+    );
+
+    const wb = buildMoneyManagerWorkbook({
+      accounts: state.accounts,
+      categories: state.categories,
+      transactions: jsonBackup.transactions,
+      sinkingFunds: state.sinkingFunds,
+      selectedMonth: '2026-11',
+    });
+    assert.ok(wb.SheetNames.includes('Transactions Ledger'));
+  });
 });
+
+
+

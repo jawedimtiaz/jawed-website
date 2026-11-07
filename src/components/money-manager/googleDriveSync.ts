@@ -1,7 +1,8 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import {
   getAuth,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   type Auth,
@@ -14,7 +15,12 @@ import {
   type MoneyManagerBackupPayload,
 } from '../../db/db';
 
-export const SCOPES = ['https://www.googleapis.com/auth/drive.file'] as const;
+export const DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+export const SCOPES = [
+  DRIVE_APPDATA_SCOPE,
+  DRIVE_FILE_SCOPE,
+] as const;
 
 export const DRIVE_BACKUP_FILE_PREFIX = 'jawed-money-manager-cloud-sync';
 export const DRIVE_BACKUP_MIME_TYPE = 'application/json';
@@ -39,6 +45,7 @@ function ensureFirebaseAuth(): { auth: Auth; provider: GoogleAuthProvider } {
   }
   if (!googleProviderInstance) {
     googleProviderInstance = new GoogleAuthProvider();
+    googleProviderInstance.addScope('https://www.googleapis.com/auth/drive.appdata');
     for (const scope of SCOPES) {
       googleProviderInstance.addScope(scope);
     }
@@ -47,50 +54,130 @@ function ensureFirebaseAuth(): { auth: Auth; provider: GoogleAuthProvider } {
 }
 
 /**
- * Initializes the Firebase Auth state listener and clears the in-memory OAuth token when signed out.
+ * Safely returns the initialized Firebase Auth instance in browser environments,
+ * or null in non-browser test environments where Auth DOM APIs are unavailable.
+ */
+export function getMoneyManagerAuth(): Auth | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    return ensureFirebaseAuth().auth;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Creates a configured GoogleAuthProvider with the Google Drive appdata scope.
+ */
+export function createGoogleDriveAuthProvider(): GoogleAuthProvider {
+  const provider = new GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/drive.appdata');
+  for (const scope of SCOPES) {
+    provider.addScope(scope);
+  }
+  return provider;
+}
+
+/**
+ * Updates the in-memory cached Google OAuth access token after a redirect sign-in completes.
+ */
+export function setCachedGoogleAccessToken(token: string | null): void {
+  cachedAccessToken = token;
+}
+
+/**
+ * Checks for and resolves any pending Google Sign-In redirect result on component mount.
+ */
+export const checkGoogleRedirectResult = async (
+  customAuth?: Auth | null
+): Promise<{
+  user: User;
+  accessToken: string | null;
+} | null> => {
+  if (typeof window === 'undefined') return null;
+  const targetAuth = customAuth ?? getMoneyManagerAuth();
+  if (!targetAuth) return null;
+
+  const result = await getRedirectResult(targetAuth);
+  if (result?.user) {
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      cachedAccessToken = credential.accessToken;
+    }
+    return {
+      user: result.user,
+      accessToken: cachedAccessToken,
+    };
+  }
+  return null;
+};
+
+/**
+ * Initializes the Firebase Auth state listener and resolves any pending redirect result.
  */
 export const initGoogleDriveAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
-  onAuthFailure?: () => void
+  onAuthFailure?: (errorMessage?: string) => void
 ): (() => void) => {
+  if (typeof window === 'undefined') {
+    onAuthFailure?.();
+    return () => {};
+  }
   try {
     const { auth } = ensureFirebaseAuth();
+
+    void getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          const credential = GoogleAuthProvider.credentialFromResult(result);
+          if (credential?.accessToken) {
+            cachedAccessToken = credential.accessToken;
+          }
+          onAuthSuccess?.(result.user, cachedAccessToken || '');
+        }
+      })
+      .catch((error: any) => {
+        console.error('Redirect auth error:', error);
+        onAuthFailure?.(error?.message || 'Failed to complete Google Sign-In redirect.');
+      });
+
     return onAuthStateChanged(auth, async (user: User | null) => {
       if (user) {
-        if (cachedAccessToken) {
-          onAuthSuccess?.(user, cachedAccessToken);
-        } else if (!isSigningIn) {
-          cachedAccessToken = null;
-          onAuthFailure?.();
-        }
-      } else {
+        onAuthSuccess?.(user, cachedAccessToken || '');
+      } else if (!isSigningIn) {
         cachedAccessToken = null;
         onAuthFailure?.();
       }
     });
-  } catch {
-    onAuthFailure?.();
+  } catch (error: any) {
+    onAuthFailure?.(error?.message);
     return () => {};
   }
 };
 
 /**
- * Initiates a Google OAuth sign-in popup requesting the Google Drive (`drive.file`) scope.
+ * Initiates a Google OAuth redirect sign-in requesting the Google Drive (`drive.appdata`) scope.
+ * Uses `signInWithRedirect` so Private/Incognito browsers do not fail with
+ * `Firebase: Error (auth/internal-error)` when cross-origin third-party cookies are blocked.
  */
-export const googleDriveSignIn = async (): Promise<{
+export const googleDriveSignIn = async (
+  customAuth?: Auth | null
+): Promise<{
   user: User;
   accessToken: string;
 } | null> => {
   try {
     isSigningIn = true;
-    const { auth, provider } = ensureFirebaseAuth();
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to obtain Google Drive access token from Google sign-in.');
+    const targetAuth = customAuth ?? ensureFirebaseAuth().auth;
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/drive.appdata');
+    for (const scope of SCOPES) {
+      provider.addScope(scope);
     }
-    cachedAccessToken = credential.accessToken;
-    return { user: result.user, accessToken: cachedAccessToken };
+    await signInWithRedirect(targetAuth, provider);
+    return null;
   } catch (error) {
     console.error('Google Drive sign-in error:', error);
     throw error;

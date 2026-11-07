@@ -923,7 +923,10 @@ export function buildRecurringFeedTransactionsForMonth(
 
       const timePart =
         rule.timeOfDay && /^\d{2}:\d{2}$/.test(rule.timeOfDay) ? rule.timeOfDay : '09:00';
-      const baseNote = rule.note || rule.title;
+      const baseNote =
+        rule.title && rule.note && !rule.note.toLowerCase().includes(rule.title.toLowerCase())
+          ? `${rule.title} — ${rule.note}`
+          : rule.note || rule.title;
       const formattedNote = baseNote.includes('[Auto-Recurring:') || baseNote.includes('[Recurring')
         ? baseNote
         : `${baseNote} [Auto-Recurring: ${rule.frequency}]`;
@@ -1020,6 +1023,10 @@ export async function processDueRecurringRules(
 
       if (!existingTxMap.has(deterministicTxId)) {
         const timePart = rule.timeOfDay && /^\d{2}:\d{2}$/.test(rule.timeOfDay) ? rule.timeOfDay : '09:00';
+        const baseNote =
+          rule.title && rule.note && !rule.note.toLowerCase().includes(rule.title.toLowerCase())
+            ? `${rule.title} — ${rule.note}`
+            : rule.note || rule.title;
         const newTx: MoneyTransaction = {
           id: deterministicTxId,
           date: `${runDate}T${timePart}`,
@@ -1030,7 +1037,7 @@ export async function processDueRecurringRules(
           category: rule.type === 'Transfer' ? 'Transfer' : rule.category,
           subCategory: rule.subCategory,
           fixedOrVariable: rule.fixedOrVariable,
-          note: `${rule.note || rule.title} [Auto-Recurring: ${rule.frequency}]`,
+          note: `${baseNote} [Auto-Recurring: ${rule.frequency}]`,
           receiptImages: [],
           isAnomaly: false,
           recurringRuleId: rule.id,
@@ -1813,6 +1820,125 @@ export async function deleteRecurringRule(id: string): Promise<void> {
   } else {
     await db.delete('recurringRules', id);
   }
+}
+
+export interface RecurringTemplatePreset {
+  id: string;
+  label: string;
+  title: string;
+  frequency: RecurringFrequency;
+  type: TransactionType;
+  amount: number;
+  category: string;
+  subCategory: string;
+  fixedOrVariable: FixedOrVariable;
+  dayOfMonth: number;
+  note: string;
+}
+
+export const RECURRING_TEMPLATE_PRESETS: ReadonlyArray<RecurringTemplatePreset> = [
+  {
+    id: 'preset-monthly-rent',
+    label: 'Monthly Rent',
+    title: 'Monthly Apartment Rent',
+    frequency: 'Monthly',
+    type: 'Expense',
+    amount: 22000,
+    category: 'Rent & Housing',
+    subCategory: 'House Rent',
+    fixedOrVariable: 'Fixed',
+    dayOfMonth: 5,
+    note: 'Automated monthly house rent schedule',
+  },
+  {
+    id: 'preset-subscriptions',
+    label: 'Subscriptions',
+    title: 'Cloud & Streaming Subscriptions',
+    frequency: 'Monthly',
+    type: 'Expense',
+    amount: 1499,
+    category: 'Subscriptions & Cloud',
+    subCategory: 'SaaS & Streaming',
+    fixedOrVariable: 'Fixed',
+    dayOfMonth: 10,
+    note: 'Recurring digital & cloud subscriptions',
+  },
+  {
+    id: 'preset-broadband',
+    label: 'Broadband & Utilities',
+    title: 'Fiber Broadband & Electricity',
+    frequency: 'Monthly',
+    type: 'Expense',
+    amount: 1179,
+    category: 'Utilities & Bills',
+    subCategory: 'Internet & Wi-Fi',
+    fixedOrVariable: 'Fixed',
+    dayOfMonth: 7,
+    note: 'Monthly broadband & utility bill schedule',
+  },
+  {
+    id: 'preset-salary',
+    label: 'Monthly Salary',
+    title: 'Monthly Salary Credit',
+    frequency: 'Monthly',
+    type: 'Income',
+    amount: 115000,
+    category: 'Salary & Retainer',
+    subCategory: 'Primary Salary',
+    fixedOrVariable: 'Fixed',
+    dayOfMonth: 1,
+    note: 'Automated monthly salary credit',
+  },
+];
+
+/**
+ * Defines a new (or updated) recurring transaction rule and immediately schedules/synchronizes
+ * its occurrences for `targetYearMonth` so that entries appear automatically in the Daily Ledger.
+ */
+export async function defineAndScheduleRecurringTransaction(
+  ruleInput: Omit<RecurringRule, 'id' | 'generatedCount' | 'nextRunDate' | 'timeOfDay' | 'active'> & {
+    id?: string;
+    generatedCount?: number;
+    nextRunDate?: string;
+    timeOfDay?: string;
+    active?: boolean;
+  },
+  targetYearMonth?: string
+): Promise<{
+  rule: RecurringRule;
+  generatedTransactions: MoneyTransaction[];
+  updatedRules: RecurringRule[];
+  monthlyFeedTransactions: MoneyTransaction[];
+}> {
+  const normalizedStart = ruleInput.startDate || '2026-11-05';
+  const savedRule = await saveRecurringRule({
+    ...ruleInput,
+    startDate: normalizedStart,
+    nextRunDate: ruleInput.nextRunDate || normalizedStart,
+    timeOfDay: ruleInput.timeOfDay || '09:30',
+    active: ruleInput.active ?? true,
+  });
+  const resolvedYearMonth =
+    targetYearMonth ||
+    (savedRule.nextRunDate || savedRule.startDate || '2026-11').slice(0, 7);
+
+  const syncResult = await syncRecurringTransactionsForMonth(resolvedYearMonth);
+  const currentState = await getAllLedgerState();
+  const monthlyFeedTransactions = buildRecurringFeedTransactionsForMonth(
+    currentState.transactions,
+    currentState.recurringRules,
+    resolvedYearMonth
+  ).filter((tx) => String(tx.date || '').startsWith(resolvedYearMonth));
+
+  const latestRule =
+    currentState.recurringRules.find((r) => r.id === savedRule.id) || savedRule;
+
+  return {
+    rule: latestRule,
+    generatedTransactions: syncResult.generatedTransactions,
+    updatedRules: syncResult.updatedRules,
+    monthlyFeedTransactions,
+  };
 }
 
 /**

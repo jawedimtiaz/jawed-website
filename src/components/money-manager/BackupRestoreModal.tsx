@@ -52,7 +52,16 @@ import {
   type CsvColumnMapping,
 } from './csvImporter';
 import {
+  signInWithRedirect,
+  getRedirectResult,
+  GoogleAuthProvider,
+  type User,
+} from 'firebase/auth';
+import {
   SCOPES,
+  DRIVE_APPDATA_SCOPE,
+  getMoneyManagerAuth,
+  setCachedGoogleAccessToken,
   initGoogleDriveAuth,
   googleDriveSignIn,
   googleDriveLogout,
@@ -74,6 +83,7 @@ export {
   generateBulkLedgerCsvExport,
   exportBulkLedgerHistoryCsvFromDb,
   SCOPES,
+  DRIVE_APPDATA_SCOPE,
   encryptLedgerPayload,
   decryptLedgerPayload,
   exportDatabaseToEncryptedDrive,
@@ -93,6 +103,10 @@ export interface BackupRestoreModalProps {
   transactions: MoneyTransaction[];
   sinkingFunds: SinkingFund[];
   selectedMonth: string;
+  currentUser?: User | null;
+  syncError?: string | null;
+  onClearSyncError?: () => void;
+  onGoogleSignIn?: () => Promise<void>;
   onClose: () => void;
   onDataRestored: () => Promise<void>;
 }
@@ -104,6 +118,10 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
   transactions,
   sinkingFunds,
   selectedMonth,
+  currentUser: externalCurrentUser,
+  syncError: externalSyncError,
+  onClearSyncError,
+  onGoogleSignIn,
   onClose,
   onDataRestored,
 }) => {
@@ -119,9 +137,13 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
   const [confirmReset, setConfirmReset] = useState(false);
 
   // Encrypted Google Drive Cloud Sync State
-  const [needsDriveAuth, setNeedsDriveAuth] = useState<boolean>(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(externalCurrentUser ?? null);
+  const [syncError, setSyncError] = useState<string | null>(externalSyncError ?? null);
+  const [needsDriveAuth, setNeedsDriveAuth] = useState<boolean>(!externalCurrentUser);
   const [driveAccessToken, setDriveAccessToken] = useState<string | null>(null);
-  const [driveUserEmail, setDriveUserEmail] = useState<string>('');
+  const [driveUserEmail, setDriveUserEmail] = useState<string>(
+    externalCurrentUser?.email || externalCurrentUser?.displayName || ''
+  );
   const [isDriveLoggingIn, setIsDriveLoggingIn] = useState<boolean>(false);
   const [drivePassphrase, setDrivePassphrase] = useState<string>('');
   const [showDrivePassphrase, setShowDrivePassphrase] = useState<boolean>(false);
@@ -134,13 +156,71 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
   } | null>(null);
 
   useEffect(() => {
+    if (externalCurrentUser !== undefined) {
+      setCurrentUser(externalCurrentUser);
+      if (externalCurrentUser) {
+        setDriveUserEmail(
+          externalCurrentUser.email || externalCurrentUser.displayName || 'Connected Google Account'
+        );
+        setNeedsDriveAuth(false);
+      }
+    }
+  }, [externalCurrentUser]);
+
+  useEffect(() => {
+    if (externalSyncError !== undefined) {
+      setSyncError(externalSyncError);
+      if (externalSyncError) {
+        setStatusMessage({
+          type: 'error',
+          text: externalSyncError,
+        });
+      }
+    }
+  }, [externalSyncError]);
+
+  useEffect(() => {
+    const auth = getMoneyManagerAuth();
+    const checkRedirect = async () => {
+      if (!auth) return;
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          // Successfully authenticated after redirect
+          setCurrentUser(result.user);
+          const credential = GoogleAuthProvider.credentialFromResult(result);
+          if (credential?.accessToken) {
+            setCachedGoogleAccessToken(credential.accessToken);
+            setDriveAccessToken(credential.accessToken);
+          }
+          setDriveUserEmail(
+            result.user.email || result.user.displayName || 'Connected Google Account'
+          );
+          setNeedsDriveAuth(false);
+        }
+      } catch (error: any) {
+        console.error('Redirect auth error:', error);
+        const errMsg = error.message || 'Failed to complete Google Sign-In redirect.';
+        setSyncError(errMsg);
+        setStatusMessage({ type: 'error', text: errMsg });
+      }
+    };
+    checkRedirect();
+
     const unsubscribe = initGoogleDriveAuth(
       (user, token) => {
-        setDriveAccessToken(token);
+        setCurrentUser(user);
+        if (token) {
+          setDriveAccessToken(token);
+        }
         setDriveUserEmail(user.email || user.displayName || 'Connected Google Account');
         setNeedsDriveAuth(false);
       },
-      () => {
+      (errMessage) => {
+        if (errMessage) {
+          setSyncError(errMessage);
+          setStatusMessage({ type: 'error', text: errMessage });
+        }
         setDriveAccessToken(null);
         setDriveUserEmail('');
         setNeedsDriveAuth(true);
@@ -169,34 +249,41 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     }
   };
 
-  const handleGoogleDriveSignIn = async () => {
+  const handleGoogleSignIn = async () => {
+    setSyncError(null);
+    onClearSyncError?.();
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/drive.appdata');
+    for (const scope of SCOPES) {
+      provider.addScope(scope);
+    }
+
     try {
       setIsDriveLoggingIn(true);
       setStatusMessage(null);
-      const authResult = await googleDriveSignIn();
-      if (authResult) {
-        setDriveAccessToken(authResult.accessToken);
-        setDriveUserEmail(
-          authResult.user.email || authResult.user.displayName || 'Connected Google Account'
-        );
-        setNeedsDriveAuth(false);
-        await refreshDriveBackupList(authResult.accessToken);
-        setStatusMessage({
-          type: 'success',
-          text: `Connected to Google Drive as ${
-            authResult.user.email || authResult.user.displayName || 'Google User'
-          }.`,
-        });
+      if (onGoogleSignIn) {
+        await onGoogleSignIn();
+        return;
       }
-    } catch (err) {
+      const auth = getMoneyManagerAuth();
+      if (!auth) {
+        await googleDriveSignIn();
+        return;
+      }
+      await signInWithRedirect(auth, provider);
+    } catch (err: any) {
+      const errMsg = err?.message || 'Sign-in initialization failed.';
+      setSyncError(errMsg);
       setStatusMessage({
         type: 'error',
-        text: err instanceof Error ? err.message : 'Google Drive sign-in was cancelled or failed.',
+        text: errMsg,
       });
     } finally {
       setIsDriveLoggingIn(false);
     }
   };
+
+  const handleGoogleDriveSignIn = handleGoogleSignIn;
 
   const handleGoogleDriveSignOut = async () => {
     await googleDriveLogout();
@@ -738,7 +825,19 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
               </div>
             </div>
 
-            {needsDriveAuth || !driveAccessToken ? (
+            {syncError && !statusMessage && (
+              <div
+                className="mm-status-banner mm-status-error"
+                role="alert"
+                data-testid="mm-drive-sync-error-banner"
+                style={{ marginTop: 10 }}
+              >
+                <AlertTriangle size={16} />
+                <span>{syncError}</span>
+              </div>
+            )}
+
+            {needsDriveAuth || (!driveAccessToken && !currentUser) ? (
               <div
                 style={{
                   marginTop: 12,
@@ -763,7 +862,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
 
                 <button
                   type="button"
-                  onClick={handleGoogleDriveSignIn}
+                  onClick={handleGoogleSignIn}
                   disabled={isDriveLoggingIn}
                   className="gsi-material-button"
                   data-testid="mm-google-signin-btn"
