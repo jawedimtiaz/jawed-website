@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { BookOpen, Wrench, Bot, Search, Download } from 'lucide-react';
 import { SeoHead } from '../components/SeoHead';
 import {
   Image,
@@ -57,16 +58,63 @@ export function preloadHeroMainImage(
   };
 }
 
+export const HERO_RESOURCE_CHIP_CLASS =
+  'inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-slate-300 transition';
+
+export function getBrowserInstallFallbackMessage(userAgent?: string): string {
+  const ua = (
+    userAgent ??
+    (typeof navigator !== 'undefined' ? navigator.userAgent : '')
+  ).toLowerCase();
+
+  if (/iphone|ipad|ipod/.test(ua)) {
+    return 'To install on iOS Safari: tap the Share button in the browser bar, then select "Add to Home Screen".';
+  }
+  if (/edg\//.test(ua)) {
+    return 'To install on Microsoft Edge: click the "App available" icon in the address bar or open Menu (⋯) → Apps → Install this site as an app.';
+  }
+  if (/chrome|crios|chromium/.test(ua)) {
+    return 'To install on Chrome: click the Install icon in the right side of the address bar, or open Menu (⋮) → Save and share → Install page as app.';
+  }
+  if (/firefox/.test(ua)) {
+    return 'To install on Firefox: use the browser menu → Install (on mobile) or bookmark this page to your desktop toolbar.';
+  }
+  if (/safari/.test(ua) && /macintosh|mac os x/.test(ua)) {
+    return 'To install on macOS Safari: open File → Add to Dock from the top menu bar.';
+  }
+  return 'To install this app: open your browser menu and select "Install App" or "Add to Home Screen".';
+}
+
 export const HeroSection: React.FC = () => {
   const [bgLoadedSrc, setBgLoadedSrc] = useState<string | null>(null);
   const [isLcpVisualLoaded, setIsLcpVisualLoaded] = useState<boolean>(false);
-  const { isInstallable, triggerInstall } = usePWAInstall();
+  const [installFallbackNotice, setInstallFallbackNotice] = useState<string | null>(null);
+  const { isInstallable, deferredPrompt, triggerInstall } = usePWAInstall();
 
   useEffect(() => {
     return preloadHeroMainImage((resolvedSrc) => {
       setBgLoadedSrc(resolvedSrc);
     });
   }, []);
+
+  useEffect(() => {
+    if (!installFallbackNotice) return;
+    const timer = window.setTimeout(() => {
+      setInstallFallbackNotice(null);
+    }, 6500);
+    return () => window.clearTimeout(timer);
+  }, [installFallbackNotice]);
+
+  const handleInstallAppClick = async () => {
+    if (deferredPrompt || isInstallable) {
+      const installed = await triggerInstall();
+      if (installed) {
+        setInstallFallbackNotice(null);
+      }
+      return;
+    }
+    setInstallFallbackNotice(getBrowserInstallFallbackMessage());
+  };
 
   const isProgressiveReady = Boolean(bgLoadedSrc) || isLcpVisualLoaded;
 
@@ -142,56 +190,101 @@ export const HeroSection: React.FC = () => {
           />
         </div>
 
-        {/* Secondary Exploration Ribbon (Tools / Guides / AI / Search) */}
+        {/* Secondary Exploration Ribbon (Guides / Tools / Ask AI / Search / Install App) */}
         <div className="hero-secondary-ribbon flex flex-wrap items-center gap-2 pt-4">
           <span className="ribbon-label text-xs font-semibold tracking-wider text-slate-400 uppercase">
             Interactive Resources:
           </span>
           <Link
-            className="ribbon-link inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700/60 transition"
+            className={`ribbon-link ${HERO_RESOURCE_CHIP_CLASS}`}
             to="/guides"
           >
-            📖 Guides
+            <BookOpen className="w-3.5 h-3.5 text-sky-400" />
+            <span>Guides</span>
           </Link>
           <Link
-            className="ribbon-link inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700/60 transition"
+            className={`ribbon-link ${HERO_RESOURCE_CHIP_CLASS}`}
             to="/tools"
           >
-            🛠️ Tools
+            <Wrench className="w-3.5 h-3.5 text-sky-400" />
+            <span>Tools</span>
           </Link>
           <Link
-            className="ribbon-link inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700/60 transition"
+            className={`ribbon-link ${HERO_RESOURCE_CHIP_CLASS}`}
             to="/ai"
           >
-            🤖 Ask AI
+            <Bot className="w-3.5 h-3.5 text-sky-400" />
+            <span>Ask AI</span>
           </Link>
           <button
             type="button"
             onClick={() => {
               window.dispatchEvent(new CustomEvent('open-search-modal'));
             }}
-            className="ribbon-link inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700/60 transition cursor-pointer"
+            className={`ribbon-link ${HERO_RESOURCE_CHIP_CLASS} cursor-pointer`}
             aria-label="Open Site Search (⌘K or Ctrl+K)"
             aria-keyshortcuts="Control+K Meta+K /"
             data-testid="hero-search-trigger"
           >
-            🔍 Search
+            <Search className="w-3.5 h-3.5 text-sky-400" />
+            <span>Search</span>
             <kbd className="ml-1 px-1.5 py-0.5 text-[10px] font-mono bg-slate-900/90 text-slate-400 rounded border border-slate-700">
               ⌘K
             </kbd>
           </button>
-          {isInstallable && (
+          <button
+            type="button"
+            onClick={handleInstallAppClick}
+            className={`ribbon-link ${HERO_RESOURCE_CHIP_CLASS} cursor-pointer`}
+            aria-label="Install Jawed Imtiaz App"
+            data-testid="hero-install-app-btn"
+          >
+            <Download className="w-3.5 h-3.5 text-sky-400" />
+            <span>Install App</span>
+          </button>
+        </div>
+
+        {installFallbackNotice && (
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="hero-install-fallback-toast"
+            className="mt-2.5 inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg text-xs bg-slate-800/95 border border-sky-500/40 text-slate-200 shadow-lg"
+            style={{
+              marginTop: '10px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontSize: '0.78rem',
+              background: 'var(--surface)',
+              border: '1px solid var(--accent)',
+              color: 'var(--text)',
+              maxWidth: 'fit-content',
+            }}
+          >
+            <Download className="w-3.5 h-3.5 text-sky-400" style={{ flexShrink: 0 }} />
+            <span>{installFallbackNotice}</span>
             <button
               type="button"
-              onClick={triggerInstall}
-              className="ribbon-link inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/30 transition cursor-pointer"
-              aria-label="Install Jawed Imtiaz App"
-              data-testid="hero-install-app-btn"
+              onClick={() => setInstallFallbackNotice(null)}
+              aria-label="Dismiss install instructions"
+              data-testid="hero-install-fallback-dismiss"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontSize: '0.78rem',
+                padding: '2px 4px',
+                fontWeight: 600,
+              }}
             >
-              📲 Install App
+              ✕
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Hero Visual Card (LCP Optimized with Progressive Blur-Up, Preload & WebP) */}
         <div

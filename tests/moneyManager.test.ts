@@ -4292,10 +4292,10 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     );
     assert.ok(
       homePageSource.includes('Interactive Resources:') &&
-        homePageSource.includes('📖 Guides') &&
-        homePageSource.includes('🛠️ Tools') &&
-        homePageSource.includes('🤖 Ask AI') &&
-        homePageSource.includes('🔍 Search') &&
+        homePageSource.includes('Guides') &&
+        homePageSource.includes('Tools') &&
+        homePageSource.includes('Ask AI') &&
+        homePageSource.includes('Search') &&
         homePageSource.includes('⌘K'),
       'Expected Search trigger chip added immediately following Ask AI in Interactive Resources'
     );
@@ -4350,4 +4350,62 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       'Expected top navbar (Header.tsx) to remain uncluttered without Install App'
     );
   });
+
+  it('polishes the Interactive Resources row in the Hero section with Lucide React icons (BookOpen, Wrench, Bot, Search, Download), shared chip styling, and a browser install fallback toast when deferredPrompt is not ready', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const HomePageMod = await import('../src/pages/HomePage');
+    const HeroMod = await import('../src/components/Hero');
+
+    assert.equal(
+      HomePageMod.HERO_RESOURCE_CHIP_CLASS,
+      'inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-slate-300 transition'
+    );
+    assert.equal(HeroMod.HERO_RESOURCE_CHIP_CLASS, HomePageMod.HERO_RESOURCE_CHIP_CLASS);
+    assert.equal(typeof HomePageMod.getBrowserInstallFallbackMessage, 'function');
+
+    // Verify browser-specific install fallback explanations
+    assert.ok(
+      HomePageMod.getBrowserInstallFallbackMessage('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)').includes(
+        'Add to Home Screen'
+      )
+    );
+    assert.ok(
+      HomePageMod.getBrowserInstallFallbackMessage('Mozilla/5.0 Chrome/125.0.0.0').includes(
+        'Chrome'
+      )
+    );
+
+    const homePageSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/HomePage.tsx'),
+      'utf8'
+    );
+
+    // Verify all 5 Lucide React icons with exact className="w-3.5 h-3.5 text-sky-400"
+    assert.ok(
+      homePageSource.includes('<BookOpen className="w-3.5 h-3.5 text-sky-400" />'),
+      'Expected BookOpen Lucide icon for Guides'
+    );
+    assert.ok(
+      homePageSource.includes('<Wrench className="w-3.5 h-3.5 text-sky-400" />'),
+      'Expected Wrench Lucide icon for Tools'
+    );
+    assert.ok(
+      homePageSource.includes('<Bot className="w-3.5 h-3.5 text-sky-400" />'),
+      'Expected Bot Lucide icon for Ask AI'
+    );
+    assert.ok(
+      homePageSource.includes('<Search className="w-3.5 h-3.5 text-sky-400" />'),
+      'Expected Search Lucide icon for Search'
+    );
+    assert.ok(
+      homePageSource.includes('<Download className="w-3.5 h-3.5 text-sky-400" />'),
+      'Expected Download Lucide icon for Install App'
+    );
+    assert.ok(
+      homePageSource.includes('hero-install-fallback-toast'),
+      'Expected fallback toast in HeroSection when deferredPrompt is not ready'
+    );
+  });
 });
+

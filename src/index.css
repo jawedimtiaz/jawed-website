@@ -578,40 +578,67 @@ select:focus-visible {
 .ribbon-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  vertical-align: middle;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 4px 12px;
+  min-height: 28px;
+  line-height: 1.25;
   border-radius: 8px;
-  background: var(--bg-darker);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  color: var(--nav-link);
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 500;
   text-decoration: none !important;
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+[data-theme="light"] .ribbon-link,
+.light .ribbon-link {
+  background: var(--bg-darker);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.ribbon-link svg {
+  width: 14px;
+  height: 14px;
+  color: #38bdf8;
+  flex-shrink: 0;
 }
 
 .ribbon-link kbd {
   margin-left: 4px;
-  padding: 2px 6px;
-  font-size: 0.68rem;
+  padding: 1px 5px;
+  font-size: 0.625rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: rgba(15, 23, 42, 0.9);
+  color: #94a3b8;
+  border-radius: 4px;
+  border: 1px solid #334155;
+  line-height: 1.1;
+}
+
+[data-theme="light"] .ribbon-link kbd,
+.light .ribbon-link kbd {
   background: var(--surface);
   color: var(--text-muted);
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  line-height: 1.2;
+  border-color: var(--border);
 }
 
 .ribbon-link:hover {
-  background: rgba(56, 189, 248, 0.1);
+  background: rgba(51, 65, 85, 0.8);
   border-color: var(--accent);
-  color: var(--accent);
+  color: #ffffff;
 }
 
 [data-theme="light"] .ribbon-link:hover,
 .light .ribbon-link:hover {
+  background: rgba(2, 132, 199, 0.08);
   color: var(--accent-hover);
   border-color: var(--accent-hover);
 }
