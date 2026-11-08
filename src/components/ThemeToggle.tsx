@@ -1,17 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { Sun, Moon } from 'lucide-react';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
+export const THEME_STORAGE_KEY = 'theme';
+
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 export const getSystemTheme = (): 'light' | 'dark' => {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return 'dark';
+  }
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 };
 
-export const getSavedThemeMode = (): ThemeMode => {
+export const getSavedThemeMode = (storageKey: string = THEME_STORAGE_KEY): ThemeMode => {
   if (typeof window === 'undefined') return 'system';
   try {
-    const saved = window.localStorage.getItem('theme');
+    const saved = window.localStorage.getItem(storageKey);
     if (saved === 'light' || saved === 'dark' || saved === 'system') {
       return saved;
     }
@@ -25,53 +32,152 @@ export const getResolvedTheme = (mode: ThemeMode = getSavedThemeMode()): 'light'
   return mode === 'system' ? getSystemTheme() : mode;
 };
 
-export const applyThemeToDom = (mode: ThemeMode) => {
-  if (typeof document === 'undefined') return;
+export const applyThemeToDom = (mode: ThemeMode): 'light' | 'dark' => {
   const resolved = getResolvedTheme(mode);
-  document.documentElement.setAttribute('data-theme', resolved);
-  if (resolved === 'dark') {
-    document.documentElement.classList.add('dark');
-    document.documentElement.classList.remove('light');
-  } else {
-    document.documentElement.classList.add('light');
-    document.documentElement.classList.remove('dark');
+  if (typeof document === 'undefined' || !document.documentElement) {
+    return resolved;
   }
+  const root = document.documentElement;
+  root.setAttribute('data-theme', resolved);
+  if (resolved === 'dark') {
+    root.classList.add('dark');
+    root.classList.remove('light');
+  } else {
+    root.classList.add('light');
+    root.classList.remove('dark');
+  }
+  if (root.style) {
+    root.style.colorScheme = resolved;
+  }
+  return resolved;
 };
 
-interface ThemeToggleProps {
-  className?: string;
-  onThemeChange?: (mode: ThemeMode) => void;
+/**
+ * Synchronously checks localStorage for a saved user theme preference ('dark' | 'light' | 'system')
+ * and immediately updates `document.documentElement` classes (`dark` / `light`) and `data-theme`
+ * on page load to eliminate Flash of Unstyled Content (FOUC).
+ */
+export const syncThemeFromLocalStorage = (options?: {
+  storageKey?: string;
+  fallbackTheme?: 'light' | 'dark';
+}): 'light' | 'dark' => {
+  const storageKey = options?.storageKey || THEME_STORAGE_KEY;
+  let savedMode: ThemeMode = 'system';
+
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw === 'dark' || raw === 'light' || raw === 'system') {
+        savedMode = raw;
+      }
+    } catch {
+      // Ignore storage access errors in strict browsing modes
+    }
+  }
+
+  const resolved: 'light' | 'dark' =
+    savedMode === 'dark' || savedMode === 'light'
+      ? savedMode
+      : options?.fallbackTheme ?? getSystemTheme();
+
+  if (typeof document !== 'undefined' && document.documentElement) {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', resolved);
+    if (resolved === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
+    if (root.style) {
+      root.style.colorScheme = resolved;
+    }
+  }
+
+  return resolved;
+};
+
+// Execute immediate synchronous theme check on module evaluation to prevent FOUC
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  syncThemeFromLocalStorage();
 }
 
-export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', onThemeChange }) => {
-  const [mode, setMode] = useState<ThemeMode>(getSavedThemeMode);
+export interface ThemeToggleProps {
+  className?: string;
+  onThemeChange?: (mode: ThemeMode) => void;
+  /**
+   * When true (default), persists and reads theme preference from localStorage
+   * and immediately updates `document.documentElement` class on mount/load.
+   */
+  syncWithLocalStorage?: boolean;
+  storageKey?: string;
+}
 
-  // Apply theme and persist choice
+export const ThemeToggle: React.FC<ThemeToggleProps> = ({
+  className = '',
+  onThemeChange,
+  syncWithLocalStorage = true,
+  storageKey = THEME_STORAGE_KEY,
+}) => {
+  const [mode, setMode] = useState<ThemeMode>(() => {
+    if (syncWithLocalStorage) {
+      const initialSaved = getSavedThemeMode(storageKey);
+      applyThemeToDom(initialSaved);
+      return initialSaved;
+    }
+    if (typeof document !== 'undefined' && document.documentElement) {
+      if (document.documentElement.classList.contains('light')) return 'light';
+      if (document.documentElement.classList.contains('dark')) return 'dark';
+    }
+    return 'system';
+  });
+
+  // Apply theme and optionally persist choice to localStorage
   const selectMode = useCallback(
     (newMode: ThemeMode) => {
       setMode(newMode);
-      try {
-        window.localStorage.setItem('theme', newMode);
-      } catch {
-        // Storage restricted
+      if (syncWithLocalStorage && typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(storageKey, newMode);
+        } catch {
+          // Storage restricted
+        }
       }
       applyThemeToDom(newMode);
-      window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: newMode } }));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: newMode } }));
+      }
       if (onThemeChange) {
         onThemeChange(newMode);
       }
     },
-    [onThemeChange]
+    [onThemeChange, syncWithLocalStorage, storageKey]
   );
 
-  // Initial sync with DOM on mount
+  // Synchronous layout effect before paint to ensure zero FOUC
+  useIsomorphicLayoutEffect(() => {
+    if (syncWithLocalStorage) {
+      const saved = getSavedThemeMode(storageKey);
+      if (saved !== mode) {
+        setMode(saved);
+      }
+      applyThemeToDom(saved);
+    } else {
+      applyThemeToDom(mode);
+    }
+  }, [syncWithLocalStorage, storageKey]);
+
+  // Keep DOM synchronized whenever mode changes
   useEffect(() => {
     applyThemeToDom(mode);
   }, [mode]);
 
   // Listen to OS preference changes when 'system' mode is active
   useEffect(() => {
-    if (mode !== 'system' || typeof window === 'undefined') return;
+    if (mode !== 'system' || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
     const handleSystemChange = () => {
@@ -87,8 +193,10 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', onThem
     }
   }, [mode]);
 
-  // Synchronize if external keyboard shortcut or component fires 'theme-changed'
+  // Synchronize if external keyboard shortcut, cross-tab storage event, or component fires 'theme-changed'
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const handleExternalChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ theme: ThemeMode | 'light' | 'dark' }>;
       const incoming = customEvent.detail?.theme;
@@ -98,9 +206,25 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', onThem
       }
     };
 
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (!syncWithLocalStorage) return;
+      if (e.key === storageKey) {
+        const nextSaved =
+          e.newValue === 'light' || e.newValue === 'dark' || e.newValue === 'system'
+            ? e.newValue
+            : 'system';
+        setMode(nextSaved);
+        applyThemeToDom(nextSaved);
+      }
+    };
+
     window.addEventListener('theme-changed', handleExternalChange);
-    return () => window.removeEventListener('theme-changed', handleExternalChange);
-  }, []);
+    window.addEventListener('storage', handleStorageEvent);
+    return () => {
+      window.removeEventListener('theme-changed', handleExternalChange);
+      window.removeEventListener('storage', handleStorageEvent);
+    };
+  }, [syncWithLocalStorage, storageKey]);
 
   const resolvedTheme = getResolvedTheme(mode);
   const nextTheme: 'light' | 'dark' = resolvedTheme === 'dark' ? 'light' : 'dark';
@@ -127,4 +251,5 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', onThem
     </button>
   );
 };
+
 

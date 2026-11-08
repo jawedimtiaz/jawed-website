@@ -191,26 +191,29 @@ export const HeroSection: React.FC = () => {
         </div>
 
         {/* Secondary Exploration Ribbon (Guides / Tools / Ask AI / Search / Install App) */}
-        <div className="hero-secondary-ribbon flex flex-wrap items-center gap-2 pt-4">
+        <div
+          className="hero-secondary-ribbon flex flex-wrap items-center gap-2 pt-4"
+          data-testid="hero-interactive-resources"
+        >
           <span className="ribbon-label text-xs font-semibold tracking-wider text-slate-400 uppercase">
             Interactive Resources:
           </span>
           <Link
-            className={`ribbon-link ${HERO_RESOURCE_CHIP_CLASS}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-slate-300 transition"
             to="/guides"
           >
             <BookOpen className="w-3.5 h-3.5 text-sky-400" />
             <span>Guides</span>
           </Link>
           <Link
-            className={`ribbon-link ${HERO_RESOURCE_CHIP_CLASS}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-slate-300 transition"
             to="/tools"
           >
             <Wrench className="w-3.5 h-3.5 text-sky-400" />
             <span>Tools</span>
           </Link>
           <Link
-            className={`ribbon-link ${HERO_RESOURCE_CHIP_CLASS}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-slate-300 transition"
             to="/ai"
           >
             <Bot className="w-3.5 h-3.5 text-sky-400" />
@@ -221,7 +224,7 @@ export const HeroSection: React.FC = () => {
             onClick={() => {
               window.dispatchEvent(new CustomEvent('open-search-modal'));
             }}
-            className={`ribbon-link ${HERO_RESOURCE_CHIP_CLASS} cursor-pointer`}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-slate-300 transition"
             aria-label="Open Site Search (⌘K or Ctrl+K)"
             aria-keyshortcuts="Control+K Meta+K /"
             data-testid="hero-search-trigger"
@@ -235,7 +238,7 @@ export const HeroSection: React.FC = () => {
           <button
             type="button"
             onClick={handleInstallAppClick}
-            className={`ribbon-link ${HERO_RESOURCE_CHIP_CLASS} cursor-pointer`}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-slate-300 transition"
             aria-label="Install Jawed Imtiaz App"
             data-testid="hero-install-app-btn"
           >

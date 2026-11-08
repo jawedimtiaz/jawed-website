@@ -4380,32 +4380,147 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       path.resolve(process.cwd(), 'src/pages/HomePage.tsx'),
       'utf8'
     );
+    const heroSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/Hero.tsx'),
+      'utf8'
+    );
+    const cssSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/index.css'),
+      'utf8'
+    );
 
-    // Verify all 5 Lucide React icons with exact className="w-3.5 h-3.5 text-sky-400"
+    const expectedChipClassAttr = `className="${HomePageMod.HERO_RESOURCE_CHIP_CLASS}"`;
+    const homePageChipMatches = homePageSource.split(expectedChipClassAttr).length - 1;
+    const heroChipMatches = heroSource.split(expectedChipClassAttr).length - 1;
+
     assert.ok(
-      homePageSource.includes('<BookOpen className="w-3.5 h-3.5 text-sky-400" />'),
-      'Expected BookOpen Lucide icon for Guides'
+      homePageChipMatches >= 5,
+      `Expected all 5 Hero Interactive Resources chips in HomePage.tsx to use exact shared chip className, found ${homePageChipMatches}`
     );
     assert.ok(
-      homePageSource.includes('<Wrench className="w-3.5 h-3.5 text-sky-400" />'),
-      'Expected Wrench Lucide icon for Tools'
+      heroChipMatches >= 5,
+      `Expected all 5 Hero Interactive Resources chips in Hero.tsx to use exact shared chip className, found ${heroChipMatches}`
     );
+
+    // Verify all 5 Lucide React icons with exact className="w-3.5 h-3.5 text-sky-400" in both HomePage.tsx and Hero.tsx
+    for (const source of [homePageSource, heroSource]) {
+      assert.ok(
+        source.includes('<BookOpen className="w-3.5 h-3.5 text-sky-400" />'),
+        'Expected BookOpen Lucide icon for Guides'
+      );
+      assert.ok(
+        source.includes('<Wrench className="w-3.5 h-3.5 text-sky-400" />'),
+        'Expected Wrench Lucide icon for Tools'
+      );
+      assert.ok(
+        source.includes('<Bot className="w-3.5 h-3.5 text-sky-400" />'),
+        'Expected Bot Lucide icon for Ask AI'
+      );
+      assert.ok(
+        source.includes('<Search className="w-3.5 h-3.5 text-sky-400" />'),
+        'Expected Search Lucide icon for Search'
+      );
+      assert.ok(
+        source.includes('<Download className="w-3.5 h-3.5 text-sky-400" />'),
+        'Expected Download Lucide icon for Install App'
+      );
+    }
+
     assert.ok(
-      homePageSource.includes('<Bot className="w-3.5 h-3.5 text-sky-400" />'),
-      'Expected Bot Lucide icon for Ask AI'
-    );
-    assert.ok(
-      homePageSource.includes('<Search className="w-3.5 h-3.5 text-sky-400" />'),
-      'Expected Search Lucide icon for Search'
-    );
-    assert.ok(
-      homePageSource.includes('<Download className="w-3.5 h-3.5 text-sky-400" />'),
-      'Expected Download Lucide icon for Install App'
+      cssSource.includes('.inline-flex { display: inline-flex; }') &&
+        cssSource.includes('.w-3\\.5 { width: 0.875rem; }') &&
+        cssSource.includes('.h-3\\.5 { height: 0.875rem; }') &&
+        cssSource.includes('.text-sky-400 { color: #38bdf8; }'),
+      'Expected index.css to define utility and alignment classes for Hero Interactive Resources chips'
     );
     assert.ok(
       homePageSource.includes('hero-install-fallback-toast'),
       'Expected fallback toast in HeroSection when deferredPrompt is not ready'
     );
   });
-});
 
+  it('syncs user theme preferences with a localStorage check that immediately updates document.documentElement class on page load to prevent FOUC', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      syncThemeFromLocalStorage,
+      applyThemeToDom,
+      getSavedThemeMode,
+      THEME_STORAGE_KEY,
+    } = await import('../src/components/ThemeToggle');
+
+    assert.equal(THEME_STORAGE_KEY, 'theme');
+    assert.equal(typeof syncThemeFromLocalStorage, 'function');
+
+    // Mock window.localStorage and document.documentElement to verify immediate class updates
+    const prevWindow = (globalThis as any).window;
+    const prevDocument = (globalThis as any).document;
+    const storageMap = new Map<string, string>();
+    const classSet = new Set<string>();
+    const attrMap = new Map<string, string>();
+    const styleObj: Record<string, string> = {};
+
+    (globalThis as any).window = {
+      localStorage: {
+        getItem: (k: string) => (storageMap.has(k) ? storageMap.get(k)! : null),
+        setItem: (k: string, v: string) => storageMap.set(k, v),
+      },
+      matchMedia: () => ({ matches: false }),
+    };
+    (globalThis as any).document = {
+      documentElement: {
+        setAttribute: (k: string, v: string) => attrMap.set(k, v),
+        getAttribute: (k: string) => attrMap.get(k) || null,
+        classList: {
+          add: (c: string) => classSet.add(c),
+          remove: (c: string) => classSet.delete(c),
+          contains: (c: string) => classSet.has(c),
+        },
+        style: styleObj,
+      },
+    };
+
+    try {
+      // 1. When localStorage has 'light', syncThemeFromLocalStorage immediately adds 'light' and removes 'dark'
+      storageMap.set('theme', 'light');
+      const resolvedLight = syncThemeFromLocalStorage();
+      assert.equal(resolvedLight, 'light');
+      assert.equal(getSavedThemeMode(), 'light');
+      assert.equal(classSet.has('light'), true);
+      assert.equal(classSet.has('dark'), false);
+      assert.equal(attrMap.get('data-theme'), 'light');
+      assert.equal(styleObj.colorScheme, 'light');
+
+      // 2. When localStorage has 'dark', syncThemeFromLocalStorage immediately adds 'dark' and removes 'light'
+      storageMap.set('theme', 'dark');
+      const resolvedDark = syncThemeFromLocalStorage();
+      assert.equal(resolvedDark, 'dark');
+      assert.equal(getSavedThemeMode(), 'dark');
+      assert.equal(classSet.has('dark'), true);
+      assert.equal(classSet.has('light'), false);
+      assert.equal(attrMap.get('data-theme'), 'dark');
+      assert.equal(styleObj.colorScheme, 'dark');
+
+      // 3. Verify applyThemeToDom also updates documentElement classes and colorScheme
+      applyThemeToDom('light');
+      assert.equal(classSet.has('light'), true);
+      assert.equal(classSet.has('dark'), false);
+    } finally {
+      (globalThis as any).window = prevWindow;
+      (globalThis as any).document = prevDocument;
+    }
+
+    // 4. Verify main.tsx and index.html invoke immediate theme synchronization on page load
+    const mainSource = fs.readFileSync(path.resolve(process.cwd(), 'src/main.tsx'), 'utf8');
+    const htmlSource = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf8');
+    assert.ok(
+      mainSource.includes('syncThemeFromLocalStorage()'),
+      'Expected src/main.tsx to invoke syncThemeFromLocalStorage() immediately on page load'
+    );
+    assert.ok(
+      htmlSource.includes("localStorage.getItem('theme')") &&
+        htmlSource.includes("document.documentElement.classList.add('dark')"),
+      'Expected index.html inline script to synchronously update documentElement class from localStorage'
+    );
+  });
+});

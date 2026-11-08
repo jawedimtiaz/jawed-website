@@ -1,1 +1,9 @@
-export { Header, Navbar, default } from './Header';
+export {
+  Header,
+  Navbar,
+  ThemeToggle,
+  syncThemeFromLocalStorage,
+  THEME_STORAGE_KEY,
+  default,
+} from './Header';
+

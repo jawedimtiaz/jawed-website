@@ -2,9 +2,13 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { syncThemeFromLocalStorage } from './components/ThemeToggle';
 import App from './App';
 import './index.css';
 import './mobile-ai-widget.css';
+
+// Immediately sync theme preference from localStorage onto document.documentElement before first render
+syncThemeFromLocalStorage();
 
 // Register PWA service worker for full offline data center functionality
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {

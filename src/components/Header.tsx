@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CommandPalette, toggleSearchPalette } from './CommandPalette';
-import { ThemeToggle } from './ThemeToggle';
+import {
+  ThemeToggle,
+  syncThemeFromLocalStorage,
+  THEME_STORAGE_KEY,
+} from './ThemeToggle';
+
+export { ThemeToggle, syncThemeFromLocalStorage, THEME_STORAGE_KEY };
 
 export const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
