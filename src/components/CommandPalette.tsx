@@ -50,6 +50,19 @@ export interface CommandPaletteProps {
   onNavigated?: () => void;
   defaultOpen?: boolean;
   onOpenShortcutsModal?: () => void;
+  hideTrigger?: boolean;
+}
+
+export function openSearchPalette(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('open-search-modal'));
+  }
+}
+
+export function toggleSearchPalette(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('toggle-search-modal'));
+  }
 }
 
 export interface PaletteShortcutDisplayItem {
@@ -435,6 +448,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onNavigated,
   defaultOpen = false,
   onOpenShortcutsModal,
+  hideTrigger = false,
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [query, setQuery] = useState('');
@@ -1058,11 +1072,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
     window.addEventListener('toggle-search-modal', handleToggleEvent);
     window.addEventListener('open-search-modal', handleOpenEvent);
+    window.addEventListener('toggle-command-palette', handleToggleEvent);
+    window.addEventListener('open-command-palette', handleOpenEvent);
     window.addEventListener('close-all-modals', handleCloseEvent);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd+K or Ctrl+K
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        if ((e as unknown as Record<string, boolean>).__searchHandledByHeader) {
+          return;
+        }
         e.preventDefault();
         if (isOpen) {
           handleClose();
@@ -1094,6 +1113,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return () => {
       window.removeEventListener('toggle-search-modal', handleToggleEvent);
       window.removeEventListener('open-search-modal', handleOpenEvent);
+      window.removeEventListener('toggle-command-palette', handleToggleEvent);
+      window.removeEventListener('open-command-palette', handleOpenEvent);
       window.removeEventListener('close-all-modals', handleCloseEvent);
       window.removeEventListener('keydown', handleKeyDown);
     };
@@ -1472,44 +1493,50 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   const shortcutOffset = isShortcutQuery ? matchingShortcuts.length : 0;
 
+  if (hideTrigger && !isOpen) {
+    return null;
+  }
+
   return (
     <div className="site-search-wrapper command-palette-wrapper">
       {/* Header Search Trigger Button */}
-      <button
-        type="button"
-        className="header-search-btn"
-        onClick={handleOpen}
-        aria-label="Global Search - Press Ctrl+K, Cmd+K, or forward slash"
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        aria-keyshortcuts="Control+K Meta+K /"
-        title="Search tools, field guides & blog posts (Ctrl+K or Cmd+K)"
-      >
-        <svg
-          className="header-search-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+      {!hideTrigger && (
+        <button
+          type="button"
+          className="header-search-btn"
+          onClick={handleOpen}
+          aria-label="Global Search - Press Ctrl+K, Cmd+K, or forward slash"
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          aria-keyshortcuts="Control+K Meta+K /"
+          title="Search tools, field guides & blog posts (Ctrl+K or Cmd+K)"
         >
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <span className="header-search-placeholder">Search tools, guides &amp; blog...</span>
-        <kbd
-          className="header-search-kbd command-palette-kbd"
-          role="term"
-          aria-label="Command or Control K"
-        >
-          <abbr title="Control or Command" style={{ textDecoration: 'none' }}>
-            ⌘
-          </abbr>
-          K
-        </kbd>
-      </button>
+          <svg
+            className="header-search-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <span className="header-search-placeholder">Search tools, guides &amp; blog...</span>
+          <kbd
+            className="header-search-kbd command-palette-kbd"
+            role="term"
+            aria-label="Command or Control K"
+          >
+            <abbr title="Control or Command" style={{ textDecoration: 'none' }}>
+              ⌘
+            </abbr>
+            K
+          </kbd>
+        </button>
+      )}
 
       {/* Global Command Palette Modal Overlay */}
       {isOpen && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -21,9 +21,13 @@ export const getSavedThemeMode = (): ThemeMode => {
   return 'system';
 };
 
+export const getResolvedTheme = (mode: ThemeMode = getSavedThemeMode()): 'light' | 'dark' => {
+  return mode === 'system' ? getSystemTheme() : mode;
+};
+
 export const applyThemeToDom = (mode: ThemeMode) => {
   if (typeof document === 'undefined') return;
-  const resolved = mode === 'system' ? getSystemTheme() : mode;
+  const resolved = getResolvedTheme(mode);
   document.documentElement.setAttribute('data-theme', resolved);
   if (resolved === 'dark') {
     document.documentElement.classList.add('dark');
@@ -78,7 +82,6 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', onThem
       mediaQuery.addEventListener('change', handleSystemChange);
       return () => mediaQuery.removeEventListener('change', handleSystemChange);
     } else {
-      // Fallback for older browser engines
       mediaQuery.addListener(handleSystemChange);
       return () => mediaQuery.removeListener(handleSystemChange);
     }
@@ -99,37 +102,29 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', onThem
     return () => window.removeEventListener('theme-changed', handleExternalChange);
   }, []);
 
-  const options: { id: ThemeMode; label: string; icon: LucideIcon }[] = [
-    { id: 'system', label: 'System', icon: Monitor },
-    { id: 'light', label: 'Light', icon: Sun },
-    { id: 'dark', label: 'Dark', icon: Moon },
-  ];
+  const resolvedTheme = getResolvedTheme(mode);
+  const nextTheme: 'light' | 'dark' = resolvedTheme === 'dark' ? 'light' : 'dark';
+
+  const handleToggle = () => {
+    selectMode(nextTheme);
+  };
 
   return (
-    <div
-      role="radiogroup"
-      aria-label="Theme selection"
-      className={`theme-toggle-group ${className}`}
+    <button
+      type="button"
+      onClick={handleToggle}
+      data-testid="theme-toggle-btn"
+      data-theme-resolved={resolvedTheme}
+      className={`theme-toggle-btn inline-flex items-center justify-center p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800/80 border border-slate-700/60 transition-all ${className}`.trim()}
+      title={`Switch to ${nextTheme === 'light' ? 'Light' : 'Dark'} mode`}
+      aria-label={`Switch to ${nextTheme === 'light' ? 'light' : 'dark'} mode`}
     >
-      {options.map((opt) => {
-        const Icon = opt.icon;
-        const isActive = mode === opt.id;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            role="radio"
-            aria-checked={isActive}
-            className={`theme-toggle-btn-option ${isActive ? 'is-active' : ''}`}
-            onClick={() => selectMode(opt.id)}
-            title={`Switch to ${opt.label} mode${opt.id === 'system' ? ` (follows OS, currently ${getSystemTheme()})` : ''}`}
-            aria-label={`${opt.label} theme`}
-          >
-            <Icon size={14} aria-hidden="true" />
-            <span className="theme-toggle-btn-label">{opt.label}</span>
-          </button>
-        );
-      })}
-    </div>
+      {resolvedTheme === 'dark' ? (
+        <Sun size={18} aria-hidden="true" />
+      ) : (
+        <Moon size={18} aria-hidden="true" />
+      )}
+    </button>
   );
 };
+

@@ -4219,4 +4219,86 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       'Expected Recharts ComposedChart and AreaChart in RollingThreeMonthTrendCard.tsx'
     );
   });
+
+  it('refactors the global Navbar and HomePage Hero section to eliminate header clutter, fix CTA button styling, use a single-click Dark/Light toggle, and relocate the Search trigger chip into Interactive Resources', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const HeaderMod = await import('../src/components/Header');
+    const NavbarMod = await import('../src/components/Navbar');
+    const ThemeToggleMod = await import('../src/components/ThemeToggle');
+    const HomePageMod = await import('../src/pages/HomePage');
+    const HeroMod = await import('../src/components/Hero');
+
+    assert.equal(typeof HeaderMod.Header, 'function');
+    assert.equal(typeof NavbarMod.Navbar, 'function');
+    assert.equal(typeof ThemeToggleMod.ThemeToggle, 'function');
+    assert.equal(typeof ThemeToggleMod.getResolvedTheme, 'function');
+    assert.equal(typeof HomePageMod.HeroSection, 'function');
+    assert.equal(typeof HeroMod.Hero, 'function');
+
+    const headerSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/Header.tsx'),
+      'utf8'
+    );
+    const themeToggleSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/ThemeToggle.tsx'),
+      'utf8'
+    );
+    const homePageSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/HomePage.tsx'),
+      'utf8'
+    );
+
+    // 1. Navbar cleanup assertions
+    assert.ok(
+      !headerSource.includes('header-search-slot'),
+      'Expected bulky search input box removed from top header'
+    );
+    assert.ok(
+      headerSource.includes('<CommandPalette hideTrigger'),
+      'Expected headless CommandPalette retained in Header for ⌘K / Ctrl+K'
+    );
+    assert.ok(
+      !headerSource.includes('Ask AI'),
+      'Expected Ask AI removed from main header navigation links'
+    );
+    assert.ok(
+      !headerSource.includes('Install App') && !headerSource.includes('SyncStatusIndicator'),
+      'Expected Install App and Synced badges removed from navbar'
+    );
+    assert.ok(
+      headerSource.includes(
+        'className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-sky-500 hover:bg-sky-400 shadow-md shadow-sky-500/20 transition-all"'
+      ),
+      'Expected Get in Touch CTA pill styling applied'
+    );
+
+    // 2. Single-click Dark/Light toggle assertions
+    assert.ok(
+      themeToggleSource.includes('Sun') && themeToggleSource.includes('Moon'),
+      'Expected Sun and Moon icons from lucide-react in ThemeToggle'
+    );
+    assert.ok(
+      !themeToggleSource.includes('role="radiogroup"'),
+      'Expected 3-button segmented theme selector replaced by single-click button'
+    );
+
+    // 3. Hero Section Interactive Resources & Search trigger chip assertions
+    assert.ok(
+      homePageSource.includes('Get in Touch / Hire Jawed →') &&
+        homePageSource.includes('View Career Profile') &&
+        homePageSource.includes('Share Profile'),
+      'Expected primary CTA button row untouched in Hero section'
+    );
+    assert.ok(
+      homePageSource.includes('Interactive Resources:') &&
+        homePageSource.includes('📖 Guides') &&
+        homePageSource.includes('🛠️ Tools') &&
+        homePageSource.includes('🤖 Ask AI') &&
+        homePageSource.includes('🔍 Search') &&
+        homePageSource.includes('⌘K'),
+      'Expected Search trigger chip added immediately following Ask AI in Interactive Resources'
+    );
+  });
 });
+

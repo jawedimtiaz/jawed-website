@@ -140,20 +140,44 @@ export const HeroSection: React.FC = () => {
           />
         </div>
 
-        {/* Secondary Exploration Ribbon (Tools / Guides / AI) */}
-        <div className="hero-secondary-ribbon">
-          <span className="ribbon-label">Interactive Resources:</span>
-          <div className="ribbon-links">
-            <Link className="ribbon-link" to="/guides">
-              📖 Guides
-            </Link>
-            <Link className="ribbon-link" to="/tools">
-              🛠️ Tools
-            </Link>
-            <Link className="ribbon-link" to="/ai">
-              🤖 Ask AI
-            </Link>
-          </div>
+        {/* Secondary Exploration Ribbon (Tools / Guides / AI / Search) */}
+        <div className="hero-secondary-ribbon flex flex-wrap items-center gap-2 pt-4">
+          <span className="ribbon-label text-xs font-semibold tracking-wider text-slate-400 uppercase">
+            Interactive Resources:
+          </span>
+          <Link
+            className="ribbon-link inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700/60 transition"
+            to="/guides"
+          >
+            📖 Guides
+          </Link>
+          <Link
+            className="ribbon-link inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700/60 transition"
+            to="/tools"
+          >
+            🛠️ Tools
+          </Link>
+          <Link
+            className="ribbon-link inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700/60 transition"
+            to="/ai"
+          >
+            🤖 Ask AI
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('open-search-modal'));
+            }}
+            className="ribbon-link inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700/60 transition cursor-pointer"
+            aria-label="Open Site Search (⌘K or Ctrl+K)"
+            aria-keyshortcuts="Control+K Meta+K /"
+            data-testid="hero-search-trigger"
+          >
+            🔍 Search
+            <kbd className="ml-1 px-1.5 py-0.5 text-[10px] font-mono bg-slate-900/90 text-slate-400 rounded border border-slate-700">
+              ⌘K
+            </kbd>
+          </button>
         </div>
 
         {/* Hero Visual Card (LCP Optimized with Progressive Blur-Up, Preload & WebP) */}

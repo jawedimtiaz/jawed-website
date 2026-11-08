@@ -1,19 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { SiteSearchBar } from './SiteSearchBar';
-import { usePWAInstall } from '../hooks/usePWAInstall';
+import { CommandPalette, toggleSearchPalette } from './CommandPalette';
 import { ThemeToggle } from './ThemeToggle';
-import { SyncStatusIndicator } from './common/SyncStatusIndicator';
 
 export const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const menuToggleRef = useRef<HTMLButtonElement>(null);
 
-  const { isInstallable, isInstalled, isStandalone, isIOS, install } = usePWAInstall();
   const location = useLocation();
   const path = location.pathname;
 
   const closeMenu = () => setIsOpen(false);
+
+  // Retain global keyboard listener so pressing ⌘K or Ctrl+K anywhere on the site opens the search palette
+  useEffect(() => {
+    const handleGlobalSearchShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        (event as unknown as Record<string, boolean>).__searchHandledByHeader = true;
+        toggleSearchPalette();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalSearchShortcut);
+    return () => window.removeEventListener('keydown', handleGlobalSearchShortcut);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -32,6 +43,7 @@ export const Header: React.FC = () => {
   return (
     <header className="site-header">
       <div className="container header-inner">
+        {/* Left: Logo (JI Jawed Imtiaz) */}
         <Link className="site-brand" to="/" onClick={closeMenu}>
           <div className="site-brand-icon">JI</div>
           <div className="site-title">
@@ -39,11 +51,6 @@ export const Header: React.FC = () => {
             <span className="site-tagline">IT Field Tech &amp; Engineering</span>
           </div>
         </Link>
-
-        {/* Site-Wide Search Bar Powered by aiKnowledgeEngine */}
-        <div className="header-search-slot">
-          <SiteSearchBar onNavigated={closeMenu} />
-        </div>
 
         <button
           ref={menuToggleRef}
@@ -57,6 +64,7 @@ export const Header: React.FC = () => {
           {isOpen ? '✕ Close' : '☰ Menu'}
         </button>
 
+        {/* Center/Right: Core Navigation Links (Guides, Tools, Services, About) + Far Right: Single Dark/Light toggle icon + Get in Touch → button */}
         <nav
           id="primary-nav"
           aria-label="Primary Navigation"
@@ -66,7 +74,13 @@ export const Header: React.FC = () => {
             className="nav-item"
             to="/guides"
             onClick={closeMenu}
-            aria-current={path.startsWith('/guides') || path.startsWith('/notes') || path.startsWith('/field-guides') ? 'page' : undefined}
+            aria-current={
+              path.startsWith('/guides') ||
+              path.startsWith('/notes') ||
+              path.startsWith('/field-guides')
+                ? 'page'
+                : undefined
+            }
           >
             Guides
           </Link>
@@ -74,7 +88,11 @@ export const Header: React.FC = () => {
             className="nav-item"
             to="/tools"
             onClick={closeMenu}
-            aria-current={path.startsWith('/tools') || path.startsWith('/diagnostic-tools') ? 'page' : undefined}
+            aria-current={
+              path.startsWith('/tools') || path.startsWith('/diagnostic-tools')
+                ? 'page'
+                : undefined
+            }
           >
             Tools
           </Link>
@@ -94,42 +112,26 @@ export const Header: React.FC = () => {
           >
             About
           </Link>
-          <Link
-            className="nav-item"
-            to="/ai"
-            onClick={closeMenu}
-            aria-current={path === '/ai' ? 'page' : undefined}
-          >
-            Ask AI
-          </Link>
-          {!isStandalone && !isInstalled && (isInstallable || isIOS) && (
-            <button
-              type="button"
-              className="nav-item pwa-install-nav-btn"
-              onClick={() => {
-                closeMenu();
-                if (isInstallable) {
-                  install();
-                } else {
-                  window.dispatchEvent(new CustomEvent('open-pwa-install'));
-                }
-              }}
-              aria-label="Install Jawed Imtiaz App"
-            >
-              📲 Install App
-            </button>
-          )}
+
           <ThemeToggle />
-          <SyncStatusIndicator />
+
           <Link
-            className="nav-cta"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-sky-500 hover:bg-sky-400 shadow-md shadow-sky-500/20 transition-all"
+            style={{ textDecoration: 'none' }}
             to="/contact"
             onClick={closeMenu}
           >
             Get in Touch →
           </Link>
         </nav>
+
+        {/* Headless Command Palette Modal mounted globally for ⌘K / Ctrl+K & Search triggers */}
+        <CommandPalette hideTrigger onNavigated={closeMenu} />
       </div>
     </header>
   );
 };
+
+export const Navbar = Header;
+export default Header;
+
