@@ -31,6 +31,9 @@ import {
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
   SAMPLE_BANK_STATEMENT_CSV,
+  RecurringHistoricalProjectionCard,
+  computeRecurringAndHistoricalSpendingProjection,
+  normalizeRecurringRuleToMonthlyAmount,
 } from '../../tools/MoneyManager';
 
 export {
@@ -64,6 +67,9 @@ export {
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
   SAMPLE_BANK_STATEMENT_CSV,
+  RecurringHistoricalProjectionCard,
+  computeRecurringAndHistoricalSpendingProjection,
+  normalizeRecurringRuleToMonthlyAmount,
 };
 export default MoneyManager;
 

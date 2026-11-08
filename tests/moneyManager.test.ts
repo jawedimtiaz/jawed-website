@@ -3713,7 +3713,177 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.ok(settingsSource.includes('100% CSV Import Parity'));
     assert.ok( typeof formatLedgerTransactionsToParityCsv === 'function');
   });
+
+  it('projects potential monthly spending in Stats & Budgets using Recharts based on recurring transaction data and historical trends', async () => {
+    const {
+      RecurringHistoricalProjectionCard,
+      computeRecurringAndHistoricalSpendingProjection,
+      normalizeRecurringRuleToMonthlyAmount,
+    } = await import('../src/pages/tools/MoneyManager');
+
+    assert.equal(typeof RecurringHistoricalProjectionCard, 'function');
+    assert.equal(typeof computeRecurringAndHistoricalSpendingProjection, 'function');
+    assert.equal(typeof normalizeRecurringRuleToMonthlyAmount, 'function');
+
+    // 1. Verify frequency normalization to monthly equivalents
+    assert.equal(normalizeRecurringRuleToMonthlyAmount({ amount: 15000, frequency: 'Monthly' }), 15000);
+    assert.equal(normalizeRecurringRuleToMonthlyAmount({ amount: 12000, frequency: 'Yearly' }), 1000);
+    assert.equal(normalizeRecurringRuleToMonthlyAmount({ amount: 100, frequency: 'Daily' }), 3000);
+    assert.equal(normalizeRecurringRuleToMonthlyAmount({ amount: 1000, frequency: 'Weekly' }), 4333);
+
+    // 2. Seed database and add historical variable transactions across prior months
+    await initializeAndSeedDatabase();
+    await saveTransaction({
+      id: 'tx-hist-proj-sep-food',
+      date: '2026-09-12T13:00',
+      type: 'Expense',
+      accountId: 'acc-icici',
+      amount: 9500,
+      category: 'Food & Dining',
+      subCategory: 'Groceries & Supermarkets',
+      fixedOrVariable: 'Variable',
+      note: 'September monthly grocery stockup',
+      receiptImages: [],
+      isAnomaly: false,
+    });
+    await saveTransaction({
+      id: 'tx-hist-proj-oct-food',
+      date: '2026-10-14T19:00',
+      type: 'Expense',
+      accountId: 'acc-icici',
+      amount: 11200,
+      category: 'Food & Dining',
+      subCategory: 'Restaurants & Fine Dining',
+      fixedOrVariable: 'Variable',
+      note: 'October dining and groceries',
+      receiptImages: [],
+      isAnomaly: false,
+    });
+
+    // Add a paused recurring rule to test includePausedRecurring option
+    await saveRecurringRule({
+      id: 'rec-paused-gym-test',
+      title: 'Premium Gym Membership',
+      type: 'Expense',
+      accountId: 'acc-icici',
+      amount: 3000,
+      category: 'Healthcare & Fitness',
+      subCategory: 'Gym & Sports',
+      fixedOrVariable: 'Fixed',
+      frequency: 'Monthly',
+      startDate: '2026-01-01',
+      nextRunDate: '2026-12-01',
+      dayOfMonth: 1,
+      active: false,
+      note: 'Paused gym rule',
+    });
+
+    const updatedState = await initializeAndSeedDatabase();
+
+    // 3. Compute baseline projection combining active recurring rules + historical trends
+    const baselineProjection = computeRecurringAndHistoricalSpendingProjection(
+      updatedState.transactions,
+      updatedState.recurringRules,
+      '2026-11',
+      updatedState.categories,
+      {
+        scenario: 'baseline',
+        includePausedRecurring: false,
+      }
+    );
+
+    assert.equal(baselineProjection.referenceYearMonth, '2026-11');
+    assert.ok(baselineProjection.totalMonthlyRecurringCommitted > 0, 'Expected positive recurring monthly baseline');
+    assert.ok(baselineProjection.projectedCurrentMonthDiscretionary > 0, 'Expected positive historical variable trend component');
+    assert.equal(
+      baselineProjection.projectedCurrentMonthTotal,
+      baselineProjection.totalMonthlyRecurringCommitted + baselineProjection.projectedCurrentMonthDiscretionary
+    );
+    assert.ok(baselineProjection.activeRecurringExpenseRulesCount >= 3, 'Expected active expense recurring rules to be counted');
+    assert.ok(baselineProjection.categories.length > 0, 'Expected category projection rows');
+    assert.equal(baselineProjection.timelinePoints.length, 6, 'Expected 6 forward horizon timeline points');
+
+    assert.equal(baselineProjection.timelinePoints[0].yearMonth, '2026-11');
+    assert.equal(baselineProjection.timelinePoints[1].yearMonth, '2026-12');
+    assert.ok(
+      baselineProjection.timelinePoints[0].projectedTotal >= baselineProjection.timelinePoints[0].recurringCommitted
+    );
+
+    // Verify Rent & Housing has its ₹22,000 monthly rent recurring floor
+    const housingRow = baselineProjection.categories.find((r) => r.category === 'Rent & Housing');
+    assert.ok(housingRow, 'Expected Rent & Housing category row');
+    assert.ok(housingRow.recurringMonthlyCommitment >= 22000, 'Expected Rent & Housing recurring commitment >= 22000');
+    assert.ok(housingRow.projectedMonthlyTotal >= housingRow.recurringMonthlyCommitment);
+
+    // 4. Verify Conservative vs Elevated scenarios adjust the historical trend component while preserving the recurring floor
+    const conservativeProjection = computeRecurringAndHistoricalSpendingProjection(
+      updatedState.transactions,
+      updatedState.recurringRules,
+      '2026-11',
+      updatedState.categories,
+      { scenario: 'conservative' }
+    );
+    const elevatedProjection = computeRecurringAndHistoricalSpendingProjection(
+      updatedState.transactions,
+      updatedState.recurringRules,
+      '2026-11',
+      updatedState.categories,
+      { scenario: 'elevated' }
+    );
+
+    assert.equal(
+      conservativeProjection.totalMonthlyRecurringCommitted,
+      baselineProjection.totalMonthlyRecurringCommitted,
+      'Recurring floor must remain invariant across historical trend sensitivity scenarios'
+    );
+    assert.equal(
+      elevatedProjection.totalMonthlyRecurringCommitted,
+      baselineProjection.totalMonthlyRecurringCommitted
+    );
+    assert.ok(
+      conservativeProjection.projectedCurrentMonthTotal <= baselineProjection.projectedCurrentMonthTotal,
+      'Conservative projection should be <= baseline projection'
+    );
+    assert.ok(
+      elevatedProjection.projectedCurrentMonthTotal >= baselineProjection.projectedCurrentMonthTotal,
+      'Elevated projection should be >= baseline projection'
+    );
+
+    // 5. Verify includePausedRecurring adds the ₹3,000 paused gym rule to the recurring baseline
+    const withPausedProjection = computeRecurringAndHistoricalSpendingProjection(
+      updatedState.transactions,
+      updatedState.recurringRules,
+      '2026-11',
+      updatedState.categories,
+      { includePausedRecurring: true }
+    );
+    assert.equal(
+      withPausedProjection.totalMonthlyRecurringCommitted,
+      baselineProjection.totalMonthlyRecurringCommitted + 3000
+    );
+
+    // 6. Verify Recharts card and StatsView wiring
+    const fs = await import('node:fs');
+    const cardSource = fs.readFileSync(
+      'src/components/money-manager/RecurringHistoricalProjectionCard.tsx',
+      'utf8'
+    );
+    assert.ok(cardSource.includes("from 'recharts'"), 'Expected Recharts import in RecurringHistoricalProjectionCard');
+    assert.ok(cardSource.includes('<ComposedChart'), 'Expected Recharts ComposedChart');
+    assert.ok(cardSource.includes('mm-recurring-historical-projection-card'), 'Expected card test id');
+    assert.ok(cardSource.includes('mm-rec-proj-recharts-container'), 'Expected chart container test id');
+
+    const statsSource = fs.readFileSync(
+      'src/components/money-manager/StatsView.tsx',
+      'utf8'
+    );
+    assert.ok(
+      statsSource.includes('<RecurringHistoricalProjectionCard'),
+      'Expected RecurringHistoricalProjectionCard rendered inside StatsView.tsx'
+    );
+  });
 });
+
 
 
 

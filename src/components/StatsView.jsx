@@ -49,6 +49,12 @@ export {
 } from './money-manager/SixMonthCategoryComparisonCard';
 
 export {
+  RecurringHistoricalProjectionCard,
+  computeRecurringAndHistoricalSpendingProjection,
+  normalizeRecurringRuleToMonthlyAmount,
+} from './money-manager/RecurringHistoricalProjectionCard';
+
+export {
   generateMonthlyReportJson,
   triggerMonthlyReportJsonDownload,
 } from './money-manager/StatsView';

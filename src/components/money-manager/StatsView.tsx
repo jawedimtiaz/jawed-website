@@ -119,6 +119,18 @@ import {
   type SixMonthWindowPoint,
   type CategoryMonthSpendPoint,
 } from './SixMonthCategoryComparisonCard';
+import {
+  RecurringHistoricalProjectionCard,
+  computeRecurringAndHistoricalSpendingProjection,
+  normalizeRecurringRuleToMonthlyAmount,
+  type RecurringProjectionChartMode,
+  type HistoricalTrendScenario,
+  type CategoryRecurringHistoricalProjectionRow,
+  type MonthlyProjectionTimelinePoint,
+  type RecurringHistoricalProjectionSummary,
+  type ComputeRecurringHistoricalProjectionOptions,
+  type RecurringHistoricalProjectionCardProps,
+} from './RecurringHistoricalProjectionCard';
 
 export {
   BudgetForecastCard,
@@ -129,6 +141,9 @@ export {
   SixMonthCategoryComparisonCard,
   computeSixMonthCategoryComparison,
   buildSixMonthWindow,
+  RecurringHistoricalProjectionCard,
+  computeRecurringAndHistoricalSpendingProjection,
+  normalizeRecurringRuleToMonthlyAmount,
   SUPPORTED_CURRENCIES,
   CURRENCY_METADATA,
   FALLBACK_RATES_TO_INR,
@@ -151,6 +166,13 @@ export type {
   SixMonthCategoryComparisonSummary,
   SixMonthWindowPoint,
   CategoryMonthSpendPoint,
+  RecurringProjectionChartMode,
+  HistoricalTrendScenario,
+  CategoryRecurringHistoricalProjectionRow,
+  MonthlyProjectionTimelinePoint,
+  RecurringHistoricalProjectionSummary,
+  ComputeRecurringHistoricalProjectionOptions,
+  RecurringHistoricalProjectionCardProps,
   CurrencyCode,
   DailyExchangeRateSnapshot,
   CurrencyBreakdownRow,
@@ -2855,6 +2877,19 @@ export const StatsView: React.FC<StatsViewProps> = ({
             categories={categories}
           />
 
+          {/* Dedicated Visual Card: Recharts Potential Monthly Spending Projection (Recurring Data + Historical Trends) */}
+          <RecurringHistoricalProjectionCard
+            transactions={transactions}
+            recurringRules={recurringRules}
+            categories={localCategories}
+            selectedMonth={selectedMonth}
+            thresholdOverrides={activeThresholdConfig}
+            onAlignCategoryBudget={async (catName, newLimit) => {
+              await handleCategoryThresholdChange(catName, String(newLimit));
+            }}
+            onOpenRecurringScheduler={onOpenRecurringScheduler}
+          />
+
           {/* Dashboard Summary Cards Control Bar & Dynamic Reorderable Cards Container */}
           <div
             className="mm-dashboard-reorder-bar"
@@ -4159,6 +4194,17 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
       {!showBudgetPlanningSection && showBudgetProjectionSection && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 12 }}>
+          <RecurringHistoricalProjectionCard
+            transactions={transactions}
+            recurringRules={recurringRules}
+            categories={localCategories}
+            selectedMonth={selectedMonth}
+            thresholdOverrides={activeThresholdConfig}
+            onAlignCategoryBudget={async (catName, newLimit) => {
+              handleCategoryThresholdChange(catName, String(newLimit));
+            }}
+            onOpenRecurringScheduler={onOpenRecurringScheduler}
+          />
           <BudgetForecastCard
             transactions={transactions}
             categories={localCategories}
