@@ -1,16 +1,23 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
+  readonly platforms?: string[];
   readonly userChoice: Promise<{
     outcome: 'accepted' | 'dismissed';
-    platform: string;
+    platform?: string;
   }>;
   prompt(): Promise<void>;
 }
 
+let cachedDeferredPrompt: any = null;
+
+export function resetCachedPWAInstallPrompt(): void {
+  cachedDeferredPrompt = null;
+}
+
 export function usePWAInstall() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(() => cachedDeferredPrompt);
+  const [isInstallable, setIsInstallable] = useState<boolean>(() => Boolean(cachedDeferredPrompt));
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [isIOS, setIsIOS] = useState<boolean>(false);
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
@@ -20,73 +27,73 @@ export function usePWAInstall() {
 
     // Detect standalone display mode (running as installed PWA)
     const checkStandalone = () => {
+      if (typeof window.matchMedia !== 'function') return;
       const isStandaloneMode =
         window.matchMedia('(display-mode: standalone)').matches ||
         window.matchMedia('(display-mode: fullscreen)').matches ||
         window.matchMedia('(display-mode: minimal-ui)').matches ||
-        (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+        (window.navigator as unknown as { standalone?: boolean })?.standalone === true;
 
       setIsStandalone(Boolean(isStandaloneMode));
-      setIsInstalled(Boolean(isStandaloneMode));
+      if (isStandaloneMode) {
+        setIsInstalled(true);
+      }
     };
 
     checkStandalone();
 
-    const mediaQuery = window.matchMedia('(display-mode: standalone)');
-    const handleDisplayModeChange = (e: MediaQueryListEvent) => {
-      if (e.matches) {
-        setIsStandalone(true);
-        setIsInstalled(true);
-        setDeferredPrompt(null);
-      }
-    };
-
-    try {
-      mediaQuery.addEventListener('change', handleDisplayModeChange);
-    } catch {
-      // Fallback for older Safari
-      mediaQuery.addListener(handleDisplayModeChange);
-    }
-
     // Detect iOS devices (iPhone, iPad, iPod)
-    const ua = window.navigator.userAgent.toLowerCase();
+    const ua = window.navigator?.userAgent?.toLowerCase() || '';
     const isIOSDevice = /iphone|ipad|ipod/.test(ua) && !('MSStream' in window);
     setIsIOS(isIOSDevice);
 
-    // Capture Android / Desktop Chromium beforeinstallprompt event
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    const handler = (e: any) => {
+      if (typeof e?.preventDefault === 'function') {
+        e.preventDefault();
+      }
+      cachedDeferredPrompt = e;
+      setDeferredPrompt(e);
+      setIsInstallable(true);
     };
 
     const handleAppInstalled = () => {
-      setIsInstalled(true);
+      cachedDeferredPrompt = null;
+      setIsInstallable(false);
       setDeferredPrompt(null);
+      setIsInstalled(true);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    const handleSyncState = () => {
+      setDeferredPrompt(cachedDeferredPrompt);
+      setIsInstallable(Boolean(cachedDeferredPrompt));
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
     window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener('pwa-install-state-sync', handleSyncState);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('beforeinstallprompt', handler);
       window.removeEventListener('appinstalled', handleAppInstalled);
-      try {
-        mediaQuery.removeEventListener('change', handleDisplayModeChange);
-      } catch {
-        mediaQuery.removeListener(handleDisplayModeChange);
-      }
+      window.removeEventListener('pwa-install-state-sync', handleSyncState);
     };
   }, []);
 
-  const install = useCallback(async (): Promise<boolean> => {
-    if (!deferredPrompt) return false;
+  const triggerInstall = useCallback(async (): Promise<boolean> => {
+    const activePrompt = deferredPrompt || cachedDeferredPrompt;
+    if (!activePrompt) return false;
 
     try {
-      await deferredPrompt.prompt();
-      const choiceResult = await deferredPrompt.userChoice;
-      if (choiceResult.outcome === 'accepted') {
-        setIsInstalled(true);
+      await activePrompt.prompt();
+      const { outcome } = await activePrompt.userChoice;
+      if (outcome === 'accepted') {
+        cachedDeferredPrompt = null;
+        setIsInstallable(false);
         setDeferredPrompt(null);
+        setIsInstalled(true);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('pwa-install-state-sync'));
+        }
         return true;
       }
       return false;
@@ -97,10 +104,15 @@ export function usePWAInstall() {
   }, [deferredPrompt]);
 
   return {
-    isInstallable: !isStandalone && !!deferredPrompt,
+    isInstallable,
+    triggerInstall,
+    install: triggerInstall,
+    deferredPrompt,
     isInstalled,
     isStandalone,
     isIOS: !isStandalone && isIOS,
-    install,
   };
 }
+
+export default usePWAInstall;
+

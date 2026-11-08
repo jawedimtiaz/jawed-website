@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useKeyboardShortcuts, type ShortcutItem } from '../hooks/useKeyboardShortcuts';
 import { KeyboardShortcutModal } from './KeyboardShortcutModal';
 import { getSiteLastUpdated } from '../utils/contentFreshness';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 interface FooterProps {
   onOpenCookieModal?: () => void;
@@ -77,6 +78,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal, onOpenShortcu
     openHelpModal,
     activePrefix: contextActivePrefix,
   } = useKeyboardShortcuts();
+  const { isInstallable, triggerInstall } = usePWAInstall();
   const [isFallbackModalOpen, setIsFallbackModalOpen] = useState(false);
   const [fallbackActivePrefix, setFallbackActivePrefix] = useState<string | null>(null);
   const fallbackPrefixRef = useRef<string | null>(null);
@@ -236,6 +238,19 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCookieModal, onOpenShortcu
                   <kbd style={{ fontSize: '0.7rem', opacity: 0.85, fontFamily: 'monospace' }}>Shift+?</kbd>
                 </button>
               </li>
+              {isInstallable && (
+                <li>
+                  <button
+                    type="button"
+                    className="cookie-trigger-btn inline-flex items-center gap-1.5 text-sky-400 hover:text-sky-300 font-medium"
+                    onClick={triggerInstall}
+                    data-testid="footer-install-app-btn"
+                    aria-label="Install Jawed Imtiaz App"
+                  >
+                    📲 Install Web App
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
         </div>

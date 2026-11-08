@@ -4300,5 +4300,54 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       'Expected Search trigger chip added immediately following Ask AI in Interactive Resources'
     );
   });
-});
 
+  it('restores PWA Install App state capture (usePWAInstall with isInstallable and triggerInstall) and integrates cleanly into Hero and Footer without cluttering the navbar', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const PwaHookMod = await import('../src/hooks/usePWAInstall');
+    const AppMod = await import('../src/App');
+
+    assert.equal(typeof PwaHookMod.usePWAInstall, 'function');
+    assert.equal(typeof AppMod.usePWAInstall, 'function');
+
+    const pwaHookSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/hooks/usePWAInstall.ts'),
+      'utf8'
+    );
+    const homePageSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/HomePage.tsx'),
+      'utf8'
+    );
+    const footerSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/Footer.tsx'),
+      'utf8'
+    );
+    const headerSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/Header.tsx'),
+      'utf8'
+    );
+
+    // 1. Verify usePWAInstall hook structure (beforeinstallprompt, appinstalled, isInstallable, triggerInstall)
+    assert.ok(
+      pwaHookSource.includes('beforeinstallprompt') &&
+        pwaHookSource.includes('appinstalled') &&
+        pwaHookSource.includes('triggerInstall') &&
+        pwaHookSource.includes('isInstallable'),
+      'Expected usePWAInstall to capture beforeinstallprompt, handle appinstalled, and return { isInstallable, triggerInstall }'
+    );
+
+    // 2. Verify Hero Interactive Resources & Footer wire triggerInstall while Navbar remains clean
+    assert.ok(
+      homePageSource.includes('usePWAInstall') && homePageSource.includes('triggerInstall'),
+      'Expected HomePage Hero Interactive Resources to integrate usePWAInstall and triggerInstall'
+    );
+    assert.ok(
+      footerSource.includes('usePWAInstall') && footerSource.includes('triggerInstall'),
+      'Expected Footer to integrate usePWAInstall and triggerInstall'
+    );
+    assert.ok(
+      !headerSource.includes('Install App') && !headerSource.includes('usePWAInstall'),
+      'Expected top navbar (Header.tsx) to remain uncluttered without Install App'
+    );
+  });
+});

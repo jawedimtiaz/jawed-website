@@ -7,6 +7,7 @@ import {
   ensureImagePreloadLink,
 } from '../components/Image';
 import { ShareButton } from '../components/ShareButton';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export const HERO_MAIN_IMAGE_SRC = '/assets/images/social-preview.png';
 export const HERO_MAIN_IMAGE_WEBP_SRC = '/assets/images/social-preview.webp';
@@ -59,6 +60,7 @@ export function preloadHeroMainImage(
 export const HeroSection: React.FC = () => {
   const [bgLoadedSrc, setBgLoadedSrc] = useState<string | null>(null);
   const [isLcpVisualLoaded, setIsLcpVisualLoaded] = useState<boolean>(false);
+  const { isInstallable, triggerInstall } = usePWAInstall();
 
   useEffect(() => {
     return preloadHeroMainImage((resolvedSrc) => {
@@ -178,6 +180,17 @@ export const HeroSection: React.FC = () => {
               ⌘K
             </kbd>
           </button>
+          {isInstallable && (
+            <button
+              type="button"
+              onClick={triggerInstall}
+              className="ribbon-link inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/30 transition cursor-pointer"
+              aria-label="Install Jawed Imtiaz App"
+              data-testid="hero-install-app-btn"
+            >
+              📲 Install App
+            </button>
+          )}
         </div>
 
         {/* Hero Visual Card (LCP Optimized with Progressive Blur-Up, Preload & WebP) */}

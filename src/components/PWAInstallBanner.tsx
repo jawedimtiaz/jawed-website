@@ -7,7 +7,7 @@ const IOS_DISMISS_KEY = 'ios_pwa_prompt_dismissed_until';
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 export const PWAInstallBanner: React.FC = () => {
-  const { isInstallable, isInstalled, isStandalone, isIOS, install } = usePWAInstall();
+  const { isInstallable, isInstalled, isStandalone, isIOS, triggerInstall } = usePWAInstall();
   const [showAndroidBanner, setShowAndroidBanner] = useState<boolean>(false);
   const [showIOSSheet, setShowIOSSheet] = useState<boolean>(false);
   const [installing, setInstalling] = useState<boolean>(false);
@@ -74,7 +74,7 @@ export const PWAInstallBanner: React.FC = () => {
   const handleInstallClick = async () => {
     setInstalling(true);
     try {
-      const success = await install();
+      const success = await triggerInstall();
       if (success) {
         setShowAndroidBanner(false);
       }

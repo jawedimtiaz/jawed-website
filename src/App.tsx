@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { JawedAiWidget } from './components/JawedAiWidget';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
+import { usePWAInstall } from './hooks/usePWAInstall';
 import {
   RouteSeo,
   TOOL_METADATA,
@@ -23,7 +24,7 @@ import {
 } from './components/OfflineModeFallback';
 import { DiagnosticToolsAutoPersist } from './components/DiagnosticToolsAutoPersist';
 
-export { OfflineModeFallback, CACHED_OFFLINE_TOOLS };
+export { OfflineModeFallback, CACHED_OFFLINE_TOOLS, usePWAInstall };
 
 // Pages
 import { HomePage } from './pages/HomePage';
