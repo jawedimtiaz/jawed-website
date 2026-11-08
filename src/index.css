@@ -2324,7 +2324,47 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   padding: 0;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+}
+
+.search-category-group {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
+}
+
+.search-category-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.search-category-group-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.search-category-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
 }
 
 .search-result-item {
@@ -2337,17 +2377,26 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   background: transparent;
   border: 1px solid transparent;
   cursor: pointer;
+  outline: none;
   transition: all 0.12s ease;
 }
 
 .search-result-item:hover,
-.search-result-item.is-selected {
+.search-result-item.is-selected,
+.search-result-item.focus-ring,
+.search-result-item.has-focus-ring,
+.search-result-item[data-focus-ring="true"],
+.search-result-item:focus-visible {
   background: var(--surface-hover);
   border-color: var(--border);
 }
 
-.search-result-item.is-selected {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+.search-result-item.is-selected,
+.search-result-item.focus-ring,
+.search-result-item.has-focus-ring,
+.search-result-item[data-focus-ring="true"],
+.search-result-item:focus-visible {
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.5), 0 4px 12px rgba(0, 0, 0, 0.18);
   border-color: var(--accent);
 }
 
@@ -2442,17 +2491,29 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
 }
 
 .search-result-item:hover .search-result-enter-hint,
-.search-result-item.is-selected .search-result-enter-hint {
+.search-result-item.is-selected .search-result-enter-hint,
+.search-result-item.focus-ring .search-result-enter-hint,
+.search-result-item.has-focus-ring .search-result-enter-hint,
+.search-result-item:focus-visible .search-result-enter-hint {
   opacity: 1;
   color: var(--accent);
 }
 
-.search-highlight {
-  background: rgba(56, 189, 248, 0.25);
-  color: inherit;
+.search-highlight,
+.search-summary-highlight {
+  background: rgba(56, 189, 248, 0.28);
+  color: var(--text-heading);
   font-weight: 700;
   border-radius: 3px;
-  padding: 0 2px;
+  padding: 0 3px;
+}
+
+[data-theme="light"] .search-highlight,
+.light .search-highlight,
+[data-theme="light"] .search-summary-highlight,
+.light .search-summary-highlight {
+  background: rgba(2, 132, 199, 0.18);
+  color: #075985;
 }
 
 /* Guardrail Privacy Notice */
@@ -3173,6 +3234,7 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   .ios-pwa-bottom-sheet,
   .toast,
   .undo-toolbar,
+  .print-this-tool-btn,
   .no-print,
   [role="dialog"] {
     display: none !important;
@@ -3344,8 +3406,9 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
     border-bottom: 1px solid #cbd5e1 !important;
   }
 
-  /* IPv4 Subnet & CIDR Calculator Print Optimizations (A4 / Letter) */
-  .ipv4-subnet-calculator-root {
+  /* IPv4 Subnet & CIDR Calculator and Cable Length & PoE Budget Checker Print Optimizations (A4 / Letter) */
+  .ipv4-subnet-calculator-root,
+  .cable-poe-root {
     background: #ffffff !important;
     color: #0f172a !important;
     padding: 0 !important;
@@ -3353,7 +3416,8 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
     width: 100% !important;
   }
 
-  .ipv4-subnet-calculator-root h1 {
+  .ipv4-subnet-calculator-root h1,
+  .cable-poe-root h1 {
     font-size: 15pt !important;
     color: #0f172a !important;
     margin-bottom: 3pt !important;
@@ -3362,13 +3426,16 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   }
 
   .ipv4-subnet-calculator-root .eyebrow,
-  .ipv4-subnet-calculator-root .lead {
+  .ipv4-subnet-calculator-root .lead,
+  .cable-poe-root .eyebrow,
+  .cable-poe-root .lead {
     color: #475569 !important;
     font-size: 8.5pt !important;
     margin-bottom: 6pt !important;
   }
 
-  .ipv4-subnet-calculator-root .card {
+  .ipv4-subnet-calculator-root .card,
+  .cable-poe-root .card {
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     border-radius: 6px !important;
@@ -4308,6 +4375,76 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   color: var(--emerald);
   background: rgba(16, 185, 129, 0.12);
   border-color: rgba(16, 185, 129, 0.35);
+}
+
+.note-heading-with-copy {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.note-heading-text {
+  display: inline;
+}
+
+.note-heading-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg-darker);
+  color: var(--muted-light);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(1px);
+  transition: opacity 0.15s ease, transform 0.15s ease, color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.note-rendered-content h2:hover .note-heading-copy-btn,
+.note-rendered-content h3:hover .note-heading-copy-btn,
+.note-rendered-content h2:focus-within .note-heading-copy-btn,
+.note-rendered-content h3:focus-within .note-heading-copy-btn,
+.article-body h2:hover .note-heading-copy-btn,
+.article-body h3:hover .note-heading-copy-btn,
+.article-body h2:focus-within .note-heading-copy-btn,
+.article-body h3:focus-within .note-heading-copy-btn,
+.note-heading-with-copy:hover .note-heading-copy-btn,
+.note-heading-with-copy:focus-within .note-heading-copy-btn,
+.note-heading-copy-btn:hover,
+.note-heading-copy-btn:focus-visible,
+.note-heading-copy-btn.is-copied {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.note-heading-copy-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--surface-accent);
+}
+
+.note-heading-copy-btn.is-copied {
+  color: var(--emerald);
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+@media (hover: none) {
+  .note-heading-copy-btn {
+    opacity: 0.85;
+    pointer-events: auto;
+  }
 }
 
 .note-toc-mobile {

@@ -223,3 +223,71 @@ export async function copyTocAnchorToClipboard(
 
   return false;
 }
+
+/**
+ * Injects an interactive "Copy Link to Heading" button into every H2 and H3 tag
+ * so hovering over any section heading in NoteDetailPage reveals a deep-link copy button.
+ */
+export function injectHeadingCopyButtons(
+  htmlContent: string,
+  copiedHeadingId: string = ''
+): string {
+  if (!htmlContent || typeof htmlContent !== 'string') {
+    return '';
+  }
+
+  const { htmlWithIds } = generateTableOfContents(htmlContent);
+  const headingRegex = /<(h[23])(\s[^>]*)?>([\s\S]*?)<\/\1>/gi;
+
+  return htmlWithIds.replace(
+    headingRegex,
+    (fullMatch, tagName: string, rawAttrs: string | undefined, innerHtml: string) => {
+      const attrs = rawAttrs || '';
+      const idMatch = attrs.match(/\bid\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i);
+      const headingId = idMatch
+        ? (idMatch[1] || idMatch[2] || idMatch[3] || '').trim()
+        : '';
+
+      if (!headingId) {
+        return fullMatch;
+      }
+
+      // Avoid double-injection if already processed
+      if (innerHtml.includes('data-copy-heading-id=')) {
+        return fullMatch;
+      }
+
+      const plainText = decodeHtmlEntities(innerHtml).replace(/"/g, '&quot;');
+      const isCopied = Boolean(copiedHeadingId && copiedHeadingId === headingId);
+      const buttonLabel = isCopied ? 'Copied!' : 'Copy Link to Heading';
+      const ariaLabel = isCopied
+        ? `Copied link to heading: ${plainText}`
+        : `Copy Link to Heading: ${plainText}`;
+
+      const classAttrMatch = attrs.match(/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+      let updatedAttrs = attrs;
+      if (classAttrMatch) {
+        const existingClasses = classAttrMatch[1] ?? classAttrMatch[2] ?? '';
+        if (!existingClasses.includes('note-heading-with-copy')) {
+          updatedAttrs = attrs.replace(
+            /\bclass\s*=\s*(?:"[^"]*"|'[^']*')/i,
+            `class="${`${existingClasses} note-heading-with-copy`.trim()}"`
+          );
+        }
+      } else {
+        updatedAttrs = `${attrs} class="note-heading-with-copy"`;
+      }
+
+      const iconSvg = isCopied
+        ? `<span class="note-heading-copy-feedback" aria-hidden="true">✓</span><span class="note-heading-copy-text">Copied</span>`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span class="note-heading-copy-text">Copy Link to Heading</span>`;
+
+      const copyButtonHtml = `<button type="button" class="note-heading-copy-btn${
+        isCopied ? ' is-copied' : ''
+      }" data-copy-heading-id="${headingId}" data-testid="copy-heading-link-${headingId}" title="${buttonLabel}" aria-label="${ariaLabel}">${iconSvg}</button>`;
+
+      return `<${tagName}${updatedAttrs}><span class="note-heading-text">${innerHtml}</span>${copyButtonHtml}</${tagName}>`;
+    }
+  );
+}
+

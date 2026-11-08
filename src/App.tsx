@@ -23,8 +23,9 @@ import {
   isCachedOfflineToolPath,
 } from './components/OfflineModeFallback';
 import { DiagnosticToolsAutoPersist } from './components/DiagnosticToolsAutoPersist';
+import { PrintToolButton, triggerToolPrint } from './components/common/PrintToolButton';
 
-export { OfflineModeFallback, CACHED_OFFLINE_TOOLS, usePWAInstall };
+export { OfflineModeFallback, CACHED_OFFLINE_TOOLS, usePWAInstall, PrintToolButton, triggerToolPrint };
 
 // Pages
 import { HomePage } from './pages/HomePage';

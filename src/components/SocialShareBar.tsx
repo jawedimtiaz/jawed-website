@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Printer } from 'lucide-react';
 import { UniversalShareModal } from './common/UniversalShareModal';
 import { A4PrintPreviewModal } from './A4PrintPreviewModal';
+import { PrintToolButton, triggerToolPrint } from './common/PrintToolButton';
+
+export { PrintToolButton, triggerToolPrint };
 
 export interface SocialShareBarProps {
   /**
@@ -40,6 +43,10 @@ export interface SocialShareBarProps {
    * Whether to show the A4 Print Preview button in the share bar. Defaults to true.
    */
   showPrintPreview?: boolean;
+  /**
+   * Whether to show the 'Print this Tool' button in the share bar. Defaults to true.
+   */
+  showPrintToolButton?: boolean;
 }
 
 export const SocialShareBar: React.FC<SocialShareBarProps> = ({
@@ -52,6 +59,7 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
   size = 'normal',
   hashtags,
   showPrintPreview = true,
+  showPrintToolButton = true,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
@@ -229,6 +237,13 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
           </svg>
           <span>Reddit</span>
         </a>
+
+        {showPrintToolButton && (
+          <PrintToolButton
+            documentTitle={title}
+            size={size === 'small' ? 'sm' : 'md'}
+          />
+        )}
 
         {showPrintPreview && (
           <button

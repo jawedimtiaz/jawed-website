@@ -9,7 +9,11 @@ import { Image } from '../components/Image';
 import { calculateReadTime } from '../utils/readTimeHelper';
 import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 import { extractContentFreshness } from '../utils/contentFreshness';
-import { buildTocAnchorUrl, copyTocAnchorToClipboard } from '../utils/tocGenerator';
+import {
+  buildTocAnchorUrl,
+  copyTocAnchorToClipboard,
+  slugifyHeading,
+} from '../utils/tocGenerator';
 
 // Reusable Visual Guide Components & Aliases
 import {
@@ -29,6 +33,7 @@ export const FieldGuideDetailPage: React.FC = () => {
   const guide = FIELD_GUIDES.find(g => g.slug === slug);
   const [copiedTocId, setCopiedTocId] = React.useState<string>('');
   const copyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const articleBodyRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     setCopiedTocId('');
@@ -39,6 +44,68 @@ export const FieldGuideDetailPage: React.FC = () => {
     };
   }, [slug]);
 
+  React.useEffect(() => {
+    const container = articleBodyRef.current;
+    if (!container || typeof document === 'undefined') return;
+
+    const headings = container.querySelectorAll<HTMLHeadingElement>('h2, h3');
+    const usedIds = new Set<string>();
+
+    headings.forEach((heading) => {
+      const existingBtn = heading.querySelector<HTMLButtonElement>('.note-heading-copy-btn');
+      const rawText = (
+        heading.querySelector('.note-heading-text')?.textContent ||
+        heading.textContent ||
+        ''
+      )
+        .replace(/Copy Link to Heading|Copied!?|✓/g, '')
+        .trim();
+
+      if (!rawText) return;
+
+      let headingId = heading.id || slugifyHeading(rawText);
+      if (usedIds.has(headingId) && !heading.id) {
+        let count = 2;
+        while (usedIds.has(`${headingId}-${count}`)) count += 1;
+        headingId = `${headingId}-${count}`;
+      }
+      usedIds.add(headingId);
+      if (!heading.id) {
+        heading.id = headingId;
+      }
+
+      heading.classList.add('note-heading-with-copy');
+      const isCopied = Boolean(copiedTocId && copiedTocId === headingId);
+      const btnTitle = isCopied ? 'Copied!' : 'Copy Link to Heading';
+      const btnAria = isCopied
+        ? `Copied link to heading: ${rawText}`
+        : `Copy Link to Heading: ${rawText}`;
+
+      const btnHtml = isCopied
+        ? `<span class="note-heading-copy-feedback" aria-hidden="true">✓</span><span class="note-heading-copy-text">Copied</span>`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span class="note-heading-copy-text">Copy Link to Heading</span>`;
+
+      if (existingBtn) {
+        existingBtn.className = `note-heading-copy-btn${isCopied ? ' is-copied' : ''}`;
+        existingBtn.setAttribute('data-copy-heading-id', headingId);
+        existingBtn.setAttribute('data-testid', `copy-heading-link-${headingId}`);
+        existingBtn.setAttribute('title', btnTitle);
+        existingBtn.setAttribute('aria-label', btnAria);
+        existingBtn.innerHTML = btnHtml;
+      } else {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `note-heading-copy-btn${isCopied ? ' is-copied' : ''}`;
+        btn.setAttribute('data-copy-heading-id', headingId);
+        btn.setAttribute('data-testid', `copy-heading-link-${headingId}`);
+        btn.setAttribute('title', btnTitle);
+        btn.setAttribute('aria-label', btnAria);
+        btn.innerHTML = btnHtml;
+        heading.appendChild(btn);
+      }
+    });
+  }, [slug, copiedTocId]);
+
   if (!guide) {
     return <Navigate to="/guides" replace />;
   }
@@ -47,12 +114,8 @@ export const FieldGuideDetailPage: React.FC = () => {
   const relatedGuides = FIELD_GUIDES.filter(g => g.slug !== guide.slug);
   const freshness = extractContentFreshness(guide);
 
-  const handleCopyGuideSectionLink = async (
-    event: React.MouseEvent<HTMLButtonElement>,
-    headingId: string
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const copyGuideHeadingDeepLink = async (headingId: string) => {
+    if (!headingId) return;
 
     const baseUrl =
       typeof window !== 'undefined' && window.location?.href
@@ -73,6 +136,28 @@ export const FieldGuideDetailPage: React.FC = () => {
     copyTimerRef.current = setTimeout(() => {
       setCopiedTocId(prev => (prev === headingId ? '' : prev));
     }, 2000);
+  };
+
+  const handleCopyGuideSectionLink = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+    headingId: string
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    await copyGuideHeadingDeepLink(headingId);
+  };
+
+  const handleArticleBodyClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    const copyBtn = target?.closest<HTMLButtonElement>('[data-copy-heading-id]');
+    if (!copyBtn) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const headingId = copyBtn.getAttribute('data-copy-heading-id') || '';
+    if (headingId) {
+      void copyGuideHeadingDeepLink(headingId);
+    }
   };
 
   // Render guide body with embedded interactive components
@@ -1309,7 +1394,11 @@ export const FieldGuideDetailPage: React.FC = () => {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 280px', gap: '36px', alignItems: 'start' }} className="article-layout">
           {/* Main Article Content */}
-          <div className="article-body">
+          <div
+            ref={articleBodyRef}
+            className="article-body"
+            onClick={handleArticleBodyClick}
+          >
             {renderGuideBodyContent()}
 
             {/* In-Feed Native Ad Unit */}
@@ -1359,11 +1448,11 @@ export const FieldGuideDetailPage: React.FC = () => {
                           type="button"
                           onClick={(e) => handleCopyGuideSectionLink(e, item.id)}
                           className={`note-toc-copy-btn${isCopied ? ' is-copied' : ''}`}
-                          title={isCopied ? 'Link copied!' : 'Copy link to clipboard'}
+                          title={isCopied ? 'Link copied!' : 'Copy Link to Heading'}
                           aria-label={
                             isCopied
                               ? `Copied link to ${item.text}`
-                              : `Copy link to clipboard for ${item.text}`
+                              : `Copy Link to Heading: ${item.text}`
                           }
                           data-testid={`field-guide-copy-toc-link-${item.id}`}
                         >

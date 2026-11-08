@@ -65,6 +65,191 @@ export function toggleSearchPalette(): void {
   }
 }
 
+export type SearchResultGroupCategory = 'Guides' | 'Tools' | 'Blog' | 'Pages';
+
+export interface SearchResultCategoryGroup {
+  category: SiteCategory;
+  label: SearchResultGroupCategory;
+  items: SiteSearchResult[];
+}
+
+export const SEARCH_RESULT_CATEGORY_ORDER: {
+  category: SiteCategory;
+  label: SearchResultGroupCategory;
+}[] = [
+  { category: 'guide', label: 'Guides' },
+  { category: 'tool', label: 'Tools' },
+  { category: 'blog', label: 'Blog' },
+  { category: 'page', label: 'Pages' },
+];
+
+export function getCategoryGroupLabel(category: SiteCategory): SearchResultGroupCategory {
+  switch (category) {
+    case 'guide':
+      return 'Guides';
+    case 'tool':
+      return 'Tools';
+    case 'blog':
+      return 'Blog';
+    default:
+      return 'Pages';
+  }
+}
+
+export function groupSearchResultsByCategory(
+  items: SiteSearchResult[],
+  activeCategory: 'all' | SiteCategory | 'shortcuts' = 'all'
+): SearchResultCategoryGroup[] {
+  if (activeCategory === 'shortcuts' || !Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+
+  const filtered =
+    activeCategory === 'all'
+      ? items
+      : items.filter((item) => item.category === activeCategory);
+
+  const groups: SearchResultCategoryGroup[] = [];
+  for (const { category, label } of SEARCH_RESULT_CATEGORY_ORDER) {
+    const categoryItems = filtered.filter((item) => item.category === category);
+    if (categoryItems.length > 0) {
+      groups.push({
+        category,
+        label,
+        items: categoryItems,
+      });
+    }
+  }
+  return groups;
+}
+
+export interface HighlightTextSegment {
+  text: string;
+  isMatch: boolean;
+}
+
+function buildSearchHighlightTerms(query: string): string[] {
+  const trimmed = (query || '').trim();
+  if (!trimmed) return [];
+
+  const candidateSet = new Set<string>();
+  candidateSet.add(trimmed);
+
+  for (const wsToken of trimmed.split(/\s+/).filter(Boolean)) {
+    if (wsToken.length >= 2 || trimmed.length === 1) {
+      candidateSet.add(wsToken);
+    }
+  }
+
+  for (const alphaToken of trimmed.split(/[^a-z0-9]+/i).filter(Boolean)) {
+    if (alphaToken.length >= 2 || trimmed.length === 1) {
+      candidateSet.add(alphaToken);
+    }
+  }
+
+  return Array.from(candidateSet).sort((a, b) => b.length - a.length);
+}
+
+export function extractSummarySnippetWithMatch(
+  summary: string,
+  query: string,
+  maxLength: number = 160
+): string {
+  if (!summary) return '';
+  const terms = buildSearchHighlightTerms(query);
+  if (terms.length === 0 || summary.length <= maxLength) {
+    return summary;
+  }
+
+  const lowerSummary = summary.toLowerCase();
+  let bestIndex = -1;
+  let bestLength = 0;
+
+  for (const term of terms) {
+    const idx = lowerSummary.indexOf(term.toLowerCase());
+    if (idx !== -1) {
+      bestIndex = idx;
+      bestLength = term.length;
+      break;
+    }
+  }
+
+  if (bestIndex === -1 || bestIndex + bestLength <= Math.floor(maxLength * 0.75)) {
+    return summary;
+  }
+
+  const halfWindow = Math.max(24, Math.floor((maxLength - bestLength) / 2));
+  let start = Math.max(0, bestIndex - halfWindow);
+  let end = Math.min(summary.length, start + maxLength);
+  if (end - start < maxLength) {
+    start = Math.max(0, end - maxLength);
+  }
+
+  if (start > 0) {
+    const nextSpace = summary.indexOf(' ', start);
+    if (nextSpace !== -1 && nextSpace < bestIndex) {
+      start = nextSpace + 1;
+    }
+  }
+  if (end < summary.length) {
+    const prevSpace = summary.lastIndexOf(' ', end);
+    if (prevSpace !== -1 && prevSpace > bestIndex + bestLength) {
+      end = prevSpace;
+    }
+  }
+
+  const prefix = start > 0 ? '…' : '';
+  const suffix = end < summary.length ? '…' : '';
+  return `${prefix}${summary.slice(start, end).trim()}${suffix}`;
+}
+
+export function segmentTextByQuery(text: string, query: string): HighlightTextSegment[] {
+  if (!text) return [];
+  const terms = buildSearchHighlightTerms(query);
+  if (terms.length === 0) {
+    return [{ text, isMatch: false }];
+  }
+
+  try {
+    const pattern = new RegExp(
+      `(${terms.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+      'gi'
+    );
+    const parts = text.split(pattern).filter((part) => part.length > 0);
+    const lowerTerms = terms.map((t) => t.toLowerCase());
+    return parts.map((part) => ({
+      text: part,
+      isMatch: lowerTerms.includes(part.toLowerCase()),
+    }));
+  } catch {
+    return [{ text, isMatch: false }];
+  }
+}
+
+export function highlightSummaryMatch(
+  summary: string,
+  query: string
+): React.ReactNode {
+  const snippet = extractSummarySnippetWithMatch(summary, query);
+  const segments = segmentTextByQuery(snippet, query);
+  if (segments.length === 1 && !segments[0].isMatch) {
+    return snippet;
+  }
+  return segments.map((seg, i) =>
+    seg.isMatch ? (
+      <mark
+        key={i}
+        className="search-highlight search-summary-highlight"
+        data-testid="search-summary-highlight"
+      >
+        {seg.text}
+      </mark>
+    ) : (
+      seg.text
+    )
+  );
+}
+
 export interface PaletteShortcutDisplayItem {
   id: string;
   combo: string;
@@ -436,13 +621,121 @@ export type NavigationKeyHintType =
   | 'shortcuts'
   | null;
 
+export type SearchResultNavigationKey =
+  | 'ArrowDown'
+  | 'ArrowUp'
+  | 'Home'
+  | 'End'
+  | 'PageDown'
+  | 'PageUp';
+
+export function computeSearchResultNavigationIndex(
+  currentIndex: number,
+  totalCount: number,
+  key: SearchResultNavigationKey,
+  options?: { altKey?: boolean; pageStep?: number }
+): number {
+  if (totalCount <= 0) return 0;
+  const safeCurrent = Math.max(0, Math.min(totalCount - 1, currentIndex));
+  const step = options?.pageStep ?? 5;
+
+  switch (key) {
+    case 'ArrowDown':
+      if (options?.altKey) {
+        return Math.min(totalCount - 1, safeCurrent + step);
+      }
+      return (safeCurrent + 1 + totalCount) % totalCount;
+    case 'ArrowUp':
+      if (options?.altKey) {
+        return Math.max(0, safeCurrent - step);
+      }
+      return (safeCurrent - 1 + totalCount) % totalCount;
+    case 'PageDown':
+      return Math.min(totalCount - 1, safeCurrent + step);
+    case 'PageUp':
+      return Math.max(0, safeCurrent - step);
+    case 'Home':
+      return 0;
+    case 'End':
+      return totalCount - 1;
+    default:
+      return safeCurrent;
+  }
+}
+
+export const getNextSearchResultIndex = computeSearchResultNavigationIndex;
+
 export type NavigablePaletteTarget =
   | { kind: 'shortcut'; shortcut: PaletteShortcutDisplayItem; indexInGroup: number }
   | { kind: 'result'; item: SiteSearchResult; indexInGroup: number };
 
+export function normalizeSearchResultRoute(url: string): string {
+  return (url || '').replace(/\/+$/, '') || '/';
+}
+
+export function getSearchResultItemFocusClass(isSelected: boolean): string {
+  if (!isSelected) {
+    return 'search-result-item';
+  }
+  return 'search-result-item is-selected focus-ring has-focus-ring ring-2 ring-sky-400/80 ring-offset-1 ring-offset-slate-900';
+}
+
+export function resolveSelectedRouteOnEnter(
+  targets: NavigablePaletteTarget[],
+  selectedIndex: number
+): string | null {
+  if (!Array.isArray(targets) || targets.length === 0) return null;
+  const clampedIndex = Math.max(0, Math.min(targets.length - 1, selectedIndex));
+  const target = targets[clampedIndex];
+  if (!target) return null;
+  if (target.kind === 'result') {
+    return normalizeSearchResultRoute(target.item.url);
+  }
+  const route = target.shortcut.route || NAV_ROUTE_MAP[target.shortcut.id];
+  return route ? normalizeSearchResultRoute(route) : null;
+}
+
+export function handleSearchResultKeyStep(params: {
+  key: SearchResultNavigationKey | 'Enter';
+  currentIndex: number;
+  targets: NavigablePaletteTarget[];
+  altKey?: boolean;
+  onNavigate?: (route: string) => void;
+}): {
+  nextIndex: number;
+  focusRingIndex: number;
+  triggeredRoute: string | null;
+} {
+  const { key, currentIndex, targets, altKey, onNavigate } = params;
+  const total = targets.length;
+  if (total === 0) {
+    return { nextIndex: 0, focusRingIndex: -1, triggeredRoute: null };
+  }
+
+  if (key === 'Enter') {
+    const safeIdx = Math.max(0, Math.min(total - 1, currentIndex));
+    const route = resolveSelectedRouteOnEnter(targets, safeIdx);
+    if (route && onNavigate) {
+      onNavigate(route);
+    }
+    return {
+      nextIndex: safeIdx,
+      focusRingIndex: safeIdx,
+      triggeredRoute: route,
+    };
+  }
+
+  const nextIndex = computeSearchResultNavigationIndex(currentIndex, total, key, { altKey });
+  return {
+    nextIndex,
+    focusRingIndex: nextIndex,
+    triggeredRoute: null,
+  };
+}
+
 export type PaletteTabCategory = 'all' | SiteCategory | 'shortcuts';
 
-const CATEGORY_ORDER: PaletteTabCategory[] = ['all', 'tool', 'guide', 'blog', 'page', 'shortcuts'];
+const CATEGORY_ORDER: PaletteTabCategory[] = ['all', 'guide', 'tool', 'blog', 'page', 'shortcuts'];
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onNavigated,
@@ -870,15 +1163,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return searchSite(query);
   }, [query, recommendations]);
 
-  // Filter by category tab (hide general site results when in dedicated '?' Shortcut Discovery mode)
-  const displayedItems = useMemo(() => {
+  // Group results by category (Guides, Tools, Blog, Pages) and flatten in grouped order for keyboard navigation
+  const groupedSearchResults = useMemo(() => {
     if (isShortcutDiscoveryMode || activeCategory === 'shortcuts') return [];
-    if (activeCategory === 'tool') return searchResults.tools;
-    if (activeCategory === 'guide') return searchResults.guides;
-    if (activeCategory === 'blog') return searchResults.blogs;
-    if (activeCategory === 'page') return searchResults.pages;
-    return searchResults.all;
-  }, [isShortcutDiscoveryMode, searchResults, activeCategory]);
+    return groupSearchResultsByCategory(searchResults.all, activeCategory);
+  }, [isShortcutDiscoveryMode, searchResults.all, activeCategory]);
+
+  const displayedItems = useMemo(() => {
+    return groupedSearchResults.flatMap((group) => group.items);
+  }, [groupedSearchResults]);
 
   // Unified navigable target items across Keyboard Shortcuts (when active) and Search Results
   const navigableTargets: NavigablePaletteTarget[] = useMemo(() => {
@@ -1144,7 +1437,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         summary: item.summary,
         category: item.category,
       });
-      const targetPath = item.url.replace(/\/+$/, '') || '/';
+      const targetPath = normalizeSearchResultRoute(item.url);
       handleClose();
       if (onNavigated) onNavigated();
       navigate(targetPath);
@@ -1221,18 +1514,35 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   );
 
   const scrollTargetIntoView = useCallback(
-    (targetIndex: number) => {
+    (targetIndex: number, focusDomElement: boolean = false) => {
       const target = navigableTargets[targetIndex];
       if (!target) return;
+      let element: HTMLElement | null = null;
       if (target.kind === 'shortcut') {
-        const items = shortcutsListRef.current?.querySelectorAll('li');
-        if (items && items[target.indexInGroup]) {
-          items[target.indexInGroup].scrollIntoView({ block: 'nearest' });
-        }
+        element =
+          (shortcutsListRef.current?.querySelector(
+            `#command-palette-shortcut-option-${target.indexInGroup}`
+          ) as HTMLElement | null) ||
+          (shortcutsListRef.current?.querySelectorAll('li')[target.indexInGroup] as
+            | HTMLElement
+            | undefined) ||
+          null;
       } else {
-        const items = listRef.current?.querySelectorAll('li');
-        if (items && items[target.indexInGroup]) {
-          items[target.indexInGroup].scrollIntoView({ block: 'nearest' });
+        element =
+          (listRef.current?.querySelector(
+            `#command-palette-result-option-${target.indexInGroup}`
+          ) as HTMLElement | null) ||
+          (listRef.current?.querySelectorAll('li.search-result-item')[target.indexInGroup] as
+            | HTMLElement
+            | undefined) ||
+          null;
+      }
+      if (element) {
+        if (typeof element.scrollIntoView === 'function') {
+          element.scrollIntoView({ block: 'nearest' });
+        }
+        if (focusDomElement && typeof element.focus === 'function') {
+          element.focus({ preventScroll: true });
         }
       }
     },
@@ -1246,7 +1556,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         | { type: 'step'; delta: number }
         | { type: 'first' }
         | { type: 'last' },
-      hintType: NavigationKeyHintType
+      hintType: NavigationKeyHintType,
+      focusDomElement: boolean = false
     ) => {
       setNavigationMode('keyboard');
       flashKeyHint(hintType);
@@ -1256,18 +1567,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       setSelectedIndex((prev) => {
         let next = prev;
         if (action.type === 'first') {
-          next = 0;
+          next = computeSearchResultNavigationIndex(prev, total, 'Home');
         } else if (action.type === 'last') {
-          next = total - 1;
-        } else {
-          // For single-step (+1 / -1) wrap around; for PageUp/PageDown clamp to bounds
-          if (Math.abs(action.delta) === 1) {
-            next = (prev + action.delta + total) % total;
-          } else {
-            next = Math.max(0, Math.min(total - 1, prev + action.delta));
-          }
+          next = computeSearchResultNavigationIndex(prev, total, 'End');
+        } else if (action.delta === 1) {
+          next = computeSearchResultNavigationIndex(prev, total, 'ArrowDown');
+        } else if (action.delta === -1) {
+          next = computeSearchResultNavigationIndex(prev, total, 'ArrowUp');
+        } else if (action.delta > 1) {
+          next = computeSearchResultNavigationIndex(prev, total, 'PageDown', {
+            pageStep: action.delta,
+          });
+        } else if (action.delta < -1) {
+          next = computeSearchResultNavigationIndex(prev, total, 'PageUp', {
+            pageStep: Math.abs(action.delta),
+          });
         }
-        scrollTargetIntoView(next);
+        scrollTargetIntoView(next, focusDomElement);
         return next;
       });
     },
@@ -1304,6 +1620,63 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     handleOpenShortcutModal,
   ]);
 
+  // Direct keyboard navigation on individual search result items or the results listbox
+  const handleResultItemKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLElement>, itemGlobalIndex?: number, item?: SiteSearchResult) => {
+      if (typeof itemGlobalIndex === 'number' && selectedIndex !== itemGlobalIndex) {
+        setSelectedIndex(itemGlobalIndex);
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        moveSelection(
+          { type: 'step', delta: e.altKey ? 5 : 1 },
+          e.altKey ? 'jump' : 'down',
+          true
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        moveSelection(
+          { type: 'step', delta: e.altKey ? -5 : -1 },
+          e.altKey ? 'jump' : 'up',
+          true
+        );
+      } else if (e.key === 'PageDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        moveSelection({ type: 'step', delta: 5 }, 'jump', true);
+      } else if (e.key === 'PageUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        moveSelection({ type: 'step', delta: -5 }, 'jump', true);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        e.stopPropagation();
+        moveSelection({ type: 'first' }, 'jump', true);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        e.stopPropagation();
+        moveSelection({ type: 'last' }, 'jump', true);
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (item) {
+          navigateToResult(item);
+        } else {
+          activateSelectedTarget();
+        }
+      } else if (
+        e.key === 'Backspace' ||
+        (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey)
+      ) {
+        inputRef.current?.focus();
+      }
+    },
+    [selectedIndex, moveSelection, navigateToResult, activateSelectedTarget]
+  );
+
   // Modal focus trap & modal-wide complex keyboard shortcuts
   const handleModalKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Tab' && modalRef.current) {
@@ -1334,6 +1707,27 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       e.preventDefault();
       cycleCategory(-1);
       return;
+    }
+
+    // Allow ArrowDown / ArrowUp / PageDown / PageUp / Enter to navigate search result items from anywhere in the modal
+    if (!e.defaultPrevented && e.target !== inputRef.current) {
+      const targetTag = (e.target as HTMLElement)?.tagName;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        moveSelection({ type: 'step', delta: e.altKey ? 5 : 1 }, e.altKey ? 'jump' : 'down');
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        moveSelection({ type: 'step', delta: e.altKey ? -5 : -1 }, e.altKey ? 'jump' : 'up');
+      } else if (e.key === 'PageDown') {
+        e.preventDefault();
+        moveSelection({ type: 'step', delta: 5 }, 'jump');
+      } else if (e.key === 'PageUp') {
+        e.preventDefault();
+        moveSelection({ type: 'step', delta: -5 }, 'jump');
+      } else if (e.key === 'Enter' && targetTag !== 'BUTTON' && targetTag !== 'A') {
+        e.preventDefault();
+        activateSelectedTarget();
+      }
     }
   };
 
@@ -1412,31 +1806,19 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   // Highlight matching terms in text
   const highlightMatch = (text: string, term: string) => {
-    if (!term || !term.trim()) return text;
-    const words = term
-      .trim()
-      .split(/[^a-z0-9]+/i)
-      .filter((w) => w.length >= 2);
-    if (words.length === 0) return text;
-
-    try {
-      const pattern = new RegExp(
-        `(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
-        'gi'
-      );
-      const parts = text.split(pattern);
-      return parts.map((part, i) =>
-        words.some((w) => w.toLowerCase() === part.toLowerCase()) ? (
-          <mark key={i} className="search-highlight">
-            {part}
-          </mark>
-        ) : (
-          part
-        )
-      );
-    } catch {
+    const segments = segmentTextByQuery(text, term);
+    if (segments.length === 1 && !segments[0].isMatch) {
       return text;
     }
+    return segments.map((seg, i) =>
+      seg.isMatch ? (
+        <mark key={i} className="search-highlight">
+          {seg.text}
+        </mark>
+      ) : (
+        seg.text
+      )
+    );
   };
 
   const getCategoryBadgeClass = (category: SiteCategory) => {
@@ -1714,6 +2096,25 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               </button>
               <button
                 ref={(el) => {
+                  tabRefs.current.guide = el;
+                }}
+                id="search-tab-guide"
+                type="button"
+                role="tab"
+                tabIndex={activeCategory === 'guide' ? 0 : -1}
+                aria-selected={activeCategory === 'guide'}
+                aria-controls="search-results-list"
+                className={`search-tab ${activeCategory === 'guide' ? 'is-active' : ''}`}
+                onClick={() => {
+                  flashKeyHint('category');
+                  setActiveCategory('guide');
+                  inputRef.current?.focus();
+                }}
+              >
+                📘 Guides ({searchResults.guides.length})
+              </button>
+              <button
+                ref={(el) => {
                   tabRefs.current.tool = el;
                 }}
                 id="search-tab-tool"
@@ -1730,25 +2131,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 }}
               >
                 🛠️ Tools ({searchResults.tools.length})
-              </button>
-              <button
-                ref={(el) => {
-                  tabRefs.current.guide = el;
-                }}
-                id="search-tab-guide"
-                type="button"
-                role="tab"
-                tabIndex={activeCategory === 'guide' ? 0 : -1}
-                aria-selected={activeCategory === 'guide'}
-                aria-controls="search-results-list"
-                className={`search-tab ${activeCategory === 'guide' ? 'is-active' : ''}`}
-                onClick={() => {
-                  flashKeyHint('category');
-                  setActiveCategory('guide');
-                  inputRef.current?.focus();
-                }}
-              >
-                📘 Field Guides ({searchResults.guides.length})
               </button>
               <button
                 ref={(el) => {
@@ -2149,13 +2531,20 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                                 key={shortcut.id}
                                 onClick={() => handleExecuteShortcut(shortcut.id)}
                                 onMouseEnter={() => setSelectedIndex(sIdx)}
+                                onFocus={() => setSelectedIndex(sIdx)}
+                                onKeyDown={(e) => handleResultItemKeyDown(e, sIdx)}
                                 role="option"
                                 aria-selected={isShortcutSelected}
                                 aria-posinset={sIdx + 1}
                                 aria-setsize={navigableTargets.length}
-                                tabIndex={-1}
+                                tabIndex={isShortcutSelected ? 0 : -1}
+                                data-selected={isShortcutSelected}
+                                data-focus-ring={isShortcutSelected}
+                                data-result-index={sIdx}
                                 className={`search-shortcut-option ${
-                                  isShortcutSelected ? 'is-selected' : ''
+                                  isShortcutSelected
+                                    ? 'is-selected focus-ring has-focus-ring ring-2 ring-sky-400/80'
+                                    : ''
                                 }`}
                                 style={{
                                   display: 'flex',
@@ -2786,47 +3175,93 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     ref={listRef}
                     className="search-results-list"
                     role="listbox"
-                    aria-label="Search results"
+                    aria-label="Search results grouped by category"
+                    onKeyDown={(e) => handleResultItemKeyDown(e)}
                   >
-                    {displayedItems.map((item, index) => {
-                      const globalIndex = shortcutOffset + index;
-                      const isSelected = globalIndex === selectedIndex;
-                      const badgeClass = getCategoryBadgeClass(item.category);
-                      const badgeLabel = getCategoryLabel(item.category);
-
-                      return (
-                        <li
-                          id={`command-palette-result-option-${index}`}
-                          key={item.url + index}
-                          role="option"
-                          aria-selected={isSelected}
-                          aria-posinset={globalIndex + 1}
-                          aria-setsize={navigableTargets.length}
-                          className={`search-result-item ${isSelected ? 'is-selected' : ''}`}
-                          onClick={() => navigateToResult(item)}
-                          onMouseEnter={() => setSelectedIndex(globalIndex)}
+                    {(() => {
+                      let resultItemCounter = 0;
+                      return groupedSearchResults.map((group) => (
+                        <div
+                          key={group.category}
+                          className="search-category-group"
+                          role="group"
+                          aria-label={group.label}
+                          data-testid={`search-category-group-${group.label.toLowerCase()}`}
+                          data-category-group={group.label}
                         >
-                          <div className="search-result-main">
-                            <div className="search-result-header">
-                              <span className={`search-category-pill ${badgeClass}`}>
-                                {badgeLabel}
-                              </span>
-                              <span className="search-result-title" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                <span aria-hidden="true" style={{ fontSize: '0.9rem' }}>{getCategoryToolIcon(item.category, item.title)}</span>
-                                <span>{highlightMatch(item.title, query)}</span>
-                              </span>
-                              <span className="search-result-url">{item.url}</span>
-                            </div>
-                            <p className="search-result-summary">
-                              {highlightMatch(item.summary, query)}
-                            </p>
+                          <div
+                            className="search-category-group-header"
+                            data-testid={`search-group-header-${group.label.toLowerCase()}`}
+                          >
+                            <span className="search-category-group-title">{group.label}</span>
+                            <span className="search-category-group-count">
+                              {group.items.length}
+                            </span>
                           </div>
-                          <div className="search-result-enter-hint" aria-hidden="true">
-                            <kbd className="search-footer-kbd command-palette-kbd">↵</kbd>
-                          </div>
-                        </li>
-                      );
-                    })}
+                          {group.items.map((item) => {
+                            const index = resultItemCounter++;
+                            const globalIndex = shortcutOffset + index;
+                            const isSelected = globalIndex === selectedIndex;
+                            const badgeClass = getCategoryBadgeClass(item.category);
+                            const badgeLabel = getCategoryLabel(item.category);
+
+                            return (
+                              <li
+                                id={`command-palette-result-option-${index}`}
+                                key={item.url + index}
+                                role="option"
+                                aria-selected={isSelected}
+                                aria-posinset={globalIndex + 1}
+                                aria-setsize={navigableTargets.length}
+                                tabIndex={isSelected ? 0 : -1}
+                                className={getSearchResultItemFocusClass(isSelected)}
+                                data-category={group.label}
+                                data-result-index={globalIndex}
+                                data-selected={isSelected}
+                                data-focus-ring={isSelected}
+                                data-route={normalizeSearchResultRoute(item.url)}
+                                data-testid={`search-result-item-${index}`}
+                                onClick={() => navigateToResult(item)}
+                                onMouseEnter={() => setSelectedIndex(globalIndex)}
+                                onFocus={() => setSelectedIndex(globalIndex)}
+                                onKeyDown={(e) => handleResultItemKeyDown(e, globalIndex, item)}
+                              >
+                                <div className="search-result-main">
+                                  <div className="search-result-header">
+                                    <span className={`search-category-pill ${badgeClass}`}>
+                                      {badgeLabel}
+                                    </span>
+                                    <span
+                                      className="search-result-title"
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                      }}
+                                    >
+                                      <span aria-hidden="true" style={{ fontSize: '0.9rem' }}>
+                                        {getCategoryToolIcon(item.category, item.title)}
+                                      </span>
+                                      <span>{highlightMatch(item.title, query)}</span>
+                                    </span>
+                                    <span className="search-result-url">{item.url}</span>
+                                  </div>
+                                  <p
+                                    className="search-result-summary"
+                                    data-testid="search-result-summary"
+                                  >
+                                    {highlightSummaryMatch(item.summary, query)}
+                                  </p>
+                                </div>
+                                <div className="search-result-enter-hint" aria-hidden="true">
+                                  <kbd className="search-footer-kbd command-palette-kbd">↵</kbd>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </div>
+                      ));
+                    })()}
                   </ul>
                 </div>
               )}

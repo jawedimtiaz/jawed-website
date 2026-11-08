@@ -11,6 +11,7 @@ import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 import { extractContentFreshness, type NoteSchemaItem } from '../utils/contentFreshness';
 import {
   generateTableOfContents,
+  injectHeadingCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
   buildTocAnchorUrl,
@@ -23,6 +24,7 @@ import { COMPONENT_MAPPER, getInteractiveComponentForSlug } from '../utils/compo
 
 export {
   generateTableOfContents,
+  injectHeadingCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
   buildTocAnchorUrl,
@@ -204,6 +206,12 @@ export const NoteDetailPage: React.FC = () => {
   const [isMobileTocOpen, setIsMobileTocOpen] = React.useState<boolean>(false);
   const copyFeedbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Inject 'Copy Link to Heading' button into every H2 and H3 tag in the rendered article HTML
+  const htmlWithCopyButtons = React.useMemo(
+    () => injectHeadingCopyButtons(htmlWithIds, copiedHeadingId),
+    [htmlWithIds, copiedHeadingId]
+  );
+
   // Cleanup copy feedback timer on unmount
   React.useEffect(() => {
     return () => {
@@ -284,12 +292,8 @@ export const NoteDetailPage: React.FC = () => {
     }
   };
 
-  const handleCopySectionLink = async (
-    event: React.MouseEvent<HTMLButtonElement>,
-    headingId: string
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const copyHeadingDeepLink = async (headingId: string) => {
+    if (!headingId) return;
 
     const currentBaseUrl =
       typeof window !== 'undefined' && window.location?.href
@@ -303,6 +307,7 @@ export const NoteDetailPage: React.FC = () => {
       window.history.replaceState(null, '', `#${headingId}`);
     }
 
+    setActiveHeadingId(headingId);
     setCopiedHeadingId(headingId);
     if (copyFeedbackTimerRef.current) {
       clearTimeout(copyFeedbackTimerRef.current);
@@ -310,6 +315,28 @@ export const NoteDetailPage: React.FC = () => {
     copyFeedbackTimerRef.current = setTimeout(() => {
       setCopiedHeadingId((prev) => (prev === headingId ? '' : prev));
     }, 2000);
+  };
+
+  const handleCopySectionLink = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+    headingId: string
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    await copyHeadingDeepLink(headingId);
+  };
+
+  const handleRenderedContentClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    const copyBtn = target?.closest<HTMLButtonElement>('[data-copy-heading-id]');
+    if (!copyBtn) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const headingId = copyBtn.getAttribute('data-copy-heading-id') || '';
+    if (headingId) {
+      void copyHeadingDeepLink(headingId);
+    }
   };
 
   const handleScrollToTop = () => {
@@ -344,11 +371,11 @@ export const NoteDetailPage: React.FC = () => {
                 type="button"
                 onClick={(e) => handleCopySectionLink(e, item.id)}
                 className={`note-toc-copy-btn${isCopied ? ' is-copied' : ''}`}
-                title={isCopied ? 'Link copied!' : 'Copy link to clipboard'}
+                title={isCopied ? 'Link copied!' : 'Copy Link to Heading'}
                 aria-label={
                   isCopied
                     ? `Copied link to ${item.text}`
-                    : `Copy link to clipboard for ${item.text}`
+                    : `Copy Link to Heading: ${item.text}`
                 }
                 data-testid={`${idPrefix}-copy-toc-link-${item.id}`}
               >
@@ -495,7 +522,9 @@ export const NoteDetailPage: React.FC = () => {
         >
           <div
             className="note-rendered-content"
-            dangerouslySetInnerHTML={{ __html: htmlWithIds }}
+            data-testid="note-rendered-content"
+            onClick={handleRenderedContentClick}
+            dangerouslySetInnerHTML={{ __html: htmlWithCopyButtons }}
           />
 
           {/* Injected Automated Visual Modules */}
@@ -551,4 +580,8 @@ export const NoteDetailPage: React.FC = () => {
     </main>
   );
 };
+
+export { NoteDetailPage as NotesDetailPage, NoteDetailPage as NotesDetail };
+export default NoteDetailPage;
+
 

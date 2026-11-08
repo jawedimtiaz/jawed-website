@@ -4,9 +4,12 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { CopyButton } from '../components/common/CopyButton';
+import { PrintToolButton, triggerToolPrint } from '../components/common/PrintToolButton';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
+
+export { PrintToolButton, triggerToolPrint };
 import {
   Cable,
   Zap,
@@ -3969,12 +3972,40 @@ ${deviceRows.map((d, i) => `  ${i + 1}. ${d.name}: ${d.qty}x @ ${d.wattsEach}W (
           ]}
           style={{ marginBottom: 0 }}
         />
-        <SocialShareBar
-          title="Cable Length & PoE Budget Checker | Jawed Imtiaz"
-          text="Free browser-based Ethernet cable distance checker (Cat5e/Cat6/Cat6a) and PoE switch power budget calculator."
-          url={typeof window !== 'undefined' ? `${window.location.origin}/tools/cable-length-poe-budget-checker` : 'https://jawed.co.in/tools/cable-length-poe-budget-checker'}
-          showPrintPreview={false}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <PrintToolButton
+            label="Print this Tool"
+            documentTitle="Cable Length & PoE Budget Checker — Engineering Report"
+          />
+          <SocialShareBar
+            title="Cable Length & PoE Budget Checker | Jawed Imtiaz"
+            text="Free browser-based Ethernet cable distance checker (Cat5e/Cat6/Cat6a) and PoE switch power budget calculator."
+            url={typeof window !== 'undefined' ? `${window.location.origin}/tools/cable-length-poe-budget-checker` : 'https://jawed.co.in/tools/cable-length-poe-budget-checker'}
+            showPrintPreview={false}
+            showPrintToolButton={false}
+          />
+        </div>
+      </div>
+
+      {/* Print-Only Engineering Report Header (Active via @media print in src/index.css) */}
+      <div className="print-only" style={{ marginBottom: '16pt', borderBottom: '2px solid #0f172a', paddingBottom: '10pt' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '7.5pt', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', fontWeight: 700, marginBottom: '2pt' }}>
+              Structured Cabling &amp; PoE Power Budget Report
+            </div>
+            <h1 style={{ fontSize: '16pt', fontWeight: 800, margin: '0 0 3pt', color: '#0f172a' }}>
+              Cable Length &amp; PoE Budget Checker Specification
+            </h1>
+            <p style={{ margin: 0, fontSize: '8.5pt', color: '#475569' }}>
+              TIA-568 / ISO/IEC 11801 channel attenuation, DC loop resistance voltage drop, and IEEE 802.3af/at/bt PoE switch budget verification.
+            </p>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '8pt', color: '#64748b', flexShrink: 0 }}>
+            <div><strong>Date:</strong> {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+            <div><strong>Tool:</strong> jawed.co.in/tools/cable-length-poe-budget-checker</div>
+          </div>
+        </div>
       </div>
 
       {/* Hero Header */}

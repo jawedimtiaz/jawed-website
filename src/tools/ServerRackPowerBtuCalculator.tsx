@@ -10,9 +10,12 @@ import { useDiagnosticToolStorage } from '../hooks/useDiagnosticToolStorage';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
+import { PrintToolButton, triggerToolPrint } from '../components/common/PrintToolButton';
 import { UnitSystemToggle } from '../components/common/UnitSystemToggle';
 import { ToolTour } from '../components/common/ToolTour';
 import { useUnitSystem } from '../hooks/useUnitSystem';
+
+export { PrintToolButton, triggerToolPrint };
 
 interface DeviceItem {
   id: string;
@@ -260,20 +263,15 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
             <Eye className="w-4 h-4 text-sky-400" />
             Print Preview
           </button>
-          <button
-            type="button"
-            className="button button-secondary no-print"
-            onClick={() => window.print()}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '6px 12px' }}
-            title="Download or Print clean PDF calculation report via browser print dialog"
-          >
-            <Printer className="w-4 h-4 text-sky-400" />
-            Download as PDF
-          </button>
+          <PrintToolButton
+            label="Print this Tool"
+            documentTitle="Server Rack Power & BTU Calculator — Engineering Report"
+          />
           <SocialShareBar
             title="Server Rack Power & BTU Calculator"
             text="Estimate server equipment electrical draw (Watts/Amps), circuit breaker derating, and HVAC BTU/hr cooling load."
             showPrintPreview={false}
+            showPrintToolButton={false}
           />
         </div>
       </div>

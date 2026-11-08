@@ -8,11 +8,14 @@ import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
 import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
+import { PrintToolButton, triggerToolPrint } from '../components/common/PrintToolButton';
 import { UnitSystemToggle } from '../components/common/UnitSystemToggle';
 import { ToolTour, TourStep } from '../components/common/ToolTour';
 import { useUnitSystem } from '../hooks/useUnitSystem';
 import { useDiagnosticToolStorage } from '../hooks/useDiagnosticToolStorage';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
+
+export { PrintToolButton, triggerToolPrint };
 
 const IPV4_TOUR_STEPS: TourStep[] = [
   {
@@ -262,20 +265,15 @@ export const Ipv4SubnetCalculator: React.FC = () => {
             <Eye className="w-4 h-4 text-sky-400" />
             Print Preview
           </button>
-          <button
-            type="button"
-            className="button button-secondary no-print"
-            onClick={() => window.print()}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '6px 12px' }}
-            title="Download or Print clean PDF calculation report via browser print dialog"
-          >
-            <Printer className="w-4 h-4 text-sky-400" />
-            Download as PDF
-          </button>
+          <PrintToolButton
+            label="Print this Tool"
+            documentTitle="IPv4 Subnet & CIDR Calculator — Engineering Report"
+          />
           <SocialShareBar
             title="IPv4 Subnet & CIDR Calculator"
             text="Calculate IPv4 network boundaries, usable host ranges, broadcast addresses, wildcard masks, and 32-bit binary notation."
             showPrintPreview={false}
+            showPrintToolButton={false}
           />
         </div>
       </div>

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import notesData from '../src/data/notesData.json';
 import {
   generateTableOfContents,
+  injectHeadingCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
   buildTocAnchorUrl,
@@ -158,4 +159,42 @@ test('copyTocAnchorToClipboard writes the anchor URL using Clipboard API and han
   const emptyResult = await copyTocAnchorToClipboard('', mockClipboard);
   assert.equal(emptyResult, false);
 });
+
+test('injectHeadingCopyButtons adds a Copy Link to Heading button for every h2 and h3 and ignores h1/h4', () => {
+  const sampleHtml = `
+    <h1>Main Title</h1>
+    <h2>1. First Section</h2>
+    <p>Paragraph text</p>
+    <h3>1.1 Sub Section</h3>
+    <h4>Minor Heading</h4>
+  `;
+
+  const enhancedHtml = injectHeadingCopyButtons(sampleHtml);
+
+  assert.ok(
+    enhancedHtml.includes('data-copy-heading-id="1-first-section"'),
+    'Expected Copy Link to Heading button injected into h2'
+  );
+  assert.ok(
+    enhancedHtml.includes('data-copy-heading-id="1-1-sub-section"'),
+    'Expected Copy Link to Heading button injected into h3'
+  );
+  assert.ok(
+    enhancedHtml.includes('title="Copy Link to Heading"'),
+    'Expected Copy Link to Heading title attribute'
+  );
+  assert.ok(
+    !enhancedHtml.includes('data-copy-heading-id="main-title"') &&
+      !enhancedHtml.includes('data-copy-heading-id="minor-heading"'),
+    'Expected h1 and h4 to remain untouched without heading copy buttons'
+  );
+
+  // Verify copied feedback state
+  const copiedHtml = injectHeadingCopyButtons(sampleHtml, '1-first-section');
+  assert.ok(
+    copiedHtml.includes('class="note-heading-copy-btn is-copied" data-copy-heading-id="1-first-section"'),
+    'Expected is-copied state when copiedHeadingId matches h2 id'
+  );
+});
+
 
