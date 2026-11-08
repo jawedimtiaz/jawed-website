@@ -3,8 +3,21 @@ import { Printer } from 'lucide-react';
 import { UniversalShareModal } from './common/UniversalShareModal';
 import { A4PrintPreviewModal } from './A4PrintPreviewModal';
 import { PrintToolButton, triggerToolPrint } from './common/PrintToolButton';
+import {
+  ShareToolLinkButton,
+  copyToolShareUrlToClipboard,
+  resolveToolShareUrl,
+  SHARE_TOAST_MESSAGE,
+} from './common/ShareToolLinkButton';
 
-export { PrintToolButton, triggerToolPrint };
+export {
+  PrintToolButton,
+  triggerToolPrint,
+  ShareToolLinkButton,
+  copyToolShareUrlToClipboard,
+  resolveToolShareUrl,
+  SHARE_TOAST_MESSAGE,
+};
 
 export interface SocialShareBarProps {
   /**
@@ -63,9 +76,8 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'shared' | 'error'>('idle');
 
-  const resolvedUrl = url || (typeof window !== 'undefined' ? window.location.href : '');
+  const resolvedUrl = resolveToolShareUrl(url);
   const shareText = text ? `${title} — ${text}` : title;
 
   const encodedUrl = encodeURIComponent(resolvedUrl);
@@ -73,7 +85,6 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
   const encodedTitle = encodeURIComponent(title);
 
   // Social Intent Share URLs
-  const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
   const xTwitterUrl = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
   const redditUrl = `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}`;
 
@@ -111,7 +122,14 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
           </span>
         )}
 
-        {/* Primary Universal Share Modal Button */}
+        {/* Primary Share Button: copies current tool URL to clipboard & displays 'Link copied!' toast */}
+        <ShareToolLinkButton
+          url={resolvedUrl}
+          label="Share"
+          size={size === 'small' ? 'sm' : 'md'}
+        />
+
+        {/* Universal Share Modal Options Button */}
         <button
           type="button"
           className="button button-secondary"
@@ -145,7 +163,7 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
           </svg>
-          <span>Share</span>
+          <span>More</span>
         </button>
 
         {/* Quick LinkedIn Shortcut */}

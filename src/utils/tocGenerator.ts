@@ -80,7 +80,32 @@ export function slugifyHeading(text: string): string {
 }
 
 /**
- * Extracts all H2 and H3 headings from raw HTML content, ensures each heading tag
+ * Converts Markdown H2 (`## `) and H3 (`### `) lines into HTML `<h2>` and `<h3>` tags
+ * while preserving fenced/HTML `<pre>` code blocks so both Markdown and HTML notes are supported.
+ */
+export function convertMarkdownHeadingsToHtml(content: string): string {
+  if (!content || typeof content !== 'string') return '';
+
+  const preBlocks: string[] = [];
+  const masked = content.replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, (match) => {
+    const token = `__TOC_PRE_BLOCK_${preBlocks.length}__`;
+    preBlocks.push(match);
+    return token;
+  });
+
+  const converted = masked.replace(
+    /^[ \t]*(#{2,3})[ \t]+([^\r\n#]+?)[ \t]*#*[ \t]*$/gm,
+    (_, hashes: string, headingText: string) => {
+      const tag = hashes.length === 2 ? 'h2' : 'h3';
+      return `<${tag}>${headingText.trim()}</${tag}>`;
+    }
+  );
+
+  return converted.replace(/__TOC_PRE_BLOCK_(\d+)__/g, (_, idx) => preBlocks[Number(idx)] ?? '');
+}
+
+/**
+ * Extracts all H2 and H3 headings from raw HTML or Markdown content, ensures each heading tag
  * has a unique `id` attribute in the returned HTML, and returns the structured TOC list.
  */
 export function generateTableOfContents(
@@ -97,6 +122,7 @@ export function generateTableOfContents(
     };
   }
 
+  const normalizedContent = convertMarkdownHeadingsToHtml(htmlContent);
   const tocItems: TocItem[] = [];
   const usedIds = new Set<string>();
 
@@ -117,7 +143,7 @@ export function generateTableOfContents(
 
   const headingRegex = /<(h[23])(\s[^>]*)?>([\s\S]*?)<\/\1>/gi;
 
-  const htmlWithIds = htmlContent.replace(
+  const htmlWithIds = normalizedContent.replace(
     headingRegex,
     (fullMatch, tagName: string, rawAttrs: string | undefined, innerHtml: string) => {
       const level: 2 | 3 = tagName.toLowerCase() === 'h2' ? 2 : 3;
@@ -162,6 +188,92 @@ export function generateTableOfContents(
     tocItems,
     shouldShowToc: tocItems.length >= minHeadings,
   };
+}
+
+/**
+ * Parses rendered H2 and H3 DOM elements inside a container element, ensuring each
+ * heading has a unique `id` attribute and returning the ordered `TocItem[]` list.
+ */
+export function parseRenderedHeadingsFromDom(
+  container: {
+    querySelectorAll?: (selector: string) => Iterable<any> | ArrayLike<any>;
+  } | null
+): TocItem[] {
+  if (!container || typeof container.querySelectorAll !== 'function') {
+    return [];
+  }
+
+  const elements = Array.from(container.querySelectorAll('h2, h3') as ArrayLike<any>);
+  const items: TocItem[] = [];
+  const usedIds = new Set<string>();
+
+  for (const el of elements) {
+    const tagName = String(el?.tagName || '').toLowerCase();
+    if (tagName !== 'h2' && tagName !== 'h3') continue;
+
+    const textSource =
+      el?.querySelector?.('.note-heading-text')?.textContent ??
+      el?.textContent ??
+      '';
+    const cleanText = String(textSource)
+      .replace(/Copy Link to Heading|Copied!?|✓/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanText) continue;
+
+    let headingId = String(el?.id || '').trim() || slugifyHeading(cleanText);
+    if (usedIds.has(headingId)) {
+      let counter = 2;
+      while (usedIds.has(`${headingId}-${counter}`)) {
+        counter += 1;
+      }
+      headingId = `${headingId}-${counter}`;
+    }
+    usedIds.add(headingId);
+
+    if (!el.id) {
+      el.id = headingId;
+    }
+
+    items.push({
+      id: headingId,
+      text: cleanText,
+      level: tagName === 'h2' ? 2 : 3,
+    });
+  }
+
+  return items;
+}
+
+/**
+ * Smoothly scrolls to a heading section by ID and updates the URL hash fragment without page reload.
+ */
+export function jumpToHeadingSection(
+  headingId: string,
+  docOverride?: { getElementById?: (id: string) => { scrollIntoView?: (opts: any) => void } | null },
+  winOverride?: { history?: { replaceState?: (data: any, unused: string, url?: string | null) => void } }
+): boolean {
+  const cleanId = headingId.replace(/^#+/, '').trim();
+  if (!cleanId) return false;
+
+  const doc = docOverride ?? (typeof document !== 'undefined' ? document : undefined);
+  const win = winOverride ?? (typeof window !== 'undefined' ? window : undefined);
+
+  let scrolled = false;
+  if (doc && typeof doc.getElementById === 'function') {
+    const targetElement = doc.getElementById(cleanId);
+    if (targetElement && typeof targetElement.scrollIntoView === 'function') {
+      targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrolled = true;
+    }
+  }
+
+  if (win?.history && typeof win.history.replaceState === 'function') {
+    win.history.replaceState(null, '', `#${cleanId}`);
+  }
+
+  return scrolled;
 }
 
 /**

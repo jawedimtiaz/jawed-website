@@ -109,6 +109,119 @@ function renderMarkdown(text: string) {
   });
 }
 
+export interface SpeechTranscriptResult {
+  finalTranscript: string;
+  interimTranscript: string;
+  combinedQuery: string;
+}
+
+export function getSpeechRecognitionConstructor(win?: unknown): (new () => any) | null {
+  const targetWin =
+    win !== undefined ? (win as Record<string, any>) : typeof window !== 'undefined' ? (window as Record<string, any>) : null;
+  if (!targetWin) return null;
+  return targetWin.SpeechRecognition || targetWin.webkitSpeechRecognition || null;
+}
+
+export function isWebSpeechApiSupported(win?: unknown): boolean {
+  return Boolean(getSpeechRecognitionConstructor(win));
+}
+
+export function extractSpeechTranscript(
+  event: any,
+  baseQuery: string = ''
+): SpeechTranscriptResult {
+  let finalTranscript = '';
+  let interimTranscript = '';
+
+  const results = event?.results;
+  if (results && typeof results.length === 'number') {
+    for (let i = 0; i < results.length; i++) {
+      const resultItem = results[i];
+      const alternative = resultItem && resultItem[0];
+      const piece = typeof alternative?.transcript === 'string' ? alternative.transcript : '';
+      if (!piece) continue;
+      if (resultItem.isFinal === false) {
+        interimTranscript += piece;
+      } else {
+        finalTranscript += piece;
+      }
+    }
+  }
+
+  const cleanBase = (baseQuery || '').trim();
+  const cleanFinal = finalTranscript.trim();
+  const cleanInterim = interimTranscript.trim();
+  const spoken = [cleanFinal, cleanInterim].filter(Boolean).join(' ').trim();
+  const combinedQuery = [cleanBase, spoken].filter(Boolean).join(' ').trim();
+
+  return {
+    finalTranscript: cleanFinal,
+    interimTranscript: cleanInterim,
+    combinedQuery,
+  };
+}
+
+export interface VoiceToTextSessionOptions {
+  win?: unknown;
+  lang?: string;
+  baseQuery?: string;
+  onStart?: () => void;
+  onTranscript?: (result: SpeechTranscriptResult) => void;
+  onError?: (errorCode: string, message: string) => void;
+  onEnd?: () => void;
+}
+
+export function createVoiceToTextSession(options: VoiceToTextSessionOptions) {
+  const SpeechRecognition = getSpeechRecognitionConstructor(options.win);
+  if (!SpeechRecognition) {
+    return null;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = options.lang || 'en-US';
+
+  recognition.onstart = () => {
+    options.onStart?.();
+  };
+
+  recognition.onresult = (event: any) => {
+    const parsed = extractSpeechTranscript(event, options.baseQuery || '');
+    options.onTranscript?.(parsed);
+  };
+
+  recognition.onerror = (event: any) => {
+    const code = event?.error || 'unknown';
+    let message = `Voice recognition error: ${code}`;
+    if (code === 'not-allowed' || code === 'service-not-allowed') {
+      message = 'Microphone permission was denied. Please allow microphone access.';
+    } else if (code === 'no-speech') {
+      message = '';
+    } else if (code === 'network') {
+      message = 'Voice recognition network connection error.';
+    }
+    options.onError?.(code, message);
+  };
+
+  recognition.onend = () => {
+    options.onEnd?.();
+  };
+
+  return {
+    recognition,
+    start: () => recognition.start(),
+    stop: () => recognition.stop(),
+    abort: () => {
+      if (typeof recognition.abort === 'function') {
+        recognition.abort();
+      } else {
+        recognition.stop();
+      }
+    },
+  };
+}
+
 export const JawedAiWidget: React.FC = () => {
   const isOnline = useOnlineStatus();
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -116,7 +229,8 @@ export const JawedAiWidget: React.FC = () => {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(() => isWebSpeechApiSupported());
   const [speechNotice, setSpeechNotice] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<Message[]>([
@@ -136,13 +250,7 @@ export const JawedAiWidget: React.FC = () => {
   const location = useLocation();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        setSpeechSupported(true);
-      }
-    }
+    setSpeechSupported(isWebSpeechApiSupported());
   }, []);
 
   useEffect(() => {
@@ -166,6 +274,7 @@ export const JawedAiWidget: React.FC = () => {
       }
     }
     setIsListening(false);
+    setInterimTranscript('');
   }, []);
 
   useEffect(() => {
@@ -245,10 +354,7 @@ export const JawedAiWidget: React.FC = () => {
   const startListening = () => {
     if (typeof window === 'undefined') return;
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
+    if (!isWebSpeechApiSupported(window)) {
       showNotice('Speech recognition is not supported in this browser. Try Chrome, Edge, or Safari.');
       return;
     }
@@ -260,61 +366,58 @@ export const JawedAiWidget: React.FC = () => {
         } catch {}
       }
 
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
       baseQueryRef.current = query.trim();
 
-      recognition.onstart = () => {
-        setIsListening(true);
-        setSpeechNotice(null);
-      };
+      const session = createVoiceToTextSession({
+        win: window,
+        lang: 'en-US',
+        baseQuery: baseQueryRef.current,
+        onStart: () => {
+          setIsListening(true);
+          setInterimTranscript('');
+          setSpeechNotice(null);
+        },
+        onTranscript: (parsed) => {
+          setInterimTranscript(parsed.interimTranscript);
+          setQuery(parsed.combinedQuery);
+        },
+        onError: (_code, message) => {
+          setIsListening(false);
+          setInterimTranscript('');
+          if (message) {
+            showNotice(message);
+          }
+        },
+        onEnd: () => {
+          setIsListening(false);
+          setInterimTranscript('');
+        },
+      });
 
-      recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.resultIndex !== undefined ? event.results[i][0].transcript : '';
-        }
+      if (!session) {
+        showNotice('Speech recognition is not supported in this browser. Try Chrome, Edge, or Safari.');
+        return;
+      }
 
-        const base = baseQueryRef.current;
-        const newText = base ? `${base} ${transcript.trim()}` : transcript.trim();
-        setQuery(newText);
-      };
-
-      recognition.onerror = (event: any) => {
-        setIsListening(false);
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          showNotice('Microphone permission was denied. Please allow microphone access.');
-        } else if (event.error === 'no-speech') {
-          // Silent timeout
-        } else if (event.error === 'network') {
-          showNotice('Voice recognition network connection error.');
-        } else {
-          showNotice(`Voice recognition error: ${event.error}`);
-        }
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
+      recognitionRef.current = session.recognition;
+      session.start();
     } catch {
       setIsListening(false);
+      setInterimTranscript('');
       showNotice('Could not start microphone. Please check browser permissions.');
     }
   };
 
-  const toggleListening = () => {
+  const toggleVoiceToTextMode = () => {
     if (isListening) {
       stopListening();
     } else {
       startListening();
+      inputRef.current?.focus();
     }
   };
+
+  const toggleListening = toggleVoiceToTextMode;
 
   const handleSend = async () => {
     if (isListening) {
@@ -487,8 +590,51 @@ export const JawedAiWidget: React.FC = () => {
             </div>
           </div>
 
-          <div className="jawed-ai-widget-privacy">
-            🔒 Hands-free voice enabled for field technicians. Local notes grounded.
+          <div
+            className="jawed-ai-widget-privacy"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <span>🔒 Hands-free voice enabled for field technicians. Local notes grounded.</span>
+            <button
+              type="button"
+              onClick={toggleVoiceToTextMode}
+              disabled={loading}
+              aria-pressed={isListening}
+              data-testid="voice-to-text-mode-toggle"
+              aria-label={isListening ? 'Disable voice-to-text mode' : 'Enable voice-to-text mode'}
+              title={
+                isListening
+                  ? 'Voice-to-Text mode active — click to stop'
+                  : 'Toggle Voice-to-Text mode (Web Speech API)'
+              }
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '2px 8px',
+                borderRadius: '999px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                border: isListening
+                  ? '1px solid rgba(239, 68, 68, 0.55)'
+                  : '1px solid rgba(56, 189, 248, 0.35)',
+                background: isListening
+                  ? 'rgba(239, 68, 68, 0.18)'
+                  : 'rgba(56, 189, 248, 0.12)',
+                color: isListening ? '#f87171' : '#38bdf8',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span aria-hidden="true">{isListening ? '🔴' : '🎙️'}</span>
+              <span>{isListening ? 'Voice-to-Text: ON' : 'Voice-to-Text'}</span>
+            </button>
           </div>
 
           {/* Contained Scrollable Message History */}
@@ -570,19 +716,41 @@ export const JawedAiWidget: React.FC = () => {
           >
             {/* Real-time Hands-free Listening Bar */}
             {isListening && (
-              <div className="jawed-ai-voice-bar" role="status" aria-live="polite">
+              <div
+                className="jawed-ai-voice-bar"
+                role="status"
+                aria-live="polite"
+                data-testid="jawed-ai-voice-bar"
+              >
                 <div className="jawed-ai-voice-bar-left">
                   <span className="voice-pulse-dot" aria-hidden="true" />
-                  <span>Listening hands-free... Speak your troubleshooting issue</span>
+                  <span>
+                    {interimTranscript
+                      ? `Capturing: "${interimTranscript}"`
+                      : 'Voice-to-Text active — speak your query'}
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  className="jawed-ai-voice-done-btn"
-                  onClick={stopListening}
-                  aria-label="Finish voice dictation"
-                >
-                  Done
-                </button>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  {query.trim() && (
+                    <button
+                      type="button"
+                      className="jawed-ai-voice-done-btn"
+                      onClick={() => handleSend()}
+                      style={{ background: '#0284c7' }}
+                      aria-label="Send dictated voice query"
+                    >
+                      Ask Now
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="jawed-ai-voice-done-btn"
+                    onClick={stopListening}
+                    aria-label="Finish voice dictation"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             )}
 
@@ -601,7 +769,7 @@ export const JawedAiWidget: React.FC = () => {
                   !isOnline
                     ? 'Jawed AI needs internet'
                     : isListening
-                    ? 'Listening... Speak into microphone...'
+                    ? 'Voice-to-Text active... Speak into microphone...'
                     : 'Ask a question or describe an issue...'
                 }
                 value={query}
@@ -611,23 +779,25 @@ export const JawedAiWidget: React.FC = () => {
                 className={isListening ? 'is-listening' : ''}
               />
 
-              {/* Web Speech API Voice Dictation Button */}
+              {/* Web Speech API Voice-to-Text Toggle Button */}
               <button
                 type="button"
                 className={`jawed-ai-mic-btn ${isListening ? 'active' : ''}`}
-                onClick={toggleListening}
+                onClick={toggleVoiceToTextMode}
                 disabled={loading}
+                aria-pressed={isListening}
+                data-testid="jawed-ai-mic-btn"
                 aria-label={
                   isListening
-                    ? 'Stop hands-free voice dictation'
-                    : 'Start hands-free voice dictation'
+                    ? 'Stop hands-free voice-to-text dictation'
+                    : 'Start hands-free voice-to-text dictation'
                 }
                 title={
                   !speechSupported
-                    ? 'Voice dictation (Web Speech API)'
+                    ? 'Voice-to-Text mode (Web Speech API)'
                     : isListening
-                    ? 'Stop listening'
-                    : 'Dictate hands-free issue (Web Speech API)'
+                    ? 'Disable Voice-to-Text mode'
+                    : 'Enable Voice-to-Text mode (Web Speech API)'
                 }
               >
                 {isListening ? (
@@ -673,3 +843,4 @@ export const JawedAiWidget: React.FC = () => {
     </div>
   );
 };
+

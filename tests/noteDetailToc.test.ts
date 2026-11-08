@@ -197,4 +197,100 @@ test('injectHeadingCopyButtons adds a Copy Link to Heading button for every h2 a
   );
 });
 
+test('AutomatedTableOfContents / TableOfContents parses Markdown and rendered DOM headings and provides sticky side navigation jumping', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    convertMarkdownHeadingsToHtml,
+    parseRenderedHeadingsFromDom,
+    jumpToHeadingSection,
+    generateTableOfContents: genToc,
+  } = await import('../src/components/TableOfContents');
+
+  // 1. Verify Markdown headings (## and ###) are parsed into H2/H3 TOC items with unique anchor IDs
+  const sampleMarkdownAndHtml = `
+# Guide Title
+## 1. Initial Triage & Scope
+Some paragraph text.
+### 1.1 Check Network Connectivity
+<pre><code>## Inside code block ignored</code></pre>
+## 2. Escalation Handoff
+  `;
+
+  const converted = convertMarkdownHeadingsToHtml(sampleMarkdownAndHtml);
+  assert.ok(converted.includes('<h2>1. Initial Triage & Scope</h2>'));
+  assert.ok(converted.includes('<h3>1.1 Check Network Connectivity</h3>'));
+  assert.ok(converted.includes('<pre><code>## Inside code block ignored</code></pre>'));
+
+  const tocResult = genToc(sampleMarkdownAndHtml);
+  assert.equal(tocResult.shouldShowToc, true);
+  assert.deepEqual(tocResult.tocItems, [
+    { id: '1-initial-triage-scope', text: '1. Initial Triage & Scope', level: 2 },
+    { id: '1-1-check-network-connectivity', text: '1.1 Check Network Connectivity', level: 3 },
+    { id: '2-escalation-handoff', text: '2. Escalation Handoff', level: 2 },
+  ]);
+
+  // 2. Verify parseRenderedHeadingsFromDom inspects live H2/H3 DOM elements and assigns unique IDs
+  const mockElements = [
+    { tagName: 'H2', id: '', textContent: 'Verify DNS Resolution Copy Link to Heading' },
+    { tagName: 'H3', id: '', textContent: 'Check Authoritative NS' },
+    { tagName: 'H2', id: '', textContent: 'Verify DNS Resolution' },
+  ];
+  const domItems = parseRenderedHeadingsFromDom({
+    querySelectorAll: () => mockElements,
+  });
+  assert.deepEqual(domItems, [
+    { id: 'verify-dns-resolution', text: 'Verify DNS Resolution', level: 2 },
+    { id: 'check-authoritative-ns', text: 'Check Authoritative NS', level: 3 },
+    { id: 'verify-dns-resolution-2', text: 'Verify DNS Resolution', level: 2 },
+  ]);
+
+  // 3. Verify jumpToHeadingSection scrolls smoothly to the target section and updates URL hash
+  let scrolledToId = '';
+  let replacedHash = '';
+  const didJump = jumpToHeadingSection(
+    'verify-dns-resolution',
+    {
+      getElementById: (id: string) => ({
+        scrollIntoView: () => {
+          scrolledToId = id;
+        },
+      }),
+    },
+    {
+      history: {
+        replaceState: (_data: any, _unused: string, url?: string | null) => {
+          replacedHash = url || '';
+        },
+      },
+    }
+  );
+  assert.equal(didJump, true);
+  assert.equal(scrolledToId, 'verify-dns-resolution');
+  assert.equal(replacedHash, '#verify-dns-resolution');
+
+  // 4. Verify TableOfContents.tsx and NoteDetailPage.tsx provide sticky side navigation
+  const tocComponentSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/TableOfContents.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    tocComponentSource.includes('note-toc-sidebar sticky top-24') &&
+      tocComponentSource.includes("position: 'sticky'") &&
+      tocComponentSource.includes('data-testid="note-toc-sidebar"'),
+    'Expected TableOfContents.tsx to render a sticky side navigation sidebar'
+  );
+  assert.ok(
+    noteDetailSource.includes('<TableOfContents') &&
+      noteDetailSource.includes('mode="desktop"'),
+    'Expected NoteDetailPage.tsx to mount <TableOfContents mode="desktop" /> for sticky side navigation'
+  );
+});
+
+
 

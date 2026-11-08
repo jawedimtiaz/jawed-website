@@ -6,6 +6,31 @@ import { SocialShareBar } from '../components/SocialShareBar';
 import { SeoHead } from '../components/SeoHead';
 import { calculateReadTime } from '../utils/readTimeHelper';
 import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
+import {
+  GlobalImageLightbox,
+  handleArticleImageLightboxClick,
+  openGlobalImageLightbox,
+} from '../components/GlobalImageLightbox';
+import {
+  RelatedArticlesSection,
+  getRelatedArticles,
+  extractArticleTopicsAndTags,
+  getDefaultArticlePool,
+  type ArticleCandidate,
+  type RelatedArticleSuggestion,
+} from '../components/RelatedArticlesSection';
+
+export {
+  GlobalImageLightbox,
+  handleArticleImageLightboxClick,
+  openGlobalImageLightbox,
+  RelatedArticlesSection,
+  getRelatedArticles,
+  extractArticleTopicsAndTags,
+  getDefaultArticlePool,
+  type ArticleCandidate,
+  type RelatedArticleSuggestion,
+};
 
 export const BlogPostPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -52,7 +77,22 @@ export const BlogPostPage: React.FC = () => {
 
       <div
         className="blog-rendered-content"
+        data-testid="blog-rendered-content"
+        data-lightbox-scope="true"
+        onClick={handleArticleImageLightboxClick}
         dangerouslySetInnerHTML={{ __html: post.content }}
+      />
+
+      {/* Related Articles Section (3 posts matched by tags or topics) */}
+      <RelatedArticlesSection
+        currentArticle={{
+          slug: post.slug,
+          title: post.title,
+          description: post.description,
+          content: post.content,
+          sourceType: 'blog',
+        }}
+        count={3}
       />
 
       {/* Newsletter Subscription Form */}

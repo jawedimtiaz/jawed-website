@@ -24,8 +24,52 @@ import {
 } from './components/OfflineModeFallback';
 import { DiagnosticToolsAutoPersist } from './components/DiagnosticToolsAutoPersist';
 import { PrintToolButton, triggerToolPrint } from './components/common/PrintToolButton';
+import {
+  ShareToolLinkButton,
+  copyToolShareUrlToClipboard,
+  resolveToolShareUrl,
+  SHARE_TOAST_MESSAGE,
+} from './components/common/ShareToolLinkButton';
+import {
+  GlobalImageLightbox,
+  openGlobalImageLightbox,
+  handleArticleImageLightboxClick,
+  computeZoomStep,
+  computePanOffset,
+  clampLightboxZoom,
+  isLightboxEligibleRoute,
+  extractLightboxImageFromElement,
+} from './components/GlobalImageLightbox';
+import {
+  RelatedArticlesSection,
+  getRelatedArticles,
+  extractArticleTopicsAndTags,
+  getDefaultArticlePool,
+} from './components/RelatedArticlesSection';
 
-export { OfflineModeFallback, CACHED_OFFLINE_TOOLS, usePWAInstall, PrintToolButton, triggerToolPrint };
+export {
+  OfflineModeFallback,
+  CACHED_OFFLINE_TOOLS,
+  usePWAInstall,
+  PrintToolButton,
+  triggerToolPrint,
+  ShareToolLinkButton,
+  copyToolShareUrlToClipboard,
+  resolveToolShareUrl,
+  SHARE_TOAST_MESSAGE,
+  GlobalImageLightbox,
+  openGlobalImageLightbox,
+  handleArticleImageLightboxClick,
+  computeZoomStep,
+  computePanOffset,
+  clampLightboxZoom,
+  isLightboxEligibleRoute,
+  extractLightboxImageFromElement,
+  RelatedArticlesSection,
+  getRelatedArticles,
+  extractArticleTopicsAndTags,
+  getDefaultArticlePool,
+};
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -313,6 +357,7 @@ export const App: React.FC = () => {
         <Footer onOpenCookieModal={() => setCookieModalOpen(true)} />
         <JawedAiWidget />
         <PWAInstallBanner />
+        <GlobalImageLightbox />
 
         {/* Cookie Preference Modal */}
         {cookieModalOpen && (

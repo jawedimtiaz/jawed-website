@@ -23,6 +23,19 @@ import {
   DEFAULT_PERIODIC_AUTOSAVE_MS,
 } from '../hooks/useDiagnosticToolStorage';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import {
+  ShareToolLinkButton,
+  copyToolShareUrlToClipboard,
+  resolveToolShareUrl,
+  SHARE_TOAST_MESSAGE,
+} from './common/ShareToolLinkButton';
+
+export {
+  ShareToolLinkButton,
+  copyToolShareUrlToClipboard,
+  resolveToolShareUrl,
+  SHARE_TOAST_MESSAGE,
+};
 
 export const GLOBAL_DIAGNOSTIC_AUTO_KEY = 'diag_auto_';
 export const PERIODIC_AUTOSAVE_INTERVAL_MS = 5000;
@@ -300,6 +313,9 @@ export const ToolHeaderAutoSaveIndicator: React.FC<ToolHeaderAutoSaveIndicatorPr
             <span>Save Now</span>
           </button>
         )}
+
+        {/* Share Tool Link Button (copies tool URL + shows 'Link copied!' toast) */}
+        <ShareToolLinkButton size="sm" label="Share" />
       </div>
     </div>
   );

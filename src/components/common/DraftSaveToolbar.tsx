@@ -1,5 +1,18 @@
 import React, { useState } from 'react';
 import { Save, RotateCcw, Wifi, WifiOff, CheckCircle2, Clock, Info } from 'lucide-react';
+import {
+  ShareToolLinkButton,
+  copyToolShareUrlToClipboard,
+  resolveToolShareUrl,
+  SHARE_TOAST_MESSAGE,
+} from './ShareToolLinkButton';
+
+export {
+  ShareToolLinkButton,
+  copyToolShareUrlToClipboard,
+  resolveToolShareUrl,
+  SHARE_TOAST_MESSAGE,
+};
 
 export interface DraftSaveToolbarProps {
   isOnline: boolean;
@@ -204,6 +217,8 @@ export const DraftSaveToolbar: React.FC<DraftSaveToolbarProps> = ({
 
         {/* Action buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <ShareToolLinkButton size="sm" label="Share" />
+
           <button
             type="button"
             data-testid="save-draft-btn"

@@ -10,7 +10,12 @@ import { calculateReadTime } from '../utils/readTimeHelper';
 import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 import { extractContentFreshness, type NoteSchemaItem } from '../utils/contentFreshness';
 import {
+  TableOfContents,
+  AutomatedTableOfContents,
   generateTableOfContents,
+  convertMarkdownHeadingsToHtml,
+  parseRenderedHeadingsFromDom,
+  jumpToHeadingSection,
   injectHeadingCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
@@ -18,19 +23,46 @@ import {
   copyTocAnchorToClipboard,
   type TocItem,
   type GeneratedTocResult,
-} from '../utils/tocGenerator';
+} from '../components/TableOfContents';
 
 import { COMPONENT_MAPPER, getInteractiveComponentForSlug } from '../utils/componentMapper';
+import {
+  GlobalImageLightbox,
+  handleArticleImageLightboxClick,
+  openGlobalImageLightbox,
+} from '../components/GlobalImageLightbox';
+import {
+  RelatedArticlesSection,
+  getRelatedArticles,
+  extractArticleTopicsAndTags,
+  getDefaultArticlePool,
+  type ArticleCandidate,
+  type RelatedArticleSuggestion,
+} from '../components/RelatedArticlesSection';
 
 export {
+  TableOfContents,
+  AutomatedTableOfContents,
   generateTableOfContents,
+  convertMarkdownHeadingsToHtml,
+  parseRenderedHeadingsFromDom,
+  jumpToHeadingSection,
   injectHeadingCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
+  GlobalImageLightbox,
+  handleArticleImageLightboxClick,
+  openGlobalImageLightbox,
+  RelatedArticlesSection,
+  getRelatedArticles,
+  extractArticleTopicsAndTags,
+  getDefaultArticlePool,
   type TocItem,
   type GeneratedTocResult,
+  type ArticleCandidate,
+  type RelatedArticleSuggestion,
 };
 
 /**
@@ -275,23 +307,6 @@ export const NoteDetailPage: React.FC = () => {
   // Retrieve injected visual module from centralized componentMapper utility
   const visualModule = getInteractiveComponentForSlug(slug);
 
-  const handleTocLinkClick = (event: React.MouseEvent<HTMLAnchorElement>, headingId: string) => {
-    event.preventDefault();
-    setActiveHeadingId(headingId);
-    setIsMobileTocOpen(false);
-
-    if (typeof document !== 'undefined') {
-      const targetElement = document.getElementById(headingId);
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-
-    if (typeof window !== 'undefined' && window.history?.replaceState) {
-      window.history.replaceState(null, '', `#${headingId}`);
-    }
-  };
-
   const copyHeadingDeepLink = async (headingId: string) => {
     if (!headingId) return;
 
@@ -329,14 +344,17 @@ export const NoteDetailPage: React.FC = () => {
   const handleRenderedContentClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement | null;
     const copyBtn = target?.closest<HTMLButtonElement>('[data-copy-heading-id]');
-    if (!copyBtn) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    const headingId = copyBtn.getAttribute('data-copy-heading-id') || '';
-    if (headingId) {
-      void copyHeadingDeepLink(headingId);
+    if (copyBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const headingId = copyBtn.getAttribute('data-copy-heading-id') || '';
+      if (headingId) {
+        void copyHeadingDeepLink(headingId);
+      }
+      return;
     }
+
+    handleArticleImageLightboxClick(event);
   };
 
   const handleScrollToTop = () => {
@@ -348,65 +366,10 @@ export const NoteDetailPage: React.FC = () => {
     }
   };
 
-  const renderTocList = (idPrefix: string) => (
-    <ul className="note-toc-list" data-testid={`${idPrefix}-toc-list`}>
-      {tocItems.map((item) => {
-        const isActive = activeHeadingId === item.id;
-        const isCopied = copiedHeadingId === item.id;
-        return (
-          <li
-            key={item.id}
-            className={`note-toc-item level-${item.level}`}
-          >
-            <div className="note-toc-row">
-              <a
-                href={`#${item.id}`}
-                onClick={(e) => handleTocLinkClick(e, item.id)}
-                className={`note-toc-link level-${item.level}${isActive ? ' is-active' : ''}`}
-                aria-current={isActive ? 'location' : undefined}
-              >
-                {item.text}
-              </a>
-              <button
-                type="button"
-                onClick={(e) => handleCopySectionLink(e, item.id)}
-                className={`note-toc-copy-btn${isCopied ? ' is-copied' : ''}`}
-                title={isCopied ? 'Link copied!' : 'Copy Link to Heading'}
-                aria-label={
-                  isCopied
-                    ? `Copied link to ${item.text}`
-                    : `Copy Link to Heading: ${item.text}`
-                }
-                data-testid={`${idPrefix}-copy-toc-link-${item.id}`}
-              >
-                {isCopied ? (
-                  <>
-                    <span aria-hidden="true">✓</span>
-                    <span>Copied</span>
-                  </>
-                ) : (
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
-  );
+  const handleSelectTocHeading = (headingId: string) => {
+    setActiveHeadingId(headingId);
+    setIsMobileTocOpen(false);
+  };
 
   return (
     <main className="container page">
@@ -492,25 +455,18 @@ export const NoteDetailPage: React.FC = () => {
 
       {/* Mobile / Tablet Collapsible Table of Contents Navigation */}
       {shouldShowToc && (
-        <nav className="note-toc-mobile" aria-label="Table of Contents (Mobile)">
-          <button
-            type="button"
-            className="note-toc-mobile-toggle"
-            onClick={() => setIsMobileTocOpen((prev) => !prev)}
-            aria-expanded={isMobileTocOpen}
-            aria-controls="note-toc-mobile-panel"
-          >
-            <span>On this page · {tocItems.length} sections</span>
-            <span aria-hidden="true" style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-              {isMobileTocOpen ? 'Hide ▲' : 'Show ▼'}
-            </span>
-          </button>
-          {isMobileTocOpen && (
-            <div id="note-toc-mobile-panel" className="note-toc-mobile-panel">
-              {renderTocList('mobile')}
-            </div>
-          )}
-        </nav>
+        <TableOfContents
+          tocItems={tocItems}
+          content={cleanHtmlContent}
+          activeHeadingId={activeHeadingId}
+          copiedHeadingId={copiedHeadingId}
+          onSelectHeading={handleSelectTocHeading}
+          onCopyHeadingLink={handleCopySectionLink}
+          onScrollToTop={handleScrollToTop}
+          mode="mobile"
+          isMobileOpen={isMobileTocOpen}
+          onToggleMobile={() => setIsMobileTocOpen((prev) => !prev)}
+        />
       )}
 
       {/* Main Layout: Note Content + Sticky Table of Contents Sidebar */}
@@ -518,11 +474,13 @@ export const NoteDetailPage: React.FC = () => {
         {/* Rendered Note Content */}
         <article
           className="quick-note-article card"
+          data-lightbox-scope="true"
           style={{ padding: '32px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}
         >
           <div
             className="note-rendered-content"
             data-testid="note-rendered-content"
+            data-lightbox-scope="true"
             onClick={handleRenderedContentClick}
             dangerouslySetInnerHTML={{ __html: htmlWithCopyButtons }}
           />
@@ -537,27 +495,31 @@ export const NoteDetailPage: React.FC = () => {
 
         {/* Sticky Sidebar Table of Contents for Desktop */}
         {shouldShowToc && (
-          <aside className="note-toc-sidebar" aria-label="Table of Contents" data-testid="note-toc-sidebar">
-            <nav aria-label="On this page">
-              <div className="note-toc-header">
-                <h2 className="note-toc-title">On this page</h2>
-                <span className="note-toc-count">{tocItems.length} sections</span>
-              </div>
-              {renderTocList('desktop')}
-              <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-                <button
-                  type="button"
-                  onClick={handleScrollToTop}
-                  className="footer-text-btn"
-                  style={{ fontSize: '0.8rem', fontWeight: 600 }}
-                >
-                  ↑ Back to top
-                </button>
-              </div>
-            </nav>
-          </aside>
+          <TableOfContents
+            tocItems={tocItems}
+            content={cleanHtmlContent}
+            activeHeadingId={activeHeadingId}
+            copiedHeadingId={copiedHeadingId}
+            onSelectHeading={handleSelectTocHeading}
+            onCopyHeadingLink={handleCopySectionLink}
+            onScrollToTop={handleScrollToTop}
+            mode="desktop"
+          />
         )}
       </div>
+
+      {/* Related Articles Section (3 posts matched by tags or topics) */}
+      <RelatedArticlesSection
+        currentArticle={{
+          slug: note.slug,
+          title: guideMetadata.title || note.title,
+          description: guideMetadata.description || note.description,
+          category: note.category,
+          content: note.content,
+          sourceType: 'note',
+        }}
+        count={3}
+      />
 
       {/* Newsletter Subscription Form */}
       <NewsletterSubscribeForm sourceLocation={`note-${note.slug}`} />

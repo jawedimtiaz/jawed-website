@@ -8832,6 +8832,24 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   cursor: grabbing;
 }
 
+/* Global Lightbox Image Trigger Styles for NotesDetail, FieldGuideDetailPage, and BlogPostPage */
+.note-rendered-content img:not([data-no-lightbox="true"]),
+.blog-rendered-content img:not([data-no-lightbox="true"]),
+.guide-embedded-body img:not([data-no-lightbox="true"]),
+.quick-note-article img:not([data-no-lightbox="true"]),
+[data-lightbox-scope="true"] img:not([data-no-lightbox="true"]) {
+  cursor: zoom-in;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.note-rendered-content img:not([data-no-lightbox="true"]):hover,
+.blog-rendered-content img:not([data-no-lightbox="true"]):hover,
+.guide-embedded-body img:not([data-no-lightbox="true"]):hover,
+.quick-note-article img:not([data-no-lightbox="true"]):hover,
+[data-lightbox-scope="true"] img:not([data-no-lightbox="true"]):hover {
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45), 0 8px 24px rgba(2, 6, 23, 0.35);
+}
+
 
 
 

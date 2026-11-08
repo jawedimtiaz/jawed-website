@@ -14,6 +14,7 @@ import {
   copyTocAnchorToClipboard,
   slugifyHeading,
 } from '../utils/tocGenerator';
+import { handleArticleImageLightboxClick } from '../components/GlobalImageLightbox';
 
 // Reusable Visual Guide Components & Aliases
 import {
@@ -150,14 +151,17 @@ export const FieldGuideDetailPage: React.FC = () => {
   const handleArticleBodyClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement | null;
     const copyBtn = target?.closest<HTMLButtonElement>('[data-copy-heading-id]');
-    if (!copyBtn) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    const headingId = copyBtn.getAttribute('data-copy-heading-id') || '';
-    if (headingId) {
-      void copyGuideHeadingDeepLink(headingId);
+    if (copyBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const headingId = copyBtn.getAttribute('data-copy-heading-id') || '';
+      if (headingId) {
+        void copyGuideHeadingDeepLink(headingId);
+      }
+      return;
     }
+
+    handleArticleImageLightboxClick(event);
   };
 
   // Render guide body with embedded interactive components

@@ -442,7 +442,391 @@ describe('CommandPalette - Shortcut Filtering & Navigational Execution Logic', (
       'Expected src/index.css @media print rules to hide .print-this-tool-btn and format tool workspaces'
     );
   });
+
+  it('extends JawedAiWidget with Web Speech API voice-to-text mode toggling and cumulative transcript extraction', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      isWebSpeechApiSupported,
+      extractSpeechTranscript,
+      createVoiceToTextSession,
+    } = await import('../src/components/JawedAiWidget');
+
+    // 1. Verify Web Speech API support detection for both SpeechRecognition and webkitSpeechRecognition
+    assert.equal(isWebSpeechApiSupported({}), false);
+    assert.equal(isWebSpeechApiSupported({ SpeechRecognition: class {} }), true);
+    assert.equal(isWebSpeechApiSupported({ webkitSpeechRecognition: class {} }), true);
+
+    // 2. Verify extractSpeechTranscript combines baseQuery, finalized speech segments, and interim speech segments
+    const mockSpeechEvent = {
+      results: [
+        Object.assign([{ transcript: 'how do I troubleshoot ' }], { isFinal: true }),
+        Object.assign([{ transcript: 'switch port flapping' }], { isFinal: false }),
+      ],
+    };
+    const extracted = extractSpeechTranscript(mockSpeechEvent, 'Cisco');
+    assert.equal(extracted.finalTranscript, 'how do I troubleshoot');
+    assert.equal(extracted.interimTranscript, 'switch port flapping');
+    assert.equal(extracted.combinedQuery, 'Cisco how do I troubleshoot switch port flapping');
+
+    // 3. Verify createVoiceToTextSession lifecycle (start -> onresult -> stop -> onend)
+    let isListening = false;
+    let latestQuery = '';
+    class MockSpeechRecognition {
+      continuous = false;
+      interimResults = false;
+      lang = '';
+      onstart: (() => void) | null = null;
+      onresult: ((ev: any) => void) | null = null;
+      onerror: ((ev: any) => void) | null = null;
+      onend: (() => void) | null = null;
+      start() {
+        this.onstart?.();
+      }
+      stop() {
+        this.onend?.();
+      }
+    }
+
+    const session = createVoiceToTextSession({
+      win: { webkitSpeechRecognition: MockSpeechRecognition },
+      baseQuery: '',
+      onStart: () => {
+        isListening = true;
+      },
+      onTranscript: (res) => {
+        latestQuery = res.combinedQuery;
+      },
+      onEnd: () => {
+        isListening = false;
+      },
+    });
+
+    assert.ok(session, 'Expected createVoiceToTextSession to create a session');
+    session.start();
+    assert.equal(isListening, true);
+    session.recognition.onresult?.(mockSpeechEvent);
+    assert.equal(latestQuery, 'how do I troubleshoot switch port flapping');
+    session.stop();
+    assert.equal(isListening, false);
+
+    // 4. Verify JawedAiWidget.tsx includes voice-to-text mode toggle buttons and aria-pressed state
+    const widgetSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/JawedAiWidget.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      widgetSource.includes('toggleVoiceToTextMode') &&
+        widgetSource.includes('voice-to-text-mode-toggle') &&
+        widgetSource.includes('jawed-ai-mic-btn') &&
+        widgetSource.includes('aria-pressed={isListening}'),
+      'Expected JawedAiWidget.tsx to provide Web Speech API voice-to-text mode toggle controls'
+    );
+  });
+
+  it('adds a Share button to all IT diagnostic tools that copies the tool URL to the clipboard and shows a Link copied! toast notification', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      resolveToolShareUrl,
+      copyToolShareUrlToClipboard,
+      SHARE_TOAST_MESSAGE,
+    } = await import('../src/components/common/ShareToolLinkButton');
+
+    // 1. Verify toast message constant is 'Link copied!'
+    assert.equal(SHARE_TOAST_MESSAGE, 'Link copied!');
+
+    // 2. Verify resolveToolShareUrl resolves explicit URLs and pathname routes accurately
+    assert.equal(
+      resolveToolShareUrl('https://jawed.co.in/tools/ipv4-subnet-calculator'),
+      'https://jawed.co.in/tools/ipv4-subnet-calculator'
+    );
+    assert.equal(
+      resolveToolShareUrl(undefined, '/tools/cable-length-poe-checker'),
+      'https://jawed.co.in/tools/cable-length-poe-checker'
+    );
+
+    // 3. Verify copyToolShareUrlToClipboard writes the specific tool URL to navigator.clipboard and returns toastMessage = 'Link copied!'
+    const originalNavigator = (globalThis as any).navigator;
+    let clipboardText = '';
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        clipboard: {
+          writeText: async (text: string) => {
+            clipboardText = text;
+          },
+        },
+      },
+      configurable: true,
+    });
+
+    try {
+      const result = await copyToolShareUrlToClipboard(undefined, '/tools/ipv4-subnet-calculator');
+      assert.equal(result.ok, true);
+      assert.equal(result.url, 'https://jawed.co.in/tools/ipv4-subnet-calculator');
+      assert.equal(result.toastMessage, 'Link copied!');
+      assert.equal(clipboardText, 'https://jawed.co.in/tools/ipv4-subnet-calculator');
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: originalNavigator,
+        configurable: true,
+      });
+    }
+
+    // 4. Verify ShareToolLinkButton, SocialShareBar, DiagnosticToolsAutoPersist, and DraftSaveToolbar include the Share button and 'Link copied!' toast
+    const shareButtonSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/common/ShareToolLinkButton.tsx'),
+      'utf8'
+    );
+    const shareBarSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/SocialShareBar.tsx'),
+      'utf8'
+    );
+    const autoPersistSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/DiagnosticToolsAutoPersist.tsx'),
+      'utf8'
+    );
+    const draftToolbarSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/common/DraftSaveToolbar.tsx'),
+      'utf8'
+    );
+
+    assert.ok(
+      shareButtonSource.includes("SHARE_TOAST_MESSAGE = 'Link copied!'") &&
+        shareButtonSource.includes('share-link-copied-toast') &&
+        shareButtonSource.includes('share-tool-link-btn'),
+      'Expected ShareToolLinkButton.tsx to render the Share button and Link copied! toast notification'
+    );
+    assert.ok(
+      shareBarSource.includes('ShareToolLinkButton'),
+      'Expected SocialShareBar.tsx to render ShareToolLinkButton across all IT diagnostic tools'
+    );
+    assert.ok(
+      autoPersistSource.includes('ShareToolLinkButton'),
+      'Expected DiagnosticToolsAutoPersist.tsx to render ShareToolLinkButton in the universal IT diagnostic tool header'
+    );
+    assert.ok(
+      draftToolbarSource.includes('ShareToolLinkButton'),
+      'Expected DraftSaveToolbar.tsx to render ShareToolLinkButton in tool draft toolbars'
+    );
+  });
+
+  it('provides a global image lightbox for NotesDetail and BlogPostPage with full-screen viewing, zooming, and panning', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      clampLightboxZoom,
+      computeZoomStep,
+      computePanOffset,
+      isLightboxEligibleRoute,
+      extractLightboxImageFromElement,
+      handleArticleImageLightboxClick,
+      MIN_LIGHTBOX_ZOOM,
+      MAX_LIGHTBOX_ZOOM,
+    } = await import('../src/components/GlobalImageLightbox');
+
+    // 1. Verify route eligibility for NotesDetail, FieldGuides, and BlogPostPage
+    assert.equal(isLightboxEligibleRoute('/notes/active-directory-troubleshooting'), true);
+    assert.equal(isLightboxEligibleRoute('/guides/server-rack-cable-management-best-practices'), true);
+    assert.equal(isLightboxEligibleRoute('/blog/enterprise-vlan-design'), true);
+    assert.equal(isLightboxEligibleRoute('/tools/ipv4-subnet-calculator'), false);
+
+    // 2. Verify zoom clamping and step calculations (in, out, reset)
+    assert.equal(clampLightboxZoom(0.4), MIN_LIGHTBOX_ZOOM);
+    assert.equal(clampLightboxZoom(9.0), MAX_LIGHTBOX_ZOOM);
+
+    let transform = { zoom: 1, panX: 0, panY: 0 };
+    transform = computeZoomStep(transform, 'in', 0.5);
+    assert.equal(transform.zoom, 1.5);
+    transform = computeZoomStep(transform, 'in', 0.5);
+    assert.equal(transform.zoom, 2);
+
+    // 3. Verify panning when zoomed in (> 1x) and pan reset when zoomed back to 1x
+    transform = computePanOffset(transform, 80, -45);
+    assert.equal(transform.panX, 80);
+    assert.equal(transform.panY, -45);
+
+    transform = computeZoomStep(transform, 'reset');
+    assert.deepEqual(transform, { zoom: 1, panX: 0, panY: 0 });
+
+    // Pan should stay at (0, 0) when zoom is 1x
+    assert.deepEqual(computePanOffset(transform, 100, 100), { zoom: 1, panX: 0, panY: 0 });
+
+    // 4. Verify image extraction and click delegation from NotesDetail / BlogPostPage DOM elements
+    const mockImg = {
+      tagName: 'IMG',
+      src: 'https://jawed.co.in/images/rack-elevation.png',
+      alt: '42U Server Rack Elevation Diagram',
+      getAttribute: (name: string) => {
+        if (name === 'src') return 'https://jawed.co.in/images/rack-elevation.png';
+        if (name === 'alt') return '42U Server Rack Elevation Diagram';
+        return null;
+      },
+      closest: () => ({
+        querySelector: () => ({ textContent: 'Figure 1: Structured ToR Patching' }),
+      }),
+    };
+
+    const extracted = extractLightboxImageFromElement(mockImg as any);
+    assert.deepEqual(extracted, {
+      src: 'https://jawed.co.in/images/rack-elevation.png',
+      alt: '42U Server Rack Elevation Diagram',
+      caption: 'Figure 1: Structured ToR Patching',
+    });
+
+    let prevented = false;
+    const delegatedItem = handleArticleImageLightboxClick({
+      target: mockImg as any,
+      preventDefault: () => {
+        prevented = true;
+      },
+    });
+    assert.equal(prevented, true);
+    assert.equal(delegatedItem?.src, 'https://jawed.co.in/images/rack-elevation.png');
+
+    // 5. Verify NoteDetailPage.tsx, BlogPostPage.tsx, and App.tsx wire GlobalImageLightbox
+    const noteSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+      'utf8'
+    );
+    const blogSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/BlogPostPage.tsx'),
+      'utf8'
+    );
+    const appSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/App.tsx'),
+      'utf8'
+    );
+    const lightboxSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/GlobalImageLightbox.tsx'),
+      'utf8'
+    );
+
+    assert.ok(
+      noteSource.includes('handleArticleImageLightboxClick') &&
+        noteSource.includes('data-lightbox-scope="true"'),
+      'Expected NoteDetailPage.tsx to wire handleArticleImageLightboxClick for clicked images'
+    );
+    assert.ok(
+      blogSource.includes('handleArticleImageLightboxClick') &&
+        blogSource.includes('data-lightbox-scope="true"'),
+      'Expected BlogPostPage.tsx to wire handleArticleImageLightboxClick for clicked images'
+    );
+    assert.ok(
+      appSource.includes('<GlobalImageLightbox />'),
+      'Expected App.tsx to mount <GlobalImageLightbox /> globally'
+    );
+    assert.ok(
+      lightboxSource.includes('lightbox-zoom-in-btn') &&
+        lightboxSource.includes('lightbox-zoom-out-btn') &&
+        lightboxSource.includes('lightbox-zoom-reset-btn') &&
+        lightboxSource.includes('translate3d('),
+      'Expected GlobalImageLightbox.tsx to support full-screen zoom and pan transforms'
+    );
+  });
+
+  it('implements a Related Articles section at the bottom of NoteDetailPage and BlogPostPage suggesting three other posts based on matching tags or topics', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      extractArticleTopicsAndTags,
+      getRelatedArticles,
+      getDefaultArticlePool,
+    } = await import('../src/utils/relatedArticles');
+
+    // 1. Verify topic/tag extraction from explicit tags, category, eyebrow/meta HTML, and title/description
+    const extractedTopics = extractArticleTopicsAndTags({
+      slug: 'macos-jamf-enrollment',
+      title: 'Apple Device Management & Jamf Enrollment',
+      description: 'Troubleshooting macOS MDM profiles and supervision.',
+      category: 'Apple Devices',
+      tags: ['jamf-pro', 'mdm'],
+      content: '<p class="eyebrow">Notes · Apple / Jamf</p><p class="meta">Subject: Apple / Jamf · Task: Device Management</p>',
+    });
+
+    assert.ok(extractedTopics.includes('apple devices'));
+    assert.ok(extractedTopics.includes('jamf'));
+    assert.ok(extractedTopics.includes('mdm'));
+    assert.ok(extractedTopics.includes('macos'));
+
+    // 2. Verify getRelatedArticles ranks and returns exactly 3 related posts excluding the active slug
+    const pool = getDefaultArticlePool();
+    assert.ok(pool.length >= 4, 'Expected default article pool to contain notes, field guides, and blog posts');
+
+    const noteSuggestions = getRelatedArticles(
+      {
+        slug: 'apple-device-management-enrollment-models',
+        title: 'Apple Device Management: Enrollment Models',
+        description: 'Apple device-management enrollment models and IT support ownership scope.',
+        category: 'Apple Devices',
+        sourceType: 'note',
+      },
+      pool,
+      3
+    );
+
+    assert.equal(noteSuggestions.length, 3);
+    assert.ok(
+      noteSuggestions.every((s) => s.slug !== 'apple-device-management-enrollment-models'),
+      'Expected Related Articles to exclude the currently viewed article'
+    );
+    assert.equal(
+      noteSuggestions[0].slug,
+      'apple-macos-first-response-checklist',
+      'Expected top related article for Apple enrollment note to be the matching Apple/macOS checklist note'
+    );
+    assert.ok(
+      noteSuggestions[0].matchedTopics.length > 0,
+      'Expected top suggestion to expose matched tags/topics'
+    );
+
+    // 3. Verify BlogPostPage also receives 3 related articles matched by topic
+    const blogSuggestions = getRelatedArticles(
+      {
+        slug: 'triage-workplace-app-access-issue',
+        title: 'How to Triage a Workplace App Access Issue',
+        description: 'An illustrative IT support walkthrough for scoping app access issues and preparing useful escalations.',
+        sourceType: 'blog',
+      },
+      pool,
+      3
+    );
+    assert.equal(blogSuggestions.length, 3);
+    assert.ok(
+      blogSuggestions.every((s) => s.slug !== 'triage-workplace-app-access-issue'),
+      'Expected BlogPostPage related articles to exclude the active blog post'
+    );
+
+    // 4. Verify NoteDetailPage.tsx, BlogPostPage.tsx, and RelatedArticlesSection.tsx render the Related Articles section
+    const noteSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+      'utf8'
+    );
+    const blogSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/BlogPostPage.tsx'),
+      'utf8'
+    );
+    const relatedSectionSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/RelatedArticlesSection.tsx'),
+      'utf8'
+    );
+
+    assert.ok(
+      noteSource.includes('<RelatedArticlesSection') && noteSource.includes('count={3}'),
+      'Expected NoteDetailPage.tsx to render <RelatedArticlesSection count={3} /> at the bottom of the page'
+    );
+    assert.ok(
+      blogSource.includes('<RelatedArticlesSection') && blogSource.includes('count={3}'),
+      'Expected BlogPostPage.tsx to render <RelatedArticlesSection count={3} /> at the bottom of the page'
+    );
+    assert.ok(
+      relatedSectionSource.includes("heading = 'Related Articles'") &&
+        relatedSectionSource.includes('data-testid="related-articles-section"'),
+      'Expected RelatedArticlesSection.tsx to render the Related Articles heading and 3-card grid'
+    );
+  });
 });
+
 
 
 
