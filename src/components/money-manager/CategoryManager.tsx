@@ -11,6 +11,7 @@ import {
 import {
   INITIAL_CATEGORIES,
   formatINR,
+  resolveTransactionInrAmount,
   saveCategory as dbSaveCategory,
   deleteCategory as dbDeleteCategory,
   type FixedOrVariable,
@@ -45,6 +46,8 @@ export const CATEGORY_COLOR_PRESETS = [
 export interface CategoryManagerProps {
   categories?: MoneyCategory[];
   transactions?: MoneyTransaction[];
+  selectedMonth?: string;
+  thresholdOverrides?: Record<string, number> | number;
   onSaveCategory?: (category: MoneyCategory) => Promise<void>;
   onDeleteCategory?: (id: string) => Promise<void>;
 }
@@ -54,12 +57,40 @@ const DEFAULT_CATEGORY_Ids = new Set(INITIAL_CATEGORIES.map((c) => c.id));
 export const CategoryManager: React.FC<CategoryManagerProps> = ({
   categories = INITIAL_CATEGORIES,
   transactions = [],
+  selectedMonth,
+  thresholdOverrides,
   onSaveCategory,
   onDeleteCategory,
 }) => {
   const [localCategories, setLocalCategories] = useState<MoneyCategory[]>(categories);
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'Expense' | 'Income'>('Expense');
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
+
+  const resolvedMonth = useMemo(() => {
+    if (selectedMonth && /^\d{4}-\d{2}$/.test(selectedMonth)) {
+      return selectedMonth;
+    }
+    for (const tx of transactions) {
+      if (tx?.date && tx.date.length >= 7) {
+        return tx.date.slice(0, 7);
+      }
+    }
+    return '2026-11';
+  }, [selectedMonth, transactions]);
+
+  const currentMonthSpentByCategory = useMemo(() => {
+    const map = new Map<string, { spent: number; count: number }>();
+    for (const tx of transactions) {
+      if (!tx || tx.type !== 'Expense' || !tx.date?.startsWith(resolvedMonth)) continue;
+      const amt = resolveTransactionInrAmount(tx);
+      const prev = map.get(tx.category) || { spent: 0, count: 0 };
+      map.set(tx.category, {
+        spent: prev.spent + amt,
+        count: prev.count + 1,
+      });
+    }
+    return map;
+  }, [transactions, resolvedMonth]);
 
   // New Category Form State
   const [newName, setNewName] = useState<string>('');
@@ -423,13 +454,41 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
         {filteredCategories.map((cat) => {
           const activeColor = cat.color || '#3b82f6';
           const isCustom = !DEFAULT_CATEGORY_Ids.has(cat.id);
+          const monthStats = currentMonthSpentByCategory.get(cat.name) || { spent: 0, count: 0 };
+          const currentMonthSpent = monthStats.spent;
+          const effectiveLimit =
+            typeof thresholdOverrides === 'number' && thresholdOverrides > 0
+              ? thresholdOverrides
+              : thresholdOverrides && typeof thresholdOverrides === 'object' && thresholdOverrides[cat.name] > 0
+              ? thresholdOverrides[cat.name]
+              : cat.monthlyBudget && cat.monthlyBudget > 0
+              ? cat.monthlyBudget
+              : 0;
+          const utilizationPct =
+            effectiveLimit > 0 ? Number(((currentMonthSpent / effectiveLimit) * 100).toFixed(1)) : 0;
+          const clampedBarWidth =
+            effectiveLimit > 0 ? Math.min(100, Math.max(0, Math.round(utilizationPct))) : 0;
+          const isOverLimit = effectiveLimit > 0 && currentMonthSpent > effectiveLimit;
+          const isNearLimit = !isOverLimit && utilizationPct >= 85;
+          const progressFillColor = isOverLimit
+            ? '#ef4444'
+            : isNearLimit
+            ? '#f59e0b'
+            : effectiveLimit > 0
+            ? activeColor
+            : '#64748b';
 
           return (
             <div
               key={cat.id}
-              className="mm-category-manager-card"
-              style={{ borderLeft: `4px solid ${activeColor}` }}
+              className={`mm-category-manager-card ${isOverLimit ? 'is-over-budget' : ''}`}
+              style={{
+                borderLeft: `4px solid ${isOverLimit ? '#ef4444' : activeColor}`,
+                borderColor: isOverLimit ? 'rgba(239, 68, 68, 0.55)' : undefined,
+                background: isOverLimit ? 'rgba(239, 68, 68, 0.06)' : undefined,
+              }}
               data-testid={`mm-category-manager-card-${cat.name}`}
+              data-over-budget={isOverLimit ? 'true' : 'false'}
             >
               <div className="mm-cm-card-top">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
@@ -444,7 +503,12 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
                     {renderCategoryIcon(cat.iconName, 16)}
                   </span>
                   <div style={{ minWidth: 0 }}>
-                    <strong className="mm-cm-name">{cat.name}</strong>
+                    <strong
+                      className="mm-cm-name"
+                      style={{ color: isOverLimit ? '#ef4444' : undefined }}
+                    >
+                      {cat.name}
+                    </strong>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.73rem', color: 'var(--muted)' }}>
                       <span>{cat.type}</span>
                       <span>·</span>
@@ -462,10 +526,10 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
                       >
                         {cat.defaultFixedOrVariable}
                       </button>
-                      {cat.monthlyBudget ? (
+                      {effectiveLimit > 0 ? (
                         <>
                           <span>·</span>
-                          <span>Limit: {formatINR(cat.monthlyBudget)}</span>
+                          <span>Limit: {formatINR(effectiveLimit)}</span>
                         </>
                       ) : null}
                     </div>
@@ -523,6 +587,113 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
                   );
                 })}
               </div>
+
+              {/* Visual Progress Bar Comparing Current Month's Expenditure vs Set Budget Limit */}
+              {cat.type === 'Expense' && (
+                <div
+                  style={{
+                    marginTop: 6,
+                    marginBottom: 4,
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    background: 'var(--surface-muted)',
+                    border: '1px solid var(--border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                  }}
+                  data-testid={`mm-cm-card-comparison-${cat.name}`}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 6,
+                      fontSize: '0.74rem',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    <span style={{ color: 'var(--muted)' }}>
+                      Spent ({resolvedMonth}):{' '}
+                      <strong style={{ color: isOverLimit ? '#ef4444' : 'var(--text-heading)' }}>
+                        {formatINR(currentMonthSpent)}
+                      </strong>
+                      {effectiveLimit > 0 ? ` / ${formatINR(effectiveLimit)}` : ' (No limit)'}
+                    </span>
+                    <strong
+                      style={{
+                        color: isOverLimit
+                          ? '#ef4444'
+                          : isNearLimit
+                          ? '#f59e0b'
+                          : effectiveLimit > 0
+                          ? '#10b981'
+                          : 'var(--muted)',
+                      }}
+                      data-testid={`mm-cm-card-utilization-${cat.name}`}
+                    >
+                      {effectiveLimit > 0 ? `${utilizationPct}%` : 'Unbudgeted'}
+                    </strong>
+                  </div>
+
+                  <div
+                    role="progressbar"
+                    aria-label={`${cat.name} monthly expenditure vs budget limit`}
+                    aria-valuenow={Math.round(utilizationPct)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    data-testid={`mm-cm-card-progress-bar-${cat.name}`}
+                    style={{
+                      width: '100%',
+                      height: 8,
+                      borderRadius: 999,
+                      backgroundColor: isOverLimit
+                        ? 'rgba(239, 68, 68, 0.2)'
+                        : 'rgba(148, 163, 184, 0.2)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      data-testid={`mm-cm-card-progress-fill-${cat.name}`}
+                      style={{
+                        width: `${clampedBarWidth}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        backgroundColor: progressFillColor,
+                        transition: 'width 0.25s ease, background-color 0.25s ease',
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '0.71rem',
+                      color: 'var(--muted)',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    <span>
+                      {monthStats.count} {monthStats.count === 1 ? 'transaction' : 'transactions'}
+                    </span>
+                    <span
+                      style={{
+                        fontWeight: isOverLimit ? 600 : 500,
+                        color: isOverLimit ? '#ef4444' : 'var(--muted)',
+                      }}
+                    >
+                      {isOverLimit
+                        ? `Over limit by +${formatINR(currentMonthSpent - effectiveLimit)}`
+                        : effectiveLimit > 0
+                        ? `${formatINR(Math.max(0, effectiveLimit - currentMonthSpent))} remaining`
+                        : 'Set a limit below'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Monthly Budget & Sub-category Tags */}
               <div className="mm-cm-card-bottom">

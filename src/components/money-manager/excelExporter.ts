@@ -546,6 +546,17 @@ export async function exportIndexedDbLedgerToCsv(
   return exportBulkLedgerHistoryCsvFromDb(options);
 }
 
-
-
-
+/**
+ * Converts all local IndexedDB (`JawedMoneyManagerDB`) transaction data into a CSV format
+ * and triggers an automatic browser download (used by the 'Download Ledger' button in Money Manager Settings).
+ */
+export async function downloadLedgerFromIndexedDbAsCsv(
+  options: BulkCsvExportOptions = {}
+): Promise<BulkCsvExportSummary> {
+  return exportBulkLedgerHistoryCsvFromDb({
+    scope: 'full-history',
+    sortOrder: 'asc',
+    formatMode: 'split-debit-credit',
+    ...options,
+  });
+}

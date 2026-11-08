@@ -3882,10 +3882,341 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       'Expected RecurringHistoricalProjectionCard rendered inside StatsView.tsx'
     );
   });
+
+  it('adds visual progress bars to each category card in the spending list in Stats & Budgets to compare current month expenditure against the set budget limit', async () => {
+    const {
+      computeSpendingCardProgress,
+      computeCategorySpendingCardProgressList,
+    } = await import('../src/pages/tools/MoneyManager');
+
+    assert.equal(typeof computeSpendingCardProgress, 'function');
+    assert.equal(typeof computeCategorySpendingCardProgressList, 'function');
+
+    // 1. Verify computeSpendingCardProgress across on-track, near-limit, over-budget, and unbudgeted states
+    const onTrack = computeSpendingCardProgress(6000, 12000, '#10b981');
+    assert.equal(onTrack.spent, 6000);
+    assert.equal(onTrack.budgetLimit, 12000);
+    assert.equal(onTrack.hasBudgetLimit, true);
+    assert.equal(onTrack.utilizationPercent, 50);
+    assert.equal(onTrack.clampedProgressPercent, 50);
+    assert.equal(onTrack.remaining, 6000);
+    assert.equal(onTrack.overage, 0);
+    assert.equal(onTrack.isOverBudget, false);
+    assert.equal(onTrack.isNearLimit, false);
+    assert.equal(onTrack.status, 'on-track');
+    assert.equal(onTrack.barColor, '#10b981');
+    assert.ok(onTrack.comparisonLabel.includes('50%'));
+    assert.ok(onTrack.varianceLabel.includes('remaining'));
+
+    const nearLimit = computeSpendingCardProgress(9000, 10000, '#3b82f6');
+    assert.equal(nearLimit.utilizationPercent, 90);
+    assert.equal(nearLimit.clampedProgressPercent, 90);
+    assert.equal(nearLimit.remaining, 1000);
+    assert.equal(nearLimit.isNearLimit, true);
+    assert.equal(nearLimit.isOverBudget, false);
+    assert.equal(nearLimit.status, 'near');
+    assert.equal(nearLimit.barColor, '#f59e0b');
+
+    const overBudget = computeSpendingCardProgress(9500, 5000, '#8b5cf6');
+    assert.equal(overBudget.utilizationPercent, 190);
+    assert.equal(overBudget.clampedProgressPercent, 100);
+    assert.equal(overBudget.remaining, 0);
+    assert.equal(overBudget.overage, 4500);
+    assert.equal(overBudget.isOverBudget, true);
+    assert.equal(overBudget.status, 'over');
+    assert.equal(overBudget.barColor, '#ef4444');
+    assert.ok(overBudget.varianceLabel.includes('over limit'));
+
+    const unbudgeted = computeSpendingCardProgress(2500, 0, '#06b6d4');
+    assert.equal(unbudgeted.hasBudgetLimit, false);
+    assert.equal(unbudgeted.utilizationPercent, 0);
+    assert.equal(unbudgeted.clampedProgressPercent, 0);
+    assert.equal(unbudgeted.status, 'unbudgeted');
+    assert.equal(unbudgeted.barColor, '#64748b');
+
+    // 2. Verify computeCategorySpendingCardProgressList against seeded ledger transactions for 2026-11
+    const state = await initializeAndSeedDatabase();
+    const progressList = computeCategorySpendingCardProgressList(
+      state.transactions,
+      '2026-11',
+      {
+        'Rent & Housing': 25000,
+        'Medical & Health': 5000,
+        'Food & Groceries': 12000,
+      }
+    );
+
+    assert.ok(progressList.length >= 4, 'Expected category spending cards in progress list');
+
+    const medicalItem = progressList.find((item) => item.category === 'Medical & Health');
+    assert.ok(medicalItem, 'Expected Medical & Health category card');
+    assert.equal(medicalItem.amount, 7850);
+    assert.equal(medicalItem.progress.budgetLimit, 5000);
+    assert.equal(medicalItem.progress.isOverBudget, true);
+    assert.equal(medicalItem.progress.overage, 2850);
+    assert.equal(medicalItem.progress.clampedProgressPercent, 100);
+    assert.equal(medicalItem.progress.status, 'over');
+    assert.equal(medicalItem.progress.barColor, '#ef4444');
+
+    const rentItem = progressList.find((item) => item.category === 'Rent & Housing');
+    assert.ok(rentItem, 'Expected Rent & Housing category card');
+    assert.equal(rentItem.amount, 22000);
+    assert.equal(rentItem.progress.budgetLimit, 25000);
+    assert.equal(rentItem.progress.utilizationPercent, 88);
+    assert.equal(rentItem.progress.isNearLimit, true);
+    assert.equal(rentItem.progress.remaining, 3000);
+    assert.equal(rentItem.progress.status, 'near');
+
+    // 3. Verify visual progress bar elements in StatsView.tsx and CategoryManager.tsx
+    const fs = await import('node:fs');
+    const statsSource = fs.readFileSync(
+      'src/components/money-manager/StatsView.tsx',
+      'utf8'
+    );
+    assert.ok(
+      statsSource.includes('mm-spending-card-progress-bar-'),
+      'Expected spending list progress bar testid in StatsView.tsx'
+    );
+    assert.ok(
+      statsSource.includes('mm-spending-card-progress-fill-'),
+      'Expected spending list progress fill testid in StatsView.tsx'
+    );
+    assert.ok(
+      statsSource.includes('mm-spending-card-comparison-'),
+      'Expected spending list comparison readout testid in StatsView.tsx'
+    );
+
+    const cmSource = fs.readFileSync(
+      'src/components/money-manager/CategoryManager.tsx',
+      'utf8'
+    );
+    assert.ok(
+      cmSource.includes('mm-cm-card-progress-bar-'),
+      'Expected spending category card progress bar testid in CategoryManager.tsx'
+    );
+    assert.ok(
+      cmSource.includes('mm-cm-card-progress-fill-'),
+      'Expected spending category card progress fill testid in CategoryManager.tsx'
+    );
+  });
+
+  it("provides a 'Download Ledger' button in Money Manager Settings that converts all local IndexedDB transaction data into CSV format and triggers an automatic browser download", async () => {
+    const {
+      downloadLedgerFromIndexedDbAsCsv,
+      exportTransactionsCsvFromDb,
+    } = await import('../src/pages/tools/MoneyManager');
+
+    assert.equal(typeof downloadLedgerFromIndexedDbAsCsv, 'function');
+    assert.equal(typeof exportTransactionsCsvFromDb, 'function');
+
+    // 1. Seed local IndexedDB and add a custom transaction
+    const state = await initializeAndSeedDatabase();
+    await saveTransaction({
+      id: 'tx-download-ledger-btn-test',
+      date: '2026-11-28T11:30',
+      type: 'Expense',
+      accountId: 'acc-sbi',
+      amount: 3250,
+      category: 'Utilities & Broadband',
+      subCategory: 'Electricity Bill',
+      fixedOrVariable: 'Fixed',
+      note: 'November power utility settlement',
+      receiptImages: [],
+      isAnomaly: false,
+    });
+
+    const updatedState = await initializeAndSeedDatabase();
+
+    // 2. Mock browser DOM download hooks to verify automatic browser download trigger
+    let clickedDownloadFileName: string | null = null;
+    let createdBlobSize = 0;
+    const prevDocument = (globalThis as any).document;
+    const prevCreateObjectURL = URL.createObjectURL;
+    const prevRevokeObjectURL = URL.revokeObjectURL;
+
+    URL.createObjectURL = ((blob: Blob) => {
+      createdBlobSize = blob.size;
+      return 'blob:http://localhost/mock-ledger-csv';
+    }) as typeof URL.createObjectURL;
+    URL.revokeObjectURL = (() => {}) as typeof URL.revokeObjectURL;
+    (globalThis as any).document = {
+      createElement: (tag: string) => {
+        const el: any = {
+          tagName: tag.toUpperCase(),
+          href: '',
+          download: '',
+          click() {
+            clickedDownloadFileName = el.download;
+          },
+        };
+        return el;
+      },
+      body: {
+        appendChild() {},
+        removeChild() {},
+      },
+    };
+
+    try {
+      const summary = await downloadLedgerFromIndexedDbAsCsv();
+      assert.equal(summary.transactionCount, updatedState.transactions.length);
+      assert.equal(clickedDownloadFileName, 'jawed-money-manager-bulk-ledger-full-history.csv');
+      assert.ok(createdBlobSize > 100, 'Expected non-empty CSV Blob payload');
+      assert.ok(
+        summary.csvContent.includes('November power utility settlement'),
+        'Expected newly saved IndexedDB transaction in downloaded CSV'
+      );
+
+      // Verify parsed CSV row count matches all local IndexedDB transactions
+      const parsed = parseCsvText(summary.csvContent);
+      assert.equal(parsed.rows.length, updatedState.transactions.length);
+    } finally {
+      (globalThis as any).document = prevDocument;
+      URL.createObjectURL = prevCreateObjectURL;
+      URL.revokeObjectURL = prevRevokeObjectURL;
+    }
+
+    // 3. Verify 'Download Ledger' button presence in BackupRestoreModal.tsx (Money Manager Settings)
+    const fs = await import('node:fs');
+    const settingsModalSource = fs.readFileSync(
+      'src/components/money-manager/BackupRestoreModal.tsx',
+      'utf8'
+    );
+    assert.ok(
+      settingsModalSource.includes('mm-download-ledger-btn'),
+      "Expected 'mm-download-ledger-btn' testid in BackupRestoreModal.tsx"
+    );
+    assert.ok(
+      settingsModalSource.includes('<span>Download Ledger</span>'),
+      "Expected 'Download Ledger' button label in BackupRestoreModal.tsx"
+    );
+    assert.ok(
+      settingsModalSource.includes('downloadLedgerFromIndexedDbAsCsv'),
+      'Expected downloadLedgerFromIndexedDbAsCsv wired in BackupRestoreModal.tsx'
+    );
+  });
+
+  it('visualizes the rolling 3-month average of spending vs. income on the Stats & Budgets page to highlight long-term trends', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      RollingThreeMonthTrendCard,
+      computeRollingThreeMonthTrend,
+    } = await import('../src/pages/tools/MoneyManager');
+    const StatsViewMod = await import('../src/components/money-manager/StatsView');
+
+    // 1. Verify exports across pages/tools/MoneyManager and StatsView
+    assert.equal(typeof RollingThreeMonthTrendCard, 'function');
+    assert.equal(typeof computeRollingThreeMonthTrend, 'function');
+    assert.equal(typeof StatsViewMod.RollingThreeMonthTrendCard, 'function');
+    assert.equal(typeof StatsViewMod.computeRollingThreeMonthTrend, 'function');
+
+    // 2. Construct deterministic multi-month transactions across 8 months (Apr 2026 -> Nov 2026)
+    //    so a 6-month horizon (Jun 2026 -> Nov 2026) has full 3-month lookback windows (Apr, May, Jun...)
+    const monthlyFixture = [
+      { ym: '2026-04', income: 90000, expense: 45000 },
+      { ym: '2026-05', income: 96000, expense: 48000 },
+      { ym: '2026-06', income: 102000, expense: 51000 }, // 3m avg: income (90+96+102)/3 = 96000, expense (45+48+51)/3 = 48000
+      { ym: '2026-07', income: 105000, expense: 54000 }, // 3m avg: income (96+102+105)/3 = 101000, expense (48+51+54)/3 = 51000
+      { ym: '2026-08', income: 108000, expense: 60000 }, // 3m avg: income (102+105+108)/3 = 105000, expense (51+54+60)/3 = 55000
+      { ym: '2026-09', income: 111000, expense: 57000 }, // 3m avg: income (105+108+111)/3 = 108000, expense (54+60+57)/3 = 57000
+      { ym: '2026-10', income: 114000, expense: 63000 }, // 3m avg: income (108+111+114)/3 = 111000, expense (60+57+63)/3 = 60000
+      { ym: '2026-11', income: 120000, expense: 66000 }, // 3m avg: income (111+114+120)/3 = 115000, expense (57+63+66)/3 = 62000
+    ];
+
+    const syntheticTransactions: any[] = [];
+    monthlyFixture.forEach((m, idx) => {
+      syntheticTransactions.push({
+        id: `tx-inc-${m.ym}`,
+        date: `${m.ym}-05T10:00`,
+        type: 'Income',
+        accountId: 'acc-sbi',
+        amount: m.income,
+        category: 'Salary & Stipend',
+        subCategory: 'Monthly Payroll',
+        fixedOrVariable: 'Fixed',
+        note: `Income ${m.ym}`,
+      });
+      syntheticTransactions.push({
+        id: `tx-exp-${m.ym}`,
+        date: `${m.ym}-12T14:00`,
+        type: 'Expense',
+        accountId: 'acc-sbi',
+        amount: m.expense,
+        category: 'Rent & Housing',
+        subCategory: 'Apartment Rent',
+        fixedOrVariable: 'Fixed',
+        note: `Expense ${m.ym}`,
+      });
+      // Internal transfers must be strictly excluded from both spending and income rolling averages
+      syntheticTransactions.push({
+        id: `tx-trf-${m.ym}`,
+        date: `${m.ym}-15T16:00`,
+        type: 'Transfer',
+        accountId: 'acc-sbi',
+        toAccountId: 'acc-cash',
+        amount: 25000 + idx * 1000,
+        category: 'Transfer',
+        subCategory: 'ATM Withdrawal',
+        fixedOrVariable: 'Variable',
+        note: `Transfer ${m.ym}`,
+      });
+    });
+
+    // 3. Compute 6-month horizon ending 2026-11
+    const trend6M = computeRollingThreeMonthTrend(syntheticTransactions, '2026-11', {
+      horizonMonths: 6,
+    });
+    assert.equal(trend6M.referenceYearMonth, '2026-11');
+    assert.equal(trend6M.horizonMonths, 6);
+    assert.equal(trend6M.points.length, 6);
+    assert.equal(trend6M.points[0].yearMonth, '2026-06');
+    assert.equal(trend6M.points[0].rolling3mIncome, 96000);
+    assert.equal(trend6M.points[0].rolling3mExpense, 48000);
+    assert.equal(trend6M.points[0].rolling3mNet, 48000);
+    assert.equal(trend6M.points[0].spendToIncomeRatioPercent, 50);
+
+    // Verify latest month (2026-11) rolling 3-month averages
+    const novPoint = trend6M.points[5];
+    assert.equal(novPoint.yearMonth, '2026-11');
+    assert.equal(novPoint.actualIncome, 120000);
+    assert.equal(novPoint.actualExpense, 66000);
+    assert.equal(novPoint.rolling3mIncome, 115000);
+    assert.equal(novPoint.rolling3mExpense, 62000);
+    assert.equal(novPoint.rolling3mNet, 53000);
+    assert.deepEqual(novPoint.windowMonths, ['2026-09', '2026-10', '2026-11']);
+
+    assert.equal(trend6M.currentRolling3mIncome, 115000);
+    assert.equal(trend6M.currentRolling3mExpense, 62000);
+    assert.equal(trend6M.currentRolling3mNet, 53000);
+    assert.equal(trend6M.priorRolling3mIncome, 105000);
+    assert.equal(trend6M.priorRolling3mExpense, 55000);
+
+    // 4. Compute default 12-month horizon
+    const trend12M = computeRollingThreeMonthTrend(syntheticTransactions, '2026-11');
+    assert.equal(trend12M.horizonMonths, 12);
+    assert.equal(trend12M.points.length, 12);
+
+    // 5. Verify StatsView.tsx mounts <RollingThreeMonthTrendCard and RollingThreeMonthTrendCard.tsx uses Recharts
+    const statsViewSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/StatsView.tsx'),
+      'utf8'
+    );
+    const rollingCardSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/RollingThreeMonthTrendCard.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      statsViewSource.includes('<RollingThreeMonthTrendCard'),
+      'Expected <RollingThreeMonthTrendCard rendered in StatsView.tsx'
+    );
+    assert.ok(
+      rollingCardSource.includes('mm-rolling-3m-trend-card'),
+      'Expected mm-rolling-3m-trend-card testid in RollingThreeMonthTrendCard.tsx'
+    );
+    assert.ok(
+      rollingCardSource.includes('ComposedChart') && rollingCardSource.includes('AreaChart'),
+      'Expected Recharts ComposedChart and AreaChart in RollingThreeMonthTrendCard.tsx'
+    );
+  });
 });
-
-
-
-
-
-

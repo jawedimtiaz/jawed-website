@@ -22,6 +22,7 @@ import {
   generateBulkLedgerCsvExport,
   exportBulkLedgerHistoryCsvFromDb,
   exportIndexedDbLedgerToCsv,
+  downloadLedgerFromIndexedDbAsCsv,
   CsvImportModal,
   parseCsvText,
   autoDetectCsvMapping,
@@ -34,6 +35,10 @@ import {
   RecurringHistoricalProjectionCard,
   computeRecurringAndHistoricalSpendingProjection,
   normalizeRecurringRuleToMonthlyAmount,
+  RollingThreeMonthTrendCard,
+  computeRollingThreeMonthTrend,
+  computeSpendingCardProgress,
+  computeCategorySpendingCardProgressList,
 } from '../../tools/MoneyManager';
 
 export {
@@ -58,6 +63,7 @@ export {
   generateBulkLedgerCsvExport,
   exportBulkLedgerHistoryCsvFromDb,
   exportIndexedDbLedgerToCsv,
+  downloadLedgerFromIndexedDbAsCsv,
   CsvImportModal,
   parseCsvText,
   autoDetectCsvMapping,
@@ -70,6 +76,10 @@ export {
   RecurringHistoricalProjectionCard,
   computeRecurringAndHistoricalSpendingProjection,
   normalizeRecurringRuleToMonthlyAmount,
+  RollingThreeMonthTrendCard,
+  computeRollingThreeMonthTrend,
+  computeSpendingCardProgress,
+  computeCategorySpendingCardProgressList,
 };
 export default MoneyManager;
 

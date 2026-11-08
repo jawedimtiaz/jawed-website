@@ -43,6 +43,7 @@ import {
   generateBulkLedgerCsvExport,
   exportBulkLedgerHistoryCsvFromDb,
   exportIndexedDbLedgerToCsv,
+  downloadLedgerFromIndexedDbAsCsv,
   type BulkCsvExportOptions,
   type BulkCsvExportSummary,
 } from './excelExporter';
@@ -86,6 +87,7 @@ export {
   generateBulkLedgerCsvExport,
   exportBulkLedgerHistoryCsvFromDb,
   exportIndexedDbLedgerToCsv,
+  downloadLedgerFromIndexedDbAsCsv,
   SCOPES,
   DRIVE_APPDATA_SCOPE,
   encryptLedgerPayload,
@@ -719,6 +721,31 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     }
   };
 
+  const handleDownloadLedger = async () => {
+    try {
+      setIsProcessing(true);
+      setStatusMessage(null);
+      const summary = await downloadLedgerFromIndexedDbAsCsv({
+        scope: 'full-history',
+        sortOrder: bulkExportSortOrder,
+        formatMode: bulkExportFormatMode,
+        fallbackTransactions: transactions,
+        fallbackAccounts: accounts,
+      });
+      setStatusMessage({
+        type: 'success',
+        text: `Downloaded all ${summary.transactionCount} local IndexedDB transaction(s) in CSV format ("${summary.fileName}").`,
+      });
+    } catch (err) {
+      setStatusMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to download IndexedDB ledger CSV.',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleResetDemoData = async () => {
     try {
       setIsProcessing(true);
@@ -776,16 +803,39 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
         </div>
 
         <div className="mm-backup-body">
-          <div className="mm-privacy-callout">
-            <ShieldCheck size={18} className="mm-privacy-callout-icon" />
-            <div>
-              <strong>100% Client-Side IndexedDB Persistence</strong>
-              <p>
-                Currently storing <strong>{accounts.length}</strong> accounts,{' '}
-                <strong>{transactions.length}</strong> ledger entries, and{' '}
-                <strong>{sinkingFunds.length}</strong> sinking funds directly inside your browser.
-              </p>
+          <div
+            className="mm-privacy-callout"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: '1 1 280px' }}>
+              <ShieldCheck size={18} className="mm-privacy-callout-icon" />
+              <div>
+                <strong>100% Client-Side IndexedDB Persistence</strong>
+                <p>
+                  Currently storing <strong>{accounts.length}</strong> accounts,{' '}
+                  <strong>{transactions.length}</strong> ledger entries, and{' '}
+                  <strong>{sinkingFunds.length}</strong> sinking funds directly inside your browser.
+                </p>
+              </div>
             </div>
+
+            <button
+              type="button"
+              className="mm-btn mm-btn-emerald"
+              onClick={handleDownloadLedger}
+              disabled={isProcessing}
+              data-testid="mm-download-ledger-btn"
+              title="Convert all local IndexedDB transaction data into CSV format and trigger an automatic browser download"
+            >
+              <Download size={16} />
+              <span>Download Ledger</span>
+            </button>
           </div>
 
           {statusMessage && (
@@ -1907,33 +1957,47 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
                 </span>
               </div>
 
-              <button
-                type="button"
-                className="mm-btn mm-btn-emerald"
-                onClick={handleBulkCsvExport}
-                disabled={isProcessing}
-                data-testid="mm-bulk-csv-export-btn"
-              >
-                <Download size={16} />
-                <span>
-                  Export Ledger CSV ({bulkExportSummary.transactionCount} Transactions)
-                </span>
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="mm-btn mm-btn-primary"
+                  onClick={handleDownloadLedger}
+                  disabled={isProcessing}
+                  data-testid="mm-settings-download-ledger-csv-btn"
+                  title="Convert all local IndexedDB transaction data into CSV format and download immediately"
+                >
+                  <Download size={16} />
+                  <span>Download Ledger</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="mm-btn mm-btn-emerald"
+                  onClick={handleBulkCsvExport}
+                  disabled={isProcessing}
+                  data-testid="mm-bulk-csv-export-btn"
+                >
+                  <Download size={16} />
+                  <span>
+                    Export Ledger CSV ({bulkExportSummary.transactionCount} Transactions)
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Action Cards */}
           <div className="mm-backup-grid">
-            {/* 1. Download CSV (Accounting Software Compatible Table) */}
+            {/* 1. Download Ledger (CSV Accounting Software Compatible Table) */}
             <div className="mm-backup-card" data-testid="mm-download-csv-card">
               <div className="mm-backup-card-head">
                 <span className="mm-backup-icon mm-backup-icon-emerald">
                   <FileText size={20} />
                 </span>
                 <div>
-                  <h4>Download CSV (Accounting Table)</h4>
+                  <h4>Download Ledger (CSV)</h4>
                   <p>
-                    Formats all <strong>{transactions.length}</strong> ledger transactions into a standard table with Debit/Credit columns for Tally, Zoho Books, QuickBooks &amp; spreadsheets.
+                    Converts all <strong>{transactions.length}</strong> local IndexedDB ledger transactions into a standard CSV table with Debit/Credit columns and triggers an automatic browser download.
                   </p>
                 </div>
               </div>
@@ -1945,7 +2009,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
                 data-testid="mm-download-csv-btn"
               >
                 <Download size={16} />
-                <span>Download CSV</span>
+                <span>Download Ledger</span>
               </button>
             </div>
 

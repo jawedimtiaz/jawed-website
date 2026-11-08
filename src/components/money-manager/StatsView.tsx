@@ -131,6 +131,15 @@ import {
   type ComputeRecurringHistoricalProjectionOptions,
   type RecurringHistoricalProjectionCardProps,
 } from './RecurringHistoricalProjectionCard';
+import {
+  RollingThreeMonthTrendCard,
+  computeRollingThreeMonthTrend,
+  type RollingTrendChartMode,
+  type RollingThreeMonthPoint,
+  type RollingThreeMonthTrendSummary,
+  type ComputeRollingThreeMonthOptions,
+  type RollingThreeMonthTrendCardProps,
+} from './RollingThreeMonthTrendCard';
 
 export {
   BudgetForecastCard,
@@ -144,6 +153,8 @@ export {
   RecurringHistoricalProjectionCard,
   computeRecurringAndHistoricalSpendingProjection,
   normalizeRecurringRuleToMonthlyAmount,
+  RollingThreeMonthTrendCard,
+  computeRollingThreeMonthTrend,
   SUPPORTED_CURRENCIES,
   CURRENCY_METADATA,
   FALLBACK_RATES_TO_INR,
@@ -173,6 +184,11 @@ export type {
   RecurringHistoricalProjectionSummary,
   ComputeRecurringHistoricalProjectionOptions,
   RecurringHistoricalProjectionCardProps,
+  RollingTrendChartMode,
+  RollingThreeMonthPoint,
+  RollingThreeMonthTrendSummary,
+  ComputeRollingThreeMonthOptions,
+  RollingThreeMonthTrendCardProps,
   CurrencyCode,
   DailyExchangeRateSnapshot,
   CurrencyBreakdownRow,
@@ -1148,6 +1164,123 @@ export function evaluateCategoryBudgetAlerts(
     alertSeverity,
     highestOverageCategory,
   };
+}
+
+export interface SpendingCardProgressComparison {
+  spent: number;
+  budgetLimit: number;
+  hasBudgetLimit: boolean;
+  utilizationPercent: number;
+  clampedProgressPercent: number;
+  remaining: number;
+  overage: number;
+  isOverBudget: boolean;
+  isNearLimit: boolean;
+  status: 'over' | 'near' | 'on-track' | 'unbudgeted';
+  barColor: string;
+  trackColor: string;
+  comparisonLabel: string;
+  varianceLabel: string;
+}
+
+export interface CategorySpendingCardProgressItem extends CategoryBreakdownItem {
+  progress: SpendingCardProgressComparison;
+}
+
+/**
+ * Pure helper that computes visual progress bar metrics for a single category card
+ * in the spending list, comparing current month's expenditure against the set budget limit.
+ */
+export function computeSpendingCardProgress(
+  spent: number,
+  budgetLimit?: number,
+  customColor: string = '#10b981'
+): SpendingCardProgressComparison {
+  const safeSpent = Math.max(0, Number(spent) || 0);
+  const safeLimit = Math.max(0, Number(budgetLimit) || 0);
+  const hasBudgetLimit = safeLimit > 0;
+  const utilizationPercent = hasBudgetLimit
+    ? Number(((safeSpent / safeLimit) * 100).toFixed(1))
+    : 0;
+  const clampedProgressPercent = hasBudgetLimit
+    ? Math.min(100, Math.max(0, Math.round((safeSpent / safeLimit) * 100)))
+    : 0;
+  const remaining = hasBudgetLimit ? Math.max(0, safeLimit - safeSpent) : 0;
+  const overage = hasBudgetLimit && safeSpent > safeLimit ? safeSpent - safeLimit : 0;
+  const isOverBudget = hasBudgetLimit && safeSpent > safeLimit;
+  const isNearLimit = hasBudgetLimit && !isOverBudget && utilizationPercent >= 85;
+
+  const status: 'over' | 'near' | 'on-track' | 'unbudgeted' = !hasBudgetLimit
+    ? 'unbudgeted'
+    : isOverBudget
+    ? 'over'
+    : isNearLimit
+    ? 'near'
+    : 'on-track';
+
+  const barColor = !hasBudgetLimit
+    ? '#64748b'
+    : isOverBudget
+    ? '#ef4444'
+    : isNearLimit
+    ? '#f59e0b'
+    : customColor || '#10b981';
+
+  const trackColor = isOverBudget
+    ? 'rgba(239, 68, 68, 0.2)'
+    : isNearLimit
+    ? 'rgba(245, 158, 11, 0.2)'
+    : 'rgba(148, 163, 184, 0.18)';
+
+  const comparisonLabel = hasBudgetLimit
+    ? `${formatINR(safeSpent)} / ${formatINR(safeLimit)} (${utilizationPercent}%)`
+    : `${formatINR(safeSpent)} spent (No limit set)`;
+
+  const varianceLabel = !hasBudgetLimit
+    ? 'No limit set'
+    : isOverBudget
+    ? `+${formatINR(overage)} over limit`
+    : `${formatINR(remaining)} remaining`;
+
+  return {
+    spent: safeSpent,
+    budgetLimit: safeLimit,
+    hasBudgetLimit,
+    utilizationPercent,
+    clampedProgressPercent,
+    remaining,
+    overage,
+    isOverBudget,
+    isNearLimit,
+    status,
+    barColor,
+    trackColor,
+    comparisonLabel,
+    varianceLabel,
+  };
+}
+
+/**
+ * Pure helper that returns the spending list for `selectedMonth` enriched with
+ * visual progress bar comparisons (`progress`) for every category card.
+ */
+export function computeCategorySpendingCardProgressList(
+  transactions: MoneyTransaction[],
+  selectedMonth: string,
+  categoriesOrThresholds?: MoneyCategory[] | Record<string, number> | number,
+  customCategoriesOrColors?: MoneyCategory[] | Record<string, string>
+): CategorySpendingCardProgressItem[] {
+  const { breakdown } = evaluateCategoryBudgetAlerts(
+    transactions,
+    selectedMonth,
+    categoriesOrThresholds,
+    customCategoriesOrColors
+  );
+
+  return breakdown.map((item) => ({
+    ...item,
+    progress: computeSpendingCardProgress(item.amount, item.monthlyBudget, item.color),
+  }));
 }
 
 export interface Budget95ToastAlert {
@@ -2890,6 +3023,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
             onOpenRecurringScheduler={onOpenRecurringScheduler}
           />
 
+          {/* Dedicated Visual Card: Recharts Rolling 3-Month Average of Spending vs. Income */}
+          <RollingThreeMonthTrendCard
+            transactions={transactions}
+            selectedMonth={selectedMonth}
+          />
+
           {/* Dashboard Summary Cards Control Bar & Dynamic Reorderable Cards Container */}
           <div
             className="mm-dashboard-reorder-bar"
@@ -4060,6 +4199,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
                   {/* Real-Time + Projected Month-End Dual Progress Bar */}
                   <div
+                    role="progressbar"
+                    aria-label={`${item.category} current month expenditure vs budget limit`}
+                    aria-valuenow={Math.round(item.utilizationPercent)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
                     className="mm-budget-progress-track"
                     style={{ position: 'relative', overflow: 'hidden' }}
                     data-testid={`mm-budget-plan-progress-${item.category}`}
@@ -4396,16 +4540,22 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
                   <div className="mm-category-legend-list" data-testid="mm-category-legend-list">
                     {categoryBreakdown.map((item) => {
-                      const isOver = Boolean(item.isOverBudget);
-                      const isNear =
-                        !isOver &&
-                        typeof item.budgetUtilizationPercent === 'number' &&
-                        item.budgetUtilizationPercent >= 85;
                       const thresholdVal =
                         item.monthlyBudget ?? categoryThresholds[item.category] ?? '';
-                      const barWidth = item.monthlyBudget
-                        ? Math.min(100, Math.round((item.amount / item.monthlyBudget) * 100))
-                        : 0;
+                      const numericLimit =
+                        typeof item.monthlyBudget === 'number' && item.monthlyBudget > 0
+                          ? item.monthlyBudget
+                          : Number(thresholdVal) > 0
+                          ? Number(thresholdVal)
+                          : 0;
+                      const progress = computeSpendingCardProgress(
+                        item.amount,
+                        numericLimit,
+                        item.color
+                      );
+                      const isOver = Boolean(item.isOverBudget) || progress.isOverBudget;
+                      const isNear = !isOver && progress.isNearLimit;
+                      const barWidth = progress.clampedProgressPercent;
 
                       return (
                         <div
@@ -4416,6 +4566,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                           data-testid={`mm-category-row-${item.category}`}
                           data-over-budget={isOver ? 'true' : 'false'}
                           data-category-color={item.color}
+                          data-progress-status={progress.status}
                         >
                           <div className="mm-category-row-top">
                             <div className="mm-category-legend-left">
@@ -4448,7 +4599,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
                                   data-testid={`mm-over-budget-badge-${item.category}`}
                                 >
                                   <AlertTriangle size={11} />
-                                  <span>Over by {formatINR(item.overBudgetAmount || 0)}</span>
+                                  <span>
+                                    Over by {formatINR(item.overBudgetAmount || progress.overage)}
+                                  </span>
                                 </span>
                               )}
                               {isNear && (
@@ -4456,41 +4609,108 @@ export const StatsView: React.FC<StatsViewProps> = ({
                                   className="mm-budget-alert-badge is-near"
                                   data-testid={`mm-near-budget-badge-${item.category}`}
                                 >
-                                  <span>{item.budgetUtilizationPercent}% of limit</span>
+                                  <span>{progress.utilizationPercent}% of limit</span>
                                 </span>
                               )}
                             </div>
 
-                            <strong
-                              className={`mm-category-legend-amount ${
-                                isOver ? 'mm-text-expense' : ''
-                              }`}
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'baseline',
+                                gap: 4,
+                                fontVariantNumeric: 'tabular-nums',
+                              }}
+                              data-testid={`mm-spending-card-comparison-${item.category}`}
                             >
-                              {formatINR(item.amount)}
-                            </strong>
+                              <strong
+                                className={`mm-category-legend-amount ${
+                                  isOver ? 'mm-text-expense' : ''
+                                }`}
+                              >
+                                {formatINR(item.amount)}
+                              </strong>
+                              {progress.hasBudgetLimit && (
+                                <span
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    color: 'var(--muted)',
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  / {formatINR(progress.budgetLimit)}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          {/* Per-Category Threshold Progress & Inline Threshold Input */}
+                          {/* Visual Progress Bar Comparing Current Month's Expenditure vs Set Budget Limit */}
                           <div className="mm-category-budget-meta">
-                            <div className="mm-category-budget-bar-track">
+                            <div
+                              role="progressbar"
+                              aria-label={`${item.category} current month expenditure vs budget limit`}
+                              aria-valuenow={Math.round(progress.utilizationPercent)}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              className="mm-category-budget-bar-track"
+                              data-testid={`mm-spending-card-progress-bar-${item.category}`}
+                              style={{
+                                height: 8,
+                                borderRadius: 999,
+                                backgroundColor: progress.trackColor,
+                                overflow: 'hidden',
+                              }}
+                            >
                               <div
                                 className={`mm-category-budget-bar-fill ${
                                   isOver ? 'is-over' : isNear ? 'is-near' : 'is-ok'
                                 }`}
+                                data-testid={`mm-spending-card-progress-fill-${item.category}`}
+                                data-utilization-percent={progress.utilizationPercent}
+                                data-progress-status={progress.status}
                                 style={{
                                   width: `${barWidth}%`,
-                                  background: isOver ? undefined : item.color,
+                                  height: '100%',
+                                  borderRadius: 999,
+                                  background: isOver ? '#ef4444' : progress.barColor,
+                                  transition: 'width 0.25s ease, background-color 0.25s ease',
                                 }}
                               />
                             </div>
 
                             <div className="mm-category-threshold-inline">
-                              <span className="mm-category-threshold-meta-text">
-                                {item.monthlyBudget
-                                  ? `${item.budgetUtilizationPercent}% of ${formatINR(
-                                      item.monthlyBudget
-                                    )}`
-                                  : 'No limit set'}
+                              <span
+                                className="mm-category-threshold-meta-text"
+                                data-testid={`mm-spending-card-variance-${item.category}`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                {progress.hasBudgetLimit ? (
+                                  <>
+                                    <span>
+                                      {progress.utilizationPercent}% of{' '}
+                                      {formatINR(progress.budgetLimit)}
+                                    </span>
+                                    <span aria-hidden="true">·</span>
+                                    <strong
+                                      style={{
+                                        color: isOver
+                                          ? '#ef4444'
+                                          : isNear
+                                          ? '#f59e0b'
+                                          : 'var(--text-heading)',
+                                      }}
+                                    >
+                                      {progress.varianceLabel}
+                                    </strong>
+                                  </>
+                                ) : (
+                                  'No limit set'
+                                )}
                               </span>
                               <label className="mm-category-inline-limit-label">
                                 <span>Limit ₹</span>
@@ -5172,6 +5392,14 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
           </article>
 
+          {/* Row 1.5: Rolling 3-Month Average of Spending vs. Income Trend Chart */}
+          {!showBudgetPlanningSection && (
+            <RollingThreeMonthTrendCard
+              transactions={transactions}
+              selectedMonth={selectedMonth}
+            />
+          )}
+
           {/* Row 2: Fixed vs Variable Expenditure Ratio Gauge */}
           <article
             className="mm-stat-panel"
@@ -5433,6 +5661,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
         <CategoryManager
           categories={localCategories}
           transactions={transactions}
+          selectedMonth={selectedMonth}
+          thresholdOverrides={activeThresholdConfig}
           onSaveCategory={handleSaveCategoryState}
           onDeleteCategory={handleDeleteCategoryState}
         />

@@ -1,6 +1,8 @@
 export {
   StatsView,
   evaluateCategoryBudgetAlerts,
+  computeSpendingCardProgress,
+  computeCategorySpendingCardProgressList,
   evaluate95PercentBudgetAlerts,
   detectNew95PercentBudgetToasts,
   computeMonthlyBudgetPlan,
@@ -53,6 +55,11 @@ export {
   computeRecurringAndHistoricalSpendingProjection,
   normalizeRecurringRuleToMonthlyAmount,
 } from './money-manager/RecurringHistoricalProjectionCard';
+
+export {
+  RollingThreeMonthTrendCard,
+  computeRollingThreeMonthTrend,
+} from './money-manager/RollingThreeMonthTrendCard';
 
 export {
   generateMonthlyReportJson,
