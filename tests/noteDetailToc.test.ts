@@ -613,6 +613,37 @@ test('ScrollProgressIndicator visually tracks scroll position as a percentage ba
   );
 });
 
+test('NoteDetailPage includes a Share action button at the bottom of the article content utilizing Web Share API', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  // 1. Verify bottom share bar container and Web Share button render in NoteDetailPage
+  assert.ok(
+    noteDetailSource.includes('data-testid="note-bottom-share-bar"'),
+    'Expected NoteDetailPage to render note-bottom-share-bar container'
+  );
+  assert.ok(
+    noteDetailSource.includes('data-testid="note-web-share-btn"'),
+    'Expected NoteDetailPage to render Share Note button with data-testid="note-web-share-btn"'
+  );
+
+  // 2. Verify handleWebShareNote handler uses navigator.share with fallback
+  assert.ok(
+    noteDetailSource.includes('navigator.share(shareData)') ||
+      noteDetailSource.includes('navigator.share'),
+    'Expected handleWebShareNote to invoke navigator.share Web Share API'
+  );
+  assert.ok(
+    noteDetailSource.includes('Share Note'),
+    'Expected Share Note label on the button'
+  );
+});
+
 
 
 

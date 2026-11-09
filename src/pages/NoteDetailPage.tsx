@@ -1,5 +1,6 @@
 import React from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
+import { Share2 } from 'lucide-react';
 import notesData from '../data/notesData.json';
 import { FIELD_GUIDES } from '../data/fieldGuidesData';
 import { FieldGuideDetailPage } from './FieldGuideDetailPage';
@@ -398,6 +399,42 @@ export const NoteDetailPage: React.FC = () => {
     handleArticleImageLightboxClick(event);
   };
 
+  const handleWebShareNote = async () => {
+    const shareTitle = guideMetadata.title || note?.title || 'Technical Note';
+    const shareText = guideMetadata.description || note?.description || '';
+    const shareData = {
+      title: shareTitle,
+      text: shareText,
+      url: shareUrl,
+    };
+
+    try {
+      if (
+        typeof navigator !== 'undefined' &&
+        typeof navigator.share === 'function' &&
+        (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))
+      ) {
+        await navigator.share(shareData);
+        return;
+      }
+    } catch (err: unknown) {
+      if ((err as Error)?.name === 'AbortError') {
+        return;
+      }
+    }
+
+    // Fallback: Copy link to clipboard and trigger toast
+    await copyTocAnchorToClipboard(shareUrl);
+    setCopiedHeadingUrl(shareUrl);
+    setIsLinkCopiedToastVisible(true);
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setIsLinkCopiedToastVisible(false);
+    }, 2400);
+  };
+
   const handleScrollToTop = () => {
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -566,6 +603,49 @@ export const NoteDetailPage: React.FC = () => {
               {visualModule}
             </div>
           )}
+
+          {/* Bottom Web Share Action Row */}
+          <div
+            className="note-bottom-share-bar no-print"
+            data-testid="note-bottom-share-bar"
+            style={{
+              marginTop: '32px',
+              paddingTop: '20px',
+              borderTop: '1px solid var(--line)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Share2 className="w-4 h-4 text-sky-400" aria-hidden="true" style={{ color: 'var(--accent, #38bdf8)' }} />
+              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-heading)' }}>
+                Found this technical note helpful?
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleWebShareNote}
+              data-testid="note-web-share-btn"
+              className="button button-primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 16px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              aria-label={`Share "${guideMetadata.title || note.title}"`}
+              title="Share this note using native Web Share API or copy link"
+            >
+              <Share2 size={15} aria-hidden="true" />
+              <span>Share Note</span>
+            </button>
+          </div>
         </article>
 
         {/* Sticky Sidebar Table of Contents for Desktop */}

@@ -99,9 +99,10 @@ export const ScrollProgressIndicator: React.FC<ScrollProgressIndicatorProps> = (
 
   return (
     <div
-      className={`scroll-progress-indicator placement-${placement} ${isVisible ? 'is-active' : ''} ${className} no-print`.trim()}
+      className={`scroll-progress-indicator placement-${placement} ${isVisible ? 'is-active' : ''} ${isCompleted ? 'is-completed' : percent >= 85 ? 'is-near-end' : ''} ${className} no-print`.trim()}
       data-testid="scroll-progress-indicator"
       data-placement={placement}
+      data-completed={isCompleted ? 'true' : 'false'}
       role="progressbar"
       aria-label="Article reading scroll progress"
       aria-valuenow={percent}
@@ -114,7 +115,7 @@ export const ScrollProgressIndicator: React.FC<ScrollProgressIndicatorProps> = (
         {/* Progress bar track & fill */}
         <div className="scroll-progress-indicator-track">
           <div
-            className="scroll-progress-indicator-bar"
+            className={`scroll-progress-indicator-bar ${isCompleted ? 'is-completed' : percent >= 85 ? 'is-near-end' : ''}`}
             data-testid="scroll-progress-bar"
             style={{
               width: `${percent}%`,
@@ -125,7 +126,7 @@ export const ScrollProgressIndicator: React.FC<ScrollProgressIndicatorProps> = (
         {/* Optional Percentage Badge / Label */}
         {showPercentageLabel && (
           <div
-            className={`scroll-progress-percentage-badge ${isCompleted ? 'is-completed' : ''}`}
+            className={`scroll-progress-percentage-badge ${isCompleted ? 'is-completed' : percent >= 85 ? 'is-near-end' : ''}`}
             data-testid="scroll-percentage-badge"
             aria-hidden="true"
           >

@@ -3120,8 +3120,19 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   height: 100%;
   background: linear-gradient(90deg, var(--accent, #38bdf8), var(--teal, #2dd4bf), var(--emerald, #10b981));
   border-radius: 9999px;
-  transition: width 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.15s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease, background 0.3s ease;
   will-change: width;
+}
+
+.scroll-progress-indicator-bar.is-near-end {
+  transition: width 0.3s cubic-bezier(0.34, 1.45, 0.64, 1), box-shadow 0.3s ease;
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.4);
+}
+
+.scroll-progress-indicator-bar.is-completed {
+  transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+  background: linear-gradient(90deg, var(--accent, #38bdf8), var(--emerald, #10b981), #34d399);
 }
 
 .scroll-progress-percentage-badge {
@@ -3139,12 +3150,20 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   color: var(--accent, #38bdf8);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   line-height: 1.2;
+  transition: transform 0.2s cubic-bezier(0.34, 1.4, 0.64, 1), color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.scroll-progress-percentage-badge.is-near-end {
+  color: var(--teal, #2dd4bf);
+  border-color: rgba(45, 212, 191, 0.35);
+  transform: scale(1.03);
 }
 
 .scroll-progress-percentage-badge.is-completed {
   color: var(--emerald, #10b981);
   border-color: rgba(16, 185, 129, 0.4);
   background: rgba(16, 185, 129, 0.12);
+  transform: scale(1.08);
 }
 
 @media print {
