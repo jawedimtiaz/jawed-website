@@ -161,6 +161,47 @@ export const VOICE_COMMAND_RULES: VoiceCommandRule[] = [
     ],
   },
   {
+    id: 'ai-prompt-builder',
+    route: '/tools/ai-prompt-builder',
+    label: 'AI Prompt Builder',
+    shortcutCombo: 'alt+p',
+    phrases: [
+      'open prompt builder',
+      'go to prompt builder',
+      'ai prompt builder',
+      'prompt builder',
+      'open prompts',
+    ],
+  },
+  {
+    id: 'it-troubleshooting-assistant',
+    route: '/tools/it-troubleshooting-assistant',
+    label: 'IT Troubleshooting Assistant',
+    shortcutCombo: 'alt+t',
+    phrases: [
+      'open troubleshooting assistant',
+      'open it troubleshooter',
+      'troubleshooting assistant',
+      'it troubleshooter',
+      'ai troubleshooter',
+      'troubleshooter',
+    ],
+  },
+  {
+    id: 'ai-audio-transcriber',
+    route: '/tools/ai-audio-transcriber',
+    label: 'AI Audio Transcriber',
+    shortcutCombo: 'alt+r',
+    phrases: [
+      'open audio transcriber',
+      'go to audio transcriber',
+      'ai audio transcriber',
+      'audio transcriber',
+      'transcriber',
+      'voice recorder',
+    ],
+  },
+  {
     id: 'close-modals',
     label: 'Close Active Modals',
     shortcutCombo: 'esc',
@@ -632,6 +673,21 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     );
   }, [triggerToastNotification]);
 
+  const handleGoAiPromptBuilder = useCallback(() => {
+    navigate('/tools/ai-prompt-builder');
+    triggerToastNotification('ai-prompt-builder', 'AI Prompt Builder (Alt+P)');
+  }, [navigate, triggerToastNotification]);
+
+  const handleGoAiTroubleshooter = useCallback(() => {
+    navigate('/tools/it-troubleshooting-assistant');
+    triggerToastNotification('it-troubleshooter', 'IT Troubleshooting Assistant (Alt+T)');
+  }, [navigate, triggerToastNotification]);
+
+  const handleGoAiTranscriber = useCallback(() => {
+    navigate('/tools/ai-audio-transcriber');
+    triggerToastNotification('ai-audio-transcriber', 'AI Audio Transcriber (Alt+R)');
+  }, [navigate, triggerToastNotification]);
+
   // List of active global default shortcuts
   const defaultShortcuts: ShortcutItem[] = useMemo(
     () => [
@@ -720,7 +776,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
         id: 'search-modal',
         combo: 'mod+k',
         label: 'Open Search',
-        description: '⌘ + K -> Open Search',
+        description: '⌘ + K -> Open Search & Command Palette',
         category: 'Search & Modals',
         allowInInput: true,
         action: handleToggleSearchModal,
@@ -747,7 +803,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
         id: 'shortcuts-help',
         combo: 'shift+?',
         label: 'Keyboard Shortcuts',
-        description: 'Open keyboard shortcuts cheatsheet modal (Shift + ?)',
+        description: 'Open keyboard shortcuts cheatsheet modal (Shift + ? or ?)',
         category: 'Search & Modals',
         allowInInput: false,
         action: toggleHelpModal,
@@ -764,11 +820,38 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
       {
         id: 'ai-widget',
         combo: 'alt+a',
-        label: 'Toggle AI Assistant',
-        description: 'Open or minimize Jawed AI troubleshooting widget',
-        category: 'AI Assistant',
+        label: 'Toggle Jawed AI Assistant',
+        description: 'Open or minimize Jawed AI troubleshooting widget (Alt+A)',
+        category: 'AI Tools & Assistant',
         allowInInput: true,
         action: handleToggleAiWidget,
+      },
+      {
+        id: 'ai-prompt-builder',
+        combo: 'alt+p',
+        label: 'AI Prompt Builder',
+        description: 'Alt + P -> Open AI system prompt & context builder tool',
+        category: 'AI Tools & Assistant',
+        allowInInput: false,
+        action: handleGoAiPromptBuilder,
+      },
+      {
+        id: 'it-troubleshooting-assistant',
+        combo: 'alt+t',
+        label: 'IT Troubleshooting Assistant',
+        description: 'Alt + T -> Open AI-guided IT incident triage & step-by-step diagnostic assistant',
+        category: 'AI Tools & Assistant',
+        allowInInput: false,
+        action: handleGoAiTroubleshooter,
+      },
+      {
+        id: 'ai-audio-transcriber',
+        combo: 'alt+r',
+        label: 'AI Audio Transcriber',
+        description: 'Alt + R -> Open AI audio transcription & voice recording tool',
+        category: 'AI Tools & Assistant',
+        allowInInput: false,
+        action: handleGoAiTranscriber,
       },
       {
         id: 'nav-services',
@@ -814,6 +897,9 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
       toggleHelpModal,
       handleCloseAll,
       handleToggleAiWidget,
+      handleGoAiPromptBuilder,
+      handleGoAiTroubleshooter,
+      handleGoAiTranscriber,
       handleGoServices,
       handleGoContact,
       handleOpenMoneyManagerTransactionModal,
@@ -1431,7 +1517,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
             data-prefix-key={activePrefix}
             style={{
               position: 'fixed',
-              bottom: '24px',
+              bottom: '74px',
               left: '24px',
               zIndex: 10001,
               background: 'var(--card)',
@@ -1615,7 +1701,7 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
           data-testid="shortcut-action-toast"
           style={{
             position: 'fixed',
-            bottom: '24px',
+            bottom: '74px',
             left: '24px',
             zIndex: 10000,
             background: 'var(--card)',
@@ -1785,6 +1871,60 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
           </ul>
         </aside>
       )}
+      {/* Persistent Floating 'Keyboard Shortcuts' Help Button */}
+      <button
+        type="button"
+        className="floating-shortcuts-help-btn"
+        data-testid="floating-shortcuts-help-btn"
+        onClick={toggleHelpModal}
+        aria-haspopup="dialog"
+        aria-expanded={isHelpModalOpen}
+        aria-keyshortcuts="?"
+        aria-label="Keyboard Shortcuts and Accessibility Help (Press '?')"
+        title="Keyboard Shortcuts & Accessibility Help (Press '?')"
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '24px',
+          zIndex: 9998,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '8px 14px',
+          borderRadius: '9999px',
+          background: 'var(--card, #1e293b)',
+          border: '1px solid var(--border, rgba(56, 189, 248, 0.35))',
+          color: 'var(--text-heading, #f8fafc)',
+          fontSize: '0.8rem',
+          fontWeight: 700,
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.28)',
+          cursor: 'pointer',
+          transition: 'all 0.18s ease-in-out',
+        }}
+      >
+        <span style={{ fontSize: '1rem', lineHeight: 1 }} aria-hidden="true">
+          ⌨️
+        </span>
+        <span>Shortcuts</span>
+        <kbd
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1px 6px',
+            borderRadius: '4px',
+            background: 'var(--bg, #0f172a)',
+            border: '1px solid var(--border, rgba(255, 255, 255, 0.18))',
+            color: 'var(--accent, #38bdf8)',
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '0.72rem',
+            fontWeight: 800,
+          }}
+        >
+          ?
+        </kbd>
+      </button>
+
       <GlobalMoneyManagerQuickModal currentPathname={location.pathname} />
     </KeyboardShortcutContext.Provider>
   );

@@ -47,7 +47,11 @@ const NAMED_HTML_ENTITIES: Record<string, string> = {
 export function decodeHtmlEntities(rawHtml: string): string {
   if (!rawHtml) return '';
 
-  const withoutTags = rawHtml.replace(/<[^>]+>/g, '');
+  const withoutTags = rawHtml
+    .replace(/<[^>]+>/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1');
 
   return withoutTags
     .replace(/&(?:amp|lt|gt|quot|#39|apos|nbsp|ndash|mdash|rarr|larr);/gi, (match) => {
@@ -87,11 +91,17 @@ export function convertMarkdownHeadingsToHtml(content: string): string {
   if (!content || typeof content !== 'string') return '';
 
   const preBlocks: string[] = [];
-  const masked = content.replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, (match) => {
-    const token = `__TOC_PRE_BLOCK_${preBlocks.length}__`;
-    preBlocks.push(match);
-    return token;
-  });
+  const masked = content
+    .replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, (match) => {
+      const token = `__TOC_PRE_BLOCK_${preBlocks.length}__`;
+      preBlocks.push(match);
+      return token;
+    })
+    .replace(/```[\s\S]*?```/g, (match) => {
+      const token = `__TOC_PRE_BLOCK_${preBlocks.length}__`;
+      preBlocks.push(match);
+      return token;
+    });
 
   const converted = masked.replace(
     /^[ \t]*(#{2,3})[ \t]+([^\r\n#]+?)[ \t]*#*[ \t]*$/gm,

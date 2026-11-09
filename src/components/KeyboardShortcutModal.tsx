@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ShortcutItem, formatComboForDisplay } from '../hooks/useKeyboardShortcuts';
 import { VOICE_COMMAND_RULES, VoiceCommandRule } from './KeyboardShortcutManager';
 
-export type ShortcutDisplayMode = 'modal' | 'side-panel';
+export type ShortcutDisplayMode = 'modal' | 'side-panel' | 'floating';
 
 export interface KeyboardShortcutModalProps {
   isOpen: boolean;
@@ -54,11 +54,11 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
   isVoiceListening = false,
   onToggleVoice,
 }) => {
-  // Display Mode: 'modal' (Centered Dialog) vs 'side-panel' (Right Sliding Drawer)
+  // Display Mode: 'modal' (Centered Dialog), 'side-panel' (Right Sliding Drawer), or 'floating' (Docked Floating Window)
   const [displayMode, setDisplayMode] = useState<ShortcutDisplayMode>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('shortcut_guide_display_mode');
-      if (saved === 'side-panel' || saved === 'modal') return saved;
+      if (saved === 'side-panel' || saved === 'modal' || saved === 'floating') return saved;
     }
     return 'modal';
   });
@@ -85,12 +85,18 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
     try {
       localStorage.setItem('shortcut_guide_display_mode', mode);
     } catch {}
-    setLiveAnnouncement(`Switched keyboard shortcuts guide to ${mode === 'side-panel' ? 'Side Panel Drawer' : 'Centered Modal'} mode.`);
+    const modeLabel =
+      mode === 'side-panel'
+        ? 'Side Panel Drawer'
+        : mode === 'floating'
+        ? 'Floating Docked Window'
+        : 'Centered Modal';
+    setLiveAnnouncement(`Switched keyboard shortcuts guide to ${modeLabel} mode.`);
   };
 
   // Categories list
   const categories: string[] = useMemo(() => {
-    const defaultCategories: string[] = ['Navigation', 'Search & Modals', 'Global Controls', 'AI Assistant'];
+    const defaultCategories: string[] = ['Navigation', 'AI Tools & Assistant', 'Search & Modals', 'Global Controls'];
     const presentCategories = Array.from(new Set(shortcuts.map((s) => s.category || 'Tool Specific')));
     const combined = [...defaultCategories];
     for (const cat of presentCategories) {
@@ -394,6 +400,8 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
       {isOpen && (
         <div
           className={`shortcut-guide-overlay mode-${displayMode}`}
+          data-testid="keyboard-shortcuts-floating-modal"
+          data-display-mode={displayMode}
           role="dialog"
           aria-modal={displayMode === 'modal'}
           aria-labelledby="keyboard-shortcuts-modal-title"
@@ -414,7 +422,8 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
                   padding: '16px',
                   animation: 'fadeIn 0.2s ease-out',
                 }
-              : {
+              : displayMode === 'side-panel'
+              ? {
                   position: 'fixed',
                   top: 0,
                   right: 0,
@@ -425,6 +434,18 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
                   boxShadow: '-10px 0 30px rgba(0,0,0,0.5)',
                   animation: 'slideLeft 0.25s ease-out',
                   pointerEvents: 'none', // backdrop click-through in side-panel
+                }
+              : {
+                  position: 'fixed',
+                  bottom: '74px',
+                  left: '24px',
+                  width: 'min(92vw, 560px)',
+                  maxHeight: 'min(80vh, 650px)',
+                  zIndex: 9999,
+                  display: 'flex',
+                  boxShadow: '0 20px 48px rgba(0,0,0,0.55)',
+                  animation: 'slideUpFade 0.22s ease-out',
+                  pointerEvents: 'none', // non-blocking backdrop in floating mode
                 }
           }
         >
@@ -443,17 +464,18 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
             ref={dialogCardRef}
             tabIndex={-1}
             className={`shortcut-modal-card mode-${displayMode}`}
+            data-testid="keyboard-shortcuts-modal"
             onClick={(e) => e.stopPropagation()}
             style={{
               pointerEvents: 'auto',
               background: 'var(--card)',
-              border: displayMode === 'side-panel' ? 'none' : '1px solid var(--line)',
-              borderLeft: displayMode === 'side-panel' ? '2px solid var(--accent)' : '1px solid var(--line)',
+              border: displayMode === 'side-panel' ? 'none' : '1px solid var(--accent, #38bdf8)',
+              borderLeft: displayMode === 'side-panel' ? '2px solid var(--accent)' : '1px solid var(--accent, #38bdf8)',
               borderRadius: displayMode === 'side-panel' ? '16px 0 0 16px' : '16px',
               width: '100%',
-              maxWidth: displayMode === 'side-panel' ? '100%' : '720px',
+              maxWidth: displayMode === 'side-panel' ? '100%' : displayMode === 'floating' ? '560px' : '720px',
               height: displayMode === 'side-panel' ? '100vh' : 'auto',
-              maxHeight: displayMode === 'side-panel' ? '100vh' : '88vh',
+              maxHeight: displayMode === 'side-panel' ? '100vh' : displayMode === 'floating' ? 'min(80vh, 650px)' : '88vh',
               display: 'flex',
               flexDirection: 'column',
               boxShadow: '0 20px 40px -10px rgba(0,0,0,0.5)',
@@ -504,6 +526,8 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
                 >
                   {displayMode === 'side-panel'
                     ? 'Side Panel Mode • Keep open while navigating or testing tools.'
+                    : displayMode === 'floating'
+                    ? 'Floating Docked Mode • Persistent view while working with tools.'
                     : 'Centered Modal Mode • Quick reference cheatsheet and live tester.'}
                 </p>
               </div>
@@ -523,6 +547,7 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
                 >
                   <button
                     type="button"
+                    data-testid="shortcuts-display-mode-modal"
                     onClick={() => handleSetDisplayMode('modal')}
                     title="Switch to Centered Modal Dialog View"
                     style={{
@@ -541,6 +566,7 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
                   </button>
                   <button
                     type="button"
+                    data-testid="shortcuts-display-mode-side-panel"
                     onClick={() => handleSetDisplayMode('side-panel')}
                     title="Switch to Right Side Panel Drawer View"
                     style={{
@@ -557,11 +583,31 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
                   >
                     📑 Side Panel
                   </button>
+                  <button
+                    type="button"
+                    data-testid="shortcuts-display-mode-floating"
+                    onClick={() => handleSetDisplayMode('floating')}
+                    title="Switch to Persistent Floating Docked View"
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      borderRadius: '6px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: displayMode === 'floating' ? 'var(--accent)' : 'transparent',
+                      color: displayMode === 'floating' ? '#ffffff' : 'var(--text-muted)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    🪟 Floating
+                  </button>
                 </div>
 
                 <button
                   ref={closeButtonRef}
                   type="button"
+                  data-testid="shortcuts-close-btn"
                   onClick={onClose}
                   aria-label="Close keyboard shortcuts guide (Escape)"
                   aria-keyshortcuts="Escape"
@@ -683,17 +729,18 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
               }}
             >
               {[
-                { id: 'all', label: `All (${shortcuts.length})` },
-                { id: 'navigation', label: 'Navigation' },
-                { id: 'search', label: 'Search' },
-                { id: 'global', label: 'Global' },
-                { id: 'ai', label: 'AI Assistant' },
-                { id: 'tool', label: 'Tool Specific' },
-                { id: 'voice', label: `🎙️ Voice (${voiceCommands.length})` },
+                { id: 'all', label: `All (${shortcuts.length})`, testId: 'shortcuts-tab-all' },
+                { id: 'navigation', label: 'Navigation', testId: 'shortcuts-tab-navigation' },
+                { id: 'ai', label: 'AI Tools & Assistant', testId: 'shortcuts-tab-ai' },
+                { id: 'search', label: 'Search & Modals', testId: 'shortcuts-tab-search' },
+                { id: 'global', label: 'Global Controls', testId: 'shortcuts-tab-global' },
+                { id: 'tool', label: 'Tool Specific', testId: 'shortcuts-tab-tool' },
+                { id: 'voice', label: `🎙️ Voice (${voiceCommands.length})`, testId: 'shortcuts-tab-voice' },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
+                  data-testid={tab.testId}
                   onClick={() => setActiveTab(tab.id)}
                   style={{
                     padding: '6px 12px',
@@ -727,6 +774,7 @@ export const KeyboardShortcutModal: React.FC<KeyboardShortcutModalProps> = ({
               <input
                 ref={searchInputRef}
                 id="keyboard-shortcuts-filter-input"
+                data-testid="shortcuts-search-input"
                 type="search"
                 aria-label="Filter keyboard shortcuts or voice commands"
                 placeholder={

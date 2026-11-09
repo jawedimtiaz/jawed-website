@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   NAV_ROUTE_MAP,
   FALLBACK_SHORTCUTS,
@@ -823,6 +825,211 @@ describe('CommandPalette - Shortcut Filtering & Navigational Execution Logic', (
       relatedSectionSource.includes("heading = 'Related Articles'") &&
         relatedSectionSource.includes('data-testid="related-articles-section"'),
       'Expected RelatedArticlesSection.tsx to render the Related Articles heading and 3-card grid'
+    );
+  });
+
+  it('verifies persistent floating shortcuts help button, "?" trigger, navigation & AI tool mappings', () => {
+    const managerSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/KeyboardShortcutManager.tsx'),
+      'utf8'
+    );
+    const modalSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/KeyboardShortcutModal.tsx'),
+      'utf8'
+    );
+    const cssSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/index.css'),
+      'utf8'
+    );
+
+    // 1. Verify persistent floating shortcuts trigger button exists with required accessibility attributes
+    assert.ok(
+      managerSource.includes('data-testid="floating-shortcuts-help-btn"'),
+      'Expected KeyboardShortcutManager to render persistent floating button with data-testid="floating-shortcuts-help-btn"'
+    );
+    assert.ok(
+      managerSource.includes('aria-keyshortcuts="?"'),
+      'Expected floating shortcuts help button to have aria-keyshortcuts="?"'
+    );
+    assert.ok(
+      managerSource.includes('aria-label="Keyboard Shortcuts and Accessibility Help (Press \'?\')"'),
+      'Expected floating shortcuts help button to have aria-label announcing ? key trigger'
+    );
+    assert.ok(
+      managerSource.includes('onClick={toggleHelpModal}'),
+      'Expected floating shortcuts help button to toggle shortcuts modal on click'
+    );
+
+    // 2. Verify "?" keyboard shortcut trigger logic and input guard
+    assert.ok(
+      managerSource.includes("e.key === '?'") &&
+        managerSource.includes("e.shiftKey && (e.key === '/' || e.code === 'Slash')"),
+      'Expected KeyboardShortcutManager keydown listener to support bare "?" and Shift + "?" triggers'
+    );
+    assert.ok(
+      managerSource.includes('if (isEditable)') && managerSource.includes('toggleHelpModal()'),
+      'Expected "?" trigger to respect isEditable / isUserTypingInEditableField'
+    );
+
+    // 3. Verify AI Tool Shortcuts and Navigation Mappings
+    const expectedShortcuts = [
+      { id: 'nav-home', combo: 'g+h', category: 'Navigation' },
+      { id: 'nav-tools', combo: 'g+t', category: 'Navigation' },
+      { id: 'nav-guides', combo: 'g+g', category: 'Navigation' },
+      { id: 'nav-notes', combo: 'g+n', category: 'Navigation' },
+      { id: 'nav-blog', combo: 'g+b', category: 'Navigation' },
+      { id: 'nav-work', combo: 'g+w', category: 'Navigation' },
+      { id: 'nav-about', combo: 'g+a', category: 'Navigation' },
+      { id: 'nav-topics', combo: 'g+o', category: 'Navigation' },
+      { id: 'nav-resources', combo: 'g+r', category: 'Navigation' },
+      { id: 'nav-services', combo: 'alt+s', category: 'Navigation' },
+      { id: 'nav-contact', combo: 'alt+c', category: 'Navigation' },
+      { id: 'ai-widget', combo: 'alt+a', category: 'AI Tools & Assistant' },
+      { id: 'ai-prompt-builder', combo: 'alt+p', category: 'AI Tools & Assistant' },
+      { id: 'it-troubleshooting-assistant', combo: 'alt+t', category: 'AI Tools & Assistant' },
+      { id: 'ai-audio-transcriber', combo: 'alt+r', category: 'AI Tools & Assistant' },
+      { id: 'search-modal', combo: 'mod+k' },
+      { id: 'toggle-theme', combo: 't' },
+      { id: 'focus-search', combo: '/' },
+      { id: 'close-modals', combo: 'esc' },
+    ];
+
+    for (const item of expectedShortcuts) {
+      assert.ok(
+        managerSource.includes(`id: '${item.id}'`) && managerSource.includes(`combo: '${item.combo}'`),
+        `Expected KeyboardShortcutManager to map shortcut id "${item.id}" with combo "${item.combo}"`
+      );
+      if (item.category) {
+        assert.ok(
+          managerSource.includes(`category: '${item.category}'`),
+          `Expected shortcut category "${item.category}" to be registered in KeyboardShortcutManager`
+        );
+      }
+    }
+
+    // 4. Verify AI Tool Voice Commands in VOICE_COMMAND_RULES
+    assert.ok(
+      managerSource.includes("id: 'ai-prompt-builder'") &&
+        managerSource.includes("route: '/tools/ai-prompt-builder'") &&
+        managerSource.includes("shortcutCombo: 'alt+p'"),
+      'Expected VOICE_COMMAND_RULES to include AI Prompt Builder route and alt+p combo'
+    );
+    assert.ok(
+      managerSource.includes("id: 'it-troubleshooting-assistant'") &&
+        managerSource.includes("route: '/tools/it-troubleshooting-assistant'") &&
+        managerSource.includes("shortcutCombo: 'alt+t'"),
+      'Expected VOICE_COMMAND_RULES to include IT Troubleshooting Assistant route and alt+t combo'
+    );
+    assert.ok(
+      managerSource.includes("id: 'ai-audio-transcriber'") &&
+        managerSource.includes("route: '/tools/ai-audio-transcriber'") &&
+        managerSource.includes("shortcutCombo: 'alt+r'"),
+      'Expected VOICE_COMMAND_RULES to include AI Audio Transcriber route and alt+r combo'
+    );
+
+    // 5. Verify KeyboardShortcutModal supports 'floating' display mode and interactive accessibility
+    assert.ok(
+      modalSource.includes("'modal' | 'side-panel' | 'floating'"),
+      'Expected KeyboardShortcutModal ShortcutDisplayMode type to include "floating"'
+    );
+    assert.ok(
+      modalSource.includes('data-testid="keyboard-shortcuts-floating-modal"'),
+      'Expected KeyboardShortcutModal to include data-testid="keyboard-shortcuts-floating-modal"'
+    );
+    assert.ok(
+      modalSource.includes('data-testid="keyboard-shortcuts-modal"'),
+      'Expected KeyboardShortcutModal to include data-testid="keyboard-shortcuts-modal"'
+    );
+    assert.ok(
+      modalSource.includes('data-testid="shortcuts-display-mode-floating"'),
+      'Expected mode switcher button data-testid="shortcuts-display-mode-floating"'
+    );
+    assert.ok(
+      modalSource.includes('data-testid="shortcuts-close-btn"'),
+      'Expected close button data-testid="shortcuts-close-btn"'
+    );
+    assert.ok(
+      modalSource.includes('data-testid="shortcuts-search-input"'),
+      'Expected filter input data-testid="shortcuts-search-input"'
+    );
+    assert.ok(
+      modalSource.includes("testId: 'shortcuts-tab-ai'") &&
+        modalSource.includes("testId: 'shortcuts-tab-navigation'") &&
+        modalSource.includes('data-testid={tab.testId}'),
+      'Expected category filter tabs to have data-testid attributes for AI Tools & Assistant and Navigation'
+    );
+
+    // 6. Verify CSS styling for .floating-shortcuts-help-btn
+    assert.ok(
+      cssSource.includes('.floating-shortcuts-help-btn'),
+      'Expected index.css to contain styles for .floating-shortcuts-help-btn'
+    );
+  });
+
+  it('verifies ScrollProgress indicator displays percentage completion toast encouraging Related Articles engagement', () => {
+    const scrollProgressSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/ScrollProgress.tsx'),
+      'utf8'
+    );
+    const relatedSectionSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/RelatedArticlesSection.tsx'),
+      'utf8'
+    );
+    const cssSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/index.css'),
+      'utf8'
+    );
+
+    // 1. Verify ScrollProgress tracks completion threshold and renders completion toast
+    assert.ok(
+      scrollProgressSource.includes('completionThreshold = 0.88') ||
+        scrollProgressSource.includes('completionThreshold'),
+      'Expected ScrollProgress to support completionThreshold for detecting end of article'
+    );
+    assert.ok(
+      scrollProgressSource.includes('data-testid="scroll-completion-toast"'),
+      'Expected ScrollProgress to render completion toast with data-testid="scroll-completion-toast"'
+    );
+
+    // 2. Verify percentage completion badge and text
+    assert.ok(
+      scrollProgressSource.includes('data-testid="completion-percentage-badge"'),
+      'Expected completion toast to display percentage badge with data-testid="completion-percentage-badge"'
+    );
+    assert.ok(
+      scrollProgressSource.includes('% Completed'),
+      'Expected completion toast to announce percentage completion'
+    );
+
+    // 3. Verify Related Articles jump button and scroll handler
+    assert.ok(
+      scrollProgressSource.includes('data-testid="jump-to-related-articles-btn"'),
+      'Expected completion toast to provide button with data-testid="jump-to-related-articles-btn"'
+    );
+    assert.ok(
+      scrollProgressSource.includes('scrollIntoView'),
+      'Expected handleJumpToRelated to scroll smoothly into Related Articles section'
+    );
+
+    // 4. Verify Dismiss button
+    assert.ok(
+      scrollProgressSource.includes('data-testid="dismiss-completion-toast-btn"'),
+      'Expected completion toast to provide dismiss button with data-testid="dismiss-completion-toast-btn"'
+    );
+
+    // 5. Verify RelatedArticlesSection has anchor ID and class
+    assert.ok(
+      relatedSectionSource.includes('id="related-articles"') &&
+        relatedSectionSource.includes('className="related-articles-section"'),
+      'Expected RelatedArticlesSection to have id="related-articles" and className="related-articles-section"'
+    );
+
+    // 6. Verify CSS styles for .scroll-completion-toast
+    assert.ok(
+      cssSource.includes('.scroll-completion-toast {') &&
+        cssSource.includes('.scroll-completion-badge {') &&
+        cssSource.includes('.scroll-completion-cta-btn {'),
+      'Expected index.css to define styles for .scroll-completion-toast and call-to-action buttons'
     );
   });
 });

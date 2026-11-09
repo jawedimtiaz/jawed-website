@@ -12,6 +12,10 @@ import {
   type TocItem,
   type GeneratedTocResult,
 } from '../utils/tocGenerator';
+import {
+  ReadTimeProgressIndicator,
+  type ReadTimeProgressIndicatorProps,
+} from './ReadTimeProgressIndicator';
 
 export {
   generateTableOfContents,
@@ -23,8 +27,10 @@ export {
   injectHeadingCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
+  ReadTimeProgressIndicator,
   type TocItem,
   type GeneratedTocResult,
+  type ReadTimeProgressIndicatorProps,
 };
 
 export interface TableOfContentsProps {
@@ -73,6 +79,15 @@ export interface TableOfContentsProps {
    * Controlled mobile toggle handler (optional).
    */
   onToggleMobile?: () => void;
+  /**
+   * Whether to display the scroll-triggered estimated read time progress indicator in the sidebar.
+   * Defaults to true when content or estimatedTime is supplied.
+   */
+  showReadTime?: boolean;
+  /**
+   * Optional precomputed estimated read time (e.g. '5 min read' or number of minutes).
+   */
+  estimatedTime?: string | number;
 }
 
 export const TableOfContents: React.FC<TableOfContentsProps> = ({
@@ -87,6 +102,8 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
   mode = 'desktop',
   isMobileOpen: controlledMobileOpen,
   onToggleMobile,
+  showReadTime = true,
+  estimatedTime,
 }) => {
   const [domTocItems, setDomTocItems] = useState<TocItem[]>([]);
   const [internalActiveId, setInternalActiveId] = useState<string>('');
@@ -173,11 +190,33 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
     }
   };
 
+  const [internalCopiedId, setInternalCopiedId] = useState<string>('');
+  const activeCopiedId = copiedHeadingId || internalCopiedId;
+
+  const handleCopyLinkClick = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+    headingId: string
+  ) => {
+    if (onCopyHeadingLink) {
+      onCopyHeadingLink(event, headingId);
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const currentBaseUrl = typeof window !== 'undefined' ? window.location.href : '';
+    const anchorUrl = buildTocAnchorUrl(currentBaseUrl, headingId);
+    await copyTocAnchorToClipboard(anchorUrl);
+    setInternalCopiedId(headingId);
+    setTimeout(() => {
+      setInternalCopiedId((prev) => (prev === headingId ? '' : prev));
+    }, 2000);
+  };
+
   const renderTocList = (idPrefix: string) => (
     <ul className="note-toc-list" data-testid={`${idPrefix}-toc-list`}>
       {items.map((item) => {
         const isActive = activeHeadingId === item.id;
-        const isCopied = copiedHeadingId === item.id;
+        const isCopied = activeCopiedId === item.id;
         return (
           <li key={item.id} className={`note-toc-item level-${item.level}`}>
             <div className="note-toc-row">
@@ -190,42 +229,40 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
               >
                 {item.text}
               </a>
-              {onCopyHeadingLink && (
-                <button
-                  type="button"
-                  onClick={(e) => onCopyHeadingLink(e, item.id)}
-                  className={`note-toc-copy-btn${isCopied ? ' is-copied' : ''}`}
-                  title={isCopied ? 'Link copied!' : 'Copy Link to Heading'}
-                  aria-label={
-                    isCopied
-                      ? `Copied link to ${item.text}`
-                      : `Copy Link to Heading: ${item.text}`
-                  }
-                  data-testid={`${idPrefix}-copy-toc-link-${item.id}`}
-                >
-                  {isCopied ? (
-                    <>
-                      <span aria-hidden="true">✓</span>
-                      <span>Copied</span>
-                    </>
-                  ) : (
-                    <svg
-                      width="13"
-                      height="13"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                    </svg>
-                  )}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={(e) => handleCopyLinkClick(e, item.id)}
+                className={`note-toc-copy-btn${isCopied ? ' is-copied' : ''}`}
+                title={isCopied ? 'Link copied!' : 'Copy Link to Heading'}
+                aria-label={
+                  isCopied
+                    ? `Copied link to ${item.text}`
+                    : `Copy Link to Heading: ${item.text}`
+                }
+                data-testid={`${idPrefix}-copy-toc-link-${item.id}`}
+              >
+                {isCopied ? (
+                  <>
+                    <span aria-hidden="true">✓</span>
+                    <span>Copied</span>
+                  </>
+                ) : (
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                )}
+              </button>
             </div>
           </li>
         );
@@ -257,6 +294,13 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
           </button>
           {isMobileTocOpen && (
             <div id="note-toc-mobile-panel" className="note-toc-mobile-panel">
+              {showReadTime && (content || estimatedTime) && (
+                <ReadTimeProgressIndicator
+                  content={content}
+                  estimatedTime={estimatedTime}
+                  variant="sidebar"
+                />
+              )}
               {renderTocList('mobile')}
             </div>
           )}
@@ -275,6 +319,13 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
               <h2 className="note-toc-title">On this page</h2>
               <span className="note-toc-count">{items.length} sections</span>
             </div>
+            {showReadTime && (content || estimatedTime) && (
+              <ReadTimeProgressIndicator
+                content={content}
+                estimatedTime={estimatedTime}
+                variant="sidebar"
+              />
+            )}
             {renderTocList('desktop')}
             <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
               <button

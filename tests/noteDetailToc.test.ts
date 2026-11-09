@@ -290,7 +290,188 @@ Some paragraph text.
       noteDetailSource.includes('mode="desktop"'),
     'Expected NoteDetailPage.tsx to mount <TableOfContents mode="desktop" /> for sticky side navigation'
   );
+
+  // 5. Verify NoteDetailPage respects existing page grid layout (.note-detail-layout)
+  const cssSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/index.css'),
+    'utf8'
+  );
+
+  assert.ok(
+    cssSource.includes('.note-detail-layout {') &&
+      cssSource.includes('grid-template-columns: minmax(0, 1fr) 290px;') &&
+      cssSource.includes('gap: 32px;') &&
+      cssSource.includes('align-items: start;'),
+    'Expected .note-detail-layout to define a 2-column grid layout with 290px sticky sidebar column'
+  );
+  assert.ok(
+    cssSource.includes('.note-detail-layout.no-toc {') &&
+      cssSource.includes('grid-template-columns: minmax(0, 1fr);'),
+    'Expected .note-detail-layout.no-toc to collapse to a single column when TOC is omitted'
+  );
+  assert.ok(
+    noteDetailSource.includes("className={shouldShowToc ? 'note-detail-layout' : 'note-detail-layout no-toc'}"),
+    'Expected NoteDetailPage to wrap article and TOC in .note-detail-layout grid'
+  );
 });
+
+test('TableOfContents parses Markdown code fences and inline syntax without false headings', async () => {
+  const { convertMarkdownHeadingsToHtml, generateTableOfContents } = await import(
+    '../src/components/TableOfContents'
+  );
+
+  const markdownContent = `
+# Markdown Guide
+## 1. Introduction to \`APIs\`
+Some intro text.
+
+\`\`\`bash
+# This is a comment inside code block
+## Not a real heading
+curl -X GET https://api.example.com
+\`\`\`
+
+## 2. **Authentication** & Tokens
+Token details.
+
+### 2.1 Generating API \`Key\`
+Steps to generate.
+  `;
+
+  const converted = convertMarkdownHeadingsToHtml(markdownContent);
+  assert.ok(converted.includes('<h2>1. Introduction to `APIs`</h2>'));
+  assert.ok(converted.includes('<h2>2. **Authentication** & Tokens</h2>'));
+  assert.ok(converted.includes('<h3>2.1 Generating API `Key`</h3>'));
+  assert.ok(
+    !converted.includes('<h2>Not a real heading</h2>'),
+    'Expected headings inside fenced code blocks to NOT be converted into H2 tags'
+  );
+
+  const toc = generateTableOfContents(markdownContent);
+  assert.equal(toc.tocItems.length, 3);
+  assert.deepEqual(toc.tocItems[0], {
+    id: '1-introduction-to-apis',
+    text: '1. Introduction to APIs',
+    level: 2,
+  });
+  assert.deepEqual(toc.tocItems[1], {
+    id: '2-authentication-tokens',
+    text: '2. Authentication & Tokens',
+    level: 2,
+  });
+  assert.deepEqual(toc.tocItems[2], {
+    id: '2-1-generating-api-key',
+    text: '2.1 Generating API Key',
+    level: 3,
+  });
+});
+
+test('calculateRemainingReadTime accurately computes total and remaining time across scroll progress', async () => {
+  const {
+    calculateRemainingReadTime,
+    calculateWordCount,
+    calculateReadTimeMinutes,
+    calculateReadTime,
+  } = await import('../src/utils/readTimeHelper');
+
+  // 1000 words = ~5 minutes at 200 WPM
+  const words = Array.from({ length: 1000 }, (_, i) => `word${i}`).join(' ');
+  const counted = calculateWordCount(words);
+  assert.equal(counted, 1000);
+
+  const totalMins = calculateReadTimeMinutes(words);
+  assert.equal(totalMins, 5);
+  assert.equal(calculateReadTime(words), '5 min read');
+
+  // At 0% scroll progress:
+  const start = calculateRemainingReadTime(words, 0);
+  assert.equal(start.totalMinutes, 5);
+  assert.equal(start.remainingMinutes, 5);
+  assert.equal(start.formattedTotal, '5 min read');
+  assert.equal(start.formattedRemaining, '5 min left');
+  assert.equal(start.percent, 0);
+  assert.equal(start.wordCount, 1000);
+
+  // At 40% scroll progress:
+  const mid = calculateRemainingReadTime(words, 0.4);
+  assert.equal(mid.totalMinutes, 5);
+  assert.equal(mid.remainingMinutes, 3);
+  assert.equal(mid.formattedRemaining, '3 min left');
+  assert.equal(mid.percent, 40);
+
+  // At 85% scroll progress:
+  const late = calculateRemainingReadTime(words, 0.85);
+  assert.equal(late.remainingMinutes, 1);
+  assert.equal(late.formattedRemaining, '1 min left');
+  assert.equal(late.percent, 85);
+
+  // At 95%+ scroll progress:
+  const completed = calculateRemainingReadTime(words, 0.96);
+  assert.equal(completed.remainingMinutes, 0);
+  assert.equal(completed.formattedRemaining, 'Completed');
+  assert.equal(completed.percent, 96);
+});
+
+test('ReadTimeProgressIndicator and NoteDetailPage integrate scroll-triggered read time into layout', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+
+  const indicatorSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/ReadTimeProgressIndicator.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  const tocSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/TableOfContents.tsx'),
+    'utf8'
+  );
+
+  // 1. Verify ReadTimeProgressIndicator provides required data-testids
+  assert.ok(
+    indicatorSource.includes('data-testid="read-time-indicator"'),
+    'Expected read-time-indicator data-testid'
+  );
+  assert.ok(
+    indicatorSource.includes('data-testid="estimated-read-time-badge"'),
+    'Expected estimated-read-time-badge data-testid'
+  );
+  assert.ok(
+    indicatorSource.includes('data-testid="read-time-progress-bar"'),
+    'Expected read-time-progress-bar data-testid'
+  );
+  assert.ok(
+    indicatorSource.includes('data-testid="read-time-remaining"'),
+    'Expected read-time-remaining data-testid'
+  );
+
+  // 2. Verify all variants are supported (sidebar, inline, floating)
+  assert.ok(indicatorSource.includes("variant === 'sidebar'"));
+  assert.ok(indicatorSource.includes("variant === 'floating'"));
+  assert.ok(indicatorSource.includes("variant === 'inline'") || indicatorSource.includes('variant-inline'));
+
+  // 3. Verify TableOfContents renders ReadTimeProgressIndicator in sidebar
+  assert.ok(
+    tocSource.includes('<ReadTimeProgressIndicator') &&
+      tocSource.includes('variant="sidebar"'),
+    'Expected TableOfContents to render ReadTimeProgressIndicator with variant="sidebar"'
+  );
+
+  // 4. Verify NoteDetailPage renders inline and floating ReadTimeProgressIndicator
+  assert.ok(
+    noteDetailSource.includes('<ReadTimeProgressIndicator') &&
+      noteDetailSource.includes('variant="inline"'),
+    'Expected NoteDetailPage to render inline ReadTimeProgressIndicator'
+  );
+  assert.ok(
+    noteDetailSource.includes('<ReadTimeProgressIndicator') &&
+      noteDetailSource.includes('variant="floating"'),
+    'Expected NoteDetailPage to render floating ReadTimeProgressIndicator for mobile'
+  );
+});
+
 
 
 

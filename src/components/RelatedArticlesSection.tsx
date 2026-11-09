@@ -43,6 +43,7 @@ export const RelatedArticlesSection: React.FC<RelatedArticlesSectionProps> = ({
 
   return (
     <section
+      id="related-articles"
       className="related-articles-section"
       data-testid="related-articles-section"
       aria-label={heading}

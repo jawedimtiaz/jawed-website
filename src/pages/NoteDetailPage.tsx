@@ -40,6 +40,11 @@ import {
   type RelatedArticleSuggestion,
 } from '../components/RelatedArticlesSection';
 
+import {
+  ReadTimeProgressIndicator,
+  type ReadTimeProgressIndicatorProps,
+} from '../components/ReadTimeProgressIndicator';
+
 export {
   TableOfContents,
   AutomatedTableOfContents,
@@ -59,10 +64,12 @@ export {
   getRelatedArticles,
   extractArticleTopicsAndTags,
   getDefaultArticlePool,
+  ReadTimeProgressIndicator,
   type TocItem,
   type GeneratedTocResult,
   type ArticleCandidate,
   type RelatedArticleSuggestion,
+  type ReadTimeProgressIndicatorProps,
 };
 
 /**
@@ -477,6 +484,13 @@ export const NoteDetailPage: React.FC = () => {
           data-lightbox-scope="true"
           style={{ padding: '32px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}
         >
+          {/* Scroll-triggered Estimated Read Time & Progress Bar */}
+          <ReadTimeProgressIndicator
+            content={cleanHtmlContent}
+            variant="inline"
+            scrollTriggerThreshold={40}
+          />
+
           <div
             className="note-rendered-content"
             data-testid="note-rendered-content"
@@ -539,6 +553,13 @@ export const NoteDetailPage: React.FC = () => {
           url={shareUrl}
         />
       </div>
+
+      {/* Floating Read Time Indicator for Mobile/Tablet Scroll Progress */}
+      <ReadTimeProgressIndicator
+        content={cleanHtmlContent}
+        variant="floating"
+        scrollTriggerThreshold={120}
+      />
     </main>
   );
 };
