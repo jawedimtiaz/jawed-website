@@ -277,13 +277,39 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
       </div>
 
       {/* Top Leaderboard Ad Unit */}
-      <AdUnitPlaceholder slotType="top-leaderboard" />
+      <div className="no-print">
+        <AdUnitPlaceholder slotType="top-leaderboard" />
+      </div>
 
-      <p className="eyebrow">Diagnostic Tool — Data Center Infrastructure</p>
-      <h1>Server Rack Power &amp; BTU Calculator</h1>
-      <p className="lead">
-        Calculate total IT equipment electrical power load (Watts/kW), circuit amperage draw (Amps), NEC 80% continuous load circuit derating, heat dissipation in BTU/hr, and HVAC cooling capacity in Tons of Refrigeration.
-      </p>
+      {/* Print-Only Engineering Report Header (A4 / Letter Clean Documentation) */}
+      <div className="print-only print-document-header" style={{ marginBottom: '16pt', borderBottom: '2px solid #0f172a', paddingBottom: '10pt' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '7.5pt', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', fontWeight: 700, marginBottom: '2pt' }}>
+              Data Center Facilities &amp; Electrical Engineering Report
+            </div>
+            <h1 style={{ fontSize: '16pt', fontWeight: 800, margin: '0 0 3pt', color: '#0f172a' }}>
+              Server Rack Power &amp; BTU Heat Load Specification
+            </h1>
+            <p style={{ margin: 0, fontSize: '8.5pt', color: '#475569' }}>
+              Equipment electrical draw (Watts/Amps), NEC 80% continuous breaker derating, BTU/hr heat dissipation, and HVAC tonnage sizing.
+            </p>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '8pt', color: '#64748b', flexShrink: 0 }}>
+            <div><strong>Date:</strong> {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+            <div><strong>Voltage:</strong> {voltage}V AC · Single-Phase</div>
+            <div><strong>Source:</strong> jawed.co.in/tools/server-rack-power-btu-calculator</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="no-print">
+        <p className="eyebrow">Diagnostic Tool — Data Center Infrastructure</p>
+        <h1>Server Rack Power &amp; BTU Calculator</h1>
+        <p className="lead">
+          Calculate total IT equipment electrical power load (Watts/kW), circuit amperage draw (Amps), NEC 80% continuous load circuit derating, heat dissipation in BTU/hr, and HVAC cooling capacity in Tons of Refrigeration.
+        </p>
+      </div>
 
       {/* Local Storage & Offline Persistence Toolbar */}
       <div className="no-print">

@@ -65,6 +65,25 @@ export const BlogPostPage: React.FC = () => {
         />
       </div>
 
+      {/* Print-Only Blog Guide Header */}
+      <div className="print-only print-document-header" data-testid="blog-print-header">
+        <div className="print-header-top-row">
+          <div>
+            <div className="print-header-brand">
+              Jawed Imtiaz • Technical Blog &amp; Engineering Perspectives
+            </div>
+            <h1 className="print-header-title">{post.title}</h1>
+            {post.description && (
+              <p className="print-header-subtitle">{post.description}</p>
+            )}
+          </div>
+          <div className="print-header-meta">
+            <div><strong>Format:</strong> Technical Article</div>
+            <div><strong>Source:</strong> jawed.co.in/blog/{post.slug}</div>
+          </div>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
         <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)', fontWeight: 600, fontSize: '0.8rem' }}>
           Blog Post
@@ -108,6 +127,14 @@ export const BlogPostPage: React.FC = () => {
           url={shareUrl}
         />
       </div>
+
+      {/* Print-Only Document Footer */}
+      <footer className="print-only print-document-footer" data-testid="blog-print-footer">
+        <div className="print-footer-row">
+          <span>Official Technical Documentation • Jawed Imtiaz</span>
+          <span>https://jawed.co.in/blog/{post.slug}</span>
+        </div>
+      </footer>
     </main>
   );
 };

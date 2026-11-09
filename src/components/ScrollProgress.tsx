@@ -254,4 +254,8 @@ export const ScrollProgress: React.FC<ScrollProgressProps> = ({
 };
 
 export const ReadingProgressBar = ScrollProgress;
+export {
+  ScrollProgressIndicator,
+  type ScrollProgressIndicatorProps,
+} from './ScrollProgressIndicator';
 export default ScrollProgress;

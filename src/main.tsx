@@ -6,6 +6,7 @@ import { syncThemeFromLocalStorage } from './components/ThemeToggle';
 import App from './App';
 import './index.css';
 import './mobile-ai-widget.css';
+import './styles/print.css';
 
 // Immediately sync theme preference from localStorage onto document.documentElement before first render
 syncThemeFromLocalStorage();

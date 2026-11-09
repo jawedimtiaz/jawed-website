@@ -1,0 +1,738 @@
+/**
+ * ============================================================================
+ * Jawed.co.in — Professional Print & PDF Export Stylesheet
+ * Optimized for standard A4 (210mm x 297mm) and US Letter (8.5in x 11in)
+ * Covers IT tool results, diagnostic calculators, and technical engineering guides.
+ * ============================================================================
+ */
+
+/* ==========================================================================
+   1. Screen Visibility Guards (Hidden by default on screen)
+   ========================================================================== */
+@media screen {
+  .print-only,
+  .print-only-flex,
+  .print-only-grid,
+  .print-document-header,
+  .print-document-footer,
+  .print-report-header,
+  .print-report-footer,
+  .print-watermark,
+  .print-signature-block,
+  .print-meta-grid {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   2. Media Print Rules & Page Geometry (A4 / Letter)
+   ========================================================================== */
+@media print {
+  /* Page Setup for standard A4 and US Letter document budgets */
+  @page {
+    size: A4 portrait;
+    margin: 14mm 12mm 14mm 12mm;
+
+    @top-left {
+      content: "Jawed.co.in • Engineering Report & Technical Export";
+      font-size: 7.5pt;
+      font-weight: 600;
+      color: #475569;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    @top-right {
+      content: "Official Technical Document";
+      font-size: 7.5pt;
+      font-weight: 500;
+      color: #64748b;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    @bottom-left {
+      content: "Confidential & Reference Documentation • Jawed Imtiaz";
+      font-size: 7pt;
+      color: #94a3b8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 7.5pt;
+      font-weight: 500;
+      color: #475569;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+  }
+
+  @page :first {
+    margin-top: 10mm;
+  }
+
+  /* Landscape Support for Wide Tables & Architecture Diagrams */
+  @page landscape-report {
+    size: A4 landscape;
+    margin: 12mm 10mm 12mm 10mm;
+  }
+
+  .print-landscape {
+    page: landscape-report;
+  }
+
+  /* Universal Box-Sizing & Reset for Sharp High-Contrast Output */
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+
+  :root,
+  body,
+  html,
+  .dark,
+  [data-theme="dark"],
+  [data-theme="light"],
+  .light,
+  .site-wrapper,
+  main,
+  #root {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    font-size: 9.5pt !important;
+    line-height: 1.5 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* ==========================================================================
+     3. Hide Screen-Only Elements, Navigation, Floating Toolbars & Interactive Clutter
+     ========================================================================== */
+  .site-header,
+  header.site-header,
+  .site-nav,
+  .site-footer,
+  footer,
+  .menu-toggle,
+  .theme-toggle-btn,
+  .theme-toggle-group,
+  .cookie-trigger-btn,
+  .ios-pwa-bottom-sheet,
+  .pwa-install-banner,
+  .modal-overlay,
+  .modal,
+  [role="dialog"]:not(.printable-modal),
+  [role="alertdialog"],
+  .lightbox-overlay,
+  .global-lightbox-overlay,
+  .actions,
+  .tool-nav,
+  .tool-toolbar,
+  .print-this-tool-btn,
+  .pdf-export-btn,
+  .button-no-print,
+  .no-print,
+  [data-testid="print-this-tool-btn"],
+  [data-testid="print-report-btn"],
+  [data-testid="export-pdf-btn"],
+  .social-share-bar,
+  .copy-btn,
+  .note-heading-copy-btn,
+  .note-toc-copy-btn,
+  .ad-unit-placeholder,
+  .hero-secondary-ribbon,
+  .toast,
+  .undo-toolbar,
+  .jawed-ai-widget,
+  #jawed-ai-widget,
+  .jawed-ai-floating-btn,
+  .floating-help-btn,
+  .shortcuts-help-modal,
+  [data-testid="keyboard-shortcuts-modal"],
+  [data-testid="shortcuts-help-button"],
+  .scroll-progress-toast,
+  .scroll-progress-indicator,
+  .note-read-time-indicator.variant-floating,
+  .note-read-time-indicator .read-time-progress-track,
+  .note-toc-sidebar,
+  .note-toc-mobile,
+  .note-toc-sticky,
+  [data-testid="note-toc-sidebar"],
+  nav[aria-label="Table of Contents"],
+  nav[aria-label="Table of Contents (Mobile)"],
+  .newsletter-subscribe-form,
+  .unit-system-toggle,
+  .tool-tour-overlay,
+  .a4-preview-toolbar,
+  .quick-search-modal,
+  .search-modal-backdrop,
+  button:not(.printable-action) {
+    display: none !important;
+  }
+
+  /* Breadcrumb Trail: Hide interactive dropdown buttons while retaining clean text path */
+  .breadcrumb-dropdown,
+  .breadcrumb-history-menu,
+  .breadcrumb-separator-btn,
+  .breadcrumb-menu-btn,
+  button.breadcrumb-sep,
+  button.breadcrumb-link-btn {
+    display: none !important;
+  }
+
+  .breadcrumb-container,
+  nav[aria-label="Breadcrumb"] {
+    display: flex !important;
+    visibility: visible !important;
+    margin-bottom: 10pt !important;
+    padding: 3pt 0 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    font-size: 8pt !important;
+    color: #64748b !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .breadcrumb-container a,
+  nav[aria-label="Breadcrumb"] a {
+    color: #475569 !important;
+    text-decoration: none !important;
+  }
+
+  /* ==========================================================================
+     4. Display Print-Only Layouts & Components
+     ========================================================================== */
+  .print-only {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  .print-only-flex {
+    display: flex !important;
+    visibility: visible !important;
+  }
+
+  .print-only-grid {
+    display: grid !important;
+    visibility: visible !important;
+  }
+
+  /* Structured Document Header for Professional A4/Letter Reports */
+  .print-document-header,
+  .print-report-header {
+    display: block !important;
+    margin-bottom: 14pt !important;
+    padding-bottom: 10pt !important;
+    border-bottom: 2px solid #0f172a !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-header-top-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 12pt !important;
+  }
+
+  .print-header-brand {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: #475569 !important;
+    margin-bottom: 2pt !important;
+  }
+
+  .print-header-title {
+    font-size: 16pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin: 0 0 3pt !important;
+    line-height: 1.25 !important;
+  }
+
+  .print-header-subtitle {
+    font-size: 8.5pt !important;
+    color: #475569 !important;
+    margin: 0 !important;
+    line-height: 1.4 !important;
+  }
+
+  .print-header-meta {
+    text-align: right !important;
+    font-size: 8pt !important;
+    color: #475569 !important;
+    flex-shrink: 0 !important;
+    line-height: 1.45 !important;
+  }
+
+  .print-header-meta strong {
+    color: #0f172a !important;
+  }
+
+  /* Structured Document Footer */
+  .print-document-footer,
+  .print-report-footer {
+    display: block !important;
+    margin-top: 18pt !important;
+    padding-top: 8pt !important;
+    border-top: 1px solid #cbd5e1 !important;
+    font-size: 7.5pt !important;
+    color: #64748b !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-footer-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 10pt !important;
+  }
+
+  /* ==========================================================================
+     5. Technical Engineering Guides & Markdown Notes Layout
+     ========================================================================== */
+  .note-detail-layout,
+  .note-detail-layout.no-toc,
+  .blog-detail-layout,
+  .field-guide-layout {
+    display: block !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .quick-note-article,
+  article.card,
+  .blog-rendered-content,
+  .note-rendered-content {
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    color: #0f172a !important;
+  }
+
+  /* Typography Hierarchy for Technical Guides */
+  h1, h2, h3, h4, h5, h6 {
+    color: #0f172a !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  h1 {
+    font-size: 16pt !important;
+    font-weight: 800 !important;
+    margin: 0 0 6pt !important;
+    line-height: 1.25 !important;
+  }
+
+  h2 {
+    font-size: 12.5pt !important;
+    font-weight: 700 !important;
+    margin: 14pt 0 5pt !important;
+    padding-bottom: 3pt !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    line-height: 1.3 !important;
+  }
+
+  h3 {
+    font-size: 10.5pt !important;
+    font-weight: 600 !important;
+    margin: 10pt 0 4pt !important;
+    line-height: 1.35 !important;
+  }
+
+  h4, h5, h6 {
+    font-size: 9.5pt !important;
+    font-weight: 600 !important;
+    margin: 8pt 0 3pt !important;
+  }
+
+  p, li {
+    font-size: 9.5pt !important;
+    line-height: 1.5 !important;
+    color: #1e293b !important;
+    orphans: 3 !important;
+    widows: 3 !important;
+  }
+
+  ul, ol {
+    padding-left: 16pt !important;
+    margin: 6pt 0 8pt !important;
+  }
+
+  li {
+    margin-bottom: 3pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Code Blocks & Inline Monospace Formatting */
+  pre {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 4px !important;
+    padding: 7pt 9pt !important;
+    margin: 8pt 0 !important;
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Code", "Roboto Mono", Consolas, Courier, monospace !important;
+    font-size: 8pt !important;
+    line-height: 1.4 !important;
+    color: #0f172a !important;
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  code {
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 3px !important;
+    padding: 1pt 3pt !important;
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Code", "Roboto Mono", Consolas, monospace !important;
+    font-size: 8.5pt !important;
+    color: #0f172a !important;
+  }
+
+  pre code {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    font-size: 8pt !important;
+  }
+
+  /* Blockquotes & Technical Callouts */
+  blockquote,
+  .callout,
+  .notice,
+  .alert,
+  .info-box {
+    background: #f0f9ff !important;
+    border: 1px solid #bae6fd !important;
+    border-left: 3.5pt solid #0284c7 !important;
+    border-radius: 4px !important;
+    padding: 6pt 10pt !important;
+    margin: 8pt 0 !important;
+    color: #0f172a !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  blockquote p,
+  .callout p {
+    margin: 0 !important;
+    color: #0f172a !important;
+  }
+
+  /* Embedded Images in Guides */
+  img,
+  figure {
+    max-width: 100% !important;
+    height: auto !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 4px !important;
+    margin: 8pt auto !important;
+    display: block !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Technical Guide Inline Read Time */
+  .note-read-time-indicator.variant-inline {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 6px !important;
+    padding: 6pt 10pt !important;
+    margin-bottom: 12pt !important;
+    font-size: 8pt !important;
+    color: #475569 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .note-read-time-indicator .read-time-inline-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6pt !important;
+    color: #475569 !important;
+  }
+
+  .note-read-time-indicator .read-time-badge {
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    font-size: 7.5pt !important;
+    padding: 1pt 5pt !important;
+    border-radius: 4px !important;
+  }
+
+  /* ==========================================================================
+     6. IT Tools & Diagnostic Engineering Results Layout
+     ========================================================================== */
+  .ipv4-subnet-calculator-root,
+  .cable-poe-root,
+  .server-rack-power-calc-root,
+  .hardware-storage-calc-root,
+  .cctv-calculator-root,
+  .service-desk-formatter-root,
+  .troubleshooting-assistant-root,
+  .it-resume-builder-root,
+  .it-cover-letter-root,
+  .car-affordability-calc-root {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Form Inputs converted to Clean Printable Values */
+  .form-field input,
+  .form-field select,
+  .form-field textarea,
+  input[type="text"],
+  input[type="number"],
+  select {
+    background: #ffffff !important;
+    border: 1px solid #94a3b8 !important;
+    color: #0f172a !important;
+    font-size: 8.5pt !important;
+    padding: 3pt 6pt !important;
+    border-radius: 4px !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+  }
+
+  /* Metric KPI & Summary Cards */
+  .card,
+  .panel,
+  .stat,
+  .metric-card,
+  .bullet-card,
+  .bullet-scorecard,
+  .summary-stat-box {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    padding: 8pt 10pt !important;
+    margin-bottom: 8pt !important;
+    color: #0f172a !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Card Grids for Metric Cards (4-column and 2-column) */
+  .card-grid,
+  .card-grid.two,
+  .card-grid.three,
+  .card-grid.four,
+  .grid-two-col,
+  .grid-three-col,
+  .grid-four-col,
+  .kpi-grid {
+    display: grid !important;
+    gap: 8pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    width: 100% !important;
+  }
+
+  .card-grid.two,
+  .grid-two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .card-grid.three,
+  .grid-three-col {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .card-grid.four,
+  .grid-four-col,
+  .kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  /* Diagnostic Verification & Status Badges */
+  .badge,
+  .status-badge,
+  .status-pill,
+  .pill {
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    font-size: 7.5pt !important;
+    font-weight: 600 !important;
+    padding: 2pt 6pt !important;
+    border-radius: 4px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3pt !important;
+  }
+
+  .badge.badge-success,
+  .badge.status-pass,
+  .badge.status-optimal,
+  .status-badge.pass {
+    background: #f0fdf4 !important;
+    border-color: #86efac !important;
+    color: #166534 !important;
+  }
+
+  .badge.badge-warning,
+  .badge.status-warning,
+  .badge.status-attention,
+  .status-badge.warning {
+    background: #fefce8 !important;
+    border-color: #fde047 !important;
+    color: #854d0e !important;
+  }
+
+  .badge.badge-danger,
+  .badge.badge-error,
+  .badge.status-critical,
+  .badge.status-fail,
+  .status-badge.fail {
+    background: #fef2f2 !important;
+    border-color: #fca5a5 !important;
+    color: #991b1b !important;
+  }
+
+  .badge.badge-info,
+  .badge.status-info {
+    background: #f0f9ff !important;
+    border-color: #7dd3fc !important;
+    color: #0369a1 !important;
+  }
+
+  /* ==========================================================================
+     7. Table Formatting (Repeated Headers & No Truncation)
+     ========================================================================== */
+  table,
+  .table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 8pt 0 !important;
+    page-break-inside: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 8pt !important;
+    font-weight: 700 !important;
+    padding: 5pt 7pt !important;
+    text-align: left !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  td {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 8pt !important;
+    padding: 5pt 7pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  tbody tr:nth-child(even) td {
+    background: #f8fafc !important;
+  }
+
+  /* Expand scrollable tables & containers so full data prints without overflow clipping */
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .scrollable-content,
+  .table-responsive,
+  .transcript-scroll-container,
+  [style*="overflow-y: auto"],
+  [style*="max-height"] {
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    height: auto !important;
+  }
+
+  /* Monospace table data (IPs, subnets, binary octets, hex codes) */
+  td.monospace,
+  td code,
+  .font-mono,
+  [style*="font-family: monospace"] {
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Code", "Roboto Mono", Consolas, monospace !important;
+    font-size: 7.8pt !important;
+    color: #0f172a !important;
+  }
+
+  /* ==========================================================================
+     8. Utility Classes for Page Breaks & Layout Control
+     ========================================================================== */
+  .print-page-break,
+  .print-break-before,
+  .page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .print-break-after,
+  .page-break-after {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .print-avoid-break,
+  .page-break-avoid,
+  .no-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-border-box {
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 4px !important;
+    padding: 8pt !important;
+  }
+
+  .print-text-muted {
+    color: #64748b !important;
+  }
+
+  .print-text-dark {
+    color: #0f172a !important;
+  }
+}

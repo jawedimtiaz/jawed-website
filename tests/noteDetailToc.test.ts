@@ -472,6 +472,149 @@ test('ReadTimeProgressIndicator and NoteDetailPage integrate scroll-triggered re
   );
 });
 
+test('NoteDetailPage implements hover copy buttons for all H2 and H3 elements and shows a "Link copied!" toast notification', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const { injectHeadingCopyButtons } = await import('../src/pages/NoteDetailPage');
+
+  // 1. Verify injectHeadingCopyButtons injects interactive copy buttons into H2 and H3
+  const sampleNoteHtml = `
+    <h2>1. Network Diagnostic Workflow</h2>
+    <p>Details about initial ping and trace route tests.</p>
+    <h3>Step 1.1: Verify ARP Table &amp; Gateway</h3>
+    <p>Sub-step description.</p>
+    <h2>2. Firewall &amp; Security Group Verification</h2>
+  `;
+
+  const injected = injectHeadingCopyButtons(sampleNoteHtml);
+
+  assert.ok(
+    injected.includes('data-copy-heading-id="1-network-diagnostic-workflow"'),
+    'Expected copy button for first H2 heading'
+  );
+  assert.ok(
+    injected.includes('data-copy-heading-id="step-1-1-verify-arp-table-gateway"'),
+    'Expected copy button for H3 heading'
+  );
+  assert.ok(
+    injected.includes('data-copy-heading-id="2-firewall-security-group-verification"'),
+    'Expected copy button for second H2 heading'
+  );
+  assert.ok(
+    injected.includes('class="note-heading-copy-btn"'),
+    'Expected note-heading-copy-btn class on injected buttons'
+  );
+
+  // 2. Verify CSS rules enforce hover appearance (opacity: 0 by default, opacity: 1 on h2:hover / h3:hover)
+  const cssSource = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
+
+  assert.ok(
+    cssSource.includes('.note-heading-copy-btn {') &&
+      cssSource.includes('opacity: 0;') &&
+      cssSource.includes('pointer-events: none;'),
+    'Expected .note-heading-copy-btn to be hidden by default (opacity: 0)'
+  );
+  assert.ok(
+    cssSource.includes('.note-rendered-content h2:hover .note-heading-copy-btn') &&
+      cssSource.includes('.note-rendered-content h3:hover .note-heading-copy-btn') &&
+      cssSource.includes('opacity: 1;') &&
+      cssSource.includes('pointer-events: auto;'),
+    'Expected .note-heading-copy-btn to appear on h2 and h3 hover with opacity: 1'
+  );
+
+  // 3. Verify NoteDetailPage contains the "Link copied!" toast notification and triggers it on click
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('data-testid="heading-link-copied-toast"'),
+    'Expected NoteDetailPage to render heading-link-copied-toast'
+  );
+  assert.ok(
+    noteDetailSource.includes('Link copied!'),
+    'Expected toast notification to display "Link copied!"'
+  );
+  assert.ok(
+    noteDetailSource.includes('role="status"') &&
+      noteDetailSource.includes('aria-live="polite"'),
+    'Expected toast notification to use accessible status / aria-live attributes'
+  );
+  assert.ok(
+    noteDetailSource.includes('setIsLinkCopiedToastVisible(true)'),
+    'Expected copyHeadingDeepLink to activate toast visibility'
+  );
+});
+
+test('ScrollProgressIndicator visually tracks scroll position as a percentage bar at the top of NoteDetailPage without disrupting CSS grid', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+
+  const indicatorSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/ScrollProgressIndicator.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  const cssSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/index.css'),
+    'utf8'
+  );
+
+  // 1. Verify ScrollProgressIndicator provides required data-testids and accessibility roles
+  assert.ok(
+    indicatorSource.includes('data-testid="scroll-progress-indicator"'),
+    'Expected scroll-progress-indicator data-testid'
+  );
+  assert.ok(
+    indicatorSource.includes('data-testid="scroll-progress-bar"'),
+    'Expected scroll-progress-bar data-testid'
+  );
+  assert.ok(
+    indicatorSource.includes('data-testid="scroll-percentage-badge"') ||
+      indicatorSource.includes('data-testid="scroll-percentage-text"'),
+    'Expected scroll-percentage readout data-testid'
+  );
+  assert.ok(
+    indicatorSource.includes('role="progressbar"') &&
+      indicatorSource.includes('aria-valuenow={percent}'),
+    'Expected role="progressbar" and aria-valuenow attributes'
+  );
+
+  // 2. Verify NoteDetailPage imports, renders, and re-exports ScrollProgressIndicator
+  assert.ok(
+    noteDetailSource.includes('<ScrollProgressIndicator'),
+    'Expected NoteDetailPage to render <ScrollProgressIndicator />'
+  );
+  assert.ok(
+    noteDetailSource.includes('ScrollProgressIndicator,') &&
+      noteDetailSource.includes('type ScrollProgressIndicatorProps,'),
+    'Expected NoteDetailPage to re-export ScrollProgressIndicator'
+  );
+
+  // 3. Verify ScrollProgressIndicator is placed at the top of NoteDetailPage OUTSIDE .note-detail-layout
+  const indexOfIndicator = noteDetailSource.indexOf('<ScrollProgressIndicator');
+  const indexOfLayoutGrid = noteDetailSource.indexOf("className={shouldShowToc ? 'note-detail-layout'");
+
+  assert.ok(
+    indexOfIndicator > 0 && indexOfLayoutGrid > 0 && indexOfIndicator < indexOfLayoutGrid,
+    'Expected <ScrollProgressIndicator /> to be positioned before .note-detail-layout grid to avoid disrupting grid tracks'
+  );
+
+  // 4. Verify CSS styling for .scroll-progress-indicator in index.css
+  assert.ok(
+    cssSource.includes('.scroll-progress-indicator {') &&
+      cssSource.includes('.scroll-progress-indicator-bar {') &&
+      cssSource.includes('.scroll-progress-percentage-badge {'),
+    'Expected src/index.css to define styling rules for .scroll-progress-indicator and percentage badge'
+  );
+});
+
+
+
 
 
 

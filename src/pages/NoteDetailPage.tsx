@@ -45,6 +45,11 @@ import {
   type ReadTimeProgressIndicatorProps,
 } from '../components/ReadTimeProgressIndicator';
 
+import {
+  ScrollProgressIndicator,
+  type ScrollProgressIndicatorProps,
+} from '../components/ScrollProgressIndicator';
+
 export {
   TableOfContents,
   AutomatedTableOfContents,
@@ -65,11 +70,13 @@ export {
   extractArticleTopicsAndTags,
   getDefaultArticlePool,
   ReadTimeProgressIndicator,
+  ScrollProgressIndicator,
   type TocItem,
   type GeneratedTocResult,
   type ArticleCandidate,
   type RelatedArticleSuggestion,
   type ReadTimeProgressIndicatorProps,
+  type ScrollProgressIndicatorProps,
 };
 
 /**
@@ -242,8 +249,11 @@ export const NoteDetailPage: React.FC = () => {
 
   const [activeHeadingId, setActiveHeadingId] = React.useState<string>('');
   const [copiedHeadingId, setCopiedHeadingId] = React.useState<string>('');
+  const [isLinkCopiedToastVisible, setIsLinkCopiedToastVisible] = React.useState<boolean>(false);
+  const [copiedHeadingUrl, setCopiedHeadingUrl] = React.useState<string>('');
   const [isMobileTocOpen, setIsMobileTocOpen] = React.useState<boolean>(false);
   const copyFeedbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Inject 'Copy Link to Heading' button into every H2 and H3 tag in the rendered article HTML
   const htmlWithCopyButtons = React.useMemo(
@@ -251,11 +261,14 @@ export const NoteDetailPage: React.FC = () => {
     [htmlWithIds, copiedHeadingId]
   );
 
-  // Cleanup copy feedback timer on unmount
+  // Cleanup copy feedback and toast timers on unmount
   React.useEffect(() => {
     return () => {
       if (copyFeedbackTimerRef.current) {
         clearTimeout(copyFeedbackTimerRef.current);
+      }
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
       }
     };
   }, []);
@@ -331,6 +344,16 @@ export const NoteDetailPage: React.FC = () => {
 
     setActiveHeadingId(headingId);
     setCopiedHeadingId(headingId);
+    setCopiedHeadingUrl(anchorUrl);
+    setIsLinkCopiedToastVisible(true);
+
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setIsLinkCopiedToastVisible(false);
+    }, 2400);
+
     if (copyFeedbackTimerRef.current) {
       clearTimeout(copyFeedbackTimerRef.current);
     }
@@ -380,6 +403,9 @@ export const NoteDetailPage: React.FC = () => {
 
   return (
     <main className="container page">
+      {/* Scroll Progress Indicator tracking reading percentage at top of page */}
+      <ScrollProgressIndicator />
+
       {/* Dynamically set head tags (title, description, OpenGraph, Twitter cards, canonical link) */}
       <SeoHead
         title={guideMetadata.title}
@@ -400,6 +426,28 @@ export const NoteDetailPage: React.FC = () => {
           text={guideMetadata.description}
           url={shareUrl}
         />
+      </div>
+
+      {/* Print-Only Engineering Guide Header for Clean A4 / Letter PDF Exports */}
+      <div className="print-only print-document-header" data-testid="guide-print-header">
+        <div className="print-header-top-row">
+          <div>
+            <div className="print-header-brand">
+              Jawed Imtiaz • Technical Engineering Guide &amp; Knowledge Base
+            </div>
+            <h1 className="print-header-title">{guideMetadata.title}</h1>
+            {guideMetadata.description && (
+              <p className="print-header-subtitle">{guideMetadata.description}</p>
+            )}
+          </div>
+          <div className="print-header-meta">
+            <div><strong>Category:</strong> {note.category || 'Technical Note'}</div>
+            {guideMetadata.lastUpdated && (
+              <div><strong>Last Verified:</strong> {guideMetadata.lastUpdated}</div>
+            )}
+            <div><strong>Source:</strong> jawed.co.in/notes/{note.slug}</div>
+          </div>
+        </div>
       </div>
 
       {/* Note Metadata Header Bar with Dynamic 'Last Updated' Timestamp */}
@@ -560,6 +608,65 @@ export const NoteDetailPage: React.FC = () => {
         variant="floating"
         scrollTriggerThreshold={120}
       />
+
+      {/* Print-Only Document Footer */}
+      <footer className="print-only print-document-footer" data-testid="guide-print-footer">
+        <div className="print-footer-row">
+          <span>Official Technical Documentation • Jawed Imtiaz</span>
+          <span>https://jawed.co.in/notes/{note.slug}</span>
+        </div>
+      </footer>
+
+      {/* Toast Notification: 'Link copied!' for Heading Copy Actions */}
+      {isLinkCopiedToastVisible && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="heading-link-copied-toast"
+          data-toast-message="Link copied!"
+          className="toast heading-link-copied-toast no-print"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            borderRadius: '10px',
+            background: 'var(--bg-darker, #0f172a)',
+            border: '1px solid rgba(52, 211, 153, 0.55)',
+            color: 'var(--text, #f8fafc)',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.45)',
+          }}
+        >
+          <span aria-hidden="true" style={{ color: 'var(--emerald, #10b981)', display: 'inline-flex', alignItems: 'center' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+          <span>Link copied!</span>
+          {copiedHeadingUrl && (
+            <span
+              style={{
+                fontSize: '0.72rem',
+                color: 'var(--muted, #94a3b8)',
+                fontFamily: 'monospace',
+                maxWidth: '220px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+              title={copiedHeadingUrl}
+            >
+              {copiedHeadingUrl.includes('#') ? `#${copiedHeadingUrl.split('#')[1]}` : ''}
+            </span>
+          )}
+        </div>
+      )}
     </main>
   );
 };

@@ -1,3 +1,5 @@
+@import './styles/print.css';
+
 /* Dark Slate & Light High-Contrast System Themes for Jawed.co.in */
 :root,
 [data-theme="dark"],
@@ -3055,6 +3057,99 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   }
   .scroll-completion-text {
     display: none;
+  }
+}
+
+/* ==========================================================================
+   ScrollProgressIndicator Component (NoteDetailPage Top Percentage Bar)
+   ========================================================================== */
+.scroll-progress-indicator {
+  width: 100%;
+  margin-bottom: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.scroll-progress-indicator.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.scroll-progress-indicator.placement-sticky-top {
+  position: sticky;
+  top: 0;
+  z-index: 70;
+  background: var(--surface-header, rgba(15, 23, 42, 0.85));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.scroll-progress-indicator.placement-fixed-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 100;
+  margin-bottom: 0;
+  border-radius: 0;
+}
+
+.scroll-progress-indicator-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.scroll-progress-indicator-track {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 5px;
+  background: var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.scroll-progress-indicator-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent, #38bdf8), var(--teal, #2dd4bf), var(--emerald, #10b981));
+  border-radius: 9999px;
+  transition: width 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: width;
+}
+
+.scroll-progress-percentage-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--border, #334155);
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  color: var(--accent, #38bdf8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  line-height: 1.2;
+}
+
+.scroll-progress-percentage-badge.is-completed {
+  color: var(--emerald, #10b981);
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+@media print {
+  .scroll-progress-indicator {
+    display: none !important;
   }
 }
 
