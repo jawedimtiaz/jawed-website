@@ -3153,6 +3153,33 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   }
 }
 
+/* Printable Indicator Badge (Tool Cards & Guide Headers) */
+.printable-badge {
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.printable-badge:hover {
+  color: var(--accent, #38bdf8) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+}
+
+.printable-badge.variant-compact {
+  padding: 1px 5px !important;
+  font-size: 0.7rem !important;
+}
+
+.printable-badge.variant-outline {
+  background: transparent !important;
+  border-color: var(--border, #334155) !important;
+}
+
+@media print {
+  .printable-badge {
+    display: none !important;
+  }
+}
+
 /* Accessible & SEO-Optimized Breadcrumbs */
 .breadcrumbs {
   margin-bottom: 20px;

@@ -9,6 +9,7 @@ import {
 } from '../components/Image';
 import { ShareButton } from '../components/ShareButton';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { PrintableBadge } from '../components/common/PrintableBadge';
 
 export const HERO_MAIN_IMAGE_SRC = '/assets/images/social-preview.png';
 export const HERO_MAIN_IMAGE_WEBP_SRC = '/assets/images/social-preview.webp';
@@ -484,7 +485,10 @@ export const HomePage: React.FC = () => {
         <div className="card-grid">
           <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
-              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>Network Calculator</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+                <span className="badge" style={{ fontSize: '0.75rem', display: 'inline-block' }}>Network Calculator</span>
+                <PrintableBadge />
+              </div>
               <h3 style={{ fontSize: '1.1rem', margin: '6px 0 8px' }}>IPv4 Subnet &amp; CIDR Calculator</h3>
               <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 14px' }}>
                 Calculate network boundaries, host ranges, broadcast IDs, Cisco ACL wildcard masks, and 32-bit binary octets.
@@ -499,7 +503,10 @@ export const HomePage: React.FC = () => {
 
           <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
-              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>Data Center Tool</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+                <span className="badge" style={{ fontSize: '0.75rem', display: 'inline-block' }}>Data Center Tool</span>
+                <PrintableBadge />
+              </div>
               <h3 style={{ fontSize: '1.1rem', margin: '6px 0 8px' }}>Server Rack Power &amp; BTU Calculator</h3>
               <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 14px' }}>
                 Estimate equipment power draw (Watts/kW), circuit amperage (120V/208V), NEC 80% continuous load circuit derating, and HVAC BTU/hr cooling load.
@@ -514,7 +521,10 @@ export const HomePage: React.FC = () => {
 
           <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
-              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>ITSM Workflow</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+                <span className="badge" style={{ fontSize: '0.75rem', display: 'inline-block' }}>ITSM Workflow</span>
+                <PrintableBadge />
+              </div>
               <h3 style={{ fontSize: '1.1rem', margin: '6px 0 8px' }}>IT Troubleshooting Assistant</h3>
               <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 14px' }}>
                 Step-by-step layer-by-layer diagnostic checklists for network connectivity, Apple macOS Sonoma/Sequoia, and Microsoft 365 issues.
@@ -529,7 +539,10 @@ export const HomePage: React.FC = () => {
 
           <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
-              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>Ticket Formatting</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+                <span className="badge" style={{ fontSize: '0.75rem', display: 'inline-block' }}>Ticket Formatting</span>
+                <PrintableBadge />
+              </div>
               <h3 style={{ fontSize: '1.1rem', margin: '6px 0 8px' }}>Service Desk Note Formatter</h3>
               <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 14px' }}>
                 Convert raw notes into structured, audit-ready ITSM ticket resolution updates with root-cause formatting.
@@ -544,7 +557,10 @@ export const HomePage: React.FC = () => {
 
           <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
-              <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>Personal Finance</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+                <span className="badge" style={{ fontSize: '0.75rem', display: 'inline-block' }}>Personal Finance</span>
+                <PrintableBadge />
+              </div>
               <h3 style={{ fontSize: '1.1rem', margin: '6px 0 8px' }}>Money Manager &amp; Ledger</h3>
               <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 14px' }}>
                 Multi-bank account tracking, monthly budget planning, spending velocity forecasts, and receipt OCR scanning.

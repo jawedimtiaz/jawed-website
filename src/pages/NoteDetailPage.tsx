@@ -32,13 +32,15 @@ import {
   openGlobalImageLightbox,
 } from '../components/GlobalImageLightbox';
 import {
+  RelatedArticles,
   RelatedArticlesSection,
   getRelatedArticles,
   extractArticleTopicsAndTags,
   getDefaultArticlePool,
   type ArticleCandidate,
   type RelatedArticleSuggestion,
-} from '../components/RelatedArticlesSection';
+  type RelatedArticlesProps,
+} from '../components/RelatedArticles';
 
 import {
   ReadTimeProgressIndicator,
@@ -49,6 +51,11 @@ import {
   ScrollProgressIndicator,
   type ScrollProgressIndicatorProps,
 } from '../components/ScrollProgressIndicator';
+
+import {
+  PrintableBadge,
+  type PrintableBadgeProps,
+} from '../components/common/PrintableBadge';
 
 export {
   TableOfContents,
@@ -66,17 +73,21 @@ export {
   handleArticleImageLightboxClick,
   openGlobalImageLightbox,
   RelatedArticlesSection,
+  RelatedArticles,
   getRelatedArticles,
   extractArticleTopicsAndTags,
   getDefaultArticlePool,
   ReadTimeProgressIndicator,
   ScrollProgressIndicator,
+  PrintableBadge,
   type TocItem,
   type GeneratedTocResult,
   type ArticleCandidate,
   type RelatedArticleSuggestion,
   type ReadTimeProgressIndicatorProps,
   type ScrollProgressIndicatorProps,
+  type PrintableBadgeProps,
+  type RelatedArticlesProps,
 };
 
 /**
@@ -506,6 +517,8 @@ export const NoteDetailPage: React.FC = () => {
             </span>
           </>
         )}
+        <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
+        <PrintableBadge />
       </header>
 
       {/* Mobile / Tablet Collapsible Table of Contents Navigation */}

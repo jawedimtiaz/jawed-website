@@ -41,11 +41,12 @@ import {
   extractLightboxImageFromElement,
 } from './components/GlobalImageLightbox';
 import {
+  RelatedArticles,
   RelatedArticlesSection,
   getRelatedArticles,
   extractArticleTopicsAndTags,
   getDefaultArticlePool,
-} from './components/RelatedArticlesSection';
+} from './components/RelatedArticles';
 
 export {
   OfflineModeFallback,
@@ -65,6 +66,7 @@ export {
   clampLightboxZoom,
   isLightboxEligibleRoute,
   extractLightboxImageFromElement,
+  RelatedArticles,
   RelatedArticlesSection,
   getRelatedArticles,
   extractArticleTopicsAndTags,

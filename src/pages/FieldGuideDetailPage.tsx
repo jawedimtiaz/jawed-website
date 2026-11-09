@@ -15,6 +15,8 @@ import {
   slugifyHeading,
 } from '../utils/tocGenerator';
 import { handleArticleImageLightboxClick } from '../components/GlobalImageLightbox';
+import { PrintableBadge } from '../components/common/PrintableBadge';
+import { RelatedArticles } from '../components/RelatedArticles';
 
 // Reusable Visual Guide Components & Aliases
 import {
@@ -1359,6 +1361,8 @@ export const FieldGuideDetailPage: React.FC = () => {
                 </time>
               </span>
             </span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
+            <PrintableBadge />
           </div>
 
           <h1 style={{ fontSize: '2.2rem', lineHeight: 1.25, marginBottom: '16px', color: 'var(--text-heading)' }}>
@@ -1510,41 +1514,20 @@ export const FieldGuideDetailPage: React.FC = () => {
         {/* Newsletter Subscription Form */}
         <NewsletterSubscribeForm sourceLocation={`field-guide-${guide.slug}`} />
 
-        {/* Related Articles Widget */}
-        <section style={{ marginTop: '40px', paddingTop: '32px', borderTop: '2px solid var(--line)' }}>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '8px', color: 'var(--text-heading)' }}>
-            📚 Related Technical Field Guides
-          </h2>
-          <p style={{ color: 'var(--muted)', marginBottom: '24px', fontSize: '0.95rem' }}>
-            Deep-dive troubleshooting procedures and field checklists written by IT engineers.
-          </p>
-
-          <div className="card-grid three">
-            {relatedGuides.map(rel => (
-              <article key={rel.slug} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <div>
-                  <span className="badge" style={{ fontSize: '0.75rem', marginBottom: '8px', display: 'inline-block' }}>
-                    {rel.category}
-                  </span>
-                  <h3 style={{ fontSize: '1.1rem', margin: '6px 0 10px', lineHeight: '1.3' }}>
-                    <Link to={`/field-guides/${rel.slug}`} style={{ textDecoration: 'none', color: 'var(--text-heading)' }}>
-                      {rel.title}
-                    </Link>
-                  </h3>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 16px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {rel.description}
-                  </p>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: '0.8rem', color: 'var(--muted)' }}>
-                  <span>{rel.readTime}</span>
-                  <Link to={`/field-guides/${rel.slug}`} style={{ fontWeight: 600, color: 'var(--accent)' }}>
-                    Read Guide →
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+        {/* Related Articles Component (matched by shared tags and categories) */}
+        <RelatedArticles
+          currentArticle={{
+            slug: guide.slug,
+            title: guide.title,
+            description: guide.description,
+            category: guide.category || determineCategory(guide),
+            keywords: guide.keywords,
+            sourceType: 'guide',
+          }}
+          count={3}
+          heading="Related Technical Field Guides & Notes"
+          subtitle="Deep-dive troubleshooting procedures and field checklists matched by shared topic categories and tags."
+        />
       </article>
     </main>
   );

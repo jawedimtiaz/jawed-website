@@ -209,4 +209,6 @@ export const RelatedArticlesSection: React.FC<RelatedArticlesSectionProps> = ({
   );
 };
 
+export const RelatedArticles = RelatedArticlesSection;
+export type RelatedArticlesProps = RelatedArticlesSectionProps;
 export default RelatedArticlesSection;

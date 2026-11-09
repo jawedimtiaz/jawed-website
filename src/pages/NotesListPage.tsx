@@ -7,6 +7,7 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { CATEGORIES, type NoteCategory, type BaseCategory, determineCategory } from '../utils/categoryHelper';
 import { useGuideFilterCounts } from '../utils/useGuideFilterCounts';
 import { calculateReadTime } from '../utils/readTimeHelper';
+import { PrintableBadge } from '../components/common/PrintableBadge';
 
 export { CATEGORIES, type NoteCategory };
 
@@ -249,9 +250,12 @@ const GuideCard = React.memo<{ guide: SearchableGuide }>(({ guide }) => (
   <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderLeft: '4px solid var(--accent)' }}>
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
-          {guide.resolvedCategory}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
+            {guide.resolvedCategory}
+          </span>
+          <PrintableBadge />
+        </div>
         <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 500 }}>
           {guide.readTime || calculateReadTime(guide.contentHtml || guide.description)}
         </span>
@@ -286,9 +290,12 @@ const NoteCard = React.memo<{ note: SearchableNote }>(({ note }) => (
   <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
-          {note.resolvedCategory}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
+            {note.resolvedCategory}
+          </span>
+          <PrintableBadge />
+        </div>
         <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 500 }}>
           {calculateReadTime(note.content || note.description)}
         </span>

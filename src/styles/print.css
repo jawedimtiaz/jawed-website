@@ -142,6 +142,8 @@
   .pdf-export-btn,
   .button-no-print,
   .no-print,
+  .printable-badge,
+  [data-testid="printable-badge"],
   [data-testid="print-this-tool-btn"],
   [data-testid="print-report-btn"],
   [data-testid="export-pdf-btn"],

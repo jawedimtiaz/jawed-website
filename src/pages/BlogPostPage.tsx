@@ -12,24 +12,29 @@ import {
   openGlobalImageLightbox,
 } from '../components/GlobalImageLightbox';
 import {
+  RelatedArticles,
   RelatedArticlesSection,
   getRelatedArticles,
   extractArticleTopicsAndTags,
   getDefaultArticlePool,
   type ArticleCandidate,
   type RelatedArticleSuggestion,
-} from '../components/RelatedArticlesSection';
+  type RelatedArticlesProps,
+} from '../components/RelatedArticles';
+import { PrintableBadge } from '../components/common/PrintableBadge';
 
 export {
   GlobalImageLightbox,
   handleArticleImageLightboxClick,
   openGlobalImageLightbox,
+  RelatedArticles,
   RelatedArticlesSection,
   getRelatedArticles,
   extractArticleTopicsAndTags,
   getDefaultArticlePool,
   type ArticleCandidate,
   type RelatedArticleSuggestion,
+  type RelatedArticlesProps,
 };
 
 export const BlogPostPage: React.FC = () => {
@@ -92,6 +97,8 @@ export const BlogPostPage: React.FC = () => {
         <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>
           {calculateReadTime(post.content)}
         </span>
+        <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
+        <PrintableBadge />
       </div>
 
       <div

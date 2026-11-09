@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
+import { PrintableBadge } from '../components/common/PrintableBadge';
 import {
   TOOLS,
   TOOL_CATEGORIES,
@@ -152,10 +153,11 @@ export const ToolsPage: React.FC = () => {
       <div className="card-grid">
         {filteredTools.map(tool => (
           <article key={tool.id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px' }}>
               <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
                 {tool.resolvedCategoryLabel}
               </span>
+              <PrintableBadge />
             </div>
             <h3>{tool.name}</h3>
             <p>{tool.description}</p>

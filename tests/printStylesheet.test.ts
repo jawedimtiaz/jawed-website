@@ -256,4 +256,48 @@ describe('CSS Print Stylesheet & A4/Letter PDF Export Optimization Suite', () =>
       'Expected break-inside: avoid utility class'
     );
   });
+
+  it('renders PrintableBadge across IT tool cards and technical guide headers, and suppresses them in print output', () => {
+    const badgeComponentPath = path.resolve(rootDir, 'src/components/common/PrintableBadge.tsx');
+    const toolsPagePath = path.resolve(rootDir, 'src/pages/ToolsPage.tsx');
+    const homePagePath = path.resolve(rootDir, 'src/pages/HomePage.tsx');
+    const fieldGuidePath = path.resolve(rootDir, 'src/pages/FieldGuideDetailPage.tsx');
+    const notesListPath = path.resolve(rootDir, 'src/pages/NotesListPage.tsx');
+
+    // 1. Component existence & features
+    assert.ok(fs.existsSync(badgeComponentPath), 'Expected PrintableBadge component to exist');
+    const badgeSrc = fs.readFileSync(badgeComponentPath, 'utf8');
+    assert.ok(badgeSrc.includes('Printer') && badgeSrc.includes('lucide-react'), 'Expected PrintableBadge to use Printer icon');
+    assert.ok(badgeSrc.includes('data-testid="printable-badge"'), 'Expected PrintableBadge to declare data-testid="printable-badge"');
+    assert.ok(badgeSrc.includes("label = 'Printable'"), 'Expected default label to be Printable');
+
+    // 2. Integration into IT tool cards on ToolsPage & HomePage
+    const toolsPageSrc = fs.readFileSync(toolsPagePath, 'utf8');
+    const homePageSrc = fs.readFileSync(homePagePath, 'utf8');
+    assert.ok(toolsPageSrc.includes('<PrintableBadge'), 'Expected ToolsPage to render PrintableBadge in tool cards');
+    assert.ok(homePageSrc.includes('<PrintableBadge'), 'Expected HomePage to render PrintableBadge in interactive utility cards');
+
+    // 3. Integration into technical guide and note headers
+    const noteDetailSrc = fs.readFileSync(noteDetailPath, 'utf8');
+    const fieldGuideSrc = fs.readFileSync(fieldGuidePath, 'utf8');
+    const blogDetailSrc = fs.readFileSync(blogDetailPath, 'utf8');
+    const notesListSrc = fs.readFileSync(notesListPath, 'utf8');
+
+    assert.ok(noteDetailSrc.includes('<PrintableBadge'), 'Expected NoteDetailPage to render PrintableBadge in guide header');
+    assert.ok(fieldGuideSrc.includes('<PrintableBadge'), 'Expected FieldGuideDetailPage to render PrintableBadge in guide header');
+    assert.ok(blogDetailSrc.includes('<PrintableBadge'), 'Expected BlogPostPage to render PrintableBadge in header metadata');
+    assert.ok(notesListSrc.includes('<PrintableBadge'), 'Expected NotesListPage to render PrintableBadge in guide and note cards');
+
+    // 4. Verification that PrintableBadge is suppressed in print output
+    const printCss = fs.readFileSync(printCssPath, 'utf8');
+    const indexCss = fs.readFileSync(indexCssPath, 'utf8');
+    assert.ok(
+      printCss.includes('.printable-badge') || printCss.includes('.no-print'),
+      'Expected print.css to suppress .printable-badge or .no-print elements'
+    );
+    assert.ok(
+      indexCss.includes('.printable-badge') && indexCss.includes('display: none !important;'),
+      'Expected index.css @media print to suppress .printable-badge'
+    );
+  });
 });
