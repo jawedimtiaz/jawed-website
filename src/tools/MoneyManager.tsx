@@ -103,6 +103,12 @@ import {
   type RollingThreeMonthTrendCardProps,
   type SpendingCardProgressComparison,
   type CategorySpendingCardProgressItem,
+  BudgetVsActualSummaryCard,
+  computeBudgetVsActualSummary,
+  calculateCategoryBudgetVariance,
+  type BudgetVsActualCategoryItem,
+  type BudgetVsActualSummary,
+  type BudgetVsActualSummaryCardProps,
 } from '../components/money-manager/StatsView';
 import { RecurringView } from '../components/money-manager/RecurringView';
 import {
@@ -204,8 +210,13 @@ import {
   deleteDriveLedgerBackup,
 } from '../components/money-manager/googleDriveSync';
 import { BackupBanner } from '../components/BackupBanner';
+import { firebaseConfig, categorizeGoogleAuthError } from '../lib/firebase';
 import { enableStoragePersistence } from '../db';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
+
+if (!firebaseConfig.apiKey) {
+  console.error("Firebase API Key is missing. Check your Vite environment variables.");
+}
 
 export interface CsvImportFeedbackBannerProps {
   feedback: CsvImportFeedbackState | null;
@@ -417,6 +428,9 @@ export {
   computeRollingThreeMonthTrend,
   BudgetForecastCard,
   calculateVelocityBudgetForecast,
+  BudgetVsActualSummaryCard,
+  computeBudgetVsActualSummary,
+  calculateCategoryBudgetVariance,
   SUPPORTED_CURRENCIES,
   CURRENCY_METADATA,
   FALLBACK_RATES_TO_INR,
@@ -516,6 +530,9 @@ export type {
   RollingThreeMonthTrendCardProps,
   SpendingCardProgressComparison,
   CategorySpendingCardProgressItem,
+  BudgetVsActualCategoryItem,
+  BudgetVsActualSummary,
+  BudgetVsActualSummaryCardProps,
   QuickAddSupportedTab,
   QuickAddFloatingButtonProps,
   RecurringRule,
@@ -920,7 +937,7 @@ export const MoneyManager: React.FC = () => {
         }
       } catch (error: any) {
         console.error('Redirect auth error:', error);
-        setSyncError(error.message || 'Failed to complete Google Sign-In redirect.');
+        setSyncError(categorizeGoogleAuthError(error));
       }
     };
     checkRedirect();
@@ -937,7 +954,7 @@ export const MoneyManager: React.FC = () => {
       }
       await signInWithRedirect(auth, provider);
     } catch (err: any) {
-      setSyncError(err.message || 'Sign-in initialization failed.');
+      setSyncError(categorizeGoogleAuthError(err));
     }
   };
 

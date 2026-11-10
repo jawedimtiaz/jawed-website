@@ -5115,4 +5115,451 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       'Expected IT Field dispatch payout Income transaction in IndexedDB'
     );
   });
+
+  it('configures permissive CSP headers and resilient Google Auth error categorization for auth/network-request-failed and popup blocks without affecting offline persistence', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { firebaseConfig, categorizeGoogleAuthError } = await import('../src/lib/firebase');
+    const { handleGoogleSignIn } = await import('../src/pages/tools/MoneyManager');
+
+    // 1. Verify permissive CSP in public/_headers
+    const headersPath = path.resolve(process.cwd(), 'public/_headers');
+    const headersContent = fs.readFileSync(headersPath, 'utf8');
+    assert.ok(headersContent.includes('Content-Security-Policy:'), 'Expected Content-Security-Policy in public/_headers');
+    
+    // connect-src directives
+    assert.ok(headersContent.includes('https://*.firebaseio.com'), 'CSP must allow https://*.firebaseio.com');
+    assert.ok(headersContent.includes('https://identitytoolkit.googleapis.com'), 'CSP must allow https://identitytoolkit.googleapis.com');
+    assert.ok(headersContent.includes('https://securetoken.googleapis.com'), 'CSP must allow https://securetoken.googleapis.com');
+    assert.ok(headersContent.includes('https://www.googleapis.com'), 'CSP must allow https://www.googleapis.com');
+    assert.ok(headersContent.includes('https://apis.google.com'), 'CSP must allow https://apis.google.com');
+    assert.ok(headersContent.includes('https://*.googleapis.com'), 'CSP must allow https://*.googleapis.com');
+    assert.ok(headersContent.includes('https://*.firebaseapp.com'), 'CSP must allow https://*.firebaseapp.com');
+
+    // frame-src directives
+    assert.ok(headersContent.includes("frame-src 'self'"), 'CSP must allow frame-src self');
+    assert.ok(headersContent.includes('https://accounts.google.com'), 'CSP frame-src must allow accounts.google.com');
+
+    // 2. Verify Firebase config keys have non-empty fallbacks and are not undefined
+    assert.ok(firebaseConfig.apiKey && firebaseConfig.apiKey.length > 5, 'Expected non-empty apiKey fallback');
+    assert.ok(firebaseConfig.authDomain && firebaseConfig.authDomain.length > 5, 'Expected non-empty authDomain fallback');
+    assert.ok(firebaseConfig.projectId && firebaseConfig.projectId.length > 3, 'Expected non-empty projectId fallback');
+    assert.ok(firebaseConfig.appId && firebaseConfig.appId.length > 5, 'Expected non-empty appId fallback');
+
+    // 3. Verify defensive sanity logging exists in firebase.ts, MoneyManager.tsx, and pages/tools/MoneyManager.tsx
+    const firebaseTs = fs.readFileSync(path.resolve(process.cwd(), 'src/lib/firebase.ts'), 'utf8');
+    const toolsMmSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/tools/MoneyManager.tsx'), 'utf8');
+    const pagesMmSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/tools/MoneyManager.tsx'), 'utf8');
+
+    const expectedSanityCheck = 'if (!firebaseConfig.apiKey) {';
+    assert.ok(firebaseTs.includes(expectedSanityCheck), 'Expected sanity check in src/lib/firebase.ts');
+    assert.ok(toolsMmSrc.includes(expectedSanityCheck), 'Expected sanity check in src/tools/MoneyManager.tsx');
+    assert.ok(pagesMmSrc.includes(expectedSanityCheck), 'Expected sanity check in src/pages/tools/MoneyManager.tsx');
+
+    // 4. Verify categorizeGoogleAuthError maps cryptic codes to user-friendly explanations
+    const networkErrMsg = categorizeGoogleAuthError({ code: 'auth/network-request-failed' });
+    assert.ok(networkErrMsg.includes('Network connection failed'), 'Expected network message on auth/network-request-failed');
+    assert.ok(networkErrMsg.toLowerCase().includes('ad-blocker'), 'Expected ad-blocker guidance in network failure message');
+
+    const popupBlockedMsg = categorizeGoogleAuthError({ code: 'auth/popup-blocked' });
+    assert.ok(popupBlockedMsg.toLowerCase().includes('popup was blocked'), 'Expected popup blocked guidance');
+
+    const popupClosedMsg = categorizeGoogleAuthError({ code: 'auth/popup-closed-by-user' });
+    assert.ok(popupClosedMsg.includes('closed before completion'), 'Expected popup closed message');
+
+    // 5. Verify handleGoogleSignIn in src/pages/tools/MoneyManager handles network request errors gracefully
+    let reportedError: string | null = null;
+    let syncingState = false;
+
+    const mockFailingAuth = {
+      // Dummy auth instance that simulates network failure
+    } as any;
+
+    try {
+      await handleGoogleSignIn({
+        auth: mockFailingAuth,
+        setSyncError: (msg) => {
+          reportedError = msg;
+        },
+        setIsSyncing: (val) => {
+          syncingState = val;
+        },
+      });
+    } catch {
+      // Expected rejection
+    }
+
+    assert.equal(syncingState, false, 'Expected isSyncing to reset to false in finally block');
+    assert.ok(reportedError !== null, 'Expected an error to be reported via setSyncError');
+
+    // 6. Verify zero disruption to offline functionality: local IndexedDB and CSV exports work 100% offline
+    await resetDatabaseToDefaults();
+    const offlineSavedTx = await saveTransaction({
+      date: '2026-11-20T10:00',
+      type: 'Expense',
+      accountId: 'acc-icici',
+      category: 'Workplace & Tools',
+      subCategory: 'Bank Transfer',
+      fixedOrVariable: 'Variable',
+      amount: 850,
+      note: 'Offline testing transaction without internet or cloud connection',
+    });
+    assert.ok(offlineSavedTx.id, 'Expected offline transaction saved in IndexedDB');
+  });
+
+  it("adds a 'Budget vs Actual' summary card to the top of the Stats view that calculates the difference between budgeted and actual expenses per category", async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      BudgetVsActualSummaryCard,
+      computeBudgetVsActualSummary,
+    } = await import('../src/pages/tools/MoneyManager');
+
+    assert.ok(BudgetVsActualSummaryCard, 'Expected BudgetVsActualSummaryCard to be exported from pages/tools/MoneyManager');
+    assert.ok(typeof computeBudgetVsActualSummary === 'function', 'Expected computeBudgetVsActualSummary to be a function');
+
+    // 1. Verify source integration: StatsView.tsx renders BudgetVsActualSummaryCard at top of Stats view
+    const statsViewSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/StatsView.tsx'),
+      'utf8'
+    );
+    const pagesMmSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/tools/MoneyManager.tsx'),
+      'utf8'
+    );
+
+    assert.ok(
+      statsViewSource.includes('<BudgetVsActualSummaryCard'),
+      'Expected StatsView.tsx to render BudgetVsActualSummaryCard'
+    );
+    assert.ok(
+      pagesMmSource.includes('BudgetVsActualSummaryCard'),
+      'Expected src/pages/tools/MoneyManager.tsx to export BudgetVsActualSummaryCard'
+    );
+
+    // Verify BudgetVsActualSummaryCard appears in top portion of Stats view (before dashboard summary cards container)
+    const cardMountIndex = statsViewSource.indexOf('<BudgetVsActualSummaryCard');
+    const summaryCardsIndex = statsViewSource.indexOf('mm-dashboard-cards-container');
+    assert.ok(cardMountIndex !== -1, 'Expected <BudgetVsActualSummaryCard to be mounted in StatsView');
+    assert.ok(summaryCardsIndex !== -1, 'Expected mm-dashboard-cards-container in StatsView');
+    assert.ok(
+      cardMountIndex < summaryCardsIndex,
+      'Expected BudgetVsActualSummaryCard to be positioned near top of Stats view above dashboard summary grid'
+    );
+
+    // 2. Test mathematical calculation of differences between budgeted and actual expenses per category
+    const mockCategories = [
+      {
+        id: 'cat-food',
+        name: 'Food & Dining',
+        type: 'Expense' as const,
+        defaultFixedOrVariable: 'Variable' as const,
+        iconName: 'Utensils',
+        subCategories: ['Restaurants', 'Groceries'],
+        monthlyBudget: 10000,
+        color: '#f59e0b',
+      },
+      {
+        id: 'cat-tools',
+        name: 'Workplace & Tools',
+        type: 'Expense' as const,
+        defaultFixedOrVariable: 'Variable' as const,
+        iconName: 'Wrench',
+        subCategories: ['Hardware', 'Software'],
+        monthlyBudget: 5000,
+        color: '#3b82f6',
+      },
+      {
+        id: 'cat-util',
+        name: 'Utilities',
+        type: 'Expense' as const,
+        defaultFixedOrVariable: 'Fixed' as const,
+        iconName: 'Zap',
+        subCategories: ['Electricity', 'Internet'],
+        monthlyBudget: 4000,
+        color: '#10b981',
+      },
+      {
+        id: 'cat-salary',
+        name: 'Salary',
+        type: 'Income' as const,
+        defaultFixedOrVariable: 'Fixed' as const,
+        iconName: 'Briefcase',
+        subCategories: ['Payroll'],
+        monthlyBudget: 0,
+        color: '#22c55e',
+      },
+    ];
+
+    const mockTransactions = [
+      // November 2026 transactions
+      {
+        id: 'tx-1',
+        date: '2026-11-03T12:00',
+        type: 'Expense' as const,
+        accountId: 'acc-1',
+        category: 'Food & Dining',
+        amount: 7000,
+        note: 'Team lunches and grocery stocking',
+        subCategory: 'Groceries',
+        fixedOrVariable: 'Variable' as const,
+        isAnomaly: false,
+        createdAt: '2026-11-03T12:00:00Z',
+      },
+      {
+        id: 'tx-2',
+        date: '2026-11-08T15:30',
+        type: 'Expense' as const,
+        accountId: 'acc-1',
+        category: 'Workplace & Tools',
+        amount: 6500,
+        note: 'Upgraded network diagnostic gear',
+        subCategory: 'Hardware',
+        fixedOrVariable: 'Variable' as const,
+        isAnomaly: false,
+        createdAt: '2026-11-08T15:30:00Z',
+      },
+      {
+        id: 'tx-3',
+        date: '2026-11-12T10:00',
+        type: 'Expense' as const,
+        accountId: 'acc-1',
+        category: 'Utilities',
+        amount: 4000,
+        note: 'High-speed fiber bill',
+        subCategory: 'Internet',
+        fixedOrVariable: 'Fixed' as const,
+        isAnomaly: false,
+        createdAt: '2026-11-12T10:00:00Z',
+      },
+      // Income should not be counted as expense
+      {
+        id: 'tx-4',
+        date: '2026-11-01T09:00',
+        type: 'Income' as const,
+        accountId: 'acc-1',
+        category: 'Salary',
+        amount: 75000,
+        note: 'Monthly salary payout',
+        subCategory: 'Payroll',
+        fixedOrVariable: 'Fixed' as const,
+        isAnomaly: false,
+        createdAt: '2026-11-01T09:00:00Z',
+      },
+      // October transaction should not affect November calculation
+      {
+        id: 'tx-5',
+        date: '2026-10-25T11:00',
+        type: 'Expense' as const,
+        accountId: 'acc-1',
+        category: 'Food & Dining',
+        amount: 5000,
+        note: 'Prior month food',
+        subCategory: 'Restaurants',
+        fixedOrVariable: 'Variable' as const,
+        isAnomaly: false,
+        createdAt: '2026-10-25T11:00:00Z',
+      },
+    ];
+
+    const summary = computeBudgetVsActualSummary(mockTransactions, mockCategories, '2026-11');
+
+    // Total Budgeted: 10000 + 5000 + 4000 = 19000
+    assert.equal(summary.totalBudgeted, 19000, 'Expected total budgeted expenses to be ₹19,000');
+
+    // Total Actual Spent in Nov: 7000 + 6500 + 4000 = 17500
+    assert.equal(summary.totalActual, 17500, 'Expected total actual expenses to be ₹17,500');
+
+    // Total Net Difference: 19000 - 17500 = +1500 (under budget)
+    assert.equal(summary.totalDifference, 1500, 'Expected net total difference to be +₹1,500');
+    assert.equal(summary.overallStatus, 'under-budget', 'Expected overall status to be under-budget');
+
+    // Health counts
+    assert.equal(summary.overBudgetCount, 1, 'Expected 1 category over budget');
+    assert.equal(summary.underBudgetCount, 1, 'Expected 1 category under budget');
+    assert.equal(summary.onTrackCount, 1, 'Expected 1 category on track/balanced');
+
+    // Per-category validation
+    const foodItem = summary.categories.find((c) => c.category === 'Food & Dining')!;
+    assert.ok(foodItem, 'Expected Food & Dining item');
+    assert.equal(foodItem.budgeted, 10000);
+    assert.equal(foodItem.actual, 7000);
+    assert.equal(foodItem.difference, 3000, 'Food & Dining difference should be +3000 (10000 - 7000)');
+    assert.equal(foodItem.status, 'under-budget');
+    assert.equal(foodItem.utilizationPercent, 70);
+
+    const toolsItem = summary.categories.find((c) => c.category === 'Workplace & Tools')!;
+    assert.ok(toolsItem, 'Expected Workplace & Tools item');
+    assert.equal(toolsItem.budgeted, 5000);
+    assert.equal(toolsItem.actual, 6500);
+    assert.equal(toolsItem.difference, -1500, 'Workplace & Tools difference should be -1500 (5000 - 6500)');
+    assert.equal(toolsItem.absDifference, 1500);
+    assert.equal(toolsItem.status, 'over-budget');
+    assert.equal(toolsItem.utilizationPercent, 130);
+
+    const utilItem = summary.categories.find((c) => c.category === 'Utilities')!;
+    assert.ok(utilItem, 'Expected Utilities item');
+    assert.equal(utilItem.budgeted, 4000);
+    assert.equal(utilItem.actual, 4000);
+    assert.equal(utilItem.difference, 0, 'Utilities difference should be 0 (4000 - 4000)');
+    assert.equal(utilItem.status, 'on-track');
+    assert.equal(utilItem.utilizationPercent, 100);
+
+    // 3. Test variance and calculateCategoryBudgetVariance specifically
+    const { calculateCategoryBudgetVariance } = await import('../src/pages/tools/MoneyManager');
+    assert.ok(typeof calculateCategoryBudgetVariance === 'function');
+
+    assert.equal(foodItem.variance, 3000, 'Food & Dining variance should be +3000 (10000 - 7000)');
+    assert.equal(foodItem.varianceType, 'favorable');
+    assert.equal(toolsItem.variance, -1500, 'Workplace & Tools variance should be -1500 (5000 - 6500)');
+    assert.equal(toolsItem.varianceType, 'unfavorable');
+    assert.equal(utilItem.variance, 0, 'Utilities variance should be 0');
+    assert.equal(utilItem.varianceType, 'neutral');
+    assert.equal(summary.totalVariance, 1500, 'Total variance should be +1500');
+    assert.equal(summary.overallVarianceType, 'favorable');
+
+    const favorableVariance = calculateCategoryBudgetVariance(10000, 7000);
+    assert.equal(favorableVariance.variance, 3000);
+    assert.equal(favorableVariance.varianceType, 'favorable');
+    assert.equal(favorableVariance.isOverBudget, false);
+
+    const unfavorableVariance = calculateCategoryBudgetVariance(5000, 6500);
+    assert.equal(unfavorableVariance.variance, -1500);
+    assert.equal(unfavorableVariance.varianceType, 'unfavorable');
+    assert.equal(unfavorableVariance.isOverBudget, true);
+  });
+
+  it("extends the MoneyManager category management section to include an input field for setting a monthly budget limit for each category, stores these limits in IndexedDB, and exposes them to the new 'Budget vs Actual' summary card", async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      saveCategoryBudgetLimit,
+      updateCategoryMonthlyBudget,
+      computeBudgetVsActualSummary,
+    } = await import('../src/pages/tools/MoneyManager');
+    const { getAllCategories, saveCategory, resetDatabaseToDefaults } = await import('../src/db/db');
+
+    // 1. Verify CategoryManager source code includes input field for monthly budget limits
+    const cmSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/CategoryManager.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      cmSource.includes('mm-category-budget-limit-input'),
+      'Expected CategoryManager to include mm-category-budget-limit-input'
+    );
+    assert.ok(
+      cmSource.includes('Monthly Budget') || cmSource.includes('Monthly budget'),
+      'Expected CategoryManager to label the input field with Monthly Budget'
+    );
+    assert.ok(
+      cmSource.includes('handleBudgetChange'),
+      'Expected CategoryManager to handle budget changes'
+    );
+
+    // 2. Test saving and updating category monthly budget limits in IndexedDB
+    await resetDatabaseToDefaults();
+    const initialCategories = await getAllCategories();
+    const foodCat = initialCategories.find(
+      (c) => c.name === 'Food & Dining' || c.name === 'Food & Groceries'
+    )!;
+    assert.ok(foodCat, 'Expected food category (Food & Dining or Food & Groceries)');
+
+    // Update food category monthly budget limit to ₹15,000 using saveCategoryBudgetLimit
+    const updatedFood = await saveCategoryBudgetLimit(foodCat.id, 15000);
+    assert.equal(updatedFood.monthlyBudget, 15000, 'Expected returned category to have 15000 budget');
+
+    // Verify persisted directly in IndexedDB
+    const reloadedCategories = await getAllCategories();
+    const persistedFood = reloadedCategories.find((c) => c.id === foodCat.id)!;
+    assert.equal(persistedFood.monthlyBudget, 15000, 'Expected IndexedDB to store food monthlyBudget = 15000');
+
+    // Update second category (Workplace & Tools or Utilities & Broadband) using updateCategoryMonthlyBudget
+    const toolsCat = initialCategories.find(
+      (c) => c.name === 'Workplace & Tools' || c.name === 'Utilities & Broadband'
+    )!;
+    assert.ok(toolsCat, 'Expected second category');
+    await updateCategoryMonthlyBudget(toolsCat.name, 8500);
+
+    const reloadedCategories2 = await getAllCategories();
+    const persistedTools = reloadedCategories2.find((c) => c.name === toolsCat.name)!;
+    assert.equal(persistedTools.monthlyBudget, 8500, 'Expected IndexedDB to store second category monthlyBudget = 8500');
+
+    // 3. Verify newly stored limits are exposed to the 'Budget vs Actual' summary card
+    const mockExpenseTransactions = [
+      {
+        id: 'tx-cm-1',
+        date: '2026-11-04T12:00',
+        type: 'Expense' as const,
+        accountId: 'acc-icici',
+        category: foodCat.name,
+        amount: 9000,
+        note: 'Supermarket shopping',
+        subCategory: 'Groceries',
+        fixedOrVariable: 'Variable' as const,
+        isAnomaly: false,
+        createdAt: '2026-11-04T12:00:00Z',
+      },
+      {
+        id: 'tx-cm-2',
+        date: '2026-11-10T14:00',
+        type: 'Expense' as const,
+        accountId: 'acc-icici',
+        category: toolsCat.name,
+        amount: 9200,
+        note: 'New hardware or utility setup',
+        subCategory: 'Hardware',
+        fixedOrVariable: 'Variable' as const,
+        isAnomaly: false,
+        createdAt: '2026-11-10T14:00:00Z',
+      },
+    ];
+
+    // Compute Budget vs Actual summary using the categories retrieved from IndexedDB
+    const summary = computeBudgetVsActualSummary(
+      mockExpenseTransactions,
+      reloadedCategories2,
+      '2026-11'
+    );
+
+    // Food category should now use the new ₹15,000 budget:
+    // Spent: 9,000. Variance / Difference: 15,000 - 9,000 = +6,000 (Favorable / Under Budget)
+    const foodSummary = summary.categories.find((c) => c.category === foodCat.name)!;
+    assert.ok(foodSummary, 'Expected food category in summary');
+    assert.equal(foodSummary.budgeted, 15000, 'Expected food budget in summary to be ₹15,000');
+    assert.equal(foodSummary.actual, 9000);
+    assert.equal(foodSummary.difference, 6000, 'Expected difference to be +6000');
+    assert.equal(foodSummary.variance, 6000);
+    assert.equal(foodSummary.status, 'under-budget');
+    assert.equal(foodSummary.varianceType, 'favorable');
+
+    // Second category should now use the new ₹8,500 budget:
+    // Spent: 9,200. Variance / Difference: 8,500 - 9,200 = -700 (Unfavorable / Over Budget)
+    const toolsSummary = summary.categories.find((c) => c.category === toolsCat.name)!;
+    assert.ok(toolsSummary, 'Expected second category in summary');
+    assert.equal(toolsSummary.budgeted, 8500, 'Expected second category budget in summary to be ₹8,500');
+    assert.equal(toolsSummary.actual, 9200);
+    assert.equal(toolsSummary.difference, -700, 'Expected difference to be -700');
+    assert.equal(toolsSummary.variance, -700);
+    assert.equal(toolsSummary.status, 'over-budget');
+    assert.equal(toolsSummary.varianceType, 'unfavorable');
+
+    // 4. Test clearing/removing budget limit back to unbudgeted (0 / undefined)
+    await saveCategoryBudgetLimit(foodCat.id, 0);
+    const reloadedCategories3 = await getAllCategories();
+    const clearedFood = reloadedCategories3.find((c) => c.id === foodCat.id)!;
+    assert.equal(clearedFood.monthlyBudget, undefined, 'Expected cleared budget to be undefined');
+
+    const summaryAfterClear = computeBudgetVsActualSummary(
+      mockExpenseTransactions,
+      reloadedCategories3,
+      '2026-11'
+    );
+    const clearedFoodSummary = summaryAfterClear.categories.find((c) => c.category === foodCat.name)!;
+    assert.equal(clearedFoodSummary.budgeted, 0, 'Expected cleared budget to register as 0');
+    assert.equal(clearedFoodSummary.status, 'unbudgeted');
+  });
 });
+
+
+

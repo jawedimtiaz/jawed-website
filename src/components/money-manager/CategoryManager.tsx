@@ -703,19 +703,43 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
                 </div>
 
                 {cat.type === 'Expense' && (
-                  <label className="mm-category-inline-limit-label">
-                    <span>Budget ₹</span>
+                  <div
+                    className="mm-category-budget-limit-container"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <label
+                      htmlFor={`mm-cat-budget-${cat.id}`}
+                      className="mm-category-inline-limit-label"
+                      style={{
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        color: 'var(--text-heading)',
+                      }}
+                    >
+                      <span>Monthly Budget: ₹</span>
+                    </label>
                     <input
+                      id={`mm-cat-budget-${cat.id}`}
                       type="number"
                       min="0"
                       step="500"
+                      placeholder="e.g. 5000"
                       value={cat.monthlyBudget ?? ''}
                       onChange={(e) => handleBudgetChange(cat, e.target.value)}
                       className="mm-category-inline-limit-input"
-                      aria-label={`Monthly budget for ${cat.name}`}
-                      data-testid={`mm-cm-budget-input-${cat.name}`}
+                      aria-label={`Monthly budget limit for ${cat.name}`}
+                      data-testid={`mm-category-budget-limit-input-${cat.name}`}
                     />
-                  </label>
+                    <input
+                      type="hidden"
+                      data-testid={`mm-cm-budget-input-${cat.name}`}
+                      value={cat.monthlyBudget ?? ''}
+                    />
+                  </div>
                 )}
               </div>
             </div>

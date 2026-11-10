@@ -66,6 +66,7 @@ import {
   GoogleAuthProvider,
   type User,
 } from 'firebase/auth';
+import { categorizeGoogleAuthError } from '../../lib/firebase';
 import {
   SCOPES,
   DRIVE_APPDATA_SCOPE,
@@ -216,7 +217,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
         }
       } catch (error: any) {
         console.error('Redirect auth error:', error);
-        const errMsg = error.message || 'Failed to complete Google Sign-In redirect.';
+        const errMsg = categorizeGoogleAuthError(error);
         setSyncError(errMsg);
         setStatusMessage({ type: 'error', text: errMsg });
       }
@@ -288,7 +289,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
       }
       await signInWithRedirect(auth, provider);
     } catch (err: any) {
-      const errMsg = err?.message || 'Sign-in initialization failed.';
+      const errMsg = categorizeGoogleAuthError(err);
       setSyncError(errMsg);
       setStatusMessage({
         type: 'error',

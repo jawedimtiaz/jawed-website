@@ -79,6 +79,14 @@ import {
 } from '../../db/db';
 import { CategoryManager } from './CategoryManager';
 import {
+  BudgetVsActualSummaryCard,
+  computeBudgetVsActualSummary,
+  calculateCategoryBudgetVariance,
+  type BudgetVsActualCategoryItem,
+  type BudgetVsActualSummary,
+  type BudgetVsActualSummaryCardProps,
+} from './BudgetVsActualSummaryCard';
+import {
   generateMonthlySpendingPdf,
   downloadMonthlySpendingPdf,
   type SpendingPdfReportOptions,
@@ -166,6 +174,9 @@ export {
   formatCurrencyAmount,
   summarizeMultiCurrencyTransactions,
   normalizeCurrencyCode,
+  BudgetVsActualSummaryCard,
+  computeBudgetVsActualSummary,
+  calculateCategoryBudgetVariance,
 };
 export type {
   BudgetForecastSummary,
@@ -192,6 +203,9 @@ export type {
   CurrencyCode,
   DailyExchangeRateSnapshot,
   CurrencyBreakdownRow,
+  BudgetVsActualCategoryItem,
+  BudgetVsActualSummary,
+  BudgetVsActualSummaryCardProps,
 };
 
 export const DEFAULT_SUMMARY_CARD_ORDER = [
@@ -2206,6 +2220,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Budget vs Actual Summary Card (Difference between budgeted and actual expenses per category) */}
+      <BudgetVsActualSummaryCard
+        selectedMonth={selectedMonth}
+        transactions={transactions}
+        categories={localCategories}
+      />
 
       {monthlyReportExportNotice && (
         <div

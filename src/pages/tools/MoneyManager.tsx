@@ -1,10 +1,18 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Upload, Download } from 'lucide-react';
 import {
   signInWithRedirect,
   getRedirectResult,
   GoogleAuthProvider,
+  signInWithPopup,
+  type Auth,
+  type User,
 } from 'firebase/auth';
+import { firebaseConfig, categorizeGoogleAuthError } from '../../lib/firebase';
+
+if (!firebaseConfig.apiKey) {
+  console.error('Firebase API Key is missing. Check your Vite environment variables.');
+}
 import {
   MoneyManager,
   MONEY_MANAGER_SEO,
@@ -60,6 +68,12 @@ import {
   computeRollingThreeMonthTrend,
   computeSpendingCardProgress,
   computeCategorySpendingCardProgressList,
+  BudgetVsActualSummaryCard,
+  computeBudgetVsActualSummary,
+  calculateCategoryBudgetVariance,
+  type BudgetVsActualCategoryItem,
+  type BudgetVsActualSummary,
+  type BudgetVsActualSummaryCardProps,
   type CsvMandatoryColumnName,
   type CsvRowValidationError,
   type CsvValidationReport,
@@ -69,6 +83,103 @@ import {
   type CsvImportFeedbackState,
   type CsvImportFeedbackBannerProps,
 } from '../../tools/MoneyManager';
+import { CategoryManager } from '../../components/money-manager/CategoryManager';
+import {
+  saveCategory as dbSaveCategory,
+  getAllCategories,
+  type MoneyCategory,
+} from '../../db/db';
+
+/**
+ * Saves or updates a category's monthly budget limit in IndexedDB.
+ */
+async function saveCategoryBudgetLimit(
+  categoryIdOrName: string,
+  monthlyBudget: number | undefined
+): Promise<MoneyCategory> {
+  const all = await getAllCategories();
+  const category = all.find(
+    (c) => c.id === categoryIdOrName || c.name === categoryIdOrName
+  );
+  if (!category) {
+    throw new Error(`Category not found: ${categoryIdOrName}`);
+  }
+  const updated: MoneyCategory = {
+    ...category,
+    monthlyBudget:
+      monthlyBudget !== undefined && Number(monthlyBudget) > 0
+        ? Number(monthlyBudget)
+        : undefined,
+  };
+  return await dbSaveCategory(updated);
+}
+
+const updateCategoryMonthlyBudget = saveCategoryBudgetLimit;
+
+interface CategoryBudgetLimitSettingRowProps {
+  category: MoneyCategory;
+  onBudgetUpdated?: (updated: MoneyCategory) => void;
+  className?: string;
+}
+
+const CategoryBudgetLimitSettingRow: React.FC<CategoryBudgetLimitSettingRowProps> = ({
+  category,
+  onBudgetUpdated,
+  className = '',
+}) => {
+  const [val, setVal] = useState<string>(
+    category.monthlyBudget !== undefined ? String(category.monthlyBudget) : ''
+  );
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    setVal(category.monthlyBudget !== undefined ? String(category.monthlyBudget) : '');
+  }, [category.monthlyBudget]);
+
+  const handleChange = async (newVal: string) => {
+    setVal(newVal);
+    const parsed = Math.max(0, Number.parseFloat(newVal) || 0);
+    const updated = await saveCategoryBudgetLimit(
+      category.id,
+      parsed > 0 ? parsed : undefined
+    );
+    onBudgetUpdated?.(updated);
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2000);
+  };
+
+  return (
+    <div
+      className={`inline-flex items-center gap-2 ${className}`}
+      data-testid={`category-budget-setting-row-${category.name}`}
+    >
+      <label
+        htmlFor={`cat-budget-input-${category.id}`}
+        className="text-xs text-slate-300 font-medium"
+      >
+        Monthly Budget (₹):
+      </label>
+      <input
+        id={`cat-budget-input-${category.id}`}
+        type="number"
+        min="0"
+        step="500"
+        placeholder="e.g. 5000"
+        value={val}
+        onChange={(e) => handleChange(e.target.value)}
+        className="w-24 px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-100 text-right focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        aria-label={`Monthly budget limit for ${category.name}`}
+        data-testid={`mm-category-budget-limit-input-${category.name}`}
+      />
+      {isSaved && (
+        <span className="text-[10px] text-emerald-400 font-semibold">
+          Saved to IndexedDB
+        </span>
+      )}
+    </div>
+  );
+};
+
 
 export interface DirectCsvImportFileInputProps {
   defaultMonth?: string;
@@ -282,6 +393,117 @@ export const DirectCsvImportFileInput: React.FC<DirectCsvImportFileInputProps> =
   );
 };
 
+export interface GoogleSignInHandlerOptions {
+  auth?: Auth | null;
+  setUser?: (user: User) => void;
+  setSyncError?: (error: string | null) => void;
+  setIsSyncing?: (syncing: boolean) => void;
+}
+
+/**
+ * Robust Google Sign-In handler that executes popup sign-in with scope and clear error categorization.
+ */
+const handleGoogleSignIn = async (options?: GoogleSignInHandlerOptions) => {
+  const auth = options?.auth ?? getMoneyManagerAuth();
+  options?.setSyncError?.(null);
+  options?.setIsSyncing?.(true);
+
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/drive.appdata');
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    if (!auth) {
+      throw new Error('Firebase Auth is not available.');
+    }
+
+    const result = await signInWithPopup(auth, provider);
+    if (result.user) {
+      options?.setUser?.(result.user);
+      // proceed with Drive sync
+      return result.user;
+    }
+  } catch (err: any) {
+    console.error('Google Auth Error:', err);
+
+    if (err.code === 'auth/network-request-failed') {
+      options?.setSyncError?.(
+        'Network connection failed. This usually occurs if an ad-blocker / strict tracking prevention is blocking Google Identity endpoints, or if you are offline. Please disable ad-blockers for this domain and try again.'
+      );
+    } else if (err.code === 'auth/popup-blocked') {
+      options?.setSyncError?.(
+        'Popup was blocked by your browser. Please allow popups for jawed.co.in to sign in.'
+      );
+    } else if (err.code === 'auth/popup-closed-by-user') {
+      options?.setSyncError?.('Sign-in popup was closed before completion.');
+    } else {
+      options?.setSyncError?.(err.message || 'Failed to sign in with Google.');
+    }
+    throw err;
+  } finally {
+    options?.setIsSyncing?.(false);
+  }
+};
+
+/**
+ * Hook providing reactive state and wrapped handleGoogleSignIn handler for Cloud Sync modals.
+ */
+function useGoogleAuthModalSync() {
+  const [user, setUser] = useState<User | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const auth = getMoneyManagerAuth();
+
+  const handleSignIn = async () => {
+    setSyncError(null);
+    setIsSyncing(true);
+
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/drive.appdata');
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      if (!auth) {
+        throw new Error('Firebase Auth is not available.');
+      }
+
+      const result = await signInWithPopup(auth, provider);
+      if (result.user) {
+        setUser(result.user);
+        // proceed with Drive sync
+      }
+    } catch (err: any) {
+      console.error('Google Auth Error:', err);
+
+      if (err.code === 'auth/network-request-failed') {
+        setSyncError(
+          'Network connection failed. This usually occurs if an ad-blocker / strict tracking prevention is blocking Google Identity endpoints, or if you are offline. Please disable ad-blockers for this domain and try again.'
+        );
+      } else if (err.code === 'auth/popup-blocked') {
+        setSyncError(
+          'Popup was blocked by your browser. Please allow popups for jawed.co.in to sign in.'
+        );
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setSyncError('Sign-in popup was closed before completion.');
+      } else {
+        setSyncError(err.message || 'Failed to sign in with Google.');
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  return {
+    user,
+    setUser,
+    syncError,
+    setSyncError,
+    isSyncing,
+    setIsSyncing,
+    handleGoogleSignIn: handleSignIn,
+  };
+}
+
 export {
   MoneyManager,
   MONEY_MANAGER_SEO,
@@ -295,6 +517,11 @@ export {
   signInWithRedirect,
   getRedirectResult,
   GoogleAuthProvider,
+  signInWithPopup,
+  handleGoogleSignIn,
+  useGoogleAuthModalSync,
+  firebaseConfig,
+  categorizeGoogleAuthError,
   bulkImportTransactions,
   BackupRestoreModal,
   formatTransactionsToCsv,
@@ -340,6 +567,13 @@ export {
   computeRollingThreeMonthTrend,
   computeSpendingCardProgress,
   computeCategorySpendingCardProgressList,
+  BudgetVsActualSummaryCard,
+  computeBudgetVsActualSummary,
+  calculateCategoryBudgetVariance,
+  CategoryManager,
+  saveCategoryBudgetLimit,
+  updateCategoryMonthlyBudget,
+  CategoryBudgetLimitSettingRow,
 };
 export type {
   CsvMandatoryColumnName,
@@ -350,5 +584,9 @@ export type {
   CsvImportFeedbackStatus,
   CsvImportFeedbackState,
   CsvImportFeedbackBannerProps,
+  BudgetVsActualCategoryItem,
+  BudgetVsActualSummary,
+  BudgetVsActualSummaryCardProps,
+  CategoryBudgetLimitSettingRowProps,
 };
 export default MoneyManager;

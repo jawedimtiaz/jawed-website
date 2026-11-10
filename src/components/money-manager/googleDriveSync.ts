@@ -8,7 +8,7 @@ import {
   type Auth,
   type User,
 } from 'firebase/auth';
-import firebaseConfig from '../../../firebase-applet-config.json';
+import { firebaseConfig, categorizeGoogleAuthError } from '../../lib/firebase';
 import {
   exportDatabaseBackup,
   restoreDatabaseBackup,
@@ -140,7 +140,7 @@ export const initGoogleDriveAuth = (
       })
       .catch((error: any) => {
         console.error('Redirect auth error:', error);
-        onAuthFailure?.(error?.message || 'Failed to complete Google Sign-In redirect.');
+        onAuthFailure?.(categorizeGoogleAuthError(error));
       });
 
     return onAuthStateChanged(auth, async (user: User | null) => {
@@ -152,7 +152,7 @@ export const initGoogleDriveAuth = (
       }
     });
   } catch (error: any) {
-    onAuthFailure?.(error?.message);
+    onAuthFailure?.(categorizeGoogleAuthError(error));
     return () => {};
   }
 };

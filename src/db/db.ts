@@ -1840,6 +1840,17 @@ export async function deleteCategory(id: string): Promise<void> {
 }
 
 /**
+ * Retrieves all categories from IndexedDB (or memory store).
+ */
+export async function getAllCategories(): Promise<MoneyCategory[]> {
+  const db = await getMoneyManagerDB();
+  if (!db) {
+    return [...memoryStore.categories.values()];
+  }
+  return await db.getAll('categories');
+}
+
+/**
  * Adds or updates a sinking fund provision.
  */
 export async function saveSinkingFund(fund: SinkingFund): Promise<SinkingFund> {
