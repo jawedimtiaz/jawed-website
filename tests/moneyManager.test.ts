@@ -5063,43 +5063,56 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     // 2. Verify selecting a file in MoneyManager.tsx immediately calls processCsvContent(csvText) without requiring a modal
     assert.ok(
       toolsMmSrc.includes('await processCsvContent(text);') &&
-        toolsMmSrc.includes('await processCsvContent(csvText);'),
-      'Expected MoneyManager.tsx to directly execute processCsvContent when a CSV file is selected'
+        toolsMmSrc.includes('await processCsvContent(csvText);') &&
+        toolsMmSrc.includes('onClick={() => fileInputRef.current?.click()}') &&
+        toolsMmSrc.includes('jawed-money-manager-sample.csv'),
+      'Expected MoneyManager.tsx to wire fileInputRef.current?.click(), jawed-money-manager-sample.csv, and directly execute processCsvContent'
+    );
+    assert.ok(
+      pagesMmSrc.includes('onClick={() => fileInputRef.current?.click()}') &&
+        pagesMmSrc.includes('jawed-money-manager-sample.csv') &&
+        pagesMmSrc.includes('saveTransactionsToDb'),
+      'Expected src/pages/tools/MoneyManager.tsx to include direct fileInputRef trigger, sample CSV download, and saveTransactionsToDb'
     );
 
-    // 3. Verify end-to-end File upload into IndexedDB via bulkImportCsvFileToLedger
+    // 3. Verify end-to-end File upload of jawed-money-manager-sample.csv into IndexedDB via bulkImportCsvFileToLedger
     await resetDatabaseToDefaults();
     const beforeState = await getAllLedgerState();
-    const directCsvPayload = [
-      'Date,Description,Amount,Type,Category,Bank',
-      '2026-11-28,Direct Picker Cloud Server,-1499,Expense,Utilities & Bills,ICICI',
-      '2026-11-29,Direct Picker Freelance Payout,12500,Income,Freelance & Consulting,SBI',
+    const sampleCsvPayload = [
+      'Date,Type,Category,Amount,Description,Payment Method',
+      '2026-11-01,Expense,Food & Dining,450.00,Client lunch,Credit Card',
+      '2026-11-02,Expense,Workplace & Tools,1200.00,Network cable tester,Bank Transfer',
+      '2026-11-05,Income,Freelance / Consulting,15000.00,IT Field dispatch payout,UPI',
     ].join('\n');
 
     const mockCsvFile = {
-      name: 'direct-upload.csv',
-      text: async () => directCsvPayload,
+      name: 'jawed-money-manager-sample.csv',
+      text: async () => sampleCsvPayload,
     };
 
     const result = await bulkImportCsvFileToLedger(mockCsvFile, {
       defaultMonth: '2026-11',
     });
 
-    assert.equal(result.importedTransactions.length, 2, 'Expected 2 transactions imported directly from file');
-    assert.equal(result.feedback?.importedCount, 2, 'Expected feedback.importedCount to be 2');
+    assert.equal(result.importedTransactions.length, 3, 'Expected 3 transactions imported directly from sample CSV file');
+    assert.equal(result.feedback?.importedCount, 3, 'Expected feedback.importedCount to be 3');
     const afterState = await getAllLedgerState();
     assert.equal(
       afterState.transactions.length,
-      beforeState.transactions.length + 2,
-      'Expected IndexedDB transactions count to increase by 2 immediately after file upload'
+      beforeState.transactions.length + 3,
+      'Expected IndexedDB transactions count to increase by 3 immediately after file upload'
     );
     assert.ok(
-      afterState.transactions.some((tx) => tx.note.includes('Direct Picker Cloud Server')),
-      'Expected Direct Picker Cloud Server transaction in IndexedDB'
+      afterState.transactions.some((tx) => tx.note.includes('Client lunch') && tx.amount === 450),
+      'Expected Client lunch transaction in IndexedDB'
     );
     assert.ok(
-      afterState.transactions.some((tx) => tx.note.includes('Direct Picker Freelance Payout')),
-      'Expected Direct Picker Freelance Payout transaction in IndexedDB'
+      afterState.transactions.some((tx) => tx.note.includes('Network cable tester') && tx.amount === 1200),
+      'Expected Network cable tester transaction in IndexedDB'
+    );
+    assert.ok(
+      afterState.transactions.some((tx) => tx.note.includes('IT Field dispatch payout') && tx.amount === 15000 && tx.type === 'Income'),
+      'Expected IT Field dispatch payout Income transaction in IndexedDB'
     );
   });
 });

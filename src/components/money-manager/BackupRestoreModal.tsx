@@ -572,6 +572,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
       setStatusMessage(null);
       const text = await file.text();
       loadCsvContentIntoMapper(text, file.name);
+      await processCsvContent(text);
     } catch (err) {
       setStatusMessage({
         type: 'error',
@@ -579,6 +580,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
       });
     } finally {
       setIsProcessing(false);
+      e.target.value = '';
     }
   };
 

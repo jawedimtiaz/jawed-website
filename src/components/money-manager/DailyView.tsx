@@ -715,109 +715,221 @@ export const DailyView: React.FC<DailyViewProps> = ({
     setInitialDailyCsvFileName(fileNameStr);
     setInitialDailyCsvContent(csvText);
 
-    const parsed = parseCsvText(csvText);
-    if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-      setCsvExportNotice('Selected CSV file is empty or missing headers (Date, Amount, Description).');
+    if (!csvText || csvText.trim().length === 0) {
+      setCsvExportNotice('The selected file is empty.');
       return;
     }
 
-    const mapping = autoDetectCsvMapping(parsed.headers);
-    const validation = validateCsvRows(parsed.rows, parsed.headers, mapping);
-    if (!validation.hasMandatoryColumns) {
-      setCsvExportNotice(
-        validation.columnErrorMessage ||
-          'Missing mandatory CSV column(s): Date, Amount, Description.'
-      );
+    const rawLines = csvText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    if (rawLines.length < 2) {
+      setCsvExportNotice('CSV must contain at least a header row and one transaction row.');
       return;
     }
 
-    if (validation.validRows.length === 0) {
-      setCsvExportNotice(
-        validation.summaryErrorMessage ||
-          'All CSV rows failed validation. Please verify Date, Amount, and Description.'
-      );
+    const headers = rawLines[0]
+      .split(',')
+      .map((h) => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
+
+    const dateIdx = headers.findIndex((h) => h.includes('date'));
+    const typeIdx = headers.findIndex((h) => h.includes('type') || h.includes('dr/cr') || h.includes('cr/dr'));
+    const catIdx = headers.findIndex((h) => h.includes('category') || h.includes('cat'));
+    const debitIdx = headers.findIndex(
+      (h) => h.includes('withdrawal') || h.includes('debit') || h === 'dr'
+    );
+    const creditIdx = headers.findIndex(
+      (h) => h.includes('deposit') || h.includes('credit') || h === 'cr'
+    );
+    const amtIdx = headers.findIndex(
+      (h) =>
+        h.includes('amount') ||
+        h.includes('val') ||
+        h.includes('inr') ||
+        h.includes('total') ||
+        (h.includes('amt') &&
+          !h.includes('withdrawal') &&
+          !h.includes('debit') &&
+          !h.includes('deposit') &&
+          !h.includes('credit'))
+    );
+    const descIdx = headers.findIndex(
+      (h) =>
+        h.includes('desc') ||
+        h.includes('note') ||
+        h.includes('detail') ||
+        h.includes('narrative') ||
+        h.includes('narration') ||
+        h.includes('particular') ||
+        h.includes('remark')
+    );
+    const methodIdx = headers.findIndex(
+      (h) =>
+        h.includes('method') ||
+        h.includes('mode') ||
+        h.includes('account') ||
+        h.includes('bank') ||
+        h.includes('payment')
+    );
+
+    if (amtIdx === -1 && debitIdx === -1 && creditIdx === -1) {
+      setCsvExportNotice("CSV format error: Missing 'Amount' column. Please check the sample format.");
       return;
     }
 
-    const deduped = mapCsvRowsToTransactions(validation.validRows, mapping, {
-      defaultAccountId: accounts[0]?.id || 'acc-icici',
-      defaultToAccountId: accounts[1]?.id || 'acc-sbi',
-      defaultMonth: selectedMonth || '2026-11',
-      accounts,
-      categories,
-      historicalTransactions: localTransactions,
-      skipDuplicates: true,
-      strictValidation: true,
-    });
+    const importedTransactions: MoneyTransaction[] = [];
 
-    const mapped =
-      deduped.length > 0
-        ? deduped
-        : mapCsvRowsToTransactions(validation.validRows, mapping, {
-            defaultAccountId: accounts[0]?.id || 'acc-icici',
-            defaultToAccountId: accounts[1]?.id || 'acc-sbi',
-            defaultMonth: selectedMonth || '2026-11',
-            accounts,
-            categories,
-            historicalTransactions: localTransactions,
-            skipDuplicates: false,
-            strictValidation: true,
-          });
+    for (let i = 1; i < rawLines.length; i++) {
+      const cols = rawLines[i]
+        .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+        .map((c) => c.replace(/^["']|["']$/g, '').trim());
+      if (cols.length < 2) continue;
 
-    const recordsWithUuid = mapped.map((tx) => ({
-      ...tx,
-      id: crypto.randomUUID(),
-    }));
+      let parsedAmount = 0;
+      let inferredType: TransactionType = 'Expense';
 
-    const inserted = await bulkImportTransactions(recordsWithUuid, {
-      skipDuplicates: deduped.length > 0,
-    });
-    const completedRecords = inserted.length > 0 ? inserted : recordsWithUuid;
+      const rawDebit = debitIdx !== -1 && cols[debitIdx] ? cols[debitIdx].replace(/[^0-9.-]/g, '') : '';
+      const rawCredit = creditIdx !== -1 && cols[creditIdx] ? cols[creditIdx].replace(/[^0-9.-]/g, '') : '';
+      const debitVal = rawDebit ? Math.abs(parseFloat(rawDebit)) : 0;
+      const creditVal = rawCredit ? Math.abs(parseFloat(rawCredit)) : 0;
 
-    if (completedRecords.length > 0) {
-      setLocalTransactions((prev) => {
-        const existingIds = new Set(prev.map((item) => item.id));
-        const uniqueAdditions = completedRecords.filter((item) => !existingIds.has(item.id));
-        return [...uniqueAdditions, ...prev];
+      if (debitVal > 0 && creditVal === 0) {
+        parsedAmount = debitVal;
+        inferredType = 'Expense';
+      } else if (creditVal > 0 && debitVal === 0) {
+        parsedAmount = creditVal;
+        inferredType = 'Income';
+      } else if (amtIdx !== -1) {
+        const rawAmount = cols[amtIdx] ? cols[amtIdx].replace(/[^0-9.-]/g, '') : '0';
+        const rawNum = parseFloat(rawAmount);
+        parsedAmount = Math.abs(rawNum);
+        if (rawNum < 0) inferredType = 'Expense';
+      }
+
+      if (isNaN(parsedAmount) || parsedAmount <= 0) continue;
+
+      const rawDate =
+        dateIdx !== -1 && cols[dateIdx]
+          ? cols[dateIdx]
+          : new Date().toISOString().split('T')[0];
+      let validDate = rawDate;
+      if (isNaN(new Date(validDate).getTime())) {
+        validDate = new Date().toISOString().split('T')[0];
+      }
+
+      const rawType = typeIdx !== -1 && cols[typeIdx] ? cols[typeIdx].toLowerCase() : '';
+      const itemCategory = catIdx !== -1 && cols[catIdx] ? cols[catIdx] : 'Other';
+      const itemDesc = descIdx !== -1 && cols[descIdx] ? cols[descIdx] : 'Imported CSV item';
+      const itemMethod = methodIdx !== -1 && cols[methodIdx] ? cols[methodIdx] : 'Bank Transfer';
+
+      let itemType: TransactionType = inferredType;
+      if (rawType.includes('inc') || rawType.includes('cr') || rawType.includes('deposit')) {
+        itemType = 'Income';
+      } else if (rawType.includes('transfer') || itemCategory.toLowerCase() === 'transfer') {
+        itemType = 'Transfer';
+      } else if (rawType.includes('exp') || rawType.includes('dr')) {
+        itemType = 'Expense';
+      }
+
+      const methodLower = itemMethod.toLowerCase();
+      let resolvedAccountId = accounts[0]?.id || 'acc-icici';
+      if (methodLower.includes('credit card') || methodLower.includes('cc')) {
+        resolvedAccountId = accounts.find((a) => a.type === 'Card')?.id || 'acc-cc-icici';
+      } else if (methodLower.includes('cash')) {
+        resolvedAccountId = accounts.find((a) => a.type === 'Cash')?.id || 'acc-cash';
+      } else if (methodLower.includes('sbi')) {
+        resolvedAccountId = accounts.find((a) => a.id.includes('sbi') || a.name.toLowerCase().includes('sbi'))?.id || 'acc-sbi';
+      } else if (methodLower.includes('ubi') || methodLower.includes('union')) {
+        resolvedAccountId = accounts.find((a) => a.id.includes('ubi') || a.name.toLowerCase().includes('union'))?.id || 'acc-ubi';
+      }
+
+      importedTransactions.push({
+        id:
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        date: validDate,
+        type: itemType,
+        accountId: resolvedAccountId,
+        toAccountId: itemType === 'Transfer' ? accounts[1]?.id || 'acc-sbi' : undefined,
+        category: itemCategory,
+        subCategory: itemMethod || 'CSV Import',
+        fixedOrVariable: 'Variable',
+        amount: parsedAmount,
+        note: itemDesc,
+        receiptImages: [],
+        isAnomaly: false,
       });
     }
 
-    setCsvExportNotice(
-      validation.malformedRows.length > 0
-        ? `Imported ${completedRecords.length} record(s); ${validation.malformedRows.length} row(s) failed validation.`
-        : `Successfully imported ${completedRecords.length} CSV transaction(s) into IndexedDB!`
-    );
-    await Promise.resolve(onBulkImportComplete?.(completedRecords));
+    if (importedTransactions.length === 0) {
+      setCsvExportNotice('No valid transactions found in the CSV. Please check the date and amount values.');
+      return;
+    }
+
+    setLocalTransactions((prev) => [...importedTransactions, ...prev]);
+    setAccountFilter('ALL');
+    setCategoryFilter('ALL');
+    setTypeFilter('ALL');
+    setSearchQuery('');
+
+    await bulkImportTransactions(importedTransactions, { skipDuplicates: false });
+    setCsvExportNotice(`Successfully imported ${importedTransactions.length} transactions!`);
+    await Promise.resolve(onBulkImportComplete?.(importedTransactions));
   };
 
-  const handleCsvFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCsvFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setSelectedFile(file);
-    try {
-      if (typeof FileReader !== 'undefined') {
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
-          if (text) {
-            await processDirectDailyCsvText(text, file.name);
-          }
-        };
-        reader.readAsText(file);
-      } else {
-        const csvText = await file.text();
-        await processDirectDailyCsvText(csvText, file.name);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text || text.trim().length === 0) {
+          setCsvExportNotice('The selected file is empty.');
+          return;
+        }
+        await processDirectDailyCsvText(text, file.name);
+      } catch (err: any) {
+        console.error('CSV Import Failure:', err);
+        setCsvExportNotice(`Error reading CSV: ${err?.message || 'Unknown error'}`);
+      } finally {
+        e.target.value = '';
       }
-    } finally {
+    };
+    reader.onerror = () => {
+      setCsvExportNotice('Browser error: Unable to read the selected file.');
       e.target.value = '';
-    }
+    };
+    reader.readAsText(file);
   };
 
   const handleCsvFileChange = handleCsvFileUpload;
 
   const handleDownloadSampleCsv = () => {
-    const { fileName } = downloadSampleCsvTemplate();
-    setCsvExportNotice(`Downloaded sample CSV template ("${fileName}").`);
+    const sampleData = `Date,Type,Category,Amount,Description,Payment Method
+2026-11-01,Expense,Food & Dining,450.00,Client lunch,Credit Card
+2026-11-02,Expense,Workplace & Tools,1200.00,Network cable tester,Bank Transfer
+2026-11-05,Income,Freelance / Consulting,15000.00,IT Field dispatch payout,UPI`;
+
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const blob = new Blob([sampleData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'jawed-money-manager-sample.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setCsvExportNotice('Downloaded sample CSV template ("jawed-money-manager-sample.csv").');
+    } else {
+      const { fileName } = downloadSampleCsvTemplate();
+      setCsvExportNotice(`Downloaded sample CSV template ("${fileName}").`);
+    }
   };
 
   useEffect(() => {
@@ -1351,6 +1463,16 @@ export const DailyView: React.FC<DailyViewProps> = ({
             </button>
 
             <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              style={{ display: 'none' }}
+              onChange={handleCsvFileUpload}
+              data-testid="mm-daily-direct-csv-file-input"
+            />
+
+            <input
               ref={csvInputRef}
               type="file"
               accept=".csv,text/csv"
@@ -1362,25 +1484,19 @@ export const DailyView: React.FC<DailyViewProps> = ({
 
             <button
               type="button"
-              onClick={() => {
-                if (csvInputRef.current) {
-                  csvInputRef.current.click();
-                } else {
-                  fileInputRef.current?.click();
-                }
-              }}
-              className="mm-btn mm-btn-sm mm-btn-secondary"
+              onClick={() => fileInputRef.current?.click()}
+              className="mm-btn mm-btn-sm mm-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 hover:text-white transition"
               title="Import bank statement CSV with auto category & account matching"
               data-testid="mm-daily-import-csv-btn"
             >
-              <FileSpreadsheet size={14} style={{ color: '#10b981' }} />
+              <FileSpreadsheet size={14} style={{ color: '#38bdf8' }} />
               <span>Import CSV</span>
             </button>
 
             <button
               type="button"
               onClick={handleDownloadSampleCsv}
-              className="mm-btn mm-btn-sm mm-btn-secondary"
+              className="mm-btn mm-btn-sm mm-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 hover:text-white transition"
               title="Download a pre-formatted sample CSV template that guarantees valid imports into IndexedDB"
               data-testid="mm-daily-download-sample-csv-btn"
             >

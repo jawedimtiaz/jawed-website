@@ -222,9 +222,16 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
 
     setSelectedFile(file);
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
-      handleLoadCsvContent(text, file.name);
+    reader.onload = async (evt) => {
+      try {
+        const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
+        handleLoadCsvContent(text, file.name);
+        if (text && text.trim().length > 0) {
+          await processCsvContent(text);
+        }
+      } finally {
+        e.target.value = '';
+      }
     };
     reader.readAsText(file);
   };

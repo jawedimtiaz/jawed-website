@@ -191,41 +191,49 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
   const csvInputRef = useRef<HTMLInputElement>(null);
   const contrastTokens = resolveActiveTabContrastTokens(themeMode);
 
-  const handleCsvFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCsvFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    try {
-      if (typeof FileReader !== 'undefined') {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
-          if (text) {
-            onCsvFileSelect?.(file, text);
-          }
-        };
-        reader.readAsText(file);
-      } else {
-        const csvText = await file.text();
-        onCsvFileSelect?.(file, csvText);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (text && text.trim().length > 0) {
+          onCsvFileSelect?.(file, text);
+        }
+      } finally {
+        e.target.value = '';
       }
-    } finally {
+    };
+    reader.onerror = () => {
       e.target.value = '';
-    }
+    };
+    reader.readAsText(file);
   };
 
   const handleCsvFileChange = handleCsvFileUpload;
 
-  const handleTriggerImportCsv = () => {
-    if (csvInputRef.current) {
-      csvInputRef.current.click();
-    } else {
-      fileInputRef.current?.click();
-    }
-  };
-
   const handleDownloadSampleCsv = () => {
     if (onDownloadSampleCsv) {
       onDownloadSampleCsv();
+      return;
+    }
+    const sampleData = `Date,Type,Category,Amount,Description,Payment Method
+2026-11-01,Expense,Food & Dining,450.00,Client lunch,Credit Card
+2026-11-02,Expense,Workplace & Tools,1200.00,Network cable tester,Bank Transfer
+2026-11-05,Income,Freelance / Consulting,15000.00,IT Field dispatch payout,UPI`;
+
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const blob = new Blob([sampleData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'jawed-money-manager-sample.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } else {
       downloadSampleCsvTemplate();
     }
@@ -290,6 +298,15 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
 
         <div className="mm-top-actions">
           <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            style={{ display: 'none' }}
+            onChange={handleCsvFileUpload}
+            data-testid="mm-header-direct-csv-file-input"
+          />
+          <input
             ref={csvInputRef}
             type="file"
             accept=".csv,text/csv"
@@ -298,30 +315,26 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
             onChange={handleCsvFileChange}
             data-testid="mm-header-csv-file-input"
           />
-          {onOpenCsvImportModal && (
-            <>
-              <button
-                type="button"
-                onClick={handleTriggerImportCsv}
-                className="mm-btn mm-btn-secondary"
-                title="Bulk-import transactions from a bank statement CSV file into IndexedDB"
-                data-testid="mm-header-import-csv-btn"
-              >
-                <Upload size={15} />
-                <span>Import CSV</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleDownloadSampleCsv}
-                className="mm-btn mm-btn-secondary"
-                title="Download a pre-formatted sample CSV template that guarantees valid imports into IndexedDB"
-                data-testid="mm-header-download-sample-csv-btn"
-              >
-                <Download size={15} />
-                <span>Download Sample CSV</span>
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="mm-btn mm-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 hover:text-white transition"
+            title="Bulk-import transactions from a bank statement CSV file into IndexedDB"
+            data-testid="mm-header-import-csv-btn"
+          >
+            <Upload className="w-4 h-4 text-sky-400" size={15} />
+            <span>Import CSV</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadSampleCsv}
+            className="mm-btn mm-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 hover:text-white transition"
+            title="Download a pre-formatted sample CSV template that guarantees valid imports into IndexedDB"
+            data-testid="mm-header-download-sample-csv-btn"
+          >
+            <Download className="w-4 h-4 text-emerald-400" size={15} />
+            <span>Download Sample CSV</span>
+          </button>
           <button
             type="button"
             onClick={handleExportToCsv}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
-import { Shield, Database, Sparkles, CheckCircle2, AlertTriangle, BellRing, X, ArrowRight } from 'lucide-react';
+import { Shield, Database, Sparkles, CheckCircle2, AlertTriangle, BellRing, X, ArrowRight, Upload, Download } from 'lucide-react';
 import { SeoHead } from '../components/SeoHead';
 import {
   type AccountSummary,
@@ -1051,116 +1051,295 @@ export const MoneyManager: React.FC = () => {
   }, [budget95Toasts]);
 
   // Handlers
+  const saveTransactionsToDb = useCallback(async (items: MoneyTransaction[]) => {
+    await bulkImportTransactions(items, { skipDuplicates: false });
+  }, []);
+
+  const parseResilientCsvToTransactions = useCallback(
+    (text: string): {
+      importedTransactions: MoneyTransaction[];
+      totalDataRows: number;
+      failedValidationCount: number;
+      validationErrors: string[];
+      errorReason: string | null;
+    } => {
+      if (!text || text.trim().length === 0) {
+        return {
+          importedTransactions: [],
+          totalDataRows: 0,
+          failedValidationCount: 0,
+          validationErrors: ['The selected file is empty.'],
+          errorReason: 'The selected file is empty.',
+        };
+      }
+
+      // Split lines and handle Windows (\r\n) & Unix (\n) line breaks
+      const rawLines = text
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+      if (rawLines.length < 2) {
+        return {
+          importedTransactions: [],
+          totalDataRows: 0,
+          failedValidationCount: 0,
+          validationErrors: ['CSV must contain at least a header row and one transaction row.'],
+          errorReason: 'CSV must contain at least a header row and one transaction row.',
+        };
+      }
+
+      // Parse headers
+      const headers = rawLines[0]
+        .split(',')
+        .map((h) => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
+
+      const dateIdx = headers.findIndex((h) => h.includes('date'));
+      const typeIdx = headers.findIndex(
+        (h) => h.includes('type') || h.includes('dr/cr') || h.includes('cr/dr')
+      );
+      const catIdx = headers.findIndex((h) => h.includes('category') || h.includes('cat'));
+      const debitIdx = headers.findIndex(
+        (h) => h.includes('withdrawal') || h.includes('debit') || h === 'dr'
+      );
+      const creditIdx = headers.findIndex(
+        (h) => h.includes('deposit') || h.includes('credit') || h === 'cr'
+      );
+      const amtIdx = headers.findIndex(
+        (h) =>
+          h.includes('amount') ||
+          h.includes('val') ||
+          h.includes('inr') ||
+          h.includes('total') ||
+          (h.includes('amt') &&
+            !h.includes('withdrawal') &&
+            !h.includes('debit') &&
+            !h.includes('deposit') &&
+            !h.includes('credit'))
+      );
+      const descIdx = headers.findIndex(
+        (h) =>
+          h.includes('desc') ||
+          h.includes('note') ||
+          h.includes('detail') ||
+          h.includes('narrative') ||
+          h.includes('narration') ||
+          h.includes('particular') ||
+          h.includes('remark')
+      );
+      const methodIdx = headers.findIndex(
+        (h) =>
+          h.includes('method') ||
+          h.includes('mode') ||
+          h.includes('account') ||
+          h.includes('bank') ||
+          h.includes('payment')
+      );
+
+      if (amtIdx === -1 && debitIdx === -1 && creditIdx === -1) {
+        return {
+          importedTransactions: [],
+          totalDataRows: rawLines.length - 1,
+          failedValidationCount: rawLines.length - 1,
+          validationErrors: [
+            "CSV format error: Missing 'Amount' column. Please check the sample format.",
+          ],
+          errorReason:
+            "CSV format error: Missing 'Amount' column. Please check the sample format.",
+        };
+      }
+
+      const importedTransactions: MoneyTransaction[] = [];
+      const validationErrors: string[] = [];
+      let failedValidationCount = 0;
+
+      for (let i = 1; i < rawLines.length; i++) {
+        // Regex to parse comma-separated values while respecting quotes
+        const cols = rawLines[i]
+          .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+          .map((c) => c.replace(/^["']|["']$/g, '').trim());
+        if (cols.length < 2) continue;
+
+        let parsedAmount = 0;
+        let inferredType: 'Income' | 'Expense' | 'Transfer' = 'Expense';
+
+        const rawDebit =
+          debitIdx !== -1 && cols[debitIdx] ? cols[debitIdx].replace(/[^0-9.-]/g, '') : '';
+        const rawCredit =
+          creditIdx !== -1 && cols[creditIdx] ? cols[creditIdx].replace(/[^0-9.-]/g, '') : '';
+        const debitVal = rawDebit ? Math.abs(parseFloat(rawDebit)) : 0;
+        const creditVal = rawCredit ? Math.abs(parseFloat(rawCredit)) : 0;
+
+        if (debitVal > 0 && creditVal === 0) {
+          parsedAmount = debitVal;
+          inferredType = 'Expense';
+        } else if (creditVal > 0 && debitVal === 0) {
+          parsedAmount = creditVal;
+          inferredType = 'Income';
+        } else if (amtIdx !== -1) {
+          const rawAmount = cols[amtIdx] ? cols[amtIdx].replace(/[^0-9.-]/g, '') : '0';
+          const numericVal = parseFloat(rawAmount);
+          parsedAmount = Math.abs(numericVal);
+          if (numericVal < 0) inferredType = 'Expense';
+        }
+
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+          failedValidationCount += 1;
+          validationErrors.push(`Row ${i}: Invalid or non-positive amount.`);
+          continue;
+        }
+
+        const rawDate =
+          dateIdx !== -1 && cols[dateIdx]
+            ? cols[dateIdx]
+            : new Date().toISOString().split('T')[0];
+        let validDate = rawDate;
+        if (isNaN(new Date(validDate).getTime())) {
+          const normalizedIso = normalizeBankDateToIso(rawDate, selectedMonth).slice(0, 10);
+          validDate = !isNaN(new Date(normalizedIso).getTime())
+            ? normalizedIso
+            : new Date().toISOString().split('T')[0];
+        }
+
+        const rawType = typeIdx !== -1 && cols[typeIdx] ? cols[typeIdx].toLowerCase() : '';
+        const itemCategory = catIdx !== -1 && cols[catIdx] ? cols[catIdx] : 'Other';
+        const itemDesc = descIdx !== -1 && cols[descIdx] ? cols[descIdx] : 'Imported CSV item';
+        const itemMethod =
+          methodIdx !== -1 && cols[methodIdx] ? cols[methodIdx] : 'Bank Transfer';
+
+        let itemType: 'Income' | 'Expense' | 'Transfer' = inferredType;
+        if (rawType.includes('inc') || rawType.includes('cr') || rawType.includes('deposit')) {
+          itemType = 'Income';
+        } else if (rawType.includes('transfer') || itemCategory.toLowerCase() === 'transfer') {
+          itemType = 'Transfer';
+        } else if (rawType.includes('exp') || rawType.includes('dr')) {
+          itemType = 'Expense';
+        }
+
+        const methodLower = itemMethod.toLowerCase();
+        let resolvedAccountId = accounts[0]?.id || 'acc-icici';
+        if (methodLower.includes('credit card') || methodLower.includes('cc')) {
+          resolvedAccountId = accounts.find((a) => a.type === 'Card')?.id || 'acc-cc-icici';
+        } else if (methodLower.includes('cash')) {
+          resolvedAccountId = accounts.find((a) => a.type === 'Cash')?.id || 'acc-cash';
+        } else if (methodLower.includes('sbi')) {
+          resolvedAccountId =
+            accounts.find((a) => a.id.includes('sbi') || a.name.toLowerCase().includes('sbi'))
+              ?.id || 'acc-sbi';
+        } else if (methodLower.includes('ubi') || methodLower.includes('union')) {
+          resolvedAccountId =
+            accounts.find((a) => a.id.includes('ubi') || a.name.toLowerCase().includes('union'))
+              ?.id || 'acc-ubi';
+        }
+
+        const txRecord: MoneyTransaction & {
+          description?: string;
+          paymentMethod?: string;
+          createdAt?: string;
+        } = {
+          id:
+            typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          date: validDate,
+          type: itemType,
+          accountId: resolvedAccountId,
+          toAccountId: itemType === 'Transfer' ? accounts[1]?.id || 'acc-sbi' : undefined,
+          category: itemCategory,
+          subCategory: itemMethod || 'CSV Import',
+          fixedOrVariable: 'Variable',
+          amount: parsedAmount,
+          note: itemDesc,
+          description: itemDesc,
+          paymentMethod: itemMethod,
+          receiptImages: [],
+          isAnomaly: false,
+          createdAt: new Date().toISOString(),
+        };
+
+        importedTransactions.push(txRecord);
+      }
+
+      if (importedTransactions.length === 0) {
+        return {
+          importedTransactions: [],
+          totalDataRows: rawLines.length - 1,
+          failedValidationCount: Math.max(1, failedValidationCount),
+          validationErrors:
+            validationErrors.length > 0
+              ? validationErrors
+              : ['No valid transactions found in the CSV. Please check the date and amount values.'],
+          errorReason:
+            'No valid transactions found in the CSV. Please check the date and amount values.',
+        };
+      }
+
+      return {
+        importedTransactions,
+        totalDataRows: rawLines.length - 1,
+        failedValidationCount,
+        validationErrors,
+        errorReason: null,
+      };
+    },
+    [accounts, selectedMonth]
+  );
+
   const processCsvContent = useCallback(
     async (text: string) => {
-      const parsed = parseCsvText(text);
-      if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-        const emptyFeedback = buildCsvImportFeedback({
-          totalRows: 0,
+      const {
+        importedTransactions,
+        totalDataRows,
+        failedValidationCount,
+        validationErrors,
+        errorReason,
+      } = parseResilientCsvToTransactions(text);
+
+      if (errorReason || importedTransactions.length === 0) {
+        const errorFeedback = buildCsvImportFeedback({
+          totalRows: totalDataRows,
           importedCount: 0,
-          failedValidationCount: 0,
-          customErrorMessage:
-            'CSV file is empty or missing mandatory columns (Date, Amount, Description).',
+          failedValidationCount,
+          validationErrors,
+          customErrorMessage: errorReason || 'No valid transactions found in the CSV.',
         });
-        setCsvImportFeedback(emptyFeedback);
-        showToast(emptyFeedback.message);
+        setCsvImportFeedback(errorFeedback);
+        showToast(errorFeedback.message);
         return;
       }
 
-      const mapping = autoDetectCsvMapping(parsed.headers);
-      const validation = validateCsvRows(parsed.rows, parsed.headers, mapping);
-
-      if (!validation.hasMandatoryColumns) {
-        const colFeedback = buildCsvImportFeedback({
-          totalRows: parsed.rows.length,
-          importedCount: 0,
-          failedValidationCount: parsed.rows.length,
-          validationErrors: validation.rowErrorMessages,
-          customErrorMessage:
-            validation.columnErrorMessage ||
-            'Missing mandatory CSV column(s): Date, Amount, Description.',
-        });
-        setCsvImportFeedback(colFeedback);
-        showToast(colFeedback.message);
-        return;
+      // Update React State immediately
+      setTransactions((prev: any[]) => [...importedTransactions, ...prev]);
+      setSelectedAccountIdForDaily('ALL');
+      const firstMonth = String(importedTransactions[0].date || '').slice(0, 7);
+      if (firstMonth && /^\d{4}-\d{2}$/.test(firstMonth) && firstMonth !== selectedMonth) {
+        setSelectedMonth(firstMonth);
       }
 
-      if (validation.validRows.length === 0) {
-        const invalidRowsFeedback = buildCsvImportFeedback({
-          totalRows: parsed.rows.length,
-          importedCount: 0,
-          failedValidationCount: validation.malformedRows.length,
-          validationErrors: validation.rowErrorMessages,
-          customErrorMessage:
-            validation.summaryErrorMessage ||
-            'All CSV rows are malformed. Please verify Date, Amount, and Description values.',
-        });
-        setCsvImportFeedback(invalidRowsFeedback);
-        showToast(invalidRowsFeedback.message);
-        return;
+      // Save into IndexedDB helper
+      if (typeof saveTransactionsToDb === 'function') {
+        await saveTransactionsToDb(importedTransactions);
       }
 
-      const deduped = mapCsvRowsToTransactions(validation.validRows, mapping, {
-        defaultAccountId: accounts[0]?.id || 'acc-icici',
-        defaultToAccountId: accounts[1]?.id || 'acc-sbi',
-        defaultMonth: selectedMonth,
-        accounts,
-        categories,
-        historicalTransactions: transactions,
-        skipDuplicates: true,
-        strictValidation: true,
-      });
-      const mapped =
-        deduped.length > 0
-          ? deduped
-          : mapCsvRowsToTransactions(validation.validRows, mapping, {
-              defaultAccountId: accounts[0]?.id || 'acc-icici',
-              defaultToAccountId: accounts[1]?.id || 'acc-sbi',
-              defaultMonth: selectedMonth,
-              accounts,
-              categories,
-              historicalTransactions: transactions,
-              skipDuplicates: false,
-              strictValidation: true,
-            });
-      const recordsWithUuid = mapped.map((tx) => ({
-        ...tx,
-        id: crypto.randomUUID(),
-      }));
-      const inserted = await bulkImportTransactions(recordsWithUuid, {
-        skipDuplicates: deduped.length > 0,
-      });
-      const completedRecords = inserted.length > 0 ? inserted : recordsWithUuid;
-      if (completedRecords.length > 0) {
-        setTransactions((prev) => {
-          const existingIds = new Set(prev.map((item) => item.id));
-          const uniqueAdditions = completedRecords.filter((item) => !existingIds.has(item.id));
-          return [...uniqueAdditions, ...prev];
-        });
-        setSelectedAccountIdForDaily('ALL');
-        const firstMonth = String(completedRecords[0].date || '').slice(0, 7);
-        if (firstMonth && firstMonth !== selectedMonth) {
-          setSelectedMonth(firstMonth);
-        }
-      }
       await loadDatabaseState();
       setIsCsvImportModalOpen(false);
-      const skippedDuplicateCount = Math.max(
-        0,
-        validation.validRows.length - completedRecords.length
-      );
+
       const feedback = buildCsvImportFeedback({
-        totalRows: parsed.rows.length,
-        importedCount: completedRecords.length,
-        failedValidationCount: validation.malformedRows.length,
-        skippedDuplicateCount,
-        validationErrors: validation.rowErrorMessages,
+        totalRows: totalDataRows,
+        importedCount: importedTransactions.length,
+        failedValidationCount,
+        validationErrors,
         progressPercent: 100,
       });
       setCsvImportFeedback(feedback);
-      showToast(feedback.message);
+      showToast(`Successfully imported ${importedTransactions.length} transactions!`);
     },
-    [accounts, categories, transactions, selectedMonth, loadDatabaseState, showToast]
+    [
+      parseResilientCsvToTransactions,
+      selectedMonth,
+      saveTransactionsToDb,
+      loadDatabaseState,
+      showToast,
+    ]
   );
 
   const handleDoneImport = useCallback(async () => {
@@ -1186,36 +1365,38 @@ export const MoneyManager: React.FC = () => {
   }, [selectedFile, initialCsvContent, processCsvContent, showToast]);
 
   const handleCsvFileUpload = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
       setSelectedFile(file);
       setInitialCsvFileName(file.name);
 
-      try {
-        if (typeof FileReader !== 'undefined') {
-          const reader = new FileReader();
-          reader.onload = async (evt) => {
-            const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
-            if (!text) return;
-            setInitialCsvContent(text);
-            await processCsvContent(text);
-          };
-          reader.onerror = () => {
-            showToast('Failed to read CSV file.');
-          };
-          reader.readAsText(file);
-        } else {
-          const csvText = await file.text();
-          setInitialCsvContent(csvText);
-          await processCsvContent(csvText);
+      const reader = new FileReader();
+
+      reader.onload = async (event) => {
+        try {
+          const text = event.target?.result as string;
+          if (!text || text.trim().length === 0) {
+            showToast('The selected file is empty.');
+            return;
+          }
+          setInitialCsvContent(text);
+          await processCsvContent(text);
+        } catch (err: any) {
+          console.error('CSV Import Failure:', err);
+          showToast(`Error reading CSV: ${err?.message || 'Unknown error'}`);
+        } finally {
+          // Clear input so selecting the same file again triggers onChange
+          e.target.value = '';
         }
-      } catch (err) {
-        console.error('Failed to read CSV file:', err);
-        showToast('Failed to read CSV file.');
-      } finally {
+      };
+
+      reader.onerror = () => {
+        showToast('Browser error: Unable to read the selected file.');
         e.target.value = '';
-      }
+      };
+
+      reader.readAsText(file);
     },
     [processCsvContent, showToast]
   );
@@ -1223,8 +1404,26 @@ export const MoneyManager: React.FC = () => {
   const handleCsvFileChange = handleCsvFileUpload;
 
   const handleDownloadSampleCsv = useCallback(() => {
-    const { fileName } = downloadSampleCsvTemplate();
-    showToast(`Downloaded sample CSV template ("${fileName}").`);
+    const sampleData = `Date,Type,Category,Amount,Description,Payment Method
+2026-11-01,Expense,Food & Dining,450.00,Client lunch,Credit Card
+2026-11-02,Expense,Workplace & Tools,1200.00,Network cable tester,Bank Transfer
+2026-11-05,Income,Freelance / Consulting,15000.00,IT Field dispatch payout,UPI`;
+
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const blob = new Blob([sampleData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'jawed-money-manager-sample.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Downloaded sample CSV template ("jawed-money-manager-sample.csv").');
+    } else {
+      const { fileName } = downloadSampleCsvTemplate();
+      showToast(`Downloaded sample CSV template ("${fileName}").`);
+    }
   }, [showToast]);
 
   const handleExportToCsv = useCallback(async () => {
@@ -1727,6 +1926,31 @@ export const MoneyManager: React.FC = () => {
           onChange={handleCsvFileChange}
           data-testid="mm-root-csv-file-input"
         />
+
+        {/* Direct Zero-Modal CSV Quick Action Bar */}
+        <div
+          className="flex flex-wrap items-center justify-end gap-2 mb-3"
+          data-testid="mm-direct-csv-toolbar"
+        >
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 hover:text-white transition"
+            data-testid="mm-direct-import-csv-btn"
+          >
+            <Upload className="w-4 h-4 text-sky-400" />
+            <span>Import CSV</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadSampleCsv}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 hover:text-white transition"
+            data-testid="mm-direct-download-sample-csv-btn"
+          >
+            <Download className="w-4 h-4 text-emerald-400" />
+            <span>Download Sample CSV</span>
+          </button>
+        </div>
 
         {/* Prominent Realbyte-Styled Header */}
         <MoneyManagerHeader

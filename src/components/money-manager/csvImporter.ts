@@ -364,6 +364,10 @@ export function autoDetectCsvMapping(headers: string[]): CsvColumnMapping {
       /account\s*\/\s*bank/i,
       /source\s*account/i,
       /bank\s*account/i,
+      /payment\s*method/i,
+      /^method$/i,
+      /^mode$/i,
+      /payment/i,
     ]),
     toAccountColumn: findHeader([
       /target\s*account/i,
