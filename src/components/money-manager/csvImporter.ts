@@ -172,6 +172,12 @@ export function autoDetectCsvMapping(headers: string[]): CsvColumnMapping {
       /txn\s*amount/i,
       /transaction\s*amount/i,
       /^amt$/i,
+      /amount/i,
+      /^value$/i,
+      /^total$/i,
+      /^price$/i,
+      /^cost$/i,
+      /^paid$/i,
     ]),
     debitColumn: findHeader([
       /withdrawal/i,
@@ -179,6 +185,7 @@ export function autoDetectCsvMapping(headers: string[]): CsvColumnMapping {
       /debit\s*amt/i,
       /^dr$/i,
       /outflow/i,
+      /spent/i,
     ]),
     creditColumn: findHeader([
       /deposit/i,
@@ -186,6 +193,7 @@ export function autoDetectCsvMapping(headers: string[]): CsvColumnMapping {
       /credit\s*amt/i,
       /^cr$/i,
       /inflow/i,
+      /received/i,
     ]),
     typeColumn: findHeader([
       /^type$/i,
@@ -194,7 +202,7 @@ export function autoDetectCsvMapping(headers: string[]): CsvColumnMapping {
       /dr\s*\/\s*cr/i,
       /^cr\/dr$/i,
     ]),
-    categoryColumn: findHeader([/^category$/i, /expense\s*category/i]),
+    categoryColumn: findHeader([/^category$/i, /expense\s*category/i, /category/i]),
     subCategoryColumn: findHeader([/sub[-_\s]*category/i, /merchant/i, /payee/i]),
     noteColumn: findHeader([
       /narration/i,
@@ -202,11 +210,23 @@ export function autoDetectCsvMapping(headers: string[]): CsvColumnMapping {
       /particulars/i,
       /remarks/i,
       /^note$/i,
+      /notes/i,
       /memo/i,
       /details/i,
+      /title/i,
     ]),
-    accountColumn: findHeader([/^account$/i, /^bank$/i, /account\s*\/\s*bank/i, /source\s*account/i]),
-    toAccountColumn: findHeader([/target\s*account/i, /to\s*account/i]),
+    accountColumn: findHeader([
+      /^account$/i,
+      /^bank$/i,
+      /account\s*\/\s*bank/i,
+      /source\s*account/i,
+      /bank\s*account/i,
+    ]),
+    toAccountColumn: findHeader([
+      /target\s*account/i,
+      /to\s*account/i,
+      /transfer\s*to/i,
+    ]),
   };
 }
 
@@ -237,22 +257,23 @@ export function normalizeBankDateToIso(rawDate: string, fallbackMonth = '2026-11
     return clean.slice(0, 16);
   }
 
-  // YYYY-MM-DD HH:mm
-  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(clean)) {
-    return clean.replace(/\s+/, 'T').slice(0, 16);
+  // YYYY-MM-DD HH:mm or YYYY/MM/DD HH:mm
+  if (/^\d{4}[/-]\d{2}[/-]\d{2}\s+\d{2}:\d{2}/.test(clean)) {
+    return clean.replace(/\//g, '-').replace(/\s+/, 'T').slice(0, 16);
   }
 
-  // YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
-    return `${clean}T12:00`;
+  // YYYY-MM-DD or YYYY/MM/DD
+  if (/^\d{4}[/-]\d{2}[/-]\d{2}$/.test(clean)) {
+    return `${clean.replace(/\//g, '-')}T12:00`;
   }
 
-  // DD/MM/YYYY or DD-MM-YYYY
-  const dmyMatch = clean.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  // DD/MM/YYYY, DD-MM-YYYY, DD/MM/YY, or DD-MM-YY
+  const dmyMatch = clean.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
   if (dmyMatch) {
     const first = Number.parseInt(dmyMatch[1], 10);
     const second = Number.parseInt(dmyMatch[2], 10);
-    const year = dmyMatch[3];
+    const rawYear = dmyMatch[3];
+    const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
     // Assume DD/MM/YYYY for Indian bank statements unless second > 12
     const day = second > 12 ? second : first;
     const month = second > 12 ? first : second;
@@ -261,13 +282,24 @@ export function normalizeBankDateToIso(rawDate: string, fallbackMonth = '2026-11
     return `${year}-${mm}-${dd}T12:00`;
   }
 
-  // DD MMM YYYY (e.g. 16 Nov 2026 or 16-Nov-2026)
-  const textMonthMatch = clean.match(/^(\d{1,2})[\s-]+([A-Za-z]{3,})[\s,-]+(\d{4})/);
+  // DD MMM YYYY or DD-MMM-YY (e.g. 16 Nov 2026, 16-Nov-2026, 16-Nov-26)
+  const textMonthMatch = clean.match(/^(\d{1,2})[\s-]+([A-Za-z]{3,})[\s,-]+(\d{2,4})/);
   if (textMonthMatch) {
     const day = String(Number.parseInt(textMonthMatch[1], 10)).padStart(2, '0');
     const monKey = textMonthMatch[2].slice(0, 3).toLowerCase();
     const mm = MONTH_LOOKUP[monKey] || '11';
-    const year = textMonthMatch[3];
+    const rawYear = textMonthMatch[3];
+    const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+    return `${year}-${mm}-${day}T12:00`;
+  }
+
+  // MMM DD, YYYY (e.g. Nov 16, 2026)
+  const mdyTextMatch = clean.match(/^([A-Za-z]{3,})\s+(\d{1,2}),?\s+(\d{4})/);
+  if (mdyTextMatch) {
+    const monKey = mdyTextMatch[1].slice(0, 3).toLowerCase();
+    const mm = MONTH_LOOKUP[monKey] || '11';
+    const day = String(Number.parseInt(mdyTextMatch[2], 10)).padStart(2, '0');
+    const year = mdyTextMatch[3];
     return `${year}-${mm}-${day}T12:00`;
   }
 

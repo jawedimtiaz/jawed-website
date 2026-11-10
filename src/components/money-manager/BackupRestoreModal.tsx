@@ -44,8 +44,11 @@ import {
   exportBulkLedgerHistoryCsvFromDb,
   exportIndexedDbLedgerToCsv,
   downloadLedgerFromIndexedDbAsCsv,
+  flattenTransactionsForCsvExport,
+  exportIndexedDbTransactionsToCsv,
   type BulkCsvExportOptions,
   type BulkCsvExportSummary,
+  type FlattenedCsvTransactionRow,
 } from './excelExporter';
 import {
   parseCsvText,
@@ -90,6 +93,8 @@ export {
   exportBulkLedgerHistoryCsvFromDb,
   exportIndexedDbLedgerToCsv,
   downloadLedgerFromIndexedDbAsCsv,
+  flattenTransactionsForCsvExport,
+  exportIndexedDbTransactionsToCsv,
   SCOPES,
   DRIVE_APPDATA_SCOPE,
   encryptLedgerPayload,
@@ -101,6 +106,7 @@ export {
   deleteDriveLedgerBackup,
   type BulkCsvExportOptions,
   type BulkCsvExportSummary,
+  type FlattenedCsvTransactionRow,
   type DriveBackupFileMetadata,
 };
 
@@ -433,6 +439,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
   const [showCsvExportPreview, setShowCsvExportPreview] = useState<boolean>(true);
 
   // CSV Import & Column Mapper State
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [csvFileName, setCsvFileName] = useState<string>('');
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
@@ -454,13 +461,22 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
 
   const mappedCsvPreview = useMemo(() => {
     if (csvRows.length === 0) return [];
-    return mapCsvRowsToTransactions(csvRows, csvMapping, {
+    const deduped = mapCsvRowsToTransactions(csvRows, csvMapping, {
       defaultAccountId: csvDefaultAccountId || accounts[0]?.id || 'acc-icici',
       defaultMonth: selectedMonth,
       accounts,
       categories,
       historicalTransactions: transactions,
       skipDuplicates: true,
+    });
+    if (deduped.length > 0) return deduped;
+    return mapCsvRowsToTransactions(csvRows, csvMapping, {
+      defaultAccountId: csvDefaultAccountId || accounts[0]?.id || 'acc-icici',
+      defaultMonth: selectedMonth,
+      accounts,
+      categories,
+      historicalTransactions: transactions,
+      skipDuplicates: false,
     });
   }, [csvRows, csvMapping, csvDefaultAccountId, selectedMonth, accounts, categories, transactions]);
 
@@ -521,7 +537,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     }
     setStatusMessage({
       type: 'success',
-      text: `Loaded ${parsed.rows.length} row(s) from "${sourceName}". Review column mapping below and click Import.`,
+      text: `Loaded ${parsed.rows.length} row(s) from "${sourceName}". Review column mapping below and click Done / Import.`,
     });
   };
 
@@ -529,6 +545,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setSelectedFile(file);
     try {
       setIsProcessing(true);
       setStatusMessage(null);
@@ -541,15 +558,23 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
       });
     } finally {
       setIsProcessing(false);
-      if (csvInputRef.current) {
-        csvInputRef.current.value = '';
-      }
     }
   };
 
   const handleCsvFileUpload = handleCsvFileChange;
 
   const handleLoadSampleCsv = () => {
+    if (typeof File !== 'undefined') {
+      try {
+        setSelectedFile(
+          new File([SAMPLE_BANK_STATEMENT_CSV], 'sample-bank-statement-nov-2026.csv', {
+            type: 'text/csv',
+          })
+        );
+      } catch {
+        // Ignore File constructor errors
+      }
+    }
     loadCsvContentIntoMapper(SAMPLE_BANK_STATEMENT_CSV, 'sample-bank-statement-nov-2026.csv');
   };
 
@@ -561,7 +586,122 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     });
   };
 
+  const processCsvContent = async (text: string) => {
+    const parsed = parseCsvText(text);
+    const activeHeaders = parsed.headers.length > 0 ? parsed.headers : csvHeaders;
+    const activeRows = parsed.rows.length > 0 ? parsed.rows : csvRows;
+    const activeMapping =
+      csvMapping.dateColumn ||
+      csvMapping.amountColumn ||
+      csvMapping.debitColumn ||
+      csvMapping.creditColumn
+        ? csvMapping
+        : autoDetectCsvMapping(activeHeaders);
+
+    const deduped = mapCsvRowsToTransactions(activeRows, activeMapping, {
+      defaultAccountId: csvDefaultAccountId || accounts[0]?.id || 'acc-icici',
+      defaultMonth: selectedMonth,
+      accounts,
+      categories,
+      historicalTransactions: transactions,
+      skipDuplicates: true,
+    });
+
+    const mappedRows =
+      deduped.length > 0
+        ? deduped
+        : mapCsvRowsToTransactions(activeRows, activeMapping, {
+            defaultAccountId: csvDefaultAccountId || accounts[0]?.id || 'acc-icici',
+            defaultMonth: selectedMonth,
+            accounts,
+            categories,
+            historicalTransactions: transactions,
+            skipDuplicates: false,
+          });
+
+    if (mappedRows.length === 0) {
+      setStatusMessage({
+        type: 'error',
+        text: 'No valid transaction rows could be mapped. Check your Amount or Debit/Credit column selections.',
+      });
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setStatusMessage(null);
+      const recordsWithUuid = mappedRows.map((tx) => ({
+        ...tx,
+        id: crypto.randomUUID(),
+      }));
+      const inserted = await bulkImportTransactions(recordsWithUuid, {
+        skipDuplicates: deduped.length > 0,
+      });
+      await onDataRestored();
+      setCsvRows([]);
+      setCsvHeaders([]);
+      setCsvFileName('');
+      setSelectedFile(null);
+      setStatusMessage({
+        type: 'success',
+        text: `Successfully imported ${(inserted.length > 0 ? inserted : recordsWithUuid).length} bank statement transaction(s) directly into the 'transactions' IndexedDB store.`,
+      });
+    } catch (err) {
+      setStatusMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to import CSV transactions.',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDoneImport = async () => {
+    if (!selectedFile) {
+      if (mappedCsvPreview.length > 0) {
+        await handleConfirmCsvImport();
+        return;
+      }
+      setStatusMessage({
+        type: 'error',
+        text: 'Please select a CSV file first.',
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+      await processCsvContent(text);
+    };
+    reader.onerror = () => {
+      setStatusMessage({
+        type: 'error',
+        text: 'Failed to read file.',
+      });
+    };
+    reader.readAsText(selectedFile);
+  };
+
   const handleConfirmCsvImport = async () => {
+    if (selectedFile) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const text = e.target?.result as string;
+        if (!text) return;
+        await processCsvContent(text);
+      };
+      reader.onerror = () => {
+        setStatusMessage({
+          type: 'error',
+          text: 'Failed to read file.',
+        });
+      };
+      reader.readAsText(selectedFile);
+      return;
+    }
+
     if (mappedCsvPreview.length === 0) {
       setStatusMessage({
         type: 'error',
@@ -1699,15 +1839,26 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
                       setCsvHeaders([]);
                       setCsvRows([]);
                       setCsvFileName('');
+                      setSelectedFile(null);
                     }}
                   >
                     Clear CSV
                   </button>
                   <button
                     type="button"
+                    className="mm-btn mm-btn-primary"
+                    onClick={handleDoneImport}
+                    disabled={isProcessing}
+                    data-testid="mm-csv-done-import-btn"
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>Done</span>
+                  </button>
+                  <button
+                    type="button"
                     className="mm-btn mm-btn-emerald"
-                    onClick={handleConfirmCsvImport}
-                    disabled={isProcessing || mappedCsvPreview.length === 0}
+                    onClick={handleDoneImport}
+                    disabled={isProcessing}
                     data-testid="mm-confirm-csv-import-btn"
                   >
                     <CheckCircle2 size={16} />
@@ -2196,6 +2347,32 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mm-modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button
+            type="button"
+            className="mm-btn mm-btn-secondary"
+            onClick={onClose}
+            data-testid="mm-backup-modal-cancel-btn"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            className="mm-btn mm-btn-primary"
+            onClick={async () => {
+              if (selectedFile || mappedCsvPreview.length > 0) {
+                await handleDoneImport();
+              }
+              onClose();
+            }}
+            disabled={isProcessing}
+            data-testid="mm-backup-modal-done-btn"
+          >
+            <CheckCircle2 size={15} />
+            <span>Done</span>
+          </button>
         </div>
       </div>
     </div>

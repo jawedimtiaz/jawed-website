@@ -134,8 +134,11 @@ import {
   exportBulkLedgerHistoryCsvFromDb,
   exportIndexedDbLedgerToCsv,
   downloadLedgerFromIndexedDbAsCsv,
+  flattenTransactionsForCsvExport,
+  exportIndexedDbTransactionsToCsv,
   type BulkCsvExportOptions,
   type BulkCsvExportSummary,
+  type FlattenedCsvTransactionRow,
   type BackupRestoreModalProps,
 } from '../components/money-manager/BackupRestoreModal';
 import {
@@ -264,6 +267,8 @@ export {
   exportBulkLedgerHistoryCsvFromDb,
   exportIndexedDbLedgerToCsv,
   downloadLedgerFromIndexedDbAsCsv,
+  flattenTransactionsForCsvExport,
+  exportIndexedDbTransactionsToCsv,
   CsvImportModal,
   parseCsvText,
   autoDetectCsvMapping,
@@ -315,6 +320,7 @@ export type {
   CsvImportModalProps,
   BulkCsvExportOptions,
   BulkCsvExportSummary,
+  FlattenedCsvTransactionRow,
   BackupRestoreModalProps,
 };
 
@@ -674,6 +680,7 @@ export const MoneyManager: React.FC = () => {
   // Backup / Restore & CSV Import Modal State + Google Redirect Auth State
   const [isBackupModalOpen, setIsBackupModalOpen] = useState<boolean>(false);
   const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState<boolean>(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [initialCsvContent, setInitialCsvContent] = useState<string>('');
   const [initialCsvFileName, setInitialCsvFileName] = useState<string>('');
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -826,10 +833,89 @@ export const MoneyManager: React.FC = () => {
   }, [budget95Toasts]);
 
   // Handlers
+  const processCsvContent = useCallback(
+    async (text: string) => {
+      const parsed = parseCsvText(text);
+      if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+        showToast('No valid transaction rows found in CSV file.');
+        return;
+      }
+      const mapping = autoDetectCsvMapping(parsed.headers);
+      const deduped = mapCsvRowsToTransactions(parsed.rows, mapping, {
+        defaultAccountId: accounts[0]?.id || 'acc-icici',
+        defaultToAccountId: accounts[1]?.id || 'acc-sbi',
+        defaultMonth: selectedMonth,
+        accounts,
+        categories,
+        historicalTransactions: transactions,
+        skipDuplicates: true,
+      });
+      const mapped =
+        deduped.length > 0
+          ? deduped
+          : mapCsvRowsToTransactions(parsed.rows, mapping, {
+              defaultAccountId: accounts[0]?.id || 'acc-icici',
+              defaultToAccountId: accounts[1]?.id || 'acc-sbi',
+              defaultMonth: selectedMonth,
+              accounts,
+              categories,
+              historicalTransactions: transactions,
+              skipDuplicates: false,
+            });
+      const recordsWithUuid = mapped.map((tx) => ({
+        ...tx,
+        id: crypto.randomUUID(),
+      }));
+      const inserted = await bulkImportTransactions(recordsWithUuid, {
+        skipDuplicates: deduped.length > 0,
+      });
+      const completedRecords = inserted.length > 0 ? inserted : recordsWithUuid;
+      if (completedRecords.length > 0) {
+        setTransactions((prev) => {
+          const existingIds = new Set(prev.map((item) => item.id));
+          const uniqueAdditions = completedRecords.filter((item) => !existingIds.has(item.id));
+          return [...uniqueAdditions, ...prev];
+        });
+        setSelectedAccountIdForDaily('ALL');
+        const firstMonth = String(completedRecords[0].date || '').slice(0, 7);
+        if (firstMonth && firstMonth !== selectedMonth) {
+          setSelectedMonth(firstMonth);
+        }
+      }
+      await loadDatabaseState();
+      setIsCsvImportModalOpen(false);
+      showToast(`Imported ${completedRecords.length} bank transactions into ledger.`);
+    },
+    [accounts, categories, transactions, selectedMonth, loadDatabaseState, showToast]
+  );
+
+  const handleDoneImport = useCallback(async () => {
+    if (!selectedFile) {
+      if (initialCsvContent.trim()) {
+        await processCsvContent(initialCsvContent);
+        return;
+      }
+      showToast('Please select a CSV file first.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+      await processCsvContent(text);
+    };
+    reader.onerror = () => {
+      showToast('Failed to read file.');
+    };
+    reader.readAsText(selectedFile);
+  }, [selectedFile, initialCsvContent, processCsvContent, showToast]);
+
   const handleCsvFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      setSelectedFile(file);
       try {
         const csvText = await file.text();
         setInitialCsvFileName(file.name);
@@ -849,6 +935,17 @@ export const MoneyManager: React.FC = () => {
     const { fileName } = downloadSampleCsvTemplate();
     showToast(`Downloaded sample CSV template ("${fileName}").`);
   }, [showToast]);
+
+  const handleExportToCsv = useCallback(async () => {
+    const result = await exportIndexedDbTransactionsToCsv(
+      transactions,
+      accounts,
+      selectedMonth
+    );
+    showToast(
+      `Exported ${result.transactionCount} transactions from IndexedDB to CSV ("${result.fileName}").`
+    );
+  }, [transactions, accounts, selectedMonth, showToast]);
 
   const handleOpenAddTransaction = useCallback((dateStr?: string, receiptImage?: string) => {
     setEditingTransaction(null);
@@ -1321,11 +1418,13 @@ export const MoneyManager: React.FC = () => {
           onOpenBackupModal={() => setIsBackupModalOpen(true)}
           onOpenCsvImportModal={() => setIsCsvImportModalOpen(true)}
           onCsvFileSelect={(file, csvText) => {
+            setSelectedFile(file);
             setInitialCsvFileName(file.name);
             setInitialCsvContent(csvText);
             setIsCsvImportModalOpen(true);
           }}
           onDownloadSampleCsv={handleDownloadSampleCsv}
+          onExportToCsv={handleExportToCsv}
         />
 
         {/* Active View Body (Supports Horizontal Touch Swipe Between Daily, Calendar, Accounts & Stats) */}
@@ -1357,6 +1456,18 @@ export const MoneyManager: React.FC = () => {
               onOpenAddModal={handleOpenAddTransaction}
               onOpenAddModalWithReceipt={(receiptImg) => handleOpenAddTransaction(undefined, receiptImg)}
               onBulkImportComplete={async (imported) => {
+                if (imported.length > 0) {
+                  setTransactions((prev) => {
+                    const existingIds = new Set(prev.map((item) => item.id));
+                    const uniqueAdditions = imported.filter((item) => !existingIds.has(item.id));
+                    return [...uniqueAdditions, ...prev];
+                  });
+                  setSelectedAccountIdForDaily('ALL');
+                  const firstMonth = String(imported[0].date || '').slice(0, 7);
+                  if (firstMonth && firstMonth !== selectedMonth) {
+                    setSelectedMonth(firstMonth);
+                  }
+                }
                 await loadDatabaseState();
                 showToast(`Imported ${imported.length} bank transactions into ledger.`);
               }}
@@ -1503,15 +1614,22 @@ export const MoneyManager: React.FC = () => {
           transactions={transactions}
           initialCsvContent={initialCsvContent}
           initialFileName={initialCsvFileName}
+          initialSelectedFile={selectedFile}
           onClose={() => setIsCsvImportModalOpen(false)}
           onImportComplete={async (imported) => {
-            await loadDatabaseState();
             if (imported.length > 0) {
+              setTransactions((prev) => {
+                const existingIds = new Set(prev.map((item) => item.id));
+                const uniqueAdditions = imported.filter((item) => !existingIds.has(item.id));
+                return [...uniqueAdditions, ...prev];
+              });
+              setSelectedAccountIdForDaily('ALL');
               const firstMonth = String(imported[0].date || '').slice(0, 7);
               if (firstMonth && firstMonth !== selectedMonth) {
                 setSelectedMonth(firstMonth);
               }
             }
+            await loadDatabaseState();
             showToast(`Imported ${imported.length} bank transactions into ledger.`);
           }}
         />

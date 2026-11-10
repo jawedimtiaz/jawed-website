@@ -560,3 +560,144 @@ export async function downloadLedgerFromIndexedDbAsCsv(
     ...options,
   });
 }
+
+export interface FlattenedCsvTransactionRow {
+  'Transaction ID': string;
+  Date: string;
+  Time: string;
+  Type: string;
+  'Account / Bank': string;
+  'Target Account': string;
+  Category: string;
+  'Sub-Category': string;
+  'Fixed / Variable': string;
+  'Withdrawal Amt.': number | string;
+  'Deposit Amt.': number | string;
+  'Amount (INR)': number;
+  Currency: string;
+  'Original Amount': number;
+  'Exchange Rate to INR': number;
+  Narration: string;
+  'Anomaly Flag': string;
+  'Receipts Count': number;
+}
+
+/**
+ * Flattens an array of `MoneyTransaction` records (including nested `receiptImages`, account IDs,
+ * and multi-currency fields) into flat scalar objects suitable for CSV serialization.
+ */
+export function flattenTransactionsForCsvExport(
+  transactions: MoneyTransaction[],
+  accounts: AccountSummary[] = []
+): FlattenedCsvTransactionRow[] {
+  const accountMap = new Map(accounts.map((acc) => [acc.id, acc.name]));
+
+  return transactions.map((tx) => {
+    const [datePart = '', timePart = ''] = String(tx.date || '').split('T');
+    const sourceAccount = accountMap.get(tx.accountId) || tx.accountId || '';
+    const targetAccount =
+      tx.type === 'Transfer' && tx.toAccountId
+        ? accountMap.get(tx.toAccountId) || tx.toAccountId
+        : '';
+    const amount = Number(tx.amount) || 0;
+    const withdrawalAmt = tx.type === 'Expense' || tx.type === 'Transfer' ? amount : '';
+    const depositAmt = tx.type === 'Income' ? amount : '';
+    const currency = tx.currency || 'INR';
+    const originalAmount =
+      currency !== 'INR' && tx.originalAmount ? Number(tx.originalAmount) : amount;
+    const exchangeRate =
+      currency !== 'INR' && tx.exchangeRateToINR ? Number(tx.exchangeRateToINR) : 1;
+    const receiptCount = Array.isArray(tx.receiptImages)
+      ? tx.receiptImages.length
+      : 0;
+
+    return {
+      'Transaction ID': tx.id,
+      Date: datePart,
+      Time: timePart.slice(0, 5),
+      Type: tx.type,
+      'Account / Bank': sourceAccount,
+      'Target Account': targetAccount,
+      Category: tx.category || '',
+      'Sub-Category': tx.subCategory || '',
+      'Fixed / Variable': tx.fixedOrVariable || 'Variable',
+      'Withdrawal Amt.': withdrawalAmt,
+      'Deposit Amt.': depositAmt,
+      'Amount (INR)': amount,
+      Currency: currency,
+      'Original Amount': originalAmount,
+      'Exchange Rate to INR': exchangeRate,
+      Narration: tx.note || '',
+      'Anomaly Flag': tx.isAnomaly ? 'YES' : 'NO',
+      'Receipts Count': receiptCount,
+    };
+  });
+}
+
+/**
+ * Flattens the IndexedDB transactions state (merging with any in-memory React state passed in)
+ * into an RFC-4180 CSV string and triggers a browser file download for the user.
+ */
+export async function exportIndexedDbTransactionsToCsv(
+  transactionsState: MoneyTransaction[] = [],
+  accountsState: AccountSummary[] = [],
+  selectedMonth?: string
+): Promise<{
+  fileName: string;
+  csvContent: string;
+  flattenedRows: FlattenedCsvTransactionRow[];
+  transactionCount: number;
+}> {
+  const [idbTransactions, idbAccounts] = await Promise.all([
+    getAllTransactions(),
+    getAllAccounts(),
+  ]);
+
+  // Merge IndexedDB transactions with current React state so no unsaved or in-memory entries are missed
+  const txMap = new Map<string, MoneyTransaction>();
+  for (const tx of transactionsState) {
+    if (tx && tx.id) txMap.set(tx.id, tx);
+  }
+  for (const tx of idbTransactions) {
+    if (tx && tx.id) txMap.set(tx.id, tx);
+  }
+
+  const mergedTransactions = [...txMap.values()].sort((a, b) =>
+    String(b.date || '').localeCompare(String(a.date || ''))
+  );
+  const resolvedAccounts = idbAccounts.length > 0 ? idbAccounts : accountsState;
+
+  const flattenedRows = flattenTransactionsForCsvExport(
+    mergedTransactions,
+    resolvedAccounts
+  );
+  const csvContent = formatLedgerTransactionsToParityCsv(
+    mergedTransactions,
+    resolvedAccounts
+  );
+  const dateStamp = selectedMonth || new Date().toISOString().slice(0, 10);
+  const fileName = `jawed-money-manager-transactions-${dateStamp}.csv`;
+
+  if (typeof document !== 'undefined' && typeof URL !== 'undefined') {
+    const blob = new Blob([`\uFEFF${csvContent}`], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  return {
+    fileName,
+    csvContent,
+    flattenedRows,
+    transactionCount: mergedTransactions.length,
+  };
+}
+

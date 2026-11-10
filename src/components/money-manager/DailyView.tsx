@@ -698,12 +698,14 @@ export const DailyView: React.FC<DailyViewProps> = ({
   const [voiceSearchError, setVoiceSearchError] = useState<boolean>(false);
   const voiceRecognitionRef = useRef<SpeechRecognitionInstanceLike | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [initialDailyCsvContent, setInitialDailyCsvContent] = useState<string>('');
   const [initialDailyCsvFileName, setInitialDailyCsvFileName] = useState<string>('');
 
   const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setSelectedFile(file);
     try {
       const csvText = await file.text();
       setInitialDailyCsvFileName(file.name);
@@ -2565,9 +2567,16 @@ export const DailyView: React.FC<DailyViewProps> = ({
         transactions={localTransactions}
         initialCsvContent={initialDailyCsvContent}
         initialFileName={initialDailyCsvFileName}
+        initialSelectedFile={selectedFile}
         onClose={() => setIsCsvModalOpen(false)}
         onImportComplete={async (importedRecords) => {
-          setLocalTransactions((prev) => [...importedRecords, ...prev]);
+          resetFilters();
+          setDailySubView('feed');
+          setLocalTransactions((prev) => {
+            const existingIds = new Set(prev.map((item) => item.id));
+            const uniqueAdditions = importedRecords.filter((item) => !existingIds.has(item.id));
+            return [...uniqueAdditions, ...prev];
+          });
           if (onBulkImportComplete) {
             await onBulkImportComplete(importedRecords);
           }

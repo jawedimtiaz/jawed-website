@@ -4635,4 +4635,118 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     );
     assert.ok(uuidRegex.test(secondImport.importedTransactions[0].id));
   });
+
+  it('provides an Export to CSV button in MoneyManager that flattens the IndexedDB transactions state and triggers a browser download', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      flattenTransactionsForCsvExport,
+      exportIndexedDbTransactionsToCsv,
+    } = await import('../src/pages/tools/MoneyManager');
+
+    const state = await initializeAndSeedDatabase();
+    const flattened = flattenTransactionsForCsvExport(state.transactions, state.accounts);
+    assert.equal(flattened.length, state.transactions.length);
+    assert.ok(flattened.length > 0);
+    assert.ok('Transaction ID' in flattened[0]);
+    assert.ok('Date' in flattened[0]);
+    assert.ok('Account / Bank' in flattened[0]);
+    assert.ok('Amount (INR)' in flattened[0]);
+    assert.ok('Narration' in flattened[0]);
+    assert.ok('Receipts Count' in flattened[0]);
+
+    const exportResult = await exportIndexedDbTransactionsToCsv(
+      state.transactions,
+      state.accounts,
+      '2026-11'
+    );
+    assert.equal(exportResult.fileName, 'jawed-money-manager-transactions-2026-11.csv');
+    assert.equal(exportResult.transactionCount, state.transactions.length);
+    assert.equal(exportResult.flattenedRows.length, state.transactions.length);
+    assert.ok(exportResult.csvContent.includes('Transaction ID,Date,Time,Type,Account / Bank'));
+
+    const headerSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/Header.tsx'),
+      'utf8'
+    );
+    const mmSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/tools/MoneyManager.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      headerSrc.includes('Export to CSV') &&
+        headerSrc.includes('mm-header-export-csv-btn'),
+      'Expected Header.tsx to render the Export to CSV button'
+    );
+    assert.ok(
+      mmSrc.includes('exportIndexedDbTransactionsToCsv') &&
+        mmSrc.includes('onExportToCsv={handleExportToCsv}'),
+      'Expected MoneyManager.tsx to wire handleExportToCsv to MoneyManagerHeader'
+    );
+  });
+
+  it('maintains selectedFile state and parses CSV via FileReader in handleDoneImport -> processCsvContent to update IndexedDB and UI state immediately', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const filesToVerify = [
+      'src/components/money-manager/CsvImportModal.tsx',
+      'src/components/money-manager/BackupRestoreModal.tsx',
+      'src/tools/MoneyManager.tsx',
+    ];
+
+    for (const relPath of filesToVerify) {
+      const src = fs.readFileSync(path.resolve(process.cwd(), relPath), 'utf8');
+      assert.ok(
+        src.includes('const [selectedFile, setSelectedFile] = useState<File | null>'),
+        `Expected ${relPath} to declare selectedFile state`
+      );
+      assert.ok(
+        src.includes('setSelectedFile(file)'),
+        `Expected ${relPath} to store chosen file in selectedFile`
+      );
+      assert.ok(
+        src.includes('const handleDoneImport =') &&
+          src.includes('new FileReader()') &&
+          src.includes('reader.readAsText(selectedFile)') &&
+          src.includes('processCsvContent(text)'),
+        `Expected ${relPath} to implement handleDoneImport with FileReader and processCsvContent(text)`
+      );
+    }
+
+    const modalSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/CsvImportModal.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      modalSrc.includes('onClick={handleDoneImport}') &&
+        modalSrc.includes('mm-csv-modal-done-btn'),
+      'Expected CsvImportModal.tsx to wire handleDoneImport to Done button'
+    );
+
+    // End-to-end verification that importing a CSV from another month (e.g. 2026-10) parses and saves to IndexedDB immediately
+    await resetDatabaseToDefaults();
+    const octStatementCsv = [
+      'Date,Description,Amount,Type,Category,Account',
+      '15/10/2026,UPI/Reliance Fresh Groceries,-1250,Expense,Food & Groceries,ICICI',
+      '20/10/2026,NEFT/Consulting Invoice Retainer,45000,Income,Salary & Bonus,SBI',
+    ].join('\n');
+
+    const result = await bulkImportCsvToLedger(octStatementCsv, {
+      defaultMonth: '2026-11',
+    });
+    assert.equal(result.importedTransactions.length, 2);
+    assert.equal(result.importedTransactions[0].date.slice(0, 7), '2026-10');
+    const dbState = await initializeAndSeedDatabase();
+    const allInDb = dbState.transactions;
+    assert.ok(
+      allInDb.some((tx) => tx.note.includes('Reliance Fresh Groceries') && tx.amount === 1250),
+      'Expected imported October CSV expense to be persisted in IndexedDB'
+    );
+    assert.ok(
+      allInDb.some((tx) => tx.note.includes('Consulting Invoice Retainer') && tx.amount === 45000),
+      'Expected imported October CSV income to be persisted in IndexedDB'
+    );
+  });
 });
+

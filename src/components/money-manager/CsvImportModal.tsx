@@ -68,8 +68,9 @@ export interface CsvImportModalProps {
   transactions: MoneyTransaction[];
   initialCsvContent?: string;
   initialFileName?: string;
+  initialSelectedFile?: File | null;
   onClose: () => void;
-  onImportComplete: (imported: MoneyTransaction[]) => void;
+  onImportComplete: (imported: MoneyTransaction[]) => void | Promise<void>;
 }
 
 export const CsvImportModal: React.FC<CsvImportModalProps> = ({
@@ -80,10 +81,12 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   transactions,
   initialCsvContent,
   initialFileName,
+  initialSelectedFile = null,
   onClose,
   onImportComplete,
 }) => {
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(initialSelectedFile);
   const [csvRawContent, setCsvRawContent] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
   const [defaultAccountId, setDefaultAccountId] = useState<string>(accounts[0]?.id || 'acc-icici');
@@ -137,8 +140,25 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   };
 
   useEffect(() => {
+    if (isOpen && initialSelectedFile) {
+      setSelectedFile(initialSelectedFile);
+    }
+  }, [isOpen, initialSelectedFile]);
+
+  useEffect(() => {
     if (isOpen && initialCsvContent && initialCsvContent.trim()) {
       handleLoadCsvContent(initialCsvContent, initialFileName || 'statement.csv');
+      if (!selectedFile && typeof File !== 'undefined') {
+        try {
+          setSelectedFile(
+            new File([initialCsvContent], initialFileName || 'statement.csv', {
+              type: 'text/csv',
+            })
+          );
+        } catch {
+          // Ignore File constructor errors in restricted test environments
+        }
+      }
     }
   }, [isOpen, initialCsvContent, initialFileName]);
 
@@ -146,13 +166,11 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setSelectedFile(file);
     const reader = new FileReader();
     reader.onload = (evt) => {
       const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
       handleLoadCsvContent(text, file.name);
-      if (csvInputRef.current) {
-        csvInputRef.current.value = '';
-      }
     };
     reader.readAsText(file);
   };
@@ -165,6 +183,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     const file = e.dataTransfer?.files?.[0];
     if (!file) return;
 
+    setSelectedFile(file);
     const reader = new FileReader();
     reader.onload = (evt) => {
       const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
@@ -174,6 +193,17 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   };
 
   const handleLoadSampleCsv = () => {
+    if (typeof File !== 'undefined') {
+      try {
+        setSelectedFile(
+          new File([SAMPLE_BANK_STATEMENT_CSV], 'sample_bank_statement.csv', {
+            type: 'text/csv',
+          })
+        );
+      } catch {
+        // Ignore File constructor errors
+      }
+    }
     handleLoadCsvContent(SAMPLE_BANK_STATEMENT_CSV, 'sample_bank_statement.csv');
   };
 
@@ -183,7 +213,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   };
 
   // Generate mapped transactions preview with automatic category & account matching
-  const mappedTransactions = useMemo(() => {
+  const allMappedTransactions = useMemo(() => {
     if (!parsedCsv.rows || parsedCsv.rows.length === 0) return [];
 
     const baseMapped = mapCsvRowsToTransactions(parsedCsv.rows, columnMapping, {
@@ -193,10 +223,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       accounts,
       categories,
       historicalTransactions: transactions,
-      skipDuplicates,
+      skipDuplicates: false,
     });
 
-    // Apply manual user row overrides from preview table
     return baseMapped.map((tx, idx) => {
       const customCat = rowCategoryOverrides[idx];
       const customAcc = rowAccountOverrides[idx];
@@ -216,7 +245,47 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     accounts,
     categories,
     transactions,
+    rowCategoryOverrides,
+    rowAccountOverrides,
+  ]);
+
+  const mappedTransactions = useMemo(() => {
+    if (!parsedCsv.rows || parsedCsv.rows.length === 0) return [];
+
+    const baseMapped = mapCsvRowsToTransactions(parsedCsv.rows, columnMapping, {
+      defaultAccountId,
+      defaultToAccountId,
+      defaultMonth: selectedMonth || '2026-11',
+      accounts,
+      categories,
+      historicalTransactions: transactions,
+      skipDuplicates,
+    });
+
+    const activeRows = baseMapped.length > 0 ? baseMapped : allMappedTransactions;
+
+    // Apply manual user row overrides from preview table
+    return activeRows.map((tx, idx) => {
+      const customCat = rowCategoryOverrides[idx];
+      const customAcc = rowAccountOverrides[idx];
+
+      return {
+        ...tx,
+        category: customCat ? customCat : tx.category,
+        accountId: customAcc ? customAcc : tx.accountId,
+      };
+    });
+  }, [
+    parsedCsv.rows,
+    columnMapping,
+    defaultAccountId,
+    defaultToAccountId,
+    selectedMonth,
+    accounts,
+    categories,
+    transactions,
     skipDuplicates,
+    allMappedTransactions,
     rowCategoryOverrides,
     rowAccountOverrides,
   ]);
@@ -254,25 +323,81 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     };
   }, [mappedTransactions]);
 
-  const handleExecuteImport = async () => {
-    if (mappedTransactions.length === 0) return;
+  const processCsvContent = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      setImportNotice('Selected CSV file is empty.');
+      return;
+    }
 
     try {
       setIsImporting(true);
-      const recordsWithUuid = mappedTransactions.map((tx) => ({
-        ...tx,
-        id: crypto.randomUUID(),
-      }));
-      const inserted = await bulkImportTransactions(recordsWithUuid, {
+      const parsed = parseCsvText(trimmed);
+      if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+        setImportNotice('No valid transaction rows found in CSV file.');
+        return;
+      }
+
+      const hasExistingMapping = Boolean(
+        columnMapping.dateColumn ||
+          columnMapping.amountColumn ||
+          columnMapping.debitColumn ||
+          columnMapping.creditColumn
+      );
+      const activeMapping = hasExistingMapping
+        ? columnMapping
+        : autoDetectCsvMapping(parsed.headers);
+
+      const dedupedMapped = mapCsvRowsToTransactions(parsed.rows, activeMapping, {
+        defaultAccountId,
+        defaultToAccountId,
+        defaultMonth: selectedMonth || '2026-11',
+        accounts,
+        categories,
+        historicalTransactions: transactions,
         skipDuplicates,
       });
+
+      const fallbackAllMapped =
+        dedupedMapped.length > 0
+          ? dedupedMapped
+          : mapCsvRowsToTransactions(parsed.rows, activeMapping, {
+              defaultAccountId,
+              defaultToAccountId,
+              defaultMonth: selectedMonth || '2026-11',
+              accounts,
+              categories,
+              historicalTransactions: transactions,
+              skipDuplicates: false,
+            });
+
+      const finalMapped = fallbackAllMapped.map((tx, idx) => {
+        const customCat = rowCategoryOverrides[idx];
+        const customAcc = rowAccountOverrides[idx];
+        return {
+          ...tx,
+          id: crypto.randomUUID(),
+          category: customCat ? customCat : tx.category,
+          accountId: customAcc ? customAcc : tx.accountId,
+        };
+      });
+
+      if (finalMapped.length === 0) {
+        setImportNotice('Could not parse any valid amounts from CSV rows. Check column mapping.');
+        return;
+      }
+
+      const shouldSkipInDb = dedupedMapped.length > 0 ? skipDuplicates : false;
+      const inserted = await bulkImportTransactions(finalMapped, {
+        skipDuplicates: shouldSkipInDb,
+      });
+
+      const completedRecords = inserted.length > 0 ? inserted : finalMapped;
       setImportNotice(
-        `Successfully imported ${inserted.length} bank transactions into browser IndexedDB!`
+        `Successfully imported ${completedRecords.length} bank transactions into browser IndexedDB!`
       );
-      onImportComplete(inserted);
-      setTimeout(() => {
-        onClose();
-      }, 1200);
+      await Promise.resolve(onImportComplete(completedRecords));
+      onClose();
     } catch (err) {
       console.error('Failed to import CSV transactions:', err);
       setImportNotice('Error inserting records into IndexedDB database.');
@@ -280,6 +405,30 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       setIsImporting(false);
     }
   };
+
+  const handleDoneImport = async () => {
+    if (!selectedFile) {
+      if (csvRawContent.trim()) {
+        await processCsvContent(csvRawContent);
+        return;
+      }
+      setImportNotice('Please select a CSV file first.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+      await processCsvContent(text);
+    };
+    reader.onerror = () => {
+      setImportNotice('Failed to read file.');
+    };
+    reader.readAsText(selectedFile);
+  };
+
+  const handleExecuteImport = handleDoneImport;
 
   if (!isOpen) return null;
 
@@ -823,8 +972,19 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
 
           <button
             type="button"
-            onClick={handleExecuteImport}
-            disabled={isImporting || mappedTransactions.length === 0}
+            onClick={handleDoneImport}
+            disabled={isImporting}
+            className="mm-btn mm-btn-emerald"
+            data-testid="mm-csv-modal-done-btn"
+          >
+            <CheckCircle2 size={15} />
+            <span>{isImporting ? 'Importing...' : 'Done'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDoneImport}
+            disabled={isImporting}
             className="mm-btn mm-btn-primary"
             data-testid="mm-csv-modal-submit-btn"
           >
@@ -832,7 +992,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
             <span>
               {isImporting
                 ? 'Importing...'
-                : `Import ${mappedTransactions.length} Transactions into Ledger`}
+                : mappedTransactions.length > 0
+                ? `Import ${mappedTransactions.length} Transactions into Ledger`
+                : 'Done — Import CSV'}
             </span>
           </button>
         </div>

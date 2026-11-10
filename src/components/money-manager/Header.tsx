@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { formatINR, type MonthlyMetrics } from '../../db/db';
 import { downloadSampleCsvTemplate } from './csvImporter';
+import { exportIndexedDbTransactionsToCsv } from './excelExporter';
 
 export type MoneyManagerTab = 'daily' | 'calendar' | 'accounts' | 'stats' | 'recurring';
 
@@ -136,6 +137,7 @@ export interface MoneyManagerHeaderProps {
   onOpenCsvImportModal?: () => void;
   onCsvFileSelect?: (file: File, csvText: string) => void;
   onDownloadSampleCsv?: () => void;
+  onExportToCsv?: () => void | Promise<void>;
 }
 
 const MONTH_NAMES = [
@@ -182,6 +184,7 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
   onOpenCsvImportModal,
   onCsvFileSelect,
   onDownloadSampleCsv,
+  onExportToCsv,
 }) => {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -211,6 +214,14 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
       onDownloadSampleCsv();
     } else {
       downloadSampleCsvTemplate();
+    }
+  };
+
+  const handleExportToCsv = async () => {
+    if (onExportToCsv) {
+      await onExportToCsv();
+    } else {
+      await exportIndexedDbTransactionsToCsv([], [], selectedMonth);
     }
   };
 
@@ -297,6 +308,16 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
               </button>
             </>
           )}
+          <button
+            type="button"
+            onClick={handleExportToCsv}
+            className="mm-btn mm-btn-secondary"
+            title="Flatten IndexedDB transactions state into CSV and trigger a browser download"
+            data-testid="mm-header-export-csv-btn"
+          >
+            <Download size={15} />
+            <span>Export to CSV</span>
+          </button>
           <button
             type="button"
             onClick={onOpenBackupModal}
