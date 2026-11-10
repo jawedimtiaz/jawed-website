@@ -832,12 +832,13 @@ export const BudgetVsActualSummaryCard: React.FC<BudgetVsActualSummaryCardProps>
                         <td
                           className={`py-2.5 px-3 text-right font-bold ${
                             isOver
-                              ? 'text-rose-400'
+                              ? 'text-rose-400 text-red-400'
                               : isUnder
-                              ? 'text-emerald-400'
+                              ? 'text-emerald-400 text-green-400'
                               : 'text-slate-300'
                           }`}
                           data-testid={`bva-difference-${item.category}`}
+                          data-color={isOver ? 'red' : isUnder ? 'green' : 'gray'}
                         >
                           {item.difference > 0
                             ? `+${formatINR(item.difference)} (Remaining)`
@@ -847,13 +848,21 @@ export const BudgetVsActualSummaryCard: React.FC<BudgetVsActualSummaryCardProps>
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           {isOver && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-500/15 text-rose-400 text-red-400 border border-rose-500/30 border-red-500/30"
+                              data-color="red"
+                              data-testid={`bva-alert-${item.category}`}
+                            >
                               <AlertTriangle className="h-3 w-3" />
                               <span>Over</span>
                             </span>
                           )}
                           {isUnder && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 text-green-400 border border-emerald-500/30 border-green-500/30"
+                              data-color="green"
+                              data-testid={`bva-alert-${item.category}`}
+                            >
                               <CheckCircle2 className="h-3 w-3" />
                               <span>Under</span>
                             </span>
