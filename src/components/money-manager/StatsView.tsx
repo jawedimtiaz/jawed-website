@@ -80,11 +80,16 @@ import {
 import { CategoryManager } from './CategoryManager';
 import {
   BudgetVsActualSummaryCard,
+  CategoryBudgetVarianceSummaryCard,
+  BudgetVarianceSummaryCard,
   computeBudgetVsActualSummary,
   calculateCategoryBudgetVariance,
+  computeCategoryBudgetVariances,
+  loadCategoryBudgetVariancesFromIndexedDb,
   type BudgetVsActualCategoryItem,
   type BudgetVsActualSummary,
   type BudgetVsActualSummaryCardProps,
+  type CategoryBudgetVarianceResult,
 } from './BudgetVsActualSummaryCard';
 import {
   generateMonthlySpendingPdf,
@@ -175,8 +180,12 @@ export {
   summarizeMultiCurrencyTransactions,
   normalizeCurrencyCode,
   BudgetVsActualSummaryCard,
+  CategoryBudgetVarianceSummaryCard,
+  BudgetVarianceSummaryCard,
   computeBudgetVsActualSummary,
   calculateCategoryBudgetVariance,
+  computeCategoryBudgetVariances,
+  loadCategoryBudgetVariancesFromIndexedDb,
 };
 export type {
   BudgetForecastSummary,
@@ -206,6 +215,7 @@ export type {
   BudgetVsActualCategoryItem,
   BudgetVsActualSummary,
   BudgetVsActualSummaryCardProps,
+  CategoryBudgetVarianceResult,
 };
 
 export const DEFAULT_SUMMARY_CARD_ORDER = [

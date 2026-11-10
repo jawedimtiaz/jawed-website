@@ -5559,6 +5559,142 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.equal(clearedFoodSummary.budgeted, 0, 'Expected cleared budget to register as 0');
     assert.equal(clearedFoodSummary.status, 'unbudgeted');
   });
+
+  it("in src/pages/tools/MoneyManager.tsx, inside the Stats view, adds a summary card that iterates over all categories, compares the stored budget limit from IndexedDB against the actual sum of expenses for the current month, and displays the variance with color-coded alerts (green for under budget, red for over)", async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      BudgetVsActualSummaryCard,
+      CategoryBudgetVarianceSummaryCard,
+      computeBudgetVsActualSummary,
+      computeCategoryBudgetVariances,
+      calculateCategoryBudgetVariance,
+      saveCategoryBudgetLimit,
+    } = await import('../src/pages/tools/MoneyManager');
+    const {
+      getAllCategories,
+      saveTransaction,
+      resetDatabaseToDefaults,
+    } = await import('../src/db/db');
+
+    // 1. Verify source architecture: StatsView renders summary card with color-coded alerts
+    const statsViewSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/StatsView.tsx'),
+      'utf8'
+    );
+    const cardSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/BudgetVsActualSummaryCard.tsx'),
+      'utf8'
+    );
+
+    assert.ok(
+      statsViewSource.includes('<BudgetVsActualSummaryCard') ||
+      statsViewSource.includes('<CategoryBudgetVarianceSummaryCard'),
+      'Expected StatsView to render BudgetVsActualSummaryCard / CategoryBudgetVarianceSummaryCard'
+    );
+    assert.ok(
+      cardSource.includes('category-budget-variance-alerts-grid') ||
+      cardSource.includes('category-variance-alert'),
+      'Expected BudgetVsActualSummaryCard to include variance alerts grid'
+    );
+    assert.ok(
+      cardSource.includes('Under Budget') && cardSource.includes('Over Budget'),
+      'Expected card to display Under Budget and Over Budget alert labels'
+    );
+
+    // 2. Initialize database and set up known category budget limits in IndexedDB
+    await resetDatabaseToDefaults();
+    const categories = await getAllCategories();
+    const foodCat = categories.find(
+      (c) => c.name === 'Food & Groceries' || c.name === 'Food & Dining'
+    )!;
+    const utilCat = categories.find(
+      (c) => c.name === 'Utilities & Broadband' || c.name === 'Utilities'
+    )!;
+    assert.ok(foodCat, 'Expected food category');
+    assert.ok(utilCat, 'Expected util category');
+
+    // Store explicit budget limits in IndexedDB
+    await saveCategoryBudgetLimit(foodCat.id, 12000); // Limit: 12,000
+    await saveCategoryBudgetLimit(utilCat.id, 5000);  // Limit: 5,000
+
+    // Record mock expenses for current month:
+    // Food actual: 8,500 (Under budget by 3,500 -> GREEN ALERT)
+    // Util actual: 6,800 (Over budget by 1,800 -> RED ALERT)
+    const currentMonth = '2026-11';
+    const testTx1 = {
+      id: 'tx-variance-test-1',
+      date: `${currentMonth}-08T10:00`,
+      type: 'Expense' as const,
+      accountId: 'acc-icici',
+      category: foodCat.name,
+      amount: 8500,
+      note: 'Grocery store monthly staples',
+      subCategory: 'Groceries',
+      fixedOrVariable: 'Variable' as const,
+      isAnomaly: false,
+      createdAt: `${currentMonth}-08T10:00:00Z`,
+    };
+    const testTx2 = {
+      id: 'tx-variance-test-2',
+      date: `${currentMonth}-14T15:30`,
+      type: 'Expense' as const,
+      accountId: 'acc-icici',
+      category: utilCat.name,
+      amount: 6800,
+      note: 'Electricity + Broadband quarterly payment',
+      subCategory: 'Electricity',
+      fixedOrVariable: 'Fixed' as const,
+      isAnomaly: false,
+      createdAt: `${currentMonth}-14T15:30:00Z`,
+    };
+
+    await saveTransaction(testTx1);
+    await saveTransaction(testTx2);
+
+    // 3. Test calculation and variance results
+    const reloadedCats = await getAllCategories();
+    const variances = computeCategoryBudgetVariances(
+      [testTx1, testTx2],
+      reloadedCats,
+      currentMonth
+    );
+
+    // Check Under-Budget category (Food):
+    const foodVariance = variances.find((v) => v.category === foodCat.name)!;
+    assert.ok(foodVariance, 'Expected food variance item');
+    assert.equal(foodVariance.budgetLimit, 12000, 'Expected stored budget limit 12,000');
+    assert.equal(foodVariance.actualExpenses, 8500, 'Expected actual expenses 8,500');
+    assert.equal(foodVariance.variance, 3500, 'Expected positive variance 3,500 (under budget)');
+    assert.equal(foodVariance.isUnderBudget, true, 'Expected isUnderBudget === true');
+    assert.equal(foodVariance.isOverBudget, false, 'Expected isOverBudget === false');
+    assert.equal(foodVariance.alertColor, 'green', 'Expected color-coded alert: green for under budget');
+    assert.equal(foodVariance.varianceType, 'favorable');
+
+    // Check Over-Budget category (Utilities):
+    const utilVariance = variances.find((v) => v.category === utilCat.name)!;
+    assert.ok(utilVariance, 'Expected utility variance item');
+    assert.equal(utilVariance.budgetLimit, 5000, 'Expected stored budget limit 5,000');
+    assert.equal(utilVariance.actualExpenses, 6800, 'Expected actual expenses 6,800');
+    assert.equal(utilVariance.variance, -1800, 'Expected negative variance -1,800 (over budget)');
+    assert.equal(utilVariance.isOverBudget, true, 'Expected isOverBudget === true');
+    assert.equal(utilVariance.isUnderBudget, false, 'Expected isUnderBudget === false');
+    assert.equal(utilVariance.alertColor, 'red', 'Expected color-coded alert: red for over budget');
+    assert.equal(utilVariance.varianceType, 'unfavorable');
+
+    // 4. Test calculateCategoryBudgetVariance standalone helper
+    const underRes = calculateCategoryBudgetVariance(10000, 7500);
+    assert.equal(underRes.variance, 2500);
+    assert.equal(underRes.isOverBudget, false);
+    assert.equal(underRes.isUnderBudget, true);
+    assert.equal(underRes.alertColor, 'green');
+
+    const overRes = calculateCategoryBudgetVariance(5000, 7200);
+    assert.equal(overRes.variance, -2200);
+    assert.equal(overRes.isOverBudget, true);
+    assert.equal(overRes.isUnderBudget, false);
+    assert.equal(overRes.alertColor, 'red');
+  });
 });
 
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Scale,
   Target,
@@ -17,6 +17,8 @@ import {
   type MoneyCategory,
   type MoneyTransaction,
   INITIAL_CATEGORIES,
+  getAllCategories,
+  getAllLedgerState,
 } from '../../db/db';
 
 export interface BudgetVsActualCategoryItem {
@@ -45,6 +47,10 @@ export interface BudgetVsActualCategoryItem {
   status: 'under-budget' | 'over-budget' | 'on-track' | 'unbudgeted';
   color: string;
   txCount: number;
+  isOverBudget?: boolean;
+  isUnderBudget?: boolean;
+  alertColor?: 'green' | 'red' | 'gray';
+  alertMessage?: string;
 }
 
 export interface BudgetVsActualSummary {
@@ -84,6 +90,9 @@ export function calculateCategoryBudgetVariance(
   variancePercent: number;
   varianceType: 'favorable' | 'unfavorable' | 'neutral';
   isOverBudget: boolean;
+  isUnderBudget: boolean;
+  alertColor: 'green' | 'red' | 'gray';
+  alertMessage: string;
 } {
   const variance = budgeted - actual;
   const absVariance = Math.abs(variance);
@@ -91,12 +100,26 @@ export function calculateCategoryBudgetVariance(
     budgeted > 0 ? Number((((budgeted - actual) / budgeted) * 100).toFixed(1)) : 0;
   const varianceType =
     variance > 0 ? 'favorable' : variance < 0 ? 'unfavorable' : 'neutral';
+  const isOverBudget = actual > budgeted && budgeted > 0;
+  const isUnderBudget = actual < budgeted && budgeted > 0;
+  const alertColor = isOverBudget ? 'red' : isUnderBudget ? 'green' : 'gray';
+  const alertMessage = isOverBudget
+    ? `Over budget by ${formatINR(absVariance)}`
+    : isUnderBudget
+    ? `Under budget with ${formatINR(variance)} remaining`
+    : budgeted === 0
+    ? 'Unbudgeted'
+    : 'Balanced';
+
   return {
     variance,
     absVariance,
     variancePercent,
     varianceType,
-    isOverBudget: actual > budgeted && budgeted > 0,
+    isOverBudget,
+    isUnderBudget,
+    alertColor,
+    alertMessage,
   };
 }
 
@@ -210,6 +233,10 @@ export function computeBudgetVsActualSummary(
       absVariance: varianceData.absVariance,
       variancePercent: varianceData.variancePercent,
       varianceType: varianceData.varianceType,
+      isOverBudget: varianceData.isOverBudget,
+      isUnderBudget: varianceData.isUnderBudget,
+      alertColor: varianceData.alertColor,
+      alertMessage: varianceData.alertMessage,
       utilizationPercent,
       status,
       color: cat.color || '#64748b',
@@ -262,6 +289,75 @@ export function computeBudgetVsActualSummary(
   };
 }
 
+export interface CategoryBudgetVarianceResult {
+  categoryId: string;
+  category: string;
+  budgetLimit: number;
+  actualExpenses: number;
+  variance: number;
+  absVariance: number;
+  variancePercent: number;
+  varianceType: 'favorable' | 'unfavorable' | 'neutral';
+  isOverBudget: boolean;
+  isUnderBudget: boolean;
+  alertColor: 'green' | 'red' | 'gray';
+  alertMessage: string;
+  status: 'under-budget' | 'over-budget' | 'on-track' | 'unbudgeted';
+  color: string;
+}
+
+/**
+ * Iterates over all categories, comparing budget limits against actual expenses
+ * for the current month, returning color-coded variance records.
+ */
+export function computeCategoryBudgetVariances(
+  transactions: MoneyTransaction[],
+  categories: MoneyCategory[],
+  selectedMonth: string = new Date().toISOString().slice(0, 7),
+  thresholdOverrides?: Record<string, number> | number
+): CategoryBudgetVarianceResult[] {
+  const summary = computeBudgetVsActualSummary(
+    transactions,
+    categories,
+    selectedMonth,
+    thresholdOverrides
+  );
+  return summary.categories.map((c) => ({
+    categoryId: c.categoryId,
+    category: c.category,
+    budgetLimit: c.budgeted,
+    actualExpenses: c.actual,
+    variance: c.variance,
+    absVariance: c.absVariance,
+    variancePercent: c.variancePercent,
+    varianceType: c.varianceType,
+    isOverBudget: Boolean(c.isOverBudget ?? c.status === 'over-budget'),
+    isUnderBudget: Boolean(c.isUnderBudget ?? c.status === 'under-budget'),
+    alertColor: c.alertColor || (c.status === 'over-budget' ? 'red' : c.status === 'under-budget' ? 'green' : 'gray'),
+    alertMessage: c.alertMessage || '',
+    status: c.status,
+    color: c.color,
+  }));
+}
+
+/**
+ * Loads stored budget limits and transactions directly from IndexedDB, compares
+ * budget limits against actual sum of expenses for the given month, and returns variances.
+ */
+export async function loadCategoryBudgetVariancesFromIndexedDb(
+  selectedMonth: string = new Date().toISOString().slice(0, 7)
+): Promise<CategoryBudgetVarianceResult[]> {
+  const [categories, state] = await Promise.all([
+    getAllCategories(),
+    getAllLedgerState().catch(() => ({ transactions: [] as MoneyTransaction[] })),
+  ]);
+  return computeCategoryBudgetVariances(
+    state.transactions || [],
+    categories && categories.length > 0 ? categories : INITIAL_CATEGORIES,
+    selectedMonth
+  );
+}
+
 export interface BudgetVsActualSummaryCardProps {
   selectedMonth: string;
   transactions: MoneyTransaction[];
@@ -282,15 +378,49 @@ export const BudgetVsActualSummaryCard: React.FC<BudgetVsActualSummaryCardProps>
   const [isExpanded, setIsExpanded] = useState<boolean>(defaultExpanded);
   const [filterStatus, setFilterStatus] = useState<'all' | 'over' | 'under'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [dbCategories, setDbCategories] = useState<MoneyCategory[]>(categories);
+
+  useEffect(() => {
+    let isMounted = true;
+    getAllCategories()
+      .then((cats) => {
+        if (isMounted && Array.isArray(cats) && cats.length > 0) {
+          setDbCategories(cats);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [categories, selectedMonth]);
+
+  const effectiveCategories = useMemo(() => {
+    if (categories && categories !== INITIAL_CATEGORIES && categories.length > 0) {
+      const dbBudgetMap = new Map<string, number>();
+      for (const dc of dbCategories) {
+        if (typeof dc.monthlyBudget === 'number' && dc.monthlyBudget > 0) {
+          dbBudgetMap.set(dc.name, dc.monthlyBudget);
+          dbBudgetMap.set(dc.id, dc.monthlyBudget);
+        }
+      }
+      return categories.map((c) => {
+        const storedBudget = dbBudgetMap.get(c.id) ?? dbBudgetMap.get(c.name);
+        return storedBudget !== undefined && (c.monthlyBudget === undefined || c.monthlyBudget === 0)
+          ? { ...c, monthlyBudget: storedBudget }
+          : c;
+      });
+    }
+    return dbCategories.length > 0 ? dbCategories : INITIAL_CATEGORIES;
+  }, [categories, dbCategories]);
 
   const summary = useMemo(() => {
     return computeBudgetVsActualSummary(
       transactions,
-      categories,
+      effectiveCategories,
       selectedMonth,
       thresholdOverrides
     );
-  }, [transactions, categories, selectedMonth, thresholdOverrides]);
+  }, [transactions, effectiveCategories, selectedMonth, thresholdOverrides]);
 
   const filteredCategories = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -308,6 +438,7 @@ export const BudgetVsActualSummaryCard: React.FC<BudgetVsActualSummaryCardProps>
     <article
       className={`rounded-2xl border border-slate-700/80 bg-slate-900/90 p-4 sm:p-5 text-slate-100 shadow-xl backdrop-blur-md mb-4 transition-all ${className}`}
       data-testid="budget-vs-actual-summary-card"
+      data-card="category-budget-variance-summary-card"
       aria-label="Budget vs Actual Summary"
     >
       {/* Header Bar */}
@@ -442,6 +573,142 @@ export const BudgetVsActualSummaryCard: React.FC<BudgetVsActualSummaryCardProps>
           <span className="text-[11px] text-slate-400 mt-0.5">
             {summary.onTrackCount} on track · {summary.unbudgetedCount} unbudgeted
           </span>
+        </div>
+      </div>
+
+      {/* Category Budget Variance Alerts Grid (Color-coded: Green for under budget, Red for over) */}
+      <div
+        className="mt-4 pt-4 border-t border-slate-800"
+        data-testid="category-budget-variance-alerts-section"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <Scale className="h-4 w-4 text-indigo-400" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              Category Budget Variance Alerts ({selectedMonth})
+            </h4>
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            <span
+              className="inline-flex items-center gap-1.5 text-emerald-400 font-medium"
+              data-testid="bva-under-budget-count"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{summary.underBudgetCount} Under Budget (Green)</span>
+            </span>
+            <span className="text-slate-600">·</span>
+            <span
+              className="inline-flex items-center gap-1.5 text-rose-400 font-medium"
+              data-testid="bva-over-budget-count"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+              <span>{summary.overBudgetCount} Over Budget (Red)</span>
+            </span>
+          </div>
+        </div>
+
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+          data-testid="category-budget-variance-alerts-grid"
+        >
+          {summary.categories.map((item) => {
+            const isOver = item.status === 'over-budget';
+            const isUnder = item.status === 'under-budget';
+            const alertColor = isOver ? 'red' : isUnder ? 'green' : 'neutral';
+
+            return (
+              <div
+                key={item.categoryId || item.category}
+                className={`p-3.5 rounded-xl border transition-all ${
+                  isOver
+                    ? 'bg-rose-950/20 border-rose-500/35 text-rose-100 shadow-sm'
+                    : isUnder
+                    ? 'bg-emerald-950/20 border-emerald-500/35 text-emerald-100 shadow-sm'
+                    : 'bg-slate-800/40 border-slate-700/50 text-slate-300'
+                }`}
+                data-testid={`category-variance-alert-${item.category}`}
+                data-status={item.status}
+                data-alert-color={alertColor}
+              >
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 truncate">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="text-xs font-bold truncate text-white">
+                      {item.category}
+                    </span>
+                  </div>
+
+                  {isOver && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/25 text-rose-300 border border-rose-500/40"
+                      data-testid={`category-variance-alert-over-${item.category}`}
+                      data-alert="over"
+                    >
+                      <AlertTriangle className="h-3 w-3 text-rose-400" />
+                      <span>Over Budget</span>
+                    </span>
+                  )}
+                  {isUnder && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/25 text-emerald-300 border border-emerald-500/40"
+                      data-testid={`category-variance-alert-under-${item.category}`}
+                      data-alert="under"
+                    >
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                      <span>Under Budget</span>
+                    </span>
+                  )}
+                  {!isOver && !isUnder && (
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {item.status === 'unbudgeted' ? 'Unbudgeted' : 'On Track'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono mb-2">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      Stored Limit:
+                    </span>
+                    <span className="font-semibold text-slate-200">
+                      {item.budgeted > 0 ? formatINR(item.budgeted) : '₹0'}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      Actual Expenses:
+                    </span>
+                    <span className="font-semibold text-white">
+                      {formatINR(item.actual)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-700/50 text-xs font-mono">
+                  <span className="text-[10px] text-slate-400 font-sans">Variance:</span>
+                  <span
+                    className={`font-bold ${
+                      isOver
+                        ? 'text-rose-400'
+                        : isUnder
+                        ? 'text-emerald-400'
+                        : 'text-slate-300'
+                    }`}
+                    data-testid={`category-variance-value-${item.category}`}
+                  >
+                    {isOver
+                      ? `-${formatINR(item.absVariance)}`
+                      : isUnder
+                      ? `+${formatINR(item.variance)}`
+                      : '₹0'}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -627,5 +894,8 @@ export const BudgetVsActualSummaryCard: React.FC<BudgetVsActualSummaryCardProps>
     </article>
   );
 };
+
+export const CategoryBudgetVarianceSummaryCard = BudgetVsActualSummaryCard;
+export const BudgetVarianceSummaryCard = BudgetVsActualSummaryCard;
 
 export default BudgetVsActualSummaryCard;
