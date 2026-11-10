@@ -4938,7 +4938,168 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       'Expected CsvImportModal.tsx to render progress bar and validation feedback'
     );
   });
+
+  it('performs server-side-like validation enforcing YYYY-MM-DD dates, numeric amounts, and non-empty descriptions with a user-friendly error toast', async () => {
+    const {
+      isRealCalendarDate,
+      isValidIsoYyyyMmDdDate,
+      buildCsvValidationErrorToast,
+      validateCsvRowServerSchema,
+      validateCsvServerSide,
+      autoDetectCsvMapping,
+    } = await import('../src/pages/tools/MoneyManager');
+
+    // 1. Strict YYYY-MM-DD date & calendar validation (including leap years)
+    assert.equal(isRealCalendarDate(2026, 2, 28), true);
+    assert.equal(isRealCalendarDate(2026, 2, 29), false); // 2026 is not a leap year
+    assert.equal(isRealCalendarDate(2024, 2, 29), true); // 2024 is a leap year
+    assert.equal(isRealCalendarDate(2026, 4, 31), false); // April has 30 days
+
+    assert.equal(isValidIsoYyyyMmDdDate('2026-11-16'), true);
+    assert.equal(isValidIsoYyyyMmDdDate('2026-11-16T14:30'), true);
+    assert.equal(isValidIsoYyyyMmDdDate('16/11/2026'), false); // Not YYYY-MM-DD
+    assert.equal(isValidIsoYyyyMmDdDate('2026-02-30'), false); // Impossible calendar date
+    assert.equal(isValidIsoYyyyMmDdDate('2026-13-01'), false);
+
+    // 2. Single row server-side schema validation
+    const mapping = autoDetectCsvMapping(['Date', 'Description', 'Amount']);
+    const validRowCheck = validateCsvRowServerSchema(
+      { Date: '2026-11-18', Description: 'UPI/Swiggy Dinner', Amount: '-650.50' },
+      1,
+      mapping
+    );
+    assert.equal(validRowCheck.isValid, true);
+    assert.deepEqual(validRowCheck.normalizedRow, {
+      date: '2026-11-18',
+      amount: -650.5,
+      description: 'UPI/Swiggy Dinner',
+    });
+
+    const invalidRowCheck = validateCsvRowServerSchema(
+      { Date: '18-11-2026', Description: '   ', Amount: 'NaN_value' },
+      2,
+      mapping
+    );
+    assert.equal(invalidRowCheck.isValid, false);
+    assert.deepEqual(invalidRowCheck.missingOrInvalidFields, ['Date', 'Amount', 'Description']);
+    assert.ok(invalidRowCheck.errorMessage?.includes('expected YYYY-MM-DD'));
+    assert.ok(invalidRowCheck.errorMessage?.includes('not a valid non-zero number'));
+    assert.ok(invalidRowCheck.errorMessage?.includes('Description is missing'));
+
+    // 3. Batch server-side CSV validation & user-friendly error toast
+    const csvSample = [
+      'Date,Description,Amount',
+      '2026-11-18,UPI/Fresh Groceries,-845',
+      '18/11/2026,UPI/Wrong Date Format,-320',
+      '2026-11-19,UPI/Invalid Amount,abc',
+      '2026-11-20,,-500',
+    ].join('\n');
+
+    const batchReport = validateCsvServerSide(csvSample);
+    assert.equal(batchReport.isValid, false);
+    assert.equal(batchReport.validRows.length, 1);
+    assert.equal(batchReport.invalidRows.length, 3);
+    assert.ok(
+      batchReport.errorToastMessage?.includes('CSV Validation Error (3 row(s) failed):'),
+      'Expected user-friendly error toast summarizing failed rows'
+    );
+    assert.ok(
+      batchReport.errorToastMessage?.includes('expected YYYY-MM-DD'),
+      'Expected error toast to mention YYYY-MM-DD date requirement'
+    );
+    assert.equal(
+      buildCsvValidationErrorToast([]),
+      null,
+      'Expected null error toast when no rows fail validation'
+    );
+  });
+
+  it('provides a direct, zero-modal native file picker (fileInputRef + handleCsvFileUpload) that immediately reads, parses, saves to IndexedDB, and updates state', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { bulkImportCsvFileToLedger } = await import('../src/pages/tools/MoneyManager');
+    const { getAllLedgerState, resetDatabaseToDefaults } = await import('../src/db/db');
+
+    const pagesMmSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/tools/MoneyManager.tsx'),
+      'utf8'
+    );
+    const toolsMmSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/tools/MoneyManager.tsx'),
+      'utf8'
+    );
+    const headerSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/Header.tsx'),
+      'utf8'
+    );
+    const dailySrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/DailyView.tsx'),
+      'utf8'
+    );
+
+    // 1. Verify fileInputRef and handleCsvFileUpload exist in MoneyManager.tsx, Header.tsx, and DailyView.tsx
+    for (const [label, src] of [
+      ['src/pages/tools/MoneyManager.tsx', pagesMmSrc],
+      ['src/tools/MoneyManager.tsx', toolsMmSrc],
+      ['src/components/money-manager/Header.tsx', headerSrc],
+      ['src/components/money-manager/DailyView.tsx', dailySrc],
+    ] as const) {
+      assert.ok(
+        src.includes('const fileInputRef = useRef<HTMLInputElement>(null);'),
+        `Expected ${label} to declare fileInputRef`
+      );
+      assert.ok(
+        src.includes('handleCsvFileUpload'),
+        `Expected ${label} to implement handleCsvFileUpload`
+      );
+      assert.ok(
+        src.includes('type="file"') &&
+          src.includes('accept=".csv,text/csv"') &&
+          src.includes('className="hidden"'),
+        `Expected ${label} to render hidden CSV file input`
+      );
+    }
+
+    // 2. Verify selecting a file in MoneyManager.tsx immediately calls processCsvContent(csvText) without requiring a modal
+    assert.ok(
+      toolsMmSrc.includes('await processCsvContent(text);') &&
+        toolsMmSrc.includes('await processCsvContent(csvText);'),
+      'Expected MoneyManager.tsx to directly execute processCsvContent when a CSV file is selected'
+    );
+
+    // 3. Verify end-to-end File upload into IndexedDB via bulkImportCsvFileToLedger
+    await resetDatabaseToDefaults();
+    const beforeState = await getAllLedgerState();
+    const directCsvPayload = [
+      'Date,Description,Amount,Type,Category,Bank',
+      '2026-11-28,Direct Picker Cloud Server,-1499,Expense,Utilities & Bills,ICICI',
+      '2026-11-29,Direct Picker Freelance Payout,12500,Income,Freelance & Consulting,SBI',
+    ].join('\n');
+
+    const mockCsvFile = {
+      name: 'direct-upload.csv',
+      text: async () => directCsvPayload,
+    };
+
+    const result = await bulkImportCsvFileToLedger(mockCsvFile, {
+      defaultMonth: '2026-11',
+    });
+
+    assert.equal(result.importedTransactions.length, 2, 'Expected 2 transactions imported directly from file');
+    assert.equal(result.feedback?.importedCount, 2, 'Expected feedback.importedCount to be 2');
+    const afterState = await getAllLedgerState();
+    assert.equal(
+      afterState.transactions.length,
+      beforeState.transactions.length + 2,
+      'Expected IndexedDB transactions count to increase by 2 immediately after file upload'
+    );
+    assert.ok(
+      afterState.transactions.some((tx) => tx.note.includes('Direct Picker Cloud Server')),
+      'Expected Direct Picker Cloud Server transaction in IndexedDB'
+    );
+    assert.ok(
+      afterState.transactions.some((tx) => tx.note.includes('Direct Picker Freelance Payout')),
+      'Expected Direct Picker Freelance Payout transaction in IndexedDB'
+    );
+  });
 });
-
-
-

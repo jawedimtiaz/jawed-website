@@ -150,8 +150,13 @@ import {
   bulkImportCsvFileToLedger,
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
+  isRealCalendarDate,
+  isValidIsoYyyyMmDdDate,
   isValidBankDateInput,
   isValidCsvAmountInput,
+  buildCsvValidationErrorToast,
+  validateCsvRowServerSchema,
+  validateCsvServerSide,
   validateCsvMandatoryColumns,
   validateCsvRows,
   validateAndParseCsvText,
@@ -170,6 +175,8 @@ import {
   type CsvMandatoryColumnName,
   type CsvRowValidationError,
   type CsvValidationReport,
+  type ServerSideRowValidationResult,
+  type ServerSideCsvValidationResult,
   type CsvImportFeedbackStatus,
   type CsvImportFeedbackState,
   type CsvImportModalProps,
@@ -467,8 +474,13 @@ export {
   bulkImportCsvFileToLedger,
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
+  isRealCalendarDate,
+  isValidIsoYyyyMmDdDate,
   isValidBankDateInput,
   isValidCsvAmountInput,
+  buildCsvValidationErrorToast,
+  validateCsvRowServerSchema,
+  validateCsvServerSide,
   validateCsvMandatoryColumns,
   validateCsvRows,
   validateAndParseCsvText,
@@ -517,6 +529,8 @@ export type {
   CsvMandatoryColumnName,
   CsvRowValidationError,
   CsvValidationReport,
+  ServerSideRowValidationResult,
+  ServerSideCsvValidationResult,
   CsvImportFeedbackStatus,
   CsvImportFeedbackState,
   CsvImportModalProps,
@@ -885,6 +899,7 @@ export const MoneyManager: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [initialCsvContent, setInitialCsvContent] = useState<string>('');
   const [initialCsvFileName, setInitialCsvFileName] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const auth = useMemo(() => getMoneyManagerAuth(), []);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -1170,25 +1185,42 @@ export const MoneyManager: React.FC = () => {
     reader.readAsText(selectedFile);
   }, [selectedFile, initialCsvContent, processCsvContent, showToast]);
 
-  const handleCsvFileChange = useCallback(
+  const handleCsvFileUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
       setSelectedFile(file);
+      setInitialCsvFileName(file.name);
+
       try {
-        const csvText = await file.text();
-        setInitialCsvFileName(file.name);
-        setInitialCsvContent(csvText);
-        setIsCsvImportModalOpen(true);
+        if (typeof FileReader !== 'undefined') {
+          const reader = new FileReader();
+          reader.onload = async (evt) => {
+            const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
+            if (!text) return;
+            setInitialCsvContent(text);
+            await processCsvContent(text);
+          };
+          reader.onerror = () => {
+            showToast('Failed to read CSV file.');
+          };
+          reader.readAsText(file);
+        } else {
+          const csvText = await file.text();
+          setInitialCsvContent(csvText);
+          await processCsvContent(csvText);
+        }
       } catch (err) {
         console.error('Failed to read CSV file:', err);
-        setIsCsvImportModalOpen(true);
+        showToast('Failed to read CSV file.');
       } finally {
         e.target.value = '';
       }
     },
-    []
+    [processCsvContent, showToast]
   );
+
+  const handleCsvFileChange = handleCsvFileUpload;
 
   const handleDownloadSampleCsv = useCallback(() => {
     const { fileName } = downloadSampleCsvTemplate();
@@ -1450,10 +1482,26 @@ export const MoneyManager: React.FC = () => {
           ogType="website"
         />
         <div className="mm-container">
-        {/* Toast Notification */}
+        {/* Toast Notification (Supports Success and CSV Validation Error Toasts) */}
         {toastMessage && (
-          <div className="mm-toast" role="status" aria-live="polite" data-testid="mm-status-toast">
-            <CheckCircle2 size={16} />
+          <div
+            className="mm-toast"
+            role={/invalid|malformed|failed|error|missing/i.test(toastMessage) ? 'alert' : 'status'}
+            aria-live={
+              /invalid|malformed|failed|error|missing/i.test(toastMessage)
+                ? 'assertive'
+                : 'polite'
+            }
+            data-testid="mm-status-toast"
+            data-toast-type={
+              /invalid|malformed|failed|error|missing/i.test(toastMessage) ? 'error' : 'success'
+            }
+          >
+            {/invalid|malformed|failed|error|missing/i.test(toastMessage) ? (
+              <AlertTriangle size={16} />
+            ) : (
+              <CheckCircle2 size={16} />
+            )}
             <span>{toastMessage}</span>
           </div>
         )}
@@ -1658,6 +1706,17 @@ export const MoneyManager: React.FC = () => {
           onDismiss={() => setCsvImportFeedback(null)}
         />
 
+        {/* Direct Native CSV File Picker linked to fileInputRef (Zero Intermediate Modal) */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          style={{ display: 'none' }}
+          onChange={handleCsvFileUpload}
+          data-testid="mm-direct-csv-file-input"
+        />
+
         {/* Hidden CSV File Picker linked to csvInputRef */}
         <input
           ref={csvInputRef}
@@ -1681,12 +1740,12 @@ export const MoneyManager: React.FC = () => {
           themeMode={siteTheme}
           onOpenAddModal={handleOpenAddTransaction}
           onOpenBackupModal={() => setIsBackupModalOpen(true)}
-          onOpenCsvImportModal={() => setIsCsvImportModalOpen(true)}
-          onCsvFileSelect={(file, csvText) => {
+          onOpenCsvImportModal={() => fileInputRef.current?.click()}
+          onCsvFileSelect={async (file, csvText) => {
             setSelectedFile(file);
             setInitialCsvFileName(file.name);
             setInitialCsvContent(csvText);
-            setIsCsvImportModalOpen(true);
+            await processCsvContent(csvText);
           }}
           onDownloadSampleCsv={handleDownloadSampleCsv}
           onExportToCsv={handleExportToCsv}

@@ -22,7 +22,14 @@ import {
   Mic,
   MicOff,
 } from 'lucide-react';
-import { CsvImportModal, downloadSampleCsvTemplate } from './CsvImportModal';
+import {
+  CsvImportModal,
+  downloadSampleCsvTemplate,
+  parseCsvText,
+  autoDetectCsvMapping,
+  validateCsvRows,
+  mapCsvRowsToTransactions,
+} from './CsvImportModal';
 import { formatTransactionsToCsv } from './excelExporter';
 import {
   formatINR,
@@ -38,6 +45,7 @@ import {
   formatCurrencyAmount,
   summarizeMultiCurrencyTransactions,
   normalizeCurrencyCode,
+  bulkImportTransactions,
   saveTransaction as dbSaveTransaction,
   saveRecurringRule as dbSaveRecurringRule,
   syncRecurringTransactionsForMonth as dbSyncRecurringTransactionsForMonth,
@@ -697,26 +705,115 @@ export const DailyView: React.FC<DailyViewProps> = ({
   const [voiceSearchStatus, setVoiceSearchStatus] = useState<string>('');
   const [voiceSearchError, setVoiceSearchError] = useState<boolean>(false);
   const voiceRecognitionRef = useRef<SpeechRecognitionInstanceLike | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [initialDailyCsvContent, setInitialDailyCsvContent] = useState<string>('');
   const [initialDailyCsvFileName, setInitialDailyCsvFileName] = useState<string>('');
 
-  const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const processDirectDailyCsvText = async (csvText: string, fileNameStr = 'statement.csv') => {
+    setInitialDailyCsvFileName(fileNameStr);
+    setInitialDailyCsvContent(csvText);
+
+    const parsed = parseCsvText(csvText);
+    if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+      setCsvExportNotice('Selected CSV file is empty or missing headers (Date, Amount, Description).');
+      return;
+    }
+
+    const mapping = autoDetectCsvMapping(parsed.headers);
+    const validation = validateCsvRows(parsed.rows, parsed.headers, mapping);
+    if (!validation.hasMandatoryColumns) {
+      setCsvExportNotice(
+        validation.columnErrorMessage ||
+          'Missing mandatory CSV column(s): Date, Amount, Description.'
+      );
+      return;
+    }
+
+    if (validation.validRows.length === 0) {
+      setCsvExportNotice(
+        validation.summaryErrorMessage ||
+          'All CSV rows failed validation. Please verify Date, Amount, and Description.'
+      );
+      return;
+    }
+
+    const deduped = mapCsvRowsToTransactions(validation.validRows, mapping, {
+      defaultAccountId: accounts[0]?.id || 'acc-icici',
+      defaultToAccountId: accounts[1]?.id || 'acc-sbi',
+      defaultMonth: selectedMonth || '2026-11',
+      accounts,
+      categories,
+      historicalTransactions: localTransactions,
+      skipDuplicates: true,
+      strictValidation: true,
+    });
+
+    const mapped =
+      deduped.length > 0
+        ? deduped
+        : mapCsvRowsToTransactions(validation.validRows, mapping, {
+            defaultAccountId: accounts[0]?.id || 'acc-icici',
+            defaultToAccountId: accounts[1]?.id || 'acc-sbi',
+            defaultMonth: selectedMonth || '2026-11',
+            accounts,
+            categories,
+            historicalTransactions: localTransactions,
+            skipDuplicates: false,
+            strictValidation: true,
+          });
+
+    const recordsWithUuid = mapped.map((tx) => ({
+      ...tx,
+      id: crypto.randomUUID(),
+    }));
+
+    const inserted = await bulkImportTransactions(recordsWithUuid, {
+      skipDuplicates: deduped.length > 0,
+    });
+    const completedRecords = inserted.length > 0 ? inserted : recordsWithUuid;
+
+    if (completedRecords.length > 0) {
+      setLocalTransactions((prev) => {
+        const existingIds = new Set(prev.map((item) => item.id));
+        const uniqueAdditions = completedRecords.filter((item) => !existingIds.has(item.id));
+        return [...uniqueAdditions, ...prev];
+      });
+    }
+
+    setCsvExportNotice(
+      validation.malformedRows.length > 0
+        ? `Imported ${completedRecords.length} record(s); ${validation.malformedRows.length} row(s) failed validation.`
+        : `Successfully imported ${completedRecords.length} CSV transaction(s) into IndexedDB!`
+    );
+    await Promise.resolve(onBulkImportComplete?.(completedRecords));
+  };
+
+  const handleCsvFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setSelectedFile(file);
     try {
-      const csvText = await file.text();
-      setInitialDailyCsvFileName(file.name);
-      setInitialDailyCsvContent(csvText);
-      setIsCsvModalOpen(true);
-    } catch {
-      setIsCsvModalOpen(true);
+      if (typeof FileReader !== 'undefined') {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
+          if (text) {
+            await processDirectDailyCsvText(text, file.name);
+          }
+        };
+        reader.readAsText(file);
+      } else {
+        const csvText = await file.text();
+        await processDirectDailyCsvText(csvText, file.name);
+      }
     } finally {
       e.target.value = '';
     }
   };
+
+  const handleCsvFileChange = handleCsvFileUpload;
 
   const handleDownloadSampleCsv = () => {
     const { fileName } = downloadSampleCsvTemplate();
@@ -1266,8 +1363,11 @@ export const DailyView: React.FC<DailyViewProps> = ({
             <button
               type="button"
               onClick={() => {
-                csvInputRef.current?.click();
-                setIsCsvModalOpen(true);
+                if (csvInputRef.current) {
+                  csvInputRef.current.click();
+                } else {
+                  fileInputRef.current?.click();
+                }
               }}
               className="mm-btn mm-btn-sm mm-btn-secondary"
               title="Import bank statement CSV with auto category & account matching"

@@ -187,26 +187,40 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
   onExportToCsv,
 }) => {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const contrastTokens = resolveActiveTabContrastTokens(themeMode);
 
-  const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCsvFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const csvText = await file.text();
-      onCsvFileSelect?.(file, csvText);
-      onOpenCsvImportModal?.();
-    } catch {
-      onOpenCsvImportModal?.();
+      if (typeof FileReader !== 'undefined') {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
+          if (text) {
+            onCsvFileSelect?.(file, text);
+          }
+        };
+        reader.readAsText(file);
+      } else {
+        const csvText = await file.text();
+        onCsvFileSelect?.(file, csvText);
+      }
     } finally {
       e.target.value = '';
     }
   };
 
+  const handleCsvFileChange = handleCsvFileUpload;
+
   const handleTriggerImportCsv = () => {
-    csvInputRef.current?.click();
-    onOpenCsvImportModal?.();
+    if (csvInputRef.current) {
+      csvInputRef.current.click();
+    } else {
+      fileInputRef.current?.click();
+    }
   };
 
   const handleDownloadSampleCsv = () => {
