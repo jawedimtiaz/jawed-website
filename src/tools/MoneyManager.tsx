@@ -156,6 +156,7 @@ import {
   validateCsvRows,
   validateAndParseCsvText,
   MANDATORY_CSV_COLUMNS,
+  buildCsvImportFeedback,
   buildTransactionFingerprint,
   isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
@@ -169,6 +170,8 @@ import {
   type CsvMandatoryColumnName,
   type CsvRowValidationError,
   type CsvValidationReport,
+  type CsvImportFeedbackStatus,
+  type CsvImportFeedbackState,
   type CsvImportModalProps,
 } from '../components/money-manager/CsvImportModal';
 import {
@@ -196,6 +199,184 @@ import {
 import { BackupBanner } from '../components/BackupBanner';
 import { enableStoragePersistence } from '../db';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
+
+export interface CsvImportFeedbackBannerProps {
+  feedback: CsvImportFeedbackState | null;
+  onDismiss?: () => void;
+}
+
+export const CsvImportFeedbackBanner: React.FC<CsvImportFeedbackBannerProps> = ({
+  feedback,
+  onDismiss,
+}) => {
+  if (!feedback || feedback.status === 'idle') return null;
+
+  const isError = feedback.status === 'error';
+  const isWarning = feedback.status === 'warning';
+  const accentColor = isError ? '#ef4444' : isWarning ? '#f59e0b' : '#10b981';
+
+  return (
+    <div
+      role={isError ? 'alert' : 'status'}
+      aria-live={isError ? 'assertive' : 'polite'}
+      data-testid="mm-csv-import-feedback-banner"
+      data-status={feedback.status}
+      style={{
+        margin: '0 0 14px',
+        padding: '12px 16px',
+        borderRadius: '12px',
+        background: 'var(--surface, #0f172a)',
+        border: `1.5px solid ${accentColor}`,
+        borderLeft: `5px solid ${accentColor}`,
+        boxShadow: '0 10px 28px rgba(0, 0, 0, 0.25)',
+        display: 'grid',
+        gap: '8px',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '12px',
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '28px',
+              height: '28px',
+              borderRadius: '8px',
+              background: isError
+                ? 'rgba(239, 68, 68, 0.16)'
+                : isWarning
+                ? 'rgba(245, 158, 11, 0.16)'
+                : 'rgba(16, 185, 129, 0.16)',
+              color: accentColor,
+              flexShrink: 0,
+            }}
+          >
+            {isError || isWarning ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+          </span>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <strong style={{ fontSize: '0.9rem', color: 'var(--text-heading, #fff)' }}>
+                {feedback.title}
+              </strong>
+              <span
+                data-testid="mm-csv-feedback-imported-count"
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  background: 'rgba(16, 185, 129, 0.16)',
+                  color: '#10b981',
+                }}
+              >
+                {feedback.importedCount} imported
+              </span>
+              <span
+                data-testid="mm-csv-feedback-failed-count"
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  background:
+                    feedback.failedValidationCount > 0
+                      ? 'rgba(239, 68, 68, 0.18)'
+                      : 'rgba(148, 163, 184, 0.16)',
+                  color: feedback.failedValidationCount > 0 ? '#f87171' : 'var(--muted, #94a3b8)',
+                }}
+              >
+                {feedback.failedValidationCount} failed validation
+              </span>
+            </div>
+            <p
+              style={{
+                margin: '3px 0 0',
+                fontSize: '0.82rem',
+                color: 'var(--text, #e2e8f0)',
+              }}
+              data-testid="mm-csv-feedback-message"
+            >
+              {feedback.message}
+            </p>
+          </div>
+        </div>
+
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Dismiss CSV import notification"
+            data-testid="mm-csv-feedback-dismiss-btn"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--muted, #94a3b8)',
+              cursor: 'pointer',
+              padding: '4px',
+            }}
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* Visual Progress Bar */}
+      <div
+        role="progressbar"
+        aria-label="CSV Import Progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={feedback.progressPercent}
+        data-testid="mm-csv-import-progress-bar"
+        style={{
+          height: '6px',
+          borderRadius: '999px',
+          background: 'rgba(148, 163, 184, 0.2)',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: `${feedback.progressPercent}%`,
+            height: '100%',
+            background: accentColor,
+            transition: 'width 0.3s ease',
+          }}
+        />
+      </div>
+
+      {feedback.validationErrors.length > 0 && (
+        <ul
+          data-testid="mm-csv-feedback-validation-errors"
+          style={{
+            margin: '2px 0 0',
+            paddingLeft: '20px',
+            fontSize: '0.78rem',
+            color: '#fbbf24',
+            display: 'grid',
+            gap: '2px',
+          }}
+        >
+          {feedback.validationErrors.slice(0, 3).map((errMsg, idx) => (
+            <li key={idx}>{errMsg}</li>
+          ))}
+          {feedback.validationErrors.length > 3 && (
+            <li>+{feedback.validationErrors.length - 3} more validation error(s)</li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 export {
   SCOPES,
@@ -292,6 +473,7 @@ export {
   validateCsvRows,
   validateAndParseCsvText,
   MANDATORY_CSV_COLUMNS,
+  buildCsvImportFeedback,
   buildTransactionFingerprint,
   isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
@@ -335,6 +517,8 @@ export type {
   CsvMandatoryColumnName,
   CsvRowValidationError,
   CsvValidationReport,
+  CsvImportFeedbackStatus,
+  CsvImportFeedbackState,
   CsvImportModalProps,
   BulkCsvExportOptions,
   BulkCsvExportSummary,
@@ -742,8 +926,9 @@ export const MoneyManager: React.FC = () => {
     }
   };
 
-  // Toast feedback
+  // Toast feedback & CSV Import Visual Feedback (Progress Bar + Imported/Failed Counts)
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [csvImportFeedback, setCsvImportFeedback] = useState<CsvImportFeedbackState | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -855,9 +1040,15 @@ export const MoneyManager: React.FC = () => {
     async (text: string) => {
       const parsed = parseCsvText(text);
       if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-        showToast(
-          'CSV file is empty or missing mandatory columns (Date, Amount, Description).'
-        );
+        const emptyFeedback = buildCsvImportFeedback({
+          totalRows: 0,
+          importedCount: 0,
+          failedValidationCount: 0,
+          customErrorMessage:
+            'CSV file is empty or missing mandatory columns (Date, Amount, Description).',
+        });
+        setCsvImportFeedback(emptyFeedback);
+        showToast(emptyFeedback.message);
         return;
       }
 
@@ -865,18 +1056,32 @@ export const MoneyManager: React.FC = () => {
       const validation = validateCsvRows(parsed.rows, parsed.headers, mapping);
 
       if (!validation.hasMandatoryColumns) {
-        showToast(
-          validation.columnErrorMessage ||
-            'Missing mandatory CSV column(s): Date, Amount, Description.'
-        );
+        const colFeedback = buildCsvImportFeedback({
+          totalRows: parsed.rows.length,
+          importedCount: 0,
+          failedValidationCount: parsed.rows.length,
+          validationErrors: validation.rowErrorMessages,
+          customErrorMessage:
+            validation.columnErrorMessage ||
+            'Missing mandatory CSV column(s): Date, Amount, Description.',
+        });
+        setCsvImportFeedback(colFeedback);
+        showToast(colFeedback.message);
         return;
       }
 
       if (validation.validRows.length === 0) {
-        showToast(
-          validation.summaryErrorMessage ||
-            'All CSV rows are malformed. Please verify Date, Amount, and Description values.'
-        );
+        const invalidRowsFeedback = buildCsvImportFeedback({
+          totalRows: parsed.rows.length,
+          importedCount: 0,
+          failedValidationCount: validation.malformedRows.length,
+          validationErrors: validation.rowErrorMessages,
+          customErrorMessage:
+            validation.summaryErrorMessage ||
+            'All CSV rows are malformed. Please verify Date, Amount, and Description values.',
+        });
+        setCsvImportFeedback(invalidRowsFeedback);
+        showToast(invalidRowsFeedback.message);
         return;
       }
 
@@ -925,13 +1130,20 @@ export const MoneyManager: React.FC = () => {
       }
       await loadDatabaseState();
       setIsCsvImportModalOpen(false);
-      if (validation.malformedRows.length > 0) {
-        showToast(
-          `Imported ${completedRecords.length} bank transaction(s). ${validation.summaryErrorMessage}`
-        );
-      } else {
-        showToast(`Imported ${completedRecords.length} bank transactions into ledger.`);
-      }
+      const skippedDuplicateCount = Math.max(
+        0,
+        validation.validRows.length - completedRecords.length
+      );
+      const feedback = buildCsvImportFeedback({
+        totalRows: parsed.rows.length,
+        importedCount: completedRecords.length,
+        failedValidationCount: validation.malformedRows.length,
+        skippedDuplicateCount,
+        validationErrors: validation.rowErrorMessages,
+        progressPercent: 100,
+      });
+      setCsvImportFeedback(feedback);
+      showToast(feedback.message);
     },
     [accounts, categories, transactions, selectedMonth, loadDatabaseState, showToast]
   );
@@ -1440,6 +1652,12 @@ export const MoneyManager: React.FC = () => {
           onBackupDownloaded={() => showToast('Backup JSON downloaded successfully & timer reset!')}
         />
 
+        {/* CSV Import Visual Feedback Mechanism (Toast + Progress Bar + Imported & Failed Validation Counts) */}
+        <CsvImportFeedbackBanner
+          feedback={csvImportFeedback}
+          onDismiss={() => setCsvImportFeedback(null)}
+        />
+
         {/* Hidden CSV File Picker linked to csvInputRef */}
         <input
           ref={csvInputRef}
@@ -1516,7 +1734,14 @@ export const MoneyManager: React.FC = () => {
                   }
                 }
                 await loadDatabaseState();
-                showToast(`Imported ${imported.length} bank transactions into ledger.`);
+                const feedback = buildCsvImportFeedback({
+                  totalRows: imported.length,
+                  importedCount: imported.length,
+                  failedValidationCount: 0,
+                  progressPercent: 100,
+                });
+                setCsvImportFeedback(feedback);
+                showToast(feedback.message);
               }}
             />
           )}
@@ -1663,7 +1888,11 @@ export const MoneyManager: React.FC = () => {
           initialFileName={initialCsvFileName}
           initialSelectedFile={selectedFile}
           onClose={() => setIsCsvImportModalOpen(false)}
-          onImportComplete={async (imported) => {
+          onValidationFeedback={(fb) => {
+            setCsvImportFeedback(fb);
+            showToast(fb.message);
+          }}
+          onImportComplete={async (imported, fb) => {
             if (imported.length > 0) {
               setTransactions((prev) => {
                 const existingIds = new Set(prev.map((item) => item.id));
@@ -1677,7 +1906,16 @@ export const MoneyManager: React.FC = () => {
               }
             }
             await loadDatabaseState();
-            showToast(`Imported ${imported.length} bank transactions into ledger.`);
+            const resolvedFeedback =
+              fb ||
+              buildCsvImportFeedback({
+                totalRows: imported.length,
+                importedCount: imported.length,
+                failedValidationCount: 0,
+                progressPercent: 100,
+              });
+            setCsvImportFeedback(resolvedFeedback);
+            showToast(resolvedFeedback.message);
           }}
         />
       </main>

@@ -34,6 +34,7 @@ import {
   validateCsvRows,
   validateAndParseCsvText,
   MANDATORY_CSV_COLUMNS,
+  buildCsvImportFeedback,
   buildTransactionFingerprint,
   isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
@@ -47,6 +48,8 @@ import {
   type CsvMandatoryColumnName,
   type CsvRowValidationError,
   type CsvValidationReport,
+  type CsvImportFeedbackStatus,
+  type CsvImportFeedbackState,
 } from './csvImporter';
 
 export {
@@ -63,6 +66,7 @@ export {
   validateCsvRows,
   validateAndParseCsvText,
   MANDATORY_CSV_COLUMNS,
+  buildCsvImportFeedback,
   buildTransactionFingerprint,
   isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
@@ -76,6 +80,8 @@ export {
   type CsvMandatoryColumnName,
   type CsvRowValidationError,
   type CsvValidationReport,
+  type CsvImportFeedbackStatus,
+  type CsvImportFeedbackState,
 };
 
 export interface CsvImportModalProps {
@@ -88,7 +94,11 @@ export interface CsvImportModalProps {
   initialFileName?: string;
   initialSelectedFile?: File | null;
   onClose: () => void;
-  onImportComplete: (imported: MoneyTransaction[]) => void | Promise<void>;
+  onImportComplete: (
+    imported: MoneyTransaction[],
+    feedback?: CsvImportFeedbackState
+  ) => void | Promise<void>;
+  onValidationFeedback?: (feedback: CsvImportFeedbackState) => void;
 }
 
 export const CsvImportModal: React.FC<CsvImportModalProps> = ({
@@ -102,6 +112,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   initialSelectedFile = null,
   onClose,
   onImportComplete,
+  onValidationFeedback,
 }) => {
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(initialSelectedFile);
@@ -114,6 +125,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   const [skipDuplicates, setSkipDuplicates] = useState<boolean>(true);
   const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
   const [isImporting, setIsImporting] = useState<boolean>(false);
+  const [importProgressPercent, setImportProgressPercent] = useState<number>(0);
+  const [csvImportFeedback, setCsvImportFeedback] = useState<CsvImportFeedbackState | null>(null);
   const [importNotice, setImportNotice] = useState<string | null>(null);
 
   // Parse raw CSV text into headers and key-value row objects
@@ -358,15 +371,34 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   const processCsvContent = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) {
-      setImportNotice('Selected CSV file is empty.');
+      const emptyFeedback = buildCsvImportFeedback({
+        totalRows: 0,
+        importedCount: 0,
+        failedValidationCount: 0,
+        customErrorMessage: 'Selected CSV file is empty.',
+      });
+      setCsvImportFeedback(emptyFeedback);
+      setImportProgressPercent(100);
+      setImportNotice(emptyFeedback.message);
+      onValidationFeedback?.(emptyFeedback);
       return;
     }
 
     try {
       setIsImporting(true);
+      setImportProgressPercent(35);
       const parsed = parseCsvText(trimmed);
       if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-        setImportNotice('No valid transaction rows found in CSV file.');
+        const noRowsFeedback = buildCsvImportFeedback({
+          totalRows: 0,
+          importedCount: 0,
+          failedValidationCount: 0,
+          customErrorMessage: 'No valid transaction rows found in CSV file.',
+        });
+        setCsvImportFeedback(noRowsFeedback);
+        setImportProgressPercent(100);
+        setImportNotice(noRowsFeedback.message);
+        onValidationFeedback?.(noRowsFeedback);
         return;
       }
 
@@ -383,20 +415,40 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       // Strict validation of mandatory columns (Date, Amount, Description) and row values
       const validation = validateCsvRows(parsed.rows, parsed.headers, activeMapping);
       if (!validation.hasMandatoryColumns) {
-        setImportNotice(
-          validation.columnErrorMessage ||
-            'Missing mandatory CSV column(s): Date, Amount, Description.'
-        );
+        const colErrorFeedback = buildCsvImportFeedback({
+          totalRows: parsed.rows.length,
+          importedCount: 0,
+          failedValidationCount: parsed.rows.length,
+          validationErrors: validation.rowErrorMessages,
+          customErrorMessage:
+            validation.columnErrorMessage ||
+            'Missing mandatory CSV column(s): Date, Amount, Description.',
+        });
+        setCsvImportFeedback(colErrorFeedback);
+        setImportProgressPercent(100);
+        setImportNotice(colErrorFeedback.message);
+        onValidationFeedback?.(colErrorFeedback);
         return;
       }
 
       if (validation.validRows.length === 0) {
-        setImportNotice(
-          validation.summaryErrorMessage ||
-            'All CSV rows are malformed. Every row must include a valid Date, non-zero Amount, and Description.'
-        );
+        const rowErrorFeedback = buildCsvImportFeedback({
+          totalRows: parsed.rows.length,
+          importedCount: 0,
+          failedValidationCount: validation.malformedRows.length,
+          validationErrors: validation.rowErrorMessages,
+          customErrorMessage:
+            validation.summaryErrorMessage ||
+            'All CSV rows are malformed. Every row must include a valid Date, non-zero Amount, and Description.',
+        });
+        setCsvImportFeedback(rowErrorFeedback);
+        setImportProgressPercent(100);
+        setImportNotice(rowErrorFeedback.message);
+        onValidationFeedback?.(rowErrorFeedback);
         return;
       }
+
+      setImportProgressPercent(75);
 
       const dedupedMapped = mapCsvRowsToTransactions(validation.validRows, activeMapping, {
         defaultAccountId,
@@ -435,10 +487,19 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       });
 
       if (finalMapped.length === 0) {
-        setImportNotice(
-          validation.summaryErrorMessage ||
-            'Could not parse any valid rows from CSV. Please verify Date, Amount, and Description columns.'
-        );
+        const zeroMappedFeedback = buildCsvImportFeedback({
+          totalRows: parsed.rows.length,
+          importedCount: 0,
+          failedValidationCount: validation.malformedRows.length,
+          validationErrors: validation.rowErrorMessages,
+          customErrorMessage:
+            validation.summaryErrorMessage ||
+            'Could not parse any valid rows from CSV. Please verify Date, Amount, and Description columns.',
+        });
+        setCsvImportFeedback(zeroMappedFeedback);
+        setImportProgressPercent(100);
+        setImportNotice(zeroMappedFeedback.message);
+        onValidationFeedback?.(zeroMappedFeedback);
         return;
       }
 
@@ -448,18 +509,36 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       });
 
       const completedRecords = inserted.length > 0 ? inserted : finalMapped;
-      const malformedSuffix =
-        validation.malformedRows.length > 0
-          ? ` (${validation.summaryErrorMessage})`
-          : '';
-      setImportNotice(
-        `Successfully imported ${completedRecords.length} bank transactions into browser IndexedDB!${malformedSuffix}`
+      const skippedDuplicateCount = Math.max(
+        0,
+        validation.validRows.length - completedRecords.length
       );
-      await Promise.resolve(onImportComplete(completedRecords));
+      const feedback = buildCsvImportFeedback({
+        totalRows: parsed.rows.length,
+        importedCount: completedRecords.length,
+        failedValidationCount: validation.malformedRows.length,
+        skippedDuplicateCount,
+        validationErrors: validation.rowErrorMessages,
+        progressPercent: 100,
+      });
+
+      setImportProgressPercent(100);
+      setCsvImportFeedback(feedback);
+      setImportNotice(feedback.message);
+      onValidationFeedback?.(feedback);
+      await Promise.resolve(onImportComplete(completedRecords, feedback));
       onClose();
     } catch (err) {
       console.error('Failed to import CSV transactions:', err);
-      setImportNotice('Error inserting records into IndexedDB database.');
+      const errFeedback = buildCsvImportFeedback({
+        totalRows: 0,
+        importedCount: 0,
+        failedValidationCount: 0,
+        customErrorMessage: 'Error inserting records into IndexedDB database.',
+      });
+      setCsvImportFeedback(errFeedback);
+      setImportNotice(errFeedback.message);
+      onValidationFeedback?.(errFeedback);
     } finally {
       setIsImporting(false);
     }
@@ -626,6 +705,88 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
             </div>
           </div>
 
+          {/* Visual Import Progress Bar & Validation Feedback Banner */}
+          {(isImporting || csvImportFeedback) && (
+            <div
+              role="region"
+              aria-label="CSV Import Progress and Feedback"
+              data-testid="mm-csv-modal-feedback"
+              style={{
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid var(--border)',
+                display: 'grid',
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                  fontSize: '0.82rem',
+                }}
+              >
+                <strong>
+                  {isImporting
+                    ? 'Processing CSV Import...'
+                    : csvImportFeedback?.title || 'CSV Import Summary'}
+                </strong>
+                {csvImportFeedback && (
+                  <div style={{ display: 'flex', gap: 10, fontSize: '0.78rem' }}>
+                    <span style={{ color: '#10b981', fontWeight: 600 }}>
+                      {csvImportFeedback.importedCount} imported
+                    </span>
+                    <span
+                      style={{
+                        color:
+                          csvImportFeedback.failedValidationCount > 0 ? '#f87171' : '#94a3b8',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {csvImportFeedback.failedValidationCount} failed validation
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={isImporting ? importProgressPercent : csvImportFeedback?.progressPercent ?? 100}
+                data-testid="mm-csv-modal-progress-bar"
+                style={{
+                  height: '6px',
+                  borderRadius: '999px',
+                  background: 'rgba(148, 163, 184, 0.2)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${
+                      isImporting
+                        ? importProgressPercent
+                        : csvImportFeedback?.progressPercent ?? 100
+                    }%`,
+                    height: '100%',
+                    background:
+                      csvImportFeedback?.status === 'error'
+                        ? '#ef4444'
+                        : csvImportFeedback?.status === 'warning'
+                        ? '#f59e0b'
+                        : '#10b981',
+                    transition: 'width 0.25s ease',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Import Status Alert Notice */}
           {importNotice && (
             <div
@@ -634,17 +795,17 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                 padding: '10px 14px',
                 borderRadius: '8px',
                 background:
-                  /missing|malformed|invalid|error|empty|could not/i.test(importNotice) &&
+                  /missing|malformed|invalid|error|empty|could not|0 records imported/i.test(importNotice) &&
                   !/^successfully/i.test(importNotice)
                     ? 'rgba(239, 68, 68, 0.12)'
                     : 'rgba(16, 185, 129, 0.12)',
                 border:
-                  /missing|malformed|invalid|error|empty|could not/i.test(importNotice) &&
+                  /missing|malformed|invalid|error|empty|could not|0 records imported/i.test(importNotice) &&
                   !/^successfully/i.test(importNotice)
                     ? '1px solid rgba(239, 68, 68, 0.4)'
                     : '1px solid rgba(16, 185, 129, 0.35)',
                 color:
-                  /missing|malformed|invalid|error|empty|could not/i.test(importNotice) &&
+                  /missing|malformed|invalid|error|empty|could not|0 records imported/i.test(importNotice) &&
                   !/^successfully/i.test(importNotice)
                     ? '#f87171'
                     : '#10b981',
@@ -655,7 +816,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
               }}
               data-testid="mm-csv-import-notice"
             >
-              {/missing|malformed|invalid|error|empty|could not/i.test(importNotice) &&
+              {/missing|malformed|invalid|error|empty|could not|0 records imported/i.test(importNotice) &&
               !/^successfully/i.test(importNotice) ? (
                 <AlertCircle size={16} />
               ) : (

@@ -76,6 +76,21 @@ export interface BulkCsvImportSummaryMetrics {
   transferTotal: number;
 }
 
+export type CsvImportFeedbackStatus = 'idle' | 'processing' | 'success' | 'warning' | 'error';
+
+export interface CsvImportFeedbackState {
+  status: CsvImportFeedbackStatus;
+  progressPercent: number;
+  totalRows: number;
+  importedCount: number;
+  failedValidationCount: number;
+  skippedDuplicateCount: number;
+  title: string;
+  message: string;
+  validationErrors: string[];
+  timestamp: string;
+}
+
 export interface BulkCsvImportLedgerResult {
   importedTransactions: MoneyTransaction[];
   parsedRowCount: number;
@@ -85,6 +100,82 @@ export interface BulkCsvImportLedgerResult {
   validation?: CsvValidationReport;
   malformedRows?: CsvRowValidationError[];
   errorMessage?: string | null;
+  feedback?: CsvImportFeedbackState;
+}
+
+export function buildCsvImportFeedback(params: {
+  totalRows: number;
+  importedCount: number;
+  failedValidationCount: number;
+  skippedDuplicateCount?: number;
+  validationErrors?: string[];
+  progressPercent?: number;
+  isProcessing?: boolean;
+  customErrorMessage?: string | null;
+}): CsvImportFeedbackState {
+  const totalRows = Math.max(0, Number(params.totalRows) || 0);
+  const importedCount = Math.max(0, Number(params.importedCount) || 0);
+  const failedValidationCount = Math.max(0, Number(params.failedValidationCount) || 0);
+  const skippedDuplicateCount = Math.max(0, Number(params.skippedDuplicateCount) || 0);
+  const validationErrors = Array.isArray(params.validationErrors) ? params.validationErrors : [];
+  const progressPercent =
+    typeof params.progressPercent === 'number'
+      ? Math.min(100, Math.max(0, Math.round(params.progressPercent)))
+      : params.isProcessing
+      ? 55
+      : 100;
+
+  let status: CsvImportFeedbackStatus = 'success';
+  let title = 'CSV Import Complete';
+  let message = '';
+
+  if (params.isProcessing) {
+    status = 'processing';
+    title = 'Importing CSV Transactions...';
+    message = `Validating and importing ${totalRows} CSV row(s) (${progressPercent}%)...`;
+  } else if (params.customErrorMessage && importedCount === 0) {
+    status = 'error';
+    title = 'CSV Import Validation Failed';
+    message = `${params.customErrorMessage} (0 records imported, ${failedValidationCount} row(s) failed validation).`;
+  } else if (importedCount === 0 && failedValidationCount > 0) {
+    status = 'error';
+    title = 'CSV Import Validation Failed';
+    message = `0 records imported — ${failedValidationCount} of ${totalRows} row(s) failed validation. ${
+      validationErrors[0] || ''
+    }`.trim();
+  } else if (importedCount > 0 && failedValidationCount > 0) {
+    status = 'warning';
+    title = 'CSV Imported with Validation Warnings';
+    const dupPart =
+      skippedDuplicateCount > 0 ? `, ${skippedDuplicateCount} duplicate(s) skipped` : '';
+    message = `Successfully imported ${importedCount} record(s); ${failedValidationCount} row(s) failed validation${dupPart}.`;
+  } else if (importedCount > 0) {
+    status = 'success';
+    title = 'CSV Import Successful';
+    const dupPart =
+      skippedDuplicateCount > 0 ? ` (${skippedDuplicateCount} duplicate row(s) skipped)` : '';
+    message = `Successfully imported ${importedCount} record(s) into ledger (0 failed validation)${dupPart}.`;
+  } else {
+    status = skippedDuplicateCount > 0 ? 'warning' : 'error';
+    title = skippedDuplicateCount > 0 ? 'No New Records Imported' : 'CSV Import Failed';
+    message =
+      skippedDuplicateCount > 0
+        ? `0 new records imported — ${skippedDuplicateCount} duplicate row(s) skipped (0 failed validation).`
+        : '0 records imported. Please verify Date, Amount, and Description columns.';
+  }
+
+  return {
+    status,
+    progressPercent,
+    totalRows,
+    importedCount,
+    failedValidationCount,
+    skippedDuplicateCount,
+    title,
+    message,
+    validationErrors,
+    timestamp: new Date().toISOString(),
+  };
 }
 
 export const SAMPLE_BANK_STATEMENT_CSV = `Date,Narration,Withdrawal Amt.,Deposit Amt.,Category,Bank
@@ -1020,6 +1111,17 @@ export async function bulkImportCsvToLedger(
   const validation = validateCsvRows(parsed.rows, parsed.headers, columnMapping);
 
   if (parsed.rows.length === 0 || !validation.hasMandatoryColumns) {
+    const feedback = buildCsvImportFeedback({
+      totalRows: parsed.rows.length,
+      importedCount: 0,
+      failedValidationCount: validation.malformedRows.length || parsed.rows.length,
+      skippedDuplicateCount: 0,
+      validationErrors: validation.rowErrorMessages,
+      customErrorMessage:
+        validation.columnErrorMessage ||
+        validation.summaryErrorMessage ||
+        'CSV file is empty or missing mandatory columns (Date, Amount, Description).',
+    });
     return {
       importedTransactions: [],
       parsedRowCount: parsed.rows.length,
@@ -1029,6 +1131,7 @@ export async function bulkImportCsvToLedger(
       validation,
       malformedRows: validation.malformedRows,
       errorMessage: validation.summaryErrorMessage,
+      feedback,
     };
   }
 
@@ -1070,6 +1173,18 @@ export async function bulkImportCsvToLedger(
     skipDuplicates: shouldSkipDuplicates,
   });
   const summary = summarizeMappedCsvTransactions(importedTransactions);
+  const skippedDuplicateCount = Math.max(
+    0,
+    validation.validRows.length - importedTransactions.length
+  );
+  const feedback = buildCsvImportFeedback({
+    totalRows: parsed.rows.length,
+    importedCount: importedTransactions.length,
+    failedValidationCount: validation.malformedRows.length,
+    skippedDuplicateCount,
+    validationErrors: validation.rowErrorMessages,
+    customErrorMessage: validation.summaryErrorMessage,
+  });
 
   return {
     importedTransactions,
@@ -1080,6 +1195,7 @@ export async function bulkImportCsvToLedger(
     validation,
     malformedRows: validation.malformedRows,
     errorMessage: validation.summaryErrorMessage,
+    feedback,
   };
 }
 

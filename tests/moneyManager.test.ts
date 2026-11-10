@@ -4838,6 +4838,107 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       'Expected summary error message describing the 3 malformed rows'
     );
   });
+
+  it('displays visual feedback (toast notification and progress bar) showing imported record count and failed validation row count when Import CSV is triggered', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      buildCsvImportFeedback,
+      CsvImportFeedbackBanner,
+      bulkImportCsvToLedger,
+    } = await import('../src/pages/tools/MoneyManager');
+
+    assert.equal(typeof buildCsvImportFeedback, 'function');
+    assert.equal(typeof CsvImportFeedbackBanner, 'function');
+
+    // 1. Clean import feedback (all valid)
+    const successFeedback = buildCsvImportFeedback({
+      totalRows: 5,
+      importedCount: 5,
+      failedValidationCount: 0,
+      skippedDuplicateCount: 0,
+      progressPercent: 100,
+    });
+    assert.equal(successFeedback.status, 'success');
+    assert.equal(successFeedback.progressPercent, 100);
+    assert.equal(successFeedback.importedCount, 5);
+    assert.equal(successFeedback.failedValidationCount, 0);
+    assert.ok(
+      successFeedback.message.includes('Successfully imported 5 record(s)') &&
+        successFeedback.message.includes('0 failed validation')
+    );
+
+    // 2. Partial import with failed validation rows
+    const warningFeedback = buildCsvImportFeedback({
+      totalRows: 4,
+      importedCount: 2,
+      failedValidationCount: 2,
+      skippedDuplicateCount: 0,
+      validationErrors: [
+        'Row 2 (line 3): Invalid or missing Date — Date "bad" is invalid.',
+        'Row 4 (line 5): Invalid or missing Amount — Amount "abc" is not a valid non-zero number.',
+      ],
+    });
+    assert.equal(warningFeedback.status, 'warning');
+    assert.equal(warningFeedback.importedCount, 2);
+    assert.equal(warningFeedback.failedValidationCount, 2);
+    assert.ok(
+      warningFeedback.message.includes('Successfully imported 2 record(s); 2 row(s) failed validation')
+    );
+
+    // 3. Complete validation failure (0 imported)
+    const errorFeedback = buildCsvImportFeedback({
+      totalRows: 2,
+      importedCount: 0,
+      failedValidationCount: 2,
+      validationErrors: ['Row 1 (line 2): Invalid or missing Description — Description is missing.'],
+    });
+    assert.equal(errorFeedback.status, 'error');
+    assert.equal(errorFeedback.importedCount, 0);
+    assert.equal(errorFeedback.failedValidationCount, 2);
+    assert.ok(errorFeedback.message.includes('0 records imported — 2 of 2 row(s) failed validation'));
+
+    // 4. Verify bulkImportCsvToLedger returns structured feedback
+    await resetDatabaseToDefaults();
+    const csvWithOneValidOneInvalid = [
+      'Date,Description,Amount,Category,Bank',
+      '2026-11-22,UPI/Valid Coffee Shop,-280,Food & Groceries,ICICI',
+      '2026-11-23,UPI/Broken Amount Row,not_numeric,Food & Groceries,ICICI',
+    ].join('\n');
+    const ledgerImport = await bulkImportCsvToLedger(csvWithOneValidOneInvalid, {
+      defaultMonth: '2026-11',
+    });
+    assert.ok(ledgerImport.feedback, 'Expected bulkImportCsvToLedger to include feedback');
+    assert.equal(ledgerImport.feedback?.importedCount, 1);
+    assert.equal(ledgerImport.feedback?.failedValidationCount, 1);
+    assert.equal(ledgerImport.feedback?.progressPercent, 100);
+
+    // 5. Verify MoneyManager.tsx and CsvImportModal.tsx render the progress bar & feedback banner
+    const toolsMmSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/tools/MoneyManager.tsx'),
+      'utf8'
+    );
+    const modalSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/CsvImportModal.tsx'),
+      'utf8'
+    );
+
+    assert.ok(
+      toolsMmSrc.includes('mm-csv-import-feedback-banner') &&
+        toolsMmSrc.includes('mm-csv-import-progress-bar') &&
+        toolsMmSrc.includes('mm-csv-feedback-imported-count') &&
+        toolsMmSrc.includes('mm-csv-feedback-failed-count') &&
+        toolsMmSrc.includes('role="progressbar"'),
+      'Expected MoneyManager.tsx to render CsvImportFeedbackBanner with progressbar and imported/failed counts'
+    );
+    assert.ok(
+      modalSrc.includes('mm-csv-modal-progress-bar') &&
+        modalSrc.includes('role="progressbar"') &&
+        modalSrc.includes('failed validation'),
+      'Expected CsvImportModal.tsx to render progress bar and validation feedback'
+    );
+  });
 });
+
 
 
