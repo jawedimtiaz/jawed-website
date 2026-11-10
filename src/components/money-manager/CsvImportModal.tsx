@@ -28,6 +28,8 @@ import {
   bulkImportCsvFileToLedger,
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
+  buildTransactionFingerprint,
+  isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
   SAMPLE_CSV_FILENAME,
   downloadSampleCsvTemplate,
@@ -46,6 +48,8 @@ export {
   bulkImportCsvFileToLedger,
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
+  buildTransactionFingerprint,
+  isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
   SAMPLE_CSV_FILENAME,
   downloadSampleCsvTemplate,
@@ -255,7 +259,13 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
 
     try {
       setIsImporting(true);
-      const inserted = await bulkImportTransactions(mappedTransactions);
+      const recordsWithUuid = mappedTransactions.map((tx) => ({
+        ...tx,
+        id: crypto.randomUUID(),
+      }));
+      const inserted = await bulkImportTransactions(recordsWithUuid, {
+        skipDuplicates,
+      });
       setImportNotice(
         `Successfully imported ${inserted.length} bank transactions into browser IndexedDB!`
       );

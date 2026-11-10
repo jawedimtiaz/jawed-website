@@ -1664,32 +1664,116 @@ export async function deleteTransaction(id: string): Promise<void> {
   }
 }
 
+const UUID_V4_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Generates a RFC-4122 v4 UUID using native `crypto.randomUUID()`.
+ */
+export function generateTransactionUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * Builds a normalized duplicate-detection fingerprint matching `date + amount + description` (note).
+ */
+export function buildLedgerDuplicateKey(tx: {
+  date: string;
+  amount: number;
+  note?: string;
+  description?: string;
+}): string {
+  const dateOnly = String(tx.date || '').slice(0, 10);
+  const roundedAmt = Math.round(Math.abs(Number(tx.amount) || 0) * 100);
+  const cleanDescription = String(tx.note ?? tx.description ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+  return `${dateOnly}|${roundedAmt}|${cleanDescription}`;
+}
+
 /**
  * Bulk-imports an array of mapped bank statement transactions directly into the 'transactions' IndexedDB store.
+ * Includes duplicate prevention (matching existing `date + amount + description`) and assigns a unique
+ * `crypto.randomUUID()` to each imported item before saving to IndexedDB.
  */
 export async function bulkImportTransactions(
-  transactionsInput: Array<Omit<MoneyTransaction, 'id'> & { id?: string }>
+  transactionsInput: Array<Omit<MoneyTransaction, 'id'> & { id?: string; description?: string }>,
+  options?: { skipDuplicates?: boolean }
 ): Promise<MoneyTransaction[]> {
   if (!Array.isArray(transactionsInput) || transactionsInput.length === 0) {
     return [];
   }
 
-  const nowTs = Date.now();
-  const records: MoneyTransaction[] = transactionsInput
-    .map((item, idx) => ({
+  const shouldSkipDuplicates = options?.skipDuplicates ?? true;
+  const db = await getMoneyManagerDB();
+
+  const existingTransactions: MoneyTransaction[] = !db
+    ? [...memoryStore.transactions.values()]
+    : await db.getAll('transactions');
+
+  const existingFingerprints = new Set<string>();
+  const existingIds = new Set<string>();
+  for (const existing of existingTransactions) {
+    existingIds.add(existing.id);
+    if (shouldSkipDuplicates) {
+      existingFingerprints.add(buildLedgerDuplicateKey(existing));
+    }
+  }
+
+  const records: MoneyTransaction[] = [];
+
+  for (const item of transactionsInput) {
+    const numericAmount = Math.max(0, Number(item.amount) || 0);
+    if (numericAmount <= 0) {
+      continue;
+    }
+
+    const duplicateKey = buildLedgerDuplicateKey({
+      date: item.date,
+      amount: numericAmount,
+      note: item.note,
+      description: item.description,
+    });
+
+    if (shouldSkipDuplicates && existingFingerprints.has(duplicateKey)) {
+      continue;
+    }
+    existingFingerprints.add(duplicateKey);
+
+    let assignedId =
+      item.id && UUID_V4_REGEX.test(item.id) && !existingIds.has(item.id)
+        ? item.id
+        : typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : generateTransactionUuid();
+
+    while (existingIds.has(assignedId)) {
+      assignedId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : generateTransactionUuid();
+    }
+    existingIds.add(assignedId);
+
+    records.push({
       ...item,
-      id:
-        item.id ||
-        `tx-csv-${nowTs}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
-      amount: Math.max(0, Number(item.amount) || 0),
+      id: assignedId,
+      amount: numericAmount,
       receiptImages: Array.isArray(item.receiptImages) ? item.receiptImages : [],
       isAnomaly: Boolean(item.isAnomaly),
-    }))
-    .filter((rec) => rec.amount > 0);
+    });
+  }
 
   if (records.length === 0) return [];
 
-  const db = await getMoneyManagerDB();
   if (!db) {
     for (const rec of records) {
       memoryStore.transactions.set(rec.id, rec);

@@ -307,17 +307,35 @@ function inferCategoryFromNarration(
   };
 }
 
-function buildTransactionFingerprint(tx: {
+/**
+ * Builds a normalized duplicate-detection fingerprint matching existing `date + amount + description` (note).
+ */
+export function buildTransactionFingerprint(tx: {
   date: string;
-  type: string;
   amount: number;
-  accountId: string;
-  note: string;
+  note?: string;
+  description?: string;
 }): string {
   const dateOnly = String(tx.date || '').slice(0, 10);
-  const roundedAmt = Math.round((Number(tx.amount) || 0) * 100);
-  const cleanNote = String(tx.note || '').trim().toLowerCase();
-  return `${dateOnly}|${tx.type}|${roundedAmt}|${tx.accountId}|${cleanNote}`;
+  const roundedAmt = Math.round(Math.abs(Number(tx.amount) || 0) * 100);
+  const cleanDescription = String(tx.note ?? tx.description ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+  return `${dateOnly}|${roundedAmt}|${cleanDescription}`;
+}
+
+/**
+ * Checks whether a candidate CSV transaction matches an existing transaction by `date + amount + description`.
+ */
+export function isDuplicateCsvTransaction(
+  candidate: { date: string; amount: number; note?: string; description?: string },
+  existingTransactions: Array<{ date: string; amount: number; note?: string; description?: string }>
+): boolean {
+  const candidateFp = buildTransactionFingerprint(candidate);
+  return existingTransactions.some(
+    (existing) => buildTransactionFingerprint(existing) === candidateFp
+  );
 }
 
 /**
@@ -374,7 +392,7 @@ export function mapCsvRowsToTransactions(
     accounts,
     categories,
     historicalTransactions = [],
-    skipDuplicates = false,
+    skipDuplicates = true,
   } = options;
 
   const accountByName = new Map<string, string>();
@@ -392,7 +410,7 @@ export function mapCsvRowsToTransactions(
 
   const results: Array<Omit<MoneyTransaction, 'id'> & { id?: string }> = [];
 
-  rows.forEach((row, index) => {
+  rows.forEach((row) => {
     const rawDate = mapping.dateColumn ? row[mapping.dateColumn] : '';
     const rawTime = (row['Time'] || row['time'] || '').trim();
     const combinedDateInput =
@@ -547,8 +565,17 @@ export function mapCsvRowsToTransactions(
     const rawAnomalyFlag = (row['Anomaly Flag'] || row['isAnomaly'] || '').trim();
     const resolvedIsAnomaly = /^(yes|true|1)$/i.test(rawAnomalyFlag);
 
+    const uniqueId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          });
+
     const candidateTx: Omit<MoneyTransaction, 'id'> & { id?: string } = {
-      id: `tx-csv-${Date.now()}-${index}`,
+      id: uniqueId,
       date,
       type: txType,
       accountId: resolvedAccountId,
@@ -572,10 +599,18 @@ export function mapCsvRowsToTransactions(
 
     if (skipDuplicates) {
       const fp = buildTransactionFingerprint(candidateTx);
-      if (existingFingerprints.has(fp)) {
+      const rawFp = rawNarration
+        ? buildTransactionFingerprint({
+            date: candidateTx.date,
+            amount: candidateTx.amount,
+            description: rawNarration,
+          })
+        : fp;
+      if (existingFingerprints.has(fp) || existingFingerprints.has(rawFp)) {
         return;
       }
       existingFingerprints.add(fp);
+      existingFingerprints.add(rawFp);
     }
 
     results.push(candidateTx);
@@ -624,6 +659,7 @@ export async function bulkImportCsvToLedger(
     historicalTransactions = historicalTransactions || state.transactions;
   }
 
+  const shouldSkipDuplicates = options?.skipDuplicates ?? true;
   const defaultAccountId = options?.defaultAccountId || accounts[0]?.id || 'acc-icici';
   const mapped = mapCsvRowsToTransactions(parsed.rows, columnMapping, {
     defaultAccountId,
@@ -633,10 +669,21 @@ export async function bulkImportCsvToLedger(
     accounts,
     categories,
     historicalTransactions,
-    skipDuplicates: options?.skipDuplicates ?? false,
+    skipDuplicates: shouldSkipDuplicates,
   });
 
-  const importedTransactions = await bulkImportTransactions(mapped);
+  const mappedWithUuids = mapped.map((tx) => ({
+    ...tx,
+    id:
+      tx.id ||
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : undefined),
+  }));
+
+  const importedTransactions = await bulkImportTransactions(mappedWithUuids, {
+    skipDuplicates: shouldSkipDuplicates,
+  });
   const summary = summarizeMappedCsvTransactions(importedTransactions);
 
   return {

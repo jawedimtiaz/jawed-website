@@ -4594,8 +4594,45 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.ok(
       modalSrc.includes('csvInputRef.current?.click()') &&
         modalSrc.includes('Download Sample CSV') &&
-        modalSrc.includes('mm-csv-download-sample-btn'),
-      'Expected CsvImportModal.tsx to trigger csvInputRef.current?.click() and render Download Sample CSV button'
+        modalSrc.includes('mm-csv-download-sample-btn') &&
+        modalSrc.includes('crypto.randomUUID()'),
+      'Expected CsvImportModal.tsx to trigger csvInputRef.current?.click(), render Download Sample CSV button, and assign crypto.randomUUID()'
     );
+
+    // Verify each imported item has a unique RFC-4122 v4 UUID assigned via crypto.randomUUID()
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const assignedIds = new Set<string>();
+    for (const tx of importResult.importedTransactions) {
+      assert.ok(
+        uuidRegex.test(tx.id),
+        `Expected imported transaction id "${tx.id}" to be a valid UUID from crypto.randomUUID()`
+      );
+      assignedIds.add(tx.id);
+    }
+    assert.equal(assignedIds.size, importResult.importedTransactions.length);
+
+    // Verify duplicate prevention matching existing date + amount + description (even if Bank column or casing differs)
+    const duplicateAndNewCsv = [
+      'Date,Narration,Withdrawal Amt.,Deposit Amt.,Category,Bank',
+      '2026-11-16,  upi/swiggy instamart fresh groceries  ,845,,Food & Groceries,SBI',
+      '2026-11-29,UPI/Fresh Bakery Coffee Beans,420,,Food & Groceries,ICICI',
+      '2026-11-29,UPI/Fresh Bakery Coffee Beans,420,,Food & Groceries,ICICI',
+    ].join('\n');
+
+    const secondImport = await bulkImportCsvToLedger(duplicateAndNewCsv, {
+      defaultMonth: '2026-11',
+    });
+    assert.equal(
+      secondImport.importedTransactions.length,
+      1,
+      'Expected only the 1 non-duplicate transaction to be imported'
+    );
+    assert.equal(
+      secondImport.skippedRowCount,
+      2,
+      'Expected 1 existing duplicate and 1 intra-CSV duplicate (matching date + amount + description) to be skipped'
+    );
+    assert.ok(uuidRegex.test(secondImport.importedTransactions[0].id));
   });
 });

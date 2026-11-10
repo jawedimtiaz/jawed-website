@@ -459,8 +459,10 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
       defaultMonth: selectedMonth,
       accounts,
       categories,
+      historicalTransactions: transactions,
+      skipDuplicates: true,
     });
-  }, [csvRows, csvMapping, csvDefaultAccountId, selectedMonth, accounts, categories]);
+  }, [csvRows, csvMapping, csvDefaultAccountId, selectedMonth, accounts, categories, transactions]);
 
   const bulkExportSummary = useMemo(
     () =>
@@ -571,7 +573,13 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     try {
       setIsProcessing(true);
       setStatusMessage(null);
-      const inserted = await bulkImportTransactions(mappedCsvPreview);
+      const recordsWithUuid = mappedCsvPreview.map((tx) => ({
+        ...tx,
+        id: crypto.randomUUID(),
+      }));
+      const inserted = await bulkImportTransactions(recordsWithUuid, {
+        skipDuplicates: true,
+      });
       await onDataRestored();
       setCsvRows([]);
       setCsvHeaders([]);

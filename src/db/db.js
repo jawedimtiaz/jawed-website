@@ -1353,27 +1353,74 @@ export async function deleteTransaction(id) {
   }
 }
 
-export async function bulkImportTransactions(transactionsInput) {
+export async function bulkImportTransactions(transactionsInput, options) {
   if (!Array.isArray(transactionsInput) || transactionsInput.length === 0) {
     return [];
   }
 
-  const nowTs = Date.now();
-  const records = transactionsInput
-    .map((item, idx) => ({
+  const shouldSkipDuplicates = options?.skipDuplicates ?? true;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const makeDuplicateKey = (tx) => {
+    const dateOnly = String(tx.date || '').slice(0, 10);
+    const roundedAmt = Math.round(Math.abs(Number(tx.amount) || 0) * 100);
+    const cleanDesc = String(tx.note ?? tx.description ?? '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+    return `${dateOnly}|${roundedAmt}|${cleanDesc}`;
+  };
+
+  const db = await getMoneyManagerDB();
+  const existingTransactions = !db
+    ? [...memoryStore.transactions.values()]
+    : await db.getAll('transactions');
+
+  const existingFingerprints = new Set();
+  const existingIds = new Set();
+  for (const existing of existingTransactions) {
+    existingIds.add(existing.id);
+    if (shouldSkipDuplicates) {
+      existingFingerprints.add(makeDuplicateKey(existing));
+    }
+  }
+
+  const records = [];
+  for (const item of transactionsInput) {
+    const numericAmount = Math.max(0, Number(item.amount) || 0);
+    if (numericAmount <= 0) continue;
+
+    const dupKey = makeDuplicateKey({
+      date: item.date,
+      amount: numericAmount,
+      note: item.note,
+      description: item.description,
+    });
+    if (shouldSkipDuplicates && existingFingerprints.has(dupKey)) {
+      continue;
+    }
+    existingFingerprints.add(dupKey);
+
+    let assignedId =
+      item.id && uuidRegex.test(item.id) && !existingIds.has(item.id)
+        ? item.id
+        : crypto.randomUUID();
+    while (existingIds.has(assignedId)) {
+      assignedId = crypto.randomUUID();
+    }
+    existingIds.add(assignedId);
+
+    records.push({
       ...item,
-      id:
-        item.id ||
-        `tx-csv-${nowTs}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
-      amount: Math.max(0, Number(item.amount) || 0),
+      id: assignedId,
+      amount: numericAmount,
       receiptImages: Array.isArray(item.receiptImages) ? item.receiptImages : [],
       isAnomaly: Boolean(item.isAnomaly),
-    }))
-    .filter((rec) => rec.amount > 0);
+    });
+  }
 
   if (records.length === 0) return [];
 
-  const db = await getMoneyManagerDB();
   if (!db) {
     for (const rec of records) {
       memoryStore.transactions.set(rec.id, rec);
