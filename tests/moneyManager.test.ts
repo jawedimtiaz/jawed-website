@@ -4748,5 +4748,96 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       'Expected imported October CSV income to be persisted in IndexedDB'
     );
   });
+
+  it('strictly validates mandatory CSV columns (Date, Amount, Description) and reports helpful error messages for malformed rows', async () => {
+    const {
+      MANDATORY_CSV_COLUMNS,
+      isValidBankDateInput,
+      isValidCsvAmountInput,
+      validateCsvMandatoryColumns,
+      validateCsvRows,
+      validateAndParseCsvText,
+      bulkImportCsvToLedger,
+    } = await import('../src/pages/tools/MoneyManager');
+
+    assert.deepEqual(MANDATORY_CSV_COLUMNS, ['Date', 'Amount', 'Description']);
+
+    // 1. Validate date and amount validators
+    assert.equal(isValidBankDateInput('2026-11-16'), true);
+    assert.equal(isValidBankDateInput('16/11/2026'), true);
+    assert.equal(isValidBankDateInput('16-Nov-2026'), true);
+    assert.equal(isValidBankDateInput('not-a-date'), false);
+    assert.equal(isValidBankDateInput('2026-99-45'), false);
+    assert.equal(isValidBankDateInput(''), false);
+
+    assert.equal(isValidCsvAmountInput('845'), true);
+    assert.equal(isValidCsvAmountInput('-1,250.50'), true);
+    assert.equal(isValidCsvAmountInput('₹ 24,500.00'), true);
+    assert.equal(isValidCsvAmountInput('0'), false);
+    assert.equal(isValidCsvAmountInput('abc'), false);
+    assert.equal(isValidCsvAmountInput(''), false);
+
+    // 2. Detect missing mandatory columns (e.g., missing Amount and Description)
+    const missingColsCheck = validateCsvMandatoryColumns(['Date', 'Category', 'Bank']);
+    assert.equal(missingColsCheck.hasMandatoryColumns, false);
+    assert.deepEqual(missingColsCheck.missingColumns, ['Amount', 'Description']);
+    assert.ok(
+      missingColsCheck.columnErrorMessage?.includes('Missing mandatory CSV column(s): Amount, Description'),
+      'Expected helpful error message listing missing mandatory columns'
+    );
+
+    const missingColsCsv = [
+      'Date,Category,Bank',
+      '2026-11-16,Food & Groceries,ICICI',
+    ].join('\n');
+    const missingColsImport = await bulkImportCsvToLedger(missingColsCsv);
+    assert.equal(missingColsImport.importedTransactions.length, 0);
+    assert.ok(
+      missingColsImport.errorMessage?.includes('Missing mandatory CSV column(s): Amount, Description')
+    );
+
+    // 3. Detect malformed rows (invalid Date, non-numeric/missing Amount, missing Description) while importing valid rows
+    const mixedCsv = [
+      'Date,Description,Amount,Category,Bank',
+      '2026-11-18,UPI/Valid Grocery Store,-920,Food & Groceries,ICICI',
+      'invalid-date,UPI/Bad Date Row,-450,Food & Groceries,ICICI',
+      '2026-11-19,UPI/Bad Amount Row,not_a_number,Food & Groceries,ICICI',
+      '2026-11-20,, -310,Food & Groceries,ICICI',
+    ].join('\n');
+
+    const parsedAndValidated = validateAndParseCsvText(mixedCsv);
+    assert.equal(parsedAndValidated.validation.hasMandatoryColumns, true);
+    assert.equal(parsedAndValidated.validation.validRows.length, 1);
+    assert.equal(parsedAndValidated.validation.malformedRows.length, 3);
+
+    const [errRow2, errRow3, errRow4] = parsedAndValidated.validation.malformedRows;
+    assert.equal(errRow2.rowNumber, 2);
+    assert.deepEqual(errRow2.missingOrInvalidFields, ['Date']);
+    assert.ok(errRow2.message.includes('Row 2 (line 3): Invalid or missing Date'));
+
+    assert.equal(errRow3.rowNumber, 3);
+    assert.deepEqual(errRow3.missingOrInvalidFields, ['Amount']);
+    assert.ok(errRow3.message.includes('Row 3 (line 4): Invalid or missing Amount'));
+
+    assert.equal(errRow4.rowNumber, 4);
+    assert.deepEqual(errRow4.missingOrInvalidFields, ['Description']);
+    assert.ok(errRow4.message.includes('Row 4 (line 5): Invalid or missing Description'));
+
+    await resetDatabaseToDefaults();
+    const mixedImportResult = await bulkImportCsvToLedger(mixedCsv, {
+      defaultMonth: '2026-11',
+    });
+    assert.equal(
+      mixedImportResult.importedTransactions.length,
+      1,
+      'Expected only the 1 valid row to be imported into IndexedDB'
+    );
+    assert.equal(mixedImportResult.malformedRows?.length, 3);
+    assert.ok(
+      mixedImportResult.errorMessage?.includes('Found 3 malformed CSV row(s)'),
+      'Expected summary error message describing the 3 malformed rows'
+    );
+  });
 });
+
 

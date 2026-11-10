@@ -150,6 +150,12 @@ import {
   bulkImportCsvFileToLedger,
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
+  isValidBankDateInput,
+  isValidCsvAmountInput,
+  validateCsvMandatoryColumns,
+  validateCsvRows,
+  validateAndParseCsvText,
+  MANDATORY_CSV_COLUMNS,
   buildTransactionFingerprint,
   isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
@@ -160,6 +166,9 @@ import {
   type ParsedCsvResult,
   type BulkCsvImportLedgerResult,
   type BulkCsvImportSummaryMetrics,
+  type CsvMandatoryColumnName,
+  type CsvRowValidationError,
+  type CsvValidationReport,
   type CsvImportModalProps,
 } from '../components/money-manager/CsvImportModal';
 import {
@@ -277,6 +286,12 @@ export {
   bulkImportCsvFileToLedger,
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
+  isValidBankDateInput,
+  isValidCsvAmountInput,
+  validateCsvMandatoryColumns,
+  validateCsvRows,
+  validateAndParseCsvText,
+  MANDATORY_CSV_COLUMNS,
   buildTransactionFingerprint,
   isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
@@ -317,6 +332,9 @@ export type {
   ParsedCsvResult,
   BulkCsvImportLedgerResult,
   BulkCsvImportSummaryMetrics,
+  CsvMandatoryColumnName,
+  CsvRowValidationError,
+  CsvValidationReport,
   CsvImportModalProps,
   BulkCsvExportOptions,
   BulkCsvExportSummary,
@@ -837,11 +855,32 @@ export const MoneyManager: React.FC = () => {
     async (text: string) => {
       const parsed = parseCsvText(text);
       if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-        showToast('No valid transaction rows found in CSV file.');
+        showToast(
+          'CSV file is empty or missing mandatory columns (Date, Amount, Description).'
+        );
         return;
       }
+
       const mapping = autoDetectCsvMapping(parsed.headers);
-      const deduped = mapCsvRowsToTransactions(parsed.rows, mapping, {
+      const validation = validateCsvRows(parsed.rows, parsed.headers, mapping);
+
+      if (!validation.hasMandatoryColumns) {
+        showToast(
+          validation.columnErrorMessage ||
+            'Missing mandatory CSV column(s): Date, Amount, Description.'
+        );
+        return;
+      }
+
+      if (validation.validRows.length === 0) {
+        showToast(
+          validation.summaryErrorMessage ||
+            'All CSV rows are malformed. Please verify Date, Amount, and Description values.'
+        );
+        return;
+      }
+
+      const deduped = mapCsvRowsToTransactions(validation.validRows, mapping, {
         defaultAccountId: accounts[0]?.id || 'acc-icici',
         defaultToAccountId: accounts[1]?.id || 'acc-sbi',
         defaultMonth: selectedMonth,
@@ -849,11 +888,12 @@ export const MoneyManager: React.FC = () => {
         categories,
         historicalTransactions: transactions,
         skipDuplicates: true,
+        strictValidation: true,
       });
       const mapped =
         deduped.length > 0
           ? deduped
-          : mapCsvRowsToTransactions(parsed.rows, mapping, {
+          : mapCsvRowsToTransactions(validation.validRows, mapping, {
               defaultAccountId: accounts[0]?.id || 'acc-icici',
               defaultToAccountId: accounts[1]?.id || 'acc-sbi',
               defaultMonth: selectedMonth,
@@ -861,6 +901,7 @@ export const MoneyManager: React.FC = () => {
               categories,
               historicalTransactions: transactions,
               skipDuplicates: false,
+              strictValidation: true,
             });
       const recordsWithUuid = mapped.map((tx) => ({
         ...tx,
@@ -884,7 +925,13 @@ export const MoneyManager: React.FC = () => {
       }
       await loadDatabaseState();
       setIsCsvImportModalOpen(false);
-      showToast(`Imported ${completedRecords.length} bank transactions into ledger.`);
+      if (validation.malformedRows.length > 0) {
+        showToast(
+          `Imported ${completedRecords.length} bank transaction(s). ${validation.summaryErrorMessage}`
+        );
+      } else {
+        showToast(`Imported ${completedRecords.length} bank transactions into ledger.`);
+      }
     },
     [accounts, categories, transactions, selectedMonth, loadDatabaseState, showToast]
   );

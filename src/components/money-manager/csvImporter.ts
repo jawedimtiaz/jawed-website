@@ -12,6 +12,28 @@ import {
 } from '../../db/db';
 import { predictTransactionCategory } from './mlCategorizer';
 
+export const MANDATORY_CSV_COLUMNS = ['Date', 'Amount', 'Description'] as const;
+export type CsvMandatoryColumnName = (typeof MANDATORY_CSV_COLUMNS)[number];
+
+export interface CsvRowValidationError {
+  rowNumber: number;
+  csvLineNumber: number;
+  missingOrInvalidFields: CsvMandatoryColumnName[];
+  message: string;
+  rawRow: Record<string, string>;
+}
+
+export interface CsvValidationReport {
+  isValid: boolean;
+  hasMandatoryColumns: boolean;
+  missingColumns: CsvMandatoryColumnName[];
+  columnErrorMessage: string | null;
+  validRows: Record<string, string>[];
+  malformedRows: CsvRowValidationError[];
+  rowErrorMessages: string[];
+  summaryErrorMessage: string | null;
+}
+
 export interface ParsedCsvResult {
   headers: string[];
   rows: Record<string, string>[];
@@ -40,6 +62,8 @@ export interface CsvMappingOptions {
   categories: MoneyCategory[];
   historicalTransactions?: MoneyTransaction[];
   skipDuplicates?: boolean;
+  strictValidation?: boolean;
+  onMalformedRow?: (error: CsvRowValidationError) => void;
 }
 
 export interface BulkCsvImportSummaryMetrics {
@@ -58,6 +82,9 @@ export interface BulkCsvImportLedgerResult {
   skippedRowCount: number;
   columnMapping: CsvColumnMapping;
   summary: BulkCsvImportSummaryMetrics;
+  validation?: CsvValidationReport;
+  malformedRows?: CsvRowValidationError[];
+  errorMessage?: string | null;
 }
 
 export const SAMPLE_BANK_STATEMENT_CSV = `Date,Narration,Withdrawal Amt.,Deposit Amt.,Category,Bank
@@ -306,6 +333,53 @@ export function normalizeBankDateToIso(rawDate: string, fallbackMonth = '2026-11
   return `${fallbackMonth}-01T12:00`;
 }
 
+/**
+ * Strictly validates whether a raw CSV date string is a recognizable, valid bank calendar date.
+ */
+export function isValidBankDateInput(rawDate: string | undefined): boolean {
+  const clean = String(rawDate || '').trim();
+  if (!clean) return false;
+
+  // ISO YYYY-MM-DDTHH:mm or YYYY-MM-DD HH:mm or YYYY/MM/DD
+  const isoMatch = clean.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})(?:[T\s]+\d{1,2}:\d{2}(?::\d{2})?)?$/);
+  if (isoMatch) {
+    const year = Number.parseInt(isoMatch[1], 10);
+    const month = Number.parseInt(isoMatch[2], 10);
+    const day = Number.parseInt(isoMatch[3], 10);
+    return year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31;
+  }
+
+  // DD/MM/YYYY, DD-MM-YYYY, DD/MM/YY, or DD-MM-YY
+  const dmyMatch = clean.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/);
+  if (dmyMatch) {
+    const first = Number.parseInt(dmyMatch[1], 10);
+    const second = Number.parseInt(dmyMatch[2], 10);
+    const rawYear = dmyMatch[3];
+    const year = Number.parseInt(rawYear.length === 2 ? `20${rawYear}` : rawYear, 10);
+    const day = second > 12 ? second : first;
+    const month = second > 12 ? first : second;
+    return year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31;
+  }
+
+  // DD MMM YYYY or DD-MMM-YY (e.g. 16 Nov 2026, 16-Nov-2026, 16-Nov-26)
+  const textMonthMatch = clean.match(/^(\d{1,2})[\s-]+([A-Za-z]{3,})[\s,-]+(\d{2,4})$/);
+  if (textMonthMatch) {
+    const day = Number.parseInt(textMonthMatch[1], 10);
+    const monKey = textMonthMatch[2].slice(0, 3).toLowerCase();
+    return Boolean(MONTH_LOOKUP[monKey]) && day >= 1 && day <= 31;
+  }
+
+  // MMM DD, YYYY (e.g. Nov 16, 2026)
+  const mdyTextMatch = clean.match(/^([A-Za-z]{3,})\s+(\d{1,2}),?\s+(\d{4})$/);
+  if (mdyTextMatch) {
+    const monKey = mdyTextMatch[1].slice(0, 3).toLowerCase();
+    const day = Number.parseInt(mdyTextMatch[2], 10);
+    return Boolean(MONTH_LOOKUP[monKey]) && day >= 1 && day <= 31;
+  }
+
+  return false;
+}
+
 function parseCurrencyNumber(raw: string | undefined): number {
   if (!raw) return 0;
   const cleaned = String(raw)
@@ -314,6 +388,225 @@ function parseCurrencyNumber(raw: string | undefined): number {
     .replace(/[^\d.-]/g, '');
   const parsed = Number.parseFloat(cleaned);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * Strictly validates whether a raw CSV amount cell is a valid non-zero numeric currency value
+ * (and rejects malformed alphabetic strings like "abc" or "N/A").
+ */
+export function isValidCsvAmountInput(rawAmount: string | undefined): boolean {
+  const clean = String(rawAmount || '').trim();
+  if (!clean) return false;
+
+  // Strip currency symbols/codes, whitespace, commas, parentheses, and trailing CR/DR markers
+  const stripped = clean
+    .replace(/\b(INR|USD|EUR|GBP|AED|SGD|JPY|CAD|AUD|CR|DR)\b/gi, '')
+    .replace(/[₹$,€£¥\s]/g, '')
+    .replace(/^\(([-+]?\d+(?:\.\d+)?)\)$/, '-$1')
+    .trim();
+
+  if (!/^[-+]?(?:\d+\.?\d*|\.\d+)$/.test(stripped)) {
+    return false;
+  }
+
+  const numeric = Number.parseFloat(stripped);
+  return Number.isFinite(numeric) && Math.abs(numeric) > 0;
+}
+
+/**
+ * Validates that the CSV headers / column mapping include all mandatory columns:
+ * Date, Amount (single Amount or split Debit/Credit), and Description (Narration / Note).
+ */
+export function validateCsvMandatoryColumns(
+  headers: string[],
+  customMapping?: Partial<CsvColumnMapping>
+): {
+  hasMandatoryColumns: boolean;
+  missingColumns: CsvMandatoryColumnName[];
+  columnErrorMessage: string | null;
+  resolvedMapping: CsvColumnMapping;
+} {
+  const normalizedHeaders = headers
+    .map((h) => String(h || '').trim())
+    .filter((h) => h.length > 0 && !/^Column_\d+$/.test(h));
+  const headerSet = new Set(normalizedHeaders);
+  const autoMap = autoDetectCsvMapping(normalizedHeaders);
+  const resolvedMapping: CsvColumnMapping = {
+    ...autoMap,
+    ...(customMapping || {}),
+  };
+
+  const hasDateCol = Boolean(
+    resolvedMapping.dateColumn && headerSet.has(resolvedMapping.dateColumn)
+  );
+  const hasAmountCol = Boolean(
+    (resolvedMapping.amountColumn && headerSet.has(resolvedMapping.amountColumn)) ||
+      (resolvedMapping.debitColumn && headerSet.has(resolvedMapping.debitColumn)) ||
+      (resolvedMapping.creditColumn && headerSet.has(resolvedMapping.creditColumn))
+  );
+  const hasDescriptionCol = Boolean(
+    resolvedMapping.noteColumn && headerSet.has(resolvedMapping.noteColumn)
+  );
+
+  const missingColumns: CsvMandatoryColumnName[] = [];
+  if (!hasDateCol) missingColumns.push('Date');
+  if (!hasAmountCol) missingColumns.push('Amount');
+  if (!hasDescriptionCol) missingColumns.push('Description');
+
+  const hasMandatoryColumns = missingColumns.length === 0;
+  const columnErrorMessage = hasMandatoryColumns
+    ? null
+    : `Missing mandatory CSV column(s): ${missingColumns.join(
+        ', '
+      )}. Please ensure your CSV includes Date, Amount (or Withdrawal/Deposit), and Description (or Narration) headers.`;
+
+  return {
+    hasMandatoryColumns,
+    missingColumns,
+    columnErrorMessage,
+    resolvedMapping,
+  };
+}
+
+/**
+ * Strictly validates parsed CSV rows against mandatory columns (Date, Amount, Description)
+ * and returns a structured report with helpful per-row error messages for any malformed rows.
+ */
+export function validateCsvRows(
+  rows: Record<string, string>[],
+  headers: string[],
+  customMapping?: Partial<CsvColumnMapping>
+): CsvValidationReport {
+  const {
+    hasMandatoryColumns,
+    missingColumns,
+    columnErrorMessage,
+    resolvedMapping,
+  } = validateCsvMandatoryColumns(headers, customMapping);
+
+  if (!hasMandatoryColumns) {
+    return {
+      isValid: false,
+      hasMandatoryColumns: false,
+      missingColumns,
+      columnErrorMessage,
+      validRows: [],
+      malformedRows: [],
+      rowErrorMessages: columnErrorMessage ? [columnErrorMessage] : [],
+      summaryErrorMessage: columnErrorMessage,
+    };
+  }
+
+  const validRows: Record<string, string>[] = [];
+  const malformedRows: CsvRowValidationError[] = [];
+
+  rows.forEach((row, idx) => {
+    const rowNumber = idx + 1;
+    const csvLineNumber = idx + 2;
+    const missingOrInvalidFields: CsvMandatoryColumnName[] = [];
+    const reasons: string[] = [];
+
+    // 1. Validate Date
+    const rawDate = (row[resolvedMapping.dateColumn] || '').trim();
+    if (!rawDate) {
+      missingOrInvalidFields.push('Date');
+      reasons.push('Date is missing');
+    } else if (!isValidBankDateInput(rawDate)) {
+      missingOrInvalidFields.push('Date');
+      reasons.push(`Date "${rawDate}" is invalid (expected YYYY-MM-DD or DD/MM/YYYY)`);
+    }
+
+    // 2. Validate Amount (either single amountColumn or split debitColumn/creditColumn)
+    const rawSingleAmt = resolvedMapping.amountColumn
+      ? (row[resolvedMapping.amountColumn] || '').trim()
+      : '';
+    const rawDebitAmt = resolvedMapping.debitColumn
+      ? (row[resolvedMapping.debitColumn] || '').trim()
+      : '';
+    const rawCreditAmt = resolvedMapping.creditColumn
+      ? (row[resolvedMapping.creditColumn] || '').trim()
+      : '';
+
+    const hasValidSingle = rawSingleAmt ? isValidCsvAmountInput(rawSingleAmt) : false;
+    const hasValidDebit = rawDebitAmt ? isValidCsvAmountInput(rawDebitAmt) : false;
+    const hasValidCredit = rawCreditAmt ? isValidCsvAmountInput(rawCreditAmt) : false;
+
+    const hasMalformedSingle = Boolean(rawSingleAmt && !hasValidSingle);
+    const hasMalformedDebit = Boolean(rawDebitAmt && !hasValidDebit);
+    const hasMalformedCredit = Boolean(rawCreditAmt && !hasValidCredit);
+
+    if (
+      (!hasValidSingle && !hasValidDebit && !hasValidCredit) ||
+      (hasMalformedSingle && !hasValidDebit && !hasValidCredit) ||
+      (hasMalformedDebit && !hasValidCredit && !hasValidSingle) ||
+      (hasMalformedCredit && !hasValidDebit && !hasValidSingle)
+    ) {
+      missingOrInvalidFields.push('Amount');
+      const badValue = rawSingleAmt || rawDebitAmt || rawCreditAmt;
+      if (!badValue) {
+        reasons.push('Amount is missing');
+      } else {
+        reasons.push(`Amount "${badValue}" is not a valid non-zero number`);
+      }
+    }
+
+    // 3. Validate Description (Narration / Note)
+    const rawDescription = (row[resolvedMapping.noteColumn] || '').trim();
+    if (!rawDescription) {
+      missingOrInvalidFields.push('Description');
+      reasons.push('Description is missing');
+    }
+
+    if (missingOrInvalidFields.length > 0) {
+      const message = `Row ${rowNumber} (line ${csvLineNumber}): Invalid or missing ${missingOrInvalidFields.join(
+        ', '
+      )} — ${reasons.join('; ')}.`;
+      malformedRows.push({
+        rowNumber,
+        csvLineNumber,
+        missingOrInvalidFields,
+        message,
+        rawRow: row,
+      });
+    } else {
+      validRows.push(row);
+    }
+  });
+
+  const rowErrorMessages = malformedRows.map((item) => item.message);
+  let summaryErrorMessage: string | null = null;
+  if (malformedRows.length > 0) {
+    const preview = rowErrorMessages.slice(0, 3).join(' ');
+    const moreSuffix =
+      malformedRows.length > 3 ? ` (+${malformedRows.length - 3} more row(s))` : '';
+    summaryErrorMessage = `Found ${malformedRows.length} malformed CSV row(s): ${preview}${moreSuffix}`;
+  }
+
+  return {
+    isValid: malformedRows.length === 0 && validRows.length > 0,
+    hasMandatoryColumns: true,
+    missingColumns: [],
+    columnErrorMessage: null,
+    validRows,
+    malformedRows,
+    rowErrorMessages,
+    summaryErrorMessage,
+  };
+}
+
+/**
+ * Parses CSV text and executes strict mandatory-column and row-level validation.
+ */
+export function validateAndParseCsvText(
+  csvContent: string,
+  customMapping?: Partial<CsvColumnMapping>
+): ParsedCsvResult & { validation: CsvValidationReport } {
+  const parsed = parseCsvText(csvContent);
+  const validation = validateCsvRows(parsed.rows, parsed.headers, customMapping);
+  return {
+    ...parsed,
+    validation,
+  };
 }
 
 /**
@@ -442,8 +735,57 @@ export function mapCsvRowsToTransactions(
 
   const results: Array<Omit<MoneyTransaction, 'id'> & { id?: string }> = [];
 
-  rows.forEach((row) => {
-    const rawDate = mapping.dateColumn ? row[mapping.dateColumn] : '';
+  const strictValidation = options.strictValidation ?? true;
+
+  rows.forEach((row, rowIdx) => {
+    const rawDate = mapping.dateColumn ? (row[mapping.dateColumn] || '').trim() : '';
+    const rawNarration = mapping.noteColumn ? (row[mapping.noteColumn] || '').trim() : '';
+    const rawSingleCell = mapping.amountColumn ? (row[mapping.amountColumn] || '').trim() : '';
+    const rawDebitCell = mapping.debitColumn ? (row[mapping.debitColumn] || '').trim() : '';
+    const rawCreditCell = mapping.creditColumn ? (row[mapping.creditColumn] || '').trim() : '';
+
+    if (strictValidation) {
+      const missingOrInvalidFields: CsvMandatoryColumnName[] = [];
+      const reasons: string[] = [];
+
+      if (mapping.dateColumn) {
+        if (!rawDate) {
+          missingOrInvalidFields.push('Date');
+          reasons.push('Date is missing');
+        } else if (!isValidBankDateInput(rawDate)) {
+          missingOrInvalidFields.push('Date');
+          reasons.push(`Date "${rawDate}" is invalid`);
+        }
+      }
+
+      const validSingle = rawSingleCell ? isValidCsvAmountInput(rawSingleCell) : false;
+      const validDebit = rawDebitCell ? isValidCsvAmountInput(rawDebitCell) : false;
+      const validCredit = rawCreditCell ? isValidCsvAmountInput(rawCreditCell) : false;
+      if (!validSingle && !validDebit && !validCredit) {
+        missingOrInvalidFields.push('Amount');
+        const badAmt = rawSingleCell || rawDebitCell || rawCreditCell;
+        reasons.push(badAmt ? `Amount "${badAmt}" is invalid` : 'Amount is missing');
+      }
+
+      if (mapping.noteColumn && !rawNarration) {
+        missingOrInvalidFields.push('Description');
+        reasons.push('Description is missing');
+      }
+
+      if (missingOrInvalidFields.length > 0) {
+        options.onMalformedRow?.({
+          rowNumber: rowIdx + 1,
+          csvLineNumber: rowIdx + 2,
+          missingOrInvalidFields,
+          message: `Row ${rowIdx + 1} (line ${rowIdx + 2}): Invalid or missing ${missingOrInvalidFields.join(
+            ', '
+          )} — ${reasons.join('; ')}.`,
+          rawRow: row,
+        });
+        return;
+      }
+    }
+
     const rawTime = (row['Time'] || row['time'] || '').trim();
     const combinedDateInput =
       rawDate && rawTime && !rawDate.includes('T') && !/\s+\d{2}:\d{2}/.test(rawDate)
@@ -451,7 +793,6 @@ export function mapCsvRowsToTransactions(
         : rawDate;
     const date = normalizeBankDateToIso(combinedDateInput, defaultMonth);
 
-    const rawNarration = mapping.noteColumn ? row[mapping.noteColumn] : '';
     const rawType = mapping.typeColumn ? (row[mapping.typeColumn] || '').trim() : '';
     const rawCategory = mapping.categoryColumn ? (row[mapping.categoryColumn] || '').trim() : '';
     const rawSubCategory = mapping.subCategoryColumn
@@ -471,11 +812,18 @@ export function mapCsvRowsToTransactions(
     let rawNumericAmount = 0;
     let txType: TransactionType = 'Expense';
 
-    const debitVal = mapping.debitColumn ? Math.abs(parseCurrencyNumber(row[mapping.debitColumn])) : 0;
-    const creditVal = mapping.creditColumn
-      ? Math.abs(parseCurrencyNumber(row[mapping.creditColumn]))
-      : 0;
-    const singleAmt = mapping.amountColumn ? parseCurrencyNumber(row[mapping.amountColumn]) : 0;
+    const debitVal =
+      mapping.debitColumn && isValidCsvAmountInput(rawDebitCell)
+        ? Math.abs(parseCurrencyNumber(rawDebitCell))
+        : 0;
+    const creditVal =
+      mapping.creditColumn && isValidCsvAmountInput(rawCreditCell)
+        ? Math.abs(parseCurrencyNumber(rawCreditCell))
+        : 0;
+    const singleAmt =
+      mapping.amountColumn && isValidCsvAmountInput(rawSingleCell)
+        ? parseCurrencyNumber(rawSingleCell)
+        : 0;
 
     if (debitVal > 0 && creditVal === 0) {
       rawNumericAmount = debitVal;
@@ -653,8 +1001,8 @@ export function mapCsvRowsToTransactions(
 
 /**
  * End-to-end bulk CSV import helper:
- * Parses CSV text, auto-detects or applies column mappings, maps rows into MoneyTransactions,
- * and persists them directly into the local IndexedDB (`JawedMoneyManagerDB`) ledger.
+ * Parses CSV text, strictly validates mandatory columns (Date, Amount, Description) and rows,
+ * maps valid rows into MoneyTransactions, and persists them into IndexedDB (`JawedMoneyManagerDB`).
  */
 export async function bulkImportCsvToLedger(
   csvContent: string,
@@ -669,14 +1017,18 @@ export async function bulkImportCsvToLedger(
     ...autoMap,
     ...(options?.customMapping || {}),
   };
+  const validation = validateCsvRows(parsed.rows, parsed.headers, columnMapping);
 
-  if (parsed.rows.length === 0) {
+  if (parsed.rows.length === 0 || !validation.hasMandatoryColumns) {
     return {
       importedTransactions: [],
-      parsedRowCount: 0,
-      skippedRowCount: 0,
+      parsedRowCount: parsed.rows.length,
+      skippedRowCount: parsed.rows.length,
       columnMapping,
       summary: summarizeMappedCsvTransactions([]),
+      validation,
+      malformedRows: validation.malformedRows,
+      errorMessage: validation.summaryErrorMessage,
     };
   }
 
@@ -693,7 +1045,7 @@ export async function bulkImportCsvToLedger(
 
   const shouldSkipDuplicates = options?.skipDuplicates ?? true;
   const defaultAccountId = options?.defaultAccountId || accounts[0]?.id || 'acc-icici';
-  const mapped = mapCsvRowsToTransactions(parsed.rows, columnMapping, {
+  const mapped = mapCsvRowsToTransactions(validation.validRows, columnMapping, {
     defaultAccountId,
     defaultToAccountId: options?.defaultToAccountId,
     defaultCategory: options?.defaultCategory,
@@ -702,6 +1054,7 @@ export async function bulkImportCsvToLedger(
     categories,
     historicalTransactions,
     skipDuplicates: shouldSkipDuplicates,
+    strictValidation: true,
   });
 
   const mappedWithUuids = mapped.map((tx) => ({
@@ -724,6 +1077,9 @@ export async function bulkImportCsvToLedger(
     skippedRowCount: Math.max(0, parsed.rows.length - importedTransactions.length),
     columnMapping,
     summary,
+    validation,
+    malformedRows: validation.malformedRows,
+    errorMessage: validation.summaryErrorMessage,
   };
 }
 

@@ -33,6 +33,12 @@ import {
   bulkImportCsvFileToLedger,
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
+  isValidBankDateInput,
+  isValidCsvAmountInput,
+  validateCsvMandatoryColumns,
+  validateCsvRows,
+  validateAndParseCsvText,
+  MANDATORY_CSV_COLUMNS,
   buildTransactionFingerprint,
   isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
@@ -45,6 +51,9 @@ import {
   computeRollingThreeMonthTrend,
   computeSpendingCardProgress,
   computeCategorySpendingCardProgressList,
+  type CsvMandatoryColumnName,
+  type CsvRowValidationError,
+  type CsvValidationReport,
 } from '../../tools/MoneyManager';
 
 export {
@@ -80,6 +89,12 @@ export {
   bulkImportCsvFileToLedger,
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
+  isValidBankDateInput,
+  isValidCsvAmountInput,
+  validateCsvMandatoryColumns,
+  validateCsvRows,
+  validateAndParseCsvText,
+  MANDATORY_CSV_COLUMNS,
   buildTransactionFingerprint,
   isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
@@ -92,6 +107,11 @@ export {
   computeRollingThreeMonthTrend,
   computeSpendingCardProgress,
   computeCategorySpendingCardProgressList,
+};
+export type {
+  CsvMandatoryColumnName,
+  CsvRowValidationError,
+  CsvValidationReport,
 };
 export default MoneyManager;
 

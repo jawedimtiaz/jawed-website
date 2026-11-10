@@ -28,6 +28,12 @@ import {
   bulkImportCsvFileToLedger,
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
+  isValidBankDateInput,
+  isValidCsvAmountInput,
+  validateCsvMandatoryColumns,
+  validateCsvRows,
+  validateAndParseCsvText,
+  MANDATORY_CSV_COLUMNS,
   buildTransactionFingerprint,
   isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
@@ -38,6 +44,9 @@ import {
   type ParsedCsvResult,
   type BulkCsvImportLedgerResult,
   type BulkCsvImportSummaryMetrics,
+  type CsvMandatoryColumnName,
+  type CsvRowValidationError,
+  type CsvValidationReport,
 } from './csvImporter';
 
 export {
@@ -48,6 +57,12 @@ export {
   bulkImportCsvFileToLedger,
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
+  isValidBankDateInput,
+  isValidCsvAmountInput,
+  validateCsvMandatoryColumns,
+  validateCsvRows,
+  validateAndParseCsvText,
+  MANDATORY_CSV_COLUMNS,
   buildTransactionFingerprint,
   isDuplicateCsvTransaction,
   SAMPLE_BANK_STATEMENT_CSV,
@@ -58,6 +73,9 @@ export {
   type ParsedCsvResult,
   type BulkCsvImportLedgerResult,
   type BulkCsvImportSummaryMetrics,
+  type CsvMandatoryColumnName,
+  type CsvRowValidationError,
+  type CsvValidationReport,
 };
 
 export interface CsvImportModalProps {
@@ -128,7 +146,6 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   const handleLoadCsvContent = (content: string, name: string) => {
     setCsvRawContent(content);
     setFileName(name);
-    setImportNotice(null);
     setRowCategoryOverrides({});
     setRowAccountOverrides({});
 
@@ -136,6 +153,16 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     if (parsed.headers.length > 0) {
       const autoMap = autoDetectCsvMapping(parsed.headers);
       setColumnMapping(autoMap);
+      const validation = validateCsvRows(parsed.rows, parsed.headers, autoMap);
+      if (!validation.hasMandatoryColumns) {
+        setImportNotice(validation.columnErrorMessage);
+      } else if (validation.malformedRows.length > 0) {
+        setImportNotice(validation.summaryErrorMessage);
+      } else {
+        setImportNotice(null);
+      }
+    } else {
+      setImportNotice('Selected CSV file is empty or missing headers (Date, Amount, Description).');
     }
   };
 
@@ -323,6 +350,11 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     };
   }, [mappedTransactions]);
 
+  const csvValidation = useMemo(() => {
+    if (parsedCsv.headers.length === 0) return null;
+    return validateCsvRows(parsedCsv.rows, parsedCsv.headers, columnMapping);
+  }, [parsedCsv.rows, parsedCsv.headers, columnMapping]);
+
   const processCsvContent = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) {
@@ -348,7 +380,25 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
         ? columnMapping
         : autoDetectCsvMapping(parsed.headers);
 
-      const dedupedMapped = mapCsvRowsToTransactions(parsed.rows, activeMapping, {
+      // Strict validation of mandatory columns (Date, Amount, Description) and row values
+      const validation = validateCsvRows(parsed.rows, parsed.headers, activeMapping);
+      if (!validation.hasMandatoryColumns) {
+        setImportNotice(
+          validation.columnErrorMessage ||
+            'Missing mandatory CSV column(s): Date, Amount, Description.'
+        );
+        return;
+      }
+
+      if (validation.validRows.length === 0) {
+        setImportNotice(
+          validation.summaryErrorMessage ||
+            'All CSV rows are malformed. Every row must include a valid Date, non-zero Amount, and Description.'
+        );
+        return;
+      }
+
+      const dedupedMapped = mapCsvRowsToTransactions(validation.validRows, activeMapping, {
         defaultAccountId,
         defaultToAccountId,
         defaultMonth: selectedMonth || '2026-11',
@@ -356,12 +406,13 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
         categories,
         historicalTransactions: transactions,
         skipDuplicates,
+        strictValidation: true,
       });
 
       const fallbackAllMapped =
         dedupedMapped.length > 0
           ? dedupedMapped
-          : mapCsvRowsToTransactions(parsed.rows, activeMapping, {
+          : mapCsvRowsToTransactions(validation.validRows, activeMapping, {
               defaultAccountId,
               defaultToAccountId,
               defaultMonth: selectedMonth || '2026-11',
@@ -369,6 +420,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
               categories,
               historicalTransactions: transactions,
               skipDuplicates: false,
+              strictValidation: true,
             });
 
       const finalMapped = fallbackAllMapped.map((tx, idx) => {
@@ -383,7 +435,10 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       });
 
       if (finalMapped.length === 0) {
-        setImportNotice('Could not parse any valid amounts from CSV rows. Check column mapping.');
+        setImportNotice(
+          validation.summaryErrorMessage ||
+            'Could not parse any valid rows from CSV. Please verify Date, Amount, and Description columns.'
+        );
         return;
       }
 
@@ -393,8 +448,12 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       });
 
       const completedRecords = inserted.length > 0 ? inserted : finalMapped;
+      const malformedSuffix =
+        validation.malformedRows.length > 0
+          ? ` (${validation.summaryErrorMessage})`
+          : '';
       setImportNotice(
-        `Successfully imported ${completedRecords.length} bank transactions into browser IndexedDB!`
+        `Successfully imported ${completedRecords.length} bank transactions into browser IndexedDB!${malformedSuffix}`
       );
       await Promise.resolve(onImportComplete(completedRecords));
       onClose();
@@ -574,9 +633,21 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
               style={{
                 padding: '10px 14px',
                 borderRadius: '8px',
-                background: 'rgba(16, 185, 129, 0.12)',
-                border: '1px solid rgba(16, 185, 129, 0.35)',
-                color: '#10b981',
+                background:
+                  /missing|malformed|invalid|error|empty|could not/i.test(importNotice) &&
+                  !/^successfully/i.test(importNotice)
+                    ? 'rgba(239, 68, 68, 0.12)'
+                    : 'rgba(16, 185, 129, 0.12)',
+                border:
+                  /missing|malformed|invalid|error|empty|could not/i.test(importNotice) &&
+                  !/^successfully/i.test(importNotice)
+                    ? '1px solid rgba(239, 68, 68, 0.4)'
+                    : '1px solid rgba(16, 185, 129, 0.35)',
+                color:
+                  /missing|malformed|invalid|error|empty|could not/i.test(importNotice) &&
+                  !/^successfully/i.test(importNotice)
+                    ? '#f87171'
+                    : '#10b981',
                 fontSize: '0.85rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -584,8 +655,54 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
               }}
               data-testid="mm-csv-import-notice"
             >
-              <CheckCircle2 size={16} />
+              {/missing|malformed|invalid|error|empty|could not/i.test(importNotice) &&
+              !/^successfully/i.test(importNotice) ? (
+                <AlertCircle size={16} />
+              ) : (
+                <CheckCircle2 size={16} />
+              )}
               <span>{importNotice}</span>
+            </div>
+          )}
+
+          {/* Mandatory Columns & Malformed Rows Validation Report */}
+          {csvValidation && (!csvValidation.hasMandatoryColumns || csvValidation.malformedRows.length > 0) && (
+            <div
+              role="alert"
+              style={{
+                padding: '12px 14px',
+                borderRadius: '8px',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.45)',
+                color: '#fbbf24',
+                fontSize: '0.82rem',
+                display: 'grid',
+                gap: 6,
+              }}
+              data-testid="mm-csv-validation-errors"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
+                <AlertCircle size={16} />
+                <span>
+                  {!csvValidation.hasMandatoryColumns
+                    ? `Missing Mandatory Column(s): ${csvValidation.missingColumns.join(', ')}`
+                    : `${csvValidation.malformedRows.length} Malformed CSV Row(s) Detected (Mandatory: Date, Amount, Description)`}
+                </span>
+              </div>
+              {!csvValidation.hasMandatoryColumns ? (
+                <p style={{ margin: 0 }}>{csvValidation.columnErrorMessage}</p>
+              ) : (
+                <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 3 }}>
+                  {csvValidation.malformedRows.slice(0, 5).map((err) => (
+                    <li key={err.rowNumber} data-testid={`mm-csv-malformed-row-${err.rowNumber}`}>
+                      {err.message}
+                    </li>
+                  ))}
+                  {csvValidation.malformedRows.length > 5 && (
+                    <li>+{csvValidation.malformedRows.length - 5} additional malformed row(s)</li>
+                  )}
+                </ul>
+              )}
             </div>
           )}
 

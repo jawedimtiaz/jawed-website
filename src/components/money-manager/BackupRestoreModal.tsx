@@ -54,6 +54,7 @@ import {
   parseCsvText,
   autoDetectCsvMapping,
   mapCsvRowsToTransactions,
+  validateCsvRows,
   SAMPLE_BANK_STATEMENT_CSV,
   SAMPLE_CSV_FILENAME,
   downloadSampleCsvTemplate,
@@ -528,6 +529,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     }
 
     const detected = autoDetectCsvMapping(parsed.headers);
+    const validation = validateCsvRows(parsed.rows, parsed.headers, detected);
     setCsvFileName(sourceName);
     setCsvHeaders(parsed.headers);
     setCsvRows(parsed.rows);
@@ -535,6 +537,25 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     if (!csvDefaultAccountId && accounts[0]) {
       setCsvDefaultAccountId(accounts[0].id);
     }
+
+    if (!validation.hasMandatoryColumns) {
+      setStatusMessage({
+        type: 'error',
+        text:
+          validation.columnErrorMessage ||
+          'Missing mandatory CSV column(s): Date, Amount, Description.',
+      });
+      return;
+    }
+
+    if (validation.malformedRows.length > 0) {
+      setStatusMessage({
+        type: 'error',
+        text: `Loaded ${parsed.rows.length} row(s) from "${sourceName}". ${validation.summaryErrorMessage}`,
+      });
+      return;
+    }
+
     setStatusMessage({
       type: 'success',
       text: `Loaded ${parsed.rows.length} row(s) from "${sourceName}". Review column mapping below and click Done / Import.`,
@@ -598,31 +619,56 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
         ? csvMapping
         : autoDetectCsvMapping(activeHeaders);
 
-    const deduped = mapCsvRowsToTransactions(activeRows, activeMapping, {
+    const validation = validateCsvRows(activeRows, activeHeaders, activeMapping);
+    if (!validation.hasMandatoryColumns) {
+      setStatusMessage({
+        type: 'error',
+        text:
+          validation.columnErrorMessage ||
+          'Missing mandatory CSV column(s): Date, Amount, Description.',
+      });
+      return;
+    }
+
+    if (validation.validRows.length === 0) {
+      setStatusMessage({
+        type: 'error',
+        text:
+          validation.summaryErrorMessage ||
+          'No valid transaction rows could be mapped. Check your Date, Amount, and Description columns.',
+      });
+      return;
+    }
+
+    const deduped = mapCsvRowsToTransactions(validation.validRows, activeMapping, {
       defaultAccountId: csvDefaultAccountId || accounts[0]?.id || 'acc-icici',
       defaultMonth: selectedMonth,
       accounts,
       categories,
       historicalTransactions: transactions,
       skipDuplicates: true,
+      strictValidation: true,
     });
 
     const mappedRows =
       deduped.length > 0
         ? deduped
-        : mapCsvRowsToTransactions(activeRows, activeMapping, {
+        : mapCsvRowsToTransactions(validation.validRows, activeMapping, {
             defaultAccountId: csvDefaultAccountId || accounts[0]?.id || 'acc-icici',
             defaultMonth: selectedMonth,
             accounts,
             categories,
             historicalTransactions: transactions,
             skipDuplicates: false,
+            strictValidation: true,
           });
 
     if (mappedRows.length === 0) {
       setStatusMessage({
         type: 'error',
-        text: 'No valid transaction rows could be mapped. Check your Amount or Debit/Credit column selections.',
+        text:
+          validation.summaryErrorMessage ||
+          'No valid transaction rows could be mapped. Check your Date, Amount, and Description column selections.',
       });
       return;
     }
@@ -642,9 +688,13 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
       setCsvHeaders([]);
       setCsvFileName('');
       setSelectedFile(null);
+      const malformedSuffix =
+        validation.malformedRows.length > 0
+          ? ` (${validation.summaryErrorMessage})`
+          : '';
       setStatusMessage({
         type: 'success',
-        text: `Successfully imported ${(inserted.length > 0 ? inserted : recordsWithUuid).length} bank statement transaction(s) directly into the 'transactions' IndexedDB store.`,
+        text: `Successfully imported ${(inserted.length > 0 ? inserted : recordsWithUuid).length} bank statement transaction(s) directly into the 'transactions' IndexedDB store.${malformedSuffix}`,
       });
     } catch (err) {
       setStatusMessage({
