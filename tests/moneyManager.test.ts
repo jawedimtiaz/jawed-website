@@ -4523,4 +4523,79 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
       'Expected index.html inline script to synchronously update documentElement class from localStorage'
     );
   });
+
+  it('wires csvInputRef and handleCsvFileChange to a hidden CSV file input and provides a one-click Download Sample CSV template that imports cleanly into IndexedDB', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      downloadSampleCsvTemplate,
+      SAMPLE_CSV_FILENAME,
+      SAMPLE_BANK_STATEMENT_CSV,
+      bulkImportCsvToLedger,
+    } = await import('../src/pages/tools/MoneyManager');
+
+    assert.equal(SAMPLE_CSV_FILENAME, 'jawed-money-manager-sample-statement.csv');
+    assert.equal(typeof downloadSampleCsvTemplate, 'function');
+
+    const { fileName, csvContent } = downloadSampleCsvTemplate();
+    assert.equal(fileName, SAMPLE_CSV_FILENAME);
+    assert.equal(csvContent, SAMPLE_BANK_STATEMENT_CSV);
+    assert.ok(csvContent.includes('Date,Narration,Withdrawal Amt.,Deposit Amt.,Category,Bank'));
+
+    // Verify the downloaded sample CSV template guarantees valid imports into IndexedDB
+    const importResult = await bulkImportCsvToLedger(csvContent, {
+      defaultMonth: '2026-11',
+    });
+    assert.ok(
+      importResult.importedTransactions.length >= 5,
+      'Expected sample CSV template to import all sample transactions cleanly'
+    );
+    assert.equal(importResult.skippedRowCount, 0);
+
+    // Verify csvInputRef, hidden <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsvFileChange} />, and Download Sample CSV button across MoneyManager components
+    const componentPaths = [
+      'src/tools/MoneyManager.tsx',
+      'src/components/money-manager/Header.tsx',
+      'src/components/money-manager/CsvImportModal.tsx',
+      'src/components/money-manager/BackupRestoreModal.tsx',
+      'src/components/money-manager/DailyView.tsx',
+    ];
+
+    for (const relPath of componentPaths) {
+      const src = fs.readFileSync(path.resolve(process.cwd(), relPath), 'utf8');
+      assert.ok(
+        src.includes('const csvInputRef = useRef<HTMLInputElement>(null);'),
+        `Expected ${relPath} to declare csvInputRef`
+      );
+      assert.ok(
+        src.includes('ref={csvInputRef}') &&
+          src.includes('type="file"') &&
+          src.includes('accept=".csv,text/csv"') &&
+          src.includes('className="hidden') &&
+          src.includes('onChange={handleCsvFileChange}'),
+        `Expected ${relPath} to wire hidden <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsvFileChange} />`
+      );
+    }
+
+    const headerSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/Header.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      headerSrc.includes('Download Sample CSV') &&
+        headerSrc.includes('mm-header-download-sample-csv-btn'),
+      'Expected Header.tsx to render Download Sample CSV button next to Import CSV'
+    );
+
+    const modalSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/CsvImportModal.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      modalSrc.includes('csvInputRef.current?.click()') &&
+        modalSrc.includes('Download Sample CSV') &&
+        modalSrc.includes('mm-csv-download-sample-btn'),
+      'Expected CsvImportModal.tsx to trigger csvInputRef.current?.click() and render Download Sample CSV button'
+    );
+  });
 });

@@ -52,6 +52,8 @@ import {
   autoDetectCsvMapping,
   mapCsvRowsToTransactions,
   SAMPLE_BANK_STATEMENT_CSV,
+  SAMPLE_CSV_FILENAME,
+  downloadSampleCsvTemplate,
   type CsvColumnMapping,
 } from './csvImporter';
 import {
@@ -132,7 +134,8 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
   onDataRestored,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const csvFileInputRef = useRef<HTMLInputElement | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const csvFileInputRef = csvInputRef;
 
   const [restoreMode, setRestoreMode] = useState<'merge' | 'replace'>('merge');
   const [statusMessage, setStatusMessage] = useState<{
@@ -520,7 +523,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     });
   };
 
-  const handleCsvFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -536,14 +539,24 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
       });
     } finally {
       setIsProcessing(false);
-      if (csvFileInputRef.current) {
-        csvFileInputRef.current.value = '';
+      if (csvInputRef.current) {
+        csvInputRef.current.value = '';
       }
     }
   };
 
+  const handleCsvFileUpload = handleCsvFileChange;
+
   const handleLoadSampleCsv = () => {
     loadCsvContentIntoMapper(SAMPLE_BANK_STATEMENT_CSV, 'sample-bank-statement-nov-2026.csv');
+  };
+
+  const handleDownloadSampleCsv = () => {
+    const { fileName } = downloadSampleCsvTemplate();
+    setStatusMessage({
+      type: 'success',
+      text: `Downloaded sample CSV template ("${fileName}"). Fill it out and click Import CSV to load your transactions.`,
+    });
   };
 
   const handleConfirmCsvImport = async () => {
@@ -1380,11 +1393,12 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
               </div>
 
               <input
-                ref={csvFileInputRef}
+                ref={csvInputRef}
                 type="file"
                 accept=".csv,text/csv"
-                onChange={handleCsvFileUpload}
-                className="mm-sr-only"
+                className="hidden mm-sr-only"
+                style={{ display: 'none' }}
+                onChange={handleCsvFileChange}
                 id="mm-csv-file-input"
                 data-testid="mm-csv-file-input"
               />
@@ -1392,12 +1406,23 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
               <button
                 type="button"
                 className="mm-btn mm-btn-primary"
-                onClick={() => csvFileInputRef.current?.click()}
+                onClick={() => csvInputRef.current?.click()}
                 disabled={isProcessing}
                 data-testid="mm-upload-csv-btn"
               >
                 <Upload size={16} />
-                <span>Upload Bank Statement (.CSV)</span>
+                <span>Import CSV / Upload Bank Statement (.CSV)</span>
+              </button>
+
+              <button
+                type="button"
+                className="mm-btn mm-btn-secondary"
+                onClick={handleDownloadSampleCsv}
+                disabled={isProcessing}
+                data-testid="mm-backup-download-sample-csv-btn"
+              >
+                <Download size={15} />
+                <span>Download Sample CSV</span>
               </button>
 
               <button

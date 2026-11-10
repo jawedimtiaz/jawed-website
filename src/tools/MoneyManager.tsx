@@ -148,6 +148,8 @@ import {
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
   SAMPLE_BANK_STATEMENT_CSV,
+  SAMPLE_CSV_FILENAME,
+  downloadSampleCsvTemplate,
   type CsvColumnMapping,
   type CsvMappingOptions,
   type ParsedCsvResult,
@@ -269,6 +271,8 @@ export {
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
   SAMPLE_BANK_STATEMENT_CSV,
+  SAMPLE_CSV_FILENAME,
+  downloadSampleCsvTemplate,
 };
 export type {
   OpenMoneyManagerModalPayload,
@@ -666,6 +670,9 @@ export const MoneyManager: React.FC = () => {
   // Backup / Restore & CSV Import Modal State + Google Redirect Auth State
   const [isBackupModalOpen, setIsBackupModalOpen] = useState<boolean>(false);
   const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState<boolean>(false);
+  const [initialCsvContent, setInitialCsvContent] = useState<string>('');
+  const [initialCsvFileName, setInitialCsvFileName] = useState<string>('');
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const auth = useMemo(() => getMoneyManagerAuth(), []);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -815,6 +822,30 @@ export const MoneyManager: React.FC = () => {
   }, [budget95Toasts]);
 
   // Handlers
+  const handleCsvFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const csvText = await file.text();
+        setInitialCsvFileName(file.name);
+        setInitialCsvContent(csvText);
+        setIsCsvImportModalOpen(true);
+      } catch (err) {
+        console.error('Failed to read CSV file:', err);
+        setIsCsvImportModalOpen(true);
+      } finally {
+        e.target.value = '';
+      }
+    },
+    []
+  );
+
+  const handleDownloadSampleCsv = useCallback(() => {
+    const { fileName } = downloadSampleCsvTemplate();
+    showToast(`Downloaded sample CSV template ("${fileName}").`);
+  }, [showToast]);
+
   const handleOpenAddTransaction = useCallback((dateStr?: string, receiptImage?: string) => {
     setEditingTransaction(null);
     setDefaultTxDate(dateStr);
@@ -1261,6 +1292,17 @@ export const MoneyManager: React.FC = () => {
           onBackupDownloaded={() => showToast('Backup JSON downloaded successfully & timer reset!')}
         />
 
+        {/* Hidden CSV File Picker linked to csvInputRef */}
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          style={{ display: 'none' }}
+          onChange={handleCsvFileChange}
+          data-testid="mm-root-csv-file-input"
+        />
+
         {/* Prominent Realbyte-Styled Header */}
         <MoneyManagerHeader
           selectedMonth={selectedMonth}
@@ -1274,6 +1316,12 @@ export const MoneyManager: React.FC = () => {
           onOpenAddModal={handleOpenAddTransaction}
           onOpenBackupModal={() => setIsBackupModalOpen(true)}
           onOpenCsvImportModal={() => setIsCsvImportModalOpen(true)}
+          onCsvFileSelect={(file, csvText) => {
+            setInitialCsvFileName(file.name);
+            setInitialCsvContent(csvText);
+            setIsCsvImportModalOpen(true);
+          }}
+          onDownloadSampleCsv={handleDownloadSampleCsv}
         />
 
         {/* Active View Body (Supports Horizontal Touch Swipe Between Daily, Calendar, Accounts & Stats) */}
@@ -1449,6 +1497,8 @@ export const MoneyManager: React.FC = () => {
           accounts={accounts}
           categories={categories}
           transactions={transactions}
+          initialCsvContent={initialCsvContent}
+          initialFileName={initialCsvFileName}
           onClose={() => setIsCsvImportModalOpen(false)}
           onImportComplete={async (imported) => {
             await loadDatabaseState();

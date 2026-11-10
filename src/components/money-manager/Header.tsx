@@ -15,6 +15,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { formatINR, type MonthlyMetrics } from '../../db/db';
+import { downloadSampleCsvTemplate } from './csvImporter';
 
 export type MoneyManagerTab = 'daily' | 'calendar' | 'accounts' | 'stats' | 'recurring';
 
@@ -133,6 +134,8 @@ export interface MoneyManagerHeaderProps {
   onOpenAddModal: (defaultDate?: string) => void;
   onOpenBackupModal: () => void;
   onOpenCsvImportModal?: () => void;
+  onCsvFileSelect?: (file: File, csvText: string) => void;
+  onDownloadSampleCsv?: () => void;
 }
 
 const MONTH_NAMES = [
@@ -177,9 +180,39 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
   onOpenAddModal,
   onOpenBackupModal,
   onOpenCsvImportModal,
+  onCsvFileSelect,
+  onDownloadSampleCsv,
 }) => {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const contrastTokens = resolveActiveTabContrastTokens(themeMode);
+
+  const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const csvText = await file.text();
+      onCsvFileSelect?.(file, csvText);
+      onOpenCsvImportModal?.();
+    } catch {
+      onOpenCsvImportModal?.();
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleTriggerImportCsv = () => {
+    csvInputRef.current?.click();
+    onOpenCsvImportModal?.();
+  };
+
+  const handleDownloadSampleCsv = () => {
+    if (onDownloadSampleCsv) {
+      onDownloadSampleCsv();
+    } else {
+      downloadSampleCsvTemplate();
+    }
+  };
 
   const tabs: Array<{ id: MoneyManagerTab; label: string; shortLabel: string; icon: React.ReactNode }> = [
     { id: 'daily', label: 'Daily View', shortLabel: 'Daily', icon: <ListFilter size={16} /> },
@@ -231,17 +264,38 @@ export const MoneyManagerHeader: React.FC<MoneyManagerHeaderProps> = ({
         </div>
 
         <div className="mm-top-actions">
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            style={{ display: 'none' }}
+            onChange={handleCsvFileChange}
+            data-testid="mm-header-csv-file-input"
+          />
           {onOpenCsvImportModal && (
-            <button
-              type="button"
-              onClick={onOpenCsvImportModal}
-              className="mm-btn mm-btn-secondary"
-              title="Bulk-import transactions from a bank statement CSV file into IndexedDB"
-              data-testid="mm-header-import-csv-btn"
-            >
-              <Upload size={15} />
-              <span>Import CSV</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleTriggerImportCsv}
+                className="mm-btn mm-btn-secondary"
+                title="Bulk-import transactions from a bank statement CSV file into IndexedDB"
+                data-testid="mm-header-import-csv-btn"
+              >
+                <Upload size={15} />
+                <span>Import CSV</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadSampleCsv}
+                className="mm-btn mm-btn-secondary"
+                title="Download a pre-formatted sample CSV template that guarantees valid imports into IndexedDB"
+                data-testid="mm-header-download-sample-csv-btn"
+              >
+                <Download size={15} />
+                <span>Download Sample CSV</span>
+              </button>
+            </>
           )}
           <button
             type="button"

@@ -662,6 +662,37 @@ export async function bulkImportCsvFileToLedger(
   return bulkImportCsvToLedger(text, options);
 }
 
+export const SAMPLE_CSV_FILENAME = 'jawed-money-manager-sample-statement.csv';
+
+/**
+ * Generates and triggers a browser file download of a pre-formatted sample CSV template
+ * that guarantees valid imports into IndexedDB (`JawedMoneyManagerDB`) and React state.
+ */
+export function downloadSampleCsvTemplate(
+  customFileName: string = SAMPLE_CSV_FILENAME,
+  customCsvContent: string = SAMPLE_BANK_STATEMENT_CSV
+): { fileName: string; csvContent: string } {
+  const csvContent = customCsvContent || SAMPLE_BANK_STATEMENT_CSV;
+  const fileName = customFileName || SAMPLE_CSV_FILENAME;
+
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const blob = new Blob([`\uFEFF${csvContent}`], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  return { fileName, csvContent };
+}
+
 export { formatTransactionsToCsv, downloadMoneyManagerCsv } from './excelExporter';
 
 

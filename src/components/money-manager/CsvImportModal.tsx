@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Upload,
+  Download,
   X,
   FileSpreadsheet,
   CheckCircle2,
@@ -28,6 +29,8 @@ import {
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
   SAMPLE_BANK_STATEMENT_CSV,
+  SAMPLE_CSV_FILENAME,
+  downloadSampleCsvTemplate,
   type CsvColumnMapping,
   type CsvMappingOptions,
   type ParsedCsvResult,
@@ -44,6 +47,8 @@ export {
   summarizeMappedCsvTransactions,
   normalizeBankDateToIso,
   SAMPLE_BANK_STATEMENT_CSV,
+  SAMPLE_CSV_FILENAME,
+  downloadSampleCsvTemplate,
   type CsvColumnMapping,
   type CsvMappingOptions,
   type ParsedCsvResult,
@@ -57,6 +62,8 @@ export interface CsvImportModalProps {
   accounts: AccountSummary[];
   categories: MoneyCategory[];
   transactions: MoneyTransaction[];
+  initialCsvContent?: string;
+  initialFileName?: string;
   onClose: () => void;
   onImportComplete: (imported: MoneyTransaction[]) => void;
 }
@@ -67,9 +74,12 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   accounts,
   categories,
   transactions,
+  initialCsvContent,
+  initialFileName,
   onClose,
   onImportComplete,
 }) => {
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const [csvRawContent, setCsvRawContent] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
   const [defaultAccountId, setDefaultAccountId] = useState<string>(accounts[0]?.id || 'acc-icici');
@@ -122,7 +132,13 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    if (isOpen && initialCsvContent && initialCsvContent.trim()) {
+      handleLoadCsvContent(initialCsvContent, initialFileName || 'statement.csv');
+    }
+  }, [isOpen, initialCsvContent, initialFileName]);
+
+  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -130,9 +146,14 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     reader.onload = (evt) => {
       const text = typeof evt.target?.result === 'string' ? evt.target.result : '';
       handleLoadCsvContent(text, file.name);
+      if (csvInputRef.current) {
+        csvInputRef.current.value = '';
+      }
     };
     reader.readAsText(file);
   };
+
+  const handleFileUpload = handleCsvFileChange;
 
   const handleDropCsvFile = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -150,6 +171,11 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
 
   const handleLoadSampleCsv = () => {
     handleLoadCsvContent(SAMPLE_BANK_STATEMENT_CSV, 'sample_bank_statement.csv');
+  };
+
+  const handleDownloadSampleCsv = () => {
+    const { fileName: downloadedName } = downloadSampleCsvTemplate();
+    setImportNotice(`Downloaded sample template "${downloadedName}". Fill it out and click Import CSV!`);
   };
 
   // Generate mapped transactions preview with automatic category & account matching
@@ -336,24 +362,39 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
               </span>
             </div>
 
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
-              <label
-                htmlFor="mm-csv-file-picker"
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4, justifyContent: 'center' }}>
+              <input
+                ref={csvInputRef}
+                id="mm-csv-file-picker"
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                style={{ display: 'none' }}
+                onChange={handleCsvFileChange}
+                data-testid="mm-csv-file-input"
+              />
+
+              <button
+                type="button"
+                onClick={() => csvInputRef.current?.click()}
                 className="mm-btn mm-btn-primary mm-btn-sm"
                 style={{ cursor: 'pointer' }}
                 data-testid="mm-csv-choose-file-btn"
               >
                 <Upload size={14} />
-                <span>Choose CSV File</span>
-                <input
-                  id="mm-csv-file-picker"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={handleFileUpload}
-                  className="mm-sr-only"
-                  data-testid="mm-csv-file-input"
-                />
-              </label>
+                <span>Import CSV</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadSampleCsv}
+                className="mm-btn mm-btn-secondary mm-btn-sm"
+                title="Download a pre-formatted sample CSV template that guarantees valid imports into IndexedDB"
+                data-testid="mm-csv-download-sample-btn"
+              >
+                <Download size={14} />
+                <span>Download Sample CSV</span>
+              </button>
 
               <button
                 type="button"

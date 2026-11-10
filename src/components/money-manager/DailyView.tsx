@@ -22,7 +22,7 @@ import {
   Mic,
   MicOff,
 } from 'lucide-react';
-import { CsvImportModal } from './CsvImportModal';
+import { CsvImportModal, downloadSampleCsvTemplate } from './CsvImportModal';
 import { formatTransactionsToCsv } from './excelExporter';
 import {
   formatINR,
@@ -697,6 +697,29 @@ export const DailyView: React.FC<DailyViewProps> = ({
   const [voiceSearchStatus, setVoiceSearchStatus] = useState<string>('');
   const [voiceSearchError, setVoiceSearchError] = useState<boolean>(false);
   const voiceRecognitionRef = useRef<SpeechRecognitionInstanceLike | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [initialDailyCsvContent, setInitialDailyCsvContent] = useState<string>('');
+  const [initialDailyCsvFileName, setInitialDailyCsvFileName] = useState<string>('');
+
+  const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const csvText = await file.text();
+      setInitialDailyCsvFileName(file.name);
+      setInitialDailyCsvContent(csvText);
+      setIsCsvModalOpen(true);
+    } catch {
+      setIsCsvModalOpen(true);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleDownloadSampleCsv = () => {
+    const { fileName } = downloadSampleCsvTemplate();
+    setCsvExportNotice(`Downloaded sample CSV template ("${fileName}").`);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -1228,15 +1251,39 @@ export const DailyView: React.FC<DailyViewProps> = ({
               </span>
             </button>
 
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              style={{ display: 'none' }}
+              onChange={handleCsvFileChange}
+              data-testid="mm-daily-csv-file-input"
+            />
+
             <button
               type="button"
-              onClick={() => setIsCsvModalOpen(true)}
+              onClick={() => {
+                csvInputRef.current?.click();
+                setIsCsvModalOpen(true);
+              }}
               className="mm-btn mm-btn-sm mm-btn-secondary"
               title="Import bank statement CSV with auto category & account matching"
               data-testid="mm-daily-import-csv-btn"
             >
               <FileSpreadsheet size={14} style={{ color: '#10b981' }} />
-              <span>Import Bank CSV</span>
+              <span>Import CSV</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadSampleCsv}
+              className="mm-btn mm-btn-sm mm-btn-secondary"
+              title="Download a pre-formatted sample CSV template that guarantees valid imports into IndexedDB"
+              data-testid="mm-daily-download-sample-csv-btn"
+            >
+              <Download size={14} style={{ color: '#10b981' }} />
+              <span>Download Sample CSV</span>
             </button>
 
             <button
@@ -2516,6 +2563,8 @@ export const DailyView: React.FC<DailyViewProps> = ({
         accounts={accounts}
         categories={categories}
         transactions={localTransactions}
+        initialCsvContent={initialDailyCsvContent}
+        initialFileName={initialDailyCsvFileName}
         onClose={() => setIsCsvModalOpen(false)}
         onImportComplete={async (importedRecords) => {
           setLocalTransactions((prev) => [...importedRecords, ...prev]);
