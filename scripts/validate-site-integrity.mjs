@@ -73,7 +73,7 @@ for(const location of locations){
   if(seenPaths.has(routePath))fail.push("sitemap contains duplicate normalized route: "+routePath);
   seenPaths.add(routePath);
   if(!routePatterns.some(pattern=>routeMatches(pattern,routePath)))fail.push("sitemap route is not represented by React Router: "+routePath);
-  for(const line of redirectLines){const parts=line.split(/\\s+/);if(parts.at(-1)==="200"&&routeMatches(parts[0],routePath))fail.push("Cloudflare Pages SPA rewrite intercepts a canonical static SEO route: "+routePath+" via "+line)}
+  for(const line of redirectLines){const parts=line.split(/\s+/);if(parts.at(-1)==="200"&&routeMatches(parts[0],routePath))fail.push("Cloudflare Pages SPA rewrite intercepts a canonical static SEO route: "+routePath+" via "+line)}
 }
 if(!robots.includes("User-agent: *")||!robots.includes("Allow: /"))fail.push("robots.txt must allow public crawling");
 if(!robots.includes("Sitemap: https://jawed.co.in/sitemap.xml"))fail.push("robots.txt must declare the canonical sitemap");
