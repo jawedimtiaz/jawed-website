@@ -95,3 +95,14 @@ test('explicit noindex routes are emitted even when excluded from the sitemap', 
     fs.rmSync(dist, { recursive: true, force: true });
   }
 });
+
+
+test('explicit alias routes retain their canonical destinations', () => {
+  const notes = applyRouteMetadata(BASE_HTML, '/notes');
+  const tools = applyRouteMetadata(BASE_HTML, '/diagnostic-tools');
+  const services = applyRouteMetadata(BASE_HTML, '/services');
+
+  assert.match(notes, /<link rel="canonical" href="https:\/\/jawed\.co\.in\/field-guides\/" \/>/);
+  assert.match(tools, /<link rel="canonical" href="https:\/\/jawed\.co\.in\/tools\/" \/>/);
+  assert.match(services, /<link rel="canonical" href="https:\/\/jawed\.co\.in\/services-dispatch\/" \/>/);
+});
