@@ -87,7 +87,7 @@ export const STATIC_METADATA: Record<string, RouteMetadata> = {
     title: 'Field Guides & Knowledge Base',
     description: 'Practical IT troubleshooting guides, knowledge-base articles, and step-by-step technical references from Jawed Imtiaz.',
     ogDescription: 'Step-by-step IT field guides, standard operating procedures, and troubleshooting playbooks for enterprise technicians.',
-    canonicalPath: '/guides',
+    canonicalPath: '/field-guides/',
     ogType: 'website',
   },
   '/tools': {
@@ -179,7 +179,7 @@ export const STATIC_METADATA: Record<string, RouteMetadata> = {
     title: 'Services & IT Field Dispatch',
     description: 'Information about IT field support, workplace technology, and service dispatch resources.',
     ogDescription: 'On-site IT field engineering, rack & stack deployment, network troubleshooting, and workplace technology dispatch services.',
-    canonicalPath: '/services-dispatch/',
+    canonicalPath: '/services',
     ogType: 'website',
   },
 };
