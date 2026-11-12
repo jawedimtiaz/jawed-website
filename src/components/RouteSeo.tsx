@@ -538,7 +538,9 @@ export function normalizePath(pathname: string): string {
 }
 
 export function canonicalUrl(path: string): string {
-  return SITE_ORIGIN + normalizePath(path);
+  const normalizedPath = normalizePath(path);
+  const preserveTrailingSlash = normalizedPath !== '/' && path.split(/[?#]/, 1)[0].endsWith('/');
+  return SITE_ORIGIN + normalizedPath + (preserveTrailingSlash ? '/' : '');
 }
 
 export function resolveMetadata(pathname: string): RouteMetadata {
