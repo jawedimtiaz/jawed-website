@@ -40,7 +40,7 @@ function routeMatches(pattern,path){
 
 if(!rootIndex.includes('<div id="root"></div>'))fail.push("Vite entry HTML must include the React root element");
 if(!packageJson.scripts?.build?.includes("scripts/prerender-route-metadata.ts"))fail.push("production build must emit route-specific static SEO metadata snapshots");
-if(!routePrerender.includes("resolveMetadata")||!routePrerender.includes("sitemap.xml")||!routePrerenderTests.includes("noindex, follow"))fail.push("route metadata prerender must use the shared route resolver, generated sitemap, and test the noindex fallback");
+if(!routePrerender.includes("resolveMetadata")||!routePrerender.includes("sitemap.xml")||!routePrerender.includes("Object.keys(STATIC_METADATA)")||!routePrerender.includes("Object.keys(TOOL_METADATA)")||!routePrerenderTests.includes("noindex, follow")||!routePrerenderTests.includes("/ai")||!routePrerenderTests.includes("/offline"))fail.push("route metadata prerender must cover sitemap routes, explicit aliases, and noindex destinations");
 if(!rootIndex.includes('src="/src/main.tsx"')&&!rootIndex.includes('src="%BASE_URL%src/main.tsx"'))fail.push("Vite entry HTML must reference src/main.tsx using a supported Vite base path");
 if(!rootIndex.includes('<link rel="canonical" href="https://jawed.co.in/"'))fail.push("root HTML canonical must use the production origin");
 if(!entry.includes("BrowserRouter")||!entry.includes("ReactDOM.createRoot")||!entry.includes("./App"))fail.push("React entry must mount App inside BrowserRouter");
@@ -73,7 +73,7 @@ for(const location of locations){
   if(seenPaths.has(routePath))fail.push("sitemap contains duplicate normalized route: "+routePath);
   seenPaths.add(routePath);
   if(!routePatterns.some(pattern=>routeMatches(pattern,routePath)))fail.push("sitemap route is not represented by React Router: "+routePath);
-  for(const line of redirectLines){const parts=line.split(/\s+/);if(parts.at(-1)==="200"&&routeMatches(parts[0],routePath))fail.push("Cloudflare Pages SPA rewrite intercepts a canonical static SEO route: "+routePath+" via "+line)}
+  for(const line of redirectLines){const parts=line.split(/\s+/);const wildcard=parts[0].endsWith("/*");const base=normalizePath(parts[0].replace(/\/\*$/,""));const route=normalizePath(routePath);const intercepts=wildcard?route.startsWith(base+"/"):route===base;if(parts.at(-1)==="200"&&intercepts)fail.push("Cloudflare Pages SPA rewrite intercepts a static SEO route: "+routePath+" via "+line)}
 }
 if(!robots.includes("User-agent: *")||!robots.includes("Allow: /"))fail.push("robots.txt must allow public crawling");
 if(!robots.includes("Sitemap: https://jawed.co.in/sitemap.xml"))fail.push("robots.txt must declare the canonical sitemap");
