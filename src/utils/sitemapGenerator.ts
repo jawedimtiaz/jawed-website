@@ -142,17 +142,20 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
     priority: string
   ) => {
     if (!rawPath.startsWith('/')) return;
-    const cleanPath = normalizePath(rawPath);
-    if (EXCLUDED_NON_CANONICAL_PATHS.has(rawPath) || EXCLUDED_NON_CANONICAL_PATHS.has(cleanPath)) {
+    const normalizedPath = normalizePath(rawPath);
+    if (EXCLUDED_NON_CANONICAL_PATHS.has(rawPath) || EXCLUDED_NON_CANONICAL_PATHS.has(normalizedPath)) {
       return;
     }
 
-    if (seenNormalizedPaths.has(cleanPath)) return;
-    seenNormalizedPaths.add(cleanPath);
+    if (seenNormalizedPaths.has(normalizedPath)) return;
+    seenNormalizedPaths.add(normalizedPath);
 
+    // Preserve the exact canonical path (including a declared trailing slash)
+    // while using the normalized path only as the deduplication key.
+    const canonicalPath = rawPath === '/' ? '/' : rawPath;
     entries.push({
-      loc: `${siteOrigin}${cleanPath}`,
-      path: cleanPath,
+      loc: `${siteOrigin}${canonicalPath}`,
+      path: canonicalPath,
       category,
       lastmod: normalizeIsoDate(lastmod, defaultLastMod),
       changefreq,
@@ -162,8 +165,11 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
 
   // 1a. Core Primary Navigation & Hub Routes (/, /guides, /tools, /services, /about, /contact, /ai)
   for (const coreRoute of CORE_CANONICAL_STATIC_ROUTES) {
+    const matchingMetadata = Object.values(STATIC_METADATA).find(
+      (meta) => normalizePath(meta.canonicalPath) === normalizePath(coreRoute.path)
+    );
     addEntry(
-      coreRoute.path,
+      matchingMetadata?.canonicalPath || coreRoute.path,
       'static',
       defaultLastMod,
       coreRoute.changefreq,
