@@ -38,16 +38,11 @@
     301
   ],
   "spa_route_rewrites": [
-    "/guides / 200",
     "/guides/* / 200",
-    "/notes / 200",
-    "/diagnostic-tools / 200",
     "/diagnostic-tools/* / 200",
-    "/services / 200",
     "/services/* / 200",
-    "/ai / 200",
     "/ai/* / 200"
   ],
   "ai_runtime": "client-side-knowledge-search",
-  "static_seo_routes": "generated-from-canonical-sitemap; never shadow with SPA rewrites"
+  "static_seo_routes": "generated-from-canonical-sitemap-and-explicit-metadata; never shadow with SPA rewrites"
 }
