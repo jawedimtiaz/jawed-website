@@ -20,12 +20,13 @@ The production sitemap endpoint separately returned HTTP 200 with
 ## POC implementation
 
 - Reuses the existing `resolveMetadata` and `canonicalUrl` route resolver.
-- Reads the generated sitemap from `dist/sitemap.xml` after the Vite build.
+- Reads the generated sitemap from `dist/sitemap.xml` after the Vite build and also snapshots every explicitly declared `STATIC_METADATA` and `TOOL_METADATA` route, including noindex destinations such as `/ai` and `/offline`.
 - Emits route-specific title, description, robots, canonical, Open Graph and
   Twitter metadata into static HTML snapshots for each sitemap URL.
 - Uses extensionless `.html` snapshots for slashless canonical routes and
   directory `index.html` snapshots for trailing-slash routes.
-- Keeps unknown-route metadata `noindex, follow`.
+- Keeps explicit noindex destinations and the custom unknown-route `404.html` response `noindex, follow`.
+- Ensures canonical sitemap routes and explicit metadata routes are not intercepted by SPA rewrite rules; only dynamic, non-canonical aliases retain rewrites.
 - Adds unit coverage and a Site Integrity Gate check for build integration.
 
 ## Important limitation
