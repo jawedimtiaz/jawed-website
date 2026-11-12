@@ -66,10 +66,14 @@ test('route aliases declare one canonical hub URL and are not duplicated in the 
   assert.equal(resolveMetadata('/services-dispatch').canonicalPath, '/services');
   assert.equal(resolveMetadata('/services').canonicalPath, '/services');
 
-  const canonicalPaths = collectSitemapEntries().map((entry) => normalizePath(entry.path));
-  assert.equal(canonicalPaths.includes('/guides'), false, '/guides alias must not be listed separately');
-  assert.equal(canonicalPaths.filter((path) => path === '/field-guides').length, 1);
-  assert.equal(canonicalPaths.includes('/services-dispatch'), false, '/services-dispatch alias must not be listed separately');
+  const sitemapPaths = collectSitemapEntries().map((entry) => entry.path);
+  const normalizedPaths = sitemapPaths.map((path) => normalizePath(path));
+  assert.equal(normalizedPaths.includes('/guides'), false, '/guides alias must not be listed separately');
+  assert.equal(sitemapPaths.filter((path) => path === '/field-guides/').length, 1);
+  assert.equal(normalizedPaths.includes('/services-dispatch'), false, '/services-dispatch alias must not be listed separately');
+  assert.equal(sitemapPaths.includes('/tools/'), true, 'Sitemap must preserve the /tools/ canonical slash');
+  assert.equal(sitemapPaths.includes('/about/'), true, 'Sitemap must preserve the /about/ canonical slash');
+  assert.equal(sitemapPaths.includes('/services'), true, 'Sitemap must preserve the slashless /services canonical path');
 });
 
 test('collectSitemapEntries excludes noindex and non-canonical alias paths', () => {
@@ -113,10 +117,10 @@ test('generateSitemapXml produces valid XML with canonical origin and SEO metada
 
   const expectedCorePriorities: Array<[string, string]> = [
     ['https://jawed.co.in/', '1.0'],
-        ['https://jawed.co.in/tools', '0.9'],
+        ['https://jawed.co.in/tools/', '0.9'],
     ['https://jawed.co.in/services', '0.8'],
-    ['https://jawed.co.in/about', '0.8'],
-    ['https://jawed.co.in/contact', '0.7'],
+    ['https://jawed.co.in/about/', '0.8'],
+    ['https://jawed.co.in/contact/', '0.7'],
     ['https://jawed.co.in/ai', '0.7'],
   ];
 
@@ -151,10 +155,12 @@ test('generateSitemapXml produces valid XML with canonical origin and SEO metada
     assert.ok(locMatches.includes(requiredToolUrl), `Expected tool ${requiredToolUrl} in sitemap.xml`);
   }
 
-  for (const loc of locMatches) {
-    if (loc !== 'https://jawed.co.in/') {
-      assert.equal(loc.endsWith('/'), false, `Non-root sitemap URL must not have a trailing slash: ${loc}`);
-    }
+  for (const entry of entries) {
+    assert.equal(
+      entry.loc,
+      `https://jawed.co.in${entry.path}`,
+      `Sitemap location must preserve the exact canonical path for ${entry.path}`
+    );
   }
 
   const lastmodMatches = [...xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m) => m[1]);
