@@ -13,6 +13,8 @@ const rootSitemap=read("sitemap.xml");
 const robots=read("public/robots.txt");
 const redirects=read("public/_redirects");
 const headers=read("public/_headers");
+const packageJson=JSON.parse(read("package.json"));
+const routePrerender=read("scripts/prerender-route-metadata.ts");
 
 function normalizePath(value){
   const path=value.split(/[?#]/,1)[0]||"/";
@@ -35,6 +37,8 @@ function routeMatches(pattern,path){
 }
 
 if(!rootIndex.includes('<div id="root"></div>'))fail.push("Vite entry HTML must include the React root element");
+if(!packageJson.scripts?.build?.includes("scripts/prerender-route-metadata.ts"))fail.push("production build must emit route-specific static SEO metadata snapshots");
+if(!routePrerender.includes("resolveMetadata")||!routePrerender.includes("sitemap.xml")||!routePrerender.includes("noindex, follow"))fail.push("route metadata prerender must use the shared route resolver, generated sitemap, and noindex fallback");
 if(!rootIndex.includes('src="/src/main.tsx"')&&!rootIndex.includes('src="%BASE_URL%src/main.tsx"'))fail.push("Vite entry HTML must reference src/main.tsx using a supported Vite base path");
 if(!rootIndex.includes('<link rel="canonical" href="https://jawed.co.in/"'))fail.push("root HTML canonical must use the production origin");
 if(!entry.includes("BrowserRouter")||!entry.includes("ReactDOM.createRoot")||!entry.includes("./App"))fail.push("React entry must mount App inside BrowserRouter");
