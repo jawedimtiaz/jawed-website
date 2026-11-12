@@ -77,6 +77,20 @@ Additional persistence-sensitive areas surfaced by repository-wide search:
 - Heavy browser-only libraries (charts, PDF generation, media capture, image/video tools) should be dynamically imported from client interactions or isolated client components where necessary.
 - Avoid rendering time-dependent/random IDs or locale-dependent strings differently between build and browser.
 
+## Implementation progress
+
+The SSG readiness branch now includes a first bounded hydration-safety pass for the shared browser-state primitives:
+
+- `useOnlineStatus` now renders a stable initial online value and reads `navigator.onLine` after mount.
+- `usePersistentState` now restores localStorage after hydration instead of reading it in the state initializer.
+- `useUnitSystem` now restores the saved unit preference after hydration and does not persist the default before restoration.
+- `useAnimationPreferences` now restores preferences after hydration and gates persistence until restoration completes.
+- `useLocalStorageDraft` now renders defaults first, restores drafts after mount, and prevents autosave/unload cleanup from persisting pre-restoration defaults.
+- `OfflineModeFallback` now renders a stable empty timestamp and populates the clock after mount.
+- `ThemeToggle` now starts from a deterministic React state; saved theme mode is applied in its existing layout effect, while the existing pre-paint DOM theme synchronization remains separate.
+
+These changes are staged on this audit branch only. They still require CI and behavioral regression checks; they are not considered production-ready until those checks pass.
+
 ## Recommended implementation sequence
 
 ### SSG-0 — Route and import safety inventory
@@ -87,10 +101,9 @@ Additional persistence-sensitive areas surfaced by repository-wide search:
 - Add a CI inventory test so newly introduced unsafe imports are flagged.
 
 ### SSG-1 — Hydration-safe global primitives
-- Refactor online status, theme, unit system, persistent state, animation preferences and local drafts to stable initial render semantics.
-- Ensure saved drafts are restored before autosave can persist defaults over them.
-- Replace render-time clock/locale values with post-mount values.
-- Add unit tests for server render and first client render equivalence.
+- Complete the repository-wide import/render safety inventory, including route-level components and third-party modules.
+- Add unit tests for server render and first client render equivalence for the refactored hooks.
+- Add an explicit user-interaction-before-restoration test for persistent state and local drafts.
 
 ### SSG-2 — Minimal renderer proof of concept
 - Add a server-only entry that renders a single low-risk route with ReactDOMServer and a static router.
