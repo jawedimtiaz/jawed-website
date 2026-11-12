@@ -38,6 +38,7 @@ for(const required of contract.required_security_headers||[]){
 const rootRedirects=exists("_redirects")?read("_redirects"):"";
 const publicRedirects=exists("public/_redirects")?read("public/_redirects"):"";
 const public404=exists("public/404.html")?read("public/404.html"):"";
+const sitemap=read("public/sitemap.xml");
 const publicLines=new Set(publicRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#")));
 for(const line of rootRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
  if(!publicLines.has(line))fail.push("public/_redirects is missing legacy redirect: "+line);
@@ -64,7 +65,6 @@ for(const line of publicRedirects.split(/\r?\n/).map(line=>line.trim()).filter(l
 
 const index=read("index.html");
 if(contract.canonical_origin_must_be_exact&&!index.includes('<link rel="canonical" href="'+contract.production_origin+'/"'))fail.push("index canonical origin must match production origin");
-const sitemap=read("public/sitemap.xml");
 if(!sitemap.includes(contract.production_origin))fail.push("public sitemap must use production origin");
 if(sitemap.includes(contract.alternate_origin))fail.push("public sitemap must not contain alternate origin");
 const robots=read("public/robots.txt");
