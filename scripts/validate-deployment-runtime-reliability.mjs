@@ -37,6 +37,7 @@ for(const required of contract.required_security_headers||[]){
 
 const rootRedirects=exists("_redirects")?read("_redirects"):"";
 const publicRedirects=exists("public/_redirects")?read("public/_redirects"):"";
+const public404=exists("public/404.html")?read("public/404.html"):"";
 const publicLines=new Set(publicRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#")));
 for(const line of rootRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
  if(!publicLines.has(line))fail.push("public/_redirects is missing legacy redirect: "+line);
@@ -48,6 +49,13 @@ for(const line of contract.spa_route_rewrites||[]){
  const prefix=parts[0].replace(/\/\*$/,"").replace(/\/$/,"");
  if(prefix&&!read("src/App.tsx").includes('path="'+prefix))fail.push("SPA rewrite has no matching React Router path: "+prefix);
 }
+const sitemapLocations=[...sitemap.matchAll(/<loc>\\s*([^<]+)\\s*<\\/loc>/g)].map(match=>{try{return new URL(match[1].trim()).pathname}catch{return ""}}).filter(Boolean);
+const normalizeRoute=value=>value==="/"?"/":value.replace(/\\/+$/,"");
+function rewriteMatches(pattern,pathname){const wildcard=pattern.endsWith("/*");const base=normalizeRoute(pattern.replace(/\\/\\*$/,""));const route=normalizeRoute(pathname);return wildcard?(route===base||route.startsWith(base+"/")):route===base}
+for(const line of publicRedirects.split(/\\r?\\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){const parts=line.split(/\\s+/);if(parts.at(-1)==="200"&&sitemapLocations.some(pathname=>rewriteMatches(parts[0],pathname)))fail.push("SPA rewrite intercepts a canonical static SEO route: "+line)}
+if(!pkg.scripts?.build?.includes("scripts/prerender-route-metadata.ts"))fail.push("production build must generate route-specific static metadata snapshots");
+if(!public404.includes('<meta name="robots" content="noindex, follow"'))fail.push("custom 404 must remain noindex, follow");
+if(contract.static_seo_routes!=="generated-from-canonical-sitemap; never shadow with SPA rewrites")fail.push("static SEO routing contract is missing");
 for(const line of publicRedirects.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"))){
  const parts=line.split(/\s+/);
  if(parts.length>=3&&!((contract.allowed_redirect_statuses||[]).includes(Number(parts.at(-1)))))fail.push("unexpected redirect status: "+line);
@@ -75,4 +83,4 @@ if(fail.length){console.error("Deployment Runtime Reliability Gate FAILED");for(
 console.log("Deployment Runtime Reliability Gate PASSED");
 console.log("Build: "+contract.build_command+" -> "+contract.build_output_directory);
 console.log("Runtime: Vite/React Router SPA");
-console.log("Pages headers, legacy redirects, SPA rewrites, sitemap, robots, client-side knowledge AI and local-first audio transcription contracts: validated");
+console.log("Pages headers, legacy redirects, non-canonical SPA aliases, static SEO route precedence, sitemap, robots, client-side knowledge AI and local-first audio transcription contracts: validated");
