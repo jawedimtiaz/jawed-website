@@ -14,7 +14,7 @@ import { FIELD_GUIDES } from '../src/data/fieldGuidesData';
 import { TOOLS } from '../src/data/toolsData';
 import notesData from '../src/data/notesData.json';
 import blogData from '../src/data/blogData.json';
-import { normalizePath, resolveMetadata } from '../src/components/RouteSeo';
+import { normalizePath, resolveMetadata, STATIC_METADATA } from '../src/components/RouteSeo';
 
 test('collectSitemapEntries includes all canonical IT field guides, tools, notes, and blog posts', () => {
   const entries = collectSitemapEntries();
@@ -74,6 +74,19 @@ test('route aliases declare one canonical hub URL and are not duplicated in the 
   assert.equal(sitemapPaths.includes('/tools/'), true, 'Sitemap must preserve the /tools/ canonical slash');
   assert.equal(sitemapPaths.includes('/about/'), true, 'Sitemap must preserve the /about/ canonical slash');
   assert.equal(sitemapPaths.includes('/services'), true, 'Sitemap must preserve the slashless /services canonical path');
+
+  const includedPaths = new Set(sitemapPaths.map((path) => normalizePath(path)));
+  for (const meta of Object.values(STATIC_METADATA)) {
+    const normalized = normalizePath(meta.canonicalPath);
+    if (normalized === '/404' || normalized === '/offline') continue;
+    if (includedPaths.has(normalized)) {
+      assert.equal(
+        sitemapPaths.includes(meta.canonicalPath),
+        true,
+        `Sitemap must preserve metadata canonical path ${meta.canonicalPath}`
+      );
+    }
+  }
 });
 
 test('collectSitemapEntries excludes noindex and non-canonical alias paths', () => {
