@@ -14,7 +14,7 @@ import { FIELD_GUIDES } from '../src/data/fieldGuidesData';
 import { TOOLS } from '../src/data/toolsData';
 import notesData from '../src/data/notesData.json';
 import blogData from '../src/data/blogData.json';
-import { normalizePath } from '../src/components/RouteSeo';
+import { normalizePath, resolveMetadata, STATIC_METADATA } from '../src/components/RouteSeo';
 
 test('collectSitemapEntries includes all canonical IT field guides, tools, notes, and blog posts', () => {
   const entries = collectSitemapEntries();
@@ -52,11 +52,40 @@ test('collectSitemapEntries includes all canonical IT field guides, tools, notes
     );
   }
   // Core primary canonical routes must be present
-  for (const corePath of ['/', '/guides', '/tools', '/services', '/about', '/contact', '/ai']) {
+  for (const corePath of ['/', '/field-guides', '/tools', '/services', '/about', '/contact']) {
     assert.ok(
       paths.has(normalizePath(corePath)),
       `Expected core route ${corePath} in sitemap entries`
     );
+  }
+});
+
+test('route aliases declare one canonical hub URL and are not duplicated in the sitemap', () => {
+  assert.equal(resolveMetadata('/guides').canonicalPath, '/field-guides/');
+  assert.equal(resolveMetadata('/field-guides').canonicalPath, '/field-guides/');
+  assert.equal(resolveMetadata('/services-dispatch').canonicalPath, '/services');
+  assert.equal(resolveMetadata('/services').canonicalPath, '/services');
+
+  const sitemapPaths = collectSitemapEntries().map((entry) => entry.path);
+  const normalizedPaths = sitemapPaths.map((path) => normalizePath(path));
+  assert.equal(normalizedPaths.includes('/guides'), false, '/guides alias must not be listed separately');
+  assert.equal(sitemapPaths.filter((path) => path === '/field-guides/').length, 1);
+  assert.equal(normalizedPaths.includes('/services-dispatch'), false, '/services-dispatch alias must not be listed separately');
+  assert.equal(sitemapPaths.includes('/tools/'), true, 'Sitemap must preserve the /tools/ canonical slash');
+  assert.equal(sitemapPaths.includes('/about/'), true, 'Sitemap must preserve the /about/ canonical slash');
+  assert.equal(sitemapPaths.includes('/services'), true, 'Sitemap must preserve the slashless /services canonical path');
+
+  const includedPaths = new Set(sitemapPaths.map((path) => normalizePath(path)));
+  for (const meta of Object.values(STATIC_METADATA)) {
+    const normalized = normalizePath(meta.canonicalPath);
+    if (normalized === '/404' || normalized === '/offline') continue;
+    if (includedPaths.has(normalized)) {
+      assert.equal(
+        sitemapPaths.includes(meta.canonicalPath),
+        true,
+        `Sitemap must preserve metadata canonical path ${meta.canonicalPath}`
+      );
+    }
   }
 });
 
@@ -70,6 +99,7 @@ test('collectSitemapEntries excludes noindex and non-canonical alias paths', () 
   assert.equal(rawPaths.has('/diagnostic-tools'), false, '/diagnostic-tools alias should be excluded');
   assert.equal(rawPaths.has('/diagnostic-tools/'), false, '/diagnostic-tools/ alias should be excluded');
   assert.equal(normalizedPaths.has('/offline'), false, '/offline noindex route should be excluded');
+  assert.equal(normalizedPaths.has('/ai'), false, '/ai noindex route should be excluded');
   assert.equal(normalizedPaths.has('/404'), false, '/404 route should be excluded');
 });
 
@@ -101,11 +131,10 @@ test('generateSitemapXml produces valid XML with canonical origin and SEO metada
 
   const expectedCorePriorities: Array<[string, string]> = [
     ['https://jawed.co.in/', '1.0'],
-    ['https://jawed.co.in/guides', '0.9'],
-    ['https://jawed.co.in/tools', '0.9'],
+        ['https://jawed.co.in/tools/', '0.9'],
     ['https://jawed.co.in/services', '0.8'],
-    ['https://jawed.co.in/about', '0.8'],
-    ['https://jawed.co.in/contact', '0.7'],
+    ['https://jawed.co.in/about/', '0.8'],
+    ['https://jawed.co.in/contact/', '0.7'],
     ['https://jawed.co.in/ai', '0.7'],
   ];
 
@@ -140,10 +169,12 @@ test('generateSitemapXml produces valid XML with canonical origin and SEO metada
     assert.ok(locMatches.includes(requiredToolUrl), `Expected tool ${requiredToolUrl} in sitemap.xml`);
   }
 
-  for (const loc of locMatches) {
-    if (loc !== 'https://jawed.co.in/') {
-      assert.equal(loc.endsWith('/'), false, `Non-root sitemap URL must not have a trailing slash: ${loc}`);
-    }
+  for (const entry of entries) {
+    assert.equal(
+      entry.loc,
+      `https://jawed.co.in${entry.path}`,
+      `Sitemap location must preserve the exact canonical path for ${entry.path}`
+    );
   }
 
   const lastmodMatches = [...xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m) => m[1]);

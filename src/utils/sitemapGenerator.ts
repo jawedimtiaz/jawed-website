@@ -46,12 +46,10 @@ const CORE_CANONICAL_STATIC_ROUTES: Array<{
   priority: string;
 }> = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
-  { path: '/guides', changefreq: 'weekly', priority: '0.9' },
   { path: '/tools', changefreq: 'weekly', priority: '0.9' },
   { path: '/services', changefreq: 'monthly', priority: '0.8' },
   { path: '/about', changefreq: 'monthly', priority: '0.8' },
   { path: '/contact', changefreq: 'monthly', priority: '0.7' },
-  { path: '/ai', changefreq: 'monthly', priority: '0.7' },
 ];
 
 const PRIMARY_HUB_PATHS = new Set<string>([
@@ -143,17 +141,20 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
     priority: string
   ) => {
     if (!rawPath.startsWith('/')) return;
-    const cleanPath = normalizePath(rawPath);
-    if (EXCLUDED_NON_CANONICAL_PATHS.has(rawPath) || EXCLUDED_NON_CANONICAL_PATHS.has(cleanPath)) {
+    const normalizedPath = normalizePath(rawPath);
+    if (EXCLUDED_NON_CANONICAL_PATHS.has(rawPath) || EXCLUDED_NON_CANONICAL_PATHS.has(normalizedPath)) {
       return;
     }
 
-    if (seenNormalizedPaths.has(cleanPath)) return;
-    seenNormalizedPaths.add(cleanPath);
+    if (seenNormalizedPaths.has(normalizedPath)) return;
+    seenNormalizedPaths.add(normalizedPath);
 
+    // Preserve the exact canonical path (including a declared trailing slash)
+    // while using the normalized path only as the deduplication key.
+    const canonicalPath = rawPath === '/' ? '/' : rawPath;
     entries.push({
-      loc: `${siteOrigin}${cleanPath}`,
-      path: cleanPath,
+      loc: `${siteOrigin}${canonicalPath}`,
+      path: canonicalPath,
       category,
       lastmod: normalizeIsoDate(lastmod, defaultLastMod),
       changefreq,
@@ -161,10 +162,13 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
     });
   };
 
-  // 1a. Core Primary Navigation & Hub Routes (/, /guides, /tools, /services, /about, /contact, /ai)
+  // 1a. Core Primary Navigation & Hub Routes (/, /tools, /services, /about, /contact)
   for (const coreRoute of CORE_CANONICAL_STATIC_ROUTES) {
+    const matchingMetadata = Object.values(STATIC_METADATA).find(
+      (meta) => normalizePath(meta.canonicalPath) === normalizePath(coreRoute.path)
+    );
     addEntry(
-      coreRoute.path,
+      matchingMetadata?.canonicalPath || coreRoute.path,
       'static',
       defaultLastMod,
       coreRoute.changefreq,
@@ -181,7 +185,7 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
     ) {
       continue;
     }
-    if (meta.robots && meta.robots.toLowerCase().includes('noindex') && cleanCanonicalPath !== '/ai') {
+    if (meta.robots && meta.robots.toLowerCase().includes('noindex')) {
       continue;
     }
 
@@ -199,7 +203,7 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
       changefreq = 'yearly';
     }
 
-    addEntry(cleanCanonicalPath, 'static', defaultLastMod, changefreq, priority);
+    addEntry(meta.canonicalPath, 'static', defaultLastMod, changefreq, priority);
   }
 
   // 2. IT & Finance Knowledge Base Notes (from src/data/notesData.json)

@@ -87,7 +87,7 @@ export const STATIC_METADATA: Record<string, RouteMetadata> = {
     title: 'Field Guides & Knowledge Base',
     description: 'Practical IT troubleshooting guides, knowledge-base articles, and step-by-step technical references from Jawed Imtiaz.',
     ogDescription: 'Step-by-step IT field guides, standard operating procedures, and troubleshooting playbooks for enterprise technicians.',
-    canonicalPath: '/guides',
+    canonicalPath: '/field-guides/',
     ogType: 'website',
   },
   '/tools': {
@@ -139,6 +139,7 @@ export const STATIC_METADATA: Record<string, RouteMetadata> = {
     ogDescription: 'Interactive AI assistant for searching published IT troubleshooting guides, calculators, and technical documentation on Jawed.co.in.',
     canonicalPath: '/ai',
     ogType: 'website',
+    robots: 'noindex, follow',
   },
   '/contact': {
     title: 'Contact Jawed Imtiaz',
@@ -179,7 +180,7 @@ export const STATIC_METADATA: Record<string, RouteMetadata> = {
     title: 'Services & IT Field Dispatch',
     description: 'Information about IT field support, workplace technology, and service dispatch resources.',
     ogDescription: 'On-site IT field engineering, rack & stack deployment, network troubleshooting, and workplace technology dispatch services.',
-    canonicalPath: '/services-dispatch/',
+    canonicalPath: '/services',
     ogType: 'website',
   },
 };
@@ -538,7 +539,9 @@ export function normalizePath(pathname: string): string {
 }
 
 export function canonicalUrl(path: string): string {
-  return SITE_ORIGIN + normalizePath(path);
+  const normalizedPath = normalizePath(path);
+  const preserveTrailingSlash = normalizedPath !== '/' && path.split(/[?#]/, 1)[0].endsWith('/');
+  return SITE_ORIGIN + normalizedPath + (preserveTrailingSlash ? '/' : '');
 }
 
 export function resolveMetadata(pathname: string): RouteMetadata {
