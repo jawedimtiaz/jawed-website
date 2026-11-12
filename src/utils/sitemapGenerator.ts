@@ -204,7 +204,7 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
       changefreq = 'yearly';
     }
 
-    addEntry(cleanCanonicalPath, 'static', defaultLastMod, changefreq, priority);
+    addEntry(meta.canonicalPath, 'static', defaultLastMod, changefreq, priority);
   }
 
   // 2. IT & Finance Knowledge Base Notes (from src/data/notesData.json)
