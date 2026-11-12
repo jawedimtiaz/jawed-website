@@ -16,7 +16,7 @@ function escapeRegExp(value: string): string {
 }
 
 function upsertMeta(html: string, attribute: 'name' | 'property', key: string, content: string): string {
-  const selector = new RegExp('<meta\\b(?=[^>]*\\b' + attribute + '=["\\']' + escapeRegExp(key) + '["\\'])[^>]*>', 'i');
+  const selector = new RegExp("<meta\\b(?=[^>]*\\b" + attribute + "=[\"']" + escapeRegExp(key) + "[\"'])[^>]*>", 'i');
   const tag = '<meta ' + attribute + '="' + key + '" content="' + escapeHtmlAttribute(content) + '" />';
   if (selector.test(html)) return html.replace(selector, tag);
   return html.replace('</head>', '  ' + tag + '\n  </head>');
