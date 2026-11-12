@@ -152,7 +152,7 @@ export function useLocalStorageDraft<T extends Record<string, any>>({
     setHasSavedDraft(stored.isStored);
     setSaveStatus(stored.isStored ? 'restored' : 'idle');
     setHasLoadedDraft(true);
-  }, [key, defaultValues]);
+  }, [key]);
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const valuesRef = useRef<T>(values);
