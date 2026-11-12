@@ -50,7 +50,6 @@ const CORE_CANONICAL_STATIC_ROUTES: Array<{
   { path: '/services', changefreq: 'monthly', priority: '0.8' },
   { path: '/about', changefreq: 'monthly', priority: '0.8' },
   { path: '/contact', changefreq: 'monthly', priority: '0.7' },
-  { path: '/ai', changefreq: 'monthly', priority: '0.7' },
 ];
 
 const PRIMARY_HUB_PATHS = new Set<string>([
@@ -163,7 +162,7 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
     });
   };
 
-  // 1a. Core Primary Navigation & Hub Routes (/, /guides, /tools, /services, /about, /contact, /ai)
+  // 1a. Core Primary Navigation & Hub Routes (/, /tools, /services, /about, /contact)
   for (const coreRoute of CORE_CANONICAL_STATIC_ROUTES) {
     const matchingMetadata = Object.values(STATIC_METADATA).find(
       (meta) => normalizePath(meta.canonicalPath) === normalizePath(coreRoute.path)
@@ -186,7 +185,7 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
     ) {
       continue;
     }
-    if (meta.robots && meta.robots.toLowerCase().includes('noindex') && cleanCanonicalPath !== '/ai') {
+    if (meta.robots && meta.robots.toLowerCase().includes('noindex')) {
       continue;
     }
 
