@@ -21,7 +21,7 @@ function expectedCanonicalPath(path){
  if(p==="/guides"||p==="/field-guides")return "/field-guides/";
  if(p==="/notes")return "/field-guides/";
  if(p==="/tools"||p==="/diagnostic-tools")return "/tools/";
- if(p==="/services"||p==="/services-dispatch")return "/services-dispatch/";
+ if(p==="/services"||p==="/services-dispatch")return "/services";
  if(p.startsWith("/notes/"))return p;
  if(p.startsWith("/guides/")||p.startsWith("/field-guides/"))return "/field-guides/"+p.split("/").filter(Boolean).at(-1);
  if(p==="/tools/calculator")return "/tools/retirement-planning-calculator";
