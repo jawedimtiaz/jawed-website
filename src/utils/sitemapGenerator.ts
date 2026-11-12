@@ -46,7 +46,6 @@ const CORE_CANONICAL_STATIC_ROUTES: Array<{
   priority: string;
 }> = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
-  { path: '/guides', changefreq: 'weekly', priority: '0.9' },
   { path: '/tools', changefreq: 'weekly', priority: '0.9' },
   { path: '/services', changefreq: 'monthly', priority: '0.8' },
   { path: '/about', changefreq: 'monthly', priority: '0.8' },
