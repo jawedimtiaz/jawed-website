@@ -19,7 +19,7 @@
 /Tips_&_Tricks.html /resources/ 301
 /Tips_&_Tricks2.html /resources/ 301
 
-# React Router paths must reach the Vite application entry point on direct navigation
+# SPA rewrites are reserved for non-canonical aliases outside the generated sitemap
 /guides / 200
 /guides/* / 200
 /notes / 200
