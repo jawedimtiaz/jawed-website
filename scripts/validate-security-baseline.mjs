@@ -26,7 +26,7 @@ for(const value of requiredHeaders){
  assert.equal(rootHeaders.includes(value),true,"Root reference security header contract missing: "+value);
 }
 const csp=headers.match(/Content-Security-Policy:\s*([^\n]+)/)?.[1]||"";
-for(const directive of ["default-src 'self'","base-uri 'self'","frame-ancestors 'none'","frame-src 'none'","form-action 'self' mailto:","object-src 'none'","media-src 'self' blob:","script-src ","worker-src ","connect-src ","img-src ","style-src ","font-src "]){
+for(const directive of ["default-src 'self'","base-uri 'self'","frame-ancestors 'none'","form-action 'self' mailto:","object-src 'none'","media-src 'self' blob:","script-src ","worker-src ","connect-src ","img-src ","style-src ","font-src "]){
  assert.equal(csp.includes(directive),true,"CSP directive missing: "+directive);
 }
 assert.equal(csp.includes("https://www.googletagmanager.com"),true,"CSP must retain the deferred analytics tag-manager origin");
@@ -35,6 +35,9 @@ assert.equal(csp.includes("https://cdnjs.cloudflare.com"),true,"CSP must retain 
 assert.equal(/adsbygoogle|googlesyndication\.com|googleadservices\.com/i.test(csp),false,"Ad-serving hosts must remain absent before activation");
 assert.equal(/(^|\\s)'unsafe-eval'(\\s|$)/.test(csp),false,"CSP must not permit unrestricted unsafe-eval; wasm-unsafe-eval is allowed for local ONNX inference");
 assert.equal(csp.includes("frame-ancestors 'none'"),true,"CSP must prevent framing");
+const rootCsp=rootHeaders.match(/Content-Security-Policy:\s*([^\n]+)/)?.[1]||"";
+assert.equal(rootCsp.includes("frame-src 'none'"),true,"Root reference CSP must deny all frame sources");
+assert.equal(csp.includes("frame-src 'self' https://*.firebaseapp.com https://accounts.google.com"),true,"Published CSP must restrict frames to the Firebase and Google sign-in origins required by the client app");
 
 assert.equal(fs.existsSync("functions/api/transcribe.ts"),false,"Audio transcription must remain local-first and must not add a billable server endpoint");
 assert.equal(fs.existsSync("public/_routes.json"),false,"Obsolete API-only route configuration must not be published");
