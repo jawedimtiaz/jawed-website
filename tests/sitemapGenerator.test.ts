@@ -52,7 +52,7 @@ test('collectSitemapEntries includes all canonical IT field guides, tools, notes
     );
   }
   // Core primary canonical routes must be present
-  for (const corePath of ['/', '/field-guides', '/tools', '/services', '/about', '/contact', '/ai']) {
+  for (const corePath of ['/', '/field-guides', '/tools', '/services', '/about', '/contact']) {
     assert.ok(
       paths.has(normalizePath(corePath)),
       `Expected core route ${corePath} in sitemap entries`
@@ -99,6 +99,7 @@ test('collectSitemapEntries excludes noindex and non-canonical alias paths', () 
   assert.equal(rawPaths.has('/diagnostic-tools'), false, '/diagnostic-tools alias should be excluded');
   assert.equal(rawPaths.has('/diagnostic-tools/'), false, '/diagnostic-tools/ alias should be excluded');
   assert.equal(normalizedPaths.has('/offline'), false, '/offline noindex route should be excluded');
+  assert.equal(normalizedPaths.has('/ai'), false, '/ai noindex route should be excluded');
   assert.equal(normalizedPaths.has('/404'), false, '/404 route should be excluded');
 });
 
