@@ -4,34 +4,33 @@ export function usePersistentState<T>(
   key: string,
   initialValue: T
 ): [T, (value: T | ((val: T) => T)) => void] {
-  const [state, setState] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
+  // The first render must not depend on browser storage.
+  const [state, setState] = useState<T>(initialValue);
+
+  useEffect(() => {
     try {
-      const item = localStorage.getItem(key);
+      const item = window.localStorage.getItem(key);
       if (item !== null) {
-        return JSON.parse(item);
+        setState(JSON.parse(item) as T);
       }
     } catch (error) {
       console.warn(`Error reading localStorage key "${key}":`, error);
     }
-    return initialValue;
-  });
+  }, [key]);
 
   const setPersistentState = useCallback(
     (value: T | ((val: T) => T)) => {
-      try {
-        setState(prev => {
-          const nextValue = value instanceof Function ? value(prev) : value;
+      setState((prev) => {
+        const nextValue = value instanceof Function ? value(prev) : value;
+        try {
           if (typeof window !== 'undefined') {
-            localStorage.setItem(key, JSON.stringify(nextValue));
+            window.localStorage.setItem(key, JSON.stringify(nextValue));
           }
-          return nextValue;
-        });
-      } catch (error) {
-        console.warn(`Error setting localStorage key "${key}":`, error);
-      }
+        } catch (error) {
+          console.warn(`Error setting localStorage key "${key}":`, error);
+        }
+        return nextValue;
+      });
     },
     [key]
   );

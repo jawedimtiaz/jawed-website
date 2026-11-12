@@ -120,18 +120,14 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   syncWithLocalStorage = true,
   storageKey = THEME_STORAGE_KEY,
 }) => {
-  const [mode, setMode] = useState<ThemeMode>(() => {
-    if (syncWithLocalStorage) {
-      const initialSaved = getSavedThemeMode(storageKey);
-      applyThemeToDom(initialSaved);
-      return initialSaved;
-    }
-    if (typeof document !== 'undefined' && document.documentElement) {
-      if (document.documentElement.classList.contains('light')) return 'light';
-      if (document.documentElement.classList.contains('dark')) return 'dark';
-    }
-    return 'system';
-  });
+  // The initial React tree must be identical during SSG and browser hydration.
+  // The saved preference is restored in the layout effect below.
+  const [mode, setMode] = useState<ThemeMode>('system');
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   // Apply theme and optionally persist choice to localStorage
   const selectMode = useCallback(
@@ -226,7 +222,9 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
     };
   }, [syncWithLocalStorage, storageKey]);
 
-  const resolvedTheme = getResolvedTheme(mode);
+  // Use a deterministic value until after hydration; the document theme itself
+  // can still be applied synchronously by the existing pre-paint theme sync.
+  const resolvedTheme = hasMounted ? getResolvedTheme(mode) : 'dark';
   const nextTheme: 'light' | 'dark' = resolvedTheme === 'dark' ? 'light' : 'dark';
 
   const handleToggle = () => {
