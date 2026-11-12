@@ -96,16 +96,54 @@ test('generateSitemapXml produces valid XML with canonical origin and SEO metada
     seenNormalized.add(norm);
   }
 
-  for (const requiredUrl of [
-    'https://jawed.co.in/',
-    'https://jawed.co.in/guides',
-    'https://jawed.co.in/tools',
-    'https://jawed.co.in/services',
-    'https://jawed.co.in/about',
-    'https://jawed.co.in/contact',
-    'https://jawed.co.in/ai',
+  const entries = collectSitemapEntries();
+  const entryMap = new Map(entries.map((e) => [e.loc, e]));
+
+  const expectedCorePriorities: Array<[string, string]> = [
+    ['https://jawed.co.in/', '1.0'],
+    ['https://jawed.co.in/guides', '0.9'],
+    ['https://jawed.co.in/tools', '0.9'],
+    ['https://jawed.co.in/services', '0.8'],
+    ['https://jawed.co.in/about', '0.8'],
+    ['https://jawed.co.in/contact', '0.7'],
+    ['https://jawed.co.in/ai', '0.7'],
+  ];
+
+  for (const [coreUrl, expectedPriority] of expectedCorePriorities) {
+    assert.ok(locMatches.includes(coreUrl), `Expected ${coreUrl} in sitemap.xml <loc> list`);
+    assert.equal(entryMap.get(coreUrl)?.priority, expectedPriority, `Expected priority ${expectedPriority} for ${coreUrl}`);
+  }
+
+  for (const requiredFieldGuideUrl of [
+    'https://jawed.co.in/field-guides/server-rack-cable-management-best-practices',
+    'https://jawed.co.in/field-guides/rj45-cabling-t568a-vs-t568b-guide',
+    'https://jawed.co.in/field-guides/diagnosing-network-port-flapping-cli-guide',
+    'https://jawed.co.in/field-guides/poweredge-proliant-amber-led-indicator-cheatsheet',
+    'https://jawed.co.in/field-guides/macbook-macos-troubleshooting-and-setup',
+    'https://jawed.co.in/field-guides/iphone-ipad-mdm-wifi-troubleshooting',
+    'https://jawed.co.in/field-guides/apple-continuity-airdrop-dock-triage',
   ]) {
-    assert.ok(locMatches.includes(requiredUrl), `Expected ${requiredUrl} in sitemap.xml <loc> list`);
+    assert.ok(locMatches.includes(requiredFieldGuideUrl), `Expected field guide ${requiredFieldGuideUrl} in sitemap.xml`);
+  }
+
+  for (const requiredToolUrl of [
+    'https://jawed.co.in/tools/ipv4-subnet-calculator',
+    'https://jawed.co.in/tools/server-rack-power-btu-calculator',
+    'https://jawed.co.in/tools/it-troubleshooting-assistant',
+    'https://jawed.co.in/tools/service-desk-note-formatter',
+    'https://jawed.co.in/tools/ai-prompt-builder',
+    'https://jawed.co.in/tools/money-manager',
+    'https://jawed.co.in/tools/it-resume-bullet-builder',
+    'https://jawed.co.in/tools/ai-audio-transcriber',
+    'https://jawed.co.in/tools/animate-image-to-video',
+  ]) {
+    assert.ok(locMatches.includes(requiredToolUrl), `Expected tool ${requiredToolUrl} in sitemap.xml`);
+  }
+
+  for (const loc of locMatches) {
+    if (loc !== 'https://jawed.co.in/') {
+      assert.equal(loc.endsWith('/'), false, `Non-root sitemap URL must not have a trailing slash: ${loc}`);
+    }
   }
 
   const lastmodMatches = [...xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m) => m[1]);
@@ -120,6 +158,8 @@ test('generateSitemapXml produces valid XML with canonical origin and SEO metada
 
 test('public/robots.txt and routing configs do not intercept /sitemap.xml or /robots.txt', () => {
   const robotsTxt = fs.readFileSync(path.resolve(process.cwd(), 'public/robots.txt'), 'utf8');
+  assert.ok(robotsTxt.includes('User-agent: *'), 'public/robots.txt must include User-agent: *');
+  assert.ok(robotsTxt.includes('Allow: /'), 'public/robots.txt must include Allow: /');
   assert.ok(
     robotsTxt.includes('Sitemap: https://jawed.co.in/sitemap.xml'),
     'public/robots.txt must explicitly declare Sitemap: https://jawed.co.in/sitemap.xml'

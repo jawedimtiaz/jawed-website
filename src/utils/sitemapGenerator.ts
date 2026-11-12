@@ -5,7 +5,7 @@ import { TOOLS } from '../data/toolsData';
 import { STATIC_METADATA, TOOL_METADATA, normalizePath } from '../components/RouteSeo';
 
 export const DEFAULT_SITE_ORIGIN = 'https://jawed.co.in';
-export const DEFAULT_LASTMOD = '2026-10-15';
+export const DEFAULT_LASTMOD = '2026-11-12';
 
 export type SitemapCategory = 'static' | 'note' | 'field-guide' | 'blog' | 'tool';
 export type SitemapChangeFreq = 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never';
@@ -51,7 +51,7 @@ const CORE_CANONICAL_STATIC_ROUTES: Array<{
   { path: '/services', changefreq: 'monthly', priority: '0.8' },
   { path: '/about', changefreq: 'monthly', priority: '0.8' },
   { path: '/contact', changefreq: 'monthly', priority: '0.7' },
-  { path: '/ai', changefreq: 'monthly', priority: '0.8' },
+  { path: '/ai', changefreq: 'monthly', priority: '0.7' },
 ];
 
 const PRIMARY_HUB_PATHS = new Set<string>([
