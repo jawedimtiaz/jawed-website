@@ -136,15 +136,23 @@ export function useLocalStorageDraft<T extends Record<string, any>>({
 }: UseLocalStorageDraftOptions<T>): UseLocalStorageDraftResult<T> {
   const isOnline = useOnlineStatus();
 
-  // Lazy initialization from storage
-  const [initialData] = useState(() => readDraftFromStorage(key, defaultValues));
-  const [values, setValues] = useState<T>(initialData.data);
-  const [lastSavedAt, setLastSavedAt] = useState<number | null>(initialData.savedAt);
-  const [isRestored, setIsRestored] = useState<boolean>(initialData.isStored);
-  const [hasSavedDraft, setHasSavedDraft] = useState<boolean>(initialData.isStored);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'restored' | 'cleared'>(
-    initialData.isStored ? 'restored' : 'idle'
-  );
+  // Start from deterministic defaults; restore browser storage after hydration.
+  const [values, setValues] = useState<T>(defaultValues);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [isRestored, setIsRestored] = useState(false);
+  const [hasSavedDraft, setHasSavedDraft] = useState(false);
+  const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'restored' | 'cleared'>('idle');
+
+  useEffect(() => {
+    const stored = readDraftFromStorage(key, defaultValues);
+    setValues(stored.data);
+    setLastSavedAt(stored.savedAt);
+    setIsRestored(stored.isStored);
+    setHasSavedDraft(stored.isStored);
+    setSaveStatus(stored.isStored ? 'restored' : 'idle');
+    setHasLoadedDraft(true);
+  }, [key, defaultValues]);
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const valuesRef = useRef<T>(values);
@@ -155,6 +163,7 @@ export function useLocalStorageDraft<T extends Record<string, any>>({
 
   // Immediate save helper
   const commitSave = useCallback(() => {
+    if (!hasLoadedDraft) return false;
     const savedTimestamp = writeDraftToStorage(key, valuesRef.current, version);
     if (savedTimestamp !== null) {
       setLastSavedAt(savedTimestamp);
@@ -163,7 +172,7 @@ export function useLocalStorageDraft<T extends Record<string, any>>({
       return true;
     }
     return false;
-  }, [key, version]);
+  }, [key, version, hasLoadedDraft]);
 
   // Update a single field cleanly
   const updateField = useCallback(<K extends keyof T>(field: K, value: T[K]) => {
@@ -175,6 +184,8 @@ export function useLocalStorageDraft<T extends Record<string, any>>({
 
   // Debounced auto-save on value changes
   useEffect(() => {
+    if (!hasLoadedDraft) return;
+
     setSaveStatus('saving');
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -189,7 +200,7 @@ export function useLocalStorageDraft<T extends Record<string, any>>({
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [values, autoSaveDelayMs, commitSave]);
+  }, [values, autoSaveDelayMs, commitSave, hasLoadedDraft]);
 
   // Immediate flush on connection drop (offline event) or tab close/unload
   useEffect(() => {
@@ -206,18 +217,19 @@ export function useLocalStorageDraft<T extends Record<string, any>>({
     return () => {
       window.removeEventListener('offline', handleImmediateSave);
       window.removeEventListener('beforeunload', handleImmediateSave);
-      // Also commit on component unmount
-      handleImmediateSave();
+      // Do not persist pre-restoration defaults during hydration or early unmount.
+      if (hasLoadedDraft) handleImmediateSave();
     };
-  }, [commitSave]);
+  }, [commitSave, hasLoadedDraft]);
 
   // Manual save trigger
   const saveDraftNow = useCallback(() => {
+    if (!hasLoadedDraft) return false;
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
     return commitSave();
-  }, [commitSave]);
+  }, [commitSave, hasLoadedDraft]);
 
   // Clear draft from storage and reset values to defaults
   const clearDraft = useCallback(() => {
