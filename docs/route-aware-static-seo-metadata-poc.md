@@ -29,6 +29,21 @@ The production sitemap endpoint separately returned HTTP 200 with
 - Ensures canonical sitemap routes and explicit metadata routes are not intercepted by SPA rewrite rules; only dynamic, non-canonical aliases retain rewrites.
 - Adds unit coverage and a Site Integrity Gate check for build integration.
 
+## Verified Cloudflare preview evidence
+
+- Preview deployment `9a8d6892` returned HTTP 200 for
+  `/tools/career-match-resume-review` with JavaScript disabled. The initial HTML
+  contained the Career Match title, route description, canonical URL and
+  `index, follow` robots metadata rather than the homepage metadata.
+- Preview deployment `6b364996` returned HTTP 200 for `/ai` with JavaScript
+  disabled. The initial HTML contained the AI Assistant title, canonical
+  `https://jawed.co.in/ai/` and `noindex, follow` robots metadata.
+- Both responses retained the empty React mount point by design; the client
+  application still renders the page after JavaScript executes.
+
+These are preview-only deployments. Production remains on the unchanged
+`main` commit until review and merge approval.
+
 ## Important limitation
 
 This POC prerenders **head metadata only**. It does not server-render React page
