@@ -13,6 +13,7 @@ const rootSitemap=read("sitemap.xml");
 const robots=read("public/robots.txt");
 const redirects=read("public/_redirects");
 const headers=read("public/_headers");
+const notFound=read("public/404.html");
 const packageJson=JSON.parse(read("package.json"));
 const routePrerender=read("scripts/prerender-route-metadata.ts");
 const routePrerenderTests=read("tests/routeMetadataPrerender.test.ts");
@@ -72,15 +73,13 @@ for(const location of locations){
   if(seenPaths.has(routePath))fail.push("sitemap contains duplicate normalized route: "+routePath);
   seenPaths.add(routePath);
   if(!routePatterns.some(pattern=>routeMatches(pattern,routePath)))fail.push("sitemap route is not represented by React Router: "+routePath);
-  if(routePath!=="/"){
-    const prefix="/"+routePath.split("/").filter(Boolean)[0];
-    if(!redirectLines.has(prefix+" / 200")&&!redirectLines.has(prefix+"/* / 200"))fail.push("sitemap route lacks a Cloudflare Pages SPA rewrite: "+routePath);
-  }
+  for(const line of redirectLines){const parts=line.split(/\\s+/);if(parts.at(-1)==="200"&&routeMatches(parts[0],routePath))fail.push("Cloudflare Pages SPA rewrite intercepts a canonical static SEO route: "+routePath+" via "+line)}
 }
 if(!robots.includes("User-agent: *")||!robots.includes("Allow: /"))fail.push("robots.txt must allow public crawling");
 if(!robots.includes("Sitemap: https://jawed.co.in/sitemap.xml"))fail.push("robots.txt must declare the canonical sitemap");
 if(robots.includes("Disallow: /\n"))fail.push("robots.txt must not disallow the entire site");
 if(!headers.includes("X-Frame-Options: DENY")||!headers.includes("X-Content-Type-Options: nosniff")||!headers.includes("Content-Security-Policy:"))fail.push("public/_headers must retain the required security-header baseline");
+if(!notFound.includes(`<meta name="robots" content="noindex, follow"`))fail.push("custom 404 page must remain noindex, follow");
 
 const rootRedirects=read("_redirects").split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith("#"));
 for(const line of rootRedirects)if(!redirectLines.has(line))fail.push("public/_redirects is missing a legacy redirect: "+line);
@@ -104,4 +103,4 @@ if(fail.length){
 }
 console.log("Site Integrity Gate PASSED");
 console.log("React Router routes matched against "+locations.length+" canonical sitemap URLs");
-console.log("Vite entry, SEO metadata component, sitemap, robots, Cloudflare headers/redirects, content JSON, and AI privacy boundaries validated");
+console.log("Vite entry, route-specific static SEO, sitemap, robots, Cloudflare headers/redirects, custom 404, content JSON, and AI privacy boundaries validated");
