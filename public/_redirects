@@ -20,12 +20,7 @@
 /Tips_&_Tricks2.html /resources/ 301
 
 # SPA rewrites are reserved for non-canonical aliases outside the generated sitemap
-/guides / 200
 /guides/* / 200
-/notes / 200
-/diagnostic-tools / 200
 /diagnostic-tools/* / 200
-/services / 200
 /services/* / 200
-/ai / 200
 /ai/* / 200
