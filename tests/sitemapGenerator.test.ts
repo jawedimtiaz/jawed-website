@@ -14,7 +14,7 @@ import { FIELD_GUIDES } from '../src/data/fieldGuidesData';
 import { TOOLS } from '../src/data/toolsData';
 import notesData from '../src/data/notesData.json';
 import blogData from '../src/data/blogData.json';
-import { normalizePath } from '../src/components/RouteSeo';
+import { normalizePath, resolveMetadata } from '../src/components/RouteSeo';
 
 test('collectSitemapEntries includes all canonical IT field guides, tools, notes, and blog posts', () => {
   const entries = collectSitemapEntries();
@@ -52,12 +52,24 @@ test('collectSitemapEntries includes all canonical IT field guides, tools, notes
     );
   }
   // Core primary canonical routes must be present
-  for (const corePath of ['/', '/guides', '/tools', '/services', '/about', '/contact', '/ai']) {
+  for (const corePath of ['/', '/field-guides', '/tools', '/services', '/about', '/contact', '/ai']) {
     assert.ok(
       paths.has(normalizePath(corePath)),
       `Expected core route ${corePath} in sitemap entries`
     );
   }
+});
+
+test('route aliases declare one canonical hub URL and are not duplicated in the sitemap', () => {
+  assert.equal(resolveMetadata('/guides').canonicalPath, '/field-guides/');
+  assert.equal(resolveMetadata('/field-guides').canonicalPath, '/field-guides/');
+  assert.equal(resolveMetadata('/services-dispatch').canonicalPath, '/services');
+  assert.equal(resolveMetadata('/services').canonicalPath, '/services');
+
+  const canonicalPaths = collectSitemapEntries().map((entry) => normalizePath(entry.path));
+  assert.equal(canonicalPaths.includes('/guides'), false, '/guides alias must not be listed separately');
+  assert.equal(canonicalPaths.filter((path) => path === '/field-guides').length, 1);
+  assert.equal(canonicalPaths.includes('/services-dispatch'), false, '/services-dispatch alias must not be listed separately');
 });
 
 test('collectSitemapEntries excludes noindex and non-canonical alias paths', () => {
@@ -101,8 +113,7 @@ test('generateSitemapXml produces valid XML with canonical origin and SEO metada
 
   const expectedCorePriorities: Array<[string, string]> = [
     ['https://jawed.co.in/', '1.0'],
-    ['https://jawed.co.in/guides', '0.9'],
-    ['https://jawed.co.in/tools', '0.9'],
+        ['https://jawed.co.in/tools', '0.9'],
     ['https://jawed.co.in/services', '0.8'],
     ['https://jawed.co.in/about', '0.8'],
     ['https://jawed.co.in/contact', '0.7'],
