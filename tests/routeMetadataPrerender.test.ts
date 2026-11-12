@@ -62,12 +62,35 @@ test('prerenderRouteMetadata writes one route snapshot per sitemap URL', () => {
       'utf8'
     );
 
-    assert.equal(prerenderRouteMetadata(dist), 3);
+    assert.equal(prerenderRouteMetadata(dist, []), 3);
     assert.equal(fs.existsSync(path.join(dist, 'index.html')), true);
     assert.equal(fs.existsSync(path.join(dist, 'tools', 'career-match-resume-review.html')), true);
     assert.equal(fs.existsSync(path.join(dist, 'about', 'index.html')), true);
     const toolHtml = fs.readFileSync(path.join(dist, 'tools', 'career-match-resume-review.html'), 'utf8');
     assert.match(toolHtml, /career-match-resume-review/);
+  } finally {
+    fs.rmSync(dist, { recursive: true, force: true });
+  }
+});
+
+
+test('explicit noindex routes are emitted even when excluded from the sitemap', () => {
+  const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'jawed-noindex-seo-'));
+  try {
+    fs.writeFileSync(path.join(dist, 'index.html'), BASE_HTML, 'utf8');
+    fs.writeFileSync(
+      path.join(dist, 'sitemap.xml'),
+      `<?xml version="1.0"?><urlset><url><loc>https://jawed.co.in/</loc></url></urlset>`,
+      'utf8'
+    );
+
+    assert.equal(prerenderRouteMetadata(dist, ['/ai', '/offline']), 3);
+    const aiHtml = fs.readFileSync(path.join(dist, 'ai.html'), 'utf8');
+    const offlineHtml = fs.readFileSync(path.join(dist, 'offline.html'), 'utf8');
+    assert.match(aiHtml, /<meta name="robots" content="noindex, follow" \/>/);
+    assert.match(aiHtml, /<link rel="canonical" href="https:\/\/jawed\.co\.in\/ai\/" \/>/);
+    assert.match(offlineHtml, /<meta name="robots" content="noindex, follow" \/>/);
+    assert.match(offlineHtml, /<link rel="canonical" href="https:\/\/jawed\.co\.in\/offline\/" \/>/);
   } finally {
     fs.rmSync(dist, { recursive: true, force: true });
   }
