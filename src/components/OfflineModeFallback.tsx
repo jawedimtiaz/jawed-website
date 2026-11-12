@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 export interface CachedOfflineTool {
@@ -127,9 +127,14 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
 }) => {
   const { pathname } = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [lastCheckedTime, setLastCheckedTime] = useState<string>(() =>
-    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  );
+  // Keep server and initial browser markup deterministic; populate the clock after mount.
+  const [lastCheckedTime, setLastCheckedTime] = useState<string>('');
+
+  useEffect(() => {
+    setLastCheckedTime(
+      new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    );
+  }, []);
   const [checkFeedback, setCheckFeedback] = useState<string | null>(null);
 
   const handleRetry = () => {
