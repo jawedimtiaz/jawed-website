@@ -15,26 +15,32 @@ export interface ConvertedValue {
 }
 
 export function useUnitSystem(defaultSystem: UnitSystem = 'metric') {
-  const [unitSystem, setUnitSystemState] = useState<UnitSystem>(() => {
-    try {
-      const saved = localStorage.getItem(UNIT_SYSTEM_STORAGE_KEY);
-      if (saved === 'metric' || saved === 'imperial') {
-        return saved;
-      }
-    } catch {
-      // fallback to default
-    }
-    return defaultSystem;
-  });
+  // Keep server rendering and the browser's first render on the same default.
+  const [unitSystem, setUnitSystemState] = useState<UnitSystem>(defaultSystem);
+  const [hasRestoredUnitSystem, setHasRestoredUnitSystem] = useState(false);
 
   useEffect(() => {
     try {
-      localStorage.setItem(UNIT_SYSTEM_STORAGE_KEY, unitSystem);
+      const saved = window.localStorage.getItem(UNIT_SYSTEM_STORAGE_KEY);
+      if (saved === 'metric' || saved === 'imperial') {
+        setUnitSystemState(saved);
+      }
+    } catch {
+      // Storage may be unavailable; retain the supplied default.
+    } finally {
+      setHasRestoredUnitSystem(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasRestoredUnitSystem) return;
+    try {
+      window.localStorage.setItem(UNIT_SYSTEM_STORAGE_KEY, unitSystem);
       window.dispatchEvent(new CustomEvent('unit-system-changed', { detail: unitSystem }));
     } catch {
-      // ignore
+      // Storage may be unavailable; the in-memory preference still works.
     }
-  }, [unitSystem]);
+  }, [unitSystem, hasRestoredUnitSystem]);
 
   useEffect(() => {
     const handleStorage = (e: CustomEvent<UnitSystem> | StorageEvent) => {
