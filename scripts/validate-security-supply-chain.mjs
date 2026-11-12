@@ -8,6 +8,9 @@ const contract=JSON.parse(read(contractPath));
 if(contract.phase!=="38C")failures.push("security supply-chain contract phase must be 38C");
 if(contract.status!=="active")failures.push("security supply-chain contract must remain active");
 if(contract.scope!=="repository-source-and-github-actions")failures.push("security supply-chain scope drifted");
+const firebaseAllowlist=contract.public_client_config_allowlist?.["firebase-applet-config.json"];
+if(firebaseAllowlist?.field!=="apiKey"||firebaseAllowlist?.type!=="Firebase Web SDK public client API key")failures.push("Firebase public client API key exception must remain narrow and documented");
+if(!fs.existsSync(path.join(root,"docs","firebase-web-client-config-security.md")))failures.push("Missing Firebase public client configuration security note");
 if(typeof contract.controls!=="object"||contract.controls===null)failures.push("security supply-chain controls must be declared");
 function walk(dir){const out=[];for(const e of fs.readdirSync(dir,{withFileTypes:true})){if([".git","node_modules"].includes(e.name))continue;const f=path.join(dir,e.name);e.isDirectory()?out.push(...walk(f)):out.push(f)}return out}
 const files=walk(root), rel=f=>path.relative(root,f).replaceAll(path.sep,"/");
