@@ -46,11 +46,20 @@ The first render must be deterministic and equivalent on the build renderer and 
 | `useLocalStorageDraft` | Initializes values, saved timestamp and restored-state flags from localStorage | Hydrate with defaults, restore the draft after mount, and suppress autosave until restoration is complete |
 | `OfflineModeFallback` | Initializes displayed time with `new Date().toLocaleTimeString()` | Render a stable placeholder; populate the time after mount or after a user action |
 
+Additional persistence-sensitive areas surfaced by repository-wide search:
+
+- `useDiagnosticToolStorage` and `DiagnosticToolsAutoPersist` use browser storage and lifecycle events. Confirm the first render is stable and that persistence does not flush pre-restoration defaults.
+- `CctvStorageCalculator` reads localStorage; verify its read occurs after hydration rather than in the initial render path.
+- Money Manager utilities (including currency-rate cache and custom keyword rules) have guarded localStorage fallbacks. Guarding prevents a server exception, but server/client fallback values can still produce markup mismatches if called during render.
+- `syncSettings` and the IT auto-corrector expose browser-persisted settings; ensure their consumers do not use those values to produce different first-render markup.
+- `ToolsPage` and `BlogPostPage` derive share URLs from `window.location` with canonical server fallbacks. These appear intentionally guarded, but should be covered by equivalence tests.
+- `ThemeToggle` synchronizes theme during module evaluation when `window` and `document` exist. Keep this out of the server-rendering import graph; any pre-hydration theme script must change only document styling, not the React tree.
+
 ### 2. Browser APIs and side effects
 
 - PWA service-worker registration belongs only in the browser entry and must not be imported/executed by the server-rendering bundle.
 - `window`, `document`, `navigator`, `localStorage`, `matchMedia`, clipboard, media devices, and browser event listeners must not be accessed during server rendering or at module import time.
-- Browser event subscriptions and DOM mutations should remain in effects; user-initiated browser APIs should remain in event handlers.
+- Browser event subscriptions and DOM mutations should remain in effects; user-initiated browser APIs should remain in event handlers. Existing event-listener usage in PWA install, scroll progress, keyboard shortcuts, AI widget, lightbox and article table-of-contents components is generally effect-scoped, but each import path still needs to be tested.
 - Audit every route component and every transitive import, not only the global shell. A single unguarded browser global can fail the whole build render.
 - Firebase/browser SDK initialization and other client-only integrations need explicit boundaries so that they are not evaluated by the server renderer.
 
