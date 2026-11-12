@@ -18,12 +18,12 @@ This repository currently builds a React single-page application with React Rout
 Vite copies files from `public/` into `dist/`. Therefore Cloudflare Pages configuration files that must be deployed with the build output belong in `public/`, including:
 
 - `public/_headers` — security headers and CSP
-- `public/_redirects` — legacy redirects and React Router direct-navigation rewrites
+- `public/_redirects` — legacy redirects and SPA rewrites only for non-canonical alias routes
 - `public/404.html` — custom not-found page for paths that are not mapped to the application
 
 The root-level `_headers` and `_redirects` are retained for repository-side contracts and review, but are not automatically copied into Vite's `dist/` output.
 
-Every React Router path linked from the app or listed in the sitemap must load `/index.html` on direct navigation. Keep the explicit route rewrites in sync with the route definitions in `src/App.tsx`. Preserve the custom 404 response for unknown paths.
+Canonical URLs listed in the generated sitemap are emitted as route-specific static HTML snapshots after the Vite build. Do not add a `200` rewrite that matches any canonical sitemap URL: it would send the homepage HTML and override the route-specific metadata. Keep `200` rewrites only for non-canonical aliases that are not in the sitemap, and keep those aliases synchronized with `src/App.tsx`. Preserve the custom `404.html` response for unknown paths.
 
 ## AI runtime boundary
 
