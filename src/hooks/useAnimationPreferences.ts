@@ -17,10 +17,6 @@ export const DEFAULT_ANIMATION_PREFERENCES: AnimationPreferences = {
 const VALID_FRAME_RATES: OutputFrameRate[] = [24, 30, 60];
 
 function readStoredPreferences(): AnimationPreferences {
-  if (typeof window === 'undefined') {
-    return DEFAULT_ANIMATION_PREFERENCES;
-  }
-
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_ANIMATION_PREFERENCES;
@@ -36,44 +32,42 @@ function readStoredPreferences(): AnimationPreferences {
       ? rawFps
       : DEFAULT_ANIMATION_PREFERENCES.frameRate;
 
-    return {
-      animationIntensity,
-      frameRate,
-    };
+    return { animationIntensity, frameRate };
   } catch {
     return DEFAULT_ANIMATION_PREFERENCES;
   }
 }
 
 /**
- * Custom hook that manages and persists AnimateImageToVideo animation intensity
- * and output frame rate preferences in localStorage.
+ * Manages AnimateImageToVideo preferences with a deterministic first render.
+ * Saved values are restored after hydration to avoid server/client markup drift.
  */
 export function useAnimationPreferences() {
-  const [preferences, setPreferences] = useState<AnimationPreferences>(readStoredPreferences);
+  const [preferences, setPreferences] = useState<AnimationPreferences>(DEFAULT_ANIMATION_PREFERENCES);
+  const [hasRestoredPreferences, setHasRestoredPreferences] = useState(false);
 
   useEffect(() => {
+    setPreferences(readStoredPreferences());
+    setHasRestoredPreferences(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasRestoredPreferences) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
     } catch {
       // Ignore storage quota or private mode errors
     }
-  }, [preferences]);
+  }, [preferences, hasRestoredPreferences]);
 
   const setAnimationIntensity = useCallback((value: number) => {
     const clamped = Math.min(200, Math.max(20, Math.round(value)));
-    setPreferences((prev) => ({
-      ...prev,
-      animationIntensity: clamped,
-    }));
+    setPreferences((prev) => ({ ...prev, animationIntensity: clamped }));
   }, []);
 
   const setFrameRate = useCallback((fps: OutputFrameRate) => {
     if (!VALID_FRAME_RATES.includes(fps)) return;
-    setPreferences((prev) => ({
-      ...prev,
-      frameRate: fps,
-    }));
+    setPreferences((prev) => ({ ...prev, frameRate: fps }));
   }, []);
 
   const resetPreferences = useCallback(() => {
