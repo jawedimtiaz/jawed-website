@@ -129,10 +129,24 @@ export function calculateCategoryBudgetVariance(
  */
 export function computeBudgetVsActualSummary(
   transactions: MoneyTransaction[],
-  categories: MoneyCategory[] = INITIAL_CATEGORIES,
-  selectedMonth: string = new Date().toISOString().slice(0, 7),
+  categoriesOrMonth: MoneyCategory[] | string = INITIAL_CATEGORIES,
+  monthOrCategories: string | MoneyCategory[] = new Date().toISOString().slice(0, 7),
   thresholdOverrides?: Record<string, number> | number
 ): BudgetVsActualSummary {
+  let categories: MoneyCategory[];
+  let selectedMonth: string;
+
+  if (typeof categoriesOrMonth === 'string') {
+    selectedMonth = categoriesOrMonth;
+    categories = Array.isArray(monthOrCategories) ? monthOrCategories : INITIAL_CATEGORIES;
+  } else {
+    categories = Array.isArray(categoriesOrMonth) ? categoriesOrMonth : INITIAL_CATEGORIES;
+    selectedMonth =
+      typeof monthOrCategories === 'string'
+        ? monthOrCategories
+        : new Date().toISOString().slice(0, 7);
+  }
+
   // 1. Filter expense transactions matching selected month
   const monthExpenseTx = transactions.filter(
     (tx) => tx.type === 'Expense' && tx.date && tx.date.startsWith(selectedMonth)

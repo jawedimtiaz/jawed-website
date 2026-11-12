@@ -216,12 +216,14 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // Never intercept blob:/data: URLs, audio/video media elements, byte-range requests, or Vite dev modules
+  // Never intercept blob:/data: URLs, audio/video media elements, byte-range requests, crawler files, or Vite dev modules
   if (
     (url.protocol !== 'http:' && url.protocol !== 'https:') ||
     request.destination === 'audio' ||
     request.destination === 'video' ||
     request.headers.has('range') ||
+    url.pathname === '/sitemap.xml' ||
+    url.pathname === '/robots.txt' ||
     url.pathname.startsWith('/src/') ||
     url.pathname.startsWith('/@') ||
     url.pathname.startsWith('/node_modules/')

@@ -51,6 +51,13 @@ test('collectSitemapEntries includes all canonical IT field guides, tools, notes
       `Expected blog post /blog/${post.slug} in sitemap entries`
     );
   }
+  // Core primary canonical routes must be present
+  for (const corePath of ['/', '/guides', '/tools', '/services', '/about', '/contact', '/ai']) {
+    assert.ok(
+      paths.has(normalizePath(corePath)),
+      `Expected core route ${corePath} in sitemap entries`
+    );
+  }
 });
 
 test('collectSitemapEntries excludes noindex and non-canonical alias paths', () => {
@@ -58,12 +65,12 @@ test('collectSitemapEntries excludes noindex and non-canonical alias paths', () 
   const rawPaths = new Set(entries.map((entry) => entry.path));
   const normalizedPaths = new Set(entries.map((entry) => normalizePath(entry.path)));
 
+  assert.equal(rawPaths.has('/notes'), false, '/notes alias index should be excluded');
   assert.equal(rawPaths.has('/notes/'), false, '/notes/ alias index should be excluded');
-  assert.equal(rawPaths.has('/guides/'), false, '/guides/ alias index should be excluded');
+  assert.equal(rawPaths.has('/diagnostic-tools'), false, '/diagnostic-tools alias should be excluded');
   assert.equal(rawPaths.has('/diagnostic-tools/'), false, '/diagnostic-tools/ alias should be excluded');
-  assert.equal(rawPaths.has('/services/'), false, '/services/ alias should be excluded');
   assert.equal(normalizedPaths.has('/offline'), false, '/offline noindex route should be excluded');
-  assert.equal(normalizedPaths.has('/ai'), false, '/ai noindex route should be excluded');
+  assert.equal(normalizedPaths.has('/404'), false, '/404 route should be excluded');
 });
 
 test('generateSitemapXml produces valid XML with canonical origin and SEO metadata tags', () => {
@@ -89,9 +96,47 @@ test('generateSitemapXml produces valid XML with canonical origin and SEO metada
     seenNormalized.add(norm);
   }
 
-  assert.ok(xml.includes('<lastmod>'));
+  for (const requiredUrl of [
+    'https://jawed.co.in/',
+    'https://jawed.co.in/guides',
+    'https://jawed.co.in/tools',
+    'https://jawed.co.in/services',
+    'https://jawed.co.in/about',
+    'https://jawed.co.in/contact',
+    'https://jawed.co.in/ai',
+  ]) {
+    assert.ok(locMatches.includes(requiredUrl), `Expected ${requiredUrl} in sitemap.xml <loc> list`);
+  }
+
+  const lastmodMatches = [...xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m) => m[1]);
+  assert.equal(lastmodMatches.length, locMatches.length, 'Every <url> entry must include a <lastmod> date');
+  for (const lastmod of lastmodMatches) {
+    assert.match(lastmod, /^\d{4}-\d{2}-\d{2}$/, `Expected YYYY-MM-DD <lastmod> format, got ${lastmod}`);
+  }
+
   assert.ok(xml.includes('<changefreq>'));
   assert.ok(xml.includes('<priority>'));
+});
+
+test('public/robots.txt and routing configs do not intercept /sitemap.xml or /robots.txt', () => {
+  const robotsTxt = fs.readFileSync(path.resolve(process.cwd(), 'public/robots.txt'), 'utf8');
+  assert.ok(
+    robotsTxt.includes('Sitemap: https://jawed.co.in/sitemap.xml'),
+    'public/robots.txt must explicitly declare Sitemap: https://jawed.co.in/sitemap.xml'
+  );
+
+  const redirectsTxt = fs.readFileSync(path.resolve(process.cwd(), 'public/_redirects'), 'utf8');
+  const redirectLines = redirectsTxt
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'));
+
+  for (const line of redirectLines) {
+    const [source] = line.split(/\s+/);
+    assert.notEqual(source, '/*', 'public/_redirects must not use a wildcard /* catch-all that intercepts /sitemap.xml');
+    assert.notEqual(source, '/sitemap.xml', 'public/_redirects must not redirect /sitemap.xml');
+    assert.notEqual(source, '/robots.txt', 'public/_redirects must not redirect /robots.txt');
+  }
 });
 
 test('extractDateFromHtmlContent extracts Updated or Published ISO dates', () => {

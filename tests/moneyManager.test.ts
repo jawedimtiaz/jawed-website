@@ -5695,6 +5695,195 @@ describe('Money Manager & Multi-Bank Ledger (JawedMoneyManagerDB)', () => {
     assert.equal(overRes.isUnderBudget, false);
     assert.equal(overRes.alertColor, 'red');
   });
+
+  it("extends the MoneyManager UI to allow users to set a 'Monthly Budget' for each transaction category, persists limits to IndexedDB, and properly retrieves them when calculating variance", async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    // 1. Verify CategoryManagementModal export across all relevant modules
+    const categoryManagerModule = await import('../src/components/money-manager/CategoryManager');
+    const statsViewModule = await import('../src/components/money-manager/StatsView');
+    const toolsMoneyManagerModule = await import('../src/tools/MoneyManager');
+    const pagesMoneyManagerModule = await import('../src/pages/tools/MoneyManager');
+
+    assert.ok(
+      categoryManagerModule.CategoryManagementModal,
+      'Expected CategoryManagementModal export in CategoryManager.tsx'
+    );
+    assert.ok(
+      statsViewModule.CategoryManagementModal,
+      'Expected CategoryManagementModal export in StatsView.tsx'
+    );
+    assert.ok(
+      toolsMoneyManagerModule.CategoryManagementModal,
+      'Expected CategoryManagementModal export in src/tools/MoneyManager.tsx'
+    );
+    assert.ok(
+      pagesMoneyManagerModule.CategoryManagementModal,
+      'Expected CategoryManagementModal export in src/pages/tools/MoneyManager.tsx'
+    );
+
+    // 2. Inspect source code for required modal markup, Monthly Budget input, and IndexedDB persistence notes
+    const cmSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/money-manager/CategoryManager.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      cmSource.includes('category-management-modal'),
+      'Expected CategoryManager.tsx to include data-testid="category-management-modal"'
+    );
+    assert.ok(
+      cmSource.includes('category-monthly-budget-input'),
+      'Expected CategoryManager.tsx to include category-monthly-budget-input test ID'
+    );
+    assert.ok(
+      cmSource.includes('Monthly Budget: ₹'),
+      'Expected CategoryManager.tsx to include "Monthly Budget: ₹" label'
+    );
+    assert.ok(
+      cmSource.includes('type="number"') && cmSource.includes('placeholder="e.g. 5000"'),
+      'Expected numeric input with e.g. 5000 placeholder'
+    );
+    assert.ok(
+      cmSource.includes('open-category-management-modal-btn'),
+      'Expected trigger button to open the CategoryManagementModal'
+    );
+    assert.ok(
+      cmSource.includes('IndexedDB'),
+      'Expected CategoryManagementModal to persist limits directly to IndexedDB'
+    );
+
+    // 3. Reset database and load fresh categories
+    const {
+      getAllCategories,
+      saveCategory,
+      saveTransaction,
+      resetDatabaseToDefaults,
+    } = await import('../src/db/db');
+    const {
+      saveCategoryBudgetLimit,
+      computeCategoryBudgetVariances,
+      computeBudgetVsActualSummary,
+    } = await import('../src/pages/tools/MoneyManager');
+
+    await resetDatabaseToDefaults();
+    const categoriesBefore = await getAllCategories();
+    assert.ok(categoriesBefore.length >= 5, 'Expected standard categories');
+
+    const transportCat = categoriesBefore.find(
+      (c) => c.name === 'Transport & Fuel' || c.name === 'Transportation'
+    )!;
+    const lifestyleCat = categoriesBefore.find(
+      (c) => c.name === 'Lifestyle & Family' || c.name === 'Entertainment & Leisure'
+    )!;
+    assert.ok(transportCat, 'Expected Transport & Fuel category');
+    assert.ok(lifestyleCat, 'Expected Lifestyle & Family category');
+
+    // 4. Update monthly budget limits in IndexedDB via saveCategory and saveCategoryBudgetLimit
+    const updatedTransport = await saveCategoryBudgetLimit(transportCat.id, 14000);
+    assert.equal(
+      updatedTransport.monthlyBudget,
+      14000,
+      'Expected returned category to have monthlyBudget = 14000'
+    );
+
+    await saveCategory({
+      ...lifestyleCat,
+      monthlyBudget: 8000,
+    });
+
+    // Verify stored limits in IndexedDB
+    const reloadedCategories = await getAllCategories();
+    const storedTransport = reloadedCategories.find((c) => c.id === transportCat.id)!;
+    const storedLifestyle = reloadedCategories.find((c) => c.id === lifestyleCat.id)!;
+
+    assert.equal(
+      storedTransport.monthlyBudget,
+      14000,
+      'Expected Transport & Fuel monthlyBudget stored in IndexedDB as 14,000'
+    );
+    assert.equal(
+      storedLifestyle.monthlyBudget,
+      8000,
+      'Expected Lifestyle & Family monthlyBudget stored in IndexedDB as 8,000'
+    );
+
+    // 5. Test proper retrieval and variance calculations with color-coded alerts
+    const currentMonth = '2026-11';
+
+    // Transaction 1: Transport & Fuel spend ₹10,500 (Budget 14,000 -> Under budget by 3,500: GREEN)
+    const testTxTransport = {
+      id: 'tx-test-transport-budget',
+      date: `${currentMonth}-10T12:00`,
+      type: 'Expense' as const,
+      accountId: 'acc-icici',
+      category: transportCat.name,
+      amount: 10500,
+      note: 'Fuel and vehicle servicing',
+      subCategory: 'Fuel',
+      fixedOrVariable: 'Variable' as const,
+      isAnomaly: false,
+      createdAt: `${currentMonth}-10T12:00:00Z`,
+    };
+
+    // Transaction 2: Lifestyle spend ₹9,800 (Budget 8,000 -> Over budget by 1,800: RED)
+    const testTxLifestyle = {
+      id: 'tx-test-lifestyle-budget',
+      date: `${currentMonth}-12T18:00`,
+      type: 'Expense' as const,
+      accountId: 'acc-icici',
+      category: lifestyleCat.name,
+      amount: 9800,
+      note: 'Family weekend outing and shopping',
+      subCategory: 'Family Outing',
+      fixedOrVariable: 'Variable' as const,
+      isAnomaly: false,
+      createdAt: `${currentMonth}-12T18:00:00Z`,
+    };
+
+    await saveTransaction(testTxTransport);
+    await saveTransaction(testTxLifestyle);
+
+    // Compute variances using categories retrieved from IndexedDB
+    const categoriesFromDb = await getAllCategories();
+    const variances = computeCategoryBudgetVariances(
+      [testTxTransport, testTxLifestyle],
+      categoriesFromDb,
+      currentMonth
+    );
+
+    // Check Transport (Under Budget):
+    const transportVariance = variances.find((v) => v.category === transportCat.name)!;
+    assert.ok(transportVariance, 'Expected transport variance record');
+    assert.equal(transportVariance.budgetLimit, 14000, 'Expected limit 14,000 from IndexedDB');
+    assert.equal(transportVariance.actualExpenses, 10500, 'Expected actual 10,500');
+    assert.equal(transportVariance.variance, 3500, 'Expected variance = 3,500 (under budget)');
+    assert.equal(transportVariance.isUnderBudget, true);
+    assert.equal(transportVariance.isOverBudget, false);
+    assert.equal(transportVariance.alertColor, 'green', 'Expected green alert for under budget');
+    assert.equal(transportVariance.varianceType, 'favorable');
+
+    // Check Lifestyle (Over Budget):
+    const lifestyleVariance = variances.find((v) => v.category === lifestyleCat.name)!;
+    assert.ok(lifestyleVariance, 'Expected lifestyle variance record');
+    assert.equal(lifestyleVariance.budgetLimit, 8000, 'Expected limit 8,000 from IndexedDB');
+    assert.equal(lifestyleVariance.actualExpenses, 9800, 'Expected actual 9,800');
+    assert.equal(lifestyleVariance.variance, -1800, 'Expected variance = -1,800 (over budget)');
+    assert.equal(lifestyleVariance.isOverBudget, true);
+    assert.equal(lifestyleVariance.isUnderBudget, false);
+    assert.equal(lifestyleVariance.alertColor, 'red', 'Expected red alert for over budget');
+    assert.equal(lifestyleVariance.varianceType, 'unfavorable');
+
+    // Check complete summary
+    const summary = computeBudgetVsActualSummary(
+      [testTxTransport, testTxLifestyle],
+      categoriesFromDb,
+      currentMonth
+    );
+    assert.ok(summary.categories.length >= 2);
+    assert.ok(summary.totalBudgeted >= 22000);
+    assert.ok(summary.totalActual >= 20300);
+  });
 });
 
 

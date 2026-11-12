@@ -31,29 +31,44 @@ export interface SitemapSummary {
 }
 
 const EXCLUDED_NON_CANONICAL_PATHS = new Set<string>([
+  '/notes',
   '/notes/',
-  '/guides/',
+  '/diagnostic-tools',
   '/diagnostic-tools/',
-  '/services/',
+  '/offline',
   '/offline/',
-  '/ai/',
   '/404',
 ]);
 
+const CORE_CANONICAL_STATIC_ROUTES: Array<{
+  path: string;
+  changefreq: SitemapChangeFreq;
+  priority: string;
+}> = [
+  { path: '/', changefreq: 'weekly', priority: '1.0' },
+  { path: '/guides', changefreq: 'weekly', priority: '0.9' },
+  { path: '/tools', changefreq: 'weekly', priority: '0.9' },
+  { path: '/services', changefreq: 'monthly', priority: '0.8' },
+  { path: '/about', changefreq: 'monthly', priority: '0.8' },
+  { path: '/contact', changefreq: 'monthly', priority: '0.7' },
+  { path: '/ai', changefreq: 'monthly', priority: '0.8' },
+];
+
 const PRIMARY_HUB_PATHS = new Set<string>([
-  '/field-guides/',
-  '/tools/',
-  '/blog/',
-  '/topics/',
-  '/resources/',
-  '/work/',
-  '/work/projects/',
+  '/guides',
+  '/field-guides',
+  '/tools',
+  '/blog',
+  '/topics',
+  '/resources',
+  '/work',
+  '/work/projects',
 ]);
 
 const LEGAL_POLICY_PATHS = new Set<string>([
-  '/privacy/',
-  '/terms/',
-  '/cookies/',
+  '/privacy',
+  '/terms',
+  '/cookies',
 ]);
 
 /**
@@ -101,6 +116,12 @@ export function normalizeIsoDate(dateInput?: string, fallback = DEFAULT_LASTMOD)
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return trimmed;
   }
+  if (/\b20\d{2}\b/.test(trimmed)) {
+    const parsed = new Date(`${trimmed} UTC`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
   return fallback;
 }
 
@@ -115,22 +136,24 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
   const seenNormalizedPaths = new Set<string>();
 
   const addEntry = (
-    path: string,
+    rawPath: string,
     category: SitemapCategory,
     lastmod: string,
     changefreq: SitemapChangeFreq,
     priority: string
   ) => {
-    if (!path.startsWith('/')) return;
-    if (EXCLUDED_NON_CANONICAL_PATHS.has(path)) return;
+    if (!rawPath.startsWith('/')) return;
+    const cleanPath = normalizePath(rawPath);
+    if (EXCLUDED_NON_CANONICAL_PATHS.has(rawPath) || EXCLUDED_NON_CANONICAL_PATHS.has(cleanPath)) {
+      return;
+    }
 
-    const normalizedKey = normalizePath(path);
-    if (seenNormalizedPaths.has(normalizedKey)) return;
-    seenNormalizedPaths.add(normalizedKey);
+    if (seenNormalizedPaths.has(cleanPath)) return;
+    seenNormalizedPaths.add(cleanPath);
 
     entries.push({
-      loc: `${siteOrigin}${path}`,
-      path,
+      loc: `${siteOrigin}${cleanPath}`,
+      path: cleanPath,
       category,
       lastmod: normalizeIsoDate(lastmod, defaultLastMod),
       changefreq,
@@ -138,31 +161,45 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
     });
   };
 
-  // 1. Canonical Static Routes (from STATIC_METADATA in RouteSeo.tsx)
+  // 1a. Core Primary Navigation & Hub Routes (/, /guides, /tools, /services, /about, /contact, /ai)
+  for (const coreRoute of CORE_CANONICAL_STATIC_ROUTES) {
+    addEntry(
+      coreRoute.path,
+      'static',
+      defaultLastMod,
+      coreRoute.changefreq,
+      coreRoute.priority
+    );
+  }
+
+  // 1b. Additional Canonical Static Routes (from STATIC_METADATA in RouteSeo.tsx)
   for (const meta of Object.values(STATIC_METADATA)) {
-    if (meta.robots && meta.robots.toLowerCase().includes('noindex')) {
+    const cleanCanonicalPath = normalizePath(meta.canonicalPath);
+    if (
+      EXCLUDED_NON_CANONICAL_PATHS.has(meta.canonicalPath) ||
+      EXCLUDED_NON_CANONICAL_PATHS.has(cleanCanonicalPath)
+    ) {
       continue;
     }
-    const canonicalPath = meta.canonicalPath;
-    if (EXCLUDED_NON_CANONICAL_PATHS.has(canonicalPath)) {
+    if (meta.robots && meta.robots.toLowerCase().includes('noindex') && cleanCanonicalPath !== '/ai') {
       continue;
     }
 
     let priority = '0.7';
     let changefreq: SitemapChangeFreq = 'monthly';
 
-    if (canonicalPath === '/') {
+    if (cleanCanonicalPath === '/') {
       priority = '1.0';
       changefreq = 'weekly';
-    } else if (PRIMARY_HUB_PATHS.has(canonicalPath)) {
+    } else if (PRIMARY_HUB_PATHS.has(cleanCanonicalPath)) {
       priority = '0.9';
       changefreq = 'weekly';
-    } else if (LEGAL_POLICY_PATHS.has(canonicalPath)) {
+    } else if (LEGAL_POLICY_PATHS.has(cleanCanonicalPath)) {
       priority = '0.5';
       changefreq = 'yearly';
     }
 
-    addEntry(canonicalPath, 'static', defaultLastMod, changefreq, priority);
+    addEntry(cleanCanonicalPath, 'static', defaultLastMod, changefreq, priority);
   }
 
   // 2. IT & Finance Knowledge Base Notes (from src/data/notesData.json)

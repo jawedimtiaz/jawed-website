@@ -413,6 +413,29 @@ app.post('/api/animate-image-to-video', async (req, res) => {
   }
 });
 
+// Explicitly serve /sitemap.xml and /robots.txt so they are never intercepted by SPA HTML fallback rewrites
+app.get('/sitemap.xml', (_req, res) => {
+  const distSitemap = path.resolve('.', 'dist', 'sitemap.xml');
+  const publicSitemap = path.resolve('.', 'public', 'sitemap.xml');
+  const target =
+    process.env.NODE_ENV === 'production' && fs.existsSync(distSitemap)
+      ? distSitemap
+      : publicSitemap;
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.sendFile(target);
+});
+
+app.get('/robots.txt', (_req, res) => {
+  const distRobots = path.resolve('.', 'dist', 'robots.txt');
+  const publicRobots = path.resolve('.', 'public', 'robots.txt');
+  const target =
+    process.env.NODE_ENV === 'production' && fs.existsSync(distRobots)
+      ? distRobots
+      : publicRobots;
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.sendFile(target);
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vitePromise = import('vite')
@@ -443,6 +466,9 @@ async function startServer() {
 
     app.use(async (req, res, next) => {
       const url = req.originalUrl;
+      if (url.startsWith('/sitemap.xml') || url.startsWith('/robots.txt')) {
+        return next();
+      }
       try {
         const vite = await vitePromise;
         let template = fs.readFileSync(path.resolve('.', 'index.html'), 'utf-8');
@@ -458,7 +484,10 @@ async function startServer() {
     });
   } else {
     app.use(express.static('dist'));
-    app.use((_req, res) => {
+    app.use((req, res, next) => {
+      if (req.path === '/sitemap.xml' || req.path === '/robots.txt') {
+        return next();
+      }
       res.sendFile(path.resolve('.', 'dist', 'index.html'));
     });
   }

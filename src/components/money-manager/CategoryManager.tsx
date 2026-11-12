@@ -7,6 +7,8 @@ import {
   Check,
   Tag,
   Sparkles,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import {
   INITIAL_CATEGORIES,
@@ -14,6 +16,7 @@ import {
   resolveTransactionInrAmount,
   saveCategory as dbSaveCategory,
   deleteCategory as dbDeleteCategory,
+  getAllCategories,
   type FixedOrVariable,
   type MoneyCategory,
   type MoneyTransaction,
@@ -65,6 +68,8 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   const [localCategories, setLocalCategories] = useState<MoneyCategory[]>(categories);
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'Expense' | 'Income'>('Expense');
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
+  const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<MoneyCategory | null>(null);
 
   const resolvedMonth = useMemo(() => {
     if (selectedMonth && /^\d{4}-\d{2}$/.test(selectedMonth)) {
@@ -332,6 +337,20 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
 
           <button
             type="button"
+            onClick={() => {
+              setSelectedCategoryForModal(null);
+              setIsCategoryModalOpen(true);
+            }}
+            className="mm-btn mm-btn-sm mm-btn-primary"
+            title="Open Category Management Modal to configure monthly budgets"
+            data-testid="open-category-management-modal-btn"
+          >
+            <SlidersHorizontal size={14} />
+            <span>Monthly Budgets Modal</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowAddForm((prev) => !prev)}
             className="mm-btn mm-btn-sm mm-btn-secondary"
             data-testid="mm-toggle-add-category-btn"
@@ -553,6 +572,19 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
                       {activeColor.toUpperCase()}
                     </span>
                   </label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategoryForModal(cat);
+                      setIsCategoryModalOpen(true);
+                    }}
+                    className="mm-btn mm-btn-xs mm-btn-secondary"
+                    title={`Configure Monthly Budget for ${cat.name}`}
+                    data-testid={`edit-category-budget-btn-${cat.name}`}
+                  >
+                    <span>Budget Modal</span>
+                  </button>
 
                   {isCustom && (
                     <button
@@ -1000,7 +1032,239 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
           </div>
         )}
       </div>
+
+      {/* Category Management Modal for Setting Monthly Budgets */}
+      <CategoryManagementModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        categories={localCategories}
+        selectedCategory={selectedCategoryForModal}
+        onSaveCategory={persistCategoryUpdate}
+      />
     </article>
+  );
+};
+
+export interface CategoryManagementModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  categories: MoneyCategory[];
+  onSaveCategory?: (category: MoneyCategory) => Promise<void>;
+  selectedCategory?: MoneyCategory | null;
+  className?: string;
+}
+
+/**
+ * Category Management Modal allowing users to set a Monthly Budget for each transaction category.
+ * Stored limits are persisted to IndexedDB and utilized in variance calculations.
+ */
+export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = ({
+  isOpen,
+  onClose,
+  categories,
+  onSaveCategory,
+  selectedCategory,
+  className = '',
+}) => {
+  const [localList, setLocalList] = useState<MoneyCategory[]>(categories);
+  const [budgetValues, setBudgetValues] = useState<Record<string, string>>({});
+  const [saveStatus, setSaveStatus] = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState<string>('');
+
+  useEffect(() => {
+    setLocalList(categories);
+    const initialMap: Record<string, string> = {};
+    for (const c of categories) {
+      initialMap[c.id] = c.monthlyBudget !== undefined && c.monthlyBudget > 0 ? String(c.monthlyBudget) : '';
+    }
+    setBudgetValues(initialMap);
+  }, [categories]);
+
+  if (!isOpen) return null;
+
+  const handleBudgetInputChange = (cat: MoneyCategory, val: string) => {
+    setBudgetValues((prev) => ({ ...prev, [cat.id]: val }));
+  };
+
+  const handleSaveCategoryBudget = async (cat: MoneyCategory) => {
+    const rawVal = budgetValues[cat.id];
+    const parsed = Math.max(0, Number.parseFloat(rawVal) || 0);
+    const updated: MoneyCategory = {
+      ...cat,
+      monthlyBudget: parsed > 0 ? parsed : undefined,
+    };
+
+    setLocalList((prev) => prev.map((c) => (c.id === cat.id ? updated : c)));
+
+    if (onSaveCategory) {
+      await onSaveCategory(updated);
+    } else {
+      await dbSaveCategory(updated);
+    }
+
+    setSaveStatus((prev) => ({ ...prev, [cat.id]: true }));
+    setTimeout(() => {
+      setSaveStatus((prev) => ({ ...prev, [cat.id]: false }));
+    }, 2000);
+  };
+
+  const filtered = localList.filter((c) =>
+    search ? c.name.toLowerCase().includes(search.toLowerCase()) : true
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Category Management Modal"
+      data-testid="category-management-modal"
+    >
+      <div
+        className={`bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col text-slate-100 overflow-hidden ${className}`}
+        data-testid="mm-category-management-modal"
+      >
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <SlidersHorizontal className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                Category Management &amp; Monthly Budgets
+              </h3>
+              <p className="text-xs text-slate-400">
+                Set and update monthly spending budget limits for each category. Saved directly to IndexedDB.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            aria-label="Close modal"
+            data-testid="close-category-management-modal-btn"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Modal Search Bar */}
+        <div className="px-5 py-3 border-b border-slate-800/80 bg-slate-900/50">
+          <input
+            type="text"
+            placeholder="Search categories…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/90 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            data-testid="category-modal-search-input"
+          />
+        </div>
+
+        {/* Categories List with Monthly Budget Input */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {filtered.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-500">
+              No categories match your search.
+            </div>
+          ) : (
+            filtered.map((cat, idx) => {
+              const isExpense = cat.type === 'Expense';
+              const isSaved = saveStatus[cat.id];
+              const currentVal = budgetValues[cat.id] ?? '';
+
+              return (
+                <div
+                  key={cat.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-800 bg-slate-800/40 hover:bg-slate-800/60 transition"
+                  data-testid={`category-management-row-${cat.name}`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: cat.color || '#3b82f6' }}
+                    />
+                    <div className="truncate">
+                      <div className="flex items-center gap-2">
+                        <strong className="text-xs font-semibold text-white truncate">
+                          {cat.name}
+                        </strong>
+                        <span className="text-[10px] text-slate-400 uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700/60">
+                          {cat.type}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 block truncate">
+                        {cat.subCategories?.slice(0, 3).join(', ') || cat.defaultFixedOrVariable}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Monthly Budget Input Field */}
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <label
+                      htmlFor={`modal-category-budget-${cat.id}`}
+                      className="text-xs text-slate-300 font-medium whitespace-nowrap"
+                    >
+                      Monthly Budget: ₹
+                    </label>
+                    <input
+                      id={`modal-category-budget-${cat.id}`}
+                      type="number"
+                      min="0"
+                      step="500"
+                      placeholder="e.g. 5000"
+                      value={currentVal}
+                      disabled={!isExpense}
+                      onChange={(e) => handleBudgetInputChange(cat, e.target.value)}
+                      onBlur={() => handleSaveCategoryBudget(cat)}
+                      className="w-28 px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-100 text-right focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-40"
+                      aria-label={`Monthly Budget for ${cat.name}`}
+                      data-testid={`category-monthly-budget-input-${cat.name}`}
+                      {...(idx === 0 || cat.id === selectedCategory?.id
+                        ? { 'data-testid-primary': 'category-monthly-budget-input' }
+                        : {})}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveCategoryBudget(cat)}
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition disabled:opacity-50"
+                      disabled={!isExpense}
+                      data-testid={`save-category-budget-btn-${cat.name}`}
+                    >
+                      Save
+                    </button>
+                    {isSaved && (
+                      <span
+                        className="text-[10px] text-emerald-400 font-semibold"
+                        data-testid={`budget-saved-indicator-${cat.name}`}
+                      >
+                        Saved
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-800 bg-slate-900/60">
+          <span className="text-[11px] text-slate-400">
+            Limits are saved directly to IndexedDB and update variance calculations in real-time.
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-white transition"
+            data-testid="modal-done-btn"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

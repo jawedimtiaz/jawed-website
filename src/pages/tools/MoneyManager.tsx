@@ -75,6 +75,8 @@ import {
   calculateCategoryBudgetVariance,
   computeCategoryBudgetVariances,
   loadCategoryBudgetVariancesFromIndexedDb,
+  CategoryManagementModal,
+  type CategoryManagementModalProps,
   type BudgetVsActualCategoryItem,
   type BudgetVsActualSummary,
   type BudgetVsActualSummaryCardProps,
@@ -580,12 +582,14 @@ export {
   computeCategoryBudgetVariances,
   loadCategoryBudgetVariancesFromIndexedDb,
   CategoryManager,
+  CategoryManagementModal,
   saveCategoryBudgetLimit,
   updateCategoryMonthlyBudget,
   CategoryBudgetLimitSettingRow,
   getAllCategories,
 };
 export type {
+  CategoryManagementModalProps,
   CsvMandatoryColumnName,
   CsvRowValidationError,
   CsvValidationReport,

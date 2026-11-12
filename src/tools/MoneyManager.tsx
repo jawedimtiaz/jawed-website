@@ -110,6 +110,8 @@ import {
   calculateCategoryBudgetVariance,
   computeCategoryBudgetVariances,
   loadCategoryBudgetVariancesFromIndexedDb,
+  CategoryManagementModal,
+  type CategoryManagementModalProps,
   type BudgetVsActualCategoryItem,
   type BudgetVsActualSummary,
   type BudgetVsActualSummaryCardProps,
@@ -514,8 +516,10 @@ export {
   SAMPLE_BANK_STATEMENT_CSV,
   SAMPLE_CSV_FILENAME,
   downloadSampleCsvTemplate,
+  CategoryManagementModal,
 };
 export type {
+  CategoryManagementModalProps,
   OpenMoneyManagerModalPayload,
   BatchLoggedTransactionItem,
   BatchSessionSummary,

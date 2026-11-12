@@ -77,7 +77,11 @@ import {
   type DailyExchangeRateSnapshot,
   type CurrencyBreakdownRow,
 } from '../../db/db';
-import { CategoryManager } from './CategoryManager';
+import {
+  CategoryManager,
+  CategoryManagementModal,
+  type CategoryManagementModalProps,
+} from './CategoryManager';
 import {
   BudgetVsActualSummaryCard,
   CategoryBudgetVarianceSummaryCard,
@@ -186,8 +190,10 @@ export {
   calculateCategoryBudgetVariance,
   computeCategoryBudgetVariances,
   loadCategoryBudgetVariancesFromIndexedDb,
+  CategoryManagementModal,
 };
 export type {
+  CategoryManagementModalProps,
   BudgetForecastSummary,
   CategoryVelocityForecastItem,
   CategoryProgressColorTier,
