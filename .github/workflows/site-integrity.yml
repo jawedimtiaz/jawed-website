@@ -21,6 +21,8 @@ on:
       - "vite.config.ts"
       - "config/**"
       - "scripts/validate-site-integrity.mjs"
+      - "scripts/prerender-route-metadata.ts"
+      - "tests/routeMetadataPrerender.test.ts"
       - "sitemap.xml"
       - "_headers"
       - "_redirects"
@@ -57,7 +59,7 @@ jobs:
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -85,5 +87,9 @@ jobs:
           node --check scripts/validate-finance-calculator-regression.mjs
           node --check scripts/validate-finance-tools-browser-runtime.mjs
           node --check scripts/validate-career-match-browser-runtime.mjs
+      - name: Install dependencies for route metadata regression tests
+        run: npm install --no-package-lock --ignore-scripts
+      - name: Run route metadata prerender regression tests
+        run: npx tsx --test tests/routeMetadataPrerender.test.ts
       - name: Run site integrity validation
         run: node scripts/validate-site-integrity.mjs
