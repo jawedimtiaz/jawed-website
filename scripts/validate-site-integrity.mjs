@@ -76,7 +76,7 @@ for(const location of locations){
   if(!routePatterns.some(pattern=>routeMatches(pattern,routePath)))fail.push("sitemap route is not represented by React Router: "+routePath);
   for(const line of redirectLines){const parts=line.split(/\s+/);const wildcard=parts[0].endsWith("/*");const base=normalizePath(parts[0].replace(/\/\*$/,""));const route=normalizePath(routePath);const intercepts=wildcard?route.startsWith(base+"/"):route===base;if(parts.at(-1)==="200"&&intercepts)fail.push("Cloudflare Pages SPA rewrite intercepts a static SEO route: "+routePath+" via "+line)}
 }
-const rewriteIntercepts=(pattern,pathname)=>{const wildcard=pattern.endsWith("/*");const base=normalizePath(pattern.replace(/\\/\\*$/,""));const route=normalizePath(pathname);return wildcard?route.startsWith(base+"/"):route===base};
+const rewriteIntercepts=(pattern,pathname)=>{const wildcard=pattern.endsWith("/*");const base=normalizePath(pattern.replace(/\/\*$/,""));const route=normalizePath(pathname);return wildcard?route.startsWith(base+"/"):route===base};
 for(const routePath of explicitMetadataPaths){for(const line of redirectLines){const parts=line.split(/\\s+/);if(parts.at(-1)==="200"&&rewriteIntercepts(parts[0],routePath))fail.push("Cloudflare Pages SPA rewrite intercepts an explicit metadata route: "+routePath+" via "+line)}}
 if(!robots.includes("User-agent: *")||!robots.includes("Allow: /"))fail.push("robots.txt must allow public crawling");
 if(!robots.includes("Sitemap: https://jawed.co.in/sitemap.xml"))fail.push("robots.txt must declare the canonical sitemap");
