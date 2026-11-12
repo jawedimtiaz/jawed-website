@@ -21,6 +21,7 @@ function expectedCanonicalPath(path){
  if(p==="/guides"||p==="/field-guides")return "/field-guides/";
  if(p==="/notes")return "/field-guides/";
  if(p==="/tools"||p==="/diagnostic-tools")return "/tools/";
+ if(p==="/ai")return "/ai";
  if(p==="/services"||p==="/services-dispatch")return "/services";
  if(p.startsWith("/notes/"))return p;
  if(p.startsWith("/guides/")||p.startsWith("/field-guides/"))return "/field-guides/"+p.split("/").filter(Boolean).at(-1);
