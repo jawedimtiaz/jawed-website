@@ -11,6 +11,8 @@ on:
       - "src/index.css"
       - "src/components/**"
       - "scripts/validate-career-match-browser-runtime.mjs"
+      - "scripts/prerender-route-metadata.ts"
+      - "tests/routeMetadataPrerender.test.ts"
       - ".github/workflows/career-match-browser-runtime.yml"
       - "package.json"
       - "vite.config.ts"
@@ -38,6 +40,8 @@ jobs:
         run: npm install --no-package-lock --ignore-scripts
       - name: Build the current Vite application
         run: npm run build
+      - name: Run route metadata prerender regression tests
+        run: npx tsx --test tests/routeMetadataPrerender.test.ts
       - name: Verify browser tooling
         run: |
           google-chrome --version
