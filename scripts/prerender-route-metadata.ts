@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { canonicalUrl, resolveMetadata } from '../src/components/RouteSeo';
+import { canonicalUrl, resolveMetadata, STATIC_METADATA, TOOL_METADATA } from '../src/components/RouteSeo';
 
 const DIST = path.resolve(process.cwd(), 'dist');
 const SITE_ORIGIN = 'https://jawed.co.in';
@@ -66,7 +66,10 @@ export function getRouteHtmlOutputPath(distDir: string, pathname: string): strin
   return path.join(distDir, normalized + '.html');
 }
 
-export function prerenderRouteMetadata(distDir = DIST): number {
+export function prerenderRouteMetadata(
+  distDir = DIST,
+  additionalPaths: string[] = [...Object.keys(STATIC_METADATA), ...Object.keys(TOOL_METADATA)]
+): number {
   const sitemapPath = path.join(distDir, 'sitemap.xml');
   const indexPath = path.join(distDir, 'index.html');
   if (!fs.existsSync(sitemapPath)) throw new Error('Generated sitemap not found: ' + sitemapPath);
@@ -76,20 +79,33 @@ export function prerenderRouteMetadata(distDir = DIST): number {
   const locations = [...sitemap.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/g)].map((match) => match[1].trim());
   if (!locations.length) throw new Error('Generated sitemap contains no locations; refusing to publish route snapshots.');
 
-  const baseHtml = fs.readFileSync(indexPath, 'utf8');
-  const seen = new Set<string>();
-  let written = 0;
-
+  const routePaths = new Set<string>();
   for (const location of locations) {
     const url = new URL(location);
     if (url.origin !== SITE_ORIGIN || url.protocol !== 'https:') throw new Error('Non-canonical sitemap URL encountered: ' + location);
     if (url.search || url.hash) throw new Error('Sitemap URL must not contain query strings or fragments: ' + location);
+    routePaths.add(url.pathname);
+  }
 
-    const outputPath = getRouteHtmlOutputPath(distDir, url.pathname);
+  // Also snapshot explicit metadata routes excluded from the indexable sitemap,
+  // especially noindex destinations such as /ai and /offline.
+  for (const routePath of additionalPaths) {
+    if (!routePath.startsWith('/') || routePath.includes('?') || routePath.includes('#')) {
+      throw new Error('Additional static metadata path must be an absolute pathname: ' + routePath);
+    }
+    routePaths.add(routePath);
+  }
+
+  const baseHtml = fs.readFileSync(indexPath, 'utf8');
+  const seen = new Set<string>();
+  let written = 0;
+
+  for (const routePath of routePaths) {
+    const outputPath = getRouteHtmlOutputPath(distDir, routePath);
     if (seen.has(outputPath)) continue;
     seen.add(outputPath);
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-    fs.writeFileSync(outputPath, applyRouteMetadata(baseHtml, url.pathname), 'utf8');
+    fs.writeFileSync(outputPath, applyRouteMetadata(baseHtml, routePath), 'utf8');
     written += 1;
   }
 
