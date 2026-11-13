@@ -25,6 +25,7 @@ import {
 import { TableOfContents } from '../components/TableOfContents';
 import { handleArticleImageLightboxClick } from '../components/GlobalImageLightbox';
 import { PrintableBadge } from '../components/common/PrintableBadge';
+import { ExportToPdfButton } from '../components/common/ExportToPdfButton';
 import { RelatedArticles } from '../components/RelatedArticles';
 
 // Reusable Visual Guide Components & Aliases
@@ -1425,6 +1426,12 @@ export const FieldGuideDetailPage: React.FC = () => {
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
             <PrintableBadge />
+            <ExportToPdfButton
+              documentTitle={guide.title}
+              exportScope="guide"
+              targetSelector=".article-body"
+              size="sm"
+            />
             <button
               type="button"
               onClick={handleWebShareGuide}

@@ -1248,3 +1248,130 @@ test('TableOfContents parses h2 and h3 headers in NoteDetailPage and provides bo
     'Expected src/index.css to style both side-mounted and floating Table of Contents menus'
   );
 });
+
+test('ExportToPdfButton triggers browser native print dialog for active tool report or guide content with clean A4 export format', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    EXPORT_TO_PDF_LABEL,
+    triggerA4PdfExport,
+    formatPdfDocumentTitle,
+  } = await import('../src/components/ExportToPdfButton');
+
+  assert.equal(EXPORT_TO_PDF_LABEL, 'Export to PDF');
+  assert.equal(
+    formatPdfDocumentTitle('Diagnosing Network Port Flapping | Jawed Imtiaz'),
+    'Diagnosing Network Port Flapping'
+  );
+
+  // 1. Verify triggerA4PdfExport sets A4 attributes, marks active target, sets document.title during window.print(), and restores state
+  const rootAttrs = new Map<string, string>();
+  const targetAttrs = new Map<string, string>();
+  let titleDuringPrint = '';
+  let targetActiveDuringPrint = '';
+  let rootFormatDuringPrint = '';
+  let printCount = 0;
+
+  const mockDoc = {
+    title: 'Original Browser Tab Title',
+    documentElement: {
+      setAttribute: (k: string, v: string) => {
+        rootAttrs.set(k, v);
+      },
+      removeAttribute: (k: string) => {
+        rootAttrs.delete(k);
+      },
+    },
+    querySelector: (selector: string) => {
+      if (selector === '.quick-note-article') {
+        return {
+          setAttribute: (k: string, v: string) => {
+            targetAttrs.set(k, v);
+          },
+          removeAttribute: (k: string) => {
+            targetAttrs.delete(k);
+          },
+        };
+      }
+      return null;
+    },
+  };
+
+  const result = triggerA4PdfExport({
+    documentTitle: 'IPv4 Subnet Calculator Engineering Report',
+    targetSelector: '.quick-note-article',
+    exportScope: 'tool-report',
+    orientation: 'portrait',
+    docOverride: mockDoc,
+    winOverride: {
+      print: () => {
+        printCount += 1;
+        titleDuringPrint = mockDoc.title;
+        targetActiveDuringPrint = targetAttrs.get('data-active-print-target') || '';
+        rootFormatDuringPrint = rootAttrs.get('data-print-format') || '';
+      },
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.format, 'A4');
+  assert.equal(result.orientation, 'portrait');
+  assert.equal(result.exportScope, 'tool-report');
+  assert.equal(printCount, 1);
+  assert.equal(titleDuringPrint, 'IPv4 Subnet Calculator Engineering Report');
+  assert.equal(targetActiveDuringPrint, 'true');
+  assert.equal(rootFormatDuringPrint, 'A4');
+  // Restored after print
+  assert.equal(mockDoc.title, 'Original Browser Tab Title');
+  assert.equal(targetAttrs.has('data-active-print-target'), false);
+
+  // 2. Verify ExportToPdfButton component, NoteDetailPage, FieldGuideDetailPage, SocialShareBar, and @media print A4 rules
+  const exportBtnSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/common/ExportToPdfButton.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  const fieldGuideSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/FieldGuideDetailPage.tsx'),
+    'utf8'
+  );
+  const socialShareSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/SocialShareBar.tsx'),
+    'utf8'
+  );
+  const cssSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/index.css'),
+    'utf8'
+  );
+
+  assert.ok(
+    exportBtnSource.includes("EXPORT_TO_PDF_LABEL = 'Export to PDF'") &&
+      exportBtnSource.includes('data-testid="export-pdf-btn"') &&
+      exportBtnSource.includes('data-export-format="A4"') &&
+      exportBtnSource.includes('win.print()'),
+    'Expected ExportToPdfButton.tsx to define "Export to PDF" button with A4 format and native window.print() invocation'
+  );
+  assert.ok(
+    noteDetailSource.includes('<ExportToPdfButton') &&
+      noteDetailSource.includes('targetSelector=".quick-note-article"'),
+    'Expected NoteDetailPage.tsx to render <ExportToPdfButton /> targeting the active guide article'
+  );
+  assert.ok(
+    fieldGuideSource.includes('<ExportToPdfButton') &&
+      fieldGuideSource.includes('targetSelector=".article-body"'),
+    'Expected FieldGuideDetailPage.tsx to render <ExportToPdfButton /> targeting the active field guide body'
+  );
+  assert.ok(
+    socialShareSource.includes('<ExportToPdfButton'),
+    'Expected SocialShareBar.tsx to render <ExportToPdfButton /> for tool reports and guides'
+  );
+  assert.ok(
+    cssSource.includes('size: A4 portrait;') &&
+      cssSource.includes('[data-active-print-target="true"]'),
+    'Expected src/index.css @media print block to configure A4 page geometry and active print target rules'
+  );
+});
+

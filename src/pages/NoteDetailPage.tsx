@@ -83,6 +83,16 @@ import {
 } from '../components/common/PrintableBadge';
 
 import {
+  ExportToPdfButton,
+  EXPORT_TO_PDF_LABEL,
+  triggerA4PdfExport,
+  formatPdfDocumentTitle,
+  type ExportToPdfButtonProps,
+  type TriggerA4PdfExportOptions,
+  type ExportToPdfResult,
+} from '../components/common/ExportToPdfButton';
+
+import {
   GuideFeedback,
   getGuideFeedbackRecords,
   getGuideFeedbackForSlug,
@@ -129,6 +139,10 @@ export {
   ReadTimeProgressIndicator,
   ScrollProgressIndicator,
   PrintableBadge,
+  ExportToPdfButton,
+  EXPORT_TO_PDF_LABEL,
+  triggerA4PdfExport,
+  formatPdfDocumentTitle,
   GuideFeedback,
   getGuideFeedbackRecords,
   getGuideFeedbackForSlug,
@@ -151,6 +165,9 @@ export {
   type ReadTimeProgressIndicatorProps,
   type ScrollProgressIndicatorProps,
   type PrintableBadgeProps,
+  type ExportToPdfButtonProps,
+  type TriggerA4PdfExportOptions,
+  type ExportToPdfResult,
   type RelatedArticlesProps,
   type GuideFeedbackVote,
   type GuideFeedbackRecord,
@@ -805,6 +822,12 @@ export const NoteDetailPage: React.FC = () => {
         )}
         <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
         <PrintableBadge />
+        <ExportToPdfButton
+          documentTitle={guideMetadata.title || note.title}
+          exportScope="guide"
+          targetSelector=".quick-note-article"
+          size="sm"
+        />
         <button
           type="button"
           onClick={handleWebShareNote}

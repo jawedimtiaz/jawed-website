@@ -9498,6 +9498,11 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
    calculations and engineering reports cleanly for physical print-outs.
    ========================================================================== */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm 12mm;
+  }
+
   /* 1. Hide non-essential UI chrome: tool-nav, header, sidebar, and interactive toolbars */
   .tool-nav,
   nav.tool-nav,
@@ -9511,6 +9516,7 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   .tool-sidebar,
   .article-sidebar,
   .note-toc-sidebar,
+  .note-toc-floating,
   .site-nav,
   .site-footer,
   .discovery-panel,
@@ -9518,14 +9524,19 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   [data-testid="auto-persist-status-bar"],
   .share-tool-link-btn,
   .print-this-tool-btn,
+  .export-to-pdf-btn,
   .pdf-export-btn,
+  [data-testid="export-pdf-btn"],
   .printable-badge,
   .no-print {
     display: none !important;
     visibility: hidden !important;
   }
 
-  /* 2. Ensure diagnostic tool results, calculations, and reports expand cleanly for physical print-outs */
+  /* 2. Ensure diagnostic tool results, calculations, reports, and active guide targets expand cleanly for A4 print-outs */
+  [data-active-print-target="true"],
+  .quick-note-article,
+  .article-body,
   .diagnostic-tool-results,
   .tool-results,
   .calculation-report,
@@ -9575,11 +9586,4 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
     padding: 6pt 8pt !important;
   }
 }
-
-
-
-
-
-
-
 

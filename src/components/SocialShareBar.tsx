@@ -4,6 +4,15 @@ import { UniversalShareModal } from './common/UniversalShareModal';
 import { A4PrintPreviewModal } from './A4PrintPreviewModal';
 import { PrintToolButton, triggerToolPrint } from './common/PrintToolButton';
 import {
+  ExportToPdfButton,
+  EXPORT_TO_PDF_LABEL,
+  triggerA4PdfExport,
+  formatPdfDocumentTitle,
+  type ExportToPdfButtonProps,
+  type TriggerA4PdfExportOptions,
+  type ExportToPdfResult,
+} from './common/ExportToPdfButton';
+import {
   ShareToolLinkButton,
   copyToolShareUrlToClipboard,
   resolveToolShareUrl,
@@ -13,10 +22,17 @@ import {
 export {
   PrintToolButton,
   triggerToolPrint,
+  ExportToPdfButton,
+  EXPORT_TO_PDF_LABEL,
+  triggerA4PdfExport,
+  formatPdfDocumentTitle,
   ShareToolLinkButton,
   copyToolShareUrlToClipboard,
   resolveToolShareUrl,
   SHARE_TOAST_MESSAGE,
+  type ExportToPdfButtonProps,
+  type TriggerA4PdfExportOptions,
+  type ExportToPdfResult,
 };
 
 export interface SocialShareBarProps {
@@ -60,6 +76,10 @@ export interface SocialShareBarProps {
    * Whether to show the 'Print this Tool' button in the share bar. Defaults to true.
    */
   showPrintToolButton?: boolean;
+  /**
+   * Whether to show the 'Export to PDF' button in the share bar. Defaults to true.
+   */
+  showExportPdfButton?: boolean;
 }
 
 export const SocialShareBar: React.FC<SocialShareBarProps> = ({
@@ -73,6 +93,7 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
   hashtags,
   showPrintPreview = true,
   showPrintToolButton = true,
+  showExportPdfButton = true,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
@@ -255,6 +276,13 @@ export const SocialShareBar: React.FC<SocialShareBarProps> = ({
           </svg>
           <span>Reddit</span>
         </a>
+
+        {showExportPdfButton && (
+          <ExportToPdfButton
+            documentTitle={title}
+            size={size === 'small' ? 'sm' : 'md'}
+          />
+        )}
 
         {showPrintToolButton && (
           <PrintToolButton
