@@ -8,13 +8,28 @@ import {
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
   injectHeadingCopyButtons,
+  deriveTableCaptionText,
+  wrapTablesInAccessibleContainers,
+  ensureAccessibleTablesInDom,
+  decodeCodeBlockEntities,
+  formatCodeBlockAsMarkdown,
+  copyCodeBlockAsMarkdown,
+  injectCodeBlockMarkdownCopyButtons,
+  shareNoteUrlAndTitle,
   slugifyHeading,
   decodeHtmlEntities,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
+  CODE_MARKDOWN_BUTTON_LABEL,
+  CODE_MARKDOWN_COPIED_LABEL,
   type TocItem,
   type GeneratedTocResult,
   type CopySectionAnchorResult,
+  type AccessibleTableOptions,
+  type FormatCodeMarkdownOptions,
+  type CopyCodeMarkdownResult,
+  type WebShareNavigatorLike,
+  type ShareNoteResult,
 } from '../utils/tocGenerator';
 import {
   ReadTimeProgressIndicator,
@@ -30,14 +45,29 @@ export {
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
   injectHeadingCopyButtons,
+  deriveTableCaptionText,
+  wrapTablesInAccessibleContainers,
+  ensureAccessibleTablesInDom,
+  decodeCodeBlockEntities,
+  formatCodeBlockAsMarkdown,
+  copyCodeBlockAsMarkdown,
+  injectCodeBlockMarkdownCopyButtons,
+  shareNoteUrlAndTitle,
   slugifyHeading,
   decodeHtmlEntities,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
+  CODE_MARKDOWN_BUTTON_LABEL,
+  CODE_MARKDOWN_COPIED_LABEL,
   ReadTimeProgressIndicator,
   type TocItem,
   type GeneratedTocResult,
   type CopySectionAnchorResult,
+  type AccessibleTableOptions,
+  type FormatCodeMarkdownOptions,
+  type CopyCodeMarkdownResult,
+  type WebShareNavigatorLike,
+  type ShareNoteResult,
   type ReadTimeProgressIndicatorProps,
 };
 
@@ -76,9 +106,14 @@ export interface TableOfContentsProps {
    */
   onScrollToTop?: () => void;
   /**
-   * Which layout mode to render: 'desktop' (sticky side navigation), 'mobile' (collapsible bar), or 'both'.
+   * Which layout mode to render:
+   * - 'desktop': sticky side-mounted navigation menu
+   * - 'mobile': collapsible mobile/tablet top bar
+   * - 'floating': floating quick-jump navigation menu button & popover panel
+   * - 'both': desktop + mobile
+   * - 'all': desktop + mobile + floating
    */
-  mode?: 'desktop' | 'mobile' | 'both';
+  mode?: 'desktop' | 'mobile' | 'floating' | 'both' | 'all';
   /**
    * Controlled mobile open state (optional).
    */
@@ -87,6 +122,14 @@ export interface TableOfContentsProps {
    * Controlled mobile toggle handler (optional).
    */
   onToggleMobile?: () => void;
+  /**
+   * Controlled floating menu open state (optional).
+   */
+  isFloatingOpen?: boolean;
+  /**
+   * Controlled floating menu toggle handler (optional).
+   */
+  onToggleFloating?: () => void;
   /**
    * Whether to display the scroll-triggered estimated read time progress indicator in the sidebar.
    * Defaults to true when content or estimatedTime is supplied.
@@ -101,7 +144,7 @@ export interface TableOfContentsProps {
 export const TableOfContents: React.FC<TableOfContentsProps> = ({
   tocItems: propTocItems,
   content,
-  containerSelector = '[data-testid="note-rendered-content"], .note-rendered-content',
+  containerSelector = '[data-testid="note-rendered-content"], .note-rendered-content, .article-body',
   activeHeadingId: controlledActiveId,
   copiedHeadingId = '',
   onSelectHeading,
@@ -110,21 +153,24 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
   mode = 'desktop',
   isMobileOpen: controlledMobileOpen,
   onToggleMobile,
+  isFloatingOpen: controlledFloatingOpen,
+  onToggleFloating,
   showReadTime = true,
   estimatedTime,
 }) => {
   const [domTocItems, setDomTocItems] = useState<TocItem[]>([]);
   const [internalActiveId, setInternalActiveId] = useState<string>('');
   const [internalMobileOpen, setInternalMobileOpen] = useState<boolean>(false);
+  const [internalFloatingOpen, setInternalFloatingOpen] = useState<boolean>(false);
 
-  // Parse from content if tocItems prop was not passed
+  // Parse H2 and H3 headers from content if tocItems prop was not passed
   const contentTocItems = useMemo(() => {
     if (propTocItems && propTocItems.length > 0) return propTocItems;
     if (content) return generateTableOfContents(content).tocItems;
     return [];
   }, [propTocItems, content]);
 
-  // Fallback to inspecting rendered DOM headings when neither propTocItems nor content is supplied
+  // Fallback to inspecting rendered DOM H2/H3 headings when neither propTocItems nor content is supplied
   useEffect(() => {
     if (contentTocItems.length > 0 || typeof document === 'undefined') return;
     const container = document.querySelector(containerSelector);
@@ -137,6 +183,8 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
   const items = contentTocItems.length > 0 ? contentTocItems : domTocItems;
   const activeHeadingId = controlledActiveId ?? (internalActiveId || items[0]?.id || '');
   const isMobileTocOpen = controlledMobileOpen ?? internalMobileOpen;
+  const isFloatingTocOpen = controlledFloatingOpen ?? internalFloatingOpen;
+  const activeItem = items.find((item) => item.id === activeHeadingId) || items[0];
 
   // Built-in scroll-spy when activeHeadingId is not externally controlled
   useEffect(() => {
@@ -181,11 +229,21 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
     if (!onToggleMobile) {
       setInternalMobileOpen(false);
     }
+    if (onToggleFloating) {
+      if (isFloatingTocOpen) onToggleFloating();
+    } else {
+      setInternalFloatingOpen(false);
+    }
     jumpToHeadingSection(headingId);
     onSelectHeading?.(headingId);
   };
 
   const handleScrollTopClick = () => {
+    if (onToggleFloating && isFloatingTocOpen) {
+      onToggleFloating();
+    } else {
+      setInternalFloatingOpen(false);
+    }
     if (onScrollToTop) {
       onScrollToTop();
       return;
@@ -226,7 +284,11 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
         const isActive = activeHeadingId === item.id;
         const isCopied = activeCopiedId === item.id;
         return (
-          <li key={item.id} className={`note-toc-item level-${item.level}`}>
+          <li
+            key={item.id}
+            className={`note-toc-item level-${item.level}`}
+            data-heading-level={`h${item.level}`}
+          >
             <div className="note-toc-row">
               <a
                 href={`#${item.id}`}
@@ -280,11 +342,16 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
 
   return (
     <>
-      {(mode === 'mobile' || mode === 'both') && (
-        <nav className="note-toc-mobile" aria-label="Table of Contents (Mobile)">
+      {(mode === 'mobile' || mode === 'both' || mode === 'all') && (
+        <nav
+          className="note-toc-mobile no-print"
+          aria-label="Table of Contents (Mobile)"
+          data-testid="note-toc-mobile"
+        >
           <button
             type="button"
             className="note-toc-mobile-toggle"
+            data-testid="note-toc-mobile-toggle"
             onClick={() => {
               if (onToggleMobile) {
                 onToggleMobile();
@@ -315,9 +382,9 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
         </nav>
       )}
 
-      {(mode === 'desktop' || mode === 'both') && (
+      {(mode === 'desktop' || mode === 'both' || mode === 'all') && (
         <aside
-          className="note-toc-sidebar sticky top-24"
+          className="note-toc-sidebar sticky top-24 no-print"
           aria-label="Table of Contents"
           data-testid="note-toc-sidebar"
           style={{ position: 'sticky', top: '96px', alignSelf: 'start' }}
@@ -348,9 +415,93 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
           </nav>
         </aside>
       )}
+
+      {(mode === 'floating' || mode === 'all') && (
+        <div
+          className="note-toc-floating no-print"
+          data-testid="note-toc-floating"
+          aria-label="Floating Table of Contents Navigation"
+        >
+          {isFloatingTocOpen && (
+            <div
+              id="note-toc-floating-panel"
+              className="note-toc-floating-panel"
+              data-testid="note-toc-floating-panel"
+              role="dialog"
+              aria-label="Table of Contents Quick Jump"
+            >
+              <div className="note-toc-header">
+                <span className="note-toc-title">Table of Contents</span>
+                <span className="note-toc-count">{items.length} sections</span>
+              </div>
+              {renderTocList('floating')}
+              <div
+                style={{
+                  marginTop: '12px',
+                  paddingTop: '10px',
+                  borderTop: '1px solid var(--border)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleScrollTopClick}
+                  className="footer-text-btn"
+                  style={{ fontSize: '0.78rem', fontWeight: 600 }}
+                >
+                  ↑ Back to top
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onToggleFloating) {
+                      onToggleFloating();
+                    } else {
+                      setInternalFloatingOpen(false);
+                    }
+                  }}
+                  className="footer-text-btn"
+                  style={{ fontSize: '0.78rem', fontWeight: 600 }}
+                  data-testid="note-toc-floating-close"
+                >
+                  Close ✕
+                </button>
+              </div>
+            </div>
+          )}
+          <button
+            type="button"
+            className="note-toc-floating-toggle"
+            data-testid="note-toc-floating-toggle"
+            onClick={() => {
+              if (onToggleFloating) {
+                onToggleFloating();
+              } else {
+                setInternalFloatingOpen((prev) => !prev);
+              }
+            }}
+            aria-expanded={isFloatingTocOpen}
+            aria-controls="note-toc-floating-panel"
+            title="Toggle floating Table of Contents menu"
+          >
+            <span className="note-toc-floating-badge" aria-hidden="true">
+              TOC
+            </span>
+            <span className="note-toc-floating-current" data-testid="note-toc-floating-current">
+              {activeItem?.text || 'Table of Contents'}
+            </span>
+            <span className="note-toc-floating-count" aria-hidden="true">
+              {items.length}
+            </span>
+          </button>
+        </div>
+      )}
     </>
   );
 };
 
 export const AutomatedTableOfContents = TableOfContents;
 export default TableOfContents;
+

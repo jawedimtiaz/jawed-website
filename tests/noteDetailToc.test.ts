@@ -865,9 +865,41 @@ test('implements a Share button in NoteDetailPage that uses Web Share API to sha
   assert.equal(fallbackResult.method, 'clipboard');
   assert.equal(copiedUrl, 'https://jawed.co.in/notes/apis-explained-for-it-support');
 
-  // 3. Verify NoteDetailPage.tsx renders the Share button and wires shareNoteUrlAndTitle
+  // 3. When navigator.share throws a non-AbortError (e.g. NotAllowedError in iframe), falls back gracefully to clipboard copy
+  let errorFallbackCopiedUrl = '';
+  const errorFallbackResult = await shareNoteUrlAndTitle(
+    {
+      title: 'Diagnosing Network Port Flapping',
+      url: 'https://jawed.co.in/notes/diagnosing-network-port-flapping',
+    },
+    {
+      share: async () => {
+        const err = new Error('Permission denied');
+        err.name = 'NotAllowedError';
+        throw err;
+      },
+      clipboard: {
+        writeText: async (text: string) => {
+          errorFallbackCopiedUrl = text;
+        },
+      },
+    }
+  );
+
+  assert.equal(errorFallbackResult.ok, true);
+  assert.equal(errorFallbackResult.method, 'clipboard');
+  assert.equal(
+    errorFallbackCopiedUrl,
+    'https://jawed.co.in/notes/diagnosing-network-port-flapping'
+  );
+
+  // 4. Verify NoteDetailPage.tsx and delegated FieldGuideDetailPage.tsx render the Share button and invoke shareNoteUrlAndTitle
   const noteDetailSource = fs.readFileSync(
     path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  const fieldGuideSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/FieldGuideDetailPage.tsx'),
     'utf8'
   );
   assert.ok(
@@ -876,13 +908,343 @@ test('implements a Share button in NoteDetailPage that uses Web Share API to sha
       noteDetailSource.includes('shareNoteUrlAndTitle(shareData)'),
     'Expected NoteDetailPage.tsx to render Share buttons and invoke shareNoteUrlAndTitle'
   );
+  assert.ok(
+    fieldGuideSource.includes('data-testid="note-share-btn"') &&
+      fieldGuideSource.includes('shareNoteUrlAndTitle({'),
+    'Expected FieldGuideDetailPage.tsx to render Share button and invoke shareNoteUrlAndTitle'
+  );
 });
 
+test('implements a Read Time indicator in NoteDetailPage that calculates estimated reading time based on word count and displays it in the header', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    calculateWordCount,
+    calculateReadTimeMinutes,
+    calculateReadTime,
+    getHeaderReadTimeDetails,
+  } = await import('../src/pages/NoteDetailPage');
 
+  // 1. Verify word count and read time calculation for short and multi-minute notes
+  const shortHtml = '<h2>Quick Triage</h2><p>Check physical link light and VLAN tagging.</p>';
+  const shortDetails = getHeaderReadTimeDetails(shortHtml);
+  assert.equal(shortDetails.wordCount, 9);
+  assert.equal(shortDetails.minutes, 1);
+  assert.equal(shortDetails.formattedReadTime, '1 min read');
+  assert.equal(shortDetails.label, 'Read Time: 1 min read (9 words)');
 
+  const sixHundredWords = `<article><p>${Array.from({ length: 600 }, (_, i) => `token${i}`).join(' ')}</p></article>`;
+  const mediumDetails = getHeaderReadTimeDetails(sixHundredWords);
+  assert.equal(calculateWordCount(sixHundredWords), 600);
+  assert.equal(calculateReadTimeMinutes(sixHundredWords), 3);
+  assert.equal(calculateReadTime(sixHundredWords), '3 min read');
+  assert.equal(mediumDetails.wordCount, 600);
+  assert.equal(mediumDetails.minutes, 3);
+  assert.equal(mediumDetails.formattedReadTime, '3 min read');
 
+  // 2. Verify NoteDetailPage.tsx renders the Read Time indicator inside <header className="note-detail-header">
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    noteDetailSource.includes('data-testid="note-detail-header"') &&
+      noteDetailSource.includes('data-testid="note-header-read-time"') &&
+      noteDetailSource.includes('data-testid="note-header-read-time-text"') &&
+      noteDetailSource.includes('data-testid="note-header-word-count"') &&
+      noteDetailSource.includes('getHeaderReadTimeDetails(cleanHtmlContent || note.description)'),
+    'Expected NoteDetailPage.tsx header to render the Read Time indicator with word count and estimated minutes'
+  );
+});
 
+test('wraps all tables in NoteDetailPage in an accessible container that explicitly enables horizontal scrolling on touch devices while ensuring proper screen reader captions', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    deriveTableCaptionText,
+    wrapTablesInAccessibleContainers,
+    injectHeadingCopyButtons,
+  } = await import('../src/pages/NoteDetailPage');
 
+  // 1. Verify deriveTableCaptionText extracts meaningful screen reader captions from preceding headings & column headers
+  const sampleArticleHtml = `
+    <h2>Worked example: two ETFs can still overlap</h2>
+    <p>Suppose a hypothetical portfolio invests in ETF A and ETF B.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Holding</th>
+          <th>Portfolio value</th>
+          <th>Company X weight inside fund</th>
+          <th>Portfolio exposure to Company X</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>ETF A</td><td>₹5 lakh</td><td>50%</td><td>₹2.5 lakh (25%)</td></tr>
+      </tbody>
+    </table>
+  `;
 
+  const withCopyButtons = injectHeadingCopyButtons(sampleArticleHtml);
+  const wrappedHtml = wrapTablesInAccessibleContainers(withCopyButtons, {
+    noteTitle: 'US Stocks and ETFs: A Practical Starting Point',
+  });
 
+  // Verify accessible container with touch horizontal scrolling attributes
+  assert.ok(
+    wrappedHtml.includes('class="table-wrap note-accessible-table-container"') &&
+      wrappedHtml.includes('role="region"') &&
+      wrappedHtml.includes('tabindex="0"') &&
+      wrappedHtml.includes('aria-labelledby="note-table-caption-1"') &&
+      wrappedHtml.includes('data-testid="note-accessible-table-container"') &&
+      wrappedHtml.includes('data-touch-scroll="horizontal"') &&
+      wrappedHtml.includes('overflow-x: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;'),
+    'Expected table to be wrapped in an accessible scroll container with explicit touch horizontal scrolling'
+  );
 
+  // Verify screen reader caption is injected with heading & column header context
+  assert.ok(
+    wrappedHtml.includes(
+      '<caption id="note-table-caption-1" class="sr-only note-table-caption" data-testid="note-table-sr-caption">Worked example: two ETFs can still overlap — Table columns: Holding, Portfolio value, Company X weight inside fund, Portfolio exposure to Company X</caption>'
+    ),
+    'Expected screen reader <caption> to be injected inside the <table> with heading and column context'
+  );
+
+  // 2. Verify existing <caption> elements and pre-wrapped .table-wrap divs are preserved/upgraded without double-wrapping
+  const preWrappedWithCaption = `
+    <div class="table-wrap">
+      <table>
+        <caption>Cat6A and OS2 Fiber Minimum Bend Radius Specifications</caption>
+        <thead><tr><th>Cable Type</th><th>Minimum Bend Radius</th></tr></thead>
+        <tbody><tr><td>Cat6A</td><td>2.0 inches</td></tr></tbody>
+      </table>
+    </div>
+  `;
+  const upgradedHtml = wrapTablesInAccessibleContainers(preWrappedWithCaption);
+  const containerMatches = upgradedHtml.match(/data-testid="note-accessible-table-container"/g) || [];
+  assert.equal(containerMatches.length, 1, 'Expected pre-wrapped .table-wrap table not to be double-wrapped');
+  assert.ok(
+    upgradedHtml.includes('id="note-table-caption-1"') &&
+      upgradedHtml.includes('class="sr-only note-table-caption"') &&
+      upgradedHtml.includes('Cat6A and OS2 Fiber Minimum Bend Radius Specifications') &&
+      upgradedHtml.includes('aria-label="Cat6A and OS2 Fiber Minimum Bend Radius Specifications"'),
+    'Expected existing <caption> text to be preserved and linked to the accessible container'
+  );
+
+  // 3. Verify real notes in notesData.json containing tables (e.g., us-stocks-and-etfs-starting-point) are wrapped cleanly
+  const noteWithTable = notesData.find((n) => n.content.includes('<table'));
+  assert.ok(noteWithTable, 'Expected notesData.json to contain at least one note with a <table>');
+  const processedNoteHtml = wrapTablesInAccessibleContainers(
+    injectHeadingCopyButtons(noteWithTable!.content),
+    { noteTitle: noteWithTable!.title }
+  );
+  assert.ok(
+    processedNoteHtml.includes('data-testid="note-accessible-table-container"') &&
+      processedNoteHtml.includes('data-testid="note-table-sr-caption"'),
+    'Expected note table in notesData.json to be wrapped in accessible container with screen reader caption'
+  );
+
+  // 4. Verify NoteDetailPage.tsx and src/index.css wire accessible table wrapping and touch scrolling rules
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  const cssSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/index.css'),
+    'utf8'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('wrapTablesInAccessibleContainers(htmlWithCopyButtons') &&
+      noteDetailSource.includes('ensureAccessibleTablesInDom(renderedContentRef.current') &&
+      noteDetailSource.includes('injectCodeBlockMarkdownCopyButtons(htmlWithAccessibleTables'),
+    'Expected NoteDetailPage.tsx to wrap all rendered tables in accessible containers'
+  );
+
+  assert.ok(
+    cssSource.includes('.note-accessible-table-container') &&
+      cssSource.includes('-webkit-overflow-scrolling: touch;') &&
+      cssSource.includes('touch-action: pan-x pan-y;') &&
+      cssSource.includes('.note-table-caption.sr-only'),
+    'Expected src/index.css to define touch horizontal scrolling and screen-reader-only caption styles'
+  );
+});
+
+test('adds a Copy as Markdown button to technical code blocks in NoteDetailPage allowing field technicians to copy formatted Markdown code for documentation or tickets', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    formatCodeBlockAsMarkdown,
+    copyCodeBlockAsMarkdown,
+    injectCodeBlockMarkdownCopyButtons,
+    CODE_MARKDOWN_BUTTON_LABEL,
+    CODE_MARKDOWN_COPIED_LABEL,
+  } = await import('../src/pages/NoteDetailPage');
+
+  assert.equal(CODE_MARKDOWN_BUTTON_LABEL, 'Copy as Markdown');
+  assert.equal(CODE_MARKDOWN_COPIED_LABEL, 'Copied as Markdown');
+
+  // 1. Verify formatCodeBlockAsMarkdown formats raw and HTML-tagged code into fenced Markdown blocks
+  const formattedBash = formatCodeBlockAsMarkdown(
+    '<code>sudo dscacheutil -flushcache &amp;&amp; sudo killall -HUP mDNSResponder</code>',
+    { language: 'bash', label: 'Flush macOS DNS Cache', promptSymbol: '$' }
+  );
+  assert.equal(
+    formattedBash,
+    '**Flush macOS DNS Cache**\n```bash\n$ sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder\n```'
+  );
+
+  // 2. Verify copyCodeBlockAsMarkdown copies the formatted Markdown block to the user's clipboard
+  let copiedClipboardMarkdown = '';
+  const copyResult = await copyCodeBlockAsMarkdown(
+    'show interface GigabitEthernet1/0/12 counters errors',
+    {
+      language: 'sh',
+      blockId: 'note-code-block-1',
+      output: 'Gi1/0/12  Align-Err: 0  FCS-Err: 4821',
+    },
+    {
+      writeText: async (text: string) => {
+        copiedClipboardMarkdown = text;
+      },
+    }
+  );
+
+  assert.equal(copyResult.ok, true);
+  assert.equal(copyResult.blockId, 'note-code-block-1');
+  assert.equal(copyResult.toastMessage, 'Copied as Markdown');
+  assert.equal(
+    copiedClipboardMarkdown,
+    '```sh\nshow interface GigabitEthernet1/0/12 counters errors\n\n# Output:\nGi1/0/12  Align-Err: 0  FCS-Err: 4821\n```'
+  );
+
+  // 3. Verify injectCodeBlockMarkdownCopyButtons wraps <pre> blocks in NoteDetailPage HTML with a Copy as Markdown button
+  const sampleNoteWithPre = `
+    <h2>Track net worth</h2>
+    <pre class="tool-output language-bash">Net worth = Total assets &minus; Total liabilities</pre>
+  `;
+  const enhancedHtml = injectCodeBlockMarkdownCopyButtons(sampleNoteWithPre);
+  assert.ok(
+    enhancedHtml.includes('data-testid="note-code-block-wrapper"') &&
+      enhancedHtml.includes('data-testid="copy-code-markdown-btn"') &&
+      enhancedHtml.includes('data-copy-code-markdown-id="note-code-block-1"') &&
+      enhancedHtml.includes('<span class="note-code-copy-text">Copy as Markdown</span>'),
+    'Expected <pre> code block to include a Copy as Markdown button'
+  );
+
+  const copiedStateHtml = injectCodeBlockMarkdownCopyButtons(
+    sampleNoteWithPre,
+    'note-code-block-1'
+  );
+  assert.ok(
+    copiedStateHtml.includes('class="note-code-copy-markdown-btn is-copied"') &&
+      copiedStateHtml.includes('<span class="note-code-copy-text">Copied as Markdown</span>'),
+    'Expected Copy as Markdown button to display Copied as Markdown feedback when active'
+  );
+
+  // 4. Verify NoteDetailPage.tsx and CopyableCodeBlock.tsx wire the Copy as Markdown button
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  const copyableCodeBlockSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/guides/CopyableCodeBlock.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('injectCodeBlockMarkdownCopyButtons(htmlWithAccessibleTables, copiedCodeBlockId)') &&
+      noteDetailSource.includes('copyCodeBlockAsMarkdown(rawCode') &&
+      noteDetailSource.includes('dangerouslySetInnerHTML={{ __html: htmlWithCodeMarkdownButtons }}'),
+    'Expected NoteDetailPage.tsx to inject and handle Copy as Markdown buttons on code blocks'
+  );
+
+  assert.ok(
+    copyableCodeBlockSource.includes('data-testid="copy-code-markdown-btn"') &&
+      copyableCodeBlockSource.includes('copyCodeBlockAsMarkdown(command'),
+    'Expected CopyableCodeBlock.tsx to render a Copy as Markdown button for interactive CLI blocks'
+  );
+});
+
+test('TableOfContents parses h2 and h3 headers in NoteDetailPage and provides both side-mounted and floating navigation menus', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const { generateTableOfContents, parseRenderedHeadingsFromDom } = await import(
+    '../src/pages/NoteDetailPage'
+  );
+
+  // 1. Verify h2 and h3 headers are parsed in document order with hierarchical level-2 and level-3 metadata
+  const longFormGuideHtml = `
+    <h2>1. Physical Layer Verification</h2>
+    <p>Inspect transceiver seating and patch cables.</p>
+    <h3>1.1 Checking SFP+ DOM Optical Levels</h3>
+    <p>Verify Rx/Tx dBm thresholds.</p>
+    <h3>1.2 Inspecting Interface Error Counters</h3>
+    <p>Check CRC and giant frame counts.</p>
+    <h2>2. VLAN &amp; Trunk Configuration</h2>
+    <h3>2.1 Verifying 802.1Q Native VLAN</h3>
+  `;
+
+  const parsed = generateTableOfContents(longFormGuideHtml);
+  assert.equal(parsed.shouldShowToc, true);
+  assert.deepEqual(parsed.tocItems, [
+    { id: '1-physical-layer-verification', text: '1. Physical Layer Verification', level: 2 },
+    { id: '1-1-checking-sfp-dom-optical-levels', text: '1.1 Checking SFP+ DOM Optical Levels', level: 3 },
+    { id: '1-2-inspecting-interface-error-counters', text: '1.2 Inspecting Interface Error Counters', level: 3 },
+    { id: '2-vlan-trunk-configuration', text: '2. VLAN & Trunk Configuration', level: 2 },
+    { id: '2-1-verifying-802-1q-native-vlan', text: '2.1 Verifying 802.1Q Native VLAN', level: 3 },
+  ]);
+
+  // 2. Verify DOM heading parser extracts both H2 and H3 elements
+  const domElements = [
+    { tagName: 'H2', id: 'layer-1', textContent: '1. Physical Layer Verification' },
+    { tagName: 'H3', id: 'sfp-dom', textContent: '1.1 Checking SFP+ DOM Optical Levels' },
+  ];
+  const domToc = parseRenderedHeadingsFromDom({ querySelectorAll: () => domElements });
+  assert.equal(domToc.length, 2);
+  assert.equal(domToc[0].level, 2);
+  assert.equal(domToc[1].level, 3);
+
+  // 3. Verify TableOfContents.tsx, NoteDetailPage.tsx, FieldGuideDetailPage.tsx, and index.css implement side-mounted and floating navigation menus
+  const tocSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/TableOfContents.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  const fieldGuideSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/FieldGuideDetailPage.tsx'),
+    'utf8'
+  );
+  const cssSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/index.css'),
+    'utf8'
+  );
+
+  assert.ok(
+    tocSource.includes('data-testid="note-toc-sidebar"') &&
+      tocSource.includes('data-testid="note-toc-floating"') &&
+      tocSource.includes('data-testid="note-toc-floating-toggle"') &&
+      tocSource.includes('data-testid="note-toc-floating-panel"'),
+    'Expected TableOfContents.tsx to provide both side-mounted (note-toc-sidebar) and floating (note-toc-floating) navigation menus'
+  );
+  assert.ok(
+    noteDetailSource.includes('mode="desktop"') &&
+      noteDetailSource.includes('mode="mobile"') &&
+      noteDetailSource.includes('mode="floating"'),
+    'Expected NoteDetailPage.tsx to mount side-mounted, mobile, and floating TableOfContents navigation menus'
+  );
+  assert.ok(
+    fieldGuideSource.includes("querySelectorAll<HTMLHeadingElement>('h2, h3')") &&
+      fieldGuideSource.includes('mode="floating"'),
+    'Expected FieldGuideDetailPage.tsx to parse h2 and h3 headings and mount floating TableOfContents'
+  );
+  assert.ok(
+    cssSource.includes('.note-toc-sidebar {') &&
+      cssSource.includes('.note-toc-floating {') &&
+      cssSource.includes('.note-toc-floating-panel {'),
+    'Expected src/index.css to style both side-mounted and floating Table of Contents menus'
+  );
+});

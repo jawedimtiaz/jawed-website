@@ -1497,6 +1497,168 @@ describe('CommandPalette - Shortcut Filtering & Navigational Execution Logic', (
       'Expected ThemeToggle.tsx to render explicit Light, Dark, and System mode buttons'
     );
   });
+
+  it('implements a Share button in ToolsPage that copies and shares the link to the currently active search or filter configuration using the Web Share API and clipboard', async () => {
+    const {
+      buildToolsFilterShareUrl,
+      parseToolsFilterFromSearch,
+      shareToolsFilterConfiguration,
+    } = await import('../src/pages/ToolsPage');
+
+    // 1. Verify URL construction and parsing for active search and category filter configuration
+    const sharedUrl = buildToolsFilterShareUrl('https://jawed.co.in/tools', 'subnet', 'it');
+    assert.equal(sharedUrl, 'https://jawed.co.in/tools?q=subnet&category=it');
+    assert.deepEqual(parseToolsFilterFromSearch('?q=subnet&category=it'), {
+      searchTerm: 'subnet',
+      activeCategory: 'it',
+    });
+
+    const defaultUrl = buildToolsFilterShareUrl('https://jawed.co.in/tools', '', 'all');
+    assert.equal(defaultUrl, 'https://jawed.co.in/tools');
+
+    // 2. Verify shareToolsFilterConfiguration uses Web Share API and copies the active filter link to the clipboard
+    let clipboardCopiedText = '';
+    let webShareData: { title?: string; text?: string; url?: string } | null = null;
+
+    const webShareRes = await shareToolsFilterConfiguration(
+      {
+        baseUrl: 'https://jawed.co.in/tools',
+        searchTerm: 'rack btu',
+        activeCategory: 'it',
+      },
+      {
+        canShare: () => true,
+        share: async data => {
+          webShareData = data;
+        },
+        clipboard: {
+          writeText: async text => {
+            clipboardCopiedText = text;
+          },
+        },
+      }
+    );
+
+    assert.equal(webShareRes.ok, true);
+    assert.equal(webShareRes.method, 'web-share');
+    assert.equal(webShareRes.copiedToClipboard, true);
+    assert.equal(webShareRes.url, 'https://jawed.co.in/tools?q=rack+btu&category=it');
+    assert.equal(clipboardCopiedText, 'https://jawed.co.in/tools?q=rack+btu&category=it');
+    assert.equal(webShareData?.url, 'https://jawed.co.in/tools?q=rack+btu&category=it');
+
+    // 3. Verify clipboard copy fallback when Web Share API is unavailable
+    let fallbackClipboardText = '';
+    const fallbackRes = await shareToolsFilterConfiguration(
+      {
+        baseUrl: 'https://jawed.co.in/tools',
+        searchTerm: 'money',
+        activeCategory: 'finance',
+      },
+      {
+        share: undefined,
+        clipboard: {
+          writeText: async text => {
+            fallbackClipboardText = text;
+          },
+        },
+      }
+    );
+
+    assert.equal(fallbackRes.ok, true);
+    assert.equal(fallbackRes.method, 'clipboard');
+    assert.equal(fallbackClipboardText, 'https://jawed.co.in/tools?q=money&category=finance');
+
+    // 4. Verify ToolsPage.tsx renders the Share button in the discovery filter bar
+    const toolsPageSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/ToolsPage.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      toolsPageSource.includes('data-testid="tools-filter-share-btn"') &&
+        toolsPageSource.includes('handleShareFilterConfiguration') &&
+        toolsPageSource.includes('shareToolsFilterConfiguration'),
+      'Expected ToolsPage.tsx to render the Share button (tools-filter-share-btn) for active search/filter configuration'
+    );
+  });
+
+  it('persists the last 5 unique search queries in localStorage and displays them as clickable history items when the command palette search bar is focused', async () => {
+    const {
+      getMatchingRecentSearches,
+      selectRecentSearchQuery,
+      saveRecentSearchToStorage,
+      getRecentSearchesFromStorage,
+      MAX_RECENT_SEARCHES: maxRecent,
+    } = await import('../src/components/CommandPalette');
+
+    const store = new Map<string, string>();
+    const mockStorage = {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    };
+
+    assert.equal(maxRecent, 5);
+
+    // 1. Save 6 queries -> retains only the last 5 unique queries in localStorage
+    let history: string[] = [];
+    for (const q of [
+      'dns cache flush',
+      'vlan trunking',
+      'poe power calculator',
+      'ipv4 subnet mask',
+      'server rack airflow',
+      'macos dfu revive',
+    ]) {
+      history = saveRecentSearchToStorage(q, history, mockStorage);
+    }
+
+    assert.equal(history.length, 5);
+    assert.deepEqual(getRecentSearchesFromStorage(mockStorage), [
+      'macos dfu revive',
+      'server rack airflow',
+      'ipv4 subnet mask',
+      'poe power calculator',
+      'vlan trunking',
+    ]);
+
+    // 2. When the search bar is focused with an empty query, all 5 recent searches are displayed
+    assert.deepEqual(getMatchingRecentSearches(history, ''), [
+      'macos dfu revive',
+      'server rack airflow',
+      'ipv4 subnet mask',
+      'poe power calculator',
+      'vlan trunking',
+    ]);
+
+    // 3. When typing while focused, matching recent searches are filtered
+    assert.deepEqual(getMatchingRecentSearches(history, 'subnet'), ['ipv4 subnet mask']);
+
+    // 4. Clicking a history item selects the query and promotes it to the top of the 5-item history in localStorage
+    const selected = selectRecentSearchQuery('poe power calculator', history, mockStorage);
+    assert.equal(selected.query, 'poe power calculator');
+    assert.equal(selected.recentSearches[0], 'poe power calculator');
+    assert.equal(selected.recentSearches.length, 5);
+    assert.deepEqual(getRecentSearchesFromStorage(mockStorage), selected.recentSearches);
+
+    // 5. Verify CommandPalette.tsx tracks search bar focus and renders clickable history items
+    const commandPaletteSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/CommandPalette.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      commandPaletteSource.includes('data-testid="command-palette-search-input"') &&
+        commandPaletteSource.includes('data-search-focused={isSearchBarFocused}') &&
+        commandPaletteSource.includes('handleSelectRecentSearch(recSearch)') &&
+        commandPaletteSource.includes('data-recent-query={recSearch}'),
+      'Expected CommandPalette.tsx to track search bar focus and wire clickable recent search history items'
+    );
+  });
 });
+
+
 
 

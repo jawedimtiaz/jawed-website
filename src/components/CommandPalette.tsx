@@ -391,6 +391,46 @@ export function clearRecentSearchesFromStorage(
   }
 }
 
+/**
+ * Filters the persisted recent search queries (up to 5 unique items) for display
+ * when the CommandPalette search bar is focused.
+ */
+export function getMatchingRecentSearches(
+  recentSearches: string[],
+  activeQuery: string = '',
+  maxItems: number = MAX_RECENT_SEARCHES
+): string[] {
+  if (!Array.isArray(recentSearches)) return [];
+  const uniqueNormalized = recentSearches
+    .map((q) => (typeof q === 'string' ? q.trim() : ''))
+    .filter((q) => q.length >= 2 && !q.startsWith('?'))
+    .slice(0, maxItems);
+
+  const cleanQuery = (activeQuery || '').trim().toLowerCase();
+  if (!cleanQuery) {
+    return uniqueNormalized;
+  }
+
+  return uniqueNormalized.filter((item) => item.toLowerCase().includes(cleanQuery));
+}
+
+/**
+ * Selects a clickable recent search history item, promoting it to the most recent
+ * slot in localStorage (capped at 5 unique queries) and returning the selected query.
+ */
+export function selectRecentSearchQuery(
+  selectedQuery: string,
+  currentList?: string[],
+  storage?: Pick<Storage, 'getItem' | 'setItem'> | null
+): { query: string; recentSearches: string[] } {
+  const cleanSelected = (selectedQuery || '').trim();
+  const updatedList = saveRecentSearchToStorage(cleanSelected, currentList, storage);
+  return {
+    query: cleanSelected,
+    recentSearches: updatedList,
+  };
+}
+
 export const BASELINE_FREQUENT_ITEMS: {
   url: string;
   title: string;
@@ -1054,10 +1094,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     shortcutFilterSubQuery,
   ]);
 
-  // Search History (localStorage last 5 queries)
+  // Search History (localStorage last 5 unique queries) & search bar focus state
   const [recentSearches, setRecentSearches] = useState<string[]>(() =>
     getRecentSearchesFromStorage()
   );
+  const [isSearchBarFocused, setIsSearchBarFocused] = useState<boolean>(true);
 
   const addRecentSearch = useCallback((searchQuery: string) => {
     setRecentSearches((prev) => saveRecentSearchToStorage(searchQuery, prev));
@@ -1071,6 +1112,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     clearRecentSearchesFromStorage();
     setRecentSearches([]);
   }, []);
+
+  const handleSelectRecentSearch = useCallback((recSearch: string) => {
+    setRecentSearches((prev) => selectRecentSearchQuery(recSearch, prev).recentSearches);
+    setQuery(recSearch);
+    setIsSearchBarFocused(true);
+    inputRef.current?.focus();
+  }, []);
+
+  const visibleRecentSearches = useMemo(
+    () => getMatchingRecentSearches(recentSearches, query, MAX_RECENT_SEARCHES),
+    [recentSearches, query]
+  );
 
   // Recommendations when query is empty
   const recommendations = useMemo(() => getQuickSearchRecommendations(), []);
@@ -1304,6 +1357,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // Open modal handler
   const handleOpen = useCallback(() => {
     setIsOpen(true);
+    setIsSearchBarFocused(true);
     setRecentSearches(getRecentSearchesFromStorage());
     setNavigationMode('keyboard');
     setQuickActionNotice(null);
@@ -2106,6 +2160,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               <input
                 ref={inputRef}
                 id="command-palette-search-input"
+                data-testid="command-palette-search-input"
+                data-search-focused={isSearchBarFocused}
                 type="search"
                 className="search-modal-input"
                 placeholder={
@@ -2114,6 +2170,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     : 'Search tools, field guides, blog posts, calculators (or ? for shortcuts)...'
                 }
                 value={query}
+                onFocus={() => {
+                  setIsSearchBarFocused(true);
+                  setRecentSearches(getRecentSearchesFromStorage());
+                }}
+                onBlur={() => {
+                  setIsSearchBarFocused(false);
+                }}
                 onChange={(e) => {
                   const nextVal = e.target.value;
                   setQuery(nextVal);
@@ -2818,10 +2881,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     </div>
                   )}
 
-                  {!isShortcutDiscoveryMode && !query.trim() && recentSearches.length > 0 && (
+                  {!isShortcutDiscoveryMode &&
+                    (isSearchBarFocused || !query.trim()) &&
+                    visibleRecentSearches.length > 0 && (
                     <div
                       className="search-recent-searches-section"
                       data-testid="recent-searches-section"
+                      data-search-focused={isSearchBarFocused}
                       role="region"
                       aria-label="Recent Searches"
                       style={{ marginBottom: '16px' }}
@@ -2856,6 +2922,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         <button
                           type="button"
                           data-testid="clear-recent-searches-btn"
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={clearRecentSearches}
                           style={{
                             background: 'transparent',
@@ -2881,10 +2948,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                           padding: '4px 12px 6px',
                         }}
                       >
-                        {recentSearches.slice(0, MAX_RECENT_SEARCHES).map((recSearch, idx) => (
+                        {visibleRecentSearches.slice(0, MAX_RECENT_SEARCHES).map((recSearch, idx) => (
                           <div
                             key={recSearch}
                             data-testid="recent-search-item"
+                            data-recent-query={recSearch}
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -2898,11 +2966,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                               type="button"
                               className="search-suggestion-chip"
                               data-testid={`recent-search-query-btn-${idx}`}
-                              onClick={() => {
-                                addRecentSearch(recSearch);
-                                setQuery(recSearch);
-                                inputRef.current?.focus();
-                              }}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSelectRecentSearch(recSearch)}
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -2925,6 +2990,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                               data-testid={`remove-recent-search-btn-${idx}`}
                               aria-label={`Remove "${recSearch}" from recent searches`}
                               title={`Remove "${recSearch}"`}
+                              onMouseDown={(e) => e.preventDefault()}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 removeRecentSearch(recSearch);

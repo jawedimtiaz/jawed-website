@@ -3360,11 +3360,39 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   background: rgba(255, 255, 255, 0.015);
 }
 
-.table-wrap {
+.table-wrap,
+.note-accessible-table-container {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+  max-width: 100%;
   margin: 20px 0;
   border-radius: 10px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.note-accessible-table-container:focus-visible {
+  outline: 2px solid var(--accent, #38bdf8);
+  outline-offset: 2px;
+}
+
+.note-accessible-table-container table {
+  margin: 0;
+  min-width: 480px;
+}
+
+.sr-only,
+.note-table-caption.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Copy-Ready CLI Code Blocks & Tool Outputs */
@@ -3386,6 +3414,67 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   overflow-x: auto;
   margin: 20px 0;
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.note-code-block-wrapper {
+  margin: 20px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #020617;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+.note-code-block-wrapper pre,
+.note-code-block-wrapper .tool-output {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.note-code-block-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 14px;
+  background: var(--surface, #0f172a);
+  border-bottom: 1px solid var(--line);
+}
+
+.note-code-block-lang {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #94a3b8);
+}
+
+.note-code-copy-markdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg-darker, #020617);
+  color: var(--text, #f8fafc);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.note-code-copy-markdown-btn:hover {
+  border-color: var(--accent, #38bdf8);
+  color: var(--accent, #38bdf8);
+}
+
+.note-code-copy-markdown-btn.is-copied {
+  border-color: var(--emerald, #10b981);
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--emerald, #10b981);
 }
 
 .note-rendered-content code:not(pre code) {
@@ -4766,6 +4855,80 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   border-top: 1px solid var(--border);
 }
 
+.note-toc-floating {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: calc(100vw - 48px);
+}
+
+.note-toc-floating-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  max-width: min(340px, calc(100vw - 48px));
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--bg-darker, #0f172a);
+  border: 1px solid var(--border);
+  color: var(--text-heading);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.note-toc-floating-toggle:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.note-toc-floating-badge {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.note-toc-floating-current {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.note-toc-floating-count {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.note-toc-floating-panel {
+  width: min(340px, calc(100vw - 48px));
+  max-height: min(65vh, 460px);
+  overflow-y: auto;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
 @media (max-width: 1024px) {
   .note-detail-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -4782,7 +4945,8 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
 
 @media print {
   .note-toc-sidebar,
-  .note-toc-mobile {
+  .note-toc-mobile,
+  .note-toc-floating {
     display: none !important;
   }
 
@@ -4790,6 +4954,7 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
     display: block !important;
   }
 }
+
 
 /* ==========================================================================
    Note Detail Read Time Progress Indicator (Scroll-Triggered)
@@ -9326,6 +9491,91 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
 [data-lightbox-scope="true"] img:not([data-no-lightbox="true"]):hover {
   box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45), 0 8px 24px rgba(2, 6, 23, 0.35);
 }
+
+/* ==========================================================================
+   Specialized Print-Only Style Block for Diagnostic Tool Results & Reports
+   Hides non-essential UI elements (tool-nav, header, sidebar) and formats
+   calculations and engineering reports cleanly for physical print-outs.
+   ========================================================================== */
+@media print {
+  /* 1. Hide non-essential UI chrome: tool-nav, header, sidebar, and interactive toolbars */
+  .tool-nav,
+  nav.tool-nav,
+  .tool-toolbar,
+  header,
+  .header,
+  .site-header,
+  header.site-header,
+  .sidebar,
+  aside.sidebar,
+  .tool-sidebar,
+  .article-sidebar,
+  .note-toc-sidebar,
+  .site-nav,
+  .site-footer,
+  .discovery-panel,
+  .discovery-controls,
+  [data-testid="auto-persist-status-bar"],
+  .share-tool-link-btn,
+  .print-this-tool-btn,
+  .pdf-export-btn,
+  .printable-badge,
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* 2. Ensure diagnostic tool results, calculations, and reports expand cleanly for physical print-outs */
+  .diagnostic-tool-results,
+  .tool-results,
+  .calculation-report,
+  .tool-report-section,
+  .ipv4-subnet-calculator-root,
+  .cable-poe-root,
+  .server-rack-power-calc-root {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 3. Keep calculation summary cards, KPI grids, and report tables intact across page breaks */
+  .diagnostic-tool-results .card,
+  .tool-results .card,
+  .calculation-report .card,
+  .ipv4-subnet-calculator-root .card,
+  .cable-poe-root .card,
+  .server-rack-power-calc-root .card,
+  .diagnostic-tool-results table,
+  .tool-results table,
+  .calculation-report table {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .diagnostic-tool-results th,
+  .tool-results th,
+  .calculation-report th,
+  .diagnostic-tool-results td,
+  .tool-results td,
+  .calculation-report td {
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    padding: 6pt 8pt !important;
+  }
+}
+
 
 
 

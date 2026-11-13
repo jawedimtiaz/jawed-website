@@ -1,13 +1,21 @@
 import React from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
-import { Share2 } from 'lucide-react';
+import { Share2, Clock } from 'lucide-react';
 import notesData from '../data/notesData.json';
 import { FIELD_GUIDES } from '../data/fieldGuidesData';
 import { FieldGuideDetailPage } from './FieldGuideDetailPage';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { SeoHead } from '../components/SeoHead';
-import { calculateReadTime } from '../utils/readTimeHelper';
+import {
+  calculateWordCount,
+  calculateReadTimeMinutes,
+  calculateReadTime,
+  calculateRemainingReadTime,
+  getHeaderReadTimeDetails,
+  type RemainingReadTimeResult,
+  type HeaderReadTimeDetails,
+} from '../utils/readTimeHelper';
 import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 import { extractContentFreshness, type NoteSchemaItem } from '../utils/contentFreshness';
 import {
@@ -18,6 +26,13 @@ import {
   parseRenderedHeadingsFromDom,
   jumpToHeadingSection,
   injectHeadingCopyButtons,
+  deriveTableCaptionText,
+  wrapTablesInAccessibleContainers,
+  ensureAccessibleTablesInDom,
+  decodeCodeBlockEntities,
+  formatCodeBlockAsMarkdown,
+  copyCodeBlockAsMarkdown,
+  injectCodeBlockMarkdownCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
   buildTocAnchorUrl,
@@ -25,9 +40,14 @@ import {
   copySectionAnchorLink,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
+  CODE_MARKDOWN_BUTTON_LABEL,
+  CODE_MARKDOWN_COPIED_LABEL,
   type TocItem,
   type GeneratedTocResult,
   type CopySectionAnchorResult,
+  type AccessibleTableOptions,
+  type FormatCodeMarkdownOptions,
+  type CopyCodeMarkdownResult,
 } from '../components/TableOfContents';
 
 import { COMPONENT_MAPPER, getInteractiveComponentForSlug } from '../utils/componentMapper';
@@ -82,6 +102,13 @@ export {
   parseRenderedHeadingsFromDom,
   jumpToHeadingSection,
   injectHeadingCopyButtons,
+  deriveTableCaptionText,
+  wrapTablesInAccessibleContainers,
+  ensureAccessibleTablesInDom,
+  decodeCodeBlockEntities,
+  formatCodeBlockAsMarkdown,
+  copyCodeBlockAsMarkdown,
+  injectCodeBlockMarkdownCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
   buildTocAnchorUrl,
@@ -89,6 +116,8 @@ export {
   copySectionAnchorLink,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
+  CODE_MARKDOWN_BUTTON_LABEL,
+  CODE_MARKDOWN_COPIED_LABEL,
   GlobalImageLightbox,
   handleArticleImageLightboxClick,
   openGlobalImageLightbox,
@@ -106,9 +135,17 @@ export {
   submitGuideFeedback,
   GUIDE_FEEDBACK_STORAGE_KEY,
   GUIDE_FEEDBACK_HEADING,
+  calculateWordCount,
+  calculateReadTimeMinutes,
+  calculateReadTime,
+  calculateRemainingReadTime,
+  getHeaderReadTimeDetails,
   type TocItem,
   type GeneratedTocResult,
   type CopySectionAnchorResult,
+  type AccessibleTableOptions,
+  type FormatCodeMarkdownOptions,
+  type CopyCodeMarkdownResult,
   type ArticleCandidate,
   type RelatedArticleSuggestion,
   type ReadTimeProgressIndicatorProps,
@@ -118,6 +155,8 @@ export {
   type GuideFeedbackVote,
   type GuideFeedbackRecord,
   type GuideFeedbackProps,
+  type RemainingReadTimeResult,
+  type HeaderReadTimeDetails,
 };
 
 /**
@@ -366,11 +405,17 @@ export const NoteDetailPage: React.FC = () => {
 
   const [activeHeadingId, setActiveHeadingId] = React.useState<string>('');
   const [copiedHeadingId, setCopiedHeadingId] = React.useState<string>('');
+  const [copiedCodeBlockId, setCopiedCodeBlockId] = React.useState<string>('');
   const [isLinkCopiedToastVisible, setIsLinkCopiedToastVisible] = React.useState<boolean>(false);
   const [copiedHeadingUrl, setCopiedHeadingUrl] = React.useState<string>('');
+  const [shareStatus, setShareStatus] = React.useState<'idle' | 'shared' | 'copied'>('idle');
   const [isMobileTocOpen, setIsMobileTocOpen] = React.useState<boolean>(false);
+  const [isFloatingTocOpen, setIsFloatingTocOpen] = React.useState<boolean>(false);
   const copyFeedbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const codeBlockCopyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareStatusTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const renderedContentRef = React.useRef<HTMLDivElement | null>(null);
 
   // Inject 'Copy Link to Heading' button into every H2 and H3 tag in the rendered article HTML
   const htmlWithCopyButtons = React.useMemo(
@@ -378,22 +423,53 @@ export const NoteDetailPage: React.FC = () => {
     [htmlWithIds, copiedHeadingId]
   );
 
+  // Wrap all tables in an accessible container that explicitly enables horizontal scrolling on touch devices with screen reader captions
+  const htmlWithAccessibleTables = React.useMemo(
+    () =>
+      wrapTablesInAccessibleContainers(htmlWithCopyButtons, {
+        noteTitle: guideMetadata.title || note?.title,
+      }),
+    [htmlWithCopyButtons, guideMetadata.title, note?.title]
+  );
+
+  // Inject 'Copy as Markdown' button into every technical <pre> code block in the rendered article HTML
+  const htmlWithCodeMarkdownButtons = React.useMemo(
+    () => injectCodeBlockMarkdownCopyButtons(htmlWithAccessibleTables, copiedCodeBlockId),
+    [htmlWithAccessibleTables, copiedCodeBlockId]
+  );
+
+  // Ensure any live DOM tables inside the rendered note container have accessible containers and screen reader captions
+  React.useEffect(() => {
+    ensureAccessibleTablesInDom(renderedContentRef.current, {
+      noteTitle: guideMetadata.title || note?.title,
+    });
+  }, [htmlWithCodeMarkdownButtons, guideMetadata.title, note?.title]);
+
   // Cleanup copy feedback and toast timers on unmount
   React.useEffect(() => {
     return () => {
       if (copyFeedbackTimerRef.current) {
         clearTimeout(copyFeedbackTimerRef.current);
       }
+      if (codeBlockCopyTimerRef.current) {
+        clearTimeout(codeBlockCopyTimerRef.current);
+      }
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
+      }
+      if (shareStatusTimerRef.current) {
+        clearTimeout(shareStatusTimerRef.current);
       }
     };
   }, []);
 
-  // Reset mobile TOC, copy feedback, and initialize active heading when note slug or TOC items change
+  // Reset mobile/floating TOC, copy feedback, and initialize active heading when note slug or TOC items change
   React.useEffect(() => {
     setIsMobileTocOpen(false);
+    setIsFloatingTocOpen(false);
     setCopiedHeadingId('');
+    setCopiedCodeBlockId('');
+    setShareStatus('idle');
     setActiveHeadingId(tocItems[0]?.id || '');
   }, [slug, tocItems]);
 
@@ -499,6 +575,37 @@ export const NoteDetailPage: React.FC = () => {
       return;
     }
 
+    const codeMarkdownBtn = target?.closest<HTMLButtonElement>('[data-copy-code-markdown-id]');
+    if (codeMarkdownBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const blockId = codeMarkdownBtn.getAttribute('data-copy-code-markdown-id') || '';
+      const lang = codeMarkdownBtn.getAttribute('data-code-lang') || '';
+      const wrapper = codeMarkdownBtn.closest('.note-code-block-wrapper');
+      const preEl = wrapper?.querySelector('pre');
+      const rawCode = preEl?.innerHTML || codeMarkdownBtn.getAttribute('data-markdown-content') || '';
+      if (rawCode) {
+        void copyCodeBlockAsMarkdown(rawCode, { language: lang, blockId }).then(() => {
+          setCopiedCodeBlockId(blockId);
+          setCopiedHeadingUrl('');
+          setIsLinkCopiedToastVisible(true);
+          if (toastTimeoutRef.current) {
+            clearTimeout(toastTimeoutRef.current);
+          }
+          toastTimeoutRef.current = setTimeout(() => {
+            setIsLinkCopiedToastVisible(false);
+          }, 2400);
+          if (codeBlockCopyTimerRef.current) {
+            clearTimeout(codeBlockCopyTimerRef.current);
+          }
+          codeBlockCopyTimerRef.current = setTimeout(() => {
+            setCopiedCodeBlockId((prev) => (prev === blockId ? '' : prev));
+          }, 2000);
+        });
+      }
+      return;
+    }
+
     handleArticleImageLightboxClick(event);
   };
 
@@ -512,11 +619,24 @@ export const NoteDetailPage: React.FC = () => {
     };
 
     const result = await shareNoteUrlAndTitle(shareData);
-    if (result.method === 'web-share' || result.method === 'aborted') {
+    if (result.method === 'aborted') {
+      return;
+    }
+
+    if (shareStatusTimerRef.current) {
+      clearTimeout(shareStatusTimerRef.current);
+    }
+
+    if (result.method === 'web-share') {
+      setShareStatus('shared');
+      shareStatusTimerRef.current = setTimeout(() => {
+        setShareStatus('idle');
+      }, 2400);
       return;
     }
 
     // Fallback: Copy link to clipboard and trigger toast
+    setShareStatus('copied');
     setCopiedHeadingUrl(shareUrl);
     setIsLinkCopiedToastVisible(true);
     if (toastTimeoutRef.current) {
@@ -524,6 +644,9 @@ export const NoteDetailPage: React.FC = () => {
     }
     toastTimeoutRef.current = setTimeout(() => {
       setIsLinkCopiedToastVisible(false);
+    }, 2400);
+    shareStatusTimerRef.current = setTimeout(() => {
+      setShareStatus('idle');
     }, 2400);
   };
 
@@ -590,9 +713,10 @@ export const NoteDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Note Metadata Header Bar with Dynamic 'Last Updated' Timestamp & Share Button */}
+      {/* Note Metadata Header Bar with Read Time Indicator, Dynamic 'Last Updated' Timestamp & Share Button */}
       <header
         className="note-detail-header"
+        data-testid="note-detail-header"
         style={{
           display: 'flex',
           gap: '12px',
@@ -605,9 +729,42 @@ export const NoteDetailPage: React.FC = () => {
           {note.category || 'Quick Note'}
         </span>
         <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
-        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>
-          {calculateReadTime(cleanHtmlContent || note.description)}
-        </span>
+        {(() => {
+          const readTimeDetails = getHeaderReadTimeDetails(cleanHtmlContent || note.description);
+          return (
+            <span
+              className="note-read-time-indicator"
+              data-testid="note-header-read-time"
+              data-word-count={readTimeDetails.wordCount}
+              data-read-minutes={readTimeDetails.minutes}
+              aria-label={readTimeDetails.label}
+              title={readTimeDetails.label}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.83rem',
+                color: 'var(--muted-light, #cbd5e1)',
+                padding: '3px 10px',
+                borderRadius: '6px',
+                background: 'rgba(56, 189, 248, 0.08)',
+                border: '1px solid rgba(56, 189, 248, 0.22)',
+                fontWeight: 600,
+              }}
+            >
+              <Clock size={13} aria-hidden="true" style={{ color: 'var(--accent, #38bdf8)' }} />
+              <span data-testid="note-header-read-time-text">
+                {calculateReadTime(cleanHtmlContent || note.description)}
+              </span>
+              <span
+                data-testid="note-header-word-count"
+                style={{ fontSize: '0.75rem', color: 'var(--muted, #94a3b8)', fontWeight: 500 }}
+              >
+                ({readTimeDetails.wordCount.toLocaleString()} words)
+              </span>
+            </span>
+          );
+        })()}
         {guideMetadata.lastUpdated && (
           <>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
@@ -652,6 +809,7 @@ export const NoteDetailPage: React.FC = () => {
           type="button"
           onClick={handleWebShareNote}
           data-testid="note-share-btn"
+          data-share-status={shareStatus}
           className="button button-secondary no-print"
           style={{
             display: 'inline-flex',
@@ -667,7 +825,9 @@ export const NoteDetailPage: React.FC = () => {
           title="Share this note's URL and title (uses Web Share API or copies link)"
         >
           <Share2 size={14} aria-hidden="true" />
-          <span>Share</span>
+          <span data-testid="note-share-btn-label">
+            {shareStatus === 'copied' ? 'Link copied' : shareStatus === 'shared' ? 'Shared' : 'Share'}
+          </span>
         </button>
       </header>
 
@@ -703,11 +863,12 @@ export const NoteDetailPage: React.FC = () => {
           />
 
           <div
+            ref={renderedContentRef}
             className="note-rendered-content"
             data-testid="note-rendered-content"
             data-lightbox-scope="true"
             onClick={handleRenderedContentClick}
-            dangerouslySetInnerHTML={{ __html: htmlWithCopyButtons }}
+            dangerouslySetInnerHTML={{ __html: htmlWithCodeMarkdownButtons }}
           />
 
           {/* Injected Automated Visual Modules */}
@@ -813,6 +974,28 @@ export const NoteDetailPage: React.FC = () => {
           url={shareUrl}
         />
       </div>
+
+      {/* Floating Table of Contents Quick-Jump Menu */}
+      {shouldShowToc && (
+        <TableOfContents
+          tocItems={tocItems}
+          content={cleanHtmlContent}
+          activeHeadingId={activeHeadingId}
+          copiedHeadingId={copiedHeadingId}
+          onSelectHeading={(id) => {
+            setIsFloatingTocOpen(false);
+            handleSelectTocHeading(id);
+          }}
+          onCopyHeadingLink={handleCopySectionLink}
+          onScrollToTop={() => {
+            setIsFloatingTocOpen(false);
+            handleScrollToTop();
+          }}
+          mode="floating"
+          isFloatingOpen={isFloatingTocOpen}
+          onToggleFloating={() => setIsFloatingTocOpen((prev) => !prev)}
+        />
+      )}
 
       {/* Floating Read Time Indicator for Mobile/Tablet Scroll Progress */}
       <ReadTimeProgressIndicator

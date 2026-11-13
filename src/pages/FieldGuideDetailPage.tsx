@@ -1,5 +1,6 @@
 import React from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
+import { Share2 } from 'lucide-react';
 import { FIELD_GUIDES, determineCategory } from '../data/fieldGuidesData';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { SeoHead } from '../components/SeoHead';
@@ -13,10 +14,15 @@ import {
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
+  ensureAccessibleTablesInDom,
+  wrapTablesInAccessibleContainers,
+  shareNoteUrlAndTitle,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
   slugifyHeading,
+  type TocItem,
 } from '../utils/tocGenerator';
+import { TableOfContents } from '../components/TableOfContents';
 import { handleArticleImageLightboxClick } from '../components/GlobalImageLightbox';
 import { PrintableBadge } from '../components/common/PrintableBadge';
 import { RelatedArticles } from '../components/RelatedArticles';
@@ -39,15 +45,23 @@ export const FieldGuideDetailPage: React.FC = () => {
   const guide = FIELD_GUIDES.find(g => g.slug === slug);
   const [copiedTocId, setCopiedTocId] = React.useState<string>('');
   const [copiedAnchorUrl, setCopiedAnchorUrl] = React.useState<string>('');
+  const [shareStatus, setShareStatus] = React.useState<'idle' | 'shared' | 'copied'>('idle');
+  const [parsedGuideTocItems, setParsedGuideTocItems] = React.useState<TocItem[]>([]);
   const copyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const articleBodyRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     setCopiedTocId('');
     setCopiedAnchorUrl('');
+    setShareStatus('idle');
+    setParsedGuideTocItems([]);
     return () => {
       if (copyTimerRef.current) {
         clearTimeout(copyTimerRef.current);
+      }
+      if (shareTimerRef.current) {
+        clearTimeout(shareTimerRef.current);
       }
     };
   }, [slug]);
@@ -58,6 +72,7 @@ export const FieldGuideDetailPage: React.FC = () => {
 
     const headings = container.querySelectorAll<HTMLHeadingElement>('h2, h3');
     const usedIds = new Set<string>();
+    const extractedToc: TocItem[] = [];
 
     headings.forEach((heading) => {
       const existingBtn = heading.querySelector<HTMLButtonElement>('.note-heading-copy-btn');
@@ -113,8 +128,19 @@ export const FieldGuideDetailPage: React.FC = () => {
         btn.innerHTML = btnHtml;
         heading.appendChild(btn);
       }
+      extractedToc.push({
+        id: headingId,
+        text: rawText,
+        level: heading.tagName.toLowerCase() === 'h3' ? 3 : 2,
+      });
     });
-  }, [slug, copiedTocId]);
+
+    if (extractedToc.length > 0) {
+      setParsedGuideTocItems(extractedToc);
+    }
+
+    ensureAccessibleTablesInDom(container, { noteTitle: guide?.title });
+  }, [slug, copiedTocId, guide?.title]);
 
   if (!guide) {
     return <Navigate to="/guides" replace />;
@@ -154,6 +180,32 @@ export const FieldGuideDetailPage: React.FC = () => {
     event.preventDefault();
     event.stopPropagation();
     await copyGuideHeadingDeepLink(headingId);
+  };
+
+  const handleWebShareGuide = async () => {
+    const shareUrl =
+      typeof window !== 'undefined' && window.location?.href
+        ? window.location.href.split('#')[0]
+        : currentUrl;
+    const result = await shareNoteUrlAndTitle({
+      title: guide.title,
+      text: guide.description,
+      url: shareUrl,
+    });
+
+    if (result.method === 'web-share' && result.ok) {
+      setShareStatus('shared');
+      if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+      shareTimerRef.current = setTimeout(() => setShareStatus('idle'), 2600);
+    } else if (result.method === 'clipboard' && result.ok) {
+      setShareStatus('copied');
+      setCopiedTocId('share-guide-url');
+      setCopiedAnchorUrl(shareUrl);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopiedTocId(''), 2600);
+      if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+      shareTimerRef.current = setTimeout(() => setShareStatus('idle'), 2600);
+    }
   };
 
   const handleArticleBodyClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -1292,7 +1344,11 @@ export const FieldGuideDetailPage: React.FC = () => {
         return (
           <div
             className="note-rendered-content"
-            dangerouslySetInnerHTML={{ __html: guide.contentHtml }}
+            dangerouslySetInnerHTML={{
+              __html: wrapTablesInAccessibleContainers(guide.contentHtml, {
+                noteTitle: guide.title,
+              }),
+            }}
           />
         );
     }
@@ -1369,6 +1425,30 @@ export const FieldGuideDetailPage: React.FC = () => {
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
             <PrintableBadge />
+            <button
+              type="button"
+              onClick={handleWebShareGuide}
+              data-testid="note-share-btn"
+              data-share-status={shareStatus}
+              className="button button-secondary no-print"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 12px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+              aria-label={`Share "${guide.title}"`}
+              title="Share this technical guide's URL and title (uses Web Share API or copies link)"
+            >
+              <Share2 size={14} aria-hidden="true" />
+              <span data-testid="note-share-btn-label">
+                {shareStatus === 'copied' ? 'Link copied' : shareStatus === 'shared' ? 'Shared' : 'Share'}
+              </span>
+            </button>
           </div>
 
           <h1 style={{ fontSize: '2.2rem', lineHeight: 1.25, marginBottom: '16px', color: 'var(--text-heading)' }}>
@@ -1447,14 +1527,22 @@ export const FieldGuideDetailPage: React.FC = () => {
                 📋 Table of Contents
               </h3>
               <ul className="note-toc-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '6px' }}>
-                {guide.toc.map(item => {
+                {(parsedGuideTocItems.length > 0
+                  ? parsedGuideTocItems
+                  : guide.toc.map(t => ({ id: t.id, text: t.text, level: 2 as const }))
+                ).map(item => {
                   const isCopied = copiedTocId === item.id;
+                  const level = item.level || 2;
                   return (
-                    <li key={item.id} className="note-toc-item level-2">
+                    <li
+                      key={item.id}
+                      className={`note-toc-item level-${level}`}
+                      data-heading-level={`h${level}`}
+                    >
                       <div className="note-toc-row">
                         <a
                           href={`#${item.id}`}
-                          className="note-toc-link level-2 toc-link"
+                          className={`note-toc-link level-${level} toc-link`}
                         >
                           {item.text}
                         </a>
@@ -1533,6 +1621,18 @@ export const FieldGuideDetailPage: React.FC = () => {
           count={3}
           heading="Related Technical Field Guides & Notes"
           subtitle="Deep-dive troubleshooting procedures and field checklists matched by shared topic categories and tags."
+        />
+
+        {/* Floating Table of Contents Quick-Jump Navigation Menu */}
+        <TableOfContents
+          tocItems={
+            parsedGuideTocItems.length > 0
+              ? parsedGuideTocItems
+              : guide.toc.map(t => ({ id: t.id, text: t.text, level: 2 as const }))
+          }
+          copiedHeadingId={copiedTocId}
+          onCopyHeadingLink={handleCopyGuideSectionLink}
+          mode="floating"
         />
       </article>
 

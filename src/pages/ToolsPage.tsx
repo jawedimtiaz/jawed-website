@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, Share2, Check } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { PrintableBadge } from '../components/common/PrintableBadge';
@@ -34,6 +34,188 @@ export interface SearchableTool extends ToolItem {
   resolvedCategory: BaseToolCategoryId;
   resolvedCategoryLabel: BaseToolCategoryLabel;
   searchString: string;
+}
+
+const VALID_CATEGORY_IDS = new Set<ToolCategoryId>(['all', 'it', 'career', 'finance', 'ai']);
+
+/**
+ * Builds a shareable URL encoding the currently active search query and category filter on `/tools`.
+ */
+export function buildToolsFilterShareUrl(
+  baseUrl: string = 'https://jawed.co.in/tools',
+  searchTerm: string = '',
+  activeCategory: ToolCategoryId = 'all'
+): string {
+  const cleanSearch = (searchTerm || '').trim();
+  const cleanCategory: ToolCategoryId = VALID_CATEGORY_IDS.has(activeCategory)
+    ? activeCategory
+    : 'all';
+
+  try {
+    const isAbsolute = /^https?:\/\//i.test(baseUrl);
+    const parsed = new URL(isAbsolute ? baseUrl : `https://jawed.co.in${baseUrl.startsWith('/') ? '' : '/'}${baseUrl}`);
+    parsed.searchParams.delete('q');
+    parsed.searchParams.delete('search');
+    parsed.searchParams.delete('category');
+
+    if (cleanSearch) {
+      parsed.searchParams.set('q', cleanSearch);
+    }
+    if (cleanCategory !== 'all') {
+      parsed.searchParams.set('category', cleanCategory);
+    }
+
+    if (!isAbsolute) {
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+    return parsed.toString();
+  } catch {
+    const params = new URLSearchParams();
+    if (cleanSearch) params.set('q', cleanSearch);
+    if (cleanCategory !== 'all') params.set('category', cleanCategory);
+    const qs = params.toString();
+    const baseWithoutQuery = baseUrl.split('?')[0] || 'https://jawed.co.in/tools';
+    return qs ? `${baseWithoutQuery}?${qs}` : baseWithoutQuery;
+  }
+}
+
+/**
+ * Parses `searchTerm` and `activeCategory` from a URL query string (e.g. `?q=subnet&category=it`).
+ */
+export function parseToolsFilterFromSearch(locationSearch: string): {
+  searchTerm: string;
+  activeCategory: ToolCategoryId;
+} {
+  if (!locationSearch) {
+    return { searchTerm: '', activeCategory: 'all' };
+  }
+  const normalized = locationSearch.startsWith('?') ? locationSearch.slice(1) : locationSearch;
+  const params = new URLSearchParams(normalized);
+  const rawQuery = (params.get('q') ?? params.get('search') ?? '').trim();
+  const rawCategory = (params.get('category') ?? 'all').trim().toLowerCase() as ToolCategoryId;
+  const activeCategory: ToolCategoryId = VALID_CATEGORY_IDS.has(rawCategory) ? rawCategory : 'all';
+
+  return {
+    searchTerm: rawQuery,
+    activeCategory,
+  };
+}
+
+export interface ToolsFilterShareNavigatorLike {
+  share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+  canShare?: (data: { title?: string; text?: string; url?: string }) => boolean;
+  clipboard?: {
+    writeText?: (text: string) => Promise<void>;
+  };
+}
+
+export interface ToolsFilterShareResult {
+  ok: boolean;
+  url: string;
+  method: 'web-share' | 'clipboard' | 'aborted' | 'failed';
+  copiedToClipboard: boolean;
+}
+
+/**
+ * Shares and copies the link to the currently active ToolsPage search or filter configuration
+ * using the Web Share API (`navigator.share`) and Clipboard API (`navigator.clipboard.writeText`).
+ */
+export async function shareToolsFilterConfiguration(
+  params: {
+    baseUrl?: string;
+    searchTerm: string;
+    activeCategory: ToolCategoryId;
+  },
+  navOverride?: ToolsFilterShareNavigatorLike
+): Promise<ToolsFilterShareResult> {
+  const defaultBaseUrl =
+    typeof window !== 'undefined' && window.location?.origin
+      ? `${window.location.origin}/tools`
+      : 'https://jawed.co.in/tools';
+  const shareUrl = buildToolsFilterShareUrl(
+    params.baseUrl || defaultBaseUrl,
+    params.searchTerm,
+    params.activeCategory
+  );
+
+  const categoryLabel =
+    TOOL_CATEGORIES.find(c => c.id === params.activeCategory)?.label || 'All Tools';
+  const cleanSearch = (params.searchTerm || '').trim();
+  const shareTitle = cleanSearch
+    ? `IT Tools matching "${cleanSearch}" (${categoryLabel}) | Jawed Imtiaz`
+    : `${categoryLabel} | Jawed Imtiaz Tools & Calculators`;
+  const shareText = cleanSearch
+    ? `Filtered IT tools and calculators matching "${cleanSearch}" in ${categoryLabel}.`
+    : `Browse interactive ${categoryLabel} utilities on jawed.co.in.`;
+
+  const nav: ToolsFilterShareNavigatorLike | undefined =
+    navOverride ??
+    (typeof navigator !== 'undefined'
+      ? (navigator as unknown as ToolsFilterShareNavigatorLike)
+      : undefined);
+
+  let copiedToClipboard = false;
+  if (nav?.clipboard && typeof nav.clipboard.writeText === 'function') {
+    try {
+      await nav.clipboard.writeText(shareUrl);
+      copiedToClipboard = true;
+    } catch {
+      // Ignore clipboard write error if restricted
+    }
+  } else if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = shareUrl;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      if (typeof document.execCommand === 'function') {
+        copiedToClipboard = Boolean(document.execCommand('copy'));
+      }
+      document.body.removeChild(textarea);
+    } catch {
+      // Ignore DOM fallback error
+    }
+  }
+
+  const shareData = {
+    title: shareTitle,
+    text: shareText,
+    url: shareUrl,
+  };
+
+  if (nav && typeof nav.share === 'function') {
+    const canShareData = typeof nav.canShare === 'function' ? nav.canShare(shareData) : true;
+    if (canShareData) {
+      try {
+        await nav.share(shareData);
+        return {
+          ok: true,
+          url: shareUrl,
+          method: 'web-share',
+          copiedToClipboard,
+        };
+      } catch (err: unknown) {
+        if ((err as Error)?.name === 'AbortError') {
+          return {
+            ok: copiedToClipboard,
+            url: shareUrl,
+            method: copiedToClipboard ? 'clipboard' : 'aborted',
+            copiedToClipboard,
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    ok: copiedToClipboard,
+    url: shareUrl,
+    method: copiedToClipboard ? 'clipboard' : 'failed',
+    copiedToClipboard,
+  };
 }
 
 /**
@@ -189,8 +371,62 @@ export function highlightToolTextMatch(text: string, query: string): React.React
 }
 
 export const ToolsPage: React.FC = () => {
-  const [activeCategory, setActiveCategory] = useState<ToolCategoryId>('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const initialFilterState = useMemo(() => {
+    if (typeof window !== 'undefined' && window.location?.search) {
+      return parseToolsFilterFromSearch(window.location.search);
+    }
+    return { searchTerm: '', activeCategory: 'all' as ToolCategoryId };
+  }, []);
+
+  const [activeCategory, setActiveCategory] = useState<ToolCategoryId>(
+    initialFilterState.activeCategory
+  );
+  const [searchTerm, setSearchTerm] = useState<string>(initialFilterState.searchTerm);
+  const [isFilterLinkCopied, setIsFilterLinkCopied] = useState<boolean>(false);
+  const [sharedFilterUrl, setSharedFilterUrl] = useState<string>('');
+  const copyToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyToastTimerRef.current) {
+        clearTimeout(copyToastTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Keep browser URL query string synced with active search/category filter state
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.history?.replaceState) return;
+    const nextRelativeUrl = buildToolsFilterShareUrl(
+      window.location.pathname || '/tools',
+      searchTerm,
+      activeCategory
+    );
+    const currentRelative = `${window.location.pathname}${window.location.search}`;
+    if (nextRelativeUrl !== currentRelative) {
+      window.history.replaceState(null, '', nextRelativeUrl);
+    }
+  }, [searchTerm, activeCategory]);
+
+  const handleShareFilterConfiguration = async () => {
+    const baseUrl =
+      typeof window !== 'undefined' && window.location?.origin
+        ? `${window.location.origin}/tools`
+        : 'https://jawed.co.in/tools';
+    const result = await shareToolsFilterConfiguration({
+      baseUrl,
+      searchTerm,
+      activeCategory,
+    });
+    setSharedFilterUrl(result.url);
+    setIsFilterLinkCopied(true);
+    if (copyToastTimerRef.current) {
+      clearTimeout(copyToastTimerRef.current);
+    }
+    copyToastTimerRef.current = setTimeout(() => {
+      setIsFilterLinkCopied(false);
+    }, 2400);
+  };
 
   // Pre-index tools with resolved categories and lowercase search strings once
   const indexedTools = useMemo<SearchableTool[]>(() => {
@@ -334,6 +570,41 @@ export const ToolsPage: React.FC = () => {
               Clear
             </button>
           )}
+          <button
+            type="button"
+            onClick={handleShareFilterConfiguration}
+            data-testid="tools-filter-share-btn"
+            className="button button-secondary no-print"
+            aria-label="Share current tools search and filter configuration"
+            title="Share or copy link to current search and category filter configuration"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 13px',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              borderColor: isFilterLinkCopied
+                ? 'rgba(16, 185, 129, 0.55)'
+                : undefined,
+              color: isFilterLinkCopied
+                ? 'var(--emerald, #10b981)'
+                : undefined,
+            }}
+          >
+            {isFilterLinkCopied ? (
+              <>
+                <Check size={14} aria-hidden="true" />
+                <span>Link copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 size={14} aria-hidden="true" />
+                <span>Share</span>
+              </>
+            )}
+          </button>
           <span
             data-testid="tools-filter-results-count"
             aria-live="polite"
@@ -342,6 +613,40 @@ export const ToolsPage: React.FC = () => {
             Showing {filteredTools.length} of {indexedTools.length} tools
           </span>
         </div>
+        {isFilterLinkCopied && sharedFilterUrl && (
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="tools-filter-share-toast"
+            style={{
+              marginTop: '10px',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              background: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              color: 'var(--emerald, #10b981)',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <Check size={13} aria-hidden="true" />
+            <span>Link copied!</span>
+            <code
+              style={{
+                fontSize: '0.73rem',
+                color: 'var(--muted-light, #cbd5e1)',
+                background: 'rgba(15, 23, 42, 0.5)',
+                padding: '1px 6px',
+                borderRadius: '4px',
+              }}
+            >
+              {sharedFilterUrl}
+            </code>
+          </div>
+        )}
       </div>
 
       <div className="card-grid" data-testid="tools-card-grid">

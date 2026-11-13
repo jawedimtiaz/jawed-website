@@ -300,4 +300,30 @@ describe('CSS Print Stylesheet & A4/Letter PDF Export Optimization Suite', () =>
       'Expected index.css @media print to suppress .printable-badge'
     );
   });
+
+  it('implements a specialized print-only style block in src/index.css for diagnostic tool results that hides tool-nav, header, and sidebar', () => {
+    const indexCss = fs.readFileSync(indexCssPath, 'utf8');
+
+    // 1. Verify @media print block in src/index.css hides tool-nav, header, and sidebar
+    assert.ok(
+      indexCss.includes('@media print') &&
+        indexCss.includes('.tool-nav') &&
+        indexCss.includes('header,') &&
+        indexCss.includes('.sidebar,') &&
+        indexCss.includes('.tool-sidebar'),
+      'Expected src/index.css @media print block to hide .tool-nav, header, and .sidebar/.tool-sidebar'
+    );
+
+    // 2. Verify diagnostic tool results and calculation report containers are formatted cleanly for physical print-outs
+    assert.ok(
+      indexCss.includes('.diagnostic-tool-results') &&
+        indexCss.includes('.tool-results') &&
+        indexCss.includes('.calculation-report') &&
+        indexCss.includes('.ipv4-subnet-calculator-root') &&
+        indexCss.includes('.cable-poe-root') &&
+        indexCss.includes('.server-rack-power-calc-root'),
+      'Expected src/index.css @media print block to style diagnostic tool results and calculation reports for clean physical print-outs'
+    );
+  });
 });
+

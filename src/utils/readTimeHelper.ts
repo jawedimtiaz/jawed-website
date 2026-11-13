@@ -72,3 +72,30 @@ export const calculateRemainingReadTime = (
     wordCount,
   };
 };
+
+export interface HeaderReadTimeDetails {
+  wordCount: number;
+  minutes: number;
+  formattedReadTime: string;
+  label: string;
+}
+
+/**
+ * Computes structured Read Time indicator details (word count, estimated minutes, formatted read time)
+ * for display in the NoteDetailPage header.
+ */
+export const getHeaderReadTimeDetails = (
+  contentOrText?: string,
+  wpm = 200
+): HeaderReadTimeDetails => {
+  const wordCount = calculateWordCount(contentOrText);
+  const minutes = calculateReadTimeMinutes(contentOrText, wpm);
+  const formattedReadTime = calculateReadTime(contentOrText, wpm);
+  return {
+    wordCount,
+    minutes,
+    formattedReadTime,
+    label: `Read Time: ${formattedReadTime} (${wordCount} words)`,
+  };
+};
+

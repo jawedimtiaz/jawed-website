@@ -449,4 +449,549 @@ export function injectHeadingCopyButtons(
   );
 }
 
+export interface AccessibleTableOptions {
+  /**
+   * Optional note or guide title used as fallback context when deriving screen reader captions.
+   */
+  noteTitle?: string;
+  /**
+   * Optional default caption prefix when no heading or column header context is available.
+   */
+  defaultCaption?: string;
+}
 
+/**
+ * Derives an accessible screen reader caption for a `<table>` element by inspecting:
+ * 1. An existing `<caption>` inside the table
+ * 2. `aria-label`, `data-caption`, or `title` attributes on the `<table>`
+ * 3. The nearest preceding H2/H3/H1 section heading and the table's `<th>` column headers
+ * 4. Fallback note title or table index
+ */
+export function deriveTableCaptionText(
+  tableHtml: string,
+  precedingHtml: string = '',
+  tableIndex: number = 1,
+  options: AccessibleTableOptions = {}
+): string {
+  if (!tableHtml || typeof tableHtml !== 'string') {
+    return options.defaultCaption || `Reference data table ${tableIndex}`;
+  }
+
+  // 1. Check for an existing <caption>...</caption>
+  const existingCaptionMatch = tableHtml.match(/<caption\b[^>]*>([\s\S]*?)<\/caption>/i);
+  if (existingCaptionMatch?.[1]) {
+    const cleanedExisting = decodeHtmlEntities(existingCaptionMatch[1]);
+    if (cleanedExisting) {
+      return cleanedExisting;
+    }
+  }
+
+  // 2. Check for aria-label, data-caption, or title on the opening <table> tag
+  const openTagMatch = tableHtml.match(/^<table(\s[^>]*)?>/i);
+  const openTagAttrs = openTagMatch?.[1] || '';
+  const attrCaptionMatch =
+    openTagAttrs.match(/\b(?:aria-label|data-caption|title)\s*=\s*"([^"]+)"/i) ||
+    openTagAttrs.match(/\b(?:aria-label|data-caption|title)\s*=\s*'([^']+)'/i);
+  if (attrCaptionMatch?.[1]) {
+    const cleanedAttr = decodeHtmlEntities(attrCaptionMatch[1]);
+    if (cleanedAttr) {
+      return cleanedAttr;
+    }
+  }
+
+  // 3. Find nearest preceding heading (h2, h3, or h1) in precedingHtml
+  let nearestHeading = '';
+  if (precedingHtml) {
+    const headingRegex = /<(h[123])(?:\s[^>]*)?>([\s\S]*?)<\/\1>/gi;
+    let match: RegExpExecArray | null = null;
+    while ((match = headingRegex.exec(precedingHtml)) !== null) {
+      const rawHeadingInner = match[2] || '';
+      const withoutCopyBtn = rawHeadingInner.replace(
+        /<button\b[^>]*class="[^"]*note-heading-copy-btn[^"]*"[^>]*>[\s\S]*?<\/button>/gi,
+        ''
+      );
+      const decodedHeading = decodeHtmlEntities(withoutCopyBtn);
+      if (decodedHeading) {
+        nearestHeading = decodedHeading;
+      }
+    }
+  }
+
+  // 4. Extract <th> column headers from <thead> or the first header row
+  const headerSourceMatch = tableHtml.match(/<thead\b[^>]*>([\s\S]*?)<\/thead>/i);
+  const firstRowMatch = tableHtml.match(/<tr\b[^>]*>([\s\S]*?)<\/tr>/i);
+  const headerSearchScope = headerSourceMatch?.[1] || firstRowMatch?.[1] || '';
+  const thHeaders: string[] = [];
+  if (headerSearchScope) {
+    const thRegex = /<th\b[^>]*>([\s\S]*?)<\/th>/gi;
+    let thMatch: RegExpExecArray | null = null;
+    while ((thMatch = thRegex.exec(headerSearchScope)) !== null && thHeaders.length < 6) {
+      const headerText = decodeHtmlEntities(thMatch[1] || '');
+      if (headerText && headerText !== '—' && headerText !== '-') {
+        thHeaders.push(headerText);
+      }
+    }
+  }
+
+  if (nearestHeading && thHeaders.length > 0) {
+    return `${nearestHeading} — Table columns: ${thHeaders.join(', ')}`;
+  }
+  if (nearestHeading) {
+    return `${nearestHeading} — Data table`;
+  }
+  if (thHeaders.length > 0) {
+    const prefix = options.noteTitle ? `${options.noteTitle.trim()} — ` : '';
+    return `${prefix}Table columns: ${thHeaders.join(', ')}`;
+  }
+  if (options.defaultCaption) {
+    return options.defaultCaption;
+  }
+  if (options.noteTitle) {
+    return `${options.noteTitle.trim()} — Reference table ${tableIndex}`;
+  }
+  return `Reference data table ${tableIndex}`;
+}
+
+/**
+ * Wraps all `<table>` elements in rendered note HTML inside an accessible scroll container
+ * (`.table-wrap.note-accessible-table-container`) that explicitly enables horizontal scrolling
+ * on touch devices (`overflow-x: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;`)
+ * and injects a screen reader `<caption>` (`.sr-only.note-table-caption`) into every table.
+ */
+export function wrapTablesInAccessibleContainers(
+  htmlContent: string,
+  options: AccessibleTableOptions = {}
+): string {
+  if (!htmlContent || typeof htmlContent !== 'string') {
+    return '';
+  }
+
+  // Mask <pre> blocks so code examples containing literal <table> strings are untouched
+  const preBlocks: string[] = [];
+  const maskedContent = htmlContent.replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, (match) => {
+    const token = `__TOC_TABLE_PRE_BLOCK_${preBlocks.length}__`;
+    preBlocks.push(match);
+    return token;
+  });
+
+  // Unwrap any pre-existing .table-wrap wrapper around a single <table> to avoid double-wrapping
+  const unwrappedContent = maskedContent.replace(
+    /<div\b[^>]*class=(?:"[^"]*\b(?:table-wrap|note-accessible-table-container)\b[^"]*"|'[^']*\b(?:table-wrap|note-accessible-table-container)\b[^']*')[^>]*>\s*(<table\b[\s\S]*?<\/table>)\s*<\/div>/gi,
+    '$1'
+  );
+
+  let tableCount = 0;
+  const tableRegex = /<table(\s[^>]*)?>([\s\S]*?)<\/table>/gi;
+
+  const wrappedContent = unwrappedContent.replace(
+    tableRegex,
+    (fullTableMatch, rawTableAttrs: string | undefined, innerTableHtml: string, offset: number) => {
+      tableCount += 1;
+      const captionId = `note-table-caption-${tableCount}`;
+      const precedingSlice = unwrappedContent.slice(0, offset);
+      const captionText = deriveTableCaptionText(
+        fullTableMatch,
+        precedingSlice,
+        tableCount,
+        options
+      );
+
+      const escapedAttrCaption = captionText
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;');
+      const escapedCaptionHtml = captionText
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      let updatedInnerHtml = innerTableHtml;
+      if (/<caption\b[^>]*>[\s\S]*?<\/caption>/i.test(innerTableHtml)) {
+        updatedInnerHtml = innerTableHtml.replace(
+          /<caption(\s[^>]*)?>([\s\S]*?)<\/caption>/i,
+          (_capMatch, rawCapAttrs: string | undefined, capBody: string) => {
+            let capAttrs = rawCapAttrs || '';
+            if (!/\bid\s*=/i.test(capAttrs)) {
+              capAttrs += ` id="${captionId}"`;
+            }
+            if (!/\bdata-testid\s*=/i.test(capAttrs)) {
+              capAttrs += ' data-testid="note-table-sr-caption"';
+            }
+            if (/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i.test(capAttrs)) {
+              capAttrs = capAttrs.replace(
+                /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i,
+                (_m, c1, c2) => {
+                  const existing = (c1 ?? c2 ?? '').trim();
+                  const merged = Array.from(
+                    new Set([...existing.split(/\s+/), 'sr-only', 'note-table-caption'].filter(Boolean))
+                  ).join(' ');
+                  return `class="${merged}"`;
+                }
+              );
+            } else {
+              capAttrs += ' class="sr-only note-table-caption"';
+            }
+            return `<caption${capAttrs}>${capBody}</caption>`;
+          }
+        );
+      } else {
+        updatedInnerHtml = `<caption id="${captionId}" class="sr-only note-table-caption" data-testid="note-table-sr-caption">${escapedCaptionHtml}</caption>${innerTableHtml}`;
+      }
+
+      let tableAttrs = rawTableAttrs || '';
+      if (/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i.test(tableAttrs)) {
+        tableAttrs = tableAttrs.replace(
+          /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i,
+          (_m, c1, c2) => {
+            const existing = (c1 ?? c2 ?? '').trim();
+            if (existing.includes('note-data-table')) return `class="${existing}"`;
+            return `class="${`${existing} note-data-table`.trim()}"`;
+          }
+        );
+      } else {
+        tableAttrs += ' class="note-data-table"';
+      }
+
+      if (!/\baria-describedby\s*=/i.test(tableAttrs)) {
+        tableAttrs += ` aria-describedby="${captionId}"`;
+      }
+
+      return `<div class="table-wrap note-accessible-table-container" role="region" aria-labelledby="${captionId}" aria-label="${escapedAttrCaption}" tabindex="0" data-testid="note-accessible-table-container" data-touch-scroll="horizontal" style="overflow-x: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; max-width: 100%;"><table${tableAttrs}>${updatedInnerHtml}</table></div>`;
+    }
+  );
+
+  return wrappedContent.replace(
+    /__TOC_TABLE_PRE_BLOCK_(\d+)__/g,
+    (_, idx) => preBlocks[Number(idx)] ?? ''
+  );
+}
+
+/**
+ * Enhances any live DOM `<table>` elements inside a container element so that every table
+ * is wrapped in `.table-wrap.note-accessible-table-container` with explicit touch horizontal
+ * scrolling and contains an accessible screen reader `<caption>`.
+ */
+export function ensureAccessibleTablesInDom(
+  container: HTMLElement | null,
+  options: AccessibleTableOptions = {}
+): number {
+  if (!container || typeof container.querySelectorAll !== 'function' || typeof document === 'undefined') {
+    return 0;
+  }
+
+  const tables = Array.from(container.querySelectorAll<HTMLTableElement>('table'));
+  tables.forEach((table, idx) => {
+    const tableNum = idx + 1;
+    const captionId = `note-table-caption-${tableNum}`;
+
+    // Ensure <caption> exists inside the table for screen readers
+    let captionEl = table.querySelector('caption');
+    let captionText = captionEl?.textContent?.trim() || '';
+
+    if (!captionText) {
+      const thTexts = Array.from(table.querySelectorAll('th'))
+        .map((th) => (th.textContent || '').trim())
+        .filter((t) => Boolean(t) && t !== '—' && t !== '-')
+        .slice(0, 6);
+
+      captionText =
+        thTexts.length > 0
+          ? `${options.noteTitle ? `${options.noteTitle} — ` : ''}Table columns: ${thTexts.join(', ')}`
+          : options.defaultCaption ||
+            (options.noteTitle
+              ? `${options.noteTitle} — Reference table ${tableNum}`
+              : `Reference data table ${tableNum}`);
+    }
+
+    if (!captionEl) {
+      captionEl = document.createElement('caption');
+      captionEl.textContent = captionText;
+      table.insertBefore(captionEl, table.firstChild);
+    }
+
+    if (!captionEl.id) {
+      captionEl.id = captionId;
+    }
+    captionEl.classList.add('sr-only', 'note-table-caption');
+    captionEl.setAttribute('data-testid', 'note-table-sr-caption');
+
+    table.classList.add('note-data-table');
+    if (!table.getAttribute('aria-describedby')) {
+      table.setAttribute('aria-describedby', captionEl.id);
+    }
+
+    // Check if parent is already a .table-wrap or .note-accessible-table-container
+    const parentEl = table.parentElement;
+    const isAlreadyWrapped =
+      parentEl &&
+      (parentEl.classList.contains('table-wrap') ||
+        parentEl.classList.contains('note-accessible-table-container'));
+
+    const wrapper = isAlreadyWrapped ? parentEl : document.createElement('div');
+    wrapper.classList.add('table-wrap', 'note-accessible-table-container');
+    wrapper.setAttribute('role', 'region');
+    wrapper.setAttribute('aria-labelledby', captionEl.id);
+    wrapper.setAttribute('aria-label', captionText);
+    wrapper.setAttribute('tabindex', '0');
+    wrapper.setAttribute('data-testid', 'note-accessible-table-container');
+    wrapper.setAttribute('data-touch-scroll', 'horizontal');
+    wrapper.style.overflowX = 'auto';
+    wrapper.style.setProperty('-webkit-overflow-scrolling', 'touch');
+    wrapper.style.touchAction = 'pan-x pan-y';
+    wrapper.style.maxWidth = '100%';
+
+    if (!isAlreadyWrapped && parentEl) {
+      parentEl.insertBefore(wrapper, table);
+      wrapper.appendChild(table);
+    }
+  });
+
+  return tables.length;
+}
+
+export const CODE_MARKDOWN_BUTTON_LABEL = 'Copy as Markdown';
+export const CODE_MARKDOWN_COPIED_LABEL = 'Copied as Markdown';
+
+export interface FormatCodeMarkdownOptions {
+  /**
+   * Optional syntax language identifier for the fenced Markdown block (e.g., 'bash', 'powershell', 'json', 'csv').
+   */
+  language?: string;
+  /**
+   * Optional descriptive label rendered as a bold Markdown heading above the fenced code block.
+   */
+  label?: string;
+  /**
+   * Optional CLI prompt symbol (e.g., '#', '$', 'Switch#') to prefix the command.
+   */
+  promptSymbol?: string;
+  /**
+   * Optional sample CLI output included inside the Markdown block.
+   */
+  output?: string;
+}
+
+export interface CopyCodeMarkdownResult {
+  ok: boolean;
+  blockId: string;
+  markdown: string;
+  code: string;
+  language: string;
+  toastMessage: string;
+}
+
+/**
+ * Strips HTML tags inside `<pre>` / `<code>` blocks and decodes HTML entities
+ * while preserving line breaks (`\n`) and indentation.
+ */
+export function decodeCodeBlockEntities(rawCodeHtml: string): string {
+  if (!rawCodeHtml || typeof rawCodeHtml !== 'string') return '';
+
+  return rawCodeHtml
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&(?:amp|lt|gt|quot|#39|apos|nbsp|ndash|mdash|rarr|larr);/gi, (match) => {
+      const lower = match.toLowerCase();
+      return NAMED_HTML_ENTITIES[lower] ?? match;
+    })
+    .replace(/&#(\d+);/g, (_, dec) => {
+      const code = Number.parseInt(dec, 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => {
+      const code = Number.parseInt(hex, 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+    })
+    .replace(/\r\n/g, '\n')
+    .replace(/^\n+|\n+$/g, '');
+}
+
+/**
+ * Formats raw code or HTML `<pre>` content into a fenced Markdown code block (` ```...``` `)
+ * ready to be pasted into technical documentation or support tickets.
+ */
+export function formatCodeBlockAsMarkdown(
+  rawCode: string,
+  options: FormatCodeMarkdownOptions = {}
+): string {
+  const cleanCode = decodeCodeBlockEntities(rawCode);
+  const lang = (options.language ?? '').trim();
+  const prompt = (options.promptSymbol ?? '').trim();
+
+  const codeWithPrompt =
+    prompt && cleanCode && !cleanCode.startsWith(prompt)
+      ? `${prompt} ${cleanCode}`
+      : cleanCode;
+
+  const cleanOutput = options.output ? decodeCodeBlockEntities(options.output) : '';
+  const fullBody = cleanOutput
+    ? `${codeWithPrompt}\n\n# Output:\n${cleanOutput}`
+    : codeWithPrompt;
+
+  const fenced = `\`\`\`${lang}\n${fullBody}\n\`\`\``;
+  if (options.label?.trim()) {
+    return `**${options.label.trim()}**\n${fenced}`;
+  }
+  return fenced;
+}
+
+/**
+ * Formats a technical code block as Markdown and copies it to the user's clipboard.
+ */
+export async function copyCodeBlockAsMarkdown(
+  rawCode: string,
+  options: FormatCodeMarkdownOptions & { blockId?: string } = {},
+  clipboardOverride?: ClipboardWriterLike
+): Promise<CopyCodeMarkdownResult> {
+  const cleanCode = decodeCodeBlockEntities(rawCode);
+  const language = (options.language ?? '').trim();
+  const markdown = formatCodeBlockAsMarkdown(rawCode, options);
+  const ok = cleanCode ? await copyTocAnchorToClipboard(markdown, clipboardOverride) : false;
+
+  return {
+    ok,
+    blockId: options.blockId || 'note-code-block-1',
+    markdown,
+    code: cleanCode,
+    language,
+    toastMessage: CODE_MARKDOWN_COPIED_LABEL,
+  };
+}
+
+/**
+ * Wraps every `<pre>` technical code block in rendered note HTML inside a container
+ * with a "Copy as Markdown" action button (`data-testid="copy-code-markdown-btn"`) so
+ * field technicians can copy formatted Markdown code blocks for documentation or tickets.
+ */
+export function injectCodeBlockMarkdownCopyButtons(
+  htmlContent: string,
+  copiedBlockId: string = ''
+): string {
+  if (!htmlContent || typeof htmlContent !== 'string') {
+    return '';
+  }
+
+  // Unwrap any pre-existing .note-code-block-wrapper around a <pre> so re-renders with copiedBlockId update cleanly
+  const unwrapped = htmlContent.replace(
+    /<div\b[^>]*class="[^"]*\bnote-code-block-wrapper\b[^"]*"[^>]*>\s*<div\b[^>]*class="[^"]*\bnote-code-block-toolbar\b[^"]*"[^>]*>[\s\S]*?<\/div>\s*(<pre\b[\s\S]*?<\/pre>)\s*<\/div>/gi,
+    '$1'
+  );
+
+  let blockIndex = 0;
+  const preRegex = /<pre(\s[^>]*)?>([\s\S]*?)<\/pre>/gi;
+
+  return unwrapped.replace(
+    preRegex,
+    (_fullMatch, rawPreAttrs: string | undefined, innerPreHtml: string) => {
+      blockIndex += 1;
+      const blockId = `note-code-block-${blockIndex}`;
+      const preAttrs = rawPreAttrs || '';
+
+      // Detect language from <pre> or inner <code> attributes if present
+      const combinedMarkup = `${preAttrs} ${innerPreHtml.slice(0, 160)}`;
+      const langMatch =
+        combinedMarkup.match(/\b(?:language|lang)-([a-z0-9_+-]+)/i) ||
+        combinedMarkup.match(/\bdata-lang\s*=\s*["']([^"']+)["']/i);
+      const detectedLang = (langMatch?.[1] || '').trim().toLowerCase();
+
+      const markdownText = formatCodeBlockAsMarkdown(innerPreHtml, {
+        language: detectedLang,
+      });
+      const escapedMarkdownAttr = markdownText
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '&#10;');
+
+      const isCopied = Boolean(copiedBlockId && copiedBlockId === blockId);
+      const buttonLabel = isCopied ? CODE_MARKDOWN_COPIED_LABEL : CODE_MARKDOWN_BUTTON_LABEL;
+      const buttonIcon = isCopied
+        ? `<span class="note-code-copy-feedback" aria-hidden="true">✓</span><span class="note-code-copy-text">${CODE_MARKDOWN_COPIED_LABEL}</span>`
+        : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span class="note-code-copy-text">${CODE_MARKDOWN_BUTTON_LABEL}</span>`;
+
+      const toolbarHtml = `<div class="note-code-block-toolbar no-print"><span class="note-code-block-lang">${
+        detectedLang || 'markdown'
+      }</span><button type="button" class="note-code-copy-markdown-btn${
+        isCopied ? ' is-copied' : ''
+      }" data-testid="copy-code-markdown-btn" data-copy-code-markdown-id="${blockId}" data-code-lang="${detectedLang}" data-markdown-content="${escapedMarkdownAttr}" title="${buttonLabel}" aria-label="${buttonLabel}">${buttonIcon}</button></div>`;
+
+      return `<div class="note-code-block-wrapper" data-testid="note-code-block-wrapper" data-code-block-id="${blockId}">${toolbarHtml}<pre${preAttrs}>${innerPreHtml}</pre></div>`;
+    }
+  );
+}
+
+export interface WebShareNavigatorLike {
+  share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+  canShare?: (data: { title?: string; text?: string; url?: string }) => boolean;
+  clipboard?: {
+    writeText?: (text: string) => Promise<void>;
+  };
+}
+
+export interface ShareNoteResult {
+  ok: boolean;
+  method: 'web-share' | 'clipboard' | 'aborted' | 'failed';
+  url: string;
+  title: string;
+}
+
+/**
+ * Shares a technical guide or note's URL and title using the native Web Share API (`navigator.share`),
+ * falling back gracefully to copying the URL to the clipboard (`navigator.clipboard.writeText` / DOM fallback)
+ * when `navigator.share` is unavailable, unsupported, or fails with a non-abort error.
+ */
+export async function shareNoteUrlAndTitle(
+  payload: {
+    title: string;
+    url: string;
+    text?: string;
+  },
+  navOverride?: WebShareNavigatorLike
+): Promise<ShareNoteResult> {
+  const cleanTitle = (payload.title || 'Technical Note').trim();
+  const cleanUrl = (payload.url || '').trim();
+  const cleanText = payload.text?.trim() || undefined;
+  const shareData = {
+    title: cleanTitle,
+    ...(cleanText ? { text: cleanText } : {}),
+    url: cleanUrl,
+  };
+
+  const nav: WebShareNavigatorLike | undefined =
+    navOverride ??
+    (typeof navigator !== 'undefined' ? (navigator as unknown as WebShareNavigatorLike) : undefined);
+
+  if (nav && typeof nav.share === 'function') {
+    const canShareData = typeof nav.canShare === 'function' ? nav.canShare(shareData) : true;
+    if (canShareData) {
+      try {
+        await nav.share(shareData);
+        return {
+          ok: true,
+          method: 'web-share',
+          url: cleanUrl,
+          title: cleanTitle,
+        };
+      } catch (err: unknown) {
+        if ((err as Error)?.name === 'AbortError') {
+          return {
+            ok: false,
+            method: 'aborted',
+            url: cleanUrl,
+            title: cleanTitle,
+          };
+        }
+        // Fall through to clipboard copy fallback on non-abort errors
+      }
+    }
+  }
+
+  // Fallback: copy URL to clipboard when Web Share API is unavailable or unsupported
+  const copied = await copyTocAnchorToClipboard(cleanUrl, nav?.clipboard);
+  return {
+    ok: copied,
+    method: copied ? 'clipboard' : 'failed',
+    url: cleanUrl,
+    title: cleanTitle,
+  };
+}
