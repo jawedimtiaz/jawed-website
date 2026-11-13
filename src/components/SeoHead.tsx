@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 interface SeoHeadProps {
   title?: string;
   description?: string;
+  keywords?: string;
   ogTitle?: string;
   ogDescription?: string;
   ogType?: string;
@@ -13,10 +14,12 @@ interface SeoHeadProps {
 
 const DEFAULT_TITLE = 'Jawed Imtiaz | Guides, Tools & Services';
 const DEFAULT_DESC = 'Technical guides, subnet calculators, server rack power calculators, and interactive diagnostic tools by Jawed Imtiaz.';
+const DEFAULT_KEYWORDS = 'IT field tech, IT troubleshooting guides, IPv4 subnet calculator, server rack power calculator, ITSM tools, Jawed Imtiaz';
 
 export const SeoHead: React.FC<SeoHeadProps> = ({
   title,
   description,
+  keywords,
   ogTitle,
   ogDescription,
   ogType = 'article',
@@ -27,6 +30,7 @@ export const SeoHead: React.FC<SeoHeadProps> = ({
   useEffect(() => {
     const fullTitle = title ? (title.includes('Jawed Imtiaz') ? title : `${title} | Jawed Imtiaz`) : DEFAULT_TITLE;
     const fullDesc = description || DEFAULT_DESC;
+    const fullKeywords = keywords || DEFAULT_KEYWORDS;
     const resolvedOgTitle = ogTitle
       ? (ogTitle.includes('Jawed Imtiaz') ? ogTitle : `${ogTitle} | Jawed Imtiaz`)
       : fullTitle;
@@ -53,6 +57,7 @@ export const SeoHead: React.FC<SeoHeadProps> = ({
     };
 
     updateMeta('meta[name="description"]', fullDesc);
+    updateMeta('meta[name="keywords"]', fullKeywords);
     updateMeta('meta[name="robots"]', robots);
     updateMeta('meta[property="og:site_name"]', 'Jawed Imtiaz');
     updateMeta('meta[property="og:title"]', resolvedOgTitle);
@@ -76,7 +81,7 @@ export const SeoHead: React.FC<SeoHeadProps> = ({
       document.head.appendChild(linkEl);
     }
     linkEl.setAttribute('href', resolvedCanonical);
-  }, [title, description, ogTitle, ogDescription, ogType, ogImage, canonicalUrl, robots]);
+  }, [title, description, keywords, ogTitle, ogDescription, ogType, ogImage, canonicalUrl, robots]);
 
   return null;
 };

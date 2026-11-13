@@ -156,6 +156,7 @@ export function DynamicRouteMeta() {
     };
 
     upsertMeta('name', 'description', metaDesc);
+    upsertMeta('name', 'keywords', metadata.keywords);
     upsertMeta('name', 'robots', robots);
     upsertMeta('property', 'og:site_name', 'Jawed Imtiaz');
     upsertMeta('property', 'og:title', ogTitle);

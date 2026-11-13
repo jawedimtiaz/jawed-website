@@ -14,7 +14,12 @@ import { FIELD_GUIDES } from '../src/data/fieldGuidesData';
 import { TOOLS } from '../src/data/toolsData';
 import notesData from '../src/data/notesData.json';
 import blogData from '../src/data/blogData.json';
-import { normalizePath } from '../src/components/RouteSeo';
+import {
+  normalizePath,
+  STATIC_METADATA,
+  TOOL_METADATA,
+  resolveMetadata,
+} from '../src/components/RouteSeo';
 
 test('collectSitemapEntries includes all canonical IT field guides, tools, notes, and blog posts', () => {
   const entries = collectSitemapEntries();
@@ -233,4 +238,109 @@ test('writeSitemapFiles writes identical XML to root, public/, and dist/ output 
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('RouteSeo resolves unique, descriptive title, description, keywords, and ogTitle tags for all routes', () => {
+  const entries = collectSitemapEntries();
+  const seenTitles = new Map<string, string>();
+  const seenDescriptions = new Map<string, string>();
+  const seenKeywords = new Map<string, string>();
+  const seenOgTitles = new Map<string, string>();
+
+  for (const entry of entries) {
+    const meta = resolveMetadata(entry.path);
+    assert.ok(meta.title && meta.title.trim().length >= 20, `Expected descriptive title (>=20 chars) for ${entry.path}`);
+    assert.ok(
+      meta.description && meta.description.trim().length >= 50,
+      `Expected descriptive meta description (>=50 chars) for ${entry.path}`
+    );
+    assert.ok(
+      meta.keywords && meta.keywords.trim().length >= 20 && meta.keywords.includes(','),
+      `Expected comma-separated keywords (>=20 chars) for ${entry.path}`
+    );
+    assert.ok(meta.ogTitle && meta.ogTitle.trim().length >= 20, `Expected descriptive ogTitle (>=20 chars) for ${entry.path}`);
+
+    assert.equal(
+      seenTitles.has(meta.title),
+      false,
+      `Duplicate title "${meta.title}" between ${entry.path} and ${seenTitles.get(meta.title)}`
+    );
+    seenTitles.set(meta.title, entry.path);
+
+    assert.equal(
+      seenDescriptions.has(meta.description),
+      false,
+      `Duplicate description between ${entry.path} and ${seenDescriptions.get(meta.description)}`
+    );
+    seenDescriptions.set(meta.description, entry.path);
+
+    assert.equal(
+      seenKeywords.has(meta.keywords),
+      false,
+      `Duplicate keywords "${meta.keywords}" between ${entry.path} and ${seenKeywords.get(meta.keywords)}`
+    );
+    seenKeywords.set(meta.keywords, entry.path);
+
+    assert.equal(
+      seenOgTitles.has(meta.ogTitle),
+      false,
+      `Duplicate ogTitle "${meta.ogTitle}" between ${entry.path} and ${seenOgTitles.get(meta.ogTitle)}`
+    );
+    seenOgTitles.set(meta.ogTitle, entry.path);
+  }
+
+  // Also verify every static and tool metadata entry directly has unique title, description, keywords, and ogTitle
+  const allDefinedRoutes = [
+    ...Object.entries(STATIC_METADATA),
+    ...Object.entries(TOOL_METADATA),
+  ];
+  const definedTitles = new Map<string, string>();
+  const definedDescs = new Map<string, string>();
+  const definedKeywords = new Map<string, string>();
+  const definedOgTitles = new Map<string, string>();
+
+  for (const [routeKey, meta] of allDefinedRoutes) {
+    assert.ok(meta.title && meta.title.trim().length >= 20, `Expected descriptive title for ${routeKey}`);
+    assert.ok(meta.description && meta.description.trim().length >= 50, `Expected descriptive description for ${routeKey}`);
+    assert.ok(
+      meta.keywords && meta.keywords.trim().length >= 20 && meta.keywords.includes(','),
+      `Expected descriptive comma-separated keywords for ${routeKey}`
+    );
+    assert.ok(meta.ogTitle && meta.ogTitle.trim().length >= 20, `Expected descriptive ogTitle for ${routeKey}`);
+
+    assert.equal(
+      definedTitles.has(meta.title),
+      false,
+      `Duplicate STATIC/TOOL title "${meta.title}" between ${routeKey} and ${definedTitles.get(meta.title)}`
+    );
+    definedTitles.set(meta.title, routeKey);
+
+    assert.equal(
+      definedDescs.has(meta.description),
+      false,
+      `Duplicate STATIC/TOOL description between ${routeKey} and ${definedDescs.get(meta.description)}`
+    );
+    definedDescs.set(meta.description, routeKey);
+
+    assert.equal(
+      definedKeywords.has(meta.keywords),
+      false,
+      `Duplicate STATIC/TOOL keywords "${meta.keywords}" between ${routeKey} and ${definedKeywords.get(meta.keywords)}`
+    );
+    definedKeywords.set(meta.keywords, routeKey);
+
+    assert.equal(
+      definedOgTitles.has(meta.ogTitle),
+      false,
+      `Duplicate STATIC/TOOL ogTitle "${meta.ogTitle}" between ${routeKey} and ${definedOgTitles.get(meta.ogTitle)}`
+    );
+    definedOgTitles.set(meta.ogTitle, routeKey);
+  }
+
+  const seoHeadSource = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SeoHead.tsx'), 'utf8');
+  assert.ok(
+    seoHeadSource.includes('meta[name="keywords"]'),
+    'SeoHead.tsx must update meta[name="keywords"]'
+  );
+});
+
 
