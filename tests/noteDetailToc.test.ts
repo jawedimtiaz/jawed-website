@@ -815,6 +815,70 @@ test('renders a "Was this guide helpful?" feedback component at the bottom of No
   );
 });
 
+test('implements a Share button in NoteDetailPage that uses Web Share API to share the note URL and title and falls back to clipboard copy when unavailable', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const { shareNoteUrlAndTitle } = await import('../src/pages/NoteDetailPage');
+
+  // 1. When Web Share API (navigator.share) is available, shares the note's URL and title
+  let sharedPayload: { title?: string; text?: string; url?: string } | null = null;
+  const webShareResult = await shareNoteUrlAndTitle(
+    {
+      title: 'APIs Explained for IT Support',
+      url: 'https://jawed.co.in/notes/apis-explained-for-it-support',
+      text: 'Practical walkthrough of REST APIs and status codes.',
+    },
+    {
+      canShare: () => true,
+      share: async (data) => {
+        sharedPayload = data;
+      },
+    }
+  );
+
+  assert.equal(webShareResult.ok, true);
+  assert.equal(webShareResult.method, 'web-share');
+  assert.deepEqual(sharedPayload, {
+    title: 'APIs Explained for IT Support',
+    text: 'Practical walkthrough of REST APIs and status codes.',
+    url: 'https://jawed.co.in/notes/apis-explained-for-it-support',
+  });
+
+  // 2. When Web Share API is unavailable, falls back to clipboard copy
+  let copiedUrl = '';
+  const fallbackResult = await shareNoteUrlAndTitle(
+    {
+      title: 'APIs Explained for IT Support',
+      url: 'https://jawed.co.in/notes/apis-explained-for-it-support',
+    },
+    {
+      share: undefined,
+      clipboard: {
+        writeText: async (text: string) => {
+          copiedUrl = text;
+        },
+      },
+    }
+  );
+
+  assert.equal(fallbackResult.ok, true);
+  assert.equal(fallbackResult.method, 'clipboard');
+  assert.equal(copiedUrl, 'https://jawed.co.in/notes/apis-explained-for-it-support');
+
+  // 3. Verify NoteDetailPage.tsx renders the Share button and wires shareNoteUrlAndTitle
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    noteDetailSource.includes('data-testid="note-share-btn"') &&
+      noteDetailSource.includes('data-testid="note-web-share-btn"') &&
+      noteDetailSource.includes('shareNoteUrlAndTitle(shareData)'),
+    'Expected NoteDetailPage.tsx to render Share buttons and invoke shareNoteUrlAndTitle'
+  );
+});
+
+
 
 
 

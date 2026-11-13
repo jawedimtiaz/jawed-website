@@ -267,6 +267,82 @@ export const useSeoMetadata = (
   return metadata;
 };
 
+export interface WebShareNavigatorLike {
+  share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+  canShare?: (data: { title?: string; text?: string; url?: string }) => boolean;
+  clipboard?: {
+    writeText?: (text: string) => Promise<void>;
+  };
+}
+
+export interface ShareNoteResult {
+  ok: boolean;
+  method: 'web-share' | 'clipboard' | 'aborted' | 'failed';
+  url: string;
+  title: string;
+}
+
+/**
+ * Shares a note's URL and title using the native Web Share API (`navigator.share`),
+ * falling back to copying the URL to the clipboard (`navigator.clipboard.writeText` / DOM fallback)
+ * when `navigator.share` is unavailable or unsupported.
+ */
+export async function shareNoteUrlAndTitle(
+  payload: {
+    title: string;
+    url: string;
+    text?: string;
+  },
+  navOverride?: WebShareNavigatorLike
+): Promise<ShareNoteResult> {
+  const cleanTitle = (payload.title || 'Technical Note').trim();
+  const cleanUrl = (payload.url || '').trim();
+  const cleanText = payload.text?.trim() || undefined;
+  const shareData = {
+    title: cleanTitle,
+    ...(cleanText ? { text: cleanText } : {}),
+    url: cleanUrl,
+  };
+
+  const nav: WebShareNavigatorLike | undefined =
+    navOverride ??
+    (typeof navigator !== 'undefined' ? (navigator as unknown as WebShareNavigatorLike) : undefined);
+
+  if (nav && typeof nav.share === 'function') {
+    const canShareData = typeof nav.canShare === 'function' ? nav.canShare(shareData) : true;
+    if (canShareData) {
+      try {
+        await nav.share(shareData);
+        return {
+          ok: true,
+          method: 'web-share',
+          url: cleanUrl,
+          title: cleanTitle,
+        };
+      } catch (err: unknown) {
+        if ((err as Error)?.name === 'AbortError') {
+          return {
+            ok: false,
+            method: 'aborted',
+            url: cleanUrl,
+            title: cleanTitle,
+          };
+        }
+        // Fall through to clipboard copy fallback on non-abort errors
+      }
+    }
+  }
+
+  // Fallback: copy URL to clipboard when Web Share API is unavailable
+  const copied = await copyTocAnchorToClipboard(cleanUrl, nav?.clipboard);
+  return {
+    ok: copied,
+    method: copied ? 'clipboard' : 'failed',
+    url: cleanUrl,
+    title: cleanTitle,
+  };
+}
+
 export const NoteDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
 
@@ -435,23 +511,12 @@ export const NoteDetailPage: React.FC = () => {
       url: shareUrl,
     };
 
-    try {
-      if (
-        typeof navigator !== 'undefined' &&
-        typeof navigator.share === 'function' &&
-        (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))
-      ) {
-        await navigator.share(shareData);
-        return;
-      }
-    } catch (err: unknown) {
-      if ((err as Error)?.name === 'AbortError') {
-        return;
-      }
+    const result = await shareNoteUrlAndTitle(shareData);
+    if (result.method === 'web-share' || result.method === 'aborted') {
+      return;
     }
 
     // Fallback: Copy link to clipboard and trigger toast
-    await copyTocAnchorToClipboard(shareUrl);
     setCopiedHeadingUrl(shareUrl);
     setIsLinkCopiedToastVisible(true);
     if (toastTimeoutRef.current) {
@@ -525,7 +590,7 @@ export const NoteDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Note Metadata Header Bar with Dynamic 'Last Updated' Timestamp */}
+      {/* Note Metadata Header Bar with Dynamic 'Last Updated' Timestamp & Share Button */}
       <header
         className="note-detail-header"
         style={{
@@ -583,6 +648,27 @@ export const NoteDetailPage: React.FC = () => {
         )}
         <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
         <PrintableBadge />
+        <button
+          type="button"
+          onClick={handleWebShareNote}
+          data-testid="note-share-btn"
+          className="button button-secondary no-print"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 12px',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            borderRadius: '8px',
+            cursor: 'pointer',
+          }}
+          aria-label={`Share "${guideMetadata.title || note.title}"`}
+          title="Share this note's URL and title (uses Web Share API or copies link)"
+        >
+          <Share2 size={14} aria-hidden="true" />
+          <span>Share</span>
+        </button>
       </header>
 
       {/* Mobile / Tablet Collapsible Table of Contents Navigation */}
