@@ -275,6 +275,122 @@ export interface FrequentUsageRecord {
 export const FREQUENT_STORAGE_KEY = 'jawed_frequent_tools_guides_v1';
 export const FREQUENT_SESSION_KEY = 'jawed_session_frequent_hits_v1';
 
+export const RECENT_SEARCHES_STORAGE_KEY = 'jawed_site_recent_searches_v1';
+export const MAX_RECENT_SEARCHES = 5;
+
+function resolveLocalStorage<T extends Partial<Storage>>(customStorage?: T | null): T | Storage | null {
+  if (customStorage !== undefined) {
+    return customStorage;
+  }
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage;
+    }
+    if (typeof localStorage !== 'undefined') {
+      return localStorage;
+    }
+  } catch {}
+  return null;
+}
+
+export function getRecentSearchesFromStorage(
+  storage?: Pick<Storage, 'getItem'> | null
+): string[] {
+  const targetStorage = resolveLocalStorage(storage);
+  if (!targetStorage || typeof targetStorage.getItem !== 'function') {
+    return [];
+  }
+  try {
+    const saved = targetStorage.getItem(RECENT_SEARCHES_STORAGE_KEY);
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Set<string>();
+    const normalized: string[] = [];
+    for (const item of parsed) {
+      if (typeof item !== 'string') continue;
+      const trimmed = item.trim();
+      if (!trimmed || trimmed.length < 2 || trimmed.startsWith('?')) continue;
+      const key = trimmed.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        normalized.push(trimmed);
+      }
+      if (normalized.length >= MAX_RECENT_SEARCHES) break;
+    }
+    return normalized;
+  } catch {
+    return [];
+  }
+}
+
+export function saveRecentSearchToStorage(
+  searchQuery: string,
+  currentList?: string[],
+  storage?: Pick<Storage, 'getItem' | 'setItem'> | null
+): string[] {
+  const targetStorage = resolveLocalStorage(storage);
+  const baseList = Array.isArray(currentList)
+    ? currentList
+    : getRecentSearchesFromStorage(targetStorage);
+  const trimmed = (searchQuery || '').trim();
+  if (!trimmed || trimmed.length < 2 || trimmed.startsWith('?')) {
+    return baseList.slice(0, MAX_RECENT_SEARCHES);
+  }
+
+  const lower = trimmed.toLowerCase();
+  const filtered = baseList.filter(
+    (q) => typeof q === 'string' && q.trim().toLowerCase() !== lower
+  );
+  const next = [trimmed, ...filtered].slice(0, MAX_RECENT_SEARCHES);
+
+  if (targetStorage && typeof targetStorage.setItem === 'function') {
+    try {
+      targetStorage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+  }
+
+  return next;
+}
+
+export function removeRecentSearchFromStorage(
+  searchQuery: string,
+  currentList?: string[],
+  storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null
+): string[] {
+  const targetStorage = resolveLocalStorage(storage);
+  const baseList = Array.isArray(currentList)
+    ? currentList
+    : getRecentSearchesFromStorage(targetStorage);
+  const lower = (searchQuery || '').trim().toLowerCase();
+  const next = baseList
+    .filter((q) => typeof q === 'string' && q.trim().toLowerCase() !== lower)
+    .slice(0, MAX_RECENT_SEARCHES);
+
+  if (targetStorage) {
+    try {
+      if (next.length === 0 && typeof targetStorage.removeItem === 'function') {
+        targetStorage.removeItem(RECENT_SEARCHES_STORAGE_KEY);
+      } else if (typeof targetStorage.setItem === 'function') {
+        targetStorage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(next));
+      }
+    } catch {}
+  }
+
+  return next;
+}
+
+export function clearRecentSearchesFromStorage(
+  storage?: Pick<Storage, 'removeItem'> | null
+): void {
+  const targetStorage = resolveLocalStorage(storage);
+  if (targetStorage && typeof targetStorage.removeItem === 'function') {
+    try {
+      targetStorage.removeItem(RECENT_SEARCHES_STORAGE_KEY);
+    } catch {}
+  }
+}
+
 export const BASELINE_FREQUENT_ITEMS: {
   url: string;
   title: string;
@@ -939,35 +1055,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   ]);
 
   // Search History (localStorage last 5 queries)
-  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('jawed_site_recent_searches_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed.slice(0, 5);
-      }
-    } catch {}
-    return [];
-  });
+  const [recentSearches, setRecentSearches] = useState<string[]>(() =>
+    getRecentSearchesFromStorage()
+  );
 
   const addRecentSearch = useCallback((searchQuery: string) => {
-    const trimmed = searchQuery.trim();
-    if (!trimmed || trimmed.length < 2) return;
-    setRecentSearches((prev) => {
-      const filtered = prev.filter((q) => q.toLowerCase() !== trimmed.toLowerCase());
-      const next = [trimmed, ...filtered].slice(0, 5);
-      try {
-        localStorage.setItem('jawed_site_recent_searches_v1', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+    setRecentSearches((prev) => saveRecentSearchToStorage(searchQuery, prev));
+  }, []);
+
+  const removeRecentSearch = useCallback((searchQuery: string) => {
+    setRecentSearches((prev) => removeRecentSearchFromStorage(searchQuery, prev));
   }, []);
 
   const clearRecentSearches = useCallback(() => {
+    clearRecentSearchesFromStorage();
     setRecentSearches([]);
-    try {
-      localStorage.removeItem('jawed_site_recent_searches_v1');
-    } catch {}
   }, []);
 
   // Recommendations when query is empty
@@ -1202,6 +1304,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // Open modal handler
   const handleOpen = useCallback(() => {
     setIsOpen(true);
+    setRecentSearches(getRecentSearchesFromStorage());
     setNavigationMode('keyboard');
     setQuickActionNotice(null);
     setIsShortcutDiscoveryActive(false);
@@ -2263,6 +2366,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         type="button"
                         className="search-suggestion-chip"
                         onClick={() => {
+                          addRecentSearch(suggestion);
                           setQuery(suggestion);
                           inputRef.current?.focus();
                         }}
@@ -2715,14 +2819,43 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   )}
 
                   {!isShortcutDiscoveryMode && !query.trim() && recentSearches.length > 0 && (
-                    <div style={{ marginBottom: '16px' }}>
+                    <div
+                      className="search-recent-searches-section"
+                      data-testid="recent-searches-section"
+                      role="region"
+                      aria-label="Recent Searches"
+                      style={{ marginBottom: '16px' }}
+                    >
                       <div
                         className="search-section-header"
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
                       >
-                        <span>⏱️ Recent Searches</span>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                          <span>🕒 Recent Searches</span>
+                          <span
+                            data-testid="recent-searches-count"
+                            style={{
+                              fontSize: '0.68rem',
+                              color: 'var(--muted)',
+                              fontWeight: 600,
+                              padding: '1px 6px',
+                              borderRadius: '999px',
+                              background: 'rgba(128, 128, 128, 0.12)',
+                              textTransform: 'none',
+                              letterSpacing: 'normal',
+                            }}
+                          >
+                            {recentSearches.length}/{MAX_RECENT_SEARCHES}
+                          </span>
+                        </div>
                         <button
                           type="button"
+                          data-testid="clear-recent-searches-btn"
                           onClick={clearRecentSearches}
                           style={{
                             background: 'transparent',
@@ -2733,24 +2866,85 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                             padding: '2px 6px',
                             borderRadius: '4px',
                           }}
-                          title="Clear recent searches"
+                          title="Clear recent searches history"
                         >
                           Clear
                         </button>
                       </div>
-                      <div className="search-suggestion-chips">
-                        {recentSearches.map((rec) => (
-                          <button
-                            key={rec}
-                            type="button"
-                            className="search-suggestion-chip"
-                            onClick={() => {
-                              setQuery(rec);
-                              inputRef.current?.focus();
+                      <div
+                        className="search-suggestion-chips"
+                        data-testid="recent-searches-list"
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '6px',
+                          padding: '4px 12px 6px',
+                        }}
+                      >
+                        {recentSearches.slice(0, MAX_RECENT_SEARCHES).map((recSearch, idx) => (
+                          <div
+                            key={recSearch}
+                            data-testid="recent-search-item"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              borderRadius: '8px',
+                              border: '1px solid var(--line)',
+                              background: 'var(--bg)',
+                              overflow: 'hidden',
                             }}
                           >
-                            ⏱️ {rec}
-                          </button>
+                            <button
+                              type="button"
+                              className="search-suggestion-chip"
+                              data-testid={`recent-search-query-btn-${idx}`}
+                              onClick={() => {
+                                addRecentSearch(recSearch);
+                                setQuery(recSearch);
+                                inputRef.current?.focus();
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '5px 10px',
+                                border: 0,
+                                background: 'transparent',
+                                color: 'var(--text)',
+                                fontSize: '0.78rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                              title={`Search again for "${recSearch}"`}
+                            >
+                              <span aria-hidden="true">⏱️</span>
+                              <span>{recSearch}</span>
+                            </button>
+                            <button
+                              type="button"
+                              data-testid={`remove-recent-search-btn-${idx}`}
+                              aria-label={`Remove "${recSearch}" from recent searches`}
+                              title={`Remove "${recSearch}"`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeRecentSearch(recSearch);
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '5px 7px',
+                                border: 0,
+                                borderLeft: '1px solid var(--line)',
+                                background: 'transparent',
+                                color: 'var(--muted)',
+                                fontSize: '0.7rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -2884,78 +3078,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                             >
                               {qa.description}
                             </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {!isShortcutDiscoveryMode && !query.trim() && recentSearches.length > 0 && (
-                    <div
-                      className="search-recent-searches-section"
-                      role="region"
-                      aria-label="Recent Searches"
-                      style={{ marginBottom: '16px' }}
-                    >
-                      <div
-                        className="search-section-header"
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          gap: '8px',
-                        }}
-                      >
-                        <span>🕒 Recent Searches</span>
-                        <button
-                          type="button"
-                          onClick={clearRecentSearches}
-                          style={{
-                            background: 'transparent',
-                            border: 0,
-                            color: 'var(--muted)',
-                            fontSize: '0.72rem',
-                            cursor: 'pointer',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                          }}
-                          title="Clear recent searches history"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: '6px',
-                          padding: '4px 12px 6px',
-                        }}
-                      >
-                        {recentSearches.map((recSearch) => (
-                          <button
-                            key={recSearch}
-                            type="button"
-                            onClick={() => {
-                              setQuery(recSearch);
-                              inputRef.current?.focus();
-                            }}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              padding: '5px 10px',
-                              borderRadius: '8px',
-                              border: '1px solid var(--line)',
-                              background: 'var(--bg)',
-                              color: 'var(--text)',
-                              fontSize: '0.78rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                            }}
-                            title={`Search for "${recSearch}"`}
-                          >
-                            <span>🔍 {recSearch}</span>
                           </button>
                         ))}
                       </div>
@@ -3128,6 +3250,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                             type="button"
                             className="search-suggestion-chip"
                             onClick={() => {
+                              addRecentSearch(item.query);
                               recordFrequentItemVisit({
                                 url: item.url,
                                 title: item.query,

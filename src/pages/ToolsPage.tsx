@@ -1,8 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { PrintableBadge } from '../components/common/PrintableBadge';
+import {
+  ShareToolLinkButton,
+  buildToolConfigurationDeepLink,
+  getSavedToolConfigurationState,
+} from '../components/common/ShareToolLinkButton';
 import {
   TOOLS,
   TOOL_CATEGORIES,
@@ -14,12 +20,172 @@ import {
   determineToolCategory,
 } from '../data/toolsData';
 
-export { TOOL_CATEGORIES, type ToolCategoryId, type ToolItem };
+export {
+  TOOLS,
+  TOOL_CATEGORIES,
+  type ToolCategoryId,
+  type ToolItem,
+  ShareToolLinkButton,
+  buildToolConfigurationDeepLink,
+  getSavedToolConfigurationState,
+};
 
 export interface SearchableTool extends ToolItem {
   resolvedCategory: BaseToolCategoryId;
   resolvedCategoryLabel: BaseToolCategoryLabel;
   searchString: string;
+}
+
+/**
+ * Checks whether a tool matches a local search query specifically against its name or description
+ * (supporting both exact substring and multi-word token matching).
+ */
+export function matchesToolNameOrDescription(
+  tool: Pick<ToolItem, 'name' | 'description'>,
+  query: string
+): boolean {
+  const trimmed = (query || '').trim().toLowerCase();
+  if (!trimmed) return true;
+
+  const nameLower = (tool.name || '').toLowerCase();
+  const descLower = (tool.description || '').toLowerCase();
+  if (nameLower.includes(trimmed) || descLower.includes(trimmed)) {
+    return true;
+  }
+
+  const combinedNameAndDesc = `${nameLower} ${descLower}`;
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1) {
+    return tokens.every(token => combinedNameAndDesc.includes(token));
+  }
+
+  return false;
+}
+
+/**
+ * Checks whether a tool matches the filter query based on its name or description
+ * (with fallback support for category label and keywords).
+ */
+export function matchesToolSearchQuery(
+  tool: Pick<ToolItem, 'name' | 'description' | 'keywords' | 'category'>,
+  query: string
+): boolean {
+  const trimmed = (query || '').trim().toLowerCase();
+  if (!trimmed) return true;
+
+  if (matchesToolNameOrDescription(tool, trimmed)) {
+    return true;
+  }
+
+  const nameLower = (tool.name || '').toLowerCase();
+  const descLower = (tool.description || '').toLowerCase();
+  const kwLower = (tool.keywords || []).join(' ').toLowerCase();
+  const catLower = (tool.category || '').toLowerCase();
+  const combined = `${nameLower} ${descLower} ${catLower} ${kwLower}`;
+
+  if (combined.includes(trimmed)) {
+    return true;
+  }
+
+  // Also support multi-word token matching across name + description + keywords
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1) {
+    return tokens.every(token => combined.includes(token));
+  }
+
+  return false;
+}
+
+/**
+ * Filters the current list of tool cards by local search query (matching tool name or description).
+ */
+export function filterToolsByLocalSearch<
+  T extends Pick<ToolItem, 'name' | 'description' | 'keywords' | 'category'>
+>(tools: readonly T[], searchTerm: string): T[] {
+  const trimmed = (searchTerm || '').trim();
+  if (!trimmed) return [...tools];
+  return tools.filter(tool => matchesToolSearchQuery(tool, trimmed));
+}
+
+/**
+ * Filters a list of tools by search query (name or description) and active category.
+ */
+export function filterToolsBySearchAndCategory<T extends ToolItem>(
+  tools: readonly T[],
+  searchTerm: string,
+  activeCategory: ToolCategoryId = 'all'
+): T[] {
+  const categoryFiltered = tools.filter(tool => {
+    const resolvedCategory = determineToolCategoryId(tool);
+    return activeCategory === 'all' || resolvedCategory === activeCategory;
+  });
+  return filterToolsByLocalSearch(categoryFiltered, searchTerm);
+}
+
+/**
+ * Computes a visibility map (tool.id -> boolean) indicating which Tool Cards are shown vs hidden
+ * for a given search query and category filter.
+ */
+export function computeToolVisibilityMap<T extends ToolItem>(
+  tools: readonly T[],
+  searchTerm: string,
+  activeCategory: ToolCategoryId = 'all'
+): Record<string, boolean> {
+  const map: Record<string, boolean> = {};
+  for (const tool of tools) {
+    const resolvedCategory = determineToolCategoryId(tool);
+    const matchesCategory = activeCategory === 'all' || resolvedCategory === activeCategory;
+    const matchesSearch = matchesToolSearchQuery(tool, searchTerm);
+    map[tool.id] = matchesCategory && matchesSearch;
+  }
+  return map;
+}
+
+export function highlightToolTextMatch(text: string, query: string): React.ReactNode {
+  const trimmed = (query || '').trim();
+  if (!trimmed || !text) return text;
+
+  try {
+    const tokens = Array.from(
+      new Set(
+        trimmed
+          .split(/\s+/)
+          .map(t => t.trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => b.length - a.length);
+
+    if (tokens.length === 0) return text;
+
+    const pattern = tokens
+      .map(token => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|');
+    const regex = new RegExp(`(${pattern})`, 'gi');
+    const parts = text.split(regex);
+    if (parts.length <= 1) return text;
+
+    const lowerTokens = new Set(tokens.map(t => t.toLowerCase()));
+    return parts.map((part, idx) =>
+      lowerTokens.has(part.toLowerCase()) ? (
+        <mark
+          key={idx}
+          className="search-highlight"
+          style={{
+            background: 'rgba(56, 189, 248, 0.25)',
+            color: 'inherit',
+            padding: '0 2px',
+            borderRadius: '3px',
+          }}
+        >
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  } catch {
+    return text;
+  }
 }
 
 export const ToolsPage: React.FC = () => {
@@ -43,7 +209,6 @@ export const ToolsPage: React.FC = () => {
 
   // Memoized calculation of dynamic category counts synced with active search query
   const categoryCounts = useMemo<Record<ToolCategoryId, number>>(() => {
-    const q = searchTerm.trim().toLowerCase();
     const counts: Record<ToolCategoryId, number> = {
       all: 0,
       it: 0,
@@ -54,7 +219,7 @@ export const ToolsPage: React.FC = () => {
 
     for (let i = 0; i < indexedTools.length; i++) {
       const tool = indexedTools[i];
-      if (!q || tool.searchString.includes(q)) {
+      if (matchesToolSearchQuery(tool, searchTerm)) {
         counts.all++;
         counts[tool.resolvedCategory]++;
       }
@@ -63,14 +228,9 @@ export const ToolsPage: React.FC = () => {
     return counts;
   }, [indexedTools, searchTerm]);
 
-  // Memoized filtered tool items based on active category and search query
+  // Memoized filtered tool items based on active category and local search query (name or description)
   const filteredTools = useMemo<SearchableTool[]>(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return indexedTools.filter(tool => {
-      const matchesCategory = activeCategory === 'all' || tool.resolvedCategory === activeCategory;
-      const matchesSearch = !q || tool.searchString.includes(q);
-      return matchesCategory && matchesSearch;
-    });
+    return filterToolsBySearchAndCategory(indexedTools, searchTerm, activeCategory);
   }, [indexedTools, activeCategory, searchTerm]);
 
   return (
@@ -130,16 +290,43 @@ export const ToolsPage: React.FC = () => {
           })}
         </div>
 
-        <div className="discovery-controls">
-          <input
-            type="search"
-            className="discovery-input"
-            placeholder="Search tools..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
+        <div
+          className="discovery-controls"
+          data-testid="tools-local-search-filter"
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}
+        >
+          <div style={{ position: 'relative', flex: '1 1 260px', display: 'flex', alignItems: 'center' }}>
+            <Search
+              size={15}
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: '12px',
+                color: 'var(--muted, #94a3b8)',
+                pointerEvents: 'none',
+              }}
+            />
+            <input
+              id="tools-search-filter-input"
+              data-testid="tools-search-filter-input"
+              type="search"
+              className="discovery-input"
+              aria-label="Filter tools by name or description"
+              placeholder="Search tools by name or description..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Escape' && searchTerm) {
+                  e.preventDefault();
+                  setSearchTerm('');
+                }
+              }}
+              style={{ width: '100%', paddingLeft: '36px' }}
+            />
+          </div>
           {searchTerm && (
             <button
+              data-testid="tools-filter-clear-btn"
               className="button button-secondary discovery-reset"
               type="button"
               onClick={() => setSearchTerm('')}
@@ -147,36 +334,69 @@ export const ToolsPage: React.FC = () => {
               Clear
             </button>
           )}
+          <span
+            data-testid="tools-filter-results-count"
+            aria-live="polite"
+            style={{ fontSize: '0.82rem', color: 'var(--muted)', fontWeight: 600 }}
+          >
+            Showing {filteredTools.length} of {indexedTools.length} tools
+          </span>
         </div>
       </div>
 
-      <div className="card-grid">
-        {filteredTools.map(tool => (
-          <article key={tool.id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px' }}>
-              <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
-                {tool.resolvedCategoryLabel}
-              </span>
-              <PrintableBadge />
-            </div>
-            <h3>{tool.name}</h3>
-            <p>{tool.description}</p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid var(--line)', flexWrap: 'wrap', gap: '8px' }}>
-              <Link to={tool.route} style={{ fontWeight: 600, color: 'var(--accent)' }}>Open Tool →</Link>
-              <SocialShareBar
-                title={tool.name}
-                text={tool.description}
-                url={typeof window !== 'undefined' ? `${window.location.origin}${tool.route}` : `https://jawed.co.in${tool.route}`}
-                size="small"
-                showLabel={false}
-              />
-            </div>
-          </article>
-        ))}
+      <div className="card-grid" data-testid="tools-card-grid">
+        {filteredTools.map(tool => {
+          const baseToolUrl =
+            typeof window !== 'undefined'
+              ? `${window.location.origin}${tool.route}`
+              : `https://jawed.co.in${tool.route}`;
+          return (
+            <article
+              key={tool.id}
+              className="card tool-card"
+              data-testid={`tool-card-${tool.id}`}
+              data-tool-id={tool.id}
+              data-tool-name={tool.name}
+              data-visible="true"
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px' }}>
+                <span className="badge" style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent)' }}>
+                  {tool.resolvedCategoryLabel}
+                </span>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <PrintableBadge />
+                  <ShareToolLinkButton
+                    url={baseToolUrl}
+                    toolRoute={tool.route}
+                    toolId={tool.id}
+                    size="sm"
+                    label="Share State"
+                    title={`Copy deep link to ${tool.name} with current configuration state`}
+                  />
+                </div>
+              </div>
+              <h3>{highlightToolTextMatch(tool.name, searchTerm)}</h3>
+              <p>{highlightToolTextMatch(tool.description, searchTerm)}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid var(--line)', flexWrap: 'wrap', gap: '8px' }}>
+                <Link to={tool.route} style={{ fontWeight: 600, color: 'var(--accent)' }}>Open Tool →</Link>
+                <SocialShareBar
+                  title={tool.name}
+                  text={tool.description}
+                  url={baseToolUrl}
+                  size="small"
+                  showLabel={false}
+                />
+              </div>
+            </article>
+          );
+        })}
       </div>
 
       {filteredTools.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '36px 20px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--line)', marginTop: '20px' }}>
+        <div
+          data-testid="tools-filter-empty-state"
+          style={{ textAlign: 'center', padding: '36px 20px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--line)', marginTop: '20px' }}
+        >
           <p style={{ fontSize: '1.05rem', color: 'var(--text-heading)', fontWeight: 600, marginBottom: '8px' }}>
             No tools found matching your criteria.
           </p>
@@ -210,3 +430,4 @@ export const ToolsPage: React.FC = () => {
     </main>
   );
 };
+

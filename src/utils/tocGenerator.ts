@@ -226,7 +226,7 @@ export function parseRenderedHeadingsFromDom(
       el?.textContent ??
       '';
     const cleanText = String(textSource)
-      .replace(/Copy Link to Heading|Copied!?|✓/g, '')
+      .replace(/Copy Link to Heading|Copy Link|Link copied!?|Copied!?|✓/g, '')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -302,6 +302,16 @@ export interface ClipboardWriterLike {
   writeText?: (text: string) => Promise<void>;
 }
 
+export const HEADING_COPY_BUTTON_LABEL = 'Copy Link';
+export const HEADING_COPY_TOAST_MESSAGE = 'Link copied';
+
+export interface CopySectionAnchorResult {
+  ok: boolean;
+  headingId: string;
+  anchorUrl: string;
+  toastMessage: string;
+}
+
 /**
  * Copies a section anchor URL to the system clipboard using the Clipboard API
  * with a safe DOM fallback when available.
@@ -347,8 +357,34 @@ export async function copyTocAnchorToClipboard(
 }
 
 /**
- * Injects an interactive "Copy Link to Heading" button into every H2 and H3 tag
- * so hovering over any section heading in NoteDetailPage reveals a deep-link copy button.
+ * Copies the direct section anchor link (`https://...#section-id`) for an H2/H3 guide section
+ * to the user's clipboard and returns the anchor URL and toast notification message ('Link copied').
+ */
+export async function copySectionAnchorLink(
+  headingId: string,
+  baseUrl?: string,
+  clipboardOverride?: ClipboardWriterLike
+): Promise<CopySectionAnchorResult> {
+  const cleanId = headingId.replace(/^#+/, '').trim();
+  const effectiveBaseUrl =
+    baseUrl ??
+    (typeof window !== 'undefined' && window.location?.href
+      ? window.location.href
+      : 'https://jawed.co.in/notes');
+  const anchorUrl = buildTocAnchorUrl(effectiveBaseUrl, cleanId);
+  const ok = cleanId ? await copyTocAnchorToClipboard(anchorUrl, clipboardOverride) : false;
+
+  return {
+    ok,
+    headingId: cleanId,
+    anchorUrl,
+    toastMessage: HEADING_COPY_TOAST_MESSAGE,
+  };
+}
+
+/**
+ * Injects an interactive "Copy Link" button into every H2 and H3 guide section heading
+ * so users can copy the direct anchor link to their clipboard and trigger the 'Link copied' toast.
  */
 export function injectHeadingCopyButtons(
   htmlContent: string,
@@ -381,9 +417,9 @@ export function injectHeadingCopyButtons(
 
       const plainText = decodeHtmlEntities(innerHtml).replace(/"/g, '&quot;');
       const isCopied = Boolean(copiedHeadingId && copiedHeadingId === headingId);
-      const buttonLabel = isCopied ? 'Copied!' : 'Copy Link to Heading';
+      const buttonLabel = isCopied ? 'Link copied' : 'Copy Link to Heading';
       const ariaLabel = isCopied
-        ? `Copied link to heading: ${plainText}`
+        ? `Link copied for section: ${plainText}`
         : `Copy Link to Heading: ${plainText}`;
 
       const classAttrMatch = attrs.match(/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
@@ -401,15 +437,16 @@ export function injectHeadingCopyButtons(
       }
 
       const iconSvg = isCopied
-        ? `<span class="note-heading-copy-feedback" aria-hidden="true">✓</span><span class="note-heading-copy-text">Copied</span>`
-        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span class="note-heading-copy-text">Copy Link to Heading</span>`;
+        ? `<span class="note-heading-copy-feedback" aria-hidden="true">✓</span><span class="note-heading-copy-text">${HEADING_COPY_TOAST_MESSAGE}</span>`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span class="note-heading-copy-text">${HEADING_COPY_BUTTON_LABEL}</span>`;
 
       const copyButtonHtml = `<button type="button" class="note-heading-copy-btn${
         isCopied ? ' is-copied' : ''
-      }" data-copy-heading-id="${headingId}" data-testid="copy-heading-link-${headingId}" title="${buttonLabel}" aria-label="${ariaLabel}">${iconSvg}</button>`;
+      }" data-copy-heading-id="${headingId}" data-testid="copy-heading-link-${headingId}" data-heading-anchor="#${headingId}" title="${buttonLabel}" aria-label="${ariaLabel}">${iconSvg}</button>`;
 
       return `<${tagName}${updatedAttrs}><span class="note-heading-text">${innerHtml}</span>${copyButtonHtml}</${tagName}>`;
     }
   );
 }
+
 

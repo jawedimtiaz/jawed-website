@@ -3,13 +3,43 @@ import { Link, useLocation } from 'react-router-dom';
 import { CommandPalette, toggleSearchPalette } from './CommandPalette';
 import {
   ThemeToggle,
+  HeaderThemeToggle,
+  ThemeMode,
+  THEME_MODES,
+  THEME_MODE_OPTIONS,
+  getNextThemeMode,
+  getThemeModeLabel,
+  getSystemTheme,
+  getSavedThemeMode,
+  getResolvedTheme,
+  applyThemeToDom,
+  setThemePreference,
   syncThemeFromLocalStorage,
   THEME_STORAGE_KEY,
 } from './ThemeToggle';
 
-export { ThemeToggle, syncThemeFromLocalStorage, THEME_STORAGE_KEY };
+export {
+  ThemeToggle,
+  HeaderThemeToggle,
+  type ThemeMode,
+  THEME_MODES,
+  THEME_MODE_OPTIONS,
+  getNextThemeMode,
+  getThemeModeLabel,
+  getSystemTheme,
+  getSavedThemeMode,
+  getResolvedTheme,
+  applyThemeToDom,
+  setThemePreference,
+  syncThemeFromLocalStorage,
+  THEME_STORAGE_KEY,
+};
 
-export const Header: React.FC = () => {
+export interface HeaderProps {
+  onThemeChange?: (mode: ThemeMode) => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onThemeChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuToggleRef = useRef<HTMLButtonElement>(null);
 
@@ -70,7 +100,7 @@ export const Header: React.FC = () => {
           {isOpen ? '✕ Close' : '☰ Menu'}
         </button>
 
-        {/* Center/Right: Core Navigation Links (Guides, Tools, Services, About) + Far Right: Single Dark/Light toggle icon + Get in Touch → button */}
+        {/* Center/Right: Core Navigation Links (Guides, Tools, Services, About) + Far Right: Dedicated Theme Switcher (System / Light / Dark) + Get in Touch → button */}
         <nav
           id="primary-nav"
           aria-label="Primary Navigation"
@@ -119,7 +149,7 @@ export const Header: React.FC = () => {
             About
           </Link>
 
-          <ThemeToggle />
+          <ThemeToggle onThemeChange={onThemeChange} />
 
           <Link
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-sky-500 hover:bg-sky-400 shadow-md shadow-sky-500/20 transition-all"

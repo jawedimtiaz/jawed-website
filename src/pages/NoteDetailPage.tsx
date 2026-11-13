@@ -22,8 +22,12 @@ import {
   decodeHtmlEntities,
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
+  copySectionAnchorLink,
+  HEADING_COPY_BUTTON_LABEL,
+  HEADING_COPY_TOAST_MESSAGE,
   type TocItem,
   type GeneratedTocResult,
+  type CopySectionAnchorResult,
 } from '../components/TableOfContents';
 
 import { COMPONENT_MAPPER, getInteractiveComponentForSlug } from '../utils/componentMapper';
@@ -58,6 +62,18 @@ import {
   type PrintableBadgeProps,
 } from '../components/common/PrintableBadge';
 
+import {
+  GuideFeedback,
+  getGuideFeedbackRecords,
+  getGuideFeedbackForSlug,
+  submitGuideFeedback,
+  GUIDE_FEEDBACK_STORAGE_KEY,
+  GUIDE_FEEDBACK_HEADING,
+  type GuideFeedbackVote,
+  type GuideFeedbackRecord,
+  type GuideFeedbackProps,
+} from '../components/GuideFeedback';
+
 export {
   TableOfContents,
   AutomatedTableOfContents,
@@ -70,6 +86,9 @@ export {
   decodeHtmlEntities,
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
+  copySectionAnchorLink,
+  HEADING_COPY_BUTTON_LABEL,
+  HEADING_COPY_TOAST_MESSAGE,
   GlobalImageLightbox,
   handleArticleImageLightboxClick,
   openGlobalImageLightbox,
@@ -81,14 +100,24 @@ export {
   ReadTimeProgressIndicator,
   ScrollProgressIndicator,
   PrintableBadge,
+  GuideFeedback,
+  getGuideFeedbackRecords,
+  getGuideFeedbackForSlug,
+  submitGuideFeedback,
+  GUIDE_FEEDBACK_STORAGE_KEY,
+  GUIDE_FEEDBACK_HEADING,
   type TocItem,
   type GeneratedTocResult,
+  type CopySectionAnchorResult,
   type ArticleCandidate,
   type RelatedArticleSuggestion,
   type ReadTimeProgressIndicatorProps,
   type ScrollProgressIndicatorProps,
   type PrintableBadgeProps,
   type RelatedArticlesProps,
+  type GuideFeedbackVote,
+  type GuideFeedbackRecord,
+  type GuideFeedbackProps,
 };
 
 /**
@@ -346,9 +375,7 @@ export const NoteDetailPage: React.FC = () => {
       typeof window !== 'undefined' && window.location?.href
         ? window.location.href
         : shareUrl;
-    const anchorUrl = buildTocAnchorUrl(currentBaseUrl, headingId);
-
-    await copyTocAnchorToClipboard(anchorUrl);
+    const { anchorUrl } = await copySectionAnchorLink(headingId, currentBaseUrl);
 
     if (typeof window !== 'undefined' && window.history?.replaceState) {
       window.history.replaceState(null, '', `#${headingId}`);
@@ -646,6 +673,12 @@ export const NoteDetailPage: React.FC = () => {
               <span>Share Note</span>
             </button>
           </div>
+
+          {/* 'Was this guide helpful?' Feedback Component for Improvement Tracking */}
+          <GuideFeedback
+            slug={note.slug}
+            title={guideMetadata.title || note.title}
+          />
         </article>
 
         {/* Sticky Sidebar Table of Contents for Desktop */}
@@ -710,13 +743,13 @@ export const NoteDetailPage: React.FC = () => {
         </div>
       </footer>
 
-      {/* Toast Notification: 'Link copied!' for Heading Copy Actions */}
+      {/* Toast Notification: 'Link copied' for Heading Copy Actions */}
       {isLinkCopiedToastVisible && (
         <div
           role="status"
           aria-live="polite"
           data-testid="heading-link-copied-toast"
-          data-toast-message="Link copied!"
+          data-toast-message={HEADING_COPY_TOAST_MESSAGE}
           className="toast heading-link-copied-toast no-print"
           style={{
             position: 'fixed',
@@ -741,7 +774,7 @@ export const NoteDetailPage: React.FC = () => {
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </span>
-          <span>Link copied!</span>
+          <span data-testid="heading-link-copied-toast-text">Link copied!</span>
           {copiedHeadingUrl && (
             <span
               style={{

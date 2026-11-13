@@ -10,6 +10,7 @@ import {
 import { ShareButton } from '../components/ShareButton';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { PrintableBadge } from '../components/common/PrintableBadge';
+import { ShareToolLinkButton } from '../components/common/ShareToolLinkButton';
 
 export const HERO_MAIN_IMAGE_SRC = '/assets/images/social-preview.png';
 export const HERO_MAIN_IMAGE_WEBP_SRC = '/assets/images/social-preview.webp';
@@ -483,7 +484,7 @@ export const HomePage: React.FC = () => {
         </div>
 
         <div className="card-grid">
-          <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <article className="card tool-card" data-testid="home-tool-card-ipv4-subnet-calculator" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
                 <span className="badge" style={{ fontSize: '0.75rem', display: 'inline-block' }}>Network Calculator</span>
@@ -494,14 +495,21 @@ export const HomePage: React.FC = () => {
                 Calculate network boundaries, host ranges, broadcast IDs, Cisco ACL wildcard masks, and 32-bit binary octets.
               </p>
             </div>
-            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <Link to="/tools/ipv4-subnet-calculator" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>
                 Open Subnet Calculator →
               </Link>
+              <ShareToolLinkButton
+                toolRoute="/tools/ipv4-subnet-calculator"
+                toolId="ipv4-subnet-calculator"
+                size="sm"
+                label="Share"
+                title="Copy deep link to IPv4 Subnet Calculator with current configuration state"
+              />
             </div>
           </article>
 
-          <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <article className="card tool-card" data-testid="home-tool-card-server-rack-power-btu-calculator" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
                 <span className="badge" style={{ fontSize: '0.75rem', display: 'inline-block' }}>Data Center Tool</span>
@@ -512,14 +520,21 @@ export const HomePage: React.FC = () => {
                 Estimate equipment power draw (Watts/kW), circuit amperage (120V/208V), NEC 80% continuous load circuit derating, and HVAC BTU/hr cooling load.
               </p>
             </div>
-            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <Link to="/tools/server-rack-power-btu-calculator" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--emerald)' }}>
                 Open Power &amp; BTU Calculator →
               </Link>
+              <ShareToolLinkButton
+                toolRoute="/tools/server-rack-power-btu-calculator"
+                toolId="server-rack-power-btu-calculator"
+                size="sm"
+                label="Share"
+                title="Copy deep link to Server Rack Power & BTU Calculator with current configuration state"
+              />
             </div>
           </article>
 
-          <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <article className="card tool-card" data-testid="home-tool-card-it-troubleshooting-assistant" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
                 <span className="badge" style={{ fontSize: '0.75rem', display: 'inline-block' }}>ITSM Workflow</span>
@@ -530,14 +545,21 @@ export const HomePage: React.FC = () => {
                 Step-by-step layer-by-layer diagnostic checklists for network connectivity, Apple macOS Sonoma/Sequoia, and Microsoft 365 issues.
               </p>
             </div>
-            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <Link to="/tools/it-troubleshooting-assistant" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--indigo)' }}>
                 Launch Troubleshooting Assistant →
               </Link>
+              <ShareToolLinkButton
+                toolRoute="/tools/it-troubleshooting-assistant"
+                toolId="it-troubleshooting-assistant"
+                size="sm"
+                label="Share"
+                title="Copy deep link to IT Troubleshooting Assistant with current configuration state"
+              />
             </div>
           </article>
 
-          <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <article className="card tool-card" data-testid="home-tool-card-service-desk-note-formatter" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
                 <span className="badge" style={{ fontSize: '0.75rem', display: 'inline-block' }}>Ticket Formatting</span>
@@ -548,14 +570,21 @@ export const HomePage: React.FC = () => {
                 Convert raw notes into structured, audit-ready ITSM ticket resolution updates with root-cause formatting.
               </p>
             </div>
-            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <Link to="/tools/service-desk-note-formatter" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--amber)' }}>
                 Open Note Formatter →
               </Link>
+              <ShareToolLinkButton
+                toolRoute="/tools/service-desk-note-formatter"
+                toolId="service-desk-note-formatter"
+                size="sm"
+                label="Share"
+                title="Copy deep link to Service Desk Note Formatter with current configuration state"
+              />
             </div>
           </article>
 
-          <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <article className="card tool-card" data-testid="home-tool-card-money-manager" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
                 <span className="badge" style={{ fontSize: '0.75rem', display: 'inline-block' }}>Personal Finance</span>
@@ -566,10 +595,17 @@ export const HomePage: React.FC = () => {
                 Multi-bank account tracking, monthly budget planning, spending velocity forecasts, and receipt OCR scanning.
               </p>
             </div>
-            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <Link to="/tools/money-manager" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>
                 Open Money Manager →
               </Link>
+              <ShareToolLinkButton
+                toolRoute="/tools/money-manager"
+                toolId="money-manager"
+                size="sm"
+                label="Share"
+                title="Copy deep link to Money Manager with current configuration state"
+              />
             </div>
           </article>
         </div>

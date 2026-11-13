@@ -6,11 +6,15 @@ import {
   jumpToHeadingSection,
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
+  copySectionAnchorLink,
   injectHeadingCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
+  HEADING_COPY_BUTTON_LABEL,
+  HEADING_COPY_TOAST_MESSAGE,
   type TocItem,
   type GeneratedTocResult,
+  type CopySectionAnchorResult,
 } from '../utils/tocGenerator';
 import {
   ReadTimeProgressIndicator,
@@ -24,12 +28,16 @@ export {
   jumpToHeadingSection,
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
+  copySectionAnchorLink,
   injectHeadingCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
+  HEADING_COPY_BUTTON_LABEL,
+  HEADING_COPY_TOAST_MESSAGE,
   ReadTimeProgressIndicator,
   type TocItem,
   type GeneratedTocResult,
+  type CopySectionAnchorResult,
   type ReadTimeProgressIndicatorProps,
 };
 

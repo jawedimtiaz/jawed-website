@@ -1,12 +1,48 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Monitor } from 'lucide-react';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
+
+export const THEME_MODES: readonly ThemeMode[] = ['system', 'light', 'dark'] as const;
+
+export const THEME_MODE_OPTIONS: readonly {
+  mode: ThemeMode;
+  label: 'Light' | 'Dark' | 'System';
+  testId: string;
+}[] = [
+  { mode: 'light', label: 'Light', testId: 'theme-mode-btn-light' },
+  { mode: 'dark', label: 'Dark', testId: 'theme-mode-btn-dark' },
+  { mode: 'system', label: 'System', testId: 'theme-mode-btn-system' },
+] as const;
 
 export const THEME_STORAGE_KEY = 'theme';
 
 const useIsomorphicLayoutEffect =
   typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+export const getNextThemeMode = (currentMode: ThemeMode): ThemeMode => {
+  switch (currentMode) {
+    case 'system':
+      return 'light';
+    case 'light':
+      return 'dark';
+    case 'dark':
+    default:
+      return 'system';
+  }
+};
+
+export const getThemeModeLabel = (mode: ThemeMode): 'System' | 'Light' | 'Dark' => {
+  switch (mode) {
+    case 'light':
+      return 'Light';
+    case 'dark':
+      return 'Dark';
+    case 'system':
+    default:
+      return 'System';
+  }
+};
 
 export const getSystemTheme = (): 'light' | 'dark' => {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -39,6 +75,7 @@ export const applyThemeToDom = (mode: ThemeMode): 'light' | 'dark' => {
   }
   const root = document.documentElement;
   root.setAttribute('data-theme', resolved);
+  root.setAttribute('data-theme-mode', mode);
   if (resolved === 'dark') {
     root.classList.add('dark');
     root.classList.remove('light');
@@ -50,6 +87,35 @@ export const applyThemeToDom = (mode: ThemeMode): 'light' | 'dark' => {
     root.style.colorScheme = resolved;
   }
   return resolved;
+};
+
+/**
+ * Explicitly sets the theme mode ('light' | 'dark' | 'system'), persists it to localStorage,
+ * updates `document.documentElement`'s `data-theme` and `data-theme-mode` attributes,
+ * and dispatches the global `theme-changed` event.
+ */
+export const setThemePreference = (
+  newMode: ThemeMode,
+  storageKey: string = THEME_STORAGE_KEY
+): { mode: ThemeMode; resolvedTheme: 'light' | 'dark' } => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.setItem(storageKey, newMode);
+    } catch {
+      // Storage restricted
+    }
+  }
+  const resolvedTheme = applyThemeToDom(newMode);
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('theme-changed', { detail: { theme: newMode, resolvedTheme } })
+      );
+    } catch {
+      // Ignore CustomEvent error in minimal test environments
+    }
+  }
+  return { mode: newMode, resolvedTheme };
 };
 
 /**
@@ -83,6 +149,7 @@ export const syncThemeFromLocalStorage = (options?: {
   if (typeof document !== 'undefined' && document.documentElement) {
     const root = document.documentElement;
     root.setAttribute('data-theme', resolved);
+    root.setAttribute('data-theme-mode', savedMode);
     if (resolved === 'dark') {
       root.classList.add('dark');
       root.classList.remove('light');
@@ -112,6 +179,7 @@ export interface ThemeToggleProps {
    */
   syncWithLocalStorage?: boolean;
   storageKey?: string;
+  showLabel?: boolean;
 }
 
 export const ThemeToggle: React.FC<ThemeToggleProps> = ({
@@ -119,6 +187,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   onThemeChange,
   syncWithLocalStorage = true,
   storageKey = THEME_STORAGE_KEY,
+  showLabel = true,
 }) => {
   const [mode, setMode] = useState<ThemeMode>(() => {
     if (syncWithLocalStorage) {
@@ -127,26 +196,27 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
       return initialSaved;
     }
     if (typeof document !== 'undefined' && document.documentElement) {
+      const modeAttr = document.documentElement.getAttribute?.('data-theme-mode');
+      if (modeAttr === 'system' || modeAttr === 'light' || modeAttr === 'dark') {
+        return modeAttr;
+      }
       if (document.documentElement.classList.contains('light')) return 'light';
       if (document.documentElement.classList.contains('dark')) return 'dark';
     }
     return 'system';
   });
 
+  // Track OS color scheme dynamically so 'system' mode re-renders when OS preference changes
+  const [, setSystemRevision] = useState(0);
+
   // Apply theme and optionally persist choice to localStorage
   const selectMode = useCallback(
     (newMode: ThemeMode) => {
       setMode(newMode);
-      if (syncWithLocalStorage && typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem(storageKey, newMode);
-        } catch {
-          // Storage restricted
-        }
-      }
-      applyThemeToDom(newMode);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: newMode } }));
+      if (syncWithLocalStorage) {
+        setThemePreference(newMode, storageKey);
+      } else {
+        applyThemeToDom(newMode);
       }
       if (onThemeChange) {
         onThemeChange(newMode);
@@ -182,6 +252,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
     const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
     const handleSystemChange = () => {
       applyThemeToDom('system');
+      setSystemRevision((r) => r + 1);
     };
 
     if (mediaQuery.addEventListener) {
@@ -227,29 +298,59 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   }, [syncWithLocalStorage, storageKey]);
 
   const resolvedTheme = getResolvedTheme(mode);
-  const nextTheme: 'light' | 'dark' = resolvedTheme === 'dark' ? 'light' : 'dark';
-
-  const handleToggle = () => {
-    selectMode(nextTheme);
-  };
+  const nextMode: ThemeMode = getNextThemeMode(mode);
+  const resolvedLabel = resolvedTheme === 'light' ? 'Light' : 'Dark';
 
   return (
-    <button
-      type="button"
-      onClick={handleToggle}
+    <div
+      role="group"
+      aria-label="Theme mode selector"
       data-testid="theme-toggle-btn"
+      data-theme-mode={mode}
       data-theme-resolved={resolvedTheme}
-      className={`theme-toggle-btn inline-flex items-center justify-center p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800/80 border border-slate-700/60 transition-all ${className}`.trim()}
-      title={`Switch to ${nextTheme === 'light' ? 'Light' : 'Dark'} mode`}
-      aria-label={`Switch to ${nextTheme === 'light' ? 'light' : 'dark'} mode`}
+      data-next-theme-mode={nextMode}
+      className={`theme-toggle-group ${className}`.trim()}
     >
-      {resolvedTheme === 'dark' ? (
-        <Sun size={18} aria-hidden="true" />
-      ) : (
-        <Moon size={18} aria-hidden="true" />
-      )}
-    </button>
+      {THEME_MODE_OPTIONS.map((opt) => {
+        const isActive = mode === opt.mode;
+        return (
+          <button
+            key={opt.mode}
+            type="button"
+            onClick={() => selectMode(opt.mode)}
+            data-testid={opt.testId}
+            data-theme-option={opt.mode}
+            aria-pressed={isActive}
+            aria-label={
+              opt.mode === 'system'
+                ? `System theme mode (currently ${resolvedLabel})`
+                : `${opt.label} theme mode`
+            }
+            title={
+              opt.mode === 'system'
+                ? `System mode (follows OS preference: ${resolvedLabel})`
+                : `Switch to ${opt.label} mode`
+            }
+            className={`theme-toggle-btn-option ${isActive ? 'is-active' : ''}`.trim()}
+          >
+            {opt.mode === 'light' ? (
+              <Sun size={14} aria-hidden="true" />
+            ) : opt.mode === 'dark' ? (
+              <Moon size={14} aria-hidden="true" />
+            ) : (
+              <Monitor size={14} aria-hidden="true" />
+            )}
+            {showLabel && (
+              <span className="theme-toggle-btn-label" data-testid={`theme-mode-label-${opt.mode}`}>
+                {opt.label}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 };
 
-
+export const HeaderThemeToggle = ThemeToggle;
+export default ThemeToggle;

@@ -644,6 +644,179 @@ test('NoteDetailPage includes a Share action button at the bottom of the article
   );
 });
 
+test('adds a Copy Link button to individual guide sections (h2/h3) in NoteDetailPage that copies the direct anchor link to the clipboard and displays a Link copied toast notification', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    injectHeadingCopyButtons,
+    copySectionAnchorLink,
+    HEADING_COPY_BUTTON_LABEL,
+    HEADING_COPY_TOAST_MESSAGE,
+  } = await import('../src/pages/NoteDetailPage');
+
+  assert.equal(HEADING_COPY_BUTTON_LABEL, 'Copy Link');
+  assert.equal(HEADING_COPY_TOAST_MESSAGE, 'Link copied');
+
+  // 1. Verify 'Copy Link' button is injected into individual h2 and h3 guide sections with direct #anchor attributes
+  const guideHtml = `
+    <h2>1. Initial Switch Port Triage</h2>
+    <p>Inspect physical layer counters.</p>
+    <h3>1.1 Checking CRC &amp; Alignment Errors</h3>
+    <p>Verify interface status.</p>
+  `;
+  const renderedHtml = injectHeadingCopyButtons(guideHtml);
+
+  assert.ok(
+    renderedHtml.includes('data-copy-heading-id="1-initial-switch-port-triage"') &&
+      renderedHtml.includes('data-heading-anchor="#1-initial-switch-port-triage"') &&
+      renderedHtml.includes('<span class="note-heading-copy-text">Copy Link</span>'),
+    'Expected h2 section to contain a Copy Link button with direct #anchor attribute'
+  );
+  assert.ok(
+    renderedHtml.includes('data-copy-heading-id="1-1-checking-crc-alignment-errors"') &&
+      renderedHtml.includes('data-heading-anchor="#1-1-checking-crc-alignment-errors"'),
+    'Expected h3 section to contain a Copy Link button with direct #anchor attribute'
+  );
+
+  // 2. Verify clicking/invoking copySectionAnchorLink copies the direct anchor link to the user's clipboard and returns 'Link copied'
+  let clipboardText = '';
+  const result = await copySectionAnchorLink(
+    '1-1-checking-crc-alignment-errors',
+    'https://jawed.co.in/notes/network-port-flapping-guide',
+    {
+      writeText: async (text: string) => {
+        clipboardText = text;
+      },
+    }
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(
+    result.anchorUrl,
+    'https://jawed.co.in/notes/network-port-flapping-guide#1-1-checking-crc-alignment-errors'
+  );
+  assert.equal(clipboardText, result.anchorUrl);
+  assert.equal(result.toastMessage, 'Link copied');
+
+  // 3. Verify copied button state displays 'Link copied' feedback and NoteDetailPage + FieldGuideDetailPage render the 'Link copied' toast
+  const copiedRenderedHtml = injectHeadingCopyButtons(
+    guideHtml,
+    '1-initial-switch-port-triage'
+  );
+  assert.ok(
+    copiedRenderedHtml.includes('<span class="note-heading-copy-text">Link copied</span>'),
+    'Expected copied h2 button to display Link copied feedback'
+  );
+
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  const fieldGuideSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/FieldGuideDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('copySectionAnchorLink(headingId, currentBaseUrl)') &&
+      noteDetailSource.includes('data-testid="heading-link-copied-toast"') &&
+      noteDetailSource.includes('data-toast-message={HEADING_COPY_TOAST_MESSAGE}'),
+    'Expected NoteDetailPage.tsx to invoke copySectionAnchorLink and display heading-link-copied-toast'
+  );
+  assert.ok(
+    fieldGuideSource.includes('copySectionAnchorLink(headingId, baseUrl)') &&
+      fieldGuideSource.includes('data-testid="heading-link-copied-toast"'),
+    'Expected FieldGuideDetailPage.tsx to invoke copySectionAnchorLink and display heading-link-copied-toast'
+  );
+});
+
+test('renders a "Was this guide helpful?" feedback component at the bottom of NoteDetailPage with upvote/downvote icons and a submission handler for improvement tracking', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    GUIDE_FEEDBACK_HEADING,
+    GUIDE_FEEDBACK_STORAGE_KEY,
+    submitGuideFeedback,
+    getGuideFeedbackForSlug,
+    getGuideFeedbackRecords,
+  } = await import('../src/pages/NoteDetailPage');
+
+  assert.equal(GUIDE_FEEDBACK_HEADING, 'Was this guide helpful?');
+
+  // 1. Verify submission handler persists upvote/downvote and optional improvement note in storage
+  const store = new Map<string, string>();
+  const mockStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+  };
+
+  assert.equal(getGuideFeedbackForSlug('diagnosing-network-port-flapping', mockStorage), null);
+
+  // Upvote submission
+  const upRecord = submitGuideFeedback(
+    {
+      slug: 'diagnosing-network-port-flapping',
+      title: 'Diagnosing Network Port Flapping',
+      vote: 'up',
+    },
+    mockStorage
+  );
+  assert.equal(upRecord.slug, 'diagnosing-network-port-flapping');
+  assert.equal(upRecord.vote, 'up');
+  assert.ok(upRecord.submittedAt.length > 0);
+  assert.deepEqual(
+    getGuideFeedbackForSlug('diagnosing-network-port-flapping', mockStorage),
+    upRecord
+  );
+
+  // Downvote submission with improvement comment
+  const downRecord = submitGuideFeedback(
+    {
+      slug: 'apple-macos-first-response-checklist',
+      title: 'Apple macOS First Response Checklist',
+      vote: 'down',
+      comment: 'Add sysdiagnose CLI flag examples for Sonoma',
+    },
+    mockStorage
+  );
+  assert.equal(downRecord.vote, 'down');
+  assert.equal(downRecord.comment, 'Add sysdiagnose CLI flag examples for Sonoma');
+
+  const allRecords = getGuideFeedbackRecords(mockStorage);
+  assert.ok(store.has(GUIDE_FEEDBACK_STORAGE_KEY));
+  assert.equal(Object.keys(allRecords).length, 2);
+  assert.equal(allRecords['apple-macos-first-response-checklist'].vote, 'down');
+
+  // 2. Verify GuideFeedback.tsx and NoteDetailPage.tsx render the heading, upvote/downvote icons, and submission form
+  const feedbackSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/GuideFeedback.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    feedbackSource.includes("GUIDE_FEEDBACK_HEADING = 'Was this guide helpful?'") &&
+      feedbackSource.includes('ThumbsUp') &&
+      feedbackSource.includes('ThumbsDown') &&
+      feedbackSource.includes('data-testid="guide-feedback-upvote-btn"') &&
+      feedbackSource.includes('data-testid="guide-feedback-downvote-btn"') &&
+      feedbackSource.includes('data-testid="guide-feedback-form"'),
+    'Expected GuideFeedback.tsx to include "Was this guide helpful?", ThumbsUp/ThumbsDown icons, and submission form'
+  );
+  assert.ok(
+    noteDetailSource.includes('<GuideFeedback') &&
+      noteDetailSource.includes('slug={note.slug}'),
+    'Expected NoteDetailPage.tsx to mount <GuideFeedback slug={note.slug} /> at the bottom of the guide'
+  );
+});
+
+
+
 
 
 

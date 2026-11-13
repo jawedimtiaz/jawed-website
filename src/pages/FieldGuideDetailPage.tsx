@@ -12,6 +12,9 @@ import { extractContentFreshness } from '../utils/contentFreshness';
 import {
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
+  copySectionAnchorLink,
+  HEADING_COPY_BUTTON_LABEL,
+  HEADING_COPY_TOAST_MESSAGE,
   slugifyHeading,
 } from '../utils/tocGenerator';
 import { handleArticleImageLightboxClick } from '../components/GlobalImageLightbox';
@@ -35,11 +38,13 @@ export const FieldGuideDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const guide = FIELD_GUIDES.find(g => g.slug === slug);
   const [copiedTocId, setCopiedTocId] = React.useState<string>('');
+  const [copiedAnchorUrl, setCopiedAnchorUrl] = React.useState<string>('');
   const copyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const articleBodyRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     setCopiedTocId('');
+    setCopiedAnchorUrl('');
     return () => {
       if (copyTimerRef.current) {
         clearTimeout(copyTimerRef.current);
@@ -61,7 +66,7 @@ export const FieldGuideDetailPage: React.FC = () => {
         heading.textContent ||
         ''
       )
-        .replace(/Copy Link to Heading|Copied!?|✓/g, '')
+        .replace(/Copy Link to Heading|Copy Link|Link copied!?|Copied!?|✓/g, '')
         .trim();
 
       if (!rawText) return;
@@ -79,19 +84,20 @@ export const FieldGuideDetailPage: React.FC = () => {
 
       heading.classList.add('note-heading-with-copy');
       const isCopied = Boolean(copiedTocId && copiedTocId === headingId);
-      const btnTitle = isCopied ? 'Copied!' : 'Copy Link to Heading';
+      const btnTitle = isCopied ? HEADING_COPY_TOAST_MESSAGE : 'Copy Link to Heading';
       const btnAria = isCopied
-        ? `Copied link to heading: ${rawText}`
+        ? `Link copied for section: ${rawText}`
         : `Copy Link to Heading: ${rawText}`;
 
       const btnHtml = isCopied
-        ? `<span class="note-heading-copy-feedback" aria-hidden="true">✓</span><span class="note-heading-copy-text">Copied</span>`
-        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span class="note-heading-copy-text">Copy Link to Heading</span>`;
+        ? `<span class="note-heading-copy-feedback" aria-hidden="true">✓</span><span class="note-heading-copy-text">${HEADING_COPY_TOAST_MESSAGE}</span>`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span class="note-heading-copy-text">${HEADING_COPY_BUTTON_LABEL}</span>`;
 
       if (existingBtn) {
         existingBtn.className = `note-heading-copy-btn${isCopied ? ' is-copied' : ''}`;
         existingBtn.setAttribute('data-copy-heading-id', headingId);
         existingBtn.setAttribute('data-testid', `copy-heading-link-${headingId}`);
+        existingBtn.setAttribute('data-heading-anchor', `#${headingId}`);
         existingBtn.setAttribute('title', btnTitle);
         existingBtn.setAttribute('aria-label', btnAria);
         existingBtn.innerHTML = btnHtml;
@@ -101,6 +107,7 @@ export const FieldGuideDetailPage: React.FC = () => {
         btn.className = `note-heading-copy-btn${isCopied ? ' is-copied' : ''}`;
         btn.setAttribute('data-copy-heading-id', headingId);
         btn.setAttribute('data-testid', `copy-heading-link-${headingId}`);
+        btn.setAttribute('data-heading-anchor', `#${headingId}`);
         btn.setAttribute('title', btnTitle);
         btn.setAttribute('aria-label', btnAria);
         btn.innerHTML = btnHtml;
@@ -124,21 +131,20 @@ export const FieldGuideDetailPage: React.FC = () => {
       typeof window !== 'undefined' && window.location?.href
         ? window.location.href
         : currentUrl;
-    const anchorUrl = buildTocAnchorUrl(baseUrl, headingId);
-
-    await copyTocAnchorToClipboard(anchorUrl);
+    const { anchorUrl } = await copySectionAnchorLink(headingId, baseUrl);
 
     if (typeof window !== 'undefined' && window.history?.replaceState) {
       window.history.replaceState(null, '', `#${headingId}`);
     }
 
     setCopiedTocId(headingId);
+    setCopiedAnchorUrl(anchorUrl);
     if (copyTimerRef.current) {
       clearTimeout(copyTimerRef.current);
     }
     copyTimerRef.current = setTimeout(() => {
       setCopiedTocId(prev => (prev === headingId ? '' : prev));
-    }, 2000);
+    }, 2400);
   };
 
   const handleCopyGuideSectionLink = async (
@@ -1529,6 +1535,58 @@ export const FieldGuideDetailPage: React.FC = () => {
           subtitle="Deep-dive troubleshooting procedures and field checklists matched by shared topic categories and tags."
         />
       </article>
+
+      {/* Toast Notification: 'Link copied' for Guide Section Copy Actions */}
+      {copiedTocId && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="heading-link-copied-toast"
+          data-toast-message={HEADING_COPY_TOAST_MESSAGE}
+          className="toast heading-link-copied-toast no-print"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            borderRadius: '10px',
+            background: 'var(--bg-darker, #0f172a)',
+            border: '1px solid rgba(52, 211, 153, 0.55)',
+            color: 'var(--text, #f8fafc)',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.45)',
+          }}
+        >
+          <span aria-hidden="true" style={{ color: 'var(--emerald, #10b981)', display: 'inline-flex', alignItems: 'center' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+          <span data-testid="heading-link-copied-toast-text">{HEADING_COPY_TOAST_MESSAGE}</span>
+          {copiedAnchorUrl && (
+            <span
+              style={{
+                fontSize: '0.72rem',
+                color: 'var(--muted, #94a3b8)',
+                fontFamily: 'monospace',
+                maxWidth: '220px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+              title={copiedAnchorUrl}
+            >
+              {copiedAnchorUrl.includes('#') ? `#${copiedAnchorUrl.split('#')[1]}` : ''}
+            </span>
+          )}
+        </div>
+      )}
     </main>
   );
 };
+

@@ -27,6 +27,10 @@ import {
   ShareToolLinkButton,
   copyToolShareUrlToClipboard,
   resolveToolShareUrl,
+  buildToolConfigurationDeepLink,
+  getSavedToolConfigurationState,
+  parseToolConfigurationFromSearch,
+  normalizeToolSlug,
   SHARE_TOAST_MESSAGE,
 } from './common/ShareToolLinkButton';
 
@@ -34,6 +38,10 @@ export {
   ShareToolLinkButton,
   copyToolShareUrlToClipboard,
   resolveToolShareUrl,
+  buildToolConfigurationDeepLink,
+  getSavedToolConfigurationState,
+  parseToolConfigurationFromSearch,
+  normalizeToolSlug,
   SHARE_TOAST_MESSAGE,
 };
 
@@ -408,12 +416,21 @@ export const DiagnosticToolsAutoPersist: React.FC = () => {
     }
   }, [isToolRoute, serializeDomInputs, storageToolKey]);
 
-  // Attempt to restore saved inputs from storage into current DOM
+  // Attempt to restore saved inputs from storage or deep-link URL query parameters into current DOM
   const restoreDomInputs = useCallback(() => {
     if (!isToolRoute || typeof document === 'undefined') return;
 
     const stored = loadDiagnosticFormDraft<Record<string, any>>(storageToolKey, {}, DIAGNOSTIC_STORAGE_PREFIX);
-    if (!stored.isStored || !stored.data || Object.keys(stored.data).length === 0) {
+    const urlParams =
+      typeof window !== 'undefined' && window.location?.search
+        ? parseToolConfigurationFromSearch(window.location.search)
+        : {};
+    const mergedData: Record<string, any> = {
+      ...(stored.data || {}),
+      ...urlParams,
+    };
+
+    if (Object.keys(mergedData).length === 0) {
       setBannerVisible(false);
       setRestoredCount(0);
       return;
@@ -430,9 +447,9 @@ export const DiagnosticToolsAutoPersist: React.FC = () => {
 
     elements.forEach((el, idx) => {
       const identifier = getElementIdentifier(el, idx);
-      if (!(identifier in stored.data)) return;
+      if (!(identifier in mergedData)) return;
 
-      const val = stored.data[identifier];
+      const val = mergedData[identifier];
       if (val === undefined || val === null) return;
 
       if (el instanceof HTMLInputElement) {

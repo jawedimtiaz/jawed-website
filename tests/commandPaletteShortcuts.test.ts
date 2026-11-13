@@ -6,6 +6,12 @@ import {
   NAV_ROUTE_MAP,
   FALLBACK_SHORTCUTS,
   LOCAL_PALETTE_SHORTCUTS,
+  RECENT_SEARCHES_STORAGE_KEY,
+  MAX_RECENT_SEARCHES,
+  getRecentSearchesFromStorage,
+  saveRecentSearchToStorage,
+  removeRecentSearchFromStorage,
+  clearRecentSearchesFromStorage,
   type PaletteShortcutDisplayItem,
 } from '../src/components/CommandPalette';
 
@@ -1032,8 +1038,465 @@ describe('CommandPalette - Shortcut Filtering & Navigational Execution Logic', (
       'Expected index.css to define styles for .scroll-completion-toast and call-to-action buttons'
     );
   });
+
+  it('saves, deduplicates, caps at 5, and displays Recent Searches in localStorage inside CommandPalette', () => {
+    const store = new Map<string, string>();
+    const mockStorage = {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    };
+
+    assert.equal(MAX_RECENT_SEARCHES, 5);
+    assert.deepEqual(getRecentSearchesFromStorage(mockStorage), []);
+
+    // Save 6 distinct queries -> only the most recent 5 should be retained
+    const queries = [
+      'ipv4 subnet',
+      'poe budget',
+      'rj45 pinout',
+      'port flapping',
+      'money manager',
+      'server rack btu',
+    ];
+    let list: string[] = [];
+    for (const q of queries) {
+      list = saveRecentSearchToStorage(q, list, mockStorage);
+    }
+
+    assert.equal(list.length, 5, 'Recent searches should be capped at 5');
+    assert.deepEqual(list, [
+      'server rack btu',
+      'money manager',
+      'port flapping',
+      'rj45 pinout',
+      'poe budget',
+    ]);
+    assert.deepEqual(getRecentSearchesFromStorage(mockStorage), list);
+
+    // Re-searching an existing query (case-insensitively) moves it to the top without duplicating
+    list = saveRecentSearchToStorage('RJ45 Pinout', list, mockStorage);
+    assert.equal(list.length, 5);
+    assert.equal(list[0], 'RJ45 Pinout');
+    assert.deepEqual(list, [
+      'RJ45 Pinout',
+      'server rack btu',
+      'money manager',
+      'port flapping',
+      'poe budget',
+    ]);
+
+    // Ignore empty, 1-char, or shortcut discovery ('?') queries
+    const unchanged = saveRecentSearchToStorage('? nav', list, mockStorage);
+    assert.deepEqual(unchanged, list);
+
+    // Remove a single recent search item
+    list = removeRecentSearchFromStorage('money manager', list, mockStorage);
+    assert.equal(list.length, 4);
+    assert.ok(!list.includes('money manager'));
+    assert.deepEqual(getRecentSearchesFromStorage(mockStorage), list);
+
+    // Clear all recent searches
+    clearRecentSearchesFromStorage(mockStorage);
+    assert.equal(store.has(RECENT_SEARCHES_STORAGE_KEY), false);
+    assert.deepEqual(getRecentSearchesFromStorage(mockStorage), []);
+
+    // Verify CommandPalette JSX renders the Recent Searches section and interactive controls
+    const commandPaletteSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/CommandPalette.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      commandPaletteSource.includes('data-testid="recent-searches-section"'),
+      'Expected CommandPalette to render data-testid="recent-searches-section"'
+    );
+    assert.ok(
+      commandPaletteSource.includes('data-testid="clear-recent-searches-btn"'),
+      'Expected CommandPalette to render Clear button with data-testid="clear-recent-searches-btn"'
+    );
+    assert.ok(
+      commandPaletteSource.includes('data-testid="recent-search-item"'),
+      'Expected CommandPalette to render recent search items with data-testid="recent-search-item"'
+    );
+  });
+
+  it('implements a dedicated theme switcher button in Header that toggles between system default, light, and dark modes', async () => {
+    const {
+      THEME_MODES,
+      getNextThemeMode,
+      getThemeModeLabel,
+      applyThemeToDom,
+      getResolvedTheme,
+    } = await import('../src/components/Header');
+
+    assert.deepEqual(THEME_MODES, ['system', 'light', 'dark']);
+    assert.equal(getNextThemeMode('system'), 'light');
+    assert.equal(getNextThemeMode('light'), 'dark');
+    assert.equal(getNextThemeMode('dark'), 'system');
+
+    assert.equal(getThemeModeLabel('system'), 'System');
+    assert.equal(getThemeModeLabel('light'), 'Light');
+    assert.equal(getThemeModeLabel('dark'), 'Dark');
+
+    // Verify DOM attributes for all three modes ('system', 'light', 'dark')
+    const prevWindow = (globalThis as any).window;
+    const prevDocument = (globalThis as any).document;
+    const attrMap = new Map<string, string>();
+    const classSet = new Set<string>();
+    const styleObj: Record<string, string> = {};
+    let osPrefersLight = true;
+
+    (globalThis as any).window = {
+      matchMedia: () => ({ matches: osPrefersLight }),
+    };
+    (globalThis as any).document = {
+      documentElement: {
+        setAttribute: (k: string, v: string) => attrMap.set(k, v),
+        getAttribute: (k: string) => attrMap.get(k) || null,
+        classList: {
+          add: (c: string) => classSet.add(c),
+          remove: (c: string) => classSet.delete(c),
+          contains: (c: string) => classSet.has(c),
+        },
+        style: styleObj,
+      },
+    };
+
+    try {
+      // 1. System mode when OS prefers light
+      assert.equal(getResolvedTheme('system'), 'light');
+      applyThemeToDom('system');
+      assert.equal(attrMap.get('data-theme-mode'), 'system');
+      assert.equal(attrMap.get('data-theme'), 'light');
+      assert.equal(classSet.has('light'), true);
+
+      // 2. Toggle to explicit Dark mode even though OS prefers light
+      applyThemeToDom('dark');
+      assert.equal(attrMap.get('data-theme-mode'), 'dark');
+      assert.equal(attrMap.get('data-theme'), 'dark');
+      assert.equal(classSet.has('dark'), true);
+      assert.equal(classSet.has('light'), false);
+
+      // 3. Toggle to explicit Light mode when OS prefers dark
+      osPrefersLight = false;
+      applyThemeToDom('light');
+      assert.equal(attrMap.get('data-theme-mode'), 'light');
+      assert.equal(attrMap.get('data-theme'), 'light');
+      assert.equal(classSet.has('light'), true);
+      assert.equal(classSet.has('dark'), false);
+
+      // 4. Toggle back to System mode when OS prefers dark
+      applyThemeToDom('system');
+      assert.equal(attrMap.get('data-theme-mode'), 'system');
+      assert.equal(attrMap.get('data-theme'), 'dark');
+      assert.equal(classSet.has('dark'), true);
+    } finally {
+      (globalThis as any).window = prevWindow;
+      (globalThis as any).document = prevDocument;
+    }
+
+    const themeToggleSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/ThemeToggle.tsx'),
+      'utf8'
+    );
+    const headerSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/Header.tsx'),
+      'utf8'
+    );
+
+    assert.ok(
+      themeToggleSource.includes('Monitor') &&
+        themeToggleSource.includes('Sun') &&
+        themeToggleSource.includes('Moon'),
+      'Expected ThemeToggle to render Monitor (system), Sun (light), and Moon (dark) icons'
+    );
+    assert.ok(
+      themeToggleSource.includes('data-theme-mode={mode}') &&
+        themeToggleSource.includes('data-next-theme-mode={nextMode}'),
+      'Expected ThemeToggle button to expose data-theme-mode and data-next-theme-mode attributes'
+    );
+    assert.ok(
+      headerSource.includes('<ThemeToggle'),
+      'Expected Header to render the dedicated ThemeToggle switcher button'
+    );
+  });
+
+  it('integrates ShareToolLinkButton on Tool Cards and encodes saved tool configuration state into shareable deep links', async () => {
+    const {
+      normalizeToolSlug,
+      getSavedToolConfigurationState,
+      buildToolConfigurationDeepLink,
+      parseToolConfigurationFromSearch,
+      copyToolShareUrlToClipboard,
+    } = await import('../src/components/common/ShareToolLinkButton');
+
+    assert.equal(
+      normalizeToolSlug('https://jawed.co.in/tools/ipv4-subnet-calculator?ip=10.0.0.1'),
+      'ipv4-subnet-calculator'
+    );
+    assert.equal(normalizeToolSlug('/tools/server-rack-power-btu-calculator'), 'server-rack-power-btu-calculator');
+
+    // Mock localStorage containing a saved tool configuration draft
+    const store = new Map<string, string>();
+    store.set(
+      'diagnostic_tool_draft_diag_auto_ipv4-subnet-calculator',
+      JSON.stringify({
+        data: {
+          ipAddress: '192.168.10.42',
+          cidr: 26,
+          includeBinary: true,
+        },
+        savedAt: 1731450000000,
+        version: 1,
+        toolId: 'diag_auto_ipv4-subnet-calculator',
+      })
+    );
+    const mockStorage = {
+      getItem: (key: string) => store.get(key) ?? null,
+    };
+
+    const savedState = getSavedToolConfigurationState('/tools/ipv4-subnet-calculator', mockStorage);
+    assert.deepEqual(savedState, {
+      ipAddress: '192.168.10.42',
+      cidr: 26,
+      includeBinary: true,
+    });
+
+    const deepLink = buildToolConfigurationDeepLink(
+      'https://jawed.co.in/tools/ipv4-subnet-calculator',
+      { vlan: '100' },
+      mockStorage
+    );
+    assert.equal(
+      deepLink,
+      'https://jawed.co.in/tools/ipv4-subnet-calculator?ipAddress=192.168.10.42&cidr=26&includeBinary=true&vlan=100'
+    );
+
+    const parsedSearch = parseToolConfigurationFromSearch(new URL(deepLink).search);
+    assert.deepEqual(parsedSearch, {
+      ipAddress: '192.168.10.42',
+      cidr: '26',
+      includeBinary: 'true',
+      vlan: '100',
+    });
+
+    let copiedUrl = '';
+    const originalNavigator = globalThis.navigator;
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        clipboard: {
+          writeText: async (text: string) => {
+            copiedUrl = text;
+          },
+        },
+      },
+      configurable: true,
+    });
+
+    try {
+      const copyResult = await copyToolShareUrlToClipboard(
+        'https://jawed.co.in/tools/ipv4-subnet-calculator',
+        '/tools/ipv4-subnet-calculator',
+        { vlan: '100' },
+        mockStorage
+      );
+      assert.equal(copyResult.ok, true);
+      assert.equal(copyResult.url, deepLink);
+      assert.equal(copiedUrl, deepLink);
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: originalNavigator,
+        configurable: true,
+      });
+    }
+
+    // Verify ToolsPage.tsx and HomePage.tsx render ShareToolLinkButton on Tool Cards
+    const toolsPageSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/ToolsPage.tsx'),
+      'utf8'
+    );
+    const homePageSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/HomePage.tsx'),
+      'utf8'
+    );
+
+    assert.ok(
+      toolsPageSource.includes('<ShareToolLinkButton') &&
+        toolsPageSource.includes('toolRoute={tool.route}') &&
+        toolsPageSource.includes('toolId={tool.id}'),
+      'Expected ToolsPage.tsx to render ShareToolLinkButton on each Tool Card with toolRoute and toolId'
+    );
+    assert.ok(
+      homePageSource.includes('<ShareToolLinkButton') &&
+        homePageSource.includes('toolRoute="/tools/ipv4-subnet-calculator"'),
+      'Expected HomePage.tsx to render ShareToolLinkButton on its diagnostic utility Tool Cards'
+    );
+  });
+
+  it('implements a searchable list of tools within ToolsPage that dynamically shows and hides Tool Cards based on name or description', async () => {
+    const {
+      TOOLS,
+      matchesToolNameOrDescription,
+      matchesToolSearchQuery,
+      filterToolsByLocalSearch,
+      filterToolsBySearchAndCategory,
+      computeToolVisibilityMap,
+    } = await import('../src/pages/ToolsPage');
+
+    assert.ok(TOOLS.length >= 9, 'Expected TOOLS catalog to contain at least 9 tools');
+
+    // 1. Empty filter shows all Tool Cards
+    const allFiltered = filterToolsBySearchAndCategory(TOOLS, '', 'all');
+    assert.equal(allFiltered.length, TOOLS.length);
+    assert.equal(filterToolsByLocalSearch(TOOLS, '').length, TOOLS.length);
+
+    // 2. Filtering by tool name ("IPv4 Subnet") shows matching card and hides non-matching cards
+    const subnetFiltered = filterToolsBySearchAndCategory(TOOLS, 'IPv4 Subnet', 'all');
+    assert.ok(subnetFiltered.some(t => t.id === 'ipv4-subnet-calculator'));
+    assert.ok(!subnetFiltered.some(t => t.id === 'money-manager'));
+
+    const localNameMatches = filterToolsByLocalSearch(TOOLS, 'Money Manager');
+    assert.ok(localNameMatches.some(t => t.id === 'money-manager'));
+    assert.ok(!localNameMatches.some(t => t.id === 'ipv4-subnet-calculator'));
+
+    const visibilityForSubnet = computeToolVisibilityMap(TOOLS, 'IPv4 Subnet', 'all');
+    assert.equal(visibilityForSubnet['ipv4-subnet-calculator'], true);
+    assert.equal(visibilityForSubnet['money-manager'], false);
+
+    // 3. Filtering by tool description phrase (e.g. "HVAC BTU/hr cooling load") matches by description
+    const rackTool = TOOLS.find(
+      t => t.id === 'server-rack-power-btu' || t.route === '/tools/server-rack-power-btu-calculator'
+    )!;
+    assert.ok(rackTool, 'Expected server-rack-power-btu in TOOLS');
+    assert.equal(matchesToolNameOrDescription(rackTool, 'HVAC BTU/hr cooling load'), true);
+    assert.equal(matchesToolSearchQuery(rackTool, 'HVAC BTU/hr cooling load'), true);
+
+    // Multi-word local search across name + description ("rack cooling")
+    assert.equal(matchesToolNameOrDescription(rackTool, 'rack cooling'), true);
+
+    // 4. Non-existent query hides all Tool Cards
+    const emptyMatches = filterToolsBySearchAndCategory(
+      TOOLS,
+      'xyznonexistenttoolquery999',
+      'all'
+    );
+    assert.equal(emptyMatches.length, 0);
+
+    // 5. Verify ToolsPage.tsx renders the search filter input, live results counter, and tool card testids
+    const toolsPageSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/ToolsPage.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      toolsPageSource.includes('data-testid="tools-local-search-filter"') &&
+        toolsPageSource.includes('data-testid="tools-search-filter-input"') &&
+        toolsPageSource.includes('Search tools by name or description...'),
+      'Expected ToolsPage.tsx to render filter input with data-testid="tools-search-filter-input"'
+    );
+    assert.ok(
+      toolsPageSource.includes('data-testid="tools-filter-results-count"') &&
+        toolsPageSource.includes('data-testid="tools-card-grid"'),
+      'Expected ToolsPage.tsx to render live results count and tools-card-grid'
+    );
+  });
+
+  it('provides explicit Light, Dark, and System mode buttons in the Header theme toggle and updates both localStorage and DOM data-theme', async () => {
+    const {
+      THEME_MODE_OPTIONS,
+      setThemePreference,
+      THEME_STORAGE_KEY,
+    } = await import('../src/components/Header');
+
+    // 1. Verify explicit button options for 'Light', 'Dark', and 'System'
+    assert.deepEqual(
+      THEME_MODE_OPTIONS.map(o => ({ mode: o.mode, label: o.label, testId: o.testId })),
+      [
+        { mode: 'light', label: 'Light', testId: 'theme-mode-btn-light' },
+        { mode: 'dark', label: 'Dark', testId: 'theme-mode-btn-dark' },
+        { mode: 'system', label: 'System', testId: 'theme-mode-btn-system' },
+      ]
+    );
+
+    // 2. Verify setThemePreference updates both localStorage and documentElement data-theme
+    const prevWindow = (globalThis as any).window;
+    const prevDocument = (globalThis as any).document;
+    const prevLocalStorage = (globalThis as any).localStorage;
+
+    const storageMap = new Map<string, string>();
+    const attrMap = new Map<string, string>();
+    const classSet = new Set<string>();
+    const styleObj: Record<string, string> = {};
+    let osPrefersLight = false;
+
+    const mockStorage = {
+      getItem: (k: string) => storageMap.get(k) ?? null,
+      setItem: (k: string, v: string) => storageMap.set(k, v),
+    };
+
+    (globalThis as any).localStorage = mockStorage;
+    (globalThis as any).window = {
+      localStorage: mockStorage,
+      matchMedia: () => ({ matches: osPrefersLight }),
+      dispatchEvent: () => true,
+    };
+    (globalThis as any).document = {
+      documentElement: {
+        setAttribute: (k: string, v: string) => attrMap.set(k, v),
+        getAttribute: (k: string) => attrMap.get(k) || null,
+        classList: {
+          add: (c: string) => classSet.add(c),
+          remove: (c: string) => classSet.delete(c),
+          contains: (c: string) => classSet.has(c),
+        },
+        style: styleObj,
+      },
+    };
+
+    try {
+      // Explicit 'Light' button click
+      const resolvedLight = setThemePreference('light');
+      assert.deepEqual(resolvedLight, { mode: 'light', resolvedTheme: 'light' });
+      assert.equal(storageMap.get(THEME_STORAGE_KEY), 'light');
+      assert.equal(attrMap.get('data-theme'), 'light');
+      assert.equal(attrMap.get('data-theme-mode'), 'light');
+
+      // Explicit 'Dark' button click
+      const resolvedDark = setThemePreference('dark');
+      assert.deepEqual(resolvedDark, { mode: 'dark', resolvedTheme: 'dark' });
+      assert.equal(storageMap.get(THEME_STORAGE_KEY), 'dark');
+      assert.equal(attrMap.get('data-theme'), 'dark');
+      assert.equal(attrMap.get('data-theme-mode'), 'dark');
+
+      // Explicit 'System' button click (when OS prefers light)
+      osPrefersLight = true;
+      const resolvedSystemLight = setThemePreference('system');
+      assert.deepEqual(resolvedSystemLight, { mode: 'system', resolvedTheme: 'light' });
+      assert.equal(storageMap.get(THEME_STORAGE_KEY), 'system');
+      assert.equal(attrMap.get('data-theme'), 'light');
+      assert.equal(attrMap.get('data-theme-mode'), 'system');
+    } finally {
+      (globalThis as any).window = prevWindow;
+      (globalThis as any).document = prevDocument;
+      (globalThis as any).localStorage = prevLocalStorage;
+    }
+
+    // 3. Verify ThemeToggle.tsx renders the explicit Light, Dark, and System buttons
+    const themeToggleSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/ThemeToggle.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      themeToggleSource.includes("testId: 'theme-mode-btn-light'") &&
+        themeToggleSource.includes("testId: 'theme-mode-btn-dark'") &&
+        themeToggleSource.includes("testId: 'theme-mode-btn-system'") &&
+        themeToggleSource.includes('data-testid={opt.testId}'),
+      'Expected ThemeToggle.tsx to render explicit Light, Dark, and System mode buttons'
+    );
+  });
 });
-
-
 
 
