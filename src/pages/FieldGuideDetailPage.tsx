@@ -14,6 +14,8 @@ import {
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
+  jumpToHeadingSection,
+  navigateToHashHeadingOnLoad,
   ensureAccessibleTablesInDom,
   wrapTablesInAccessibleContainers,
   shareNoteUrlAndTitle,
@@ -140,6 +142,10 @@ export const FieldGuideDetailPage: React.FC = () => {
       setParsedGuideTocItems(extractedToc);
     }
 
+    if (typeof window !== 'undefined' && window.location?.hash) {
+      navigateToHashHeadingOnLoad(window.location.hash);
+    }
+
     ensureAccessibleTablesInDom(container, { noteTitle: guide?.title });
   }, [slug, copiedTocId, guide?.title]);
 
@@ -160,9 +166,7 @@ export const FieldGuideDetailPage: React.FC = () => {
         : currentUrl;
     const { anchorUrl } = await copySectionAnchorLink(headingId, baseUrl);
 
-    if (typeof window !== 'undefined' && window.history?.replaceState) {
-      window.history.replaceState(null, '', `#${headingId}`);
-    }
+    jumpToHeadingSection(headingId);
 
     setCopiedTocId(headingId);
     setCopiedAnchorUrl(anchorUrl);

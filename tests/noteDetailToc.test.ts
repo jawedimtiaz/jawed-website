@@ -1375,3 +1375,97 @@ test('ExportToPdfButton triggers browser native print dialog for active tool rep
   );
 });
 
+test('adds a Copy Link button on hover for each h2 and h3 heading in NoteDetailPage and supports direct navigation to that specific section', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    injectHeadingCopyButtons,
+    copySectionAnchorLink,
+    navigateToHashHeadingOnLoad,
+    HEADING_COPY_BUTTON_LABEL,
+  } = await import('../src/pages/NoteDetailPage');
+
+  assert.equal(HEADING_COPY_BUTTON_LABEL, 'Copy Link');
+
+  // 1. Verify each h2 and h3 heading receives a hover 'Copy Link' button with direct #anchor attribute
+  const html = `
+    <h2>1. Verify Switch Uplink Trunk</h2>
+    <p>Check 802.1Q encapsulation.</p>
+    <h3>1.1 Inspect Allowed VLAN List</h3>
+  `;
+  const rendered = injectHeadingCopyButtons(html);
+  assert.ok(
+    rendered.includes('data-copy-heading-id="1-verify-switch-uplink-trunk"') &&
+      rendered.includes('data-heading-anchor="#1-verify-switch-uplink-trunk"') &&
+      rendered.includes('<span class="note-heading-copy-text">Copy Link</span>'),
+    'Expected h2 heading to render a Copy Link button on hover'
+  );
+  assert.ok(
+    rendered.includes('data-copy-heading-id="1-1-inspect-allowed-vlan-list"') &&
+      rendered.includes('data-heading-anchor="#1-1-inspect-allowed-vlan-list"') &&
+      rendered.includes('data-testid="copy-heading-link-1-1-inspect-allowed-vlan-list"'),
+    'Expected h3 heading to render a Copy Link button on hover'
+  );
+
+  // 2. Verify copying the section link writes the direct section URL (#anchor) to clipboard
+  let copiedText = '';
+  const copyRes = await copySectionAnchorLink(
+    '1-1-inspect-allowed-vlan-list',
+    'https://jawed.co.in/notes/vlan-trunk-troubleshooting',
+    {
+      writeText: async (t: string) => {
+        copiedText = t;
+      },
+    }
+  );
+  assert.equal(copyRes.ok, true);
+  assert.equal(
+    copiedText,
+    'https://jawed.co.in/notes/vlan-trunk-troubleshooting#1-1-inspect-allowed-vlan-list'
+  );
+
+  // 3. Verify direct navigation to the specific section via navigateToHashHeadingOnLoad
+  let scrolledId = '';
+  let updatedHash = '';
+  const navigatedId = navigateToHashHeadingOnLoad(
+    '#1-1-inspect-allowed-vlan-list',
+    {
+      getElementById: (id: string) => ({
+        scrollIntoView: () => {
+          scrolledId = id;
+        },
+      }),
+    },
+    {
+      history: {
+        replaceState: (_d: unknown, _u: string, url?: string | null) => {
+          updatedHash = url || '';
+        },
+      },
+    }
+  );
+  assert.equal(navigatedId, '1-1-inspect-allowed-vlan-list');
+  assert.equal(scrolledId, '1-1-inspect-allowed-vlan-list');
+  assert.equal(updatedHash, '#1-1-inspect-allowed-vlan-list');
+
+  // 4. Verify hover CSS rules and NoteDetailPage integration
+  const cssSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/index.css'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    cssSource.includes('.note-rendered-content h2:hover .note-heading-copy-btn') &&
+      cssSource.includes('.note-rendered-content h3:hover .note-heading-copy-btn'),
+    'Expected src/index.css to reveal .note-heading-copy-btn on h2 and h3 hover'
+  );
+  assert.ok(
+    noteDetailSource.includes('navigateToHashHeadingOnLoad(window.location.hash)') &&
+      noteDetailSource.includes('jumpToHeadingSection(headingId)'),
+    'Expected NoteDetailPage.tsx to navigate directly to the section on hash load and heading link click'
+  );
+});

@@ -287,6 +287,35 @@ export function jumpToHeadingSection(
 }
 
 /**
+ * Parses a URL hash fragment (e.g. `#checking-client-logs-events`) and smoothly scrolls
+ * directly to the matching H2 or H3 section heading on page load or hash navigation.
+ */
+export function navigateToHashHeadingOnLoad(
+  hash?: string,
+  docOverride?: { getElementById?: (id: string) => { scrollIntoView?: (opts: any) => void } | null },
+  winOverride?: {
+    location?: { hash?: string };
+    history?: { replaceState?: (data: any, unused: string, url?: string | null) => void };
+  }
+): string {
+  const win = winOverride ?? (typeof window !== 'undefined' ? window : undefined);
+  const rawHash = hash !== undefined ? hash : win?.location?.hash || '';
+  const decodedHash = (() => {
+    try {
+      return decodeURIComponent(rawHash);
+    } catch {
+      return rawHash;
+    }
+  })();
+  const cleanId = decodedHash.replace(/^#+/, '').trim();
+  if (!cleanId) return '';
+
+  const didScroll = jumpToHeadingSection(cleanId, docOverride, win);
+  return didScroll ? cleanId : '';
+}
+
+
+/**
  * Builds a full shareable URL with the section `#anchor` fragment, stripping any prior hash.
  */
 export function buildTocAnchorUrl(baseUrl: string, headingId: string): string {

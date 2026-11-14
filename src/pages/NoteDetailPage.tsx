@@ -25,6 +25,7 @@ import {
   convertMarkdownHeadingsToHtml,
   parseRenderedHeadingsFromDom,
   jumpToHeadingSection,
+  navigateToHashHeadingOnLoad,
   injectHeadingCopyButtons,
   deriveTableCaptionText,
   wrapTablesInAccessibleContainers,
@@ -111,6 +112,7 @@ export {
   convertMarkdownHeadingsToHtml,
   parseRenderedHeadingsFromDom,
   jumpToHeadingSection,
+  navigateToHashHeadingOnLoad,
   injectHeadingCopyButtons,
   deriveTableCaptionText,
   wrapTablesInAccessibleContainers,
@@ -487,7 +489,23 @@ export const NoteDetailPage: React.FC = () => {
     setCopiedHeadingId('');
     setCopiedCodeBlockId('');
     setShareStatus('idle');
-    setActiveHeadingId(tocItems[0]?.id || '');
+    const initialHashId =
+      typeof window !== 'undefined' && window.location?.hash
+        ? navigateToHashHeadingOnLoad(window.location.hash)
+        : '';
+    setActiveHeadingId(initialHashId || tocItems[0]?.id || '');
+
+    if (typeof window === 'undefined') return;
+    const handleHashChange = () => {
+      const targetId = navigateToHashHeadingOnLoad(window.location.hash);
+      if (targetId) {
+        setActiveHeadingId(targetId);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
   }, [slug, tocItems]);
 
   // Scroll-spy: highlight the active H2/H3 heading as the reader scrolls through the guide
@@ -546,9 +564,7 @@ export const NoteDetailPage: React.FC = () => {
         : shareUrl;
     const { anchorUrl } = await copySectionAnchorLink(headingId, currentBaseUrl);
 
-    if (typeof window !== 'undefined' && window.history?.replaceState) {
-      window.history.replaceState(null, '', `#${headingId}`);
-    }
+    jumpToHeadingSection(headingId);
 
     setActiveHeadingId(headingId);
     setCopiedHeadingId(headingId);
