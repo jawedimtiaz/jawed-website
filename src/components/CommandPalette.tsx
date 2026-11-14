@@ -339,6 +339,17 @@ export const FREQUENT_SESSION_KEY = 'jawed_session_frequent_hits_v1';
 export const RECENT_SEARCHES_STORAGE_KEY = 'jawed_site_recent_searches_v1';
 export const MAX_RECENT_SEARCHES = 5;
 
+export const SEARCH_TRENDS_STORAGE_KEY = 'search-trends';
+export const SEARCH_TRENDS_EVENT_NAME = 'search-trends-updated';
+
+export interface SearchTrendRecord {
+  term: string;
+  displayTerm: string;
+  count: number;
+  firstSearchedAt: string;
+  lastSearchedAt: string;
+}
+
 function resolveLocalStorage<T extends Partial<Storage>>(customStorage?: T | null): T | Storage | null {
   if (customStorage !== undefined) {
     return customStorage;
@@ -490,6 +501,151 @@ export function selectRecentSearchQuery(
     query: cleanSelected,
     recentSearches: updatedList,
   };
+}
+
+/**
+ * Reads the 'search-trends' object from localStorage mapping normalized search terms
+ * to their frequency count and timestamps.
+ */
+export function getSearchTrendsFromStorage(
+  storage?: Pick<Storage, 'getItem'> | null
+): Record<string, SearchTrendRecord> {
+  const targetStorage = resolveLocalStorage(storage);
+  if (!targetStorage || typeof targetStorage.getItem !== 'function') {
+    return {};
+  }
+  try {
+    const raw = targetStorage.getItem(SEARCH_TRENDS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+
+    const result: Record<string, SearchTrendRecord> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      const normalizedTerm = key.trim().toLowerCase();
+      if (!normalizedTerm || normalizedTerm.length < 2 || normalizedTerm.startsWith('?')) {
+        continue;
+      }
+      if (typeof value === 'number' && value > 0) {
+        const nowIso = new Date().toISOString();
+        result[normalizedTerm] = {
+          term: normalizedTerm,
+          displayTerm: key.trim(),
+          count: Math.floor(value),
+          firstSearchedAt: nowIso,
+          lastSearchedAt: nowIso,
+        };
+      } else if (value && typeof value === 'object') {
+        const rec = value as Partial<SearchTrendRecord>;
+        const count = Math.max(1, Math.floor(Number(rec.count) || 1));
+        const nowIso = new Date().toISOString();
+        result[normalizedTerm] = {
+          term: normalizedTerm,
+          displayTerm: String(rec.displayTerm || rec.term || key).trim(),
+          count,
+          firstSearchedAt: String(rec.firstSearchedAt || nowIso),
+          lastSearchedAt: String(rec.lastSearchedAt || nowIso),
+        };
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Event tracker that logs a searched term into the localStorage 'search-trends' object,
+ * incrementing its inquiry count and updating its lastSearchedAt timestamp.
+ */
+export function trackSearchTermTrend(
+  searchQuery: string,
+  storage?: Pick<Storage, 'getItem' | 'setItem'> | null
+): Record<string, SearchTrendRecord> {
+  const targetStorage = resolveLocalStorage(storage);
+  const currentTrends = getSearchTrendsFromStorage(targetStorage);
+  const trimmed = (searchQuery || '').trim();
+  if (!trimmed || trimmed.length < 2 || trimmed.startsWith('?')) {
+    return currentTrends;
+  }
+
+  const normalizedTerm = trimmed.toLowerCase();
+  const nowIso = new Date().toISOString();
+  const existing = currentTrends[normalizedTerm];
+
+  const updatedRecord: SearchTrendRecord = {
+    term: normalizedTerm,
+    displayTerm: trimmed,
+    count: (existing?.count || 0) + 1,
+    firstSearchedAt: existing?.firstSearchedAt || nowIso,
+    lastSearchedAt: nowIso,
+  };
+
+  const nextTrends: Record<string, SearchTrendRecord> = {
+    ...currentTrends,
+    [normalizedTerm]: updatedRecord,
+  };
+
+  if (targetStorage && typeof targetStorage.setItem === 'function') {
+    try {
+      targetStorage.setItem(SEARCH_TRENDS_STORAGE_KEY, JSON.stringify(nextTrends));
+    } catch {}
+  }
+
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(
+      new CustomEvent(SEARCH_TRENDS_EVENT_NAME, {
+        detail: {
+          term: normalizedTerm,
+          record: updatedRecord,
+          trends: nextTrends,
+        },
+      })
+    );
+  }
+
+  return nextTrends;
+}
+
+export const logSearchTrendEvent = trackSearchTermTrend;
+export const recordSearchTrend = trackSearchTermTrend;
+
+/**
+ * Returns the top frequently searched terms from the 'search-trends' object sorted by count descending.
+ */
+export function getTopSearchTrends(
+  trendsOrStorage?: Record<string, SearchTrendRecord> | Pick<Storage, 'getItem'> | null,
+  limit: number = 5
+): SearchTrendRecord[] {
+  const trendsMap: Record<string, SearchTrendRecord> =
+    trendsOrStorage &&
+    typeof trendsOrStorage === 'object' &&
+    !('getItem' in trendsOrStorage)
+      ? (trendsOrStorage as Record<string, SearchTrendRecord>)
+      : getSearchTrendsFromStorage(
+          trendsOrStorage as Pick<Storage, 'getItem'> | null | undefined
+        );
+
+  return Object.values(trendsMap)
+    .filter((entry) => entry && entry.term && entry.count > 0)
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return b.lastSearchedAt.localeCompare(a.lastSearchedAt);
+    })
+    .slice(0, Math.max(1, limit));
+}
+
+export function clearSearchTrendsFromStorage(
+  storage?: Pick<Storage, 'removeItem'> | null
+): void {
+  const targetStorage = resolveLocalStorage(storage);
+  if (targetStorage && typeof targetStorage.removeItem === 'function') {
+    try {
+      targetStorage.removeItem(SEARCH_TRENDS_STORAGE_KEY);
+    } catch {}
+  }
 }
 
 export const BASELINE_FREQUENT_ITEMS: {
@@ -1155,14 +1311,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     shortcutFilterSubQuery,
   ]);
 
-  // Search History (localStorage last 5 unique queries) & search bar focus state
+  // Search History (localStorage last 5 unique queries), Search Trends ('search-trends' object), & search bar focus state
   const [recentSearches, setRecentSearches] = useState<string[]>(() =>
     getRecentSearchesFromStorage()
   );
+  const [searchTrends, setSearchTrends] = useState<Record<string, SearchTrendRecord>>(() =>
+    getSearchTrendsFromStorage()
+  );
   const [isSearchBarFocused, setIsSearchBarFocused] = useState<boolean>(true);
+  const lastTrackedTrendQueryRef = useRef<string>('');
 
   const addRecentSearch = useCallback((searchQuery: string) => {
-    setRecentSearches((prev) => saveRecentSearchToStorage(searchQuery, prev));
+    const trimmed = (searchQuery || '').trim();
+    setRecentSearches((prev) => saveRecentSearchToStorage(trimmed, prev));
+    if (trimmed.length >= 2 && !trimmed.startsWith('?')) {
+      lastTrackedTrendQueryRef.current = trimmed.toLowerCase();
+      setSearchTrends(trackSearchTermTrend(trimmed));
+    }
   }, []);
 
   const removeRecentSearch = useCallback((searchQuery: string) => {
@@ -1174,16 +1339,55 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     setRecentSearches([]);
   }, []);
 
+  const clearSearchTrends = useCallback(() => {
+    clearSearchTrendsFromStorage();
+    setSearchTrends({});
+    lastTrackedTrendQueryRef.current = '';
+  }, []);
+
   const handleSelectRecentSearch = useCallback((recSearch: string) => {
     setRecentSearches((prev) => selectRecentSearchQuery(recSearch, prev).recentSearches);
+    lastTrackedTrendQueryRef.current = recSearch.trim().toLowerCase();
+    setSearchTrends(trackSearchTermTrend(recSearch));
     setQuery(recSearch);
     setIsSearchBarFocused(true);
     inputRef.current?.focus();
   }, []);
 
+  const handleSelectSearchTrend = useCallback((trendTerm: string) => {
+    setRecentSearches((prev) => saveRecentSearchToStorage(trendTerm, prev));
+    lastTrackedTrendQueryRef.current = trendTerm.trim().toLowerCase();
+    setSearchTrends(trackSearchTermTrend(trendTerm));
+    setQuery(trendTerm);
+    setIsSearchBarFocused(true);
+    inputRef.current?.focus();
+  }, []);
+
+  // Automatically log debounced user search inquiries to localStorage 'search-trends'
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!isOpen || trimmed.length < 2 || trimmed.startsWith('?')) {
+      return;
+    }
+    const normalized = trimmed.toLowerCase();
+    if (lastTrackedTrendQueryRef.current === normalized) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      lastTrackedTrendQueryRef.current = normalized;
+      setSearchTrends(trackSearchTermTrend(trimmed));
+    }, 550);
+    return () => window.clearTimeout(timer);
+  }, [query, isOpen]);
+
   const visibleRecentSearches = useMemo(
     () => getMatchingRecentSearches(recentSearches, query, MAX_RECENT_SEARCHES),
     [recentSearches, query]
+  );
+
+  const topSearchTrends = useMemo(
+    () => getTopSearchTrends(searchTrends, 5),
+    [searchTrends]
   );
 
   // Recommendations when query is empty
@@ -1420,6 +1624,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     setIsOpen(true);
     setIsSearchBarFocused(true);
     setRecentSearches(getRecentSearchesFromStorage());
+    setSearchTrends(getSearchTrendsFromStorage());
     setNavigationMode('keyboard');
     setQuickActionNotice(null);
     setIsShortcutDiscoveryActive(false);
@@ -1454,6 +1659,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       sessionStorage.clear();
     } catch {}
     setRecentSearches([]);
+    setSearchTrends({});
+    lastTrackedTrendQueryRef.current = '';
     resetFrequentHistory();
     window.dispatchEvent(new CustomEvent('local-storage-cleared'));
     setQuickActionNotice('Local storage and cached tool data cleared.');
@@ -3127,6 +3334,114 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                               ✕
                             </button>
                           </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {!isShortcutDiscoveryMode && topSearchTrends.length > 0 && (
+                    <div
+                      className="search-trends-section"
+                      data-testid="search-trends-section"
+                      role="region"
+                      aria-label="Search Trends — Common User Inquiries"
+                      style={{ marginBottom: '14px' }}
+                    >
+                      <div
+                        className="search-section-header"
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                          <span>📈 Search Trends</span>
+                          <span
+                            data-testid="search-trends-count"
+                            style={{
+                              fontSize: '0.68rem',
+                              color: 'var(--muted)',
+                              fontWeight: 600,
+                              padding: '1px 6px',
+                              borderRadius: '999px',
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              textTransform: 'none',
+                              letterSpacing: 'normal',
+                            }}
+                          >
+                            {topSearchTrends.length} top inquiries
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          data-testid="clear-search-trends-btn"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={clearSearchTrends}
+                          style={{
+                            background: 'transparent',
+                            border: 0,
+                            color: 'var(--muted)',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                          }}
+                          title="Reset search-trends logs"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <div
+                        className="search-suggestion-chips"
+                        data-testid="search-trends-list"
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '6px',
+                          padding: '4px 12px 6px',
+                        }}
+                      >
+                        {topSearchTrends.map((trend, idx) => (
+                          <button
+                            key={trend.term}
+                            type="button"
+                            className="search-suggestion-chip"
+                            data-testid="search-trend-item"
+                            data-trend-index={idx}
+                            data-trend-term={trend.term}
+                            data-trend-count={trend.count}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => handleSelectSearchTrend(trend.displayTerm)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '5px 10px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--line)',
+                              background: 'var(--bg)',
+                              color: 'var(--text)',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                            title={`Searched ${trend.count} time${trend.count === 1 ? '' : 's'}`}
+                          >
+                            <span>{trend.displayTerm}</span>
+                            <span
+                              style={{
+                                fontSize: '0.68rem',
+                                color: 'var(--accent)',
+                                background: 'rgba(56, 189, 248, 0.12)',
+                                padding: '1px 5px',
+                                borderRadius: '999px',
+                              }}
+                            >
+                              ×{trend.count}
+                            </span>
+                          </button>
                         ))}
                       </div>
                     </div>

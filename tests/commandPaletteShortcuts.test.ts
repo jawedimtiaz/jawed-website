@@ -1846,6 +1846,73 @@ describe('CommandPalette - Shortcut Filtering & Navigational Execution Logic', (
       'Expected QuickActionsMenu.tsx to render the Bookmarks tab and saved guides list'
     );
   });
+
+  it('logs frequently searched terms to a localStorage "search-trends" object for identifying common user inquiries', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      SEARCH_TRENDS_STORAGE_KEY,
+      getSearchTrendsFromStorage,
+      trackSearchTermTrend,
+      getTopSearchTrends,
+      clearSearchTrendsFromStorage,
+    } = await import('../src/components/CommandPalette');
+
+    assert.equal(SEARCH_TRENDS_STORAGE_KEY, 'search-trends');
+
+    const store = new Map<string, string>();
+    const mockStorage = {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    };
+
+    // 1. Track several search inquiries with repeated terms
+    trackSearchTermTrend('IPv4 Subnet', mockStorage);
+    trackSearchTermTrend('poe budget', mockStorage);
+    trackSearchTermTrend('ipv4 subnet', mockStorage);
+    trackSearchTermTrend('DNS Flush', mockStorage);
+    trackSearchTermTrend('IPv4 Subnet', mockStorage);
+    trackSearchTermTrend('PoE Budget', mockStorage);
+
+    // 2. Verify localStorage 'search-trends' object structure and counts
+    const rawJson = store.get('search-trends');
+    assert.ok(rawJson, 'Expected "search-trends" key to be written in localStorage');
+    const parsedTrends = getSearchTrendsFromStorage(mockStorage);
+    assert.equal(parsedTrends['ipv4 subnet']?.count, 3);
+    assert.equal(parsedTrends['poe budget']?.count, 2);
+    assert.equal(parsedTrends['dns flush']?.count, 1);
+
+    // 3. Verify top search trends ranking by frequency descending
+    const topTrends = getTopSearchTrends(mockStorage, 5);
+    assert.equal(topTrends.length, 3);
+    assert.equal(topTrends[0].term, 'ipv4 subnet');
+    assert.equal(topTrends[0].count, 3);
+    assert.equal(topTrends[1].term, 'poe budget');
+    assert.equal(topTrends[1].count, 2);
+    assert.equal(topTrends[2].term, 'dns flush');
+    assert.equal(topTrends[2].count, 1);
+
+    // 4. Verify clearing search-trends removes the key from localStorage
+    clearSearchTrendsFromStorage(mockStorage);
+    assert.deepEqual(getSearchTrendsFromStorage(mockStorage), {});
+
+    // 5. Verify CommandPalette.tsx integrates trackSearchTermTrend and renders search-trends-section
+    const paletteSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/CommandPalette.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      paletteSource.includes("SEARCH_TRENDS_STORAGE_KEY = 'search-trends'") &&
+        paletteSource.includes('trackSearchTermTrend') &&
+        paletteSource.includes('data-testid="search-trends-section"'),
+      'Expected CommandPalette.tsx to log and display search-trends'
+    );
+  });
 });
 
 
