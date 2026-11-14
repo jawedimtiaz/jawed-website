@@ -4,12 +4,60 @@ export interface TocItem {
   level: 2 | 3;
 }
 
+/**
+ * Heading count threshold for automatic Table of Contents expansion:
+ * - Pages with fewer than 5 headings (`< 5`) automatically expand the TOC.
+ * - Pages with 5 or more headings (`>= 5`) default to collapsed for a cleaner layout.
+ */
+export const TOC_AUTO_COLLAPSE_HEADING_THRESHOLD = 5;
+
+/**
+ * Returns true if the Table of Contents should automatically expand on initial load
+ * (when the page has fewer than 5 H2/H3 headings).
+ */
+export function shouldAutoExpandToc(
+  headingsOrCount: number | TocItem[] | null | undefined,
+  threshold: number = TOC_AUTO_COLLAPSE_HEADING_THRESHOLD
+): boolean {
+  const count =
+    typeof headingsOrCount === 'number'
+      ? headingsOrCount
+      : Array.isArray(headingsOrCount)
+        ? headingsOrCount.length
+        : 0;
+  return count > 0 && count < threshold;
+}
+
+/**
+ * Returns true if the Table of Contents should default to collapsed on initial load
+ * (when the page has 5 or more H2/H3 headings, or 0 headings).
+ * Pages with fewer than 5 headings return `false` (expanded).
+ */
+export function shouldDefaultCollapseToc(
+  headingsOrCount: number | TocItem[] | null | undefined,
+  threshold: number = TOC_AUTO_COLLAPSE_HEADING_THRESHOLD
+): boolean {
+  const count =
+    typeof headingsOrCount === 'number'
+      ? headingsOrCount
+      : Array.isArray(headingsOrCount)
+        ? headingsOrCount.length
+        : 0;
+  if (count <= 0) return true;
+  return count >= threshold;
+}
+
 export interface TocGeneratorOptions {
   /**
    * Minimum number of H2/H3 headings required to display the Table of Contents.
    * Defaults to 2 so multi-section guides automatically display the TOC.
    */
   minHeadings?: number;
+  /**
+   * Heading count threshold at or above which the Table of Contents defaults to collapsed.
+   * Defaults to 5 (fewer than 5 headings automatically expands; 5+ defaults to collapsed).
+   */
+  collapseThreshold?: number;
 }
 
 export interface GeneratedTocResult {
@@ -25,6 +73,14 @@ export interface GeneratedTocResult {
    * Whether the guide has enough headings to display the Table of Contents navigation.
    */
   shouldShowToc: boolean;
+  /**
+   * Whether the TOC should default to collapsed (`true` when 5+ headings, `false` when < 5 headings).
+   */
+  defaultCollapsed: boolean;
+  /**
+   * Whether the TOC should automatically expand (`true` when 1..4 headings, `false` when 5+ headings).
+   */
+  shouldAutoExpand: boolean;
 }
 
 const NAMED_HTML_ENTITIES: Record<string, string> = {
@@ -123,12 +179,15 @@ export function generateTableOfContents(
   options: TocGeneratorOptions = {}
 ): GeneratedTocResult {
   const minHeadings = options.minHeadings ?? 2;
+  const collapseThreshold = options.collapseThreshold ?? TOC_AUTO_COLLAPSE_HEADING_THRESHOLD;
 
   if (!htmlContent || typeof htmlContent !== 'string') {
     return {
       htmlWithIds: '',
       tocItems: [],
       shouldShowToc: false,
+      defaultCollapsed: true,
+      shouldAutoExpand: false,
     };
   }
 
@@ -197,6 +256,8 @@ export function generateTableOfContents(
     htmlWithIds,
     tocItems,
     shouldShowToc: tocItems.length >= minHeadings,
+    defaultCollapsed: shouldDefaultCollapseToc(tocItems.length, collapseThreshold),
+    shouldAutoExpand: shouldAutoExpandToc(tocItems.length, collapseThreshold),
   };
 }
 
@@ -254,6 +315,78 @@ export function parseRenderedHeadingsFromDom(
   }
 
   return items;
+}
+
+/**
+ * Automatically extracts all H2 and H3 headings from either raw HTML/Markdown content
+ * or a rendered DOM container element, returning ordered TocItem entries with unique IDs.
+ */
+export function extractTocHeadings(
+  source:
+    | string
+    | { querySelectorAll?: (selector: string) => ArrayLike<any> }
+    | HTMLElement
+    | null
+    | undefined
+): TocItem[] {
+  if (!source) return [];
+  if (typeof source === 'string') {
+    return generateTableOfContents(source).tocItems;
+  }
+  if (typeof source === 'object' && typeof source.querySelectorAll === 'function') {
+    return parseRenderedHeadingsFromDom(source);
+  }
+  return [];
+}
+
+export interface GroupedTocSection {
+  section: TocItem;
+  subsections: TocItem[];
+}
+
+/**
+ * Groups flat H2 and H3 TOC items into hierarchical H2 parent sections with nested H3 subsections.
+ */
+export function groupTocItemsByH2(items: TocItem[]): GroupedTocSection[] {
+  if (!Array.isArray(items) || items.length === 0) return [];
+
+  const groups: GroupedTocSection[] = [];
+  for (const item of items) {
+    if (item.level === 2 || groups.length === 0) {
+      groups.push({ section: item, subsections: [] });
+    } else {
+      groups[groups.length - 1].subsections.push(item);
+    }
+  }
+  return groups;
+}
+
+export interface SmoothScrollTocResult {
+  scrolled: boolean;
+  headingId: string;
+  hash: string;
+}
+
+/**
+ * Smoothly scrolls to a target H2/H3 heading element by ID (`behavior: 'smooth'`)
+ * and updates the browser URL hash without triggering a page reload.
+ */
+export function smoothScrollToHeading(
+  headingId: string,
+  docOverride?: { getElementById?: (id: string) => { scrollIntoView?: (opts: any) => void } | null },
+  winOverride?: { history?: { replaceState?: (data: any, unused: string, url?: string | null) => void } }
+): SmoothScrollTocResult {
+  const cleanId = (headingId || '').replace(/^#+/, '').trim();
+  if (!cleanId) {
+    return { scrolled: false, headingId: '', hash: '' };
+  }
+
+  const scrolled = jumpToHeadingSection(cleanId, docOverride, winOverride);
+  return {
+    scrolled,
+    headingId: cleanId,
+    hash: `#${cleanId}`,
+  };
 }
 
 /**
@@ -387,20 +520,31 @@ export async function copyTocAnchorToClipboard(
 
 /**
  * Copies the direct section anchor link (`https://...#section-id`) for an H2/H3 guide section
- * to the user's clipboard and returns the anchor URL and toast notification message ('Link copied').
+ * to the user's clipboard, appends `#section-id` to the browser URL hash, and returns the
+ * anchor URL and toast notification message ('Link copied').
  */
 export async function copySectionAnchorLink(
   headingId: string,
   baseUrl?: string,
-  clipboardOverride?: ClipboardWriterLike
+  clipboardOverride?: ClipboardWriterLike,
+  winOverride?: {
+    location?: { href?: string };
+    history?: { replaceState?: (data: any, unused: string, url?: string | null) => void };
+  }
 ): Promise<CopySectionAnchorResult> {
   const cleanId = headingId.replace(/^#+/, '').trim();
+  const win = winOverride ?? (typeof window !== 'undefined' ? window : undefined);
   const effectiveBaseUrl =
     baseUrl ??
-    (typeof window !== 'undefined' && window.location?.href
-      ? window.location.href
+    (win?.location?.href
+      ? win.location.href
       : 'https://jawed.co.in/notes');
   const anchorUrl = buildTocAnchorUrl(effectiveBaseUrl, cleanId);
+
+  if (cleanId && win?.history && typeof win.history.replaceState === 'function') {
+    win.history.replaceState(null, '', `#${cleanId}`);
+  }
+
   const ok = cleanId ? await copyTocAnchorToClipboard(anchorUrl, clipboardOverride) : false;
 
   return {
@@ -409,6 +553,100 @@ export async function copySectionAnchorLink(
     anchorUrl,
     toastMessage: HEADING_COPY_TOAST_MESSAGE,
   };
+}
+
+/**
+ * Ensures every rendered `<h2>` and `<h3>` element inside a live DOM container has an
+ * automatically generated unique `id` attribute for deep-linking and an interactive
+ * `'Copy Link'` button (`class="note-heading-copy-btn"`) that appends `#heading-id` to the URL.
+ */
+export function ensureHeadingIdsAndCopyButtonsInDom(
+  container: { querySelectorAll?: (selector: string) => ArrayLike<any> } | HTMLElement | null,
+  copiedHeadingId: string = ''
+): TocItem[] {
+  if (!container || typeof container.querySelectorAll !== 'function') {
+    return [];
+  }
+
+  const headings = Array.from(container.querySelectorAll('h2, h3')) as HTMLElement[];
+  const usedIds = new Set<string>();
+  const items: TocItem[] = [];
+
+  headings.forEach((heading) => {
+    const existingBtn =
+      typeof heading.querySelector === 'function'
+        ? heading.querySelector<HTMLButtonElement>('.note-heading-copy-btn')
+        : null;
+    const rawText = (
+      (typeof heading.querySelector === 'function'
+        ? heading.querySelector('.note-heading-text')?.textContent
+        : '') ||
+      heading.textContent ||
+      ''
+    )
+      .replace(/Copy Link to Heading|Copy Link|Link copied!?|Copied!?|✓/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!rawText) return;
+
+    let headingId = (heading.id || heading.getAttribute?.('id') || '').trim() || slugifyHeading(rawText);
+    if (usedIds.has(headingId)) {
+      let count = 2;
+      while (usedIds.has(`${headingId}-${count}`)) count += 1;
+      headingId = `${headingId}-${count}`;
+    }
+    usedIds.add(headingId);
+    if (heading.id !== headingId) {
+      heading.id = headingId;
+    }
+    if (typeof heading.setAttribute === 'function') {
+      heading.setAttribute('id', headingId);
+    }
+
+    heading.classList?.add?.('note-heading-with-copy');
+    const isCopied = Boolean(copiedHeadingId && copiedHeadingId === headingId);
+    const btnTitle = isCopied ? HEADING_COPY_TOAST_MESSAGE : 'Copy Link to Heading';
+    const btnAria = isCopied
+      ? `Link copied for section: ${rawText}`
+      : `Copy Link to Heading: ${rawText}`;
+
+    const btnHtml = isCopied
+      ? `<span class="note-heading-copy-feedback" aria-hidden="true">✓</span><span class="note-heading-copy-text">${HEADING_COPY_TOAST_MESSAGE}</span>`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span class="note-heading-copy-text">${HEADING_COPY_BUTTON_LABEL}</span>`;
+
+    const doc =
+      heading.ownerDocument || (typeof document !== 'undefined' ? document : undefined);
+
+    if (existingBtn) {
+      existingBtn.className = `note-heading-copy-btn${isCopied ? ' is-copied' : ''}`;
+      existingBtn.setAttribute('data-copy-heading-id', headingId);
+      existingBtn.setAttribute('data-testid', `copy-heading-link-${headingId}`);
+      existingBtn.setAttribute('data-heading-anchor', `#${headingId}`);
+      existingBtn.setAttribute('title', btnTitle);
+      existingBtn.setAttribute('aria-label', btnAria);
+      existingBtn.innerHTML = btnHtml;
+    } else if (doc && typeof doc.createElement === 'function' && typeof heading.appendChild === 'function') {
+      const btn = doc.createElement('button');
+      btn.type = 'button';
+      btn.className = `note-heading-copy-btn${isCopied ? ' is-copied' : ''}`;
+      btn.setAttribute('data-copy-heading-id', headingId);
+      btn.setAttribute('data-testid', `copy-heading-link-${headingId}`);
+      btn.setAttribute('data-heading-anchor', `#${headingId}`);
+      btn.setAttribute('title', btnTitle);
+      btn.setAttribute('aria-label', btnAria);
+      btn.innerHTML = btnHtml;
+      heading.appendChild(btn);
+    }
+
+    items.push({
+      id: headingId,
+      text: rawText,
+      level: heading.tagName.toLowerCase() === 'h3' ? 3 : 2,
+    });
+  });
+
+  return items;
 }
 
 /**

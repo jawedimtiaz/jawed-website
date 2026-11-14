@@ -1469,3 +1469,367 @@ test('adds a Copy Link button on hover for each h2 and h3 heading in NoteDetailP
     'Expected NoteDetailPage.tsx to navigate directly to the section on hash load and heading link click'
   );
 });
+
+test('automatically generates unique IDs for every h2 and h3 heading in NoteDetailPage and updates Copy Link to append #hash to the URL', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    generateTableOfContents,
+    injectHeadingCopyButtons,
+    ensureHeadingIdsAndCopyButtonsInDom,
+    copySectionAnchorLink,
+    buildTocAnchorUrl,
+  } = await import('../src/pages/NoteDetailPage');
+
+  // 1. Verify HTML string parser generates unique IDs for every h2 and h3 heading (including duplicates)
+  const rawHtml = `
+    <h2>BGP Neighbor States</h2>
+    <h3>Active vs Connect</h3>
+    <h3>Active vs Connect</h3>
+    <h2>BGP Neighbor States</h2>
+  `;
+  const { htmlWithIds, tocItems } = generateTableOfContents(rawHtml);
+  assert.deepEqual(
+    tocItems.map((item) => ({ id: item.id, level: item.level })),
+    [
+      { id: 'bgp-neighbor-states', level: 2 },
+      { id: 'active-vs-connect', level: 3 },
+      { id: 'active-vs-connect-2', level: 3 },
+      { id: 'bgp-neighbor-states-2', level: 2 },
+    ]
+  );
+
+  const htmlWithButtons = injectHeadingCopyButtons(htmlWithIds);
+  for (const item of tocItems) {
+    assert.ok(
+      htmlWithButtons.includes(`id="${item.id}"`),
+      `Expected heading to have id="${item.id}"`
+    );
+    assert.ok(
+      htmlWithButtons.includes(`data-copy-heading-id="${item.id}"`) &&
+        htmlWithButtons.includes(`data-heading-anchor="#${item.id}"`),
+      `Expected Copy Link button to include data-copy-heading-id="${item.id}" and data-heading-anchor="#${item.id}"`
+    );
+  }
+
+  // 2. Verify live DOM enhancer (ensureHeadingIdsAndCopyButtonsInDom) assigns unique IDs to h2/h3 nodes missing an ID
+  const createMockHeading = (tagName: string, textContent: string, initialId = '') => {
+    const attrs = new Map<string, string>();
+    if (initialId) attrs.set('id', initialId);
+    const children: Array<{
+      className: string;
+      textContent: string;
+      attrs: Map<string, string>;
+      setAttribute: (n: string, v: string) => void;
+      getAttribute: (n: string) => string | null;
+      querySelector: (sel: string) => { textContent: string | null } | null;
+    }> = [];
+
+    return {
+      tagName,
+      id: initialId,
+      textContent,
+      ownerDocument: {
+        createElement: (_tag: string) => {
+          const btnAttrs = new Map<string, string>();
+          let innerText = 'Copy Link';
+          return {
+            type: 'button',
+            className: '',
+            innerHTML: '',
+            get textContent() {
+              return innerText;
+            },
+            set textContent(v: string) {
+              innerText = v;
+            },
+            setAttribute: (n: string, v: string) => {
+              btnAttrs.set(n, v);
+            },
+            getAttribute: (n: string) => btnAttrs.get(n) ?? null,
+            querySelector: (sel: string) =>
+              sel === '.note-heading-copy-text'
+                ? {
+                    get textContent() {
+                      return innerText;
+                    },
+                    set textContent(v: string | null) {
+                      innerText = v || '';
+                    },
+                  }
+                : null,
+            attrs: btnAttrs,
+          };
+        },
+      },
+      getAttribute: (n: string) => (n === 'id' ? initialId || attrs.get('id') || null : attrs.get(n) ?? null),
+      setAttribute: function (n: string, v: string) {
+        attrs.set(n, v);
+        if (n === 'id') {
+          this.id = v;
+        }
+      },
+      querySelector: (sel: string) => {
+        if (sel === '.note-heading-copy-btn') {
+          return children[0] || null;
+        }
+        return null;
+      },
+      appendChild: (child: (typeof children)[number]) => {
+        children.push(child);
+      },
+      children,
+    };
+  };
+
+  const mockHeadings = [
+    createMockHeading('H2', 'OSPF Area Types'),
+    createMockHeading('H3', 'Stub & Totally Stubby Areas'),
+    createMockHeading('H3', 'Stub & Totally Stubby Areas'),
+  ];
+
+  const domTocItems = ensureHeadingIdsAndCopyButtonsInDom({
+    querySelectorAll: () => mockHeadings as unknown as NodeListOf<HTMLElement>,
+  });
+
+  assert.deepEqual(
+    domTocItems.map((item) => item.id),
+    ['ospf-area-types', 'stub-totally-stubby-areas', 'stub-totally-stubby-areas-2']
+  );
+  assert.equal(mockHeadings[0].id, 'ospf-area-types');
+  assert.equal(mockHeadings[1].id, 'stub-totally-stubby-areas');
+  assert.equal(mockHeadings[2].id, 'stub-totally-stubby-areas-2');
+  assert.equal(
+    mockHeadings[1].children[0]?.getAttribute('data-heading-anchor'),
+    '#stub-totally-stubby-areas'
+  );
+
+  // 3. Verify Copy Link appends #hash to the URL (stripping any old hash) and updates browser URL hash via history.replaceState
+  let copiedUrl = '';
+  let historyReplacedHash = '';
+  const copyResult = await copySectionAnchorLink(
+    'stub-totally-stubby-areas-2',
+    'https://jawed.co.in/notes/ospf-design-guide#old-section',
+    {
+      writeText: async (text: string) => {
+        copiedUrl = text;
+      },
+    },
+    {
+      location: { href: 'https://jawed.co.in/notes/ospf-design-guide#old-section' },
+      history: {
+        replaceState: (_data: unknown, _unused: string, url?: string | null) => {
+          historyReplacedHash = url || '';
+        },
+      },
+    }
+  );
+
+  assert.equal(copyResult.ok, true);
+  assert.equal(
+    copyResult.anchorUrl,
+    'https://jawed.co.in/notes/ospf-design-guide#stub-totally-stubby-areas-2'
+  );
+  assert.equal(
+    copiedUrl,
+    buildTocAnchorUrl('https://jawed.co.in/notes/ospf-design-guide', 'stub-totally-stubby-areas-2')
+  );
+  assert.equal(historyReplacedHash, '#stub-totally-stubby-areas-2');
+
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    noteDetailSource.includes('ensureHeadingIdsAndCopyButtonsInDom') &&
+      noteDetailSource.includes('buildTocAnchorUrl(baseNoteUrl, currentHashId)'),
+    'Expected NoteDetailPage.tsx to invoke ensureHeadingIdsAndCopyButtonsInDom and append #hash via buildTocAnchorUrl'
+  );
+});
+
+test('CollapsibleTableOfContents automatically extracts all h2 and h3 headings and provides smooth-scroll navigation in NoteDetailPage', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    CollapsibleTableOfContents,
+    extractTocHeadings,
+    groupTocItemsByH2,
+    smoothScrollToHeading,
+  } = await import('../src/components/CollapsibleTableOfContents');
+
+  assert.equal(typeof CollapsibleTableOfContents, 'function');
+
+  // 1. Verify automatic extraction of all h2 and h3 headings from HTML/Markdown content and DOM elements
+  const guideHtml = `
+    <h1>Guide Title</h1>
+    <h2>1. BGP Session Establishment</h2>
+    <h3>1.1 TCP Port 179 Reachability</h3>
+    <h3>1.2 Hold Timer &amp; Keepalive Negotiation</h3>
+    <h2>2. Prefix Filtering &amp; Route Maps</h2>
+    <h3>2.1 Inbound AS-Path Prepending</h3>
+    <h4>Ignored Level 4</h4>
+  `;
+
+  const extractedFromString = extractTocHeadings(guideHtml);
+  assert.deepEqual(extractedFromString, [
+    { id: '1-bgp-session-establishment', text: '1. BGP Session Establishment', level: 2 },
+    { id: '1-1-tcp-port-179-reachability', text: '1.1 TCP Port 179 Reachability', level: 3 },
+    { id: '1-2-hold-timer-keepalive-negotiation', text: '1.2 Hold Timer & Keepalive Negotiation', level: 3 },
+    { id: '2-prefix-filtering-route-maps', text: '2. Prefix Filtering & Route Maps', level: 2 },
+    { id: '2-1-inbound-as-path-prepending', text: '2.1 Inbound AS-Path Prepending', level: 3 },
+  ]);
+
+  const grouped = groupTocItemsByH2(extractedFromString);
+  assert.equal(grouped.length, 2);
+  assert.equal(grouped[0].section.id, '1-bgp-session-establishment');
+  assert.equal(grouped[0].subsections.length, 2);
+  assert.equal(grouped[1].section.id, '2-prefix-filtering-route-maps');
+  assert.equal(grouped[1].subsections.length, 1);
+
+  // 2. Verify smooth-scroll navigation (`behavior: 'smooth'`) and URL hash synchronization
+  let scrollOptionsReceived: { behavior?: string; block?: string } | null = null;
+  let updatedHash = '';
+  const scrollResult = smoothScrollToHeading(
+    '#1-2-hold-timer-keepalive-negotiation',
+    {
+      getElementById: (id: string) =>
+        id === '1-2-hold-timer-keepalive-negotiation'
+          ? {
+              scrollIntoView: (opts: { behavior?: string; block?: string }) => {
+                scrollOptionsReceived = opts;
+              },
+            }
+          : null,
+    },
+    {
+      history: {
+        replaceState: (_data: unknown, _unused: string, url?: string | null) => {
+          updatedHash = url || '';
+        },
+      },
+    }
+  );
+
+  assert.equal(scrollResult.scrolled, true);
+  assert.equal(scrollResult.headingId, '1-2-hold-timer-keepalive-negotiation');
+  assert.equal(scrollResult.hash, '#1-2-hold-timer-keepalive-negotiation');
+  assert.deepEqual(scrollOptionsReceived, { behavior: 'smooth', block: 'start' });
+  assert.equal(updatedHash, '#1-2-hold-timer-keepalive-negotiation');
+
+  // 3. Verify CollapsibleTableOfContents and NoteDetailPage integration
+  const tocSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/TableOfContents.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    tocSource.includes('data-testid="collapsible-table-of-contents"') &&
+      tocSource.includes('data-testid="collapsible-toc-toggle"') &&
+      tocSource.includes('data-testid="collapsible-toc-panel"') &&
+      tocSource.includes('data-testid="note-toc-collapse-toggle"') &&
+      tocSource.includes('smoothScrollToHeading(headingId)'),
+    'Expected TableOfContents.tsx to implement collapsible toggles and smoothScrollToHeading'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('<CollapsibleTableOfContents') &&
+      noteDetailSource.includes('collapsible={true}') &&
+      noteDetailSource.includes('isCollapsed={isTocCollapsed}'),
+    'Expected NoteDetailPage.tsx to mount CollapsibleTableOfContents and collapsible sidebar TableOfContents'
+  );
+});
+
+test('TableOfContents automatically expands if the current page has fewer than 5 headings, otherwise defaults to collapsed', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    TOC_AUTO_COLLAPSE_HEADING_THRESHOLD,
+    shouldAutoExpandToc,
+    shouldDefaultCollapseToc,
+    generateTableOfContents,
+  } = await import('../src/pages/NoteDetailPage');
+
+  assert.equal(TOC_AUTO_COLLAPSE_HEADING_THRESHOLD, 5);
+
+  // 1. Verify pages with fewer than 5 headings (1..4) automatically expand
+  for (const count of [1, 2, 3, 4]) {
+    assert.equal(
+      shouldAutoExpandToc(count),
+      true,
+      `Expected shouldAutoExpandToc(${count}) to be true (< 5 headings)`
+    );
+    assert.equal(
+      shouldDefaultCollapseToc(count),
+      false,
+      `Expected shouldDefaultCollapseToc(${count}) to be false (< 5 headings)`
+    );
+  }
+
+  // 2. Verify pages with 5 or more headings default to collapsed
+  for (const count of [5, 6, 8, 12]) {
+    assert.equal(
+      shouldAutoExpandToc(count),
+      false,
+      `Expected shouldAutoExpandToc(${count}) to be false (>= 5 headings)`
+    );
+    assert.equal(
+      shouldDefaultCollapseToc(count),
+      true,
+      `Expected shouldDefaultCollapseToc(${count}) to be true (>= 5 headings)`
+    );
+  }
+
+  // 3. Verify generateTableOfContents sets defaultCollapsed=false for 4 headings and defaultCollapsed=true for 5 headings
+  const fourHeadingsHtml = `
+    <h2>1. Overview</h2>
+    <h3>1.1 Scope</h3>
+    <h2>2. Verification</h2>
+    <h3>2.1 CLI Checks</h3>
+  `;
+  const fourResult = generateTableOfContents(fourHeadingsHtml);
+  assert.equal(fourResult.tocItems.length, 4);
+  assert.equal(fourResult.shouldAutoExpand, true);
+  assert.equal(fourResult.defaultCollapsed, false);
+
+  const fiveHeadingsHtml = `
+    <h2>1. Overview</h2>
+    <h3>1.1 Scope</h3>
+    <h2>2. Verification</h2>
+    <h3>2.1 CLI Checks</h3>
+    <h2>3. Escalation</h2>
+  `;
+  const fiveResult = generateTableOfContents(fiveHeadingsHtml);
+  assert.equal(fiveResult.tocItems.length, 5);
+  assert.equal(fiveResult.shouldAutoExpand, false);
+  assert.equal(fiveResult.defaultCollapsed, true);
+
+  // 4. Verify TableOfContents.tsx and NoteDetailPage.tsx wire the < 5 heading auto-expand logic
+  const tocSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/TableOfContents.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    tocSource.includes('shouldDefaultCollapseToc(items.length)') &&
+      tocSource.includes('shouldAutoExpandToc(items.length)') &&
+      tocSource.includes('data-auto-expanded={isAutoExpanded}') &&
+      tocSource.includes('data-default-collapsed={computedDefaultCollapsed}'),
+    'Expected TableOfContents.tsx to compute default collapse state from shouldDefaultCollapseToc(items.length)'
+  );
+  assert.ok(
+    noteDetailSource.includes('shouldDefaultCollapseToc(tocItems.length)') &&
+      noteDetailSource.includes('defaultCollapsed={defaultCollapsed}'),
+    'Expected NoteDetailPage.tsx to initialize and pass defaultCollapsed based on shouldDefaultCollapseToc(tocItems.length)'
+  );
+});
+
+
+

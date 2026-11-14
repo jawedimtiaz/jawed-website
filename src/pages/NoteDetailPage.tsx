@@ -20,12 +20,17 @@ import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 import { extractContentFreshness, type NoteSchemaItem } from '../utils/contentFreshness';
 import {
   TableOfContents,
+  CollapsibleTableOfContents,
   AutomatedTableOfContents,
   generateTableOfContents,
   convertMarkdownHeadingsToHtml,
   parseRenderedHeadingsFromDom,
+  extractTocHeadings,
+  groupTocItemsByH2,
+  smoothScrollToHeading,
   jumpToHeadingSection,
   navigateToHashHeadingOnLoad,
+  ensureHeadingIdsAndCopyButtonsInDom,
   injectHeadingCopyButtons,
   deriveTableCaptionText,
   wrapTablesInAccessibleContainers,
@@ -36,6 +41,9 @@ import {
   injectCodeBlockMarkdownCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
+  TOC_AUTO_COLLAPSE_HEADING_THRESHOLD,
+  shouldAutoExpandToc,
+  shouldDefaultCollapseToc,
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
@@ -44,6 +52,8 @@ import {
   CODE_MARKDOWN_BUTTON_LABEL,
   CODE_MARKDOWN_COPIED_LABEL,
   type TocItem,
+  type GroupedTocSection,
+  type SmoothScrollTocResult,
   type GeneratedTocResult,
   type CopySectionAnchorResult,
   type AccessibleTableOptions,
@@ -107,12 +117,17 @@ import {
 
 export {
   TableOfContents,
+  CollapsibleTableOfContents,
   AutomatedTableOfContents,
   generateTableOfContents,
   convertMarkdownHeadingsToHtml,
   parseRenderedHeadingsFromDom,
+  extractTocHeadings,
+  groupTocItemsByH2,
+  smoothScrollToHeading,
   jumpToHeadingSection,
   navigateToHashHeadingOnLoad,
+  ensureHeadingIdsAndCopyButtonsInDom,
   injectHeadingCopyButtons,
   deriveTableCaptionText,
   wrapTablesInAccessibleContainers,
@@ -123,6 +138,9 @@ export {
   injectCodeBlockMarkdownCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
+  TOC_AUTO_COLLAPSE_HEADING_THRESHOLD,
+  shouldAutoExpandToc,
+  shouldDefaultCollapseToc,
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
@@ -157,6 +175,8 @@ export {
   calculateRemainingReadTime,
   getHeaderReadTimeDetails,
   type TocItem,
+  type GroupedTocSection,
+  type SmoothScrollTocResult,
   type GeneratedTocResult,
   type CopySectionAnchorResult,
   type AccessibleTableOptions,
@@ -417,7 +437,7 @@ export const NoteDetailPage: React.FC = () => {
   }, [note?.content]);
 
   // Extract all H2 and H3 headings and inject unique anchor IDs into the rendered HTML
-  const { htmlWithIds, tocItems, shouldShowToc } = React.useMemo(
+  const { htmlWithIds, tocItems, shouldShowToc, defaultCollapsed } = React.useMemo(
     () => generateTableOfContents(cleanHtmlContent),
     [cleanHtmlContent]
   );
@@ -428,8 +448,13 @@ export const NoteDetailPage: React.FC = () => {
   const [isLinkCopiedToastVisible, setIsLinkCopiedToastVisible] = React.useState<boolean>(false);
   const [copiedHeadingUrl, setCopiedHeadingUrl] = React.useState<string>('');
   const [shareStatus, setShareStatus] = React.useState<'idle' | 'shared' | 'copied'>('idle');
-  const [isMobileTocOpen, setIsMobileTocOpen] = React.useState<boolean>(false);
+  const [isMobileTocOpen, setIsMobileTocOpen] = React.useState<boolean>(() =>
+    shouldAutoExpandToc(tocItems.length)
+  );
   const [isFloatingTocOpen, setIsFloatingTocOpen] = React.useState<boolean>(false);
+  const [isTocCollapsed, setIsTocCollapsed] = React.useState<boolean>(() =>
+    shouldDefaultCollapseToc(tocItems.length)
+  );
   const copyFeedbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const codeBlockCopyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -457,12 +482,13 @@ export const NoteDetailPage: React.FC = () => {
     [htmlWithAccessibleTables, copiedCodeBlockId]
   );
 
-  // Ensure any live DOM tables inside the rendered note container have accessible containers and screen reader captions
+  // Ensure any live DOM headings and tables inside the rendered note container have unique IDs, copy buttons, and accessible captions
   React.useEffect(() => {
+    ensureHeadingIdsAndCopyButtonsInDom(renderedContentRef.current, copiedHeadingId);
     ensureAccessibleTablesInDom(renderedContentRef.current, {
       noteTitle: guideMetadata.title || note?.title,
     });
-  }, [htmlWithCodeMarkdownButtons, guideMetadata.title, note?.title]);
+  }, [htmlWithCodeMarkdownButtons, copiedHeadingId, guideMetadata.title, note?.title]);
 
   // Cleanup copy feedback and toast timers on unmount
   React.useEffect(() => {
@@ -482,9 +508,11 @@ export const NoteDetailPage: React.FC = () => {
     };
   }, []);
 
-  // Reset mobile/floating TOC, copy feedback, and initialize active heading when note slug or TOC items change
+  // Reset mobile/floating/collapsible TOC (auto-expanding if < 5 headings, otherwise collapsing), copy feedback, and initialize active heading when note slug or TOC items change
   React.useEffect(() => {
-    setIsMobileTocOpen(false);
+    const shouldCollapseByDefault = shouldDefaultCollapseToc(tocItems.length);
+    setIsTocCollapsed(shouldCollapseByDefault);
+    setIsMobileTocOpen(!shouldCollapseByDefault);
     setIsFloatingTocOpen(false);
     setCopiedHeadingId('');
     setCopiedCodeBlockId('');
@@ -550,18 +578,29 @@ export const NoteDetailPage: React.FC = () => {
     return <Navigate to="/guides" replace />;
   }
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : `https://jawed.co.in/notes/${note.slug}`;
+  const baseNoteUrl =
+    typeof window !== 'undefined' && window.location?.href
+      ? window.location.href.split('#')[0]
+      : `https://jawed.co.in/notes/${note.slug}`;
+  const currentHashId =
+    copiedHeadingId ||
+    (typeof window !== 'undefined' && window.location?.hash
+      ? window.location.hash.replace(/^#+/, '').trim()
+      : '') ||
+    activeHeadingId;
+  const shareUrl = currentHashId ? buildTocAnchorUrl(baseNoteUrl, currentHashId) : baseNoteUrl;
 
   // Retrieve injected visual module from centralized componentMapper utility
   const visualModule = getInteractiveComponentForSlug(slug);
 
-  const copyHeadingDeepLink = async (headingId: string) => {
+  const copyHeadingDeepLink = async (rawHeadingId: string) => {
+    const headingId = (rawHeadingId || activeHeadingId || tocItems[0]?.id || '').trim();
     if (!headingId) return;
 
     const currentBaseUrl =
       typeof window !== 'undefined' && window.location?.href
         ? window.location.href
-        : shareUrl;
+        : baseNoteUrl;
     const { anchorUrl } = await copySectionAnchorLink(headingId, currentBaseUrl);
 
     jumpToHeadingSection(headingId);
@@ -901,6 +940,21 @@ export const NoteDetailPage: React.FC = () => {
             scrollTriggerThreshold={40}
           />
 
+          {/* Collapsible Table of Contents Component (extracts all h2 & h3 headings with smooth-scroll navigation) */}
+          {shouldShowToc && (
+            <CollapsibleTableOfContents
+              tocItems={tocItems}
+              content={cleanHtmlContent}
+              activeHeadingId={activeHeadingId}
+              copiedHeadingId={copiedHeadingId}
+              onSelectHeading={handleSelectTocHeading}
+              onCopyHeadingLink={handleCopySectionLink}
+              onScrollToTop={handleScrollToTop}
+              defaultCollapsed={defaultCollapsed}
+              showReadTime={false}
+            />
+          )}
+
           <div
             ref={renderedContentRef}
             className="note-rendered-content"
@@ -978,6 +1032,9 @@ export const NoteDetailPage: React.FC = () => {
             onCopyHeadingLink={handleCopySectionLink}
             onScrollToTop={handleScrollToTop}
             mode="desktop"
+            collapsible={true}
+            isCollapsed={isTocCollapsed}
+            onToggleCollapse={setIsTocCollapsed}
           />
         )}
       </div>

@@ -3,11 +3,15 @@ import {
   generateTableOfContents,
   convertMarkdownHeadingsToHtml,
   parseRenderedHeadingsFromDom,
+  extractTocHeadings,
+  groupTocItemsByH2,
+  smoothScrollToHeading,
   jumpToHeadingSection,
   navigateToHashHeadingOnLoad,
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
+  ensureHeadingIdsAndCopyButtonsInDom,
   injectHeadingCopyButtons,
   deriveTableCaptionText,
   wrapTablesInAccessibleContainers,
@@ -19,11 +23,16 @@ import {
   shareNoteUrlAndTitle,
   slugifyHeading,
   decodeHtmlEntities,
+  TOC_AUTO_COLLAPSE_HEADING_THRESHOLD,
+  shouldAutoExpandToc,
+  shouldDefaultCollapseToc,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
   CODE_MARKDOWN_BUTTON_LABEL,
   CODE_MARKDOWN_COPIED_LABEL,
   type TocItem,
+  type GroupedTocSection,
+  type SmoothScrollTocResult,
   type GeneratedTocResult,
   type CopySectionAnchorResult,
   type AccessibleTableOptions,
@@ -41,11 +50,15 @@ export {
   generateTableOfContents,
   convertMarkdownHeadingsToHtml,
   parseRenderedHeadingsFromDom,
+  extractTocHeadings,
+  groupTocItemsByH2,
+  smoothScrollToHeading,
   jumpToHeadingSection,
   navigateToHashHeadingOnLoad,
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
+  ensureHeadingIdsAndCopyButtonsInDom,
   injectHeadingCopyButtons,
   deriveTableCaptionText,
   wrapTablesInAccessibleContainers,
@@ -57,12 +70,17 @@ export {
   shareNoteUrlAndTitle,
   slugifyHeading,
   decodeHtmlEntities,
+  TOC_AUTO_COLLAPSE_HEADING_THRESHOLD,
+  shouldAutoExpandToc,
+  shouldDefaultCollapseToc,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
   CODE_MARKDOWN_BUTTON_LABEL,
   CODE_MARKDOWN_COPIED_LABEL,
   ReadTimeProgressIndicator,
   type TocItem,
+  type GroupedTocSection,
+  type SmoothScrollTocResult,
   type GeneratedTocResult,
   type CopySectionAnchorResult,
   type AccessibleTableOptions,
@@ -109,13 +127,32 @@ export interface TableOfContentsProps {
   onScrollToTop?: () => void;
   /**
    * Which layout mode to render:
-   * - 'desktop': sticky side-mounted navigation menu
+   * - 'desktop': sticky side-mounted navigation menu (with collapsible toggle)
    * - 'mobile': collapsible mobile/tablet top bar
+   * - 'collapsible': inline collapsible Table of Contents accordion panel
    * - 'floating': floating quick-jump navigation menu button & popover panel
    * - 'both': desktop + mobile
    * - 'all': desktop + mobile + floating
    */
-  mode?: 'desktop' | 'mobile' | 'floating' | 'both' | 'all';
+  mode?: 'desktop' | 'mobile' | 'collapsible' | 'floating' | 'both' | 'all';
+  /**
+   * Whether the TOC panel can be collapsed/expanded by the user. Defaults to true.
+   */
+  collapsible?: boolean;
+  /**
+   * Whether the collapsible TOC starts collapsed on initial render.
+   * When omitted, automatically expands if the page has fewer than 5 headings (`items.length < 5`),
+   * and defaults to collapsed when the page has 5 or more headings (`items.length >= 5`).
+   */
+  defaultCollapsed?: boolean;
+  /**
+   * Controlled collapsed state (optional).
+   */
+  isCollapsed?: boolean;
+  /**
+   * Callback invoked when the user toggles the collapsed state (optional).
+   */
+  onToggleCollapse?: (nextCollapsed: boolean) => void;
   /**
    * Controlled mobile open state (optional).
    */
@@ -153,6 +190,10 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
   onCopyHeadingLink,
   onScrollToTop,
   mode = 'desktop',
+  collapsible = true,
+  defaultCollapsed,
+  isCollapsed: controlledCollapsed,
+  onToggleCollapse,
   isMobileOpen: controlledMobileOpen,
   onToggleMobile,
   isFloatingOpen: controlledFloatingOpen,
@@ -162,13 +203,14 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
 }) => {
   const [domTocItems, setDomTocItems] = useState<TocItem[]>([]);
   const [internalActiveId, setInternalActiveId] = useState<string>('');
-  const [internalMobileOpen, setInternalMobileOpen] = useState<boolean>(false);
+  const [userCollapsedOverride, setUserCollapsedOverride] = useState<boolean | null>(null);
+  const [userMobileOpenOverride, setUserMobileOpenOverride] = useState<boolean | null>(null);
   const [internalFloatingOpen, setInternalFloatingOpen] = useState<boolean>(false);
 
-  // Parse H2 and H3 headers from content if tocItems prop was not passed
+  // Automatically extract all H2 and H3 headings from content if tocItems prop was not passed
   const contentTocItems = useMemo(() => {
     if (propTocItems && propTocItems.length > 0) return propTocItems;
-    if (content) return generateTableOfContents(content).tocItems;
+    if (content) return extractTocHeadings(content);
     return [];
   }, [propTocItems, content]);
 
@@ -183,10 +225,36 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
   }, [contentTocItems, containerSelector]);
 
   const items = contentTocItems.length > 0 ? contentTocItems : domTocItems;
+
+  // Automatically expand if the current page has fewer than 5 headings; otherwise default to collapsed
+  const computedDefaultCollapsed =
+    defaultCollapsed !== undefined ? defaultCollapsed : shouldDefaultCollapseToc(items.length);
+  const isAutoExpanded = shouldAutoExpandToc(items.length);
+
+  // Reset manual toggle override when navigating to a page with a different set of headings
+  const headingSignature = useMemo(() => items.map((i) => i.id).join('|'), [items]);
+  useEffect(() => {
+    setUserCollapsedOverride(null);
+    setUserMobileOpenOverride(null);
+  }, [headingSignature, defaultCollapsed]);
+
   const activeHeadingId = controlledActiveId ?? (internalActiveId || items[0]?.id || '');
-  const isMobileTocOpen = controlledMobileOpen ?? internalMobileOpen;
+  const isTocCollapsed =
+    controlledCollapsed ??
+    (userCollapsedOverride !== null ? userCollapsedOverride : computedDefaultCollapsed);
+  const isMobileTocOpen =
+    controlledMobileOpen ??
+    (userMobileOpenOverride !== null ? userMobileOpenOverride : !computedDefaultCollapsed);
   const isFloatingTocOpen = controlledFloatingOpen ?? internalFloatingOpen;
   const activeItem = items.find((item) => item.id === activeHeadingId) || items[0];
+
+  const handleToggleDesktopCollapse = () => {
+    const nextCollapsed = !isTocCollapsed;
+    if (controlledCollapsed === undefined) {
+      setUserCollapsedOverride(nextCollapsed);
+    }
+    onToggleCollapse?.(nextCollapsed);
+  };
 
   // Built-in scroll-spy when activeHeadingId is not externally controlled
   useEffect(() => {
@@ -229,14 +297,14 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
     event.preventDefault();
     setInternalActiveId(headingId);
     if (!onToggleMobile) {
-      setInternalMobileOpen(false);
+      setUserMobileOpenOverride(false);
     }
     if (onToggleFloating) {
       if (isFloatingTocOpen) onToggleFloating();
     } else {
       setInternalFloatingOpen(false);
     }
-    jumpToHeadingSection(headingId);
+    smoothScrollToHeading(headingId);
     onSelectHeading?.(headingId);
   };
 
@@ -272,8 +340,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
     event.preventDefault();
     event.stopPropagation();
     const currentBaseUrl = typeof window !== 'undefined' ? window.location.href : '';
-    const anchorUrl = buildTocAnchorUrl(currentBaseUrl, headingId);
-    await copyTocAnchorToClipboard(anchorUrl);
+    await copySectionAnchorLink(headingId, currentBaseUrl);
     setInternalCopiedId(headingId);
     setTimeout(() => {
       setInternalCopiedId((prev) => (prev === headingId ? '' : prev));
@@ -344,11 +411,66 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
 
   return (
     <>
+      {mode === 'collapsible' && (
+        <nav
+          className={`note-toc-collapsible no-print${isTocCollapsed ? ' is-collapsed' : ' is-expanded'}`}
+          aria-label="Collapsible Table of Contents"
+          data-testid="collapsible-table-of-contents"
+          data-collapsed={isTocCollapsed}
+          data-heading-count={items.length}
+          data-auto-expanded={isAutoExpanded}
+          data-default-collapsed={computedDefaultCollapsed}
+        >
+          <button
+            type="button"
+            className="note-toc-collapsible-toggle"
+            data-testid="collapsible-toc-toggle"
+            onClick={handleToggleDesktopCollapse}
+            aria-expanded={!isTocCollapsed}
+            aria-controls="collapsible-toc-panel"
+          >
+            <span className="note-toc-collapsible-heading">
+              <span className="note-toc-title">Table of Contents</span>
+              <span className="note-toc-count">{items.length} sections</span>
+            </span>
+            <span className="note-toc-collapsible-status">
+              {isTocCollapsed && activeItem && (
+                <span className="note-toc-collapsed-active" data-testid="collapsible-toc-active-preview">
+                  {activeItem.text}
+                </span>
+              )}
+              <span aria-hidden="true" className="note-toc-chevron">
+                {isTocCollapsed ? 'Show ▼' : 'Hide ▲'}
+              </span>
+            </span>
+          </button>
+          {!isTocCollapsed && (
+            <div
+              id="collapsible-toc-panel"
+              className="note-toc-collapsible-panel"
+              data-testid="collapsible-toc-panel"
+            >
+              {showReadTime && (content || estimatedTime) && (
+                <ReadTimeProgressIndicator
+                  content={content}
+                  estimatedTime={estimatedTime}
+                  variant="sidebar"
+                />
+              )}
+              {renderTocList('collapsible')}
+            </div>
+          )}
+        </nav>
+      )}
+
       {(mode === 'mobile' || mode === 'both' || mode === 'all') && (
         <nav
           className="note-toc-mobile no-print"
           aria-label="Table of Contents (Mobile)"
           data-testid="note-toc-mobile"
+          data-heading-count={items.length}
+          data-auto-expanded={isAutoExpanded}
+          data-default-collapsed={computedDefaultCollapsed}
         >
           <button
             type="button"
@@ -358,7 +480,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
               if (onToggleMobile) {
                 onToggleMobile();
               } else {
-                setInternalMobileOpen((prev) => !prev);
+                setUserMobileOpenOverride(!isMobileTocOpen);
               }
             }}
             aria-expanded={isMobileTocOpen}
@@ -386,34 +508,73 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
 
       {(mode === 'desktop' || mode === 'both' || mode === 'all') && (
         <aside
-          className="note-toc-sidebar sticky top-24 no-print"
+          className={`note-toc-sidebar sticky top-24 no-print${isTocCollapsed ? ' is-collapsed' : ''}`}
           aria-label="Table of Contents"
           data-testid="note-toc-sidebar"
+          data-collapsed={isTocCollapsed}
+          data-heading-count={items.length}
+          data-auto-expanded={isAutoExpanded}
+          data-default-collapsed={computedDefaultCollapsed}
           style={{ position: 'sticky', top: '96px', alignSelf: 'start' }}
         >
           <nav aria-label="On this page">
             <div className="note-toc-header">
-              <h2 className="note-toc-title">On this page</h2>
-              <span className="note-toc-count">{items.length} sections</span>
+              <div>
+                <h2 className="note-toc-title">On this page</h2>
+                <span className="note-toc-count">{items.length} sections</span>
+              </div>
+              {collapsible && (
+                <button
+                  type="button"
+                  onClick={handleToggleDesktopCollapse}
+                  className="note-toc-collapse-btn"
+                  data-testid="note-toc-collapse-toggle"
+                  aria-expanded={!isTocCollapsed}
+                  aria-controls="note-toc-desktop-body"
+                  title={isTocCollapsed ? 'Expand Table of Contents' : 'Collapse Table of Contents'}
+                >
+                  <span>{isTocCollapsed ? 'Show' : 'Hide'}</span>
+                  <span aria-hidden="true">{isTocCollapsed ? '▼' : '▲'}</span>
+                </button>
+              )}
             </div>
-            {showReadTime && (content || estimatedTime) && (
-              <ReadTimeProgressIndicator
-                content={content}
-                estimatedTime={estimatedTime}
-                variant="sidebar"
-              />
-            )}
-            {renderTocList('desktop')}
-            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-              <button
-                type="button"
-                onClick={handleScrollTopClick}
-                className="footer-text-btn"
-                style={{ fontSize: '0.8rem', fontWeight: 600 }}
+            {isTocCollapsed ? (
+              <div
+                className="note-toc-collapsed-summary"
+                data-testid="note-toc-collapsed-summary"
               >
-                ↑ Back to top
-              </button>
-            </div>
+                <span className="note-toc-collapsed-label">Current section:</span>
+                <a
+                  href={`#${activeItem?.id || ''}`}
+                  onClick={(e) => activeItem && handleLinkClick(e, activeItem.id)}
+                  className="note-toc-link is-active"
+                  data-testid="note-toc-collapsed-active-link"
+                >
+                  {activeItem?.text || 'Overview'}
+                </a>
+              </div>
+            ) : (
+              <div id="note-toc-desktop-body" data-testid="note-toc-desktop-body">
+                {showReadTime && (content || estimatedTime) && (
+                  <ReadTimeProgressIndicator
+                    content={content}
+                    estimatedTime={estimatedTime}
+                    variant="sidebar"
+                  />
+                )}
+                {renderTocList('desktop')}
+                <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                  <button
+                    type="button"
+                    onClick={handleScrollTopClick}
+                    className="footer-text-btn"
+                    style={{ fontSize: '0.8rem', fontWeight: 600 }}
+                  >
+                    ↑ Back to top
+                  </button>
+                </div>
+              </div>
+            )}
           </nav>
         </aside>
       )}
@@ -504,6 +665,9 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
   );
 };
 
+export const CollapsibleTableOfContents: React.FC<TableOfContentsProps> = (props) => (
+  <TableOfContents collapsible={true} mode="collapsible" {...props} />
+);
+
 export const AutomatedTableOfContents = TableOfContents;
 export default TableOfContents;
-

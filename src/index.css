@@ -4823,6 +4823,104 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   }
 }
 
+.note-toc-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-darker, #0f172a);
+  color: var(--muted-light);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.note-toc-collapse-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.note-toc-collapsed-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.note-toc-collapsed-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.note-toc-collapsible {
+  margin-bottom: 24px;
+  background: var(--bg-darker, #0f172a);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.note-toc-collapsible-toggle {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-heading);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.note-toc-collapsible-toggle:hover {
+  background: var(--surface-accent);
+}
+
+.note-toc-collapsible-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.note-toc-collapsible-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.note-toc-collapsed-active {
+  font-size: 0.78rem;
+  color: var(--accent);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-toc-chevron {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.note-toc-collapsible-panel {
+  padding: 10px 16px 16px;
+  border-top: 1px solid var(--border);
+}
+
 .note-toc-mobile {
   display: none;
   margin-bottom: 20px;
