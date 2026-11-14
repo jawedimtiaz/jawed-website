@@ -1,5 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import {
+  OFFLINE_GUIDES_STORAGE_KEY,
+  OFFLINE_GUIDES_CACHE_NAME,
+  OFFLINE_GUIDES_EVENT_NAME,
+  DOWNLOAD_FOR_OFFLINE_LABEL,
+  OFFLINE_PINNED_LABEL,
+  calculateUtf8ByteSize,
+  formatOfflineSize,
+  getOfflinePinnedGuides,
+  saveOfflinePinnedGuides,
+  getOfflinePinnedGuideBySlug,
+  isGuidePinnedForOffline,
+  isPinnedOfflineGuidePath,
+  pinGuideForOffline,
+  unpinGuideFromOffline,
+  toggleGuideOfflinePin,
+  clearOfflinePinnedGuides,
+  type OfflinePinnedGuide,
+  type OfflineGuideInput,
+  type OfflineStorageAdapter,
+} from '../utils/offlinePinnedGuides';
+
+export {
+  OFFLINE_GUIDES_STORAGE_KEY,
+  OFFLINE_GUIDES_CACHE_NAME,
+  OFFLINE_GUIDES_EVENT_NAME,
+  DOWNLOAD_FOR_OFFLINE_LABEL,
+  OFFLINE_PINNED_LABEL,
+  calculateUtf8ByteSize,
+  formatOfflineSize,
+  getOfflinePinnedGuides,
+  saveOfflinePinnedGuides,
+  getOfflinePinnedGuideBySlug,
+  isGuidePinnedForOffline,
+  isPinnedOfflineGuidePath,
+  pinGuideForOffline,
+  unpinGuideFromOffline,
+  toggleGuideOfflinePin,
+  clearOfflinePinnedGuides,
+  type OfflinePinnedGuide,
+  type OfflineGuideInput,
+  type OfflineStorageAdapter,
+};
 
 export interface CachedOfflineTool {
   id: string;
@@ -105,9 +148,23 @@ export const CACHED_OFFLINE_PATHS = new Set<string>(
   CACHED_OFFLINE_TOOLS.flatMap((tool) => [tool.path, ...tool.aliases])
 );
 
-export function isCachedOfflineToolPath(pathname: string): boolean {
-  const normalized = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-  return CACHED_OFFLINE_PATHS.has(normalized);
+export function isCachedOfflineToolPath(
+  pathname: string,
+  storage?: OfflineStorageAdapter | null
+): boolean {
+  const normalized =
+    pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  if (CACHED_OFFLINE_PATHS.has(normalized)) {
+    return true;
+  }
+  return isPinnedOfflineGuidePath(normalized, storage);
+}
+
+export function isCachedOfflineRoute(
+  pathname: string,
+  storage?: OfflineStorageAdapter | null
+): boolean {
+  return isCachedOfflineToolPath(pathname, storage);
 }
 
 export interface OfflineModeFallbackProps {
@@ -116,6 +173,7 @@ export interface OfflineModeFallbackProps {
   onSelectTool?: (path: string) => void;
   compact?: boolean;
   onExpandHub?: () => void;
+  pinnedGuides?: OfflinePinnedGuide[];
 }
 
 export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
@@ -124,13 +182,32 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
   onSelectTool,
   compact = false,
   onExpandHub,
+  pinnedGuides: controlledPinnedGuides,
 }) => {
   const { pathname } = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
+  const [storedPinnedGuides, setStoredPinnedGuides] = useState<OfflinePinnedGuide[]>(() =>
+    getOfflinePinnedGuides()
+  );
   const [lastCheckedTime, setLastCheckedTime] = useState<string>(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   );
   const [checkFeedback, setCheckFeedback] = useState<string | null>(null);
+
+  const activePinnedGuides = controlledPinnedGuides ?? storedPinnedGuides;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncPinned = () => {
+      setStoredPinnedGuides(getOfflinePinnedGuides());
+    };
+    window.addEventListener(OFFLINE_GUIDES_EVENT_NAME, syncPinned);
+    window.addEventListener('storage', syncPinned);
+    return () => {
+      window.removeEventListener(OFFLINE_GUIDES_EVENT_NAME, syncPinned);
+      window.removeEventListener('storage', syncPinned);
+    };
+  }, []);
 
   const handleRetry = () => {
     const nowFormatted = new Date().toLocaleTimeString([], {
@@ -143,12 +220,19 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       setCheckFeedback('Connection restored. Synchronizing route...');
     } else {
-      setCheckFeedback(`Still offline as of ${nowFormatted}. Cached tools remain fully available.`);
+      setCheckFeedback(
+        `Still offline as of ${nowFormatted}. Cached tools and ${activePinnedGuides.length} pinned technical guide(s) remain fully available.`
+      );
     }
 
     if (onRetryConnection) {
       onRetryConnection();
     }
+  };
+
+  const handleUnpinGuide = (slug: string) => {
+    const updated = unpinGuideFromOffline(slug);
+    setStoredPinnedGuides(updated);
   };
 
   const filteredTools = CACHED_OFFLINE_TOOLS.filter((tool) => {
@@ -160,6 +244,17 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
       tool.category.toLowerCase().includes(q) ||
       tool.summary.toLowerCase().includes(q) ||
       tool.capabilities.toLowerCase().includes(q)
+    );
+  });
+
+  const filteredPinnedGuides = activePinnedGuides.filter((guide) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      guide.title.toLowerCase().includes(q) ||
+      guide.description.toLowerCase().includes(q) ||
+      guide.category.toLowerCase().includes(q) ||
+      guide.slug.toLowerCase().includes(q)
     );
   });
 
@@ -208,7 +303,7 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
               </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--muted)' }}>
-              You lost network connectivity, but this calculator executes 100% locally. Switch between cached field tools below:
+              You lost network connectivity, but this content executes 100% locally. Switch between cached field tools or pinned offline guides below:
             </p>
           </div>
 
@@ -246,7 +341,7 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
                 className="button button-secondary"
                 style={{ fontSize: '0.82rem', padding: '7px 12px', whiteSpace: 'nowrap' }}
               >
-                All Offline Tools
+                All Offline Tools &amp; Pinned Guides ({activePinnedGuides.length})
               </button>
             )}
             <button
@@ -317,7 +412,7 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
                 color: 'var(--text-heading)',
               }}
             >
-              You’re currently offline, but field engineering tools are ready.
+              You’re currently offline, but field engineering tools and pinned guides are ready.
             </h1>
 
             <p
@@ -329,8 +424,9 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
               }}
             >
               It looks like your device lost network connectivity—common in server rooms, MDF/IDF closets, and sub-grade telecom vaults. Cached client-side calculators like the{' '}
-              <strong style={{ color: 'var(--text-heading)' }}>IPv4 Subnet Calculator</strong> and{' '}
-              <strong style={{ color: 'var(--text-heading)' }}>Cable Length &amp; PoE Budget Checker</strong> run 100% in your browser with zero external API calls.
+              <strong style={{ color: 'var(--text-heading)' }}>IPv4 Subnet Calculator</strong>,{' '}
+              <strong style={{ color: 'var(--text-heading)' }}>Cable Length &amp; PoE Budget Checker</strong>, and any technical guides you pinned via{' '}
+              <strong style={{ color: 'var(--text-heading)' }}>Download for Offline</strong> run 100% in your browser.
             </p>
 
             {/* Primary Featured Quick Actions */}
@@ -415,6 +511,15 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
                 </strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                <span style={{ color: 'var(--muted)' }}>Pinned Offline Guides</span>
+                <strong
+                  data-testid="offline-pinned-guides-count"
+                  style={{ color: 'var(--text-heading)', fontFamily: 'monospace' }}
+                >
+                  {activePinnedGuides.length} Pinned
+                </strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
                 <span style={{ color: 'var(--muted)' }}>Execution Engine</span>
                 <strong style={{ color: 'var(--text-heading)', fontFamily: 'monospace' }}>100% Browser Local</strong>
               </div>
@@ -438,6 +543,160 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Pinned & Downloaded Technical Guides Section */}
+      <section
+        data-testid="offline-pinned-guides-section"
+        aria-label="Pinned and Downloaded Offline Technical Guides"
+        style={{ marginBottom: '36px' }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            marginBottom: '16px',
+          }}
+        >
+          <div>
+            <h2 style={{ margin: '0 0 4px', fontSize: '1.25rem', color: 'var(--text-heading)' }}>
+              Pinned &amp; Downloaded Technical Guides ({activePinnedGuides.length})
+            </h2>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
+              Guides saved via the &ldquo;Download for Offline&rdquo; toolbar button on any technical note are cached locally for zero-connectivity reading.
+            </p>
+          </div>
+        </div>
+
+        {filteredPinnedGuides.length === 0 ? (
+          <div
+            className="card"
+            data-testid="offline-pinned-guides-empty"
+            style={{
+              padding: '22px 24px',
+              borderRadius: '14px',
+              border: '1px dashed var(--line)',
+              background: 'var(--surface)',
+              color: 'var(--muted)',
+              fontSize: '0.9rem',
+            }}
+          >
+            {activePinnedGuides.length === 0
+              ? 'No technical guides are currently pinned for offline reading. Use the "Download for Offline" button in the NoteDetailPage toolbar to save guides for field use.'
+              : `No pinned offline guides matched "${searchQuery}".`}
+          </div>
+        ) : (
+          <div
+            data-testid="offline-pinned-guides-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
+              gap: '16px',
+            }}
+          >
+            {filteredPinnedGuides.map((guide) => (
+              <article
+                key={guide.slug}
+                data-testid={`offline-pinned-guide-card-${guide.slug}`}
+                className="card"
+                style={{
+                  padding: '22px 24px',
+                  borderRadius: '16px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--surface)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '14px',
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: 'var(--accent)',
+                      }}
+                    >
+                      {guide.category} · Available Offline
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        color: 'var(--muted)',
+                        fontFamily: 'monospace',
+                      }}
+                    >
+                      {formatOfflineSize(guide.sizeBytes)}
+                    </span>
+                  </div>
+
+                  <h3 style={{ margin: '0 0 8px', fontSize: '1.08rem', color: 'var(--text-heading)' }}>
+                    <Link
+                      to={guide.route}
+                      onClick={() => onSelectTool?.(guide.route)}
+                      style={{ color: 'inherit', textDecoration: 'none' }}
+                    >
+                      {guide.title}
+                    </Link>
+                  </h3>
+
+                  {guide.description && (
+                    <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.5, color: 'var(--muted)' }}>
+                      {guide.description}
+                    </p>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    paddingTop: '12px',
+                    borderTop: '1px solid var(--line)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <button
+                    type="button"
+                    data-testid={`offline-unpin-guide-${guide.slug}`}
+                    onClick={() => handleUnpinGuide(guide.slug)}
+                    className="button button-secondary"
+                    style={{ fontSize: '0.76rem', padding: '5px 10px' }}
+                  >
+                    Unpin
+                  </button>
+                  <Link
+                    to={guide.route}
+                    onClick={() => onSelectTool?.(guide.route)}
+                    className="button button-primary"
+                    style={{
+                      fontSize: '0.8rem',
+                      padding: '6px 12px',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Read Offline Guide →
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Filter & Section Header */}
       <div
@@ -463,10 +722,10 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
           <input
             type="search"
             className="discovery-input"
-            placeholder="Filter cached tools (e.g., IPv4, PoE, RAID)..."
+            placeholder="Filter cached tools & pinned guides..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Filter cached offline tools"
+            aria-label="Filter cached offline tools and pinned guides"
             style={{ width: '100%' }}
           />
         </div>
@@ -540,7 +799,7 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
                   </Link>
                 </h3>
 
-                <p style={{ margin: '0 0 12px', fontSize: '0.9rem', lineHeight: 1.55, color: 'var(--muted)' }}>
+                <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: 1.55, color: 'var(--muted)' }}>
                   {tool.summary}
                 </p>
               </div>

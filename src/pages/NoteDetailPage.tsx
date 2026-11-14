@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
-import { Share2, Clock, Bookmark, BookmarkCheck } from 'lucide-react';
+import { Share2, Clock, Bookmark, BookmarkCheck, Download, CheckCircle2 } from 'lucide-react';
 import notesData from '../data/notesData.json';
 import { FIELD_GUIDES } from '../data/fieldGuidesData';
 import { FieldGuideDetailPage } from './FieldGuideDetailPage';
@@ -153,6 +153,28 @@ import {
   type PrintPreviewButtonProps,
 } from '../components/PrintPreviewModal';
 
+import {
+  OFFLINE_GUIDES_STORAGE_KEY,
+  OFFLINE_GUIDES_CACHE_NAME,
+  OFFLINE_GUIDES_EVENT_NAME,
+  DOWNLOAD_FOR_OFFLINE_LABEL,
+  OFFLINE_PINNED_LABEL,
+  calculateUtf8ByteSize,
+  formatOfflineSize,
+  getOfflinePinnedGuides,
+  saveOfflinePinnedGuides,
+  getOfflinePinnedGuideBySlug,
+  isGuidePinnedForOffline,
+  isPinnedOfflineGuidePath,
+  pinGuideForOffline,
+  unpinGuideFromOffline,
+  toggleGuideOfflinePin,
+  clearOfflinePinnedGuides,
+  type OfflinePinnedGuide,
+  type OfflineGuideInput,
+  type OfflineStorageAdapter,
+} from '../utils/offlinePinnedGuides';
+
 export {
   TableOfContents,
   CollapsibleTableOfContents,
@@ -227,6 +249,22 @@ export {
   toggleBookmarkedNote,
   clearBookmarkedNotes,
   filterBookmarkedNotes,
+  OFFLINE_GUIDES_STORAGE_KEY,
+  OFFLINE_GUIDES_CACHE_NAME,
+  OFFLINE_GUIDES_EVENT_NAME,
+  DOWNLOAD_FOR_OFFLINE_LABEL,
+  OFFLINE_PINNED_LABEL,
+  calculateUtf8ByteSize,
+  formatOfflineSize,
+  getOfflinePinnedGuides,
+  saveOfflinePinnedGuides,
+  getOfflinePinnedGuideBySlug,
+  isGuidePinnedForOffline,
+  isPinnedOfflineGuidePath,
+  pinGuideForOffline,
+  unpinGuideFromOffline,
+  toggleGuideOfflinePin,
+  clearOfflinePinnedGuides,
   AVERAGE_READING_SPEED_WPM,
   calculateEstimatedReadTime,
   calculateWordCount,
@@ -263,6 +301,9 @@ export {
   type BookmarkInput,
   type BookmarkStorageAdapter,
   type QuickActionsTab,
+  type OfflinePinnedGuide,
+  type OfflineGuideInput,
+  type OfflineStorageAdapter,
   type EstimatedReadTimeStats,
   type RemainingReadTimeResult,
   type HeaderReadTimeDetails,
@@ -495,7 +536,10 @@ export const NoteDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
 
   const fieldGuide = FIELD_GUIDES.find((g) => g.slug === slug);
-  const note = (notesData as NoteSchemaItem[]).find((n) => n.slug === slug);
+  const note =
+    (notesData as NoteSchemaItem[]).find((n) => n.slug === slug) ||
+    getOfflinePinnedGuideBySlug(slug || '') ||
+    undefined;
 
   // Dynamically extract frontmatter title/description & update document head (title and meta description) upon guide load
   const guideMetadata = useSeoMetadata(note, slug);
@@ -520,6 +564,9 @@ export const NoteDetailPage: React.FC = () => {
   const [shareStatus, setShareStatus] = React.useState<'idle' | 'shared' | 'copied'>('idle');
   const [isBookmarked, setIsBookmarked] = React.useState<boolean>(() =>
     isNoteBookmarked(slug || '')
+  );
+  const [isOfflinePinned, setIsOfflinePinned] = React.useState<boolean>(() =>
+    isGuidePinnedForOffline(slug || '')
   );
   const [isMobileTocOpen, setIsMobileTocOpen] = React.useState<boolean>(() =>
     shouldAutoExpandToc(tocItems.length)
@@ -592,6 +639,7 @@ export const NoteDetailPage: React.FC = () => {
     setCopiedCodeBlockId('');
     setShareStatus('idle');
     setIsBookmarked(isNoteBookmarked(slug || ''));
+    setIsOfflinePinned(isGuidePinnedForOffline(slug || ''));
     const initialHashId =
       typeof window !== 'undefined' && window.location?.hash
         ? navigateToHashHeadingOnLoad(window.location.hash)
@@ -607,13 +655,16 @@ export const NoteDetailPage: React.FC = () => {
     };
     const handleBookmarkSync = () => {
       setIsBookmarked(isNoteBookmarked(slug || ''));
+      setIsOfflinePinned(isGuidePinnedForOffline(slug || ''));
     };
     window.addEventListener('hashchange', handleHashChange);
     window.addEventListener(NOTE_BOOKMARKS_EVENT_NAME, handleBookmarkSync);
+    window.addEventListener(OFFLINE_GUIDES_EVENT_NAME, handleBookmarkSync);
     window.addEventListener('storage', handleBookmarkSync);
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
       window.removeEventListener(NOTE_BOOKMARKS_EVENT_NAME, handleBookmarkSync);
+      window.removeEventListener(OFFLINE_GUIDES_EVENT_NAME, handleBookmarkSync);
       window.removeEventListener('storage', handleBookmarkSync);
     };
   }, [slug, tocItems]);
@@ -815,6 +866,18 @@ export const NoteDetailPage: React.FC = () => {
     setIsBookmarked(result.bookmarked);
   };
 
+  const handleToggleOfflinePin = () => {
+    const result = toggleGuideOfflinePin({
+      slug: note.slug,
+      title: guideMetadata.title || note.title,
+      description: guideMetadata.description || note.description,
+      category: note.category || 'Technical Note',
+      content: note.content || cleanHtmlContent,
+      route: `/notes/${note.slug}`,
+    });
+    setIsOfflinePinned(result.pinned);
+  };
+
   const handleScrollToTop = () => {
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -977,6 +1040,43 @@ export const NoteDetailPage: React.FC = () => {
           targetSelector=".quick-note-article"
           size="sm"
         />
+        <button
+          type="button"
+          onClick={handleToggleOfflinePin}
+          data-testid="note-download-offline-btn"
+          data-offline-pinned={isOfflinePinned}
+          aria-pressed={isOfflinePinned}
+          className={`button ${isOfflinePinned ? 'button-primary' : 'button-secondary'} no-print note-download-offline-btn`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 12px',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            borderRadius: '8px',
+            cursor: 'pointer',
+          }}
+          aria-label={
+            isOfflinePinned
+              ? `Remove offline download for "${guideMetadata.title || note.title}"`
+              : `Download "${guideMetadata.title || note.title}" for offline access`
+          }
+          title={
+            isOfflinePinned
+              ? 'Pinned and downloaded for offline access (click to unpin)'
+              : 'Pin and download this technical guide for 100% offline access'
+          }
+        >
+          {isOfflinePinned ? (
+            <CheckCircle2 size={14} aria-hidden="true" />
+          ) : (
+            <Download size={14} aria-hidden="true" />
+          )}
+          <span data-testid="note-download-offline-btn-label">
+            {isOfflinePinned ? OFFLINE_PINNED_LABEL : DOWNLOAD_FOR_OFFLINE_LABEL}
+          </span>
+        </button>
         <button
           type="button"
           onClick={handleToggleBookmark}

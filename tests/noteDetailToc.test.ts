@@ -2022,6 +2022,123 @@ test('PrintPreviewModal renders a simulated A4 view of the current guide and all
   );
 });
 
+test('expands offline mode capabilities to allow pinning/downloading technical guides for offline access with a Download for Offline button in NoteDetailPage toolbar', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    OFFLINE_GUIDES_STORAGE_KEY,
+    DOWNLOAD_FOR_OFFLINE_LABEL,
+    OFFLINE_PINNED_LABEL,
+    getOfflinePinnedGuides,
+    getOfflinePinnedGuideBySlug,
+    isGuidePinnedForOffline,
+    isPinnedOfflineGuidePath,
+    pinGuideForOffline,
+    unpinGuideFromOffline,
+    toggleGuideOfflinePin,
+    formatOfflineSize,
+  } = await import('../src/pages/NoteDetailPage');
+  const { isCachedOfflineToolPath } = await import(
+    '../src/components/OfflineModeFallback'
+  );
+
+  assert.equal(DOWNLOAD_FOR_OFFLINE_LABEL, 'Download for Offline');
+  assert.equal(OFFLINE_PINNED_LABEL, 'Pinned for Offline');
+
+  const store = new Map<string, string>();
+  const mockStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      store.set(k, v);
+    },
+    removeItem: (k: string) => {
+      store.delete(k);
+    },
+  };
+
+  // 1. Initially no guides are pinned for offline access
+  assert.equal(getOfflinePinnedGuides(mockStorage).length, 0);
+  assert.equal(isGuidePinnedForOffline('rj45-ethernet-wiring-color-codes', mockStorage), false);
+  assert.equal(
+    isPinnedOfflineGuidePath('/notes/rj45-ethernet-wiring-color-codes', mockStorage),
+    false
+  );
+
+  // 2. Toggle offline pin on a technical guide -> stores full content and metadata in localStorage
+  const toggleOn = toggleGuideOfflinePin(
+    {
+      slug: 'rj45-ethernet-wiring-color-codes',
+      title: 'RJ45 T568A & T568B Pinout Reference',
+      description: 'Ethernet termination pinout and pair color coding.',
+      category: 'Networking',
+      content: '<h2>Pinout Table</h2><p>Pin 1 White/Orange...</p>',
+    },
+    mockStorage
+  );
+
+  assert.equal(toggleOn.pinned, true);
+  assert.ok(store.has(OFFLINE_GUIDES_STORAGE_KEY));
+  assert.equal(isGuidePinnedForOffline('rj45-ethernet-wiring-color-codes', mockStorage), true);
+  assert.equal(
+    isPinnedOfflineGuidePath('/notes/rj45-ethernet-wiring-color-codes', mockStorage),
+    true
+  );
+  assert.equal(
+    isCachedOfflineToolPath('/notes/rj45-ethernet-wiring-color-codes', mockStorage),
+    true
+  );
+
+  const pinnedRecord = getOfflinePinnedGuideBySlug(
+    'rj45-ethernet-wiring-color-codes',
+    mockStorage
+  );
+  assert.ok(pinnedRecord);
+  assert.equal(pinnedRecord?.title, 'RJ45 T568A & T568B Pinout Reference');
+  assert.ok(pinnedRecord!.sizeBytes > 0);
+  assert.ok(formatOfflineSize(pinnedRecord!.sizeBytes).length > 0);
+
+  // 3. Pin a second guide and then unpin the first
+  pinGuideForOffline(
+    {
+      slug: 'vlan-trunking-8021q-guide',
+      title: 'IEEE 802.1Q VLAN Trunking Guide',
+      description: 'Configure native VLANs and allowed VLAN lists.',
+      category: 'Switching',
+      content: '<h2>802.1Q Tagging</h2><p>4-byte header...</p>',
+    },
+    mockStorage
+  );
+  assert.equal(getOfflinePinnedGuides(mockStorage).length, 2);
+
+  unpinGuideFromOffline('rj45-ethernet-wiring-color-codes', mockStorage);
+  assert.equal(isGuidePinnedForOffline('rj45-ethernet-wiring-color-codes', mockStorage), false);
+  assert.equal(getOfflinePinnedGuides(mockStorage).length, 1);
+
+  // 4. Verify NoteDetailPage.tsx toolbar button and OfflineModeFallback.tsx pinned guides section
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  const offlineFallbackSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/OfflineModeFallback.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('data-testid="note-download-offline-btn"') &&
+      noteDetailSource.includes('DOWNLOAD_FOR_OFFLINE_LABEL') &&
+      noteDetailSource.includes('handleToggleOfflinePin'),
+    'Expected NoteDetailPage.tsx toolbar to render the Download for Offline button'
+  );
+
+  assert.ok(
+    offlineFallbackSource.includes('data-testid="offline-pinned-guides-section"') &&
+      offlineFallbackSource.includes('data-testid="offline-pinned-guides-count"'),
+    'Expected OfflineModeFallback.tsx to render the pinned offline technical guides section'
+  );
+});
+
+
 
 
 
