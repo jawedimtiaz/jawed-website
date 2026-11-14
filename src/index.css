@@ -10005,5 +10005,226 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   font-weight: 700;
 }
 
+/* ==========================================================================
+   Simulated A4 Print Preview Modal & Print Element Toggles
+   ========================================================================== */
+.print-preview-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.print-preview-modal-dialog {
+  width: 100%;
+  max-width: 1020px;
+  max-height: 92vh;
+  background: var(--bg-elevated, #0f172a);
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.28));
+  border-radius: 16px;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.print-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border, rgba(148, 163, 184, 0.2));
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.print-preview-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.print-preview-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.14);
+  color: var(--accent, #38bdf8);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.print-preview-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-heading, #f8fafc);
+}
+
+.print-preview-toggles {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.print-preview-toggle-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: var(--text, #e2e8f0);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.print-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.print-preview-stage {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 20px;
+  background: #1e293b;
+  display: flex;
+  justify-content: center;
+}
+
+.print-preview-a4-sheet {
+  width: 210mm;
+  max-width: 100%;
+  min-height: 297mm;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 16mm 14mm;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.48);
+  border-radius: 3px;
+  font-size: 10.5pt;
+  line-height: 1.55;
+}
+
+.print-preview-a4-header {
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+}
+
+.print-preview-a4-brand {
+  font-size: 8.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.print-preview-a4-doc-title {
+  margin: 0 0 6px;
+  font-size: 18pt;
+  line-height: 1.25;
+  color: #0f172a;
+}
+
+.print-preview-a4-doc-desc {
+  margin: 0 0 10px;
+  font-size: 10pt;
+  color: #334155;
+}
+
+.print-preview-a4-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 8.5pt;
+  color: #475569;
+}
+
+.print-preview-a4-toc {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.print-preview-a4-toc-title {
+  font-weight: 700;
+  font-size: 10pt;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.print-preview-a4-toc-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 9.5pt;
+  color: #1e293b;
+}
+
+.print-preview-a4-toc-item.level-3 {
+  margin-left: 14px;
+  color: #475569;
+}
+
+.print-preview-a4-body h2,
+.print-preview-a4-body h3 {
+  color: #0f172a;
+  margin-top: 16pt;
+  margin-bottom: 6pt;
+}
+
+.print-preview-a4-body pre {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 8pt 10pt;
+  overflow-x: auto;
+  font-size: 8.5pt;
+}
+
+@media print {
+  .print-preview-modal-backdrop {
+    display: none !important;
+  }
+
+  html[data-print-hide-toc="true"] .collapsible-toc,
+  html[data-print-hide-toc="true"] [data-testid="collapsible-toc"] {
+    display: none !important;
+  }
+
+  html[data-print-hide-images="true"] .quick-note-article img,
+  html[data-print-hide-images="true"] .quick-note-article figure,
+  html[data-print-hide-images="true"] .quick-note-article svg,
+  html[data-print-hide-images="true"] .article-body img,
+  html[data-print-hide-images="true"] .article-body figure {
+    display: none !important;
+  }
+
+  html[data-print-hide-code="true"] .quick-note-article pre,
+  html[data-print-hide-code="true"] .quick-note-article .note-code-block-wrapper {
+    display: none !important;
+  }
+
+  html[data-print-hide-header="true"] .print-document-header {
+    display: none !important;
+  }
+}
+
+
 
 

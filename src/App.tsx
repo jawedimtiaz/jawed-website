@@ -71,6 +71,18 @@ import {
   closeQuickActionsMenu,
   toggleQuickActionsMenu,
 } from './components/QuickActionsMenu';
+import {
+  PrintPreviewModal,
+  PrintPreviewButton,
+  PRINT_PREVIEW_LABEL,
+  A4_DIMENSIONS_MM,
+  DEFAULT_PRINT_PREVIEW_OPTIONS,
+  resolvePrintPreviewOptions,
+  applyPrintPreviewTogglesToHtml,
+  syncPrintPreviewAttributesToDom,
+  clearPrintPreviewAttributesFromDom,
+  sendPreviewToNativePrinter,
+} from './components/PrintPreviewModal';
 
 export {
   OfflineModeFallback,
@@ -117,6 +129,16 @@ export {
   openQuickActionsMenu,
   closeQuickActionsMenu,
   toggleQuickActionsMenu,
+  PrintPreviewModal,
+  PrintPreviewButton,
+  PRINT_PREVIEW_LABEL,
+  A4_DIMENSIONS_MM,
+  DEFAULT_PRINT_PREVIEW_OPTIONS,
+  resolvePrintPreviewOptions,
+  applyPrintPreviewTogglesToHtml,
+  syncPrintPreviewAttributesToDom,
+  clearPrintPreviewAttributesFromDom,
+  sendPreviewToNativePrinter,
 };
 
 // Pages

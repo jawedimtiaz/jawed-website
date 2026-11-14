@@ -135,6 +135,24 @@ import {
   type QuickActionsTab,
 } from '../utils/noteBookmarks';
 
+import {
+  PrintPreviewModal,
+  PrintPreviewButton,
+  PRINT_PREVIEW_LABEL,
+  A4_DIMENSIONS_MM,
+  DEFAULT_PRINT_PREVIEW_OPTIONS,
+  resolvePrintPreviewOptions,
+  applyPrintPreviewTogglesToHtml,
+  syncPrintPreviewAttributesToDom,
+  clearPrintPreviewAttributesFromDom,
+  sendPreviewToNativePrinter,
+  type PrintPreviewToggleOptions,
+  type SendPreviewToPrinterOptions,
+  type SendPreviewToPrinterResult,
+  type PrintPreviewModalProps,
+  type PrintPreviewButtonProps,
+} from '../components/PrintPreviewModal';
+
 export {
   TableOfContents,
   CollapsibleTableOfContents,
@@ -183,6 +201,16 @@ export {
   EXPORT_TO_PDF_LABEL,
   triggerA4PdfExport,
   formatPdfDocumentTitle,
+  PrintPreviewModal,
+  PrintPreviewButton,
+  PRINT_PREVIEW_LABEL,
+  A4_DIMENSIONS_MM,
+  DEFAULT_PRINT_PREVIEW_OPTIONS,
+  resolvePrintPreviewOptions,
+  applyPrintPreviewTogglesToHtml,
+  syncPrintPreviewAttributesToDom,
+  clearPrintPreviewAttributesFromDom,
+  sendPreviewToNativePrinter,
   GuideFeedback,
   getGuideFeedbackRecords,
   getGuideFeedbackForSlug,
@@ -222,6 +250,11 @@ export {
   type ExportToPdfButtonProps,
   type TriggerA4PdfExportOptions,
   type ExportToPdfResult,
+  type PrintPreviewToggleOptions,
+  type SendPreviewToPrinterOptions,
+  type SendPreviewToPrinterResult,
+  type PrintPreviewModalProps,
+  type PrintPreviewButtonProps,
   type RelatedArticlesProps,
   type GuideFeedbackVote,
   type GuideFeedbackRecord,
@@ -492,6 +525,7 @@ export const NoteDetailPage: React.FC = () => {
     shouldAutoExpandToc(tocItems.length)
   );
   const [isFloatingTocOpen, setIsFloatingTocOpen] = React.useState<boolean>(false);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = React.useState<boolean>(false);
   const [isTocCollapsed, setIsTocCollapsed] = React.useState<boolean>(() =>
     shouldDefaultCollapseToc(tocItems.length)
   );
@@ -936,6 +970,7 @@ export const NoteDetailPage: React.FC = () => {
         )}
         <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
         <PrintableBadge />
+        <PrintPreviewButton onClick={() => setIsPrintPreviewOpen(true)} />
         <ExportToPdfButton
           documentTitle={guideMetadata.title || note.title}
           exportScope="guide"
@@ -1287,6 +1322,20 @@ export const NoteDetailPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Simulated A4 Print Preview Modal with Visual Element Toggles */}
+      <PrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        title={guideMetadata.title || note.title}
+        description={guideMetadata.description || note.description}
+        category={note.category || 'Technical Note'}
+        lastUpdated={guideMetadata.lastUpdated}
+        slug={note.slug}
+        htmlContent={htmlWithAccessibleTables}
+        tocItems={tocItems}
+        targetSelector=".quick-note-article"
+      />
     </main>
   );
 };

@@ -1889,6 +1889,140 @@ test('renders a dynamic estimated read time indicator at the top of NoteDetailPa
   );
 });
 
+test('PrintPreviewModal renders a simulated A4 view of the current guide and allows toggling Table of Contents, images, and code blocks before sending to the native printer', async () => {
+  const {
+    A4_DIMENSIONS_MM,
+    DEFAULT_PRINT_PREVIEW_OPTIONS,
+    applyPrintPreviewTogglesToHtml,
+    syncPrintPreviewAttributesToDom,
+    sendPreviewToNativePrinter,
+  } = await import('../src/pages/NoteDetailPage');
+
+  // 1. Verify ISO 216 A4 dimensions and default toggles
+  assert.equal(A4_DIMENSIONS_MM.widthMm, 210);
+  assert.equal(A4_DIMENSIONS_MM.heightMm, 297);
+  assert.deepEqual(DEFAULT_PRINT_PREVIEW_OPTIONS, {
+    includeToc: true,
+    includeImages: true,
+    includeCodeBlocks: true,
+    includeMetadataHeader: true,
+  });
+
+  // 2. Verify applyPrintPreviewTogglesToHtml keeps or removes images/diagrams and code blocks
+  const sampleHtml = `
+    <h2 id="overview">Overview<button class="note-heading-copy-btn">Copy Link</button></h2>
+    <p>Inspect the fiber patch panel.</p>
+    <figure><img src="/images/fiber.png" alt="Fiber Patch Panel" /></figure>
+    <pre><code>show interfaces status</code></pre>
+  `;
+
+  const withAllEnabled = applyPrintPreviewTogglesToHtml(sampleHtml, {
+    includeImages: true,
+    includeCodeBlocks: true,
+  });
+  assert.ok(withAllEnabled.includes('<img src="/images/fiber.png"'));
+  assert.ok(withAllEnabled.includes('<pre><code>show interfaces status</code></pre>'));
+  assert.ok(
+    !withAllEnabled.includes('note-heading-copy-btn'),
+    'Expected interactive heading copy buttons to be stripped from simulated A4 view'
+  );
+
+  const withoutImages = applyPrintPreviewTogglesToHtml(sampleHtml, {
+    includeImages: false,
+    includeCodeBlocks: true,
+  });
+  assert.ok(!withoutImages.includes('<img'));
+  assert.ok(!withoutImages.includes('<figure>'));
+  assert.ok(withoutImages.includes('<pre><code>show interfaces status</code></pre>'));
+
+  const withoutCode = applyPrintPreviewTogglesToHtml(sampleHtml, {
+    includeImages: true,
+    includeCodeBlocks: false,
+  });
+  assert.ok(withoutCode.includes('<img src="/images/fiber.png"'));
+  assert.ok(!withoutCode.includes('<pre>'));
+
+  // 3. Verify syncPrintPreviewAttributesToDom and sendPreviewToNativePrinter configure DOM attributes and invoke native print
+  const rootAttrs = new Map<string, string>();
+  let recordedDuringPrint: Record<string, string | undefined> = {};
+  let printCalls = 0;
+
+  const mockDoc = {
+    title: 'Original Page Title',
+    documentElement: {
+      setAttribute: (name: string, val: string) => {
+        rootAttrs.set(name, val);
+      },
+      removeAttribute: (name: string) => {
+        rootAttrs.delete(name);
+      },
+    },
+    querySelector: () => ({
+      setAttribute: () => {},
+      removeAttribute: () => {},
+    }),
+  };
+
+  syncPrintPreviewAttributesToDom(
+    { includeToc: false, includeImages: false },
+    mockDoc
+  );
+  assert.equal(rootAttrs.get('data-print-hide-toc'), 'true');
+  assert.equal(rootAttrs.get('data-print-hide-images'), 'true');
+
+  const printResult = sendPreviewToNativePrinter({
+    documentTitle: 'RJ45 Wiring Guide',
+    includeToc: false,
+    includeImages: true,
+    docOverride: mockDoc,
+    winOverride: {
+      print: () => {
+        printCalls += 1;
+        recordedDuringPrint = {
+          hideToc: rootAttrs.get('data-print-hide-toc'),
+          hideImages: rootAttrs.get('data-print-hide-images'),
+          format: rootAttrs.get('data-print-format'),
+        };
+      },
+    },
+  });
+
+  assert.equal(printResult.ok, true);
+  assert.equal(printCalls, 1);
+  assert.equal(printResult.format, 'A4');
+  assert.equal(recordedDuringPrint.hideToc, 'true');
+  assert.equal(recordedDuringPrint.hideImages, 'false');
+  assert.equal(recordedDuringPrint.format, 'A4');
+
+  // 4. Verify PrintPreviewModal.tsx and NoteDetailPage.tsx integration
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const modalSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/PrintPreviewModal.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    modalSource.includes('data-testid="print-preview-modal"') &&
+      modalSource.includes('data-testid="print-preview-a4-sheet"') &&
+      modalSource.includes('data-testid="print-preview-toggle-toc"') &&
+      modalSource.includes('data-testid="print-preview-toggle-images"') &&
+      modalSource.includes('data-testid="print-preview-confirm-print-btn"'),
+    'Expected PrintPreviewModal.tsx to render simulated A4 sheet and TOC/image toggles'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('<PrintPreviewButton') &&
+      noteDetailSource.includes('<PrintPreviewModal'),
+    'Expected NoteDetailPage.tsx to mount PrintPreviewButton and PrintPreviewModal'
+  );
+});
+
+
 
 
 
