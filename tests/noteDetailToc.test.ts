@@ -1831,5 +1831,64 @@ test('TableOfContents automatically expands if the current page has fewer than 5
   );
 });
 
+test('renders a dynamic estimated read time indicator at the top of NoteDetailPage content calculated at ~200 WPM', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    AVERAGE_READING_SPEED_WPM,
+    calculateEstimatedReadTime,
+    calculateReadTimeMinutes,
+    calculateReadTime,
+  } = await import('../src/pages/NoteDetailPage');
+
+  // 1. Verify default reading speed constant is 200 WPM
+  assert.equal(AVERAGE_READING_SPEED_WPM, 200);
+
+  // 2. Verify dynamic calculation across short, medium, and long technical guides at 200 WPM
+  const shortContent = '<p>Check interface status and optical transceiver Rx power levels.</p>';
+  const shortStats = calculateEstimatedReadTime(shortContent);
+  assert.equal(shortStats.wordCount, 9);
+  assert.equal(shortStats.minutes, 1);
+  assert.equal(shortStats.wpm, 200);
+  assert.equal(shortStats.formattedReadTime, '1 min read');
+  assert.equal(shortStats.estimatedLabel, 'Estimated read time: 1 min read');
+  assert.equal(shortStats.speedLabel, '~200 WPM');
+
+  const fourHundredOneWords = `<h2>Guide</h2><p>${Array.from({ length: 400 }, (_, i) => `word${i}`).join(' ')}</p>`;
+  const multiMinStats = calculateEstimatedReadTime(fourHundredOneWords);
+  assert.equal(multiMinStats.wordCount, 401);
+  assert.equal(multiMinStats.minutes, 3); // ceil(401 / 200) = 3
+  assert.equal(calculateReadTimeMinutes(fourHundredOneWords, 200), 3);
+  assert.equal(calculateReadTime(fourHundredOneWords, 200), '3 min read');
+  assert.equal(multiMinStats.formattedReadTime, '3 min read');
+
+  // 3. Verify ReadTimeProgressIndicator (variant="inline") and NoteDetailPage top-of-content integration
+  const indicatorSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/ReadTimeProgressIndicator.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    indicatorSource.includes('wpm = AVERAGE_READING_SPEED_WPM') &&
+      indicatorSource.includes('data-wpm={safeWpm}') &&
+      indicatorSource.includes('data-word-count={wordCount}') &&
+      indicatorSource.includes('data-estimated-minutes={totalMinutes}') &&
+      indicatorSource.includes('data-testid="estimated-read-time-label"') &&
+      indicatorSource.includes('Estimated read time:'),
+    'Expected ReadTimeProgressIndicator.tsx to calculate and display Estimated read time at ~200 WPM'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('wpm={AVERAGE_READING_SPEED_WPM}') &&
+      noteDetailSource.includes('variant="inline"'),
+    'Expected NoteDetailPage.tsx to mount ReadTimeProgressIndicator at the top of the article content with wpm={AVERAGE_READING_SPEED_WPM}'
+  );
+});
+
+
 
 

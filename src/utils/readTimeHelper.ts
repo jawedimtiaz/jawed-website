@@ -1,4 +1,9 @@
 /**
+ * Default average reading speed in words per minute (~200 WPM) used for technical engineering notes.
+ */
+export const AVERAGE_READING_SPEED_WPM = 200;
+
+/**
  * Helper utility: calculateWordCount
  * Strips YAML frontmatter, HTML tags, and markdown markup to return an accurate clean word count.
  */
@@ -18,18 +23,56 @@ export const calculateWordCount = (contentOrText?: string): number => {
  * Helper utility: calculateReadTimeMinutes
  * Returns estimated reading time in whole minutes based on word count (~200 WPM).
  */
-export const calculateReadTimeMinutes = (contentOrText?: string, wpm = 200): number => {
+export const calculateReadTimeMinutes = (
+  contentOrText?: string,
+  wpm: number = AVERAGE_READING_SPEED_WPM
+): number => {
+  const safeWpm = wpm > 0 ? wpm : AVERAGE_READING_SPEED_WPM;
   const words = calculateWordCount(contentOrText);
-  return Math.max(1, Math.ceil(words / wpm));
+  return Math.max(1, Math.ceil(words / safeWpm));
 };
 
 /**
  * Helper utility: calculateReadTime
  * Calculates estimated reading time (e.g. '5 min read') based on word count (~200 WPM).
  */
-export const calculateReadTime = (contentOrText?: string, wpm = 200): string => {
+export const calculateReadTime = (
+  contentOrText?: string,
+  wpm: number = AVERAGE_READING_SPEED_WPM
+): string => {
   const minutes = calculateReadTimeMinutes(contentOrText, wpm);
   return `${minutes} min read`;
+};
+
+export interface EstimatedReadTimeStats {
+  wordCount: number;
+  minutes: number;
+  wpm: number;
+  formattedReadTime: string;
+  estimatedLabel: string;
+  speedLabel: string;
+}
+
+/**
+ * Dynamically calculates estimated read time statistics based on average reading speed (~200 WPM).
+ */
+export const calculateEstimatedReadTime = (
+  contentOrText?: string,
+  wpm: number = AVERAGE_READING_SPEED_WPM
+): EstimatedReadTimeStats => {
+  const safeWpm = wpm > 0 ? wpm : AVERAGE_READING_SPEED_WPM;
+  const wordCount = calculateWordCount(contentOrText);
+  const minutes = calculateReadTimeMinutes(contentOrText, safeWpm);
+  const formattedReadTime = `${minutes} min read`;
+
+  return {
+    wordCount,
+    minutes,
+    wpm: safeWpm,
+    formattedReadTime,
+    estimatedLabel: `Estimated read time: ${formattedReadTime}`,
+    speedLabel: `~${safeWpm} WPM`,
+  };
 };
 
 export interface RemainingReadTimeResult {
@@ -47,10 +90,11 @@ export interface RemainingReadTimeResult {
 export const calculateRemainingReadTime = (
   contentOrText?: string,
   progress = 0,
-  wpm = 200
+  wpm: number = AVERAGE_READING_SPEED_WPM
 ): RemainingReadTimeResult => {
+  const safeWpm = wpm > 0 ? wpm : AVERAGE_READING_SPEED_WPM;
   const wordCount = calculateWordCount(contentOrText);
-  const totalMinutes = Math.max(1, Math.ceil(wordCount / wpm));
+  const totalMinutes = Math.max(1, Math.ceil(wordCount / safeWpm));
   const clampedProgress = Math.min(Math.max(progress, 0), 1);
   const percent = Math.round(clampedProgress * 100);
   const rawRemaining = Math.ceil(totalMinutes * (1 - clampedProgress));
@@ -76,26 +120,28 @@ export const calculateRemainingReadTime = (
 export interface HeaderReadTimeDetails {
   wordCount: number;
   minutes: number;
+  wpm: number;
   formattedReadTime: string;
   label: string;
 }
 
 /**
  * Computes structured Read Time indicator details (word count, estimated minutes, formatted read time)
- * for display in the NoteDetailPage header.
+ * for display in the NoteDetailPage header and top-of-content banner.
  */
 export const getHeaderReadTimeDetails = (
   contentOrText?: string,
-  wpm = 200
+  wpm: number = AVERAGE_READING_SPEED_WPM
 ): HeaderReadTimeDetails => {
+  const safeWpm = wpm > 0 ? wpm : AVERAGE_READING_SPEED_WPM;
   const wordCount = calculateWordCount(contentOrText);
-  const minutes = calculateReadTimeMinutes(contentOrText, wpm);
-  const formattedReadTime = calculateReadTime(contentOrText, wpm);
+  const minutes = calculateReadTimeMinutes(contentOrText, safeWpm);
+  const formattedReadTime = calculateReadTime(contentOrText, safeWpm);
   return {
     wordCount,
     minutes,
+    wpm: safeWpm,
     formattedReadTime,
     label: `Read Time: ${formattedReadTime} (${wordCount} words)`,
   };
 };
-

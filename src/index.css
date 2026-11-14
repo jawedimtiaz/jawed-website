@@ -5176,6 +5176,11 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   color: var(--muted);
 }
 
+.note-read-time-indicator .read-time-inline-label {
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
 .note-read-time-indicator .read-time-separator {
   color: var(--muted);
   opacity: 0.6;

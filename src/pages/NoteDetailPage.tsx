@@ -8,11 +8,14 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { SeoHead } from '../components/SeoHead';
 import {
+  AVERAGE_READING_SPEED_WPM,
+  calculateEstimatedReadTime,
   calculateWordCount,
   calculateReadTimeMinutes,
   calculateReadTime,
   calculateRemainingReadTime,
   getHeaderReadTimeDetails,
+  type EstimatedReadTimeStats,
   type RemainingReadTimeResult,
   type HeaderReadTimeDetails,
 } from '../utils/readTimeHelper';
@@ -169,6 +172,8 @@ export {
   submitGuideFeedback,
   GUIDE_FEEDBACK_STORAGE_KEY,
   GUIDE_FEEDBACK_HEADING,
+  AVERAGE_READING_SPEED_WPM,
+  calculateEstimatedReadTime,
   calculateWordCount,
   calculateReadTimeMinutes,
   calculateReadTime,
@@ -194,6 +199,7 @@ export {
   type GuideFeedbackVote,
   type GuideFeedbackRecord,
   type GuideFeedbackProps,
+  type EstimatedReadTimeStats,
   type RemainingReadTimeResult,
   type HeaderReadTimeDetails,
 };
@@ -933,9 +939,10 @@ export const NoteDetailPage: React.FC = () => {
           data-lightbox-scope="true"
           style={{ padding: '32px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}
         >
-          {/* Scroll-triggered Estimated Read Time & Progress Bar */}
+          {/* Dynamic Estimated Read Time & Progress Indicator at Top of Content (~200 WPM) */}
           <ReadTimeProgressIndicator
-            content={cleanHtmlContent}
+            content={cleanHtmlContent || note.description}
+            wpm={AVERAGE_READING_SPEED_WPM}
             variant="inline"
             scrollTriggerThreshold={40}
           />
