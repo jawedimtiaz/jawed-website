@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
-import { Share2, Clock } from 'lucide-react';
+import { Share2, Clock, Bookmark, BookmarkCheck } from 'lucide-react';
 import notesData from '../data/notesData.json';
 import { FIELD_GUIDES } from '../data/fieldGuidesData';
 import { FieldGuideDetailPage } from './FieldGuideDetailPage';
@@ -118,6 +118,23 @@ import {
   type GuideFeedbackProps,
 } from '../components/GuideFeedback';
 
+import {
+  NOTE_BOOKMARKS_STORAGE_KEY,
+  NOTE_BOOKMARKS_EVENT_NAME,
+  getBookmarkedNotes,
+  saveBookmarkedNotes,
+  isNoteBookmarked,
+  addBookmarkedNote,
+  removeBookmarkedNote,
+  toggleBookmarkedNote,
+  clearBookmarkedNotes,
+  filterBookmarkedNotes,
+  type BookmarkedNoteItem,
+  type BookmarkInput,
+  type BookmarkStorageAdapter,
+  type QuickActionsTab,
+} from '../utils/noteBookmarks';
+
 export {
   TableOfContents,
   CollapsibleTableOfContents,
@@ -172,6 +189,16 @@ export {
   submitGuideFeedback,
   GUIDE_FEEDBACK_STORAGE_KEY,
   GUIDE_FEEDBACK_HEADING,
+  NOTE_BOOKMARKS_STORAGE_KEY,
+  NOTE_BOOKMARKS_EVENT_NAME,
+  getBookmarkedNotes,
+  saveBookmarkedNotes,
+  isNoteBookmarked,
+  addBookmarkedNote,
+  removeBookmarkedNote,
+  toggleBookmarkedNote,
+  clearBookmarkedNotes,
+  filterBookmarkedNotes,
   AVERAGE_READING_SPEED_WPM,
   calculateEstimatedReadTime,
   calculateWordCount,
@@ -199,6 +226,10 @@ export {
   type GuideFeedbackVote,
   type GuideFeedbackRecord,
   type GuideFeedbackProps,
+  type BookmarkedNoteItem,
+  type BookmarkInput,
+  type BookmarkStorageAdapter,
+  type QuickActionsTab,
   type EstimatedReadTimeStats,
   type RemainingReadTimeResult,
   type HeaderReadTimeDetails,
@@ -454,6 +485,9 @@ export const NoteDetailPage: React.FC = () => {
   const [isLinkCopiedToastVisible, setIsLinkCopiedToastVisible] = React.useState<boolean>(false);
   const [copiedHeadingUrl, setCopiedHeadingUrl] = React.useState<string>('');
   const [shareStatus, setShareStatus] = React.useState<'idle' | 'shared' | 'copied'>('idle');
+  const [isBookmarked, setIsBookmarked] = React.useState<boolean>(() =>
+    isNoteBookmarked(slug || '')
+  );
   const [isMobileTocOpen, setIsMobileTocOpen] = React.useState<boolean>(() =>
     shouldAutoExpandToc(tocItems.length)
   );
@@ -523,6 +557,7 @@ export const NoteDetailPage: React.FC = () => {
     setCopiedHeadingId('');
     setCopiedCodeBlockId('');
     setShareStatus('idle');
+    setIsBookmarked(isNoteBookmarked(slug || ''));
     const initialHashId =
       typeof window !== 'undefined' && window.location?.hash
         ? navigateToHashHeadingOnLoad(window.location.hash)
@@ -536,9 +571,16 @@ export const NoteDetailPage: React.FC = () => {
         setActiveHeadingId(targetId);
       }
     };
+    const handleBookmarkSync = () => {
+      setIsBookmarked(isNoteBookmarked(slug || ''));
+    };
     window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener(NOTE_BOOKMARKS_EVENT_NAME, handleBookmarkSync);
+    window.addEventListener('storage', handleBookmarkSync);
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener(NOTE_BOOKMARKS_EVENT_NAME, handleBookmarkSync);
+      window.removeEventListener('storage', handleBookmarkSync);
     };
   }, [slug, tocItems]);
 
@@ -728,6 +770,17 @@ export const NoteDetailPage: React.FC = () => {
     }, 2400);
   };
 
+  const handleToggleBookmark = () => {
+    const result = toggleBookmarkedNote({
+      slug: note.slug,
+      title: guideMetadata.title || note.title,
+      description: guideMetadata.description || note.description,
+      category: note.category || 'Technical Note',
+      route: `/notes/${note.slug}`,
+    });
+    setIsBookmarked(result.bookmarked);
+  };
+
   const handleScrollToTop = () => {
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -891,6 +944,43 @@ export const NoteDetailPage: React.FC = () => {
         />
         <button
           type="button"
+          onClick={handleToggleBookmark}
+          data-testid="note-bookmark-btn"
+          data-bookmarked={isBookmarked}
+          aria-pressed={isBookmarked}
+          className={`button ${isBookmarked ? 'button-primary' : 'button-secondary'} no-print note-bookmark-btn`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 12px',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            borderRadius: '8px',
+            cursor: 'pointer',
+          }}
+          aria-label={
+            isBookmarked
+              ? `Remove bookmark for "${guideMetadata.title || note.title}"`
+              : `Bookmark "${guideMetadata.title || note.title}"`
+          }
+          title={
+            isBookmarked
+              ? 'Saved in Quick Actions → Bookmarks (click to remove)'
+              : 'Bookmark this technical guide for quick access in Quick Actions (Ctrl+K)'
+          }
+        >
+          {isBookmarked ? (
+            <BookmarkCheck size={14} aria-hidden="true" />
+          ) : (
+            <Bookmark size={14} aria-hidden="true" />
+          )}
+          <span data-testid="note-bookmark-btn-label">
+            {isBookmarked ? 'Bookmarked' : 'Bookmark'}
+          </span>
+        </button>
+        <button
+          type="button"
           onClick={handleWebShareNote}
           data-testid="note-share-btn"
           data-share-status={shareStatus}
@@ -999,26 +1089,58 @@ export const NoteDetailPage: React.FC = () => {
                 Found this technical note helpful?
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleWebShareNote}
-              data-testid="note-web-share-btn"
-              className="button button-primary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '7px 16px',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-              aria-label={`Share "${guideMetadata.title || note.title}"`}
-              title="Share this note using native Web Share API or copy link"
-            >
-              <Share2 size={15} aria-hidden="true" />
-              <span>Share Note</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleToggleBookmark}
+                data-testid="note-bottom-bookmark-btn"
+                data-bookmarked={isBookmarked}
+                aria-pressed={isBookmarked}
+                className={`button ${isBookmarked ? 'button-primary' : 'button-secondary'}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 14px',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+                aria-label={
+                  isBookmarked
+                    ? `Remove bookmark for "${guideMetadata.title || note.title}"`
+                    : `Bookmark "${guideMetadata.title || note.title}"`
+                }
+                title="Save or remove this technical guide in Quick Actions Bookmarks"
+              >
+                {isBookmarked ? (
+                  <BookmarkCheck size={15} aria-hidden="true" />
+                ) : (
+                  <Bookmark size={15} aria-hidden="true" />
+                )}
+                <span>{isBookmarked ? 'Bookmarked' : 'Bookmark Guide'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleWebShareNote}
+                data-testid="note-web-share-btn"
+                className="button button-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 16px',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+                aria-label={`Share "${guideMetadata.title || note.title}"`}
+                title="Share this note using native Web Share API or copy link"
+              >
+                <Share2 size={15} aria-hidden="true" />
+                <span>Share Note</span>
+              </button>
+            </div>
           </div>
 
           {/* 'Was this guide helpful?' Feedback Component for Improvement Tracking */}

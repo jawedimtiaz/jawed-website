@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
-import { Share2 } from 'lucide-react';
+import { Share2, Bookmark, BookmarkCheck } from 'lucide-react';
 import { FIELD_GUIDES, determineCategory } from '../data/fieldGuidesData';
 import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { SeoHead } from '../components/SeoHead';
@@ -29,6 +29,11 @@ import { handleArticleImageLightboxClick } from '../components/GlobalImageLightb
 import { PrintableBadge } from '../components/common/PrintableBadge';
 import { ExportToPdfButton } from '../components/common/ExportToPdfButton';
 import { RelatedArticles } from '../components/RelatedArticles';
+import {
+  NOTE_BOOKMARKS_EVENT_NAME,
+  isNoteBookmarked,
+  toggleBookmarkedNote,
+} from '../utils/noteBookmarks';
 
 // Reusable Visual Guide Components & Aliases
 import {
@@ -49,6 +54,9 @@ export const FieldGuideDetailPage: React.FC = () => {
   const [copiedTocId, setCopiedTocId] = React.useState<string>('');
   const [copiedAnchorUrl, setCopiedAnchorUrl] = React.useState<string>('');
   const [shareStatus, setShareStatus] = React.useState<'idle' | 'shared' | 'copied'>('idle');
+  const [isBookmarked, setIsBookmarked] = React.useState<boolean>(() =>
+    isNoteBookmarked(slug || '')
+  );
   const [parsedGuideTocItems, setParsedGuideTocItems] = React.useState<TocItem[]>([]);
   const copyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -58,8 +66,19 @@ export const FieldGuideDetailPage: React.FC = () => {
     setCopiedTocId('');
     setCopiedAnchorUrl('');
     setShareStatus('idle');
+    setIsBookmarked(isNoteBookmarked(slug || ''));
     setParsedGuideTocItems([]);
+
+    if (typeof window === 'undefined') return;
+    const handleBookmarkSync = () => {
+      setIsBookmarked(isNoteBookmarked(slug || ''));
+    };
+    window.addEventListener(NOTE_BOOKMARKS_EVENT_NAME, handleBookmarkSync);
+    window.addEventListener('storage', handleBookmarkSync);
+
     return () => {
+      window.removeEventListener(NOTE_BOOKMARKS_EVENT_NAME, handleBookmarkSync);
+      window.removeEventListener('storage', handleBookmarkSync);
       if (copyTimerRef.current) {
         clearTimeout(copyTimerRef.current);
       }
@@ -211,6 +230,17 @@ export const FieldGuideDetailPage: React.FC = () => {
       if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
       shareTimerRef.current = setTimeout(() => setShareStatus('idle'), 2600);
     }
+  };
+
+  const handleToggleGuideBookmark = () => {
+    const result = toggleBookmarkedNote({
+      slug: guide.slug,
+      title: guide.title,
+      description: guide.description,
+      category: guide.category || determineCategory(guide),
+      route: `/notes/${guide.slug}`,
+    });
+    setIsBookmarked(result.bookmarked);
   };
 
   const handleArticleBodyClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -1436,6 +1466,43 @@ export const FieldGuideDetailPage: React.FC = () => {
               targetSelector=".article-body"
               size="sm"
             />
+            <button
+              type="button"
+              onClick={handleToggleGuideBookmark}
+              data-testid="note-bookmark-btn"
+              data-bookmarked={isBookmarked}
+              aria-pressed={isBookmarked}
+              className={`button ${isBookmarked ? 'button-primary' : 'button-secondary'} no-print note-bookmark-btn`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 12px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+              aria-label={
+                isBookmarked
+                  ? `Remove bookmark for "${guide.title}"`
+                  : `Bookmark "${guide.title}"`
+              }
+              title={
+                isBookmarked
+                  ? 'Saved in Quick Actions → Bookmarks (click to remove)'
+                  : 'Bookmark this technical guide for quick access in Quick Actions (Ctrl+K)'
+              }
+            >
+              {isBookmarked ? (
+                <BookmarkCheck size={14} aria-hidden="true" />
+              ) : (
+                <Bookmark size={14} aria-hidden="true" />
+              )}
+              <span data-testid="note-bookmark-btn-label">
+                {isBookmarked ? 'Bookmarked' : 'Bookmark'}
+              </span>
+            </button>
             <button
               type="button"
               onClick={handleWebShareGuide}

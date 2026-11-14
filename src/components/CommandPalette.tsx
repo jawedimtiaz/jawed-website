@@ -10,6 +10,67 @@ import {
   useKeyboardShortcuts,
   formatComboForDisplay,
 } from '../hooks/useKeyboardShortcuts';
+import {
+  QuickActionsMenu,
+  QuickActionsFloatingMenu,
+  QUICK_ACTION_TOOLS,
+  QUICK_ACTIONS_TABS,
+  QUICK_ACTIONS_SHORTCUT_LABEL,
+  NOTE_BOOKMARKS_STORAGE_KEY,
+  NOTE_BOOKMARKS_EVENT_NAME,
+  getBookmarkedNotes,
+  saveBookmarkedNotes,
+  isNoteBookmarked,
+  addBookmarkedNote,
+  removeBookmarkedNote,
+  toggleBookmarkedNote,
+  clearBookmarkedNotes,
+  filterBookmarkedNotes,
+  isQuickActionsShortcutEvent,
+  filterQuickActionTools,
+  executeQuickActionToolSelect,
+  executeQuickActionBookmarkSelect,
+  openQuickActionsMenu,
+  closeQuickActionsMenu,
+  toggleQuickActionsMenu,
+  type QuickActionToolItem,
+  type QuickActionsMenuProps,
+  type BookmarkedNoteItem,
+  type BookmarkInput,
+  type BookmarkStorageAdapter,
+  type QuickActionsTab,
+} from './QuickActionsMenu';
+
+export {
+  QuickActionsMenu,
+  QuickActionsFloatingMenu,
+  QUICK_ACTION_TOOLS,
+  QUICK_ACTIONS_TABS,
+  QUICK_ACTIONS_SHORTCUT_LABEL,
+  NOTE_BOOKMARKS_STORAGE_KEY,
+  NOTE_BOOKMARKS_EVENT_NAME,
+  getBookmarkedNotes,
+  saveBookmarkedNotes,
+  isNoteBookmarked,
+  addBookmarkedNote,
+  removeBookmarkedNote,
+  toggleBookmarkedNote,
+  clearBookmarkedNotes,
+  filterBookmarkedNotes,
+  isQuickActionsShortcutEvent,
+  filterQuickActionTools,
+  executeQuickActionToolSelect,
+  executeQuickActionBookmarkSelect,
+  openQuickActionsMenu,
+  closeQuickActionsMenu,
+  toggleQuickActionsMenu,
+  type QuickActionToolItem,
+  type QuickActionsMenuProps,
+  type BookmarkedNoteItem,
+  type BookmarkInput,
+  type BookmarkStorageAdapter,
+  type QuickActionsTab,
+};
 
 function getCategoryToolIcon(category: string, title: string): string {
   const t = title.toLowerCase();
@@ -1419,8 +1480,56 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     navigate('/contact');
   }, [flashKeyHint, handleClose, onNavigated, navigate]);
 
+  const handleOpenIpv4SubnetCalculatorAction = useCallback(() => {
+    flashKeyHint('select');
+    handleClose();
+    if (onNavigated) onNavigated();
+    navigate('/tools/ipv4-subnet-calculator');
+  }, [flashKeyHint, handleClose, onNavigated, navigate]);
+
+  const handleOpenAiPromptBuilderAction = useCallback(() => {
+    flashKeyHint('select');
+    handleClose();
+    if (onNavigated) onNavigated();
+    navigate('/tools/ai-prompt-builder');
+  }, [flashKeyHint, handleClose, onNavigated, navigate]);
+
+  const handleOpenItTroubleshootingAssistantAction = useCallback(() => {
+    flashKeyHint('select');
+    handleClose();
+    if (onNavigated) onNavigated();
+    navigate('/tools/it-troubleshooting-assistant');
+  }, [flashKeyHint, handleClose, onNavigated, navigate]);
+
   const quickActions: QuickActionItem[] = useMemo(
     () => [
+      {
+        id: 'ipv4-subnet-calculator',
+        label: 'IPv4 Subnet Calculator',
+        description: 'Calculate CIDR blocks, subnet masks, broadcast addresses & usable host ranges',
+        badge: 'Networking',
+        icon: '🌐',
+        keywords: ['ipv4', 'subnet', 'calculator', 'cidr', 'mask', 'network', 'ip', 'vlsm'],
+        action: handleOpenIpv4SubnetCalculatorAction,
+      },
+      {
+        id: 'ai-prompt-builder',
+        label: 'AI Prompt Builder',
+        description: 'Build structured system prompts and context blocks for engineering workflows',
+        badge: 'AI Tool',
+        icon: '✨',
+        keywords: ['ai', 'prompt', 'builder', 'system', 'context', 'llm', 'template'],
+        action: handleOpenAiPromptBuilderAction,
+      },
+      {
+        id: 'it-troubleshooting-assistant',
+        label: 'IT Troubleshooting Assistant',
+        description: 'Step-by-step diagnostic workflows for network, macOS, Windows & server incidents',
+        badge: 'Diagnostics',
+        icon: '🛠️',
+        keywords: ['it', 'troubleshooting', 'assistant', 'triage', 'diagnostics', 'incident'],
+        action: handleOpenItTroubleshootingAssistantAction,
+      },
       {
         id: 'clear-local-storage',
         label: 'Clear Local Storage',
@@ -1449,7 +1558,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         action: handleContactSupportAction,
       },
     ],
-    [handleClearLocalStorageAction, handlePrintCurrentToolAction, handleContactSupportAction]
+    [
+      handleOpenIpv4SubnetCalculatorAction,
+      handleOpenAiPromptBuilderAction,
+      handleOpenItTroubleshootingAssistantAction,
+      handleClearLocalStorageAction,
+      handlePrintCurrentToolAction,
+      handleContactSupportAction,
+    ]
   );
 
   const matchingQuickActions = useMemo(() => {

@@ -1657,7 +1657,197 @@ describe('CommandPalette - Shortcut Filtering & Navigational Execution Logic', (
       'Expected CommandPalette.tsx to track search bar focus and wire clickable recent search history items'
     );
   });
+
+  it('provides a Quick Actions floating menu component reachable via Ctrl+K or Cmd+K with one-click access to IPv4 Subnet Calculator and AI Prompt Builder', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      QUICK_ACTION_TOOLS,
+      isQuickActionsShortcutEvent,
+      filterQuickActionTools,
+      executeQuickActionToolSelect,
+    } = await import('../src/components/QuickActionsMenu');
+
+    // 1. Verify QUICK_ACTION_TOOLS includes IPv4 Subnet Calculator and AI Prompt Builder
+    const ipv4Tool = QUICK_ACTION_TOOLS.find((t) => t.id === 'ipv4-subnet-calculator');
+    const aiPromptTool = QUICK_ACTION_TOOLS.find((t) => t.id === 'ai-prompt-builder');
+    assert.ok(ipv4Tool, 'Expected IPv4 Subnet Calculator in QUICK_ACTION_TOOLS');
+    assert.equal(ipv4Tool?.title, 'IPv4 Subnet Calculator');
+    assert.equal(ipv4Tool?.route, '/tools/ipv4-subnet-calculator');
+
+    assert.ok(aiPromptTool, 'Expected AI Prompt Builder in QUICK_ACTION_TOOLS');
+    assert.equal(aiPromptTool?.title, 'AI Prompt Builder');
+    assert.equal(aiPromptTool?.route, '/tools/ai-prompt-builder');
+
+    // 2. Verify keyboard shortcut matching for Ctrl+K and Cmd+K
+    assert.equal(isQuickActionsShortcutEvent({ key: 'k', ctrlKey: true, metaKey: false }), true);
+    assert.equal(isQuickActionsShortcutEvent({ key: 'K', ctrlKey: false, metaKey: true }), true);
+    assert.equal(isQuickActionsShortcutEvent({ key: 'k', ctrlKey: false, metaKey: false }), false);
+    assert.equal(
+      isQuickActionsShortcutEvent({ key: 'k', ctrlKey: true, metaKey: false, altKey: true }),
+      false
+    );
+
+    // 3. Verify filtering and one-click tool navigation execution
+    const subnetFiltered = filterQuickActionTools(QUICK_ACTION_TOOLS, 'subnet');
+    assert.equal(subnetFiltered.length, 1);
+    assert.equal(subnetFiltered[0].id, 'ipv4-subnet-calculator');
+
+    const promptFiltered = filterQuickActionTools(QUICK_ACTION_TOOLS, 'prompt builder');
+    assert.equal(promptFiltered.length, 1);
+    assert.equal(promptFiltered[0].id, 'ai-prompt-builder');
+
+    let navigatedTo = '';
+    let closedCount = 0;
+    const targetTool = executeQuickActionToolSelect(
+      ipv4Tool!,
+      (route) => {
+        navigatedTo = route;
+      },
+      () => {
+        closedCount += 1;
+      }
+    );
+    assert.equal(targetTool?.route, '/tools/ipv4-subnet-calculator');
+    assert.equal(navigatedTo, '/tools/ipv4-subnet-calculator');
+    assert.equal(closedCount, 1);
+
+    // 4. Verify QuickActionsMenu.tsx, CommandPalette.tsx, and App.tsx integration
+    const quickActionsSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/QuickActionsMenu.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      quickActionsSource.includes('data-testid="quick-actions-floating-menu"') &&
+        quickActionsSource.includes('data-testid="quick-actions-floating-trigger"') &&
+        quickActionsSource.includes('data-testid="quick-actions-floating-panel"'),
+      'Expected QuickActionsMenu.tsx to render floating trigger and dialog panel'
+    );
+
+    const appSource = fs.readFileSync(path.resolve(process.cwd(), 'src/App.tsx'), 'utf8');
+    assert.ok(
+      appSource.includes('<QuickActionsMenu />'),
+      'Expected App.tsx to mount <QuickActionsMenu />'
+    );
+  });
+
+  it('adds a Bookmark feature to NoteDetailPage storing notes in localStorage and a Bookmarks tab in QuickActionsMenu to access saved technical guides', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      NOTE_BOOKMARKS_STORAGE_KEY,
+      QUICK_ACTIONS_TABS,
+      getBookmarkedNotes,
+      isNoteBookmarked,
+      addBookmarkedNote,
+      removeBookmarkedNote,
+      toggleBookmarkedNote,
+      filterBookmarkedNotes,
+      executeQuickActionBookmarkSelect,
+    } = await import('../src/components/QuickActionsMenu');
+
+    // Mock localStorage adapter
+    const store = new Map<string, string>();
+    const mockStorage = {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    };
+
+    // 1. Verify QuickActionsMenu defines 'tools' and 'bookmarks' tabs
+    assert.deepEqual(
+      QUICK_ACTIONS_TABS.map((t) => t.id),
+      ['tools', 'bookmarks']
+    );
+
+    // 2. Verify NoteDetailPage bookmarking stores and toggles the current note in localStorage
+    assert.equal(isNoteBookmarked('rj45-ethernet-wiring-color-codes', mockStorage), false);
+    const firstToggle = toggleBookmarkedNote(
+      {
+        slug: 'rj45-ethernet-wiring-color-codes',
+        title: 'RJ45 T568A vs T568B Wiring Guide',
+        description: 'Pinout reference for Cat5e/Cat6/Cat6A termination.',
+        category: 'Networking',
+      },
+      mockStorage
+    );
+    assert.equal(firstToggle.bookmarked, true);
+    assert.equal(isNoteBookmarked('rj45-ethernet-wiring-color-codes', mockStorage), true);
+    assert.ok(store.has(NOTE_BOOKMARKS_STORAGE_KEY));
+
+    // Add a second technical guide bookmark
+    addBookmarkedNote(
+      {
+        slug: 'macos-dfu-restore-revive-guide',
+        title: 'macOS Apple Silicon DFU Revive & Restore',
+        description: 'Step-by-step Apple Configurator 2 DFU recovery procedure.',
+        category: 'Apple & macOS',
+      },
+      mockStorage
+    );
+
+    const savedList = getBookmarkedNotes(mockStorage);
+    assert.equal(savedList.length, 2);
+    assert.equal(savedList[0].slug, 'macos-dfu-restore-revive-guide');
+    assert.equal(savedList[1].slug, 'rj45-ethernet-wiring-color-codes');
+
+    // 3. Verify filtering and one-click navigation in the Quick Actions Bookmarks tab
+    const filtered = filterBookmarkedNotes('rj45', savedList);
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].slug, 'rj45-ethernet-wiring-color-codes');
+
+    let navigatedBookmarkRoute = '';
+    const selectedBookmark = executeQuickActionBookmarkSelect(
+      'rj45-ethernet-wiring-color-codes',
+      (route) => {
+        navigatedBookmarkRoute = route;
+      },
+      savedList
+    );
+    assert.equal(selectedBookmark?.route, '/notes/rj45-ethernet-wiring-color-codes');
+    assert.equal(navigatedBookmarkRoute, '/notes/rj45-ethernet-wiring-color-codes');
+
+    // 4. Verify toggling off or removing deletes the bookmark from localStorage
+    const secondToggle = toggleBookmarkedNote(
+      {
+        slug: 'rj45-ethernet-wiring-color-codes',
+        title: 'RJ45 T568A vs T568B Wiring Guide',
+      },
+      mockStorage
+    );
+    assert.equal(secondToggle.bookmarked, false);
+    assert.equal(isNoteBookmarked('rj45-ethernet-wiring-color-codes', mockStorage), false);
+
+    removeBookmarkedNote('macos-dfu-restore-revive-guide', mockStorage);
+    assert.equal(getBookmarkedNotes(mockStorage).length, 0);
+
+    // 5. Verify NoteDetailPage.tsx and QuickActionsMenu.tsx wire the Bookmark button and Bookmarks tab
+    const noteDetailSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      noteDetailSource.includes('data-testid="note-bookmark-btn"') &&
+        noteDetailSource.includes('toggleBookmarkedNote'),
+      'Expected NoteDetailPage.tsx to render note-bookmark-btn and call toggleBookmarkedNote'
+    );
+
+    const quickActionsSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/QuickActionsMenu.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      quickActionsSource.includes('data-testid="quick-actions-tab-bookmarks"') &&
+        quickActionsSource.includes('data-testid="quick-actions-bookmarks-list"'),
+      'Expected QuickActionsMenu.tsx to render the Bookmarks tab and saved guides list'
+    );
+  });
 });
+
 
 
 

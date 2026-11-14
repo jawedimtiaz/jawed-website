@@ -47,6 +47,30 @@ import {
   extractArticleTopicsAndTags,
   getDefaultArticlePool,
 } from './components/RelatedArticles';
+import {
+  QuickActionsMenu,
+  QuickActionsFloatingMenu,
+  QUICK_ACTION_TOOLS,
+  QUICK_ACTIONS_TABS,
+  QUICK_ACTIONS_SHORTCUT_LABEL,
+  NOTE_BOOKMARKS_STORAGE_KEY,
+  NOTE_BOOKMARKS_EVENT_NAME,
+  getBookmarkedNotes,
+  saveBookmarkedNotes,
+  isNoteBookmarked,
+  addBookmarkedNote,
+  removeBookmarkedNote,
+  toggleBookmarkedNote,
+  clearBookmarkedNotes,
+  filterBookmarkedNotes,
+  isQuickActionsShortcutEvent,
+  filterQuickActionTools,
+  executeQuickActionToolSelect,
+  executeQuickActionBookmarkSelect,
+  openQuickActionsMenu,
+  closeQuickActionsMenu,
+  toggleQuickActionsMenu,
+} from './components/QuickActionsMenu';
 
 export {
   OfflineModeFallback,
@@ -71,6 +95,28 @@ export {
   getRelatedArticles,
   extractArticleTopicsAndTags,
   getDefaultArticlePool,
+  QuickActionsMenu,
+  QuickActionsFloatingMenu,
+  QUICK_ACTION_TOOLS,
+  QUICK_ACTIONS_TABS,
+  QUICK_ACTIONS_SHORTCUT_LABEL,
+  NOTE_BOOKMARKS_STORAGE_KEY,
+  NOTE_BOOKMARKS_EVENT_NAME,
+  getBookmarkedNotes,
+  saveBookmarkedNotes,
+  isNoteBookmarked,
+  addBookmarkedNote,
+  removeBookmarkedNote,
+  toggleBookmarkedNote,
+  clearBookmarkedNotes,
+  filterBookmarkedNotes,
+  isQuickActionsShortcutEvent,
+  filterQuickActionTools,
+  executeQuickActionToolSelect,
+  executeQuickActionBookmarkSelect,
+  openQuickActionsMenu,
+  closeQuickActionsMenu,
+  toggleQuickActionsMenu,
 };
 
 // Pages
@@ -359,6 +405,7 @@ export const App: React.FC = () => {
 
         <Footer onOpenCookieModal={() => setCookieModalOpen(true)} />
         <JawedAiWidget />
+        <QuickActionsMenu />
         <PWAInstallBanner />
         <GlobalImageLightbox />
 
