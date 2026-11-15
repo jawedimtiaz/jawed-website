@@ -3,6 +3,7 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import {
   Sparkles,
@@ -502,9 +503,13 @@ ${examples.trim() ? `\n### Examples / Additional Guidance:\n${examples}` : ''}
                   Copy this structured markdown text and paste it into ChatGPT, Claude, Gemini, or Microsoft Copilot.
                 </p>
 
-                <pre className="tool-output" style={{ minHeight: '340px', fontSize: '0.88rem', lineHeight: '1.6' }}>
+                <ToolOutput
+                  content={generatedPrompt}
+                  title="Generated AI Prompt"
+                  style={{ minHeight: '340px', fontSize: '0.88rem', lineHeight: '1.6' }}
+                >
                   {generatedPrompt}
-                </pre>
+                </ToolOutput>
               </div>
 
               {/* Prompt Quality Audit Scorecard */}
@@ -627,9 +632,13 @@ ${examples.trim() ? `\n### Examples / Additional Guidance:\n${examples}` : ''}
                       <strong>Role:</strong> {item.role || 'Unspecified'}
                     </div>
 
-                    <pre className="tool-output" style={{ maxHeight: '160px', overflowY: 'auto', fontSize: '0.78rem', padding: '10px' }}>
+                    <ToolOutput
+                      content={item.generatedText}
+                      title={item.title || 'Saved Prompt'}
+                      style={{ maxHeight: '160px', overflowY: 'auto', fontSize: '0.78rem', padding: '10px' }}
+                    >
                       {item.generatedText}
-                    </pre>
+                    </ToolOutput>
                   </div>
 
                   <div style={{ display: 'flex', gap: '8px' }}>

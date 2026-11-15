@@ -2100,4 +2100,80 @@ describe('CommandPalette - Shortcut Filtering & Navigational Execution Logic', (
       'Expected CommandPalette.tsx to render clickable category pill filter buttons and reset action'
     );
   });
+
+  it('persists the current active search category pill filter in localStorage so it remains active when the user reopens the search modal', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      ACTIVE_SEARCH_CATEGORY_PILL_STORAGE_KEY,
+      getPersistedSearchCategoryPill,
+      savePersistedSearchCategoryPill,
+      clearPersistedSearchCategoryPill,
+      toggleSearchCategoryPill,
+      toggleAndPersistSearchCategoryPill,
+      filterDynamicSearchByCategoryPill,
+    } = await import('../src/components/CommandPalette');
+
+    assert.equal(
+      ACTIVE_SEARCH_CATEGORY_PILL_STORAGE_KEY,
+      'jawed_active_search_category_pill_v1'
+    );
+
+    const store = new Map<string, string>();
+    const mockStorage = {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    };
+
+    // 1. Default when nothing is stored in localStorage is 'all'
+    assert.equal(getPersistedSearchCategoryPill(mockStorage), 'all');
+
+    // 2. Clicking 'Guides' pill persists 'guide' in localStorage
+    const selectedGuides = toggleAndPersistSearchCategoryPill('all', 'Guides', mockStorage);
+    assert.equal(selectedGuides, 'guide');
+    assert.equal(store.get(ACTIVE_SEARCH_CATEGORY_PILL_STORAGE_KEY), 'guide');
+    assert.equal(getPersistedSearchCategoryPill(mockStorage), 'guide');
+
+    // 3. Reopening the search modal restores 'guide' from localStorage and filters results accordingly
+    const restoredCategoryOnReopen = getPersistedSearchCategoryPill(mockStorage);
+    assert.equal(restoredCategoryOnReopen, 'guide');
+    const reopenedSearch = filterDynamicSearchByCategoryPill('network', restoredCategoryOnReopen);
+    assert.equal(reopenedSearch.activePill, 'guide');
+    assert.ok(reopenedSearch.filteredResults.length > 0);
+    assert.ok(reopenedSearch.filteredResults.every((item) => item.category === 'guide'));
+
+    // 4. Switching to 'Tools' pill updates localStorage to 'tool'
+    const selectedTools = savePersistedSearchCategoryPill('Tools', mockStorage);
+    assert.equal(selectedTools, 'tool');
+    assert.equal(getPersistedSearchCategoryPill(mockStorage), 'tool');
+
+    // 5. Clicking 'Tools' again toggles back to 'all' and updates localStorage
+    const toggledOff = toggleSearchCategoryPill('tool', 'Tools', mockStorage);
+    assert.equal(toggledOff, 'all');
+    assert.equal(getPersistedSearchCategoryPill(mockStorage), 'all');
+
+    // 6. Clearing persisted category pill removes it and resets to 'all'
+    savePersistedSearchCategoryPill('Blog', mockStorage);
+    assert.equal(getPersistedSearchCategoryPill(mockStorage), 'blog');
+    assert.equal(clearPersistedSearchCategoryPill(mockStorage), 'all');
+    assert.equal(getPersistedSearchCategoryPill(mockStorage), 'all');
+
+    // 7. Verify CommandPalette.tsx initializes and restores activeCategory from localStorage on modal open
+    const paletteSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/CommandPalette.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      paletteSource.includes('useState<PaletteTabCategory>(() =>\n    getPersistedSearchCategoryPill()\n  )') &&
+        paletteSource.includes('setActiveCategory(getPersistedSearchCategoryPill())') &&
+        paletteSource.includes('savePersistedSearchCategoryPill(activeCategory)'),
+      'Expected CommandPalette.tsx to initialize, save, and restore the active category pill filter from localStorage when reopening the search modal'
+    );
+  });
 });
+

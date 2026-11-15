@@ -1,17 +1,133 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Clock } from 'lucide-react';
 import {
   AVERAGE_READING_SPEED_WPM,
   calculateEstimatedReadTime,
   calculateRemainingReadTime,
   calculateReadTimeMinutes,
+  calculateReadTime,
   calculateWordCount,
+  formatCompactReadTimeBadge,
+  getHeaderReadTimeDetails,
   type EstimatedReadTimeStats,
+  type CompactReadTimeBadgeData,
+  type HeaderReadTimeDetails,
 } from '../utils/readTimeHelper';
 
 export {
   AVERAGE_READING_SPEED_WPM,
   calculateEstimatedReadTime,
+  calculateReadTimeMinutes,
+  calculateReadTime,
+  calculateWordCount,
+  formatCompactReadTimeBadge,
+  getHeaderReadTimeDetails,
   type EstimatedReadTimeStats,
+  type CompactReadTimeBadgeData,
+  type HeaderReadTimeDetails,
+};
+
+export interface EstimatedReadTimeBadgeProps {
+  /** The article's raw or rendered text content used to calculate word count and read time */
+  content?: string;
+  /** Reading speed in words per minute (defaults to AVERAGE_READING_SPEED_WPM = 200 WPM) */
+  wpm?: number;
+  /** Target element selector to dynamically inspect rendered text if content is empty or supplemented */
+  targetSelector?: string;
+  /** Whether to show the compact word count next to the minutes readout */
+  showWordCount?: boolean;
+  /** Optional custom data-testid for the compact badge container */
+  testId?: string;
+  /** Optional custom CSS classes */
+  className?: string;
+}
+
+/**
+ * Dynamic 'Estimated Read Time' compact badge component displayed at the top of NoteDetailPage.
+ * Calculates reading time based on word count (~200 WPM) and renders a compact pill badge.
+ */
+export const EstimatedReadTimeBadge: React.FC<EstimatedReadTimeBadgeProps> = ({
+  content = '',
+  wpm = AVERAGE_READING_SPEED_WPM,
+  targetSelector = '[data-testid="note-rendered-content"], .note-rendered-content, .article-body',
+  showWordCount = true,
+  testId = 'note-estimated-read-time-badge',
+  className = '',
+}) => {
+  const [domTextFallback, setDomTextFallback] = useState<string>('');
+  const safeWpm = wpm > 0 ? wpm : AVERAGE_READING_SPEED_WPM;
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const targetEl = document.querySelector(targetSelector) as HTMLElement | null;
+    if (targetEl?.textContent) {
+      setDomTextFallback(targetEl.textContent);
+    }
+  }, [content, targetSelector]);
+
+  const effectiveContent = useMemo(() => {
+    const contentWords = calculateWordCount(content);
+    const domWords = calculateWordCount(domTextFallback);
+    return domWords > contentWords ? domTextFallback : content || domTextFallback;
+  }, [content, domTextFallback]);
+
+  const badgeData = useMemo(
+    () => formatCompactReadTimeBadge(effectiveContent, safeWpm),
+    [effectiveContent, safeWpm]
+  );
+
+  return (
+    <span
+      className={`badge note-read-time-indicator note-estimated-read-time-badge note-read-time-compact-badge variant-badge ${className}`.trim()}
+      data-testid={testId}
+      data-testid-variant="badge"
+      data-compact-badge="true"
+      data-word-count={badgeData.wordCount}
+      data-read-minutes={badgeData.minutes}
+      data-estimated-minutes={badgeData.minutes}
+      data-wpm={badgeData.wpm}
+      role="status"
+      aria-label={badgeData.tooltip}
+      title={badgeData.tooltip}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        fontSize: '0.82rem',
+        color: 'var(--muted-light, #cbd5e1)',
+        padding: '3px 10px',
+        borderRadius: '9999px',
+        background: 'rgba(56, 189, 248, 0.1)',
+        border: '1px solid rgba(56, 189, 248, 0.26)',
+        fontWeight: 600,
+        lineHeight: 1.35,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <Clock
+        size={13}
+        aria-hidden="true"
+        className="read-time-badge-icon"
+        style={{ color: 'var(--accent, #38bdf8)', flexShrink: 0 }}
+      />
+      <span
+        className="read-time-badge-text"
+        data-testid={`${testId}-text`}
+        style={{ color: 'var(--text-heading, #f8fafc)', fontWeight: 600 }}
+      >
+        {badgeData.badgeText}
+      </span>
+      {showWordCount && (
+        <span
+          className="read-time-badge-words"
+          data-testid={`${testId}-words`}
+          style={{ fontSize: '0.75rem', color: 'var(--muted, #94a3b8)', fontWeight: 500 }}
+        >
+          ({badgeData.wordCount.toLocaleString()} words)
+        </span>
+      )}
+    </span>
+  );
 };
 
 export interface ReadTimeProgressIndicatorProps {
@@ -23,8 +139,8 @@ export interface ReadTimeProgressIndicatorProps {
   wpm?: number;
   /** Target element selector to measure scroll progress through (defaults to article content) */
   targetSelector?: string;
-  /** Layout presentation variant: 'sidebar' (sticky TOC sidebar), 'inline' (top of article), or 'floating' (mobile floating pill) */
-  variant?: 'sidebar' | 'inline' | 'floating';
+  /** Layout presentation variant: 'sidebar' (sticky TOC sidebar), 'inline' (top of article), 'floating' (mobile floating pill), or 'badge' (compact header badge) */
+  variant?: 'sidebar' | 'inline' | 'floating' | 'badge';
   /** Scroll distance in pixels before activating the scroll-triggered indicator */
   scrollTriggerThreshold?: number;
   /** Optional custom CSS classes */
@@ -244,6 +360,18 @@ export const ReadTimeProgressIndicator: React.FC<ReadTimeProgressIndicatorProps>
     );
   }
 
+  // 2b. Compact Badge Variant (Top of NoteDetailPage header)
+  if (variant === 'badge') {
+    return (
+      <EstimatedReadTimeBadge
+        content={effectiveContent}
+        wpm={safeWpm}
+        targetSelector={targetSelector}
+        className={className}
+      />
+    );
+  }
+
   // 3. Inline Article Header Variant (Top of NoteDetailPage content)
   return (
     <div
@@ -267,8 +395,11 @@ export const ReadTimeProgressIndicator: React.FC<ReadTimeProgressIndicatorProps>
           Estimated read time:
         </span>
         <span
-          className="read-time-badge"
+          className="badge read-time-badge note-read-time-compact-badge"
           data-testid="estimated-read-time-badge"
+          data-compact-badge="true"
+          data-word-count={wordCount}
+          data-read-minutes={totalMinutes}
         >
           {formattedTotal}
         </span>

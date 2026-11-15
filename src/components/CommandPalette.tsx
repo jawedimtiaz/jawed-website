@@ -204,22 +204,87 @@ export function normalizeCategoryPillFilter(pill?: string | null): SearchCategor
   }
 }
 
+export const ACTIVE_SEARCH_CATEGORY_PILL_STORAGE_KEY =
+  'jawed_active_search_category_pill_v1';
+
+export function getPersistedSearchCategoryPill(
+  storage?: Pick<Storage, 'getItem'> | null
+): SearchCategoryPillId {
+  const targetStorage = resolveLocalStorage(storage);
+  if (!targetStorage || typeof targetStorage.getItem !== 'function') {
+    return 'all';
+  }
+  try {
+    const raw = targetStorage.getItem(ACTIVE_SEARCH_CATEGORY_PILL_STORAGE_KEY);
+    if (!raw) return 'all';
+    return normalizeCategoryPillFilter(raw);
+  } catch {
+    return 'all';
+  }
+}
+
+export function savePersistedSearchCategoryPill(
+  categoryPill: SearchCategoryPillId | SearchResultGroupCategory | string,
+  storage?: Pick<Storage, 'setItem'> | null
+): SearchCategoryPillId {
+  const normalized = normalizeCategoryPillFilter(categoryPill);
+  const targetStorage = resolveLocalStorage(storage);
+  if (targetStorage && typeof targetStorage.setItem === 'function') {
+    try {
+      targetStorage.setItem(ACTIVE_SEARCH_CATEGORY_PILL_STORAGE_KEY, normalized);
+    } catch {
+      // Ignore storage quota errors
+    }
+  }
+  return normalized;
+}
+
+export function clearPersistedSearchCategoryPill(
+  storage?: Pick<Storage, 'removeItem' | 'setItem'> | null
+): SearchCategoryPillId {
+  const targetStorage = resolveLocalStorage(storage);
+  if (targetStorage) {
+    try {
+      if (typeof targetStorage.removeItem === 'function') {
+        targetStorage.removeItem(ACTIVE_SEARCH_CATEGORY_PILL_STORAGE_KEY);
+      } else if (typeof targetStorage.setItem === 'function') {
+        targetStorage.setItem(ACTIVE_SEARCH_CATEGORY_PILL_STORAGE_KEY, 'all');
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }
+  return 'all';
+}
+
 export function toggleSearchCategoryPill(
   activeCategory: 'all' | SiteCategory | 'shortcuts' | 'analytics' | string,
-  clickedPill: SearchCategoryPillId | SearchResultGroupCategory | string
+  clickedPill: SearchCategoryPillId | SearchResultGroupCategory | string,
+  storage?: Pick<Storage, 'setItem'> | null
 ): SearchCategoryPillId {
   const normalizedTarget = normalizeCategoryPillFilter(clickedPill);
-  if (normalizedTarget === 'all') {
-    return 'all';
+  let nextPill: SearchCategoryPillId = normalizedTarget;
+
+  if (normalizedTarget !== 'all') {
+    const isSpecialTab = activeCategory === 'shortcuts' || activeCategory === 'analytics';
+    const normalizedCurrent = isSpecialTab
+      ? 'all'
+      : normalizeCategoryPillFilter(String(activeCategory));
+    if (normalizedCurrent === normalizedTarget) {
+      nextPill = 'all';
+    }
   }
-  const isSpecialTab = activeCategory === 'shortcuts' || activeCategory === 'analytics';
-  const normalizedCurrent = isSpecialTab
-    ? 'all'
-    : normalizeCategoryPillFilter(String(activeCategory));
-  if (normalizedCurrent === normalizedTarget) {
-    return 'all';
-  }
-  return normalizedTarget;
+
+  savePersistedSearchCategoryPill(nextPill, storage);
+  return nextPill;
+}
+
+export function toggleAndPersistSearchCategoryPill(
+  activeCategory: 'all' | SiteCategory | 'shortcuts' | 'analytics' | string,
+  clickedPill: SearchCategoryPillId | SearchResultGroupCategory | string,
+  storage?: Pick<Storage, 'setItem'> | null
+): SearchCategoryPillId {
+  return toggleSearchCategoryPill(activeCategory, clickedPill, storage);
 }
 
 export function getSearchCategoryPillCounts(
@@ -1514,7 +1579,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [query, setQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<PaletteTabCategory>('all');
+  const [activeCategory, setActiveCategory] = useState<PaletteTabCategory>(() =>
+    getPersistedSearchCategoryPill()
+  );
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [activeKeyHint, setActiveKeyHint] = useState<NavigationKeyHintType>(null);
   const [navigationMode, setNavigationMode] = useState<'keyboard' | 'pointer'>('keyboard');
@@ -1995,11 +2062,24 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     (pillId: SearchCategoryPillId | SearchResultGroupCategory | string) => {
       flashKeyHint('category');
       setIsShortcutDiscoveryActive(false);
-      setActiveCategory((prev) => toggleSearchCategoryPill(prev, pillId));
+      setActiveCategory((prev) => toggleAndPersistSearchCategoryPill(prev, pillId));
       inputRef.current?.focus();
     },
     [flashKeyHint]
   );
+
+  // Sync active category pill filter to localStorage whenever a category pill is selected
+  useEffect(() => {
+    if (
+      activeCategory === 'all' ||
+      activeCategory === 'guide' ||
+      activeCategory === 'tool' ||
+      activeCategory === 'blog' ||
+      activeCategory === 'page'
+    ) {
+      savePersistedSearchCategoryPill(activeCategory);
+    }
+  }, [activeCategory]);
 
   const groupedSearchResults = useMemo(() => {
     if (isShortcutDiscoveryMode || activeCategory === 'shortcuts') return [];
@@ -2036,10 +2116,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     }
   }, [navigableTargets.length, selectedIndex]);
 
-  // Open modal handler
+  // Open modal handler — restores the persisted active category pill filter from localStorage
   const handleOpen = useCallback(() => {
     setIsOpen(true);
     setIsSearchBarFocused(true);
+    setActiveCategory(getPersistedSearchCategoryPill());
     setRecentSearches(getRecentSearchesFromStorage());
     setSearchTrends(getSearchTrendsFromStorage());
     setNavigationMode('keyboard');
@@ -2054,12 +2135,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     }, 50);
   }, [flashKeyHint]);
 
-  // Close modal handler
+  // Close modal handler — preserves the persisted active category pill filter in localStorage
   const handleClose = useCallback(() => {
     flashKeyHint('close');
     setIsOpen(false);
     setQuery('');
-    setActiveCategory('all');
+    setActiveCategory((prev) =>
+      prev === 'shortcuts' || prev === 'analytics'
+        ? getPersistedSearchCategoryPill()
+        : prev
+    );
     setQuickActionNotice(null);
     setIsShortcutDiscoveryActive(false);
     setShortcutScopeFilter('all');
@@ -2075,6 +2160,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     try {
       sessionStorage.clear();
     } catch {}
+    clearPersistedSearchCategoryPill();
+    setActiveCategory('all');
     setRecentSearches([]);
     setSearchTrends({});
     lastTrackedTrendQueryRef.current = '';

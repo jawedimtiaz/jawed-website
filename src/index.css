@@ -3540,7 +3540,16 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   color: var(--muted, #94a3b8);
 }
 
-.note-code-copy-markdown-btn {
+.note-code-block-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.note-code-copy-markdown-btn,
+.note-code-copy-raw-btn,
+.tool-output-copy-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -3555,12 +3564,16 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   transition: all 0.15s ease;
 }
 
-.note-code-copy-markdown-btn:hover {
+.note-code-copy-markdown-btn:hover,
+.note-code-copy-raw-btn:hover,
+.tool-output-copy-btn:hover {
   border-color: var(--accent, #38bdf8);
   color: var(--accent, #38bdf8);
 }
 
-.note-code-copy-markdown-btn.is-copied {
+.note-code-copy-markdown-btn.is-copied,
+.note-code-copy-raw-btn.is-copied,
+.tool-output-copy-btn.is-copied {
   border-color: var(--emerald, #10b981);
   background: rgba(16, 185, 129, 0.15);
   color: var(--emerald, #10b981);
@@ -5191,16 +5204,19 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   color: var(--text-heading);
 }
 
-.note-read-time-indicator .read-time-badge {
+.note-read-time-indicator .read-time-badge,
+.note-estimated-read-time-badge,
+.note-read-time-compact-badge {
   display: inline-flex;
   align-items: center;
-  font-size: 0.75rem;
+  gap: 6px;
+  font-size: 0.78rem;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 9999px;
-  background: rgba(56, 189, 248, 0.14);
-  color: var(--accent);
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--accent, #38bdf8);
+  border: 1px solid rgba(56, 189, 248, 0.26);
   white-space: nowrap;
 }
 

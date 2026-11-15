@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { CopyButton } from '../components/common/CopyButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
@@ -190,6 +191,14 @@ export const InflationGoalCalculator: React.FC = () => {
         <p className="form-note" style={{ marginTop: '14px' }}>
           Illustration using {years} years and an assumed {inflation}% annual inflation rate.
         </p>
+        <div style={{ marginTop: '16px' }}>
+          <ToolOutput
+            id="inflation-goal-tool-output"
+            title="Inflation & Goal Planning Summary"
+            testId="inflation-goal-tool-output"
+            content={getGoalSummaryText}
+          />
+        </div>
       </section>
 
       <section className="content-section">

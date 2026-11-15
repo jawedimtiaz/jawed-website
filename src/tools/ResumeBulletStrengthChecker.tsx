@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { CopyButton } from '../components/common/CopyButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
@@ -230,6 +231,16 @@ export const ResumeBulletStrengthChecker: React.FC = () => {
                 </div>
               ))}
             </div>
+            {analyses.length > 0 && (
+              <div style={{ marginTop: '18px' }}>
+                <ToolOutput
+                  id="resume-bullet-tool-output"
+                  title="Formatted Resume Bullets Output"
+                  testId="resume-bullet-tool-output"
+                  content={() => analyses.map(a => '• ' + a.text).join('\n')}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

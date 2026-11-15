@@ -7,7 +7,8 @@ import { SeoHead } from '../components/SeoHead';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { Image } from '../components/Image';
-import { calculateReadTime } from '../utils/readTimeHelper';
+import { AVERAGE_READING_SPEED_WPM } from '../utils/readTimeHelper';
+import { EstimatedReadTimeBadge } from '../components/ReadTimeProgressIndicator';
 import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
 import { extractContentFreshness } from '../utils/contentFreshness';
 import {
@@ -1417,9 +1418,11 @@ export const FieldGuideDetailPage: React.FC = () => {
               {guide.category || determineCategory(guide)}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>
-              {guide.readTime || calculateReadTime(guide.contentHtml || guide.description)}
-            </span>
+            <EstimatedReadTimeBadge
+              content={guide.contentHtml || `${guide.title} ${guide.description} ${(guide.keywords || []).join(' ')}`}
+              wpm={AVERAGE_READING_SPEED_WPM}
+              targetSelector=".article-body"
+            />
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
               Published <time dateTime={freshness.isoPublished}>{freshness.publishedFormatted}</time>

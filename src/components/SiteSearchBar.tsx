@@ -3,8 +3,13 @@ import {
   CommandPalette,
   CommandPaletteProps,
   SEARCH_CATEGORY_PILL_FILTERS,
+  ACTIVE_SEARCH_CATEGORY_PILL_STORAGE_KEY,
   normalizeCategoryPillFilter,
+  getPersistedSearchCategoryPill,
+  savePersistedSearchCategoryPill,
+  clearPersistedSearchCategoryPill,
   toggleSearchCategoryPill,
+  toggleAndPersistSearchCategoryPill,
   getSearchCategoryPillCounts,
   filterSearchResultsByCategoryPill,
   filterDynamicSearchByCategoryPill,
@@ -22,8 +27,13 @@ export const SiteSearchBar: React.FC<SiteSearchBarProps> = (props) => {
 export {
   CommandPalette,
   SEARCH_CATEGORY_PILL_FILTERS,
+  ACTIVE_SEARCH_CATEGORY_PILL_STORAGE_KEY,
   normalizeCategoryPillFilter,
+  getPersistedSearchCategoryPill,
+  savePersistedSearchCategoryPill,
+  clearPersistedSearchCategoryPill,
   toggleSearchCategoryPill,
+  toggleAndPersistSearchCategoryPill,
   getSearchCategoryPillCounts,
   filterSearchResultsByCategoryPill,
   filterDynamicSearchByCategoryPill,
@@ -32,4 +42,5 @@ export {
   type SearchCategoryPillFilter,
 };
 export default SiteSearchBar;
+
 

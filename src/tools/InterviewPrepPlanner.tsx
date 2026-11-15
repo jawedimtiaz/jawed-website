@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { CopyButton } from '../components/common/CopyButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 
 const SKILLS = [
@@ -207,6 +208,21 @@ ${questions.map((q, idx) => `${idx + 1}. ${q}`).join('\n')}`}
               <li>Prepare questions about the role, team and success measures.</li>
               <li>Do not claim skills or results you cannot substantiate.</li>
             </ul>
+
+            <div style={{ marginTop: '18px' }}>
+              <ToolOutput
+                id="interview-prep-tool-output"
+                title="Interview Preparation Plan Output"
+                testId="interview-prep-tool-output"
+                content={() =>
+                  `=== Interview Preparation Plan ===\n` +
+                  `Topics: ${detectedSkills.join(', ') || 'N/A'}\n` +
+                  `Evidence: ${evidenceText}\n` +
+                  `Questions:\n` +
+                  questions.map((q, idx) => `${idx + 1}. ${q}`).join('\n')
+                }
+              />
+            </div>
           </div>
         )}
       </section>

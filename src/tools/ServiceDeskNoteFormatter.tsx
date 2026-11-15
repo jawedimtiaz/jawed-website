@@ -7,6 +7,7 @@ import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
 import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 
 export interface ServiceDeskDraft {
   ticketId: string;
@@ -239,9 +240,9 @@ ${resolutionOrNextStep}
               </div>
             </div>
 
-            <pre className="tool-output">
+            <ToolOutput content={formattedNote} title="Formatted Service Desk Note">
               {formattedNote}
-            </pre>
+            </ToolOutput>
           </div>
         </div>
       </div>

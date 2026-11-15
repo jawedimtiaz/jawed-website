@@ -6,8 +6,12 @@ import {
   OFFLINE_GUIDES_EVENT_NAME,
   DOWNLOAD_FOR_OFFLINE_LABEL,
   OFFLINE_PINNED_LABEL,
+  OFFLINE_SYNC_STATUS_LABELS,
   calculateUtf8ByteSize,
   formatOfflineSize,
+  extractGuideUpdatedDate,
+  computeGuideMetadataHash,
+  computeGuideMetadataVersion,
   getOfflinePinnedGuides,
   saveOfflinePinnedGuides,
   getOfflinePinnedGuideBySlug,
@@ -17,9 +21,16 @@ import {
   unpinGuideFromOffline,
   toggleGuideOfflinePin,
   clearOfflinePinnedGuides,
+  evaluateOfflineGuideSyncStatus,
+  evaluateAllOfflineGuidesSyncStatus,
+  syncOfflineGuideWithLatestMetadata,
   type OfflinePinnedGuide,
   type OfflineGuideInput,
   type OfflineStorageAdapter,
+  type OfflineGuideSyncStatus,
+  type LatestGuideMetadataItem,
+  type OfflineGuideChangedField,
+  type OfflineGuideSyncEvaluation,
 } from '../utils/offlinePinnedGuides';
 
 export {
@@ -28,8 +39,12 @@ export {
   OFFLINE_GUIDES_EVENT_NAME,
   DOWNLOAD_FOR_OFFLINE_LABEL,
   OFFLINE_PINNED_LABEL,
+  OFFLINE_SYNC_STATUS_LABELS,
   calculateUtf8ByteSize,
   formatOfflineSize,
+  extractGuideUpdatedDate,
+  computeGuideMetadataHash,
+  computeGuideMetadataVersion,
   getOfflinePinnedGuides,
   saveOfflinePinnedGuides,
   getOfflinePinnedGuideBySlug,
@@ -39,9 +54,16 @@ export {
   unpinGuideFromOffline,
   toggleGuideOfflinePin,
   clearOfflinePinnedGuides,
+  evaluateOfflineGuideSyncStatus,
+  evaluateAllOfflineGuidesSyncStatus,
+  syncOfflineGuideWithLatestMetadata,
   type OfflinePinnedGuide,
   type OfflineGuideInput,
   type OfflineStorageAdapter,
+  type OfflineGuideSyncStatus,
+  type LatestGuideMetadataItem,
+  type OfflineGuideChangedField,
+  type OfflineGuideSyncEvaluation,
 };
 
 export interface CachedOfflineTool {
@@ -174,6 +196,7 @@ export interface OfflineModeFallbackProps {
   compact?: boolean;
   onExpandHub?: () => void;
   pinnedGuides?: OfflinePinnedGuide[];
+  latestGuidesMetadata?: LatestGuideMetadataItem[] | Record<string, LatestGuideMetadataItem>;
 }
 
 export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
@@ -183,6 +206,7 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
   compact = false,
   onExpandHub,
   pinnedGuides: controlledPinnedGuides,
+  latestGuidesMetadata,
 }) => {
   const { pathname } = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -195,6 +219,25 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
   const [checkFeedback, setCheckFeedback] = useState<string | null>(null);
 
   const activePinnedGuides = controlledPinnedGuides ?? storedPinnedGuides;
+
+  const syncEvaluations = React.useMemo(
+    () => evaluateAllOfflineGuidesSyncStatus(activePinnedGuides, latestGuidesMetadata),
+    [activePinnedGuides, latestGuidesMetadata]
+  );
+
+  const syncCounts = React.useMemo(() => {
+    let synced = 0;
+    let updateAvailable = 0;
+    for (const guide of activePinnedGuides) {
+      const ev = syncEvaluations[guide.slug];
+      if (ev?.hasUpdateAvailable) {
+        updateAvailable += 1;
+      } else {
+        synced += 1;
+      }
+    }
+    return { synced, updateAvailable };
+  }, [activePinnedGuides, syncEvaluations]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -233,6 +276,11 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
   const handleUnpinGuide = (slug: string) => {
     const updated = unpinGuideFromOffline(slug);
     setStoredPinnedGuides(updated);
+  };
+
+  const handleSyncGuide = (slug: string) => {
+    syncOfflineGuideWithLatestMetadata(slug, latestGuidesMetadata);
+    setStoredPinnedGuides(getOfflinePinnedGuides());
   };
 
   const filteredTools = CACHED_OFFLINE_TOOLS.filter((tool) => {
@@ -561,9 +609,40 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
           }}
         >
           <div>
-            <h2 style={{ margin: '0 0 4px', fontSize: '1.25rem', color: 'var(--text-heading)' }}>
-              Pinned &amp; Downloaded Technical Guides ({activePinnedGuides.length})
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '4px' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-heading)' }}>
+                Pinned &amp; Downloaded Technical Guides ({activePinnedGuides.length})
+              </h2>
+              {activePinnedGuides.length > 0 && (
+                <span
+                  data-testid="offline-guides-sync-summary"
+                  data-synced-count={syncCounts.synced}
+                  data-update-available-count={syncCounts.updateAvailable}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '3px 10px',
+                    borderRadius: '999px',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    background:
+                      syncCounts.updateAvailable > 0
+                        ? 'rgba(245, 158, 11, 0.14)'
+                        : 'rgba(16, 185, 129, 0.14)',
+                    color: syncCounts.updateAvailable > 0 ? '#f59e0b' : '#10b981',
+                    border:
+                      syncCounts.updateAvailable > 0
+                        ? '1px solid rgba(245, 158, 11, 0.35)'
+                        : '1px solid rgba(16, 185, 129, 0.35)',
+                  }}
+                >
+                  {syncCounts.updateAvailable > 0
+                    ? `${syncCounts.updateAvailable} Update Available · ${syncCounts.synced} Up to Date`
+                    : `All ${syncCounts.synced} Guides Up to Date`}
+                </span>
+              )}
+            </div>
             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
               Guides saved via the &ldquo;Download for Offline&rdquo; toolbar button on any technical note are cached locally for zero-connectivity reading.
             </p>
@@ -596,104 +675,207 @@ export const OfflineModeFallback: React.FC<OfflineModeFallbackProps> = ({
               gap: '16px',
             }}
           >
-            {filteredPinnedGuides.map((guide) => (
-              <article
-                key={guide.slug}
-                data-testid={`offline-pinned-guide-card-${guide.slug}`}
-                className="card"
-                style={{
-                  padding: '22px 24px',
-                  borderRadius: '16px',
-                  border: '1px solid var(--line)',
-                  background: 'var(--surface)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  gap: '14px',
-                }}
-              >
-                <div>
+            {filteredPinnedGuides.map((guide) => {
+              const syncInfo =
+                syncEvaluations[guide.slug] ||
+                evaluateOfflineGuideSyncStatus(guide, latestGuidesMetadata);
+              const isSynced = syncInfo.isUpToDate;
+              const hasUpdate = syncInfo.hasUpdateAvailable;
+
+              return (
+                <article
+                  key={guide.slug}
+                  data-testid={`offline-pinned-guide-card-${guide.slug}`}
+                  data-sync-status={syncInfo.status}
+                  data-is-synced={isSynced}
+                  className="card"
+                  style={{
+                    padding: '22px 24px',
+                    borderRadius: '16px',
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '14px',
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          color: 'var(--accent)',
+                        }}
+                      >
+                        {guide.category} · Available Offline
+                      </span>
+
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        {/* Visual Sync Status Indicator & Icon */}
+                        <span
+                          data-testid={`offline-guide-sync-status-${guide.slug}`}
+                          data-sync-status={syncInfo.status}
+                          data-is-synced={isSynced}
+                          data-stored-version={syncInfo.storedVersion}
+                          data-latest-version={syncInfo.latestVersion || ''}
+                          className="offline-guide-sync-indicator"
+                          role="status"
+                          title={
+                            hasUpdate
+                              ? `Update available: locally stored version (${syncInfo.storedVersion}) differs from latest application metadata (${syncInfo.latestVersion}) in ${syncInfo.changedFields.join(', ')}`
+                              : `Up to date: locally stored version (${syncInfo.storedVersion}) matches the latest application metadata`
+                          }
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            background: hasUpdate
+                              ? 'rgba(245, 158, 11, 0.14)'
+                              : 'rgba(16, 185, 129, 0.14)',
+                            color: hasUpdate ? '#f59e0b' : '#10b981',
+                            border: hasUpdate
+                              ? '1px solid rgba(245, 158, 11, 0.35)'
+                              : '1px solid rgba(16, 185, 129, 0.35)',
+                          }}
+                        >
+                          {hasUpdate ? (
+                            <svg
+                              data-testid={`offline-guide-sync-icon-${guide.slug}`}
+                              data-icon-state="update-available"
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M21 2v6h-6" />
+                              <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                              <path d="M3 22v-6h6" />
+                              <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                            </svg>
+                          ) : (
+                            <svg
+                              data-testid={`offline-guide-sync-icon-${guide.slug}`}
+                              data-icon-state="synced"
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                          )}
+                          <span>{syncInfo.label}</span>
+                        </span>
+
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            color: 'var(--muted)',
+                            fontFamily: 'monospace',
+                          }}
+                        >
+                          {formatOfflineSize(guide.sizeBytes)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <h3 style={{ margin: '0 0 8px', fontSize: '1.08rem', color: 'var(--text-heading)' }}>
+                      <Link
+                        to={guide.route}
+                        onClick={() => onSelectTool?.(guide.route)}
+                        style={{ color: 'inherit', textDecoration: 'none' }}
+                      >
+                        {guide.title}
+                      </Link>
+                    </h3>
+
+                    {guide.description && (
+                      <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.5, color: 'var(--muted)' }}>
+                        {guide.description}
+                      </p>
+                    )}
+                  </div>
+
                   <div
                     style={{
+                      paddingTop: '12px',
+                      borderTop: '1px solid var(--line)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      gap: '8px',
-                      marginBottom: '8px',
+                      gap: '10px',
+                      flexWrap: 'wrap',
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        color: 'var(--accent)',
-                      }}
-                    >
-                      {guide.category} · Available Offline
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.72rem',
-                        color: 'var(--muted)',
-                        fontFamily: 'monospace',
-                      }}
-                    >
-                      {formatOfflineSize(guide.sizeBytes)}
-                    </span>
-                  </div>
-
-                  <h3 style={{ margin: '0 0 8px', fontSize: '1.08rem', color: 'var(--text-heading)' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        data-testid={`offline-unpin-guide-${guide.slug}`}
+                        onClick={() => handleUnpinGuide(guide.slug)}
+                        className="button button-secondary"
+                        style={{ fontSize: '0.76rem', padding: '5px 10px' }}
+                      >
+                        Unpin
+                      </button>
+                      {hasUpdate && (
+                        <button
+                          type="button"
+                          data-testid={`offline-sync-guide-btn-${guide.slug}`}
+                          onClick={() => handleSyncGuide(guide.slug)}
+                          className="button button-secondary"
+                          style={{
+                            fontSize: '0.76rem',
+                            padding: '5px 10px',
+                            borderColor: 'rgba(245, 158, 11, 0.45)',
+                            color: '#f59e0b',
+                          }}
+                          title="Update local offline copy with the latest application guide metadata"
+                        >
+                          Sync Latest
+                        </button>
+                      )}
+                    </div>
                     <Link
                       to={guide.route}
                       onClick={() => onSelectTool?.(guide.route)}
-                      style={{ color: 'inherit', textDecoration: 'none' }}
+                      className="button button-primary"
+                      style={{
+                        fontSize: '0.8rem',
+                        padding: '6px 12px',
+                        whiteSpace: 'nowrap',
+                      }}
                     >
-                      {guide.title}
+                      Read Offline Guide →
                     </Link>
-                  </h3>
-
-                  {guide.description && (
-                    <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.5, color: 'var(--muted)' }}>
-                      {guide.description}
-                    </p>
-                  )}
-                </div>
-
-                <div
-                  style={{
-                    paddingTop: '12px',
-                    borderTop: '1px solid var(--line)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '10px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <button
-                    type="button"
-                    data-testid={`offline-unpin-guide-${guide.slug}`}
-                    onClick={() => handleUnpinGuide(guide.slug)}
-                    className="button button-secondary"
-                    style={{ fontSize: '0.76rem', padding: '5px 10px' }}
-                  >
-                    Unpin
-                  </button>
-                  <Link
-                    to={guide.route}
-                    onClick={() => onSelectTool?.(guide.route)}
-                    className="button button-primary"
-                    style={{
-                      fontSize: '0.8rem',
-                      padding: '6px 12px',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    Read Offline Guide →
-                  </Link>
-                </div>
-              </article>
-            ))}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

@@ -5,6 +5,7 @@ import { SocialShareBar } from '../components/SocialShareBar';
 import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
 import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { useDiagnosticToolStorage } from '../hooks/useDiagnosticToolStorage';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
@@ -221,9 +222,9 @@ ${values.resolutionSteps}
               </div>
             </div>
 
-            <pre className="tool-output">
+            <ToolOutput content={kbArticle} title="Knowledge Base Draft">
               {kbArticle}
-            </pre>
+            </ToolOutput>
           </div>
         </div>
       </div>

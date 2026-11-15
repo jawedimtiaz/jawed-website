@@ -7,6 +7,7 @@ import { AdUnitPlaceholder } from '../components/AdUnitPlaceholder';
 import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
 import { CopyButton } from '../components/common/CopyButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 import { PrintToolButton, triggerToolPrint } from '../components/common/PrintToolButton';
 import { UnitSystemToggle } from '../components/common/UnitSystemToggle';
@@ -437,6 +438,31 @@ export const Ipv4SubnetCalculator: React.FC = () => {
                   {parsed.ipScope}
                 </span>
               </div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <ToolOutput
+                id="ipv4-subnet-tool-output"
+                title="IPv4 Subnet Specification Summary"
+                testId="ipv4-subnet-tool-output"
+                content={() =>
+                  `=====================================================\n` +
+                  `IPV4 SUBNET & CIDR ALLOCATION SPECIFICATION\n` +
+                  `=====================================================\n` +
+                  `• Target IP / Prefix: ${parsed.ipAddress}/${cidrPrefix}\n` +
+                  `• Subnet Mask: ${parsed.subnetMask}\n` +
+                  `• Wildcard Mask: ${parsed.wildcardMask}\n` +
+                  `• Network Address: ${parsed.networkAddress}\n` +
+                  `• Broadcast Address: ${parsed.broadcastAddress}\n` +
+                  `• Usable Host Range: ${parsed.firstUsableIp} - ${parsed.lastUsableIp}\n` +
+                  `• Total Usable Hosts: ${parsed.usableHosts.toLocaleString()}\n` +
+                  `• Total Addresses: ${parsed.totalAddresses.toLocaleString()}\n` +
+                  `• IP Class / Scope: ${parsed.ipClass} (${parsed.ipScope})\n` +
+                  `• Binary IP: ${parsed.binaryIp}\n` +
+                  `• Binary Mask: ${parsed.binaryMask}\n` +
+                  `=====================================================`
+                }
+              />
             </div>
 
             {/* Key Output Cards */}

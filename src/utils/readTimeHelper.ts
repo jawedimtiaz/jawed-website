@@ -117,17 +117,55 @@ export const calculateRemainingReadTime = (
   };
 };
 
+export interface CompactReadTimeBadgeData {
+  wordCount: number;
+  minutes: number;
+  wpm: number;
+  badgeText: string;
+  compactLabel: string;
+  fullBadgeLabel: string;
+  tooltip: string;
+}
+
+/**
+ * Dynamically calculates estimated read time from word count and formats it
+ * for display as a compact badge at the top of NoteDetailPage.
+ */
+export const formatCompactReadTimeBadge = (
+  contentOrText?: string,
+  wpm: number = AVERAGE_READING_SPEED_WPM
+): CompactReadTimeBadgeData => {
+  const safeWpm = wpm > 0 ? wpm : AVERAGE_READING_SPEED_WPM;
+  const wordCount = calculateWordCount(contentOrText);
+  const minutes = calculateReadTimeMinutes(contentOrText, safeWpm);
+  const badgeText = `${minutes} min read`;
+  const formattedWords = wordCount.toLocaleString('en-US');
+
+  return {
+    wordCount,
+    minutes,
+    wpm: safeWpm,
+    badgeText,
+    compactLabel: `Estimated read time: ${badgeText}`,
+    fullBadgeLabel: `${badgeText} • ${formattedWords} words`,
+    tooltip: `Estimated read time: ${badgeText} (${formattedWords} words at ~${safeWpm} WPM)`,
+  };
+};
+
 export interface HeaderReadTimeDetails {
   wordCount: number;
   minutes: number;
   wpm: number;
   formattedReadTime: string;
+  badgeText: string;
+  compactBadgeLabel: string;
+  tooltip: string;
   label: string;
 }
 
 /**
  * Computes structured Read Time indicator details (word count, estimated minutes, formatted read time)
- * for display in the NoteDetailPage header and top-of-content banner.
+ * for display in the NoteDetailPage header and top-of-content compact badge.
  */
 export const getHeaderReadTimeDetails = (
   contentOrText?: string,
@@ -137,11 +175,16 @@ export const getHeaderReadTimeDetails = (
   const wordCount = calculateWordCount(contentOrText);
   const minutes = calculateReadTimeMinutes(contentOrText, safeWpm);
   const formattedReadTime = calculateReadTime(contentOrText, safeWpm);
+  const badgeData = formatCompactReadTimeBadge(contentOrText, safeWpm);
   return {
     wordCount,
     minutes,
     wpm: safeWpm,
     formattedReadTime,
+    badgeText: badgeData.badgeText,
+    compactBadgeLabel: badgeData.compactLabel,
+    tooltip: badgeData.tooltip,
     label: `Read Time: ${formattedReadTime} (${wordCount} words)`,
   };
 };
+

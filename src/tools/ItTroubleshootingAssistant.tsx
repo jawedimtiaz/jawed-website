@@ -7,6 +7,7 @@ import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
 import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { PrintReportButton } from '../components/common/PrintReportButton';
 import { A4PrintPreviewModal } from '../components/A4PrintPreviewModal';
 import { useToolAnalytics } from '../hooks/useToolAnalytics';
@@ -356,9 +357,9 @@ ${triage.escalation}
               </div>
             </div>
 
-            <pre className="tool-output">
+            <ToolOutput content={fullReport} title="Diagnostic Triage Sheet">
               {fullReport}
-            </pre>
+            </ToolOutput>
           </div>
         </div>
 

@@ -4,6 +4,7 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { CopyButton } from '../components/common/CopyButton';
 import { PdfExportButton } from '../components/common/PdfExportButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
 const STOP = new Set("about above after also and any are been but can could does each for from had has have her his how into its may more most must not our out over per should some such than that the their them then there these they this those through too under was were what when where which while who will with within would you your able ability strong excellent good great including include includes required requirements preferred plus work working works role team teams company candidate candidates job years year experience experienced looking join position responsibilities responsible skills skill knowledge understanding across using use used well based need needs like new".split(" "));
@@ -509,13 +510,17 @@ export const CareerMatchResumeReview: React.FC = () => {
                     <h3 style={{ margin: 0 }}>Tailored Professional Summary</h3>
                     <CopyButton text={analysis.summary} label="Copy Summary" size="sm" variant="ghost" />
                   </div>
-                  <pre className="tool-output">{analysis.summary}</pre>
+                  <ToolOutput content={analysis.summary} title="Tailored Professional Summary">
+                    {analysis.summary}
+                  </ToolOutput>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', marginBottom: '8px' }}>
                     <h3 style={{ margin: 0 }}>Draft Cover Letter</h3>
                     <CopyButton text={analysis.cover} label="Copy Cover Letter" size="sm" variant="ghost" />
                   </div>
-                  <pre className="tool-output" style={{ fontSize: '13px' }}>{analysis.cover}</pre>
+                  <ToolOutput content={analysis.cover} title="Draft Cover Letter" style={{ fontSize: '13px' }}>
+                    {analysis.cover}
+                  </ToolOutput>
                 </div>
               </div>
 

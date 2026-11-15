@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { CopyButton } from '../components/common/CopyButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
@@ -209,9 +210,19 @@ export const CompoundGrowthCalculator: React.FC = () => {
           </div>
         </div>
         {isCalculable && (
-          <p className="form-note" style={{ marginTop: '14px' }}>
-            Illustration using {n} monthly periods, {returnRate}% assumed annual return and end-of-month contributions.
-          </p>
+          <>
+            <p className="form-note" style={{ marginTop: '14px' }}>
+              Illustration using {n} monthly periods, {returnRate}% assumed annual return and end-of-month contributions.
+            </p>
+            <div style={{ marginTop: '16px' }}>
+              <ToolOutput
+                id="compound-growth-tool-output"
+                title="Compound Growth & SIP Summary"
+                testId="compound-growth-tool-output"
+                content={getGrowthSummaryText}
+              />
+            </div>
+          </>
         )}
       </section>
 

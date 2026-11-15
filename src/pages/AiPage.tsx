@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { askJawedAi, AiResponse } from '../services/aiKnowledgeEngine';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { ToolOutput } from '../components/common/ToolOutput';
 
 export const AiPage: React.FC = () => {
   const isOnline = useOnlineStatus();
@@ -133,12 +134,14 @@ export const AiPage: React.FC = () => {
         {result && (
           <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--line)' }}>
             <h3 style={{ marginBottom: '10px' }}>Answer:</h3>
-            <div
-              className="tool-output"
+            <ToolOutput
+              as="div"
+              content={result.reply}
+              title="AI Assistant Answer"
               style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: '0.95rem' }}
             >
               {result.reply}
-            </div>
+            </ToolOutput>
 
             {result.sources.length > 0 && (
               <div style={{ marginTop: '16px' }}>

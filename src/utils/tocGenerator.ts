@@ -1035,6 +1035,8 @@ export function ensureAccessibleTablesInDom(
 
 export const CODE_MARKDOWN_BUTTON_LABEL = 'Copy as Markdown';
 export const CODE_MARKDOWN_COPIED_LABEL = 'Copied as Markdown';
+export const TOOL_OUTPUT_COPY_BUTTON_LABEL = 'Copy to Clipboard';
+export const TOOL_OUTPUT_COPIED_LABEL = 'Copied to Clipboard!';
 
 export interface FormatCodeMarkdownOptions {
   /**
@@ -1061,6 +1063,13 @@ export interface CopyCodeMarkdownResult {
   markdown: string;
   code: string;
   language: string;
+  toastMessage: string;
+}
+
+export interface CopyToolOutputBlockResult {
+  ok: boolean;
+  blockId: string;
+  text: string;
   toastMessage: string;
 }
 
@@ -1143,13 +1152,33 @@ export async function copyCodeBlockAsMarkdown(
 }
 
 /**
- * Wraps every `<pre>` technical code block in rendered note HTML inside a container
- * with a "Copy as Markdown" action button (`data-testid="copy-code-markdown-btn"`) so
- * field technicians can copy formatted Markdown code blocks for documentation or tickets.
+ * Copies the decoded plain-text content of a `.tool-output` or `<pre>` block to the clipboard.
+ */
+export async function copyCodeBlockRawText(
+  rawCode: string,
+  options: { blockId?: string } = {},
+  clipboardOverride?: ClipboardWriterLike
+): Promise<CopyToolOutputBlockResult> {
+  const cleanText = decodeCodeBlockEntities(rawCode);
+  const ok = cleanText ? await copyTocAnchorToClipboard(cleanText, clipboardOverride) : false;
+
+  return {
+    ok,
+    blockId: options.blockId || 'note-code-block-1',
+    text: cleanText,
+    toastMessage: TOOL_OUTPUT_COPIED_LABEL,
+  };
+}
+
+/**
+ * Wraps every `<pre>` / `.tool-output` technical block in rendered note HTML inside a container
+ * with both a "Copy to Clipboard" button (`data-testid="tool-output-copy-btn"`) and a
+ * "Copy as Markdown" button (`data-testid="copy-code-markdown-btn"`) for accessibility and workflow speed.
  */
 export function injectCodeBlockMarkdownCopyButtons(
   htmlContent: string,
-  copiedBlockId: string = ''
+  copiedBlockId: string = '',
+  copiedRawBlockId: string = ''
 ): string {
   if (!htmlContent || typeof htmlContent !== 'string') {
     return '';
@@ -1178,6 +1207,14 @@ export function injectCodeBlockMarkdownCopyButtons(
         combinedMarkup.match(/\bdata-lang\s*=\s*["']([^"']+)["']/i);
       const detectedLang = (langMatch?.[1] || '').trim().toLowerCase();
 
+      const rawDecodedText = decodeCodeBlockEntities(innerPreHtml);
+      const escapedRawAttr = rawDecodedText
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '&#10;');
+
       const markdownText = formatCodeBlockAsMarkdown(innerPreHtml, {
         language: detectedLang,
       });
@@ -1188,17 +1225,32 @@ export function injectCodeBlockMarkdownCopyButtons(
         .replace(/>/g, '&gt;')
         .replace(/\n/g, '&#10;');
 
+      const isRawCopied = Boolean(
+        (copiedRawBlockId && copiedRawBlockId === blockId) ||
+          (copiedBlockId && copiedBlockId === `raw:${blockId}`)
+      );
+      const rawButtonLabel = isRawCopied ? TOOL_OUTPUT_COPIED_LABEL : TOOL_OUTPUT_COPY_BUTTON_LABEL;
+      const rawButtonIcon = isRawCopied
+        ? `<span class="tool-output-copy-feedback" aria-hidden="true">✓</span><span class="tool-output-copy-text">${TOOL_OUTPUT_COPIED_LABEL}</span>`
+        : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span class="tool-output-copy-text">${TOOL_OUTPUT_COPY_BUTTON_LABEL}</span>`;
+
       const isCopied = Boolean(copiedBlockId && copiedBlockId === blockId);
       const buttonLabel = isCopied ? CODE_MARKDOWN_COPIED_LABEL : CODE_MARKDOWN_BUTTON_LABEL;
       const buttonIcon = isCopied
         ? `<span class="note-code-copy-feedback" aria-hidden="true">✓</span><span class="note-code-copy-text">${CODE_MARKDOWN_COPIED_LABEL}</span>`
         : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span class="note-code-copy-text">${CODE_MARKDOWN_BUTTON_LABEL}</span>`;
 
+      const copyRawButtonHtml = `<button type="button" class="tool-output-copy-btn note-code-copy-raw-btn${
+        isRawCopied ? ' is-copied' : ''
+      }" data-testid="tool-output-copy-btn" data-copy-tool-output-id="${blockId}" data-raw-content="${escapedRawAttr}" title="${rawButtonLabel}" aria-label="${rawButtonLabel}">${rawButtonIcon}</button>`;
+
+      const copyMarkdownButtonHtml = `<button type="button" class="note-code-copy-markdown-btn${
+        isCopied ? ' is-copied' : ''
+      }" data-testid="copy-code-markdown-btn" data-copy-code-markdown-id="${blockId}" data-code-lang="${detectedLang}" data-markdown-content="${escapedMarkdownAttr}" title="${buttonLabel}" aria-label="${buttonLabel}">${buttonIcon}</button>`;
+
       const toolbarHtml = `<div class="note-code-block-toolbar no-print"><span class="note-code-block-lang">${
         detectedLang || 'markdown'
-      }</span><button type="button" class="note-code-copy-markdown-btn${
-        isCopied ? ' is-copied' : ''
-      }" data-testid="copy-code-markdown-btn" data-copy-code-markdown-id="${blockId}" data-code-lang="${detectedLang}" data-markdown-content="${escapedMarkdownAttr}" title="${buttonLabel}" aria-label="${buttonLabel}">${buttonIcon}</button></div>`;
+      }</span><span class="note-code-block-actions">${copyRawButtonHtml}${copyMarkdownButtonHtml}</span></div>`;
 
       return `<div class="note-code-block-wrapper" data-testid="note-code-block-wrapper" data-code-block-id="${blockId}">${toolbarHtml}<pre${preAttrs}>${innerPreHtml}</pre></div>`;
     }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { CopyButton } from '../components/common/CopyButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
@@ -382,6 +383,15 @@ export const PersonalFinanceSnapshot: React.FC = () => {
           <button className="button button-secondary" type="button" onClick={handleReset}>
             Reset Snapshot
           </button>
+        </div>
+
+        <div style={{ marginTop: '18px' }}>
+          <ToolOutput
+            id="personal-finance-snapshot-tool-output"
+            title="Personal Finance Snapshot Summary"
+            testId="personal-finance-snapshot-tool-output"
+            content={getFinancialSnapshotText}
+          />
         </div>
       </section>
 

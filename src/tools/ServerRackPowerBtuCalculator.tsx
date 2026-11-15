@@ -9,6 +9,7 @@ import { DraftSaveToolbar } from '../components/common/DraftSaveToolbar';
 import { useDiagnosticToolStorage } from '../hooks/useDiagnosticToolStorage';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 import { CopyButton } from '../components/common/CopyButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 import { PrintToolButton, triggerToolPrint } from '../components/common/PrintToolButton';
 import { UnitSystemToggle } from '../components/common/UnitSystemToggle';
@@ -521,6 +522,15 @@ export const ServerRackPowerBtuCalculator: React.FC = () => {
               <PdfExportButton documentTitle="Server-Rack-Power-BTU-Report" variant="secondary" size="sm" />
               <CopyButton text={getPowerBtuSummaryText} label="Copy Results" variant="primary" size="sm" />
             </div>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <ToolOutput
+              id="rack-power-btu-tool-output"
+              title="Server Rack Power & Thermal Summary"
+              testId="rack-power-btu-tool-output"
+              content={getPowerBtuSummaryText}
+            />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>

@@ -14,9 +14,11 @@ import {
   calculateReadTimeMinutes,
   calculateReadTime,
   calculateRemainingReadTime,
+  formatCompactReadTimeBadge,
   getHeaderReadTimeDetails,
   type EstimatedReadTimeStats,
   type RemainingReadTimeResult,
+  type CompactReadTimeBadgeData,
   type HeaderReadTimeDetails,
 } from '../utils/readTimeHelper';
 import { NewsletterSubscribeForm } from '../components/NewsletterSubscribeForm';
@@ -41,6 +43,7 @@ import {
   decodeCodeBlockEntities,
   formatCodeBlockAsMarkdown,
   copyCodeBlockAsMarkdown,
+  copyCodeBlockRawText,
   injectCodeBlockMarkdownCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
@@ -57,6 +60,8 @@ import {
   TOC_ITEM_COPIED_LABEL,
   CODE_MARKDOWN_BUTTON_LABEL,
   CODE_MARKDOWN_COPIED_LABEL,
+  TOOL_OUTPUT_COPY_BUTTON_LABEL,
+  TOOL_OUTPUT_COPIED_LABEL,
   type TocItem,
   type GroupedTocSection,
   type SmoothScrollTocResult,
@@ -65,7 +70,15 @@ import {
   type AccessibleTableOptions,
   type FormatCodeMarkdownOptions,
   type CopyCodeMarkdownResult,
+  type CopyToolOutputBlockResult,
 } from '../components/TableOfContents';
+import {
+  ToolOutput,
+  TOOL_OUTPUT_LIVE_REGION_MESSAGE,
+  copyToolOutputText,
+  type ToolOutputProps,
+  type CopyToolOutputResult,
+} from '../components/common/ToolOutput';
 
 import { COMPONENT_MAPPER, getInteractiveComponentForSlug } from '../utils/componentMapper';
 import {
@@ -86,7 +99,9 @@ import {
 
 import {
   ReadTimeProgressIndicator,
+  EstimatedReadTimeBadge,
   type ReadTimeProgressIndicatorProps,
+  type EstimatedReadTimeBadgeProps,
 } from '../components/ReadTimeProgressIndicator';
 
 import {
@@ -169,8 +184,12 @@ import {
   OFFLINE_DOWNLOAD_PROGRESS_EVENT_NAME,
   DOWNLOAD_FOR_OFFLINE_LABEL,
   OFFLINE_PINNED_LABEL,
+  OFFLINE_SYNC_STATUS_LABELS,
   calculateUtf8ByteSize,
   formatOfflineSize,
+  extractGuideUpdatedDate,
+  computeGuideMetadataHash,
+  computeGuideMetadataVersion,
   getOfflinePinnedGuides,
   saveOfflinePinnedGuides,
   getOfflinePinnedGuideBySlug,
@@ -184,11 +203,18 @@ import {
   dispatchOfflineDownloadProgress,
   buildOfflineDownloadProgressSteps,
   toggleGuideOfflinePinWithProgress,
+  evaluateOfflineGuideSyncStatus,
+  evaluateAllOfflineGuidesSyncStatus,
+  syncOfflineGuideWithLatestMetadata,
   type OfflinePinnedGuide,
   type OfflineGuideInput,
   type OfflineStorageAdapter,
   type OfflineDownloadStage,
   type OfflineDownloadProgressState,
+  type OfflineGuideSyncStatus,
+  type LatestGuideMetadataItem,
+  type OfflineGuideChangedField,
+  type OfflineGuideSyncEvaluation,
 } from '../utils/offlinePinnedGuides';
 
 export {
@@ -211,6 +237,7 @@ export {
   decodeCodeBlockEntities,
   formatCodeBlockAsMarkdown,
   copyCodeBlockAsMarkdown,
+  copyCodeBlockRawText,
   injectCodeBlockMarkdownCopyButtons,
   slugifyHeading,
   decodeHtmlEntities,
@@ -227,6 +254,11 @@ export {
   TOC_ITEM_COPIED_LABEL,
   CODE_MARKDOWN_BUTTON_LABEL,
   CODE_MARKDOWN_COPIED_LABEL,
+  TOOL_OUTPUT_COPY_BUTTON_LABEL,
+  TOOL_OUTPUT_COPIED_LABEL,
+  ToolOutput,
+  TOOL_OUTPUT_LIVE_REGION_MESSAGE,
+  copyToolOutputText,
   GlobalImageLightbox,
   handleArticleImageLightboxClick,
   openGlobalImageLightbox,
@@ -236,6 +268,7 @@ export {
   extractArticleTopicsAndTags,
   getDefaultArticlePool,
   ReadTimeProgressIndicator,
+  EstimatedReadTimeBadge,
   ScrollProgressIndicator,
   PrintableBadge,
   ExportToPdfButton,
@@ -277,8 +310,12 @@ export {
   OFFLINE_DOWNLOAD_PROGRESS_EVENT_NAME,
   DOWNLOAD_FOR_OFFLINE_LABEL,
   OFFLINE_PINNED_LABEL,
+  OFFLINE_SYNC_STATUS_LABELS,
   calculateUtf8ByteSize,
   formatOfflineSize,
+  extractGuideUpdatedDate,
+  computeGuideMetadataHash,
+  computeGuideMetadataVersion,
   getOfflinePinnedGuides,
   saveOfflinePinnedGuides,
   getOfflinePinnedGuideBySlug,
@@ -292,12 +329,16 @@ export {
   dispatchOfflineDownloadProgress,
   buildOfflineDownloadProgressSteps,
   toggleGuideOfflinePinWithProgress,
+  evaluateOfflineGuideSyncStatus,
+  evaluateAllOfflineGuidesSyncStatus,
+  syncOfflineGuideWithLatestMetadata,
   AVERAGE_READING_SPEED_WPM,
   calculateEstimatedReadTime,
   calculateWordCount,
   calculateReadTimeMinutes,
   calculateReadTime,
   calculateRemainingReadTime,
+  formatCompactReadTimeBadge,
   getHeaderReadTimeDetails,
   type TocItem,
   type GroupedTocSection,
@@ -307,9 +348,13 @@ export {
   type AccessibleTableOptions,
   type FormatCodeMarkdownOptions,
   type CopyCodeMarkdownResult,
+  type CopyToolOutputBlockResult,
+  type ToolOutputProps,
+  type CopyToolOutputResult,
   type ArticleCandidate,
   type RelatedArticleSuggestion,
   type ReadTimeProgressIndicatorProps,
+  type EstimatedReadTimeBadgeProps,
   type ScrollProgressIndicatorProps,
   type PrintableBadgeProps,
   type ExportToPdfButtonProps,
@@ -336,8 +381,13 @@ export {
   type OfflineStorageAdapter,
   type OfflineDownloadStage,
   type OfflineDownloadProgressState,
+  type OfflineGuideSyncStatus,
+  type LatestGuideMetadataItem,
+  type OfflineGuideChangedField,
+  type OfflineGuideSyncEvaluation,
   type EstimatedReadTimeStats,
   type RemainingReadTimeResult,
+  type CompactReadTimeBadgeData,
   type HeaderReadTimeDetails,
 };
 
@@ -832,6 +882,36 @@ export const NoteDetailPage: React.FC = () => {
       return;
     }
 
+    const toolOutputCopyBtn = target?.closest<HTMLButtonElement>('[data-copy-tool-output-id]');
+    if (toolOutputCopyBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const blockId = toolOutputCopyBtn.getAttribute('data-copy-tool-output-id') || '';
+      const wrapper = toolOutputCopyBtn.closest('.note-code-block-wrapper');
+      const preEl = wrapper?.querySelector('pre');
+      const rawCode = preEl?.innerHTML || toolOutputCopyBtn.getAttribute('data-raw-content') || '';
+      if (rawCode) {
+        void copyCodeBlockRawText(rawCode, { blockId }).then(() => {
+          setCopiedCodeBlockId(`raw:${blockId}`);
+          setCopiedHeadingUrl('');
+          setIsLinkCopiedToastVisible(true);
+          if (toastTimeoutRef.current) {
+            clearTimeout(toastTimeoutRef.current);
+          }
+          toastTimeoutRef.current = setTimeout(() => {
+            setIsLinkCopiedToastVisible(false);
+          }, 2400);
+          if (codeBlockCopyTimerRef.current) {
+            clearTimeout(codeBlockCopyTimerRef.current);
+          }
+          codeBlockCopyTimerRef.current = setTimeout(() => {
+            setCopiedCodeBlockId((prev) => (prev === `raw:${blockId}` ? '' : prev));
+          }, 2000);
+        });
+      }
+      return;
+    }
+
     const codeMarkdownBtn = target?.closest<HTMLButtonElement>('[data-copy-code-markdown-id]');
     if (codeMarkdownBtn) {
       event.preventDefault();
@@ -1048,27 +1128,31 @@ export const NoteDetailPage: React.FC = () => {
           const readTimeDetails = getHeaderReadTimeDetails(cleanHtmlContent || note.description);
           return (
             <span
-              className="note-read-time-indicator"
+              className="badge note-read-time-indicator note-estimated-read-time-badge note-read-time-compact-badge"
               data-testid="note-header-read-time"
+              data-compact-badge="true"
               data-word-count={readTimeDetails.wordCount}
               data-read-minutes={readTimeDetails.minutes}
+              data-estimated-minutes={readTimeDetails.minutes}
+              data-wpm={readTimeDetails.wpm}
+              role="status"
               aria-label={readTimeDetails.label}
-              title={readTimeDetails.label}
+              title={readTimeDetails.tooltip}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                fontSize: '0.83rem',
+                fontSize: '0.82rem',
                 color: 'var(--muted-light, #cbd5e1)',
                 padding: '3px 10px',
-                borderRadius: '6px',
-                background: 'rgba(56, 189, 248, 0.08)',
-                border: '1px solid rgba(56, 189, 248, 0.22)',
+                borderRadius: '9999px',
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.26)',
                 fontWeight: 600,
               }}
             >
               <Clock size={13} aria-hidden="true" style={{ color: 'var(--accent, #38bdf8)' }} />
-              <span data-testid="note-header-read-time-text">
+              <span data-testid="note-header-read-time-text" style={{ color: 'var(--text-heading, #f8fafc)' }}>
                 {calculateReadTime(cleanHtmlContent || note.description)}
               </span>
               <span
@@ -1270,7 +1354,24 @@ export const NoteDetailPage: React.FC = () => {
           data-lightbox-scope="true"
           style={{ padding: '32px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}
         >
-          {/* Dynamic Estimated Read Time & Progress Indicator at Top of Content (~200 WPM) */}
+          {/* Dynamic Estimated Read Time Compact Badge & Progress Indicator at Top of Content (~200 WPM) */}
+          <div
+            className="note-top-read-time-badge-row"
+            data-testid="note-top-read-time-badge-row"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '8px',
+              marginBottom: '12px',
+            }}
+          >
+            <EstimatedReadTimeBadge
+              content={cleanHtmlContent || note.description}
+              wpm={AVERAGE_READING_SPEED_WPM}
+            />
+          </div>
           <ReadTimeProgressIndicator
             content={cleanHtmlContent || note.description}
             wpm={AVERAGE_READING_SPEED_WPM}

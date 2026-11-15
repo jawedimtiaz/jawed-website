@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SocialShareBar } from '../components/SocialShareBar';
 import { CopyButton } from '../components/common/CopyButton';
+import { ToolOutput } from '../components/common/ToolOutput';
 import { PdfExportButton } from '../components/common/PdfExportButton';
 import { useRegisterShortcut } from '../hooks/useKeyboardShortcuts';
 
@@ -301,9 +302,19 @@ export const RetirementPlanningCalculator: React.FC = () => {
           </div>
         </div>
         {isValid && (
-          <p className="form-note" style={{ marginTop: '14px' }}>
-            Illustration using {years} years to retirement, {horizon} years of retirement funding, {inflation}% inflation, {preReturn}% pre-retirement return and {realReturn}% real return in retirement.
-          </p>
+          <>
+            <p className="form-note" style={{ marginTop: '14px' }}>
+              Illustration using {years} years to retirement, {horizon} years of retirement funding, {inflation}% inflation, {preReturn}% pre-retirement return and {realReturn}% real return in retirement.
+            </p>
+            <div style={{ marginTop: '16px' }}>
+              <ToolOutput
+                id="retirement-planning-tool-output"
+                title="Retirement Planning Summary"
+                testId="retirement-planning-tool-output"
+                content={getRetirementSummaryText}
+              />
+            </div>
+          </>
         )}
       </section>
 

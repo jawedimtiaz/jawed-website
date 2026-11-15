@@ -2452,3 +2452,354 @@ test('introduces a Print Guide button to the NoteDetailPage toolbar that trigger
     'Expected src/styles/print.css to hide the Print Guide button in @media print and apply paper-optimized reading styles'
   );
 });
+
+test('adds a visual sync status indicator and icon to the offline guides list showing whether the locally stored guide version matches the latest metadata available from the application', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    OFFLINE_SYNC_STATUS_LABELS,
+    pinGuideForOffline,
+    getOfflinePinnedGuideBySlug,
+    clearOfflinePinnedGuides,
+    evaluateOfflineGuideSyncStatus,
+    evaluateAllOfflineGuidesSyncStatus,
+    syncOfflineGuideWithLatestMetadata,
+  } = await import('../src/components/OfflineModeFallback');
+
+  const store = new Map<string, string>();
+  const mockStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      store.set(k, v);
+    },
+    removeItem: (k: string) => {
+      store.delete(k);
+    },
+  };
+
+  clearOfflinePinnedGuides(mockStorage);
+
+  // 1. Pin a guide from notesData.json so its local metadata matches the application catalog
+  const sampleNote = notesData[0]!;
+  pinGuideForOffline(
+    {
+      slug: sampleNote.slug,
+      title: sampleNote.title,
+      description: sampleNote.description,
+      category: sampleNote.category,
+      content: sampleNote.content,
+    },
+    mockStorage
+  );
+
+  const storedMatching = getOfflinePinnedGuideBySlug(sampleNote.slug, mockStorage)!;
+  assert.ok(storedMatching, 'Expected guide to be stored in offline storage');
+
+  const syncedEvaluation = evaluateOfflineGuideSyncStatus(storedMatching);
+  assert.equal(syncedEvaluation.status, 'synced');
+  assert.equal(syncedEvaluation.isUpToDate, true);
+  assert.equal(syncedEvaluation.hasUpdateAvailable, false);
+  assert.equal(syncedEvaluation.label, OFFLINE_SYNC_STATUS_LABELS.synced);
+  assert.equal(syncedEvaluation.changedFields.length, 0);
+  assert.equal(syncedEvaluation.storedVersion, syncedEvaluation.latestVersion);
+
+  // 2. Simulate an updated version in the application metadata catalog (updated description + lastUpdated date)
+  const updatedAppCatalog = [
+    {
+      slug: sampleNote.slug,
+      title: sampleNote.title,
+      description: `${sampleNote.description} (Revised with 2026 enterprise security controls)`,
+      category: sampleNote.category,
+      content: sampleNote.content.replace('Updated: 2026-10-13', 'Updated: 2026-11-15'),
+      lastUpdated: '2026-11-15',
+      version: '2026.11.15-r2',
+    },
+  ];
+
+  const outdatedEvaluation = evaluateOfflineGuideSyncStatus(storedMatching, updatedAppCatalog);
+  assert.equal(outdatedEvaluation.status, 'update-available');
+  assert.equal(outdatedEvaluation.isUpToDate, false);
+  assert.equal(outdatedEvaluation.hasUpdateAvailable, true);
+  assert.equal(outdatedEvaluation.label, OFFLINE_SYNC_STATUS_LABELS['update-available']);
+  assert.ok(outdatedEvaluation.changedFields.includes('description'));
+  assert.ok(outdatedEvaluation.changedFields.includes('lastUpdated'));
+
+  const batchEvaluations = evaluateAllOfflineGuidesSyncStatus(
+    [storedMatching],
+    updatedAppCatalog,
+    mockStorage
+  );
+  assert.equal(batchEvaluations[sampleNote.slug]?.status, 'update-available');
+
+  // 3. Synchronize the locally stored guide with the latest application metadata and verify it becomes 'synced'
+  const resyncedGuide = syncOfflineGuideWithLatestMetadata(
+    sampleNote.slug,
+    updatedAppCatalog,
+    mockStorage
+  );
+  assert.ok(resyncedGuide);
+  assert.equal(
+    resyncedGuide?.description,
+    `${sampleNote.description} (Revised with 2026 enterprise security controls)`
+  );
+
+  const postSyncEvaluation = evaluateOfflineGuideSyncStatus(resyncedGuide!, updatedAppCatalog);
+  assert.equal(postSyncEvaluation.status, 'synced');
+  assert.equal(postSyncEvaluation.isUpToDate, true);
+  assert.equal(postSyncEvaluation.hasUpdateAvailable, false);
+
+  // 4. Verify OfflineModeFallback.tsx renders the visual sync status indicator, icon, and Sync Latest button
+  const offlineFallbackSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/OfflineModeFallback.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    offlineFallbackSource.includes('data-testid={`offline-guide-sync-status-${guide.slug}`}') &&
+      offlineFallbackSource.includes('data-testid={`offline-guide-sync-icon-${guide.slug}`}') &&
+      offlineFallbackSource.includes('data-testid={`offline-sync-guide-btn-${guide.slug}`}') &&
+      offlineFallbackSource.includes('data-testid="offline-guides-sync-summary"'),
+    'Expected OfflineModeFallback.tsx to render the visual sync status indicator, icon, summary badge, and Sync Latest button'
+  );
+});
+
+test('adds a dynamic estimated read time indicator to the top of each NoteDetailPage calculating time based on word count and displaying it as a compact badge', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    AVERAGE_READING_SPEED_WPM,
+    formatCompactReadTimeBadge,
+    getHeaderReadTimeDetails,
+    EstimatedReadTimeBadge,
+  } = await import('../src/pages/NoteDetailPage');
+
+  assert.equal(typeof EstimatedReadTimeBadge, 'function');
+  assert.equal(typeof formatCompactReadTimeBadge, 'function');
+
+  // 1. Verify dynamic word count and read time calculation for short, medium, and long notes
+  const shortNoteHtml = '<h2>Check Link Status</h2><p>Verify SFP+ optical signal and VLAN trunk encapsulation.</p>';
+  const shortBadge = formatCompactReadTimeBadge(shortNoteHtml);
+  assert.equal(shortBadge.wordCount, 11);
+  assert.equal(shortBadge.minutes, 1);
+  assert.equal(shortBadge.wpm, AVERAGE_READING_SPEED_WPM);
+  assert.equal(shortBadge.badgeText, '1 min read');
+  assert.equal(shortBadge.compactLabel, 'Estimated read time: 1 min read');
+  assert.equal(shortBadge.fullBadgeLabel, '1 min read • 11 words');
+  assert.equal(shortBadge.tooltip, 'Estimated read time: 1 min read (11 words at ~200 WPM)');
+
+  const eightHundredFiftyWords = `<h2>Enterprise OSPF Troubleshooting</h2><p>${Array.from(
+    { length: 847 },
+    (_, idx) => `packet${idx}`
+  ).join(' ')}</p>`;
+  const multiMinBadge = formatCompactReadTimeBadge(eightHundredFiftyWords);
+  assert.equal(multiMinBadge.wordCount, 850);
+  assert.equal(multiMinBadge.minutes, 5); // ceil(850 / 200) = 5
+  assert.equal(multiMinBadge.badgeText, '5 min read');
+  assert.equal(multiMinBadge.fullBadgeLabel, '5 min read • 850 words');
+
+  // 2. Verify all published notes in notesData.json produce valid compact badge metrics
+  for (const note of notesData) {
+    const details = getHeaderReadTimeDetails(note.content || note.description);
+    assert.ok(details.wordCount > 0, `Expected positive word count for ${note.slug}`);
+    assert.ok(details.minutes >= 1, `Expected >= 1 min read time for ${note.slug}`);
+    assert.equal(details.badgeText, `${details.minutes} min read`);
+    assert.ok(details.tooltip.includes(`${details.minutes} min read`));
+  }
+
+  // 3. Verify NoteDetailPage.tsx, FieldGuideDetailPage.tsx, and ReadTimeProgressIndicator.tsx render the compact badge at the top of each page
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  const fieldGuideSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/FieldGuideDetailPage.tsx'),
+    'utf8'
+  );
+  const indicatorSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/ReadTimeProgressIndicator.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    indicatorSource.includes('export const EstimatedReadTimeBadge') &&
+      indicatorSource.includes('note-read-time-compact-badge') &&
+      indicatorSource.includes('data-compact-badge="true"'),
+    'Expected ReadTimeProgressIndicator.tsx to export EstimatedReadTimeBadge with compact badge attributes'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('note-estimated-read-time-badge note-read-time-compact-badge') &&
+      noteDetailSource.includes('data-compact-badge="true"') &&
+      noteDetailSource.includes('<EstimatedReadTimeBadge'),
+    'Expected NoteDetailPage.tsx to display the dynamic estimated read time compact badge at the top of the page'
+  );
+
+  assert.ok(
+    fieldGuideSource.includes('<EstimatedReadTimeBadge') &&
+      fieldGuideSource.includes('targetSelector=".article-body"'),
+    'Expected FieldGuideDetailPage.tsx to display the dynamic EstimatedReadTimeBadge in the top header'
+  );
+});
+
+test('adds a Copy to Clipboard button to the tool-output component for better accessibility and user workflow', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    ToolOutput,
+    TOOL_OUTPUT_COPY_BUTTON_LABEL,
+    TOOL_OUTPUT_COPIED_LABEL,
+    TOOL_OUTPUT_LIVE_REGION_MESSAGE,
+    copyToolOutputText,
+    copyCodeBlockRawText,
+    injectCodeBlockMarkdownCopyButtons,
+  } = await import('../src/pages/NoteDetailPage');
+
+  assert.equal(typeof ToolOutput, 'function');
+  assert.equal(TOOL_OUTPUT_COPY_BUTTON_LABEL, 'Copy to Clipboard');
+  assert.equal(TOOL_OUTPUT_COPIED_LABEL, 'Copied to Clipboard!');
+  assert.equal(TOOL_OUTPUT_LIVE_REGION_MESSAGE, 'Tool output copied to clipboard.');
+
+  // 1. Verify copyToolOutputText copies output text and returns accessible status announcement
+  let copiedOutput = '';
+  const copyRes = await copyToolOutputText(
+    'Ticket: INC-84920 | Status: Resolved | Root Cause: Cached OAuth token mismatch',
+    {
+      writeText: async (text: string) => {
+        copiedOutput = text;
+      },
+    }
+  );
+  assert.equal(copyRes.ok, true);
+  assert.equal(
+    copiedOutput,
+    'Ticket: INC-84920 | Status: Resolved | Root Cause: Cached OAuth token mismatch'
+  );
+  assert.equal(copyRes.label, 'Copied to Clipboard!');
+  assert.equal(copyRes.announcement, 'Tool output copied to clipboard.');
+
+  // Empty output returns ok: false gracefully
+  const emptyRes = await copyToolOutputText('   ', {
+    writeText: async () => {},
+  });
+  assert.equal(emptyRes.ok, false);
+  assert.equal(emptyRes.label, 'Copy to Clipboard');
+
+  // 2. Verify <pre class="tool-output"> blocks in NoteDetailPage receive a Copy to Clipboard button alongside Copy as Markdown
+  const sampleToolOutputHtml = `
+    <h2>Net-worth example</h2>
+    <pre class="tool-output">Net worth = ₹8,00,000 &minus; ₹3,00,000 = ₹5,00,000</pre>
+  `;
+  const enhancedHtml = injectCodeBlockMarkdownCopyButtons(sampleToolOutputHtml);
+  assert.ok(
+    enhancedHtml.includes('data-testid="tool-output-copy-btn"') &&
+      enhancedHtml.includes('data-copy-tool-output-id="note-code-block-1"') &&
+      enhancedHtml.includes('<span class="tool-output-copy-text">Copy to Clipboard</span>'),
+    'Expected <pre class="tool-output"> to include a Copy to Clipboard button'
+  );
+
+  const rawCopiedStateHtml = injectCodeBlockMarkdownCopyButtons(
+    sampleToolOutputHtml,
+    'raw:note-code-block-1'
+  );
+  assert.ok(
+    rawCopiedStateHtml.includes('class="tool-output-copy-btn note-code-copy-raw-btn is-copied"') &&
+      rawCopiedStateHtml.includes('<span class="tool-output-copy-text">Copied to Clipboard!</span>'),
+    'Expected Copy to Clipboard button to render Copied to Clipboard! state when active'
+  );
+
+  let rawBlockCopied = '';
+  const rawBlockRes = await copyCodeBlockRawText(
+    'Net worth = ₹8,00,000 &amp; ₹3,00,000',
+    { blockId: 'note-code-block-1' },
+    {
+      writeText: async (t: string) => {
+        rawBlockCopied = t;
+      },
+    }
+  );
+  assert.equal(rawBlockRes.ok, true);
+  assert.equal(rawBlockCopied, 'Net worth = ₹8,00,000 & ₹3,00,000');
+  assert.equal(rawBlockRes.toastMessage, 'Copied to Clipboard!');
+
+  // 3. Verify ToolOutput.tsx and tool components integrate the accessible Copy to Clipboard button
+  const toolOutputSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/common/ToolOutput.tsx'),
+    'utf8'
+  );
+  const serviceDeskSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/ServiceDeskNoteFormatter.tsx'),
+    'utf8'
+  );
+  const ticketKbSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/TicketToKbDraft.tsx'),
+    'utf8'
+  );
+  const triageSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/ItTroubleshootingAssistant.tsx'),
+    'utf8'
+  );
+  const promptBuilderSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/AiPromptBuilder.tsx'),
+    'utf8'
+  );
+
+  const ipv4Source = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/Ipv4SubnetCalculator.tsx'),
+    'utf8'
+  );
+  const rackPowerSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/ServerRackPowerBtuCalculator.tsx'),
+    'utf8'
+  );
+  const inflationSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/InflationGoalCalculator.tsx'),
+    'utf8'
+  );
+  const compoundSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/CompoundGrowthCalculator.tsx'),
+    'utf8'
+  );
+  const retirementSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/RetirementPlanningCalculator.tsx'),
+    'utf8'
+  );
+  const financeSnapshotSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/PersonalFinanceSnapshot.tsx'),
+    'utf8'
+  );
+  const interviewPrepSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/InterviewPrepPlanner.tsx'),
+    'utf8'
+  );
+  const resumeBulletSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/tools/ResumeBulletStrengthChecker.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    toolOutputSource.includes("TOOL_OUTPUT_COPY_BUTTON_LABEL = 'Copy to Clipboard'") &&
+      toolOutputSource.includes('tool-output-inline-copy-btn') &&
+      toolOutputSource.includes('data-testid={`${copyButtonTestId}-inline`}') &&
+      toolOutputSource.includes('data-testid="tool-output-copy-status"') &&
+      toolOutputSource.includes('aria-live="polite"') &&
+      toolOutputSource.includes('tabIndex={0}'),
+    'Expected ToolOutput.tsx to render the Copy to Clipboard button directly inside tool-output, with ARIA live status and keyboard focus support'
+  );
+
+  assert.ok(
+    serviceDeskSource.includes('<ToolOutput') &&
+      ticketKbSource.includes('<ToolOutput') &&
+      triageSource.includes('<ToolOutput') &&
+      promptBuilderSource.includes('<ToolOutput') &&
+      ipv4Source.includes('<ToolOutput') &&
+      rackPowerSource.includes('<ToolOutput') &&
+      inflationSource.includes('<ToolOutput') &&
+      compoundSource.includes('<ToolOutput') &&
+      retirementSource.includes('<ToolOutput') &&
+      financeSnapshotSource.includes('<ToolOutput') &&
+      interviewPrepSource.includes('<ToolOutput') &&
+      resumeBulletSource.includes('<ToolOutput'),
+    'Expected all utility tool components to render <ToolOutput> with an inline Copy to Clipboard button directly inside the tool-output component'
+  );
+});
+
+

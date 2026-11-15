@@ -1,9 +1,51 @@
+import notesData from '../data/notesData.json';
+
 export const OFFLINE_GUIDES_STORAGE_KEY = 'jawed_offline_pinned_guides_v1';
 export const OFFLINE_GUIDES_CACHE_NAME = 'jawed-offline-guides-cache-v1';
 export const OFFLINE_GUIDES_EVENT_NAME = 'jawed-offline-guides-updated';
 export const OFFLINE_DOWNLOAD_PROGRESS_EVENT_NAME = 'jawed-offline-download-progress';
 export const DOWNLOAD_FOR_OFFLINE_LABEL = 'Download for Offline';
 export const OFFLINE_PINNED_LABEL = 'Pinned for Offline';
+
+export type OfflineGuideSyncStatus = 'synced' | 'update-available' | 'local-only';
+
+export const OFFLINE_SYNC_STATUS_LABELS: Record<OfflineGuideSyncStatus, string> = {
+  synced: 'Up to Date',
+  'update-available': 'Update Available',
+  'local-only': 'Local Copy',
+};
+
+export interface LatestGuideMetadataItem {
+  slug: string;
+  title?: string;
+  description?: string;
+  category?: string;
+  content?: string;
+  version?: string;
+  lastUpdated?: string;
+  updatedDate?: string;
+}
+
+export type OfflineGuideChangedField =
+  | 'title'
+  | 'description'
+  | 'category'
+  | 'content'
+  | 'version'
+  | 'lastUpdated';
+
+export interface OfflineGuideSyncEvaluation {
+  slug: string;
+  status: OfflineGuideSyncStatus;
+  isUpToDate: boolean;
+  hasUpdateAvailable: boolean;
+  label: string;
+  storedVersion: string;
+  latestVersion: string | null;
+  storedLastUpdated: string;
+  latestLastUpdated: string;
+  changedFields: OfflineGuideChangedField[];
+}
 
 export type OfflineDownloadStage =
   | 'idle'
@@ -37,6 +79,9 @@ export interface OfflinePinnedGuide {
   aliases: string[];
   pinnedAt: string;
   sizeBytes: number;
+  version: string;
+  lastUpdated: string;
+  metadataHash: string;
 }
 
 export interface OfflineGuideInput {
@@ -47,6 +92,9 @@ export interface OfflineGuideInput {
   content?: string;
   route?: string;
   pinnedAt?: string;
+  version?: string;
+  lastUpdated?: string;
+  updatedDate?: string;
 }
 
 export interface OfflineStorageAdapter {
@@ -115,8 +163,83 @@ function buildGuideAliases(slug: string, primaryRoute?: string): string[] {
   return Array.from(new Set(baseAliases.filter(Boolean)));
 }
 
+/**
+ * Extracts the last updated date (e.g., '2026-10-13') from explicit metadata fields or embedded guide HTML.
+ */
+export function extractGuideUpdatedDate(
+  guide?: Partial<LatestGuideMetadataItem> | null
+): string {
+  if (!guide) return '';
+  const explicit = String(guide.lastUpdated || guide.updatedDate || '').trim();
+  if (explicit) return explicit;
+
+  const content = String(guide.content || '');
+  if (!content) return '';
+
+  const updatedMatch = content.match(
+    /(?:Updated|Last Updated|updatedDate|lastUpdated)\s*:\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[A-Za-z]+\s+[0-9]{1,2},\s*[0-9]{4})/i
+  );
+  if (updatedMatch?.[1]) {
+    return updatedMatch[1].trim();
+  }
+
+  const publishedMatch = content.match(
+    /(?:Published|publishedDate)\s*:\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[A-Za-z]+\s+[0-9]{1,2},\s*[0-9]{4})/i
+  );
+  if (publishedMatch?.[1]) {
+    return publishedMatch[1].trim();
+  }
+
+  return '';
+}
+
+/**
+ * Computes a deterministic 32-bit FNV-1a hex fingerprint over a guide's metadata and content.
+ */
+export function computeGuideMetadataHash(
+  guide?: Partial<LatestGuideMetadataItem> | null
+): string {
+  if (!guide) return '00000000';
+  const updated = extractGuideUpdatedDate(guide);
+  const payload = [
+    String(guide.slug || '').trim(),
+    String(guide.title || '').trim(),
+    String(guide.description || '').trim(),
+    String(guide.category || '').trim(),
+    String(guide.version || '').trim(),
+    updated,
+    String(guide.content || '').trim(),
+  ].join('|');
+
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < payload.length; i += 1) {
+    hash ^= payload.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
+ * Computes a human-readable version identifier combining explicit version / updated date and metadata hash.
+ */
+export function computeGuideMetadataVersion(
+  guide?: Partial<LatestGuideMetadataItem> | null
+): string {
+  if (!guide) return 'v0-00000000';
+  const explicitVersion = String(guide.version || '').trim();
+  if (explicitVersion) {
+    return explicitVersion;
+  }
+  const updated = extractGuideUpdatedDate(guide);
+  const hash = computeGuideMetadataHash(guide);
+  if (updated) {
+    return `${updated}-${hash.slice(0, 6)}`;
+  }
+  return `v1-${hash.slice(0, 6)}`;
+}
+
 function normalizeOfflineGuide(
-  raw: Partial<OfflinePinnedGuide> | null | undefined
+  raw: (Partial<OfflinePinnedGuide> & { updatedDate?: string }) | null | undefined
 ): OfflinePinnedGuide | null {
   if (!raw || typeof raw !== 'object') return null;
   const slug = String(raw.slug || '').trim();
@@ -131,6 +254,31 @@ function normalizeOfflineGuide(
     ? raw.aliases
     : buildGuideAliases(slug, route);
   const pinnedAt = String(raw.pinnedAt || new Date().toISOString()).trim();
+  const lastUpdated = extractGuideUpdatedDate({
+    lastUpdated: raw.lastUpdated,
+    updatedDate: raw.updatedDate,
+    content,
+  });
+  const metadataHash = computeGuideMetadataHash({
+    slug,
+    title,
+    description,
+    category,
+    content,
+    version: raw.version,
+    lastUpdated,
+  });
+  const version = String(
+    raw.version ||
+      computeGuideMetadataVersion({
+        slug,
+        title,
+        description,
+        category,
+        content,
+        lastUpdated,
+      })
+  ).trim();
   const sizeBytes =
     typeof raw.sizeBytes === 'number' && raw.sizeBytes > 0
       ? raw.sizeBytes
@@ -146,6 +294,9 @@ function normalizeOfflineGuide(
     aliases,
     pinnedAt,
     sizeBytes,
+    version,
+    lastUpdated,
+    metadataHash,
   };
 }
 
@@ -564,4 +715,176 @@ export function toggleGuideOfflinePinWithProgress(
     finalState,
   };
 }
+
+function resolveLatestGuideFromCatalog(
+  slug: string,
+  latestCatalog?: LatestGuideMetadataItem[] | Record<string, LatestGuideMetadataItem> | null
+): LatestGuideMetadataItem | null {
+  const cleanSlug = String(slug || '').trim();
+  if (!cleanSlug) return null;
+
+  if (Array.isArray(latestCatalog)) {
+    return latestCatalog.find((item) => item && item.slug === cleanSlug) || null;
+  }
+  if (latestCatalog && typeof latestCatalog === 'object') {
+    return latestCatalog[cleanSlug] || null;
+  }
+
+  const defaultCatalog = notesData as LatestGuideMetadataItem[];
+  if (Array.isArray(defaultCatalog)) {
+    return defaultCatalog.find((item) => item && item.slug === cleanSlug) || null;
+  }
+  return null;
+}
+
+/**
+ * Evaluates whether a locally stored offline guide matches the latest metadata available
+ * from the application (comparing version, lastUpdated, title, description, category, and content).
+ */
+export function evaluateOfflineGuideSyncStatus(
+  storedGuide: OfflinePinnedGuide | OfflineGuideInput,
+  latestCatalog?: LatestGuideMetadataItem[] | Record<string, LatestGuideMetadataItem> | null
+): OfflineGuideSyncEvaluation {
+  const normalizedStored = normalizeOfflineGuide(storedGuide);
+  const slug = normalizedStored?.slug || String(storedGuide?.slug || '').trim();
+  const storedVersion =
+    normalizedStored?.version || computeGuideMetadataVersion(storedGuide);
+  const storedLastUpdated =
+    normalizedStored?.lastUpdated || extractGuideUpdatedDate(storedGuide);
+
+  const latestGuide = resolveLatestGuideFromCatalog(slug, latestCatalog);
+  if (!latestGuide) {
+    return {
+      slug,
+      status: 'local-only',
+      isUpToDate: true,
+      hasUpdateAvailable: false,
+      label: OFFLINE_SYNC_STATUS_LABELS['local-only'],
+      storedVersion,
+      latestVersion: null,
+      storedLastUpdated,
+      latestLastUpdated: storedLastUpdated,
+      changedFields: [],
+    };
+  }
+
+  const latestLastUpdated = extractGuideUpdatedDate(latestGuide);
+  const latestVersion = computeGuideMetadataVersion(latestGuide);
+  const changedFields: OfflineGuideChangedField[] = [];
+
+  if (
+    storedGuide.version &&
+    latestGuide.version &&
+    String(storedGuide.version).trim() !== String(latestGuide.version).trim()
+  ) {
+    changedFields.push('version');
+  }
+
+  if (
+    storedLastUpdated &&
+    latestLastUpdated &&
+    storedLastUpdated !== latestLastUpdated
+  ) {
+    changedFields.push('lastUpdated');
+  }
+
+  if (
+    latestGuide.title !== undefined &&
+    String(storedGuide.title || '').trim() !== String(latestGuide.title || '').trim()
+  ) {
+    changedFields.push('title');
+  }
+
+  if (
+    latestGuide.description !== undefined &&
+    String(storedGuide.description || '').trim() !==
+      String(latestGuide.description || '').trim()
+  ) {
+    changedFields.push('description');
+  }
+
+  if (
+    latestGuide.category !== undefined &&
+    String(storedGuide.category || '').trim() !==
+      String(latestGuide.category || '').trim()
+  ) {
+    changedFields.push('category');
+  }
+
+  if (
+    latestGuide.content !== undefined &&
+    String(storedGuide.content || '').trim() !==
+      String(latestGuide.content || '').trim()
+  ) {
+    changedFields.push('content');
+  }
+
+  const isUpToDate = changedFields.length === 0;
+  const status: OfflineGuideSyncStatus = isUpToDate ? 'synced' : 'update-available';
+
+  return {
+    slug,
+    status,
+    isUpToDate,
+    hasUpdateAvailable: !isUpToDate,
+    label: OFFLINE_SYNC_STATUS_LABELS[status],
+    storedVersion,
+    latestVersion,
+    storedLastUpdated,
+    latestLastUpdated,
+    changedFields,
+  };
+}
+
+/**
+ * Evaluates the sync status for all pinned offline guides against the latest application metadata.
+ */
+export function evaluateAllOfflineGuidesSyncStatus(
+  guides?: OfflinePinnedGuide[],
+  latestCatalog?: LatestGuideMetadataItem[] | Record<string, LatestGuideMetadataItem> | null,
+  storage?: OfflineStorageAdapter | null
+): Record<string, OfflineGuideSyncEvaluation> {
+  const list = Array.isArray(guides) ? guides : getOfflinePinnedGuides(storage);
+  const map: Record<string, OfflineGuideSyncEvaluation> = {};
+  for (const guide of list) {
+    if (!guide?.slug) continue;
+    map[guide.slug] = evaluateOfflineGuideSyncStatus(guide, latestCatalog);
+  }
+  return map;
+}
+
+/**
+ * Synchronizes a locally stored offline guide with the latest metadata available from the application.
+ */
+export function syncOfflineGuideWithLatestMetadata(
+  slug: string,
+  latestCatalog?: LatestGuideMetadataItem[] | Record<string, LatestGuideMetadataItem> | null,
+  storage?: OfflineStorageAdapter | null
+): OfflinePinnedGuide | null {
+  const cleanSlug = String(slug || '').trim();
+  if (!cleanSlug) return null;
+
+  const existing = getOfflinePinnedGuideBySlug(cleanSlug, storage);
+  const latest = resolveLatestGuideFromCatalog(cleanSlug, latestCatalog);
+  if (!latest) {
+    return existing;
+  }
+
+  const updatedList = pinGuideForOffline(
+    {
+      slug: cleanSlug,
+      title: latest.title ?? existing?.title ?? cleanSlug,
+      description: latest.description ?? existing?.description ?? '',
+      category: latest.category ?? existing?.category ?? 'Technical Guide',
+      content: latest.content ?? existing?.content ?? '',
+      route: existing?.route || `/notes/${cleanSlug}`,
+      version: latest.version,
+      lastUpdated: latest.lastUpdated || latest.updatedDate,
+    },
+    storage
+  );
+
+  return updatedList.find((g) => g.slug === cleanSlug) || null;
+}
+
 

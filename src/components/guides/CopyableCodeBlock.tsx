@@ -123,6 +123,8 @@ export const CopyableCodeBlock: React.FC<CopyableCodeBlockProps> = ({
             type="button"
             onClick={handleCopy}
             data-testid="copy-cli-raw-btn"
+            className={`tool-output-copy-btn${copied ? ' is-copied' : ''}`}
+            aria-label={copied ? 'Copied to Clipboard!' : 'Copy to Clipboard'}
             style={{
               background: copied ? 'rgba(52, 211, 153, 0.15)' : 'var(--bg-darker)',
               border: copied ? '1px solid var(--emerald)' : '1px solid var(--line)',
@@ -137,10 +139,10 @@ export const CopyableCodeBlock: React.FC<CopyableCodeBlockProps> = ({
               gap: '6px',
               transition: 'all 0.15s ease',
             }}
-            title="Copy command to clipboard"
+            title="Copy to Clipboard"
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
-            <span>{copied ? 'Copied!' : 'Copy'}</span>
+            <span>{copied ? 'Copied to Clipboard!' : 'Copy to Clipboard'}</span>
           </button>
         </div>
       </div>
