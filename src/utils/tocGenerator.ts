@@ -1,3 +1,8 @@
+import {
+  highlightToolOutputContent,
+  detectToolOutputFormat,
+} from '../components/common/ToolOutput';
+
 export interface TocItem {
   id: string;
   text: string;
@@ -1037,6 +1042,8 @@ export const CODE_MARKDOWN_BUTTON_LABEL = 'Copy as Markdown';
 export const CODE_MARKDOWN_COPIED_LABEL = 'Copied as Markdown';
 export const TOOL_OUTPUT_COPY_BUTTON_LABEL = 'Copy to Clipboard';
 export const TOOL_OUTPUT_COPIED_LABEL = 'Copied to Clipboard!';
+export const TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL = 'Download .txt';
+export const TOOL_OUTPUT_DOWNLOADED_LABEL = 'Downloaded!';
 
 export interface FormatCodeMarkdownOptions {
   /**
@@ -1240,6 +1247,18 @@ export function injectCodeBlockMarkdownCopyButtons(
         ? `<span class="note-code-copy-feedback" aria-hidden="true">✓</span><span class="note-code-copy-text">${CODE_MARKDOWN_COPIED_LABEL}</span>`
         : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span class="note-code-copy-text">${CODE_MARKDOWN_BUTTON_LABEL}</span>`;
 
+      const isDownloaded = Boolean(copiedBlockId && copiedBlockId === `download:${blockId}`);
+      const downloadButtonLabel = isDownloaded
+        ? TOOL_OUTPUT_DOWNLOADED_LABEL
+        : TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL;
+      const downloadButtonIcon = isDownloaded
+        ? `<span class="tool-output-download-feedback" aria-hidden="true">✓</span><span class="tool-output-download-text">${TOOL_OUTPUT_DOWNLOADED_LABEL}</span>`
+        : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span class="tool-output-download-text">${TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL}</span>`;
+
+      const downloadRawButtonHtml = `<button type="button" class="tool-output-download-btn note-code-download-raw-btn${
+        isDownloaded ? ' is-downloaded' : ''
+      }" data-testid="tool-output-download-btn" data-download-tool-output-id="${blockId}" data-raw-content="${escapedRawAttr}" title="${downloadButtonLabel}" aria-label="${downloadButtonLabel}">${downloadButtonIcon}</button>`;
+
       const copyRawButtonHtml = `<button type="button" class="tool-output-copy-btn note-code-copy-raw-btn${
         isRawCopied ? ' is-copied' : ''
       }" data-testid="tool-output-copy-btn" data-copy-tool-output-id="${blockId}" data-raw-content="${escapedRawAttr}" title="${rawButtonLabel}" aria-label="${rawButtonLabel}">${rawButtonIcon}</button>`;
@@ -1248,11 +1267,21 @@ export function injectCodeBlockMarkdownCopyButtons(
         isCopied ? ' is-copied' : ''
       }" data-testid="copy-code-markdown-btn" data-copy-code-markdown-id="${blockId}" data-code-lang="${detectedLang}" data-markdown-content="${escapedMarkdownAttr}" title="${buttonLabel}" aria-label="${buttonLabel}">${buttonIcon}</button>`;
 
-      const toolbarHtml = `<div class="note-code-block-toolbar no-print"><span class="note-code-block-lang">${
-        detectedLang || 'markdown'
-      }</span><span class="note-code-block-actions">${copyRawButtonHtml}${copyMarkdownButtonHtml}</span></div>`;
+      const highlightRes = highlightToolOutputContent(rawDecodedText, {
+        language: detectedLang || 'auto',
+      });
+      const resolvedLangLabel = detectedLang || highlightRes.format || 'markdown';
 
-      return `<div class="note-code-block-wrapper" data-testid="note-code-block-wrapper" data-code-block-id="${blockId}">${toolbarHtml}<pre${preAttrs}>${innerPreHtml}</pre></div>`;
+      const textSizeButtonHtml = `<button type="button" class="tool-output-text-size-btn note-code-text-size-btn tool-output-size-medium" data-testid="tool-output-text-size-btn" data-toggle-tool-output-size-id="${blockId}" data-font-size="medium" title="Text size: Medium (A) — click for Large" aria-label="Toggle text size (current: Medium, switch to Large)"><span class="tool-output-text-size-short" aria-hidden="true">A</span><span class="tool-output-text-size-text" data-testid="tool-output-text-size-btn-label">Text: Medium</span></button>`;
+
+      const toolbarHtml = `<div class="note-code-block-toolbar no-print"><span class="note-code-block-lang" data-testid="tool-output-format-badge" data-format="${
+        highlightRes.format
+      }">${resolvedLangLabel}</span><span class="note-code-block-actions">${textSizeButtonHtml}${downloadRawButtonHtml}${copyRawButtonHtml}${copyMarkdownButtonHtml}</span></div>`;
+
+      const renderedInnerHtml =
+        highlightRes.highlightedHtml || innerPreHtml;
+
+      return `<div class="note-code-block-wrapper" data-testid="note-code-block-wrapper" data-code-block-id="${blockId}" data-format="${highlightRes.format}" data-font-size="medium">${toolbarHtml}<pre${preAttrs} data-format="${highlightRes.format}" data-font-size="medium"><code class="tool-output-code language-${highlightRes.format}" data-format="${highlightRes.format}">${renderedInnerHtml}</code></pre></div>`;
     }
   );
 }

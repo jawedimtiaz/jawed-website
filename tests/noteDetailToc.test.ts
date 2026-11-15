@@ -2802,4 +2802,324 @@ test('adds a Copy to Clipboard button to the tool-output component for better ac
   );
 });
 
+test('adds a feature to the tool-output component that allows users to download the output content as a text file', async () => {
+  const {
+    ToolOutput,
+    TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL,
+    TOOL_OUTPUT_DOWNLOADED_LABEL,
+    TOOL_OUTPUT_DOWNLOAD_LIVE_REGION_MESSAGE,
+    formatToolOutputFilename,
+    downloadToolOutputText,
+    injectCodeBlockMarkdownCopyButtons,
+  } = await import('../src/pages/NoteDetailPage');
+
+  assert.equal(typeof ToolOutput, 'function');
+  assert.equal(TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL, 'Download .txt');
+  assert.equal(TOOL_OUTPUT_DOWNLOADED_LABEL, 'Downloaded!');
+  assert.equal(
+    TOOL_OUTPUT_DOWNLOAD_LIVE_REGION_MESSAGE,
+    'Tool output downloaded as text file.'
+  );
+
+  // 1. Verify formatToolOutputFilename normalizes titles and custom filenames into clean .txt filenames
+  assert.equal(
+    formatToolOutputFilename('IPv4 Subnet & CIDR Allocation Specification'),
+    'ipv4-subnet-and-cidr-allocation-specification.txt'
+  );
+  assert.equal(
+    formatToolOutputFilename('service-desk-note.txt'),
+    'service-desk-note.txt'
+  );
+  assert.equal(formatToolOutputFilename('   '), 'tool-output.txt');
+
+  // 2. Verify downloadToolOutputText triggers text/plain UTF-8 download with filename and returns accessible status
+  let capturedDownload: { content: string; filename: string; mimeType: string } | null = null;
+  const sampleOutput =
+    '=== Service Desk Note ===\nIssue: VPN tunnel auth timeout\nResolution: Rotated RADIUS shared secret';
+  const downloadRes = downloadToolOutputText(
+    sampleOutput,
+    { title: 'Service Desk Note' },
+    {
+      triggerDownload: (payload) => {
+        capturedDownload = payload;
+      },
+    }
+  );
+
+  assert.equal(downloadRes.ok, true);
+  assert.equal(downloadRes.filename, 'service-desk-note.txt');
+  assert.equal(downloadRes.downloadedText, sampleOutput);
+  assert.equal(downloadRes.mimeType, 'text/plain;charset=utf-8');
+  assert.ok(downloadRes.byteSize > 0);
+  assert.equal(downloadRes.label, 'Downloaded!');
+  assert.equal(downloadRes.announcement, 'Tool output downloaded as text file.');
+  assert.deepEqual(capturedDownload, {
+    content: sampleOutput,
+    filename: 'service-desk-note.txt',
+    mimeType: 'text/plain;charset=utf-8',
+  });
+
+  // Empty output returns ok: false gracefully without triggering download
+  let emptyTriggered = false;
+  const emptyRes = downloadToolOutputText(
+    '   ',
+    { filename: 'empty-output.txt' },
+    {
+      triggerDownload: () => {
+        emptyTriggered = true;
+      },
+    }
+  );
+  assert.equal(emptyRes.ok, false);
+  assert.equal(emptyTriggered, false);
+  assert.equal(emptyRes.filename, 'empty-output.txt');
+  assert.equal(emptyRes.label, 'Download .txt');
+
+  // 3. Verify <pre class="tool-output"> blocks in NoteDetailPage also include a Download .txt button
+  const sampleToolOutputHtml = `
+    <h2>Rack Thermal Summary</h2>
+    <pre class="tool-output">Total Active Power: 4,800 Watts | Thermal Dissipation: 16,378 BTU/hr</pre>
+  `;
+  const enhancedHtml = injectCodeBlockMarkdownCopyButtons(sampleToolOutputHtml);
+  assert.ok(
+    enhancedHtml.includes('data-testid="tool-output-download-btn"') &&
+      enhancedHtml.includes('data-download-tool-output-id="note-code-block-1"') &&
+      enhancedHtml.includes('<span class="tool-output-download-text">Download .txt</span>'),
+    'Expected <pre class="tool-output"> toolbar to include a Download .txt button'
+  );
+
+  const downloadedStateHtml = injectCodeBlockMarkdownCopyButtons(
+    sampleToolOutputHtml,
+    'download:note-code-block-1'
+  );
+  assert.ok(
+    downloadedStateHtml.includes(
+      'class="tool-output-download-btn note-code-download-raw-btn is-downloaded"'
+    ) &&
+      downloadedStateHtml.includes('<span class="tool-output-download-text">Downloaded!</span>'),
+    'Expected Download .txt button to render Downloaded! state when active'
+  );
+
+  // 4. Verify ToolOutput.tsx renders both toolbar and inline Download .txt buttons inside .tool-output
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const toolOutputSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/common/ToolOutput.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    toolOutputSource.includes("TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL = 'Download .txt'") &&
+      toolOutputSource.includes('data-testid={downloadButtonTestId}') &&
+      toolOutputSource.includes('data-testid={`${downloadButtonTestId}-inline`}') &&
+      toolOutputSource.includes('tool-output-inline-download-btn') &&
+      toolOutputSource.includes('data-download-filename={resolvedFilename}'),
+    'Expected ToolOutput.tsx to render toolbar and inline Download .txt buttons with filename metadata'
+  );
+});
+
+test('enhances tool-output component with Prism.js syntax highlighting to automatically detect and colorize code snippets, logs, and command outputs', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    detectToolOutputFormat,
+    highlightToolOutputContent,
+    TOOL_OUTPUT_FORMAT_LABELS,
+    injectCodeBlockMarkdownCopyButtons,
+  } = await import('../src/pages/NoteDetailPage');
+
+  // 1. Verify automatic format detection across JSON, Bash CLI, PowerShell, SQL, Network/CIDR, and structured Logs
+  assert.equal(
+    detectToolOutputFormat('{"ticketId": "INC-90210", "status": "resolved", "latencyMs": 14}'),
+    'json'
+  );
+  assert.equal(
+    detectToolOutputFormat('$ sudo systemctl restart networking && ping -c 4 1.1.1.1'),
+    'bash'
+  );
+  assert.equal(
+    detectToolOutputFormat('PS C:\\> Test-NetConnection -ComputerName 10.20.4.1 -Port 443'),
+    'powershell'
+  );
+  assert.equal(
+    detectToolOutputFormat('SELECT hostname, ip_address FROM assets WHERE rack_id = 4;'),
+    'sql'
+  );
+  assert.equal(
+    detectToolOutputFormat(
+      '• Target IP / Prefix: 192.168.1.50/24\n• Subnet Mask: 255.255.255.0\n• Binary Mask: 11111111.11111111.11111111.00000000'
+    ),
+    'network'
+  );
+  assert.equal(
+    detectToolOutputFormat(
+      '2026-11-15T09:10:00Z ERROR [INC-4091] RADIUS authentication timeout on VLAN 40'
+    ),
+    'log'
+  );
+
+  // Explicit language hint overrides auto-detection cleanly
+  assert.equal(detectToolOutputFormat('plain snippet', 'ps1'), 'powershell');
+  assert.equal(TOOL_OUTPUT_FORMAT_LABELS.network, 'NETWORK / CIDR');
+  assert.equal(TOOL_OUTPUT_FORMAT_LABELS.log, 'LOG / REPORT');
+
+  // 2. Verify highlightToolOutputContent produces Prism.js <span class="token ..."> markup for each format
+  const jsonHighlight = highlightToolOutputContent(
+    '{"service": "dns", "healthy": true, "port": 53}'
+  );
+  assert.equal(jsonHighlight.format, 'json');
+  assert.ok(jsonHighlight.tokenCount > 0, 'Expected JSON tokens to be highlighted by Prism.js');
+  assert.ok(
+    jsonHighlight.highlightedHtml.includes('<span class="token property">') &&
+      jsonHighlight.highlightedHtml.includes('<span class="token boolean">true</span>') &&
+      jsonHighlight.highlightedHtml.includes('<span class="token number">53</span>'),
+    'Expected Prism.js JSON tokens for property, boolean, and number'
+  );
+
+  const networkHighlight = highlightToolOutputContent(
+    '• Target IP / Prefix: 10.100.4.15/22\n• Subnet Mask: 255.255.252.0\n• Binary IP: 00001010.01100100.00000100.00001111'
+  );
+  assert.equal(networkHighlight.format, 'network');
+  assert.ok(networkHighlight.tokenCount > 0);
+  assert.ok(
+    networkHighlight.highlightedHtml.includes('10.100.4.15/22') &&
+      networkHighlight.highlightedHtml.includes('token'),
+    'Expected network/CIDR specification to be tokenized by Prism.js'
+  );
+
+  const logHighlight = highlightToolOutputContent(
+    '=== Service Desk Note ===\nStatus: RESOLVED\nTicket: INC-84920\nSeverity: ERROR'
+  );
+  assert.equal(logHighlight.format, 'log');
+  assert.ok(logHighlight.tokenCount > 0);
+  assert.ok(
+    logHighlight.highlightedHtml.includes('RESOLVED') &&
+      logHighlight.highlightedHtml.includes('INC-84920') &&
+      logHighlight.highlightedHtml.includes('<span class="token'),
+    'Expected structured log/report output to be tokenized by Prism.js'
+  );
+
+  // 3. Verify injectCodeBlockMarkdownCopyButtons applies Prism.js syntax highlighting to <pre class="tool-output"> blocks
+  const sampleCliNoteHtml = `
+    <h2>Verify DNS Resolver</h2>
+    <pre class="tool-output">$ dig @1.1.1.1 example.com +short</pre>
+  `;
+  const highlightedNoteHtml = injectCodeBlockMarkdownCopyButtons(sampleCliNoteHtml);
+  assert.ok(
+    highlightedNoteHtml.includes('data-format="bash"') &&
+      highlightedNoteHtml.includes('class="tool-output-code language-bash"') &&
+      highlightedNoteHtml.includes('<span class="token'),
+    'Expected <pre class="tool-output"> in NoteDetailPage to be auto-detected as bash and syntax-highlighted'
+  );
+
+  // 4. Verify ToolOutput.tsx and src/index.css wire Prism.js and token color rules
+  const toolOutputSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/common/ToolOutput.tsx'),
+    'utf8'
+  );
+  const cssSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/index.css'),
+    'utf8'
+  );
+
+  assert.ok(
+    toolOutputSource.includes("import Prism from 'prismjs'") &&
+      toolOutputSource.includes('highlightToolOutputContent') &&
+      toolOutputSource.includes('data-testid="tool-output-format-badge"') &&
+      toolOutputSource.includes('dangerouslySetInnerHTML={{ __html: highlightResult.highlightedHtml }}'),
+    'Expected ToolOutput.tsx to integrate Prism.js and render syntax-highlighted tokens and format badge'
+  );
+
+  assert.ok(
+    cssSource.includes('.tool-output .token.property') &&
+      cssSource.includes('.tool-output .token.keyword') &&
+      cssSource.includes('.tool-output .token.number'),
+    'Expected src/index.css to define Prism.js token color styles for .tool-output'
+  );
+});
+
+test('adds a text size control button in the tool-output toolbar that lets users toggle between small, medium, and large font sizes for better readability', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    TOOL_OUTPUT_FONT_SIZES,
+    TOOL_OUTPUT_FONT_SIZE_CONFIG,
+    getNextToolOutputFontSize,
+    resolveToolOutputFontSizeStyle,
+    injectCodeBlockMarkdownCopyButtons,
+  } = await import('../src/pages/NoteDetailPage');
+
+  // 1. Verify small, medium, and large font size configuration and toggle cycle (small -> medium -> large -> small)
+  assert.deepEqual(TOOL_OUTPUT_FONT_SIZES, ['small', 'medium', 'large']);
+  assert.equal(getNextToolOutputFontSize('small'), 'medium');
+  assert.equal(getNextToolOutputFontSize('medium'), 'large');
+  assert.equal(getNextToolOutputFontSize('large'), 'small');
+  assert.equal(getNextToolOutputFontSize(undefined), 'medium');
+
+  // 2. Verify resolveToolOutputFontSizeStyle returns distinct fontSize, lineHeight, shortLabel, and sizeClass
+  const smallStyle = resolveToolOutputFontSizeStyle('small');
+  const mediumStyle = resolveToolOutputFontSizeStyle('medium');
+  const largeStyle = resolveToolOutputFontSizeStyle('large');
+
+  assert.equal(smallStyle.label, 'Small');
+  assert.equal(smallStyle.shortLabel, 'A-');
+  assert.equal(smallStyle.fontSize, '0.78rem');
+  assert.equal(smallStyle.sizeClass, 'tool-output-font-small');
+
+  assert.equal(mediumStyle.label, 'Medium');
+  assert.equal(mediumStyle.shortLabel, 'A');
+  assert.equal(mediumStyle.fontSize, '0.88rem');
+  assert.equal(mediumStyle.sizeClass, 'tool-output-font-medium');
+
+  assert.equal(largeStyle.label, 'Large');
+  assert.equal(largeStyle.shortLabel, 'A+');
+  assert.equal(largeStyle.fontSize, '1.02rem');
+  assert.equal(largeStyle.sizeClass, 'tool-output-font-large');
+
+  assert.equal(TOOL_OUTPUT_FONT_SIZE_CONFIG.small.next, 'medium');
+  assert.equal(TOOL_OUTPUT_FONT_SIZE_CONFIG.medium.next, 'large');
+  assert.equal(TOOL_OUTPUT_FONT_SIZE_CONFIG.large.next, 'small');
+
+  // 3. Verify injectCodeBlockMarkdownCopyButtons includes the text size toggle button in .note-code-block-toolbar
+  const sampleHtml = `
+    <h2>Subnet Calculation Output</h2>
+    <pre class="tool-output">• Target IP / Prefix: 192.168.1.50/24</pre>
+  `;
+  const enhancedHtml = injectCodeBlockMarkdownCopyButtons(sampleHtml);
+  assert.ok(
+    enhancedHtml.includes('data-testid="tool-output-text-size-btn"') &&
+      enhancedHtml.includes('data-toggle-tool-output-size-id="note-code-block-1"') &&
+      enhancedHtml.includes('data-font-size="medium"') &&
+      enhancedHtml.includes('Text: Medium'),
+    'Expected <pre class="tool-output"> toolbar in NoteDetailPage to include the text size control button'
+  );
+
+  // 4. Verify ToolOutput.tsx and src/index.css wire the toolbar text size control button and CSS font classes
+  const toolOutputSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/common/ToolOutput.tsx'),
+    'utf8'
+  );
+  const cssSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/index.css'),
+    'utf8'
+  );
+
+  assert.ok(
+    toolOutputSource.includes("textSizeButtonTestId = 'tool-output-text-size-btn'") &&
+      toolOutputSource.includes('handleToggleFontSize') &&
+      toolOutputSource.includes('data-font-size={fontSizeStyle.size}') &&
+      toolOutputSource.includes('Text: {fontSizeStyle.label}'),
+    'Expected ToolOutput.tsx to render the text size control button in the toolbar and apply fontSizeStyle to .tool-output'
+  );
+
+  assert.ok(
+    cssSource.includes('.tool-output.tool-output-font-small') &&
+      cssSource.includes('.tool-output.tool-output-font-medium') &&
+      cssSource.includes('.tool-output.tool-output-font-large'),
+    'Expected src/index.css to define small, medium, and large font size rules for .tool-output'
+  );
+});
+
+
+
+
 

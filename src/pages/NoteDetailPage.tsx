@@ -75,9 +75,27 @@ import {
 import {
   ToolOutput,
   TOOL_OUTPUT_LIVE_REGION_MESSAGE,
+  TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL,
+  TOOL_OUTPUT_DOWNLOADED_LABEL,
+  TOOL_OUTPUT_DOWNLOAD_LIVE_REGION_MESSAGE,
+  TOOL_OUTPUT_FONT_SIZES,
+  TOOL_OUTPUT_FONT_SIZE_CONFIG,
+  getNextToolOutputFontSize,
+  resolveToolOutputFontSizeStyle,
+  TOOL_OUTPUT_FORMAT_LABELS,
+  detectToolOutputFormat,
+  highlightToolOutputContent,
+  formatToolOutputFilename,
   copyToolOutputText,
+  downloadToolOutputText,
+  type ToolOutputFontSize,
+  type ToolOutputFontSizeSetting,
+  type ToolOutputFormat,
+  type HighlightToolOutputResult,
   type ToolOutputProps,
   type CopyToolOutputResult,
+  type ToolOutputDownloadAdapter,
+  type DownloadToolOutputResult,
 } from '../components/common/ToolOutput';
 
 import { COMPONENT_MAPPER, getInteractiveComponentForSlug } from '../utils/componentMapper';
@@ -256,9 +274,21 @@ export {
   CODE_MARKDOWN_COPIED_LABEL,
   TOOL_OUTPUT_COPY_BUTTON_LABEL,
   TOOL_OUTPUT_COPIED_LABEL,
+  TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL,
+  TOOL_OUTPUT_DOWNLOADED_LABEL,
+  TOOL_OUTPUT_DOWNLOAD_LIVE_REGION_MESSAGE,
+  TOOL_OUTPUT_FONT_SIZES,
+  TOOL_OUTPUT_FONT_SIZE_CONFIG,
+  getNextToolOutputFontSize,
+  resolveToolOutputFontSizeStyle,
+  TOOL_OUTPUT_FORMAT_LABELS,
   ToolOutput,
   TOOL_OUTPUT_LIVE_REGION_MESSAGE,
+  detectToolOutputFormat,
+  highlightToolOutputContent,
+  formatToolOutputFilename,
   copyToolOutputText,
+  downloadToolOutputText,
   GlobalImageLightbox,
   handleArticleImageLightboxClick,
   openGlobalImageLightbox,
@@ -389,6 +419,12 @@ export {
   type RemainingReadTimeResult,
   type CompactReadTimeBadgeData,
   type HeaderReadTimeDetails,
+  type ToolOutputFontSize,
+  type ToolOutputFontSizeSetting,
+  type ToolOutputFormat,
+  type HighlightToolOutputResult,
+  type ToolOutputDownloadAdapter,
+  type DownloadToolOutputResult,
 };
 
 /**
@@ -882,6 +918,44 @@ export const NoteDetailPage: React.FC = () => {
       return;
     }
 
+    const toolOutputTextSizeBtn = target?.closest<HTMLButtonElement>('[data-toggle-tool-output-size-id]');
+    if (toolOutputTextSizeBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const currentSize = toolOutputTextSizeBtn.getAttribute('data-font-size') || 'medium';
+      const nextSize = getNextToolOutputFontSize(currentSize);
+      const nextStyle = resolveToolOutputFontSizeStyle(nextSize);
+      const afterNext = getNextToolOutputFontSize(nextSize);
+      const afterNextCfg = TOOL_OUTPUT_FONT_SIZE_CONFIG[afterNext];
+
+      toolOutputTextSizeBtn.setAttribute('data-font-size', nextSize);
+      toolOutputTextSizeBtn.className = `tool-output-text-size-btn note-code-text-size-btn tool-output-size-${nextSize}`;
+      toolOutputTextSizeBtn.setAttribute(
+        'title',
+        `Text size: ${nextStyle.label} (${nextStyle.shortLabel}) — click for ${afterNextCfg.label}`
+      );
+      toolOutputTextSizeBtn.setAttribute(
+        'aria-label',
+        `Toggle text size (current: ${nextStyle.label}, switch to ${afterNextCfg.label})`
+      );
+      const shortSpan = toolOutputTextSizeBtn.querySelector('.tool-output-text-size-short');
+      if (shortSpan) shortSpan.textContent = nextStyle.shortLabel;
+      const labelSpan = toolOutputTextSizeBtn.querySelector('.tool-output-text-size-text');
+      if (labelSpan) labelSpan.textContent = `Text: ${nextStyle.label}`;
+
+      const wrapper = toolOutputTextSizeBtn.closest<HTMLElement>('.note-code-block-wrapper');
+      const preEl = wrapper?.querySelector<HTMLElement>('pre');
+      if (wrapper) {
+        wrapper.setAttribute('data-font-size', nextSize);
+      }
+      if (preEl) {
+        preEl.setAttribute('data-font-size', nextSize);
+        preEl.style.fontSize = nextStyle.fontSize;
+        preEl.style.lineHeight = nextStyle.lineHeight;
+      }
+      return;
+    }
+
     const toolOutputCopyBtn = target?.closest<HTMLButtonElement>('[data-copy-tool-output-id]');
     if (toolOutputCopyBtn) {
       event.preventDefault();
@@ -908,6 +982,40 @@ export const NoteDetailPage: React.FC = () => {
             setCopiedCodeBlockId((prev) => (prev === `raw:${blockId}` ? '' : prev));
           }, 2000);
         });
+      }
+      return;
+    }
+
+    const toolOutputDownloadBtn = target?.closest<HTMLButtonElement>('[data-download-tool-output-id]');
+    if (toolOutputDownloadBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const blockId = toolOutputDownloadBtn.getAttribute('data-download-tool-output-id') || '';
+      const wrapper = toolOutputDownloadBtn.closest('.note-code-block-wrapper');
+      const preEl = wrapper?.querySelector('pre');
+      const rawCode = preEl?.innerHTML || toolOutputDownloadBtn.getAttribute('data-raw-content') || '';
+      if (rawCode) {
+        const cleanText = decodeCodeBlockEntities(rawCode);
+        const res = downloadToolOutputText(cleanText, {
+          filename: `${slug || 'guide'}-${blockId}.txt`,
+        });
+        if (res.ok) {
+          setCopiedCodeBlockId(`download:${blockId}`);
+          setCopiedHeadingUrl('');
+          setIsLinkCopiedToastVisible(true);
+          if (toastTimeoutRef.current) {
+            clearTimeout(toastTimeoutRef.current);
+          }
+          toastTimeoutRef.current = setTimeout(() => {
+            setIsLinkCopiedToastVisible(false);
+          }, 2400);
+          if (codeBlockCopyTimerRef.current) {
+            clearTimeout(codeBlockCopyTimerRef.current);
+          }
+          codeBlockCopyTimerRef.current = setTimeout(() => {
+            setCopiedCodeBlockId((prev) => (prev === `download:${blockId}` ? '' : prev));
+          }, 2000);
+        }
       }
       return;
     }
