@@ -466,6 +466,8 @@ export interface ClipboardWriterLike {
 
 export const HEADING_COPY_BUTTON_LABEL = 'Copy Link';
 export const HEADING_COPY_TOAST_MESSAGE = 'Link copied';
+export const TOC_ITEM_COPY_LINK_LABEL = 'Copy link';
+export const TOC_ITEM_COPIED_LABEL = 'Copied';
 
 export interface CopySectionAnchorResult {
   ok: boolean;
@@ -553,6 +555,22 @@ export async function copySectionAnchorLink(
     anchorUrl,
     toastMessage: HEADING_COPY_TOAST_MESSAGE,
   };
+}
+
+/**
+ * Copies a deep link (`https://...#section-id`) for a specific Table of Contents item
+ * to the user's clipboard and updates the URL hash fragment.
+ */
+export async function copyTocItemDeepLink(
+  headingId: string,
+  baseUrl?: string,
+  clipboardOverride?: ClipboardWriterLike,
+  winOverride?: {
+    location?: { href?: string };
+    history?: { replaceState?: (data: any, unused: string, url?: string | null) => void };
+  }
+): Promise<CopySectionAnchorResult> {
+  return copySectionAnchorLink(headingId, baseUrl, clipboardOverride, winOverride);
 }
 
 /**

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileDown, Printer, Check } from 'lucide-react';
 
 export const EXPORT_TO_PDF_LABEL = 'Export to PDF';
+export const PRINT_GUIDE_LABEL = 'Print Guide';
 
 export interface PrintWindowLike {
   print?: () => void;
@@ -60,6 +61,27 @@ export interface ExportToPdfResult {
   orientation: 'portrait' | 'landscape';
   exportScope: 'guide' | 'tool-report' | 'auto';
   targetSelector: string;
+}
+
+export interface TriggerPrintGuideOptions extends TriggerA4PdfExportOptions {
+  /**
+   * Enables paper-optimized reading typography and print layout attributes. Defaults to true.
+   */
+  paperOptimized?: boolean;
+  /**
+   * Alias for winOverride for unit testing.
+   */
+  win?: PrintWindowLike;
+  /**
+   * Alias for docOverride for unit testing.
+   */
+  doc?: PrintDocumentLike;
+}
+
+export interface PrintGuideResult extends ExportToPdfResult {
+  printed: boolean;
+  paperOptimized: boolean;
+  mode: 'paper-friendly';
 }
 
 const DEFAULT_ACTIVE_CONTENT_SELECTOR =
@@ -168,6 +190,56 @@ export function triggerA4PdfExport(
   }
 }
 
+/**
+ * Triggers a print-friendly version of the current technical guide formatted for optimal
+ * reading on paper, leveraging existing `@media print` CSS rules along with paper-optimized
+ * typography attributes (`data-print-paper-optimized="true"` and `data-paper-friendly-guide="true"`).
+ */
+export function triggerPaperFriendlyGuidePrint(
+  options: TriggerPrintGuideOptions = {}
+): PrintGuideResult {
+  const paperOptimized = options.paperOptimized ?? true;
+  const targetSelector = options.targetSelector || '.quick-note-article';
+  const winOverride = options.winOverride ?? options.win;
+  const docOverride = options.docOverride ?? options.doc;
+  const doc: PrintDocumentLike | undefined =
+    docOverride ?? (typeof document !== 'undefined' ? document : undefined);
+  const rootEl = doc?.documentElement;
+  const targetEl =
+    doc && typeof doc.querySelector === 'function'
+      ? doc.querySelector(targetSelector)
+      : null;
+
+  const baseResult = triggerA4PdfExport({
+    ...options,
+    winOverride,
+    docOverride,
+    exportScope: 'guide',
+    targetSelector,
+    onBeforePrint: () => {
+      if (paperOptimized) {
+        rootEl?.setAttribute?.('data-print-paper-optimized', 'true');
+        targetEl?.setAttribute?.('data-paper-friendly-guide', 'true');
+      }
+      options.onBeforePrint?.();
+    },
+    onAfterPrint: () => {
+      if (paperOptimized) {
+        rootEl?.removeAttribute?.('data-print-paper-optimized');
+        targetEl?.removeAttribute?.('data-paper-friendly-guide');
+      }
+      options.onAfterPrint?.();
+    },
+  });
+
+  return {
+    ...baseResult,
+    printed: baseResult.ok,
+    paperOptimized,
+    mode: 'paper-friendly',
+  };
+}
+
 export interface ExportToPdfButtonProps {
   /**
    * Button label (defaults to "Export to PDF").
@@ -217,6 +289,14 @@ export interface ExportToPdfButtonProps {
    * Tooltip explanation.
    */
   title?: string;
+}
+
+export interface PrintGuideButtonProps
+  extends Omit<ExportToPdfButtonProps, 'exportScope' | 'iconType'> {
+  /**
+   * Optional callback fired when the print-friendly guide action completes.
+   */
+  onPrintGuide?: (result: PrintGuideResult) => void;
 }
 
 /**
@@ -372,4 +452,82 @@ export const ExportToPdfButton: React.FC<ExportToPdfButtonProps> = ({
   );
 };
 
+/**
+ * PrintGuideButton
+ * Toolbar button for NoteDetailPage that triggers a print-friendly version of the guide
+ * using existing print CSS styles formatted for optimal reading on paper.
+ */
+export const PrintGuideButton: React.FC<PrintGuideButtonProps> = ({
+  label = PRINT_GUIDE_LABEL,
+  documentTitle,
+  targetSelector = '.quick-note-article',
+  orientation = 'portrait',
+  size = 'sm',
+  onExport,
+  onPrintGuide,
+  className = '',
+  style = {},
+  title = 'Print a clean, paper-optimized version of this technical guide',
+}) => {
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const handlePrintClick = () => {
+    setIsPrinting(true);
+    const result = triggerPaperFriendlyGuidePrint({
+      documentTitle,
+      targetSelector,
+      orientation,
+      paperOptimized: true,
+      onBeforePrint: onExport,
+    });
+    onPrintGuide?.(result);
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        setIsPrinting(false);
+      }, 1200);
+    } else {
+      setIsPrinting(false);
+    }
+  };
+
+  const IconComponent = isPrinting ? Check : Printer;
+  const iconSize = size === 'sm' ? 14 : size === 'lg' ? 18 : 15;
+
+  return (
+    <button
+      type="button"
+      onClick={handlePrintClick}
+      data-testid="note-print-guide-btn"
+      data-print-mode="paper-friendly"
+      data-export-format="A4"
+      data-export-scope="guide"
+      className={`button button-secondary print-guide-btn no-print button-no-print ${className}`.trim()}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: size === 'lg' ? '10px 18px' : size === 'md' ? '6px 14px' : '4px 12px',
+        fontSize: size === 'lg' ? '0.95rem' : size === 'md' ? '0.84rem' : '0.8rem',
+        fontWeight: 600,
+        borderRadius: '8px',
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        ...style,
+      }}
+      title={title}
+      aria-label={
+        documentTitle
+          ? `${label}: "${documentTitle}" (formatted for optimal reading on paper)`
+          : label
+      }
+    >
+      <IconComponent size={iconSize} aria-hidden="true" />
+      <span data-testid="note-print-guide-btn-label">
+        {isPrinting ? 'Printing Guide...' : label}
+      </span>
+    </button>
+  );
+};
+
 export default ExportToPdfButton;
+

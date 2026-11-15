@@ -1913,9 +1913,191 @@ describe('CommandPalette - Shortcut Filtering & Navigational Execution Logic', (
       'Expected CommandPalette.tsx to log and display search-trends'
     );
   });
+
+  it('renders a dedicated tab in the Search component with a pie chart visualizing the distribution of search categories performed by the user', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      inferSearchQueryCategory,
+      buildPieChartSlicePath,
+      computeSearchCategoryDistribution,
+      trackSearchTermTrend,
+      clearSearchTrendsFromStorage,
+    } = await import('../src/components/CommandPalette');
+
+    const store = new Map<string, string>();
+    const mockStorage = {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    };
+
+    clearSearchTrendsFromStorage(mockStorage);
+
+    // 1. Verify category inference for different search queries
+    assert.equal(inferSearchQueryCategory('IPv4 Subnet Calculator'), 'tool');
+    assert.equal(inferSearchQueryCategory('RJ45 T568B Field Guide', 'guide'), 'guide');
+    assert.equal(inferSearchQueryCategory('IT Career Blog Post', 'blog'), 'blog');
+    assert.equal(inferSearchQueryCategory('Contact Services Page', 'page'), 'page');
+
+    // 2. Log searches across multiple categories (2 tools, 1 guide, 1 blog)
+    trackSearchTermTrend('IPv4 Subnet Calculator', mockStorage, 'tool');
+    trackSearchTermTrend('PoE Budget Checker', mockStorage, 'tool');
+    trackSearchTermTrend('RJ45 T568B Pinout Guide', mockStorage, 'guide');
+    trackSearchTermTrend('Enterprise Career Blog', mockStorage, 'blog');
+
+    // 3. Compute search category distribution and verify counts, percentages, and SVG pie slice paths
+    const report = computeSearchCategoryDistribution(mockStorage);
+    assert.equal(report.totalSearches, 4);
+    assert.equal(report.uniqueTermsCount, 4);
+    assert.equal(report.slices.length, 4);
+    assert.equal(report.activeSlices.length, 3);
+
+    const toolSlice = report.slices.find((s) => s.category === 'tool')!;
+    const guideSlice = report.slices.find((s) => s.category === 'guide')!;
+    const blogSlice = report.slices.find((s) => s.category === 'blog')!;
+    const pageSlice = report.slices.find((s) => s.category === 'page')!;
+
+    assert.equal(toolSlice.count, 2);
+    assert.equal(toolSlice.percentage, 50);
+    assert.ok(toolSlice.svgPath.startsWith('M 90 90 L'), 'Expected valid SVG arc path for tool slice');
+
+    assert.equal(guideSlice.count, 1);
+    assert.equal(guideSlice.percentage, 25);
+    assert.ok(guideSlice.svgPath.startsWith('M 90 90 L'), 'Expected valid SVG arc path for guide slice');
+
+    assert.equal(blogSlice.count, 1);
+    assert.equal(blogSlice.percentage, 25);
+    assert.ok(blogSlice.svgPath.startsWith('M 90 90 L'), 'Expected valid SVG arc path for blog slice');
+
+    assert.equal(pageSlice.count, 0);
+    assert.equal(pageSlice.percentage, 0);
+    assert.equal(pageSlice.svgPath, '');
+
+    // 4. Verify 100% single-category full circle SVG path
+    const fullCirclePath = buildPieChartSlicePath(90, 90, 76, 0, 360);
+    assert.ok(fullCirclePath.includes('A 76 76 0 1 1'), 'Expected full-circle SVG arc path when sweep is 360 deg');
+
+    // 5. Verify CommandPalette.tsx renders the dedicated tab and pie chart panel
+    const paletteSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/CommandPalette.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      paletteSource.includes('data-testid="search-tab-analytics"') &&
+        paletteSource.includes('data-testid="search-category-distribution-panel"') &&
+        paletteSource.includes('data-testid="search-category-pie-chart"') &&
+        paletteSource.includes('data-testid="search-category-pie-legend"'),
+      'Expected CommandPalette.tsx to render the dedicated Search Analytics tab and SVG pie chart'
+    );
+  });
+
+  it('includes clickable category pill filters (Guides, Tools, Blog, Pages) that narrow down the search results list dynamically as the user types', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {
+      SEARCH_CATEGORY_PILL_FILTERS,
+      normalizeCategoryPillFilter,
+      toggleSearchCategoryPill,
+      getSearchCategoryPillCounts,
+      filterSearchResultsByCategoryPill,
+      filterDynamicSearchByCategoryPill,
+    } = await import('../src/components/CommandPalette');
+    const { getQuickSearchRecommendations } = await import(
+      '../src/services/aiKnowledgeEngine'
+    );
+
+    // 1. Verify SEARCH_CATEGORY_PILL_FILTERS exposes All, Guides, Tools, Blog, and Pages pills
+    assert.deepEqual(
+      SEARCH_CATEGORY_PILL_FILTERS.map((p) => p.label),
+      ['All', 'Guides', 'Tools', 'Blog', 'Pages']
+    );
+    assert.deepEqual(
+      SEARCH_CATEGORY_PILL_FILTERS.map((p) => p.id),
+      ['all', 'guide', 'tool', 'blog', 'page']
+    );
+
+    // 2. Verify normalizeCategoryPillFilter and toggleSearchCategoryPill behavior
+    assert.equal(normalizeCategoryPillFilter('Guides'), 'guide');
+    assert.equal(normalizeCategoryPillFilter('Tools'), 'tool');
+    assert.equal(normalizeCategoryPillFilter('Blog'), 'blog');
+    assert.equal(normalizeCategoryPillFilter('Pages'), 'page');
+    assert.equal(normalizeCategoryPillFilter('All'), 'all');
+
+    // Clicking 'Guides' when on 'all' activates 'guide'; clicking 'Guides' again toggles back to 'all'
+    const afterFirstClick = toggleSearchCategoryPill('all', 'Guides');
+    assert.equal(afterFirstClick, 'guide');
+    const afterSecondClick = toggleSearchCategoryPill(afterFirstClick, 'Guides');
+    assert.equal(afterSecondClick, 'all');
+    const afterSwitchToTools = toggleSearchCategoryPill('guide', 'Tools');
+    assert.equal(afterSwitchToTools, 'tool');
+
+    // 3. Verify dynamic narrowing of search results as the user types with an active category pill
+    const initialStep = filterDynamicSearchByCategoryPill('', 'All');
+    assert.ok(initialStep.filteredResults.length > 0);
+    assert.equal(
+      initialStep.pillCounts.all,
+      initialStep.pillCounts.guide +
+        initialStep.pillCounts.tool +
+        initialStep.pillCounts.blog +
+        initialStep.pillCounts.page
+    );
+
+    // User clicks 'Guides' pill and types 'net' -> 'network'
+    const typedNetGuides = filterDynamicSearchByCategoryPill('net', 'Guides');
+    assert.equal(typedNetGuides.activePill, 'guide');
+    assert.ok(typedNetGuides.filteredResults.length > 0);
+    assert.ok(
+      typedNetGuides.filteredResults.every((item) => item.category === 'guide'),
+      'Expected Guides pill filter to narrow results exclusively to guide items'
+    );
+    assert.equal(typedNetGuides.filteredResults.length, typedNetGuides.pillCounts.guide);
+
+    const typedNetworkGuides = filterDynamicSearchByCategoryPill('network', 'Guides');
+    assert.ok(typedNetworkGuides.filteredResults.length > 0);
+    assert.ok(
+      typedNetworkGuides.filteredResults.every((item) => item.category === 'guide'),
+      'Expected Guides pill filter to remain active as user continues typing "network"'
+    );
+
+    // User clicks 'Tools' pill while query is 'network'
+    const typedNetworkTools = filterDynamicSearchByCategoryPill('network', 'Tools');
+    assert.equal(typedNetworkTools.activePill, 'tool');
+    assert.ok(typedNetworkTools.filteredResults.length > 0);
+    assert.ok(
+      typedNetworkTools.filteredResults.every((item) => item.category === 'tool'),
+      'Expected Tools pill filter to narrow results exclusively to tool items'
+    );
+
+    // User clicks 'Blog' pill
+    const recommendations = getQuickSearchRecommendations();
+    const blogResults = filterSearchResultsByCategoryPill(recommendations, 'Blog');
+    assert.ok(blogResults.length > 0);
+    assert.ok(blogResults.every((item) => item.category === 'blog'));
+
+    // Multi-pill array support (e.g. ['Guides', 'Tools'])
+    const guidesAndTools = filterSearchResultsByCategoryPill(recommendations, ['Guides', 'Tools']);
+    const fullCounts = getSearchCategoryPillCounts(recommendations);
+    assert.equal(guidesAndTools.length, fullCounts.guide + fullCounts.tool);
+    assert.ok(
+      guidesAndTools.every((item) => item.category === 'guide' || item.category === 'tool')
+    );
+
+    // 4. Verify CommandPalette.tsx renders the clickable category pill filters bar and wires handleCategoryPillClick
+    const paletteSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/CommandPalette.tsx'),
+      'utf8'
+    );
+    assert.ok(
+      paletteSource.includes('data-testid="search-category-pill-filters"') &&
+        paletteSource.includes('data-testid={`search-category-pill-${pill.id}`}') &&
+        paletteSource.includes('handleCategoryPillClick(pill.id)') &&
+        paletteSource.includes('data-testid="search-category-pill-clear"'),
+      'Expected CommandPalette.tsx to render clickable category pill filter buttons and reset action'
+    );
+  });
 });
-
-
-
-
-

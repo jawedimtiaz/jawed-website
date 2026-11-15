@@ -1,8 +1,31 @@
 export const OFFLINE_GUIDES_STORAGE_KEY = 'jawed_offline_pinned_guides_v1';
 export const OFFLINE_GUIDES_CACHE_NAME = 'jawed-offline-guides-cache-v1';
 export const OFFLINE_GUIDES_EVENT_NAME = 'jawed-offline-guides-updated';
+export const OFFLINE_DOWNLOAD_PROGRESS_EVENT_NAME = 'jawed-offline-download-progress';
 export const DOWNLOAD_FOR_OFFLINE_LABEL = 'Download for Offline';
 export const OFFLINE_PINNED_LABEL = 'Pinned for Offline';
+
+export type OfflineDownloadStage =
+  | 'idle'
+  | 'preparing'
+  | 'caching'
+  | 'verifying'
+  | 'completed'
+  | 'removed'
+  | 'error';
+
+export interface OfflineDownloadProgressState {
+  visible: boolean;
+  slug: string;
+  title: string;
+  action: 'pin' | 'unpin';
+  stage: OfflineDownloadStage;
+  progressPercent: number;
+  statusMessage: string;
+  sizeBytes: number;
+  formattedSize: string;
+  updatedAt: number;
+}
 
 export interface OfflinePinnedGuide {
   slug: string;
@@ -367,3 +390,178 @@ export function clearOfflinePinnedGuides(
   dispatchOfflineGuidesUpdated([]);
   return [];
 }
+
+/**
+ * Returns the initial idle state for the offline download progress toast notification.
+ */
+export function createInitialOfflineDownloadProgressState(): OfflineDownloadProgressState {
+  return {
+    visible: false,
+    slug: '',
+    title: '',
+    action: 'pin',
+    stage: 'idle',
+    progressPercent: 0,
+    statusMessage: '',
+    sizeBytes: 0,
+    formattedSize: '0 B',
+    updatedAt: 0,
+  };
+}
+
+/**
+ * Dispatches a browser custom event whenever the offline download/pin progress state updates.
+ */
+export function dispatchOfflineDownloadProgress(
+  state: OfflineDownloadProgressState
+): void {
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(
+      new CustomEvent(OFFLINE_DOWNLOAD_PROGRESS_EVENT_NAME, {
+        detail: state,
+      })
+    );
+  }
+}
+
+/**
+ * Builds the sequence of visual progress states for pinning/downloading or unpinning a technical guide.
+ */
+export function buildOfflineDownloadProgressSteps(
+  guide: OfflineGuideInput,
+  action: 'pin' | 'unpin' = 'pin',
+  explicitSizeBytes?: number
+): OfflineDownloadProgressState[] {
+  const slug = String(guide?.slug || '').trim();
+  const title = String(guide?.title || slug || 'Technical Guide').trim();
+  const description = String(guide?.description || '').trim();
+  const category = String(guide?.category || 'Technical Guide').trim();
+  const content = String(guide?.content || '').trim();
+
+  const sizeBytes =
+    typeof explicitSizeBytes === 'number' && explicitSizeBytes > 0
+      ? explicitSizeBytes
+      : calculateUtf8ByteSize(
+          JSON.stringify({ slug, title, description, category, content })
+        );
+  const formattedSize = formatOfflineSize(sizeBytes);
+  const now = Date.now();
+
+  if (action === 'unpin') {
+    return [
+      {
+        visible: true,
+        slug,
+        title,
+        action: 'unpin',
+        stage: 'caching',
+        progressPercent: 50,
+        statusMessage: 'Removing guide from offline cache...',
+        sizeBytes,
+        formattedSize,
+        updatedAt: now,
+      },
+      {
+        visible: true,
+        slug,
+        title,
+        action: 'unpin',
+        stage: 'removed',
+        progressPercent: 100,
+        statusMessage: 'Removed from offline storage',
+        sizeBytes,
+        formattedSize,
+        updatedAt: now + 1,
+      },
+    ];
+  }
+
+  return [
+    {
+      visible: true,
+      slug,
+      title,
+      action: 'pin',
+      stage: 'preparing',
+      progressPercent: 25,
+      statusMessage: 'Preparing offline guide package...',
+      sizeBytes,
+      formattedSize,
+      updatedAt: now,
+    },
+    {
+      visible: true,
+      slug,
+      title,
+      action: 'pin',
+      stage: 'caching',
+      progressPercent: 65,
+      statusMessage: `Caching guide content (${formattedSize})...`,
+      sizeBytes,
+      formattedSize,
+      updatedAt: now + 1,
+    },
+    {
+      visible: true,
+      slug,
+      title,
+      action: 'pin',
+      stage: 'verifying',
+      progressPercent: 90,
+      statusMessage: 'Verifying offline availability...',
+      sizeBytes,
+      formattedSize,
+      updatedAt: now + 2,
+    },
+    {
+      visible: true,
+      slug,
+      title,
+      action: 'pin',
+      stage: 'completed',
+      progressPercent: 100,
+      statusMessage: `Pinned & downloaded for offline access (${formattedSize})`,
+      sizeBytes,
+      formattedSize,
+      updatedAt: now + 3,
+    },
+  ];
+}
+
+/**
+ * Toggles the offline pin/download state for a technical guide and emits step-by-step
+ * progress notifications for toast UI consumers.
+ */
+export function toggleGuideOfflinePinWithProgress(
+  guide: OfflineGuideInput,
+  onProgress?: (state: OfflineDownloadProgressState) => void,
+  storage?: OfflineStorageAdapter | null
+): {
+  pinned: boolean;
+  guides: OfflinePinnedGuide[];
+  guide: OfflinePinnedGuide | null;
+  steps: OfflineDownloadProgressState[];
+  finalState: OfflineDownloadProgressState;
+} {
+  const result = toggleGuideOfflinePin(guide, storage);
+  const action: 'pin' | 'unpin' = result.pinned ? 'pin' : 'unpin';
+  const steps = buildOfflineDownloadProgressSteps(
+    guide,
+    action,
+    result.guide?.sizeBytes
+  );
+  for (const step of steps) {
+    if (typeof onProgress === 'function') {
+      onProgress(step);
+    }
+    dispatchOfflineDownloadProgress(step);
+  }
+  const finalState =
+    steps[steps.length - 1] || createInitialOfflineDownloadProgressState();
+  return {
+    ...result,
+    steps,
+    finalState,
+  };
+}
+

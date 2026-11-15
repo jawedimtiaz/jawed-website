@@ -50,8 +50,11 @@ import {
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
+  copyTocItemDeepLink,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
+  TOC_ITEM_COPY_LINK_LABEL,
+  TOC_ITEM_COPIED_LABEL,
   CODE_MARKDOWN_BUTTON_LABEL,
   CODE_MARKDOWN_COPIED_LABEL,
   type TocItem,
@@ -99,11 +102,17 @@ import {
 import {
   ExportToPdfButton,
   EXPORT_TO_PDF_LABEL,
+  PrintGuideButton,
+  PRINT_GUIDE_LABEL,
   triggerA4PdfExport,
+  triggerPaperFriendlyGuidePrint,
   formatPdfDocumentTitle,
   type ExportToPdfButtonProps,
+  type PrintGuideButtonProps,
   type TriggerA4PdfExportOptions,
+  type TriggerPrintGuideOptions,
   type ExportToPdfResult,
+  type PrintGuideResult,
 } from '../components/common/ExportToPdfButton';
 
 import {
@@ -157,6 +166,7 @@ import {
   OFFLINE_GUIDES_STORAGE_KEY,
   OFFLINE_GUIDES_CACHE_NAME,
   OFFLINE_GUIDES_EVENT_NAME,
+  OFFLINE_DOWNLOAD_PROGRESS_EVENT_NAME,
   DOWNLOAD_FOR_OFFLINE_LABEL,
   OFFLINE_PINNED_LABEL,
   calculateUtf8ByteSize,
@@ -170,9 +180,15 @@ import {
   unpinGuideFromOffline,
   toggleGuideOfflinePin,
   clearOfflinePinnedGuides,
+  createInitialOfflineDownloadProgressState,
+  dispatchOfflineDownloadProgress,
+  buildOfflineDownloadProgressSteps,
+  toggleGuideOfflinePinWithProgress,
   type OfflinePinnedGuide,
   type OfflineGuideInput,
   type OfflineStorageAdapter,
+  type OfflineDownloadStage,
+  type OfflineDownloadProgressState,
 } from '../utils/offlinePinnedGuides';
 
 export {
@@ -204,8 +220,11 @@ export {
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
+  copyTocItemDeepLink,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
+  TOC_ITEM_COPY_LINK_LABEL,
+  TOC_ITEM_COPIED_LABEL,
   CODE_MARKDOWN_BUTTON_LABEL,
   CODE_MARKDOWN_COPIED_LABEL,
   GlobalImageLightbox,
@@ -221,7 +240,10 @@ export {
   PrintableBadge,
   ExportToPdfButton,
   EXPORT_TO_PDF_LABEL,
+  PrintGuideButton,
+  PRINT_GUIDE_LABEL,
   triggerA4PdfExport,
+  triggerPaperFriendlyGuidePrint,
   formatPdfDocumentTitle,
   PrintPreviewModal,
   PrintPreviewButton,
@@ -252,6 +274,7 @@ export {
   OFFLINE_GUIDES_STORAGE_KEY,
   OFFLINE_GUIDES_CACHE_NAME,
   OFFLINE_GUIDES_EVENT_NAME,
+  OFFLINE_DOWNLOAD_PROGRESS_EVENT_NAME,
   DOWNLOAD_FOR_OFFLINE_LABEL,
   OFFLINE_PINNED_LABEL,
   calculateUtf8ByteSize,
@@ -265,6 +288,10 @@ export {
   unpinGuideFromOffline,
   toggleGuideOfflinePin,
   clearOfflinePinnedGuides,
+  createInitialOfflineDownloadProgressState,
+  dispatchOfflineDownloadProgress,
+  buildOfflineDownloadProgressSteps,
+  toggleGuideOfflinePinWithProgress,
   AVERAGE_READING_SPEED_WPM,
   calculateEstimatedReadTime,
   calculateWordCount,
@@ -286,8 +313,11 @@ export {
   type ScrollProgressIndicatorProps,
   type PrintableBadgeProps,
   type ExportToPdfButtonProps,
+  type PrintGuideButtonProps,
   type TriggerA4PdfExportOptions,
+  type TriggerPrintGuideOptions,
   type ExportToPdfResult,
+  type PrintGuideResult,
   type PrintPreviewToggleOptions,
   type SendPreviewToPrinterOptions,
   type SendPreviewToPrinterResult,
@@ -304,6 +334,8 @@ export {
   type OfflinePinnedGuide,
   type OfflineGuideInput,
   type OfflineStorageAdapter,
+  type OfflineDownloadStage,
+  type OfflineDownloadProgressState,
   type EstimatedReadTimeStats,
   type RemainingReadTimeResult,
   type HeaderReadTimeDetails,
@@ -568,6 +600,10 @@ export const NoteDetailPage: React.FC = () => {
   const [isOfflinePinned, setIsOfflinePinned] = React.useState<boolean>(() =>
     isGuidePinnedForOffline(slug || '')
   );
+  const [offlineDownloadToast, setOfflineDownloadToast] =
+    React.useState<OfflineDownloadProgressState>(() =>
+      createInitialOfflineDownloadProgressState()
+    );
   const [isMobileTocOpen, setIsMobileTocOpen] = React.useState<boolean>(() =>
     shouldAutoExpandToc(tocItems.length)
   );
@@ -580,7 +616,20 @@ export const NoteDetailPage: React.FC = () => {
   const codeBlockCopyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareStatusTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const offlineProgressTimersRef = React.useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const offlineToastDismissTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const renderedContentRef = React.useRef<HTMLDivElement | null>(null);
+
+  const clearOfflineProgressTimers = React.useCallback(() => {
+    for (const timer of offlineProgressTimersRef.current) {
+      clearTimeout(timer);
+    }
+    offlineProgressTimersRef.current = [];
+    if (offlineToastDismissTimerRef.current) {
+      clearTimeout(offlineToastDismissTimerRef.current);
+      offlineToastDismissTimerRef.current = null;
+    }
+  }, []);
 
   // Inject 'Copy Link to Heading' button into every H2 and H3 tag in the rendered article HTML
   const htmlWithCopyButtons = React.useMemo(
@@ -626,8 +675,9 @@ export const NoteDetailPage: React.FC = () => {
       if (shareStatusTimerRef.current) {
         clearTimeout(shareStatusTimerRef.current);
       }
+      clearOfflineProgressTimers();
     };
-  }, []);
+  }, [clearOfflineProgressTimers]);
 
   // Reset mobile/floating/collapsible TOC (auto-expanding if < 5 headings, otherwise collapsing), copy feedback, and initialize active heading when note slug or TOC items change
   React.useEffect(() => {
@@ -640,6 +690,8 @@ export const NoteDetailPage: React.FC = () => {
     setShareStatus('idle');
     setIsBookmarked(isNoteBookmarked(slug || ''));
     setIsOfflinePinned(isGuidePinnedForOffline(slug || ''));
+    clearOfflineProgressTimers();
+    setOfflineDownloadToast(createInitialOfflineDownloadProgressState());
     const initialHashId =
       typeof window !== 'undefined' && window.location?.hash
         ? navigateToHashHeadingOnLoad(window.location.hash)
@@ -867,15 +919,50 @@ export const NoteDetailPage: React.FC = () => {
   };
 
   const handleToggleOfflinePin = () => {
-    const result = toggleGuideOfflinePin({
+    clearOfflineProgressTimers();
+
+    const guidePayload: OfflineGuideInput = {
       slug: note.slug,
       title: guideMetadata.title || note.title,
       description: guideMetadata.description || note.description,
       category: note.category || 'Technical Note',
       content: note.content || cleanHtmlContent,
       route: `/notes/${note.slug}`,
-    });
+    };
+
+    const result = toggleGuideOfflinePin(guidePayload);
     setIsOfflinePinned(result.pinned);
+
+    const action: 'pin' | 'unpin' = result.pinned ? 'pin' : 'unpin';
+    const progressSteps = buildOfflineDownloadProgressSteps(
+      guidePayload,
+      action,
+      result.guide?.sizeBytes
+    );
+
+    if (progressSteps.length > 0) {
+      setOfflineDownloadToast(progressSteps[0]);
+      dispatchOfflineDownloadProgress(progressSteps[0]);
+
+      progressSteps.slice(1).forEach((step, idx) => {
+        const stepDelayMs = (idx + 1) * 140;
+        const stepTimer = setTimeout(() => {
+          setOfflineDownloadToast(step);
+          dispatchOfflineDownloadProgress(step);
+        }, stepDelayMs);
+        offlineProgressTimersRef.current.push(stepTimer);
+      });
+
+      const totalStepsDuration = progressSteps.length * 140;
+      offlineToastDismissTimerRef.current = setTimeout(() => {
+        setOfflineDownloadToast((prev) => ({ ...prev, visible: false }));
+      }, totalStepsDuration + 3400);
+    }
+  };
+
+  const handleDismissOfflineToast = () => {
+    clearOfflineProgressTimers();
+    setOfflineDownloadToast((prev) => ({ ...prev, visible: false }));
   };
 
   const handleScrollToTop = () => {
@@ -1033,6 +1120,11 @@ export const NoteDetailPage: React.FC = () => {
         )}
         <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>•</span>
         <PrintableBadge />
+        <PrintGuideButton
+          documentTitle={guideMetadata.title || note.title}
+          targetSelector=".quick-note-article"
+          size="sm"
+        />
         <PrintPreviewButton onClick={() => setIsPrintPreviewOpen(true)} />
         <ExportToPdfButton
           documentTitle={guideMetadata.title || note.title}
@@ -1045,6 +1137,14 @@ export const NoteDetailPage: React.FC = () => {
           onClick={handleToggleOfflinePin}
           data-testid="note-download-offline-btn"
           data-offline-pinned={isOfflinePinned}
+          data-download-stage={offlineDownloadToast.visible ? offlineDownloadToast.stage : 'idle'}
+          data-download-progress={
+            offlineDownloadToast.visible
+              ? offlineDownloadToast.progressPercent
+              : isOfflinePinned
+              ? 100
+              : 0
+          }
           aria-pressed={isOfflinePinned}
           className={`button ${isOfflinePinned ? 'button-primary' : 'button-secondary'} no-print note-download-offline-btn`}
           style={{
@@ -1074,7 +1174,13 @@ export const NoteDetailPage: React.FC = () => {
             <Download size={14} aria-hidden="true" />
           )}
           <span data-testid="note-download-offline-btn-label">
-            {isOfflinePinned ? OFFLINE_PINNED_LABEL : DOWNLOAD_FOR_OFFLINE_LABEL}
+            {offlineDownloadToast.visible &&
+            offlineDownloadToast.action === 'pin' &&
+            offlineDownloadToast.progressPercent < 100
+              ? `Downloading (${offlineDownloadToast.progressPercent}%)`
+              : isOfflinePinned
+              ? OFFLINE_PINNED_LABEL
+              : DOWNLOAD_FOR_OFFLINE_LABEL}
           </span>
         </button>
         <button
@@ -1420,6 +1526,205 @@ export const NoteDetailPage: React.FC = () => {
               {copiedHeadingUrl.includes('#') ? `#${copiedHeadingUrl.split('#')[1]}` : ''}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Visual Progress Notification / Toast for Pinning or Downloading a Guide for Offline Access */}
+      {offlineDownloadToast.visible && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="offline-download-progress-toast"
+          data-download-stage={offlineDownloadToast.stage}
+          data-download-progress={offlineDownloadToast.progressPercent}
+          data-download-action={offlineDownloadToast.action}
+          className="toast offline-download-progress-toast no-print"
+          style={{
+            position: 'fixed',
+            bottom: isLinkCopiedToastVisible ? '84px' : '24px',
+            right: '24px',
+            zIndex: 9999,
+            width: 'min(360px, calc(100vw - 32px))',
+            padding: '14px 16px',
+            borderRadius: '12px',
+            background: 'var(--bg-darker, #0f172a)',
+            border:
+              offlineDownloadToast.stage === 'completed'
+                ? '1px solid rgba(16, 185, 129, 0.6)'
+                : offlineDownloadToast.stage === 'removed'
+                ? '1px solid rgba(148, 163, 184, 0.45)'
+                : '1px solid rgba(56, 189, 248, 0.6)',
+            color: 'var(--text, #f8fafc)',
+            boxShadow: '0 14px 32px rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '8px',
+                  flexShrink: 0,
+                  background:
+                    offlineDownloadToast.stage === 'completed'
+                      ? 'rgba(16, 185, 129, 0.16)'
+                      : offlineDownloadToast.stage === 'removed'
+                      ? 'rgba(148, 163, 184, 0.16)'
+                      : 'rgba(56, 189, 248, 0.16)',
+                  color:
+                    offlineDownloadToast.stage === 'completed'
+                      ? 'var(--emerald, #10b981)'
+                      : offlineDownloadToast.stage === 'removed'
+                      ? '#94a3b8'
+                      : 'var(--accent, #38bdf8)',
+                }}
+              >
+                {offlineDownloadToast.progressPercent < 100 ? (
+                  <Download size={15} />
+                ) : (
+                  <CheckCircle2 size={15} />
+                )}
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div
+                  data-testid="offline-download-toast-title"
+                  style={{
+                    fontSize: '0.84rem',
+                    fontWeight: 700,
+                    color: 'var(--text-heading, #f8fafc)',
+                    lineHeight: 1.25,
+                  }}
+                >
+                  {offlineDownloadToast.action === 'unpin'
+                    ? offlineDownloadToast.progressPercent < 100
+                      ? 'Removing Offline Guide...'
+                      : 'Removed Offline Guide'
+                    : offlineDownloadToast.progressPercent < 100
+                    ? 'Downloading Guide for Offline...'
+                    : 'Pinned for Offline Access'}
+                </div>
+                <div
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--muted, #94a3b8)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    marginTop: '2px',
+                  }}
+                  title={offlineDownloadToast.title}
+                >
+                  {offlineDownloadToast.title}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+              <span
+                data-testid="offline-download-toast-size"
+                style={{
+                  fontSize: '0.7rem',
+                  fontFamily: 'monospace',
+                  padding: '2px 6px',
+                  borderRadius: '5px',
+                  background: 'rgba(148, 163, 184, 0.14)',
+                  color: 'var(--muted-light, #cbd5e1)',
+                }}
+              >
+                {offlineDownloadToast.formattedSize}
+              </span>
+              <button
+                type="button"
+                onClick={handleDismissOfflineToast}
+                data-testid="offline-download-toast-close"
+                aria-label="Dismiss offline download notification"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--muted, #94a3b8)',
+                  cursor: 'pointer',
+                  padding: '2px 5px',
+                  fontSize: '0.95rem',
+                  lineHeight: 1,
+                  borderRadius: '4px',
+                }}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div
+            role="progressbar"
+            aria-label="Offline guide download progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={offlineDownloadToast.progressPercent}
+            data-testid="offline-download-progress-bar"
+            style={{
+              width: '100%',
+              height: '6px',
+              borderRadius: '999px',
+              background: 'rgba(148, 163, 184, 0.2)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              data-testid="offline-download-progress-bar-fill"
+              style={{
+                width: `${offlineDownloadToast.progressPercent}%`,
+                height: '100%',
+                borderRadius: '999px',
+                background:
+                  offlineDownloadToast.stage === 'completed'
+                    ? 'linear-gradient(90deg, #38bdf8, #10b981)'
+                    : offlineDownloadToast.stage === 'removed'
+                    ? '#94a3b8'
+                    : '#38bdf8',
+                transition: 'width 140ms ease-out',
+              }}
+            />
+          </div>
+
+          {/* Status Message & Percentage */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              fontSize: '0.75rem',
+            }}
+          >
+            <span
+              data-testid="offline-download-toast-status"
+              style={{ color: 'var(--muted-light, #cbd5e1)' }}
+            >
+              {offlineDownloadToast.statusMessage}
+            </span>
+            <span
+              data-testid="offline-download-toast-percent"
+              style={{
+                fontFamily: 'monospace',
+                fontWeight: 700,
+                color:
+                  offlineDownloadToast.stage === 'completed'
+                    ? 'var(--emerald, #10b981)'
+                    : 'var(--accent, #38bdf8)',
+              }}
+            >
+              {offlineDownloadToast.progressPercent}%
+            </span>
+          </div>
         </div>
       )}
 

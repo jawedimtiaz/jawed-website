@@ -11,6 +11,7 @@ import {
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
+  copyTocItemDeepLink,
   ensureHeadingIdsAndCopyButtonsInDom,
   injectHeadingCopyButtons,
   deriveTableCaptionText,
@@ -28,6 +29,8 @@ import {
   shouldDefaultCollapseToc,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
+  TOC_ITEM_COPY_LINK_LABEL,
+  TOC_ITEM_COPIED_LABEL,
   CODE_MARKDOWN_BUTTON_LABEL,
   CODE_MARKDOWN_COPIED_LABEL,
   type TocItem,
@@ -58,6 +61,7 @@ export {
   buildTocAnchorUrl,
   copyTocAnchorToClipboard,
   copySectionAnchorLink,
+  copyTocItemDeepLink,
   ensureHeadingIdsAndCopyButtonsInDom,
   injectHeadingCopyButtons,
   deriveTableCaptionText,
@@ -75,6 +79,8 @@ export {
   shouldDefaultCollapseToc,
   HEADING_COPY_BUTTON_LABEL,
   HEADING_COPY_TOAST_MESSAGE,
+  TOC_ITEM_COPY_LINK_LABEL,
+  TOC_ITEM_COPIED_LABEL,
   CODE_MARKDOWN_BUTTON_LABEL,
   CODE_MARKDOWN_COPIED_LABEL,
   ReadTimeProgressIndicator,
@@ -333,6 +339,11 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
     event: React.MouseEvent<HTMLButtonElement>,
     headingId: string
   ) => {
+    setInternalCopiedId(headingId);
+    setTimeout(() => {
+      setInternalCopiedId((prev) => (prev === headingId ? '' : prev));
+    }, 2000);
+
     if (onCopyHeadingLink) {
       onCopyHeadingLink(event, headingId);
       return;
@@ -340,74 +351,93 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
     event.preventDefault();
     event.stopPropagation();
     const currentBaseUrl = typeof window !== 'undefined' ? window.location.href : '';
-    await copySectionAnchorLink(headingId, currentBaseUrl);
-    setInternalCopiedId(headingId);
-    setTimeout(() => {
-      setInternalCopiedId((prev) => (prev === headingId ? '' : prev));
-    }, 2000);
+    await copyTocItemDeepLink(headingId, currentBaseUrl);
   };
 
-  const renderTocList = (idPrefix: string) => (
-    <ul className="note-toc-list" data-testid={`${idPrefix}-toc-list`}>
-      {items.map((item) => {
-        const isActive = activeHeadingId === item.id;
-        const isCopied = activeCopiedId === item.id;
-        return (
-          <li
-            key={item.id}
-            className={`note-toc-item level-${item.level}`}
-            data-heading-level={`h${item.level}`}
-          >
-            <div className="note-toc-row">
-              <a
-                href={`#${item.id}`}
-                onClick={(e) => handleLinkClick(e, item.id)}
-                className={`note-toc-link level-${item.level}${isActive ? ' is-active' : ''}`}
-                aria-current={isActive ? 'location' : undefined}
-                data-testid={`${idPrefix}-toc-jump-${item.id}`}
-              >
-                {item.text}
-              </a>
-              <button
-                type="button"
-                onClick={(e) => handleCopyLinkClick(e, item.id)}
-                className={`note-toc-copy-btn${isCopied ? ' is-copied' : ''}`}
-                title={isCopied ? 'Link copied!' : 'Copy Link to Heading'}
-                aria-label={
-                  isCopied
-                    ? `Copied link to ${item.text}`
-                    : `Copy Link to Heading: ${item.text}`
-                }
-                data-testid={`${idPrefix}-copy-toc-link-${item.id}`}
-              >
-                {isCopied ? (
-                  <>
-                    <span aria-hidden="true">✓</span>
-                    <span>Copied</span>
-                  </>
-                ) : (
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
-  );
+  const renderTocList = (idPrefix: string) => {
+    const currentBaseUrl =
+      typeof window !== 'undefined' && window.location?.href ? window.location.href : '';
+
+    return (
+      <ul className="note-toc-list" data-testid={`${idPrefix}-toc-list`}>
+        {items.map((item) => {
+          const isActive = activeHeadingId === item.id;
+          const isCopied = activeCopiedId === item.id;
+          const deepLinkUrl = buildTocAnchorUrl(currentBaseUrl, item.id);
+          return (
+            <li
+              key={item.id}
+              className={`note-toc-item level-${item.level}`}
+              data-heading-level={`h${item.level}`}
+              data-toc-item-id={item.id}
+            >
+              <div className="note-toc-row">
+                <a
+                  href={`#${item.id}`}
+                  onClick={(e) => handleLinkClick(e, item.id)}
+                  className={`note-toc-link level-${item.level}${isActive ? ' is-active' : ''}`}
+                  aria-current={isActive ? 'location' : undefined}
+                  data-testid={`${idPrefix}-toc-jump-${item.id}`}
+                >
+                  {item.text}
+                </a>
+                <button
+                  type="button"
+                  onClick={(e) => handleCopyLinkClick(e, item.id)}
+                  className={`note-toc-copy-btn${isCopied ? ' is-copied' : ''}`}
+                  data-toc-copy-heading-id={item.id}
+                  data-toc-deep-link={deepLinkUrl}
+                  data-copied={isCopied}
+                  title={isCopied ? 'Link copied!' : `${TOC_ITEM_COPY_LINK_LABEL} (#${item.id})`}
+                  aria-label={
+                    isCopied
+                      ? `Copied link to ${item.text}`
+                      : `${TOC_ITEM_COPY_LINK_LABEL} to ${item.text}`
+                  }
+                  data-testid={`${idPrefix}-copy-toc-link-${item.id}`}
+                >
+                  {isCopied ? (
+                    <>
+                      <span aria-hidden="true">✓</span>
+                      <span
+                        className="note-toc-copy-btn-text"
+                        data-testid={`${idPrefix}-copy-toc-link-label-${item.id}`}
+                      >
+                        {TOC_ITEM_COPIED_LABEL}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                      </svg>
+                      <span
+                        className="note-toc-copy-btn-text"
+                        data-testid={`${idPrefix}-copy-toc-link-label-${item.id}`}
+                      >
+                        {TOC_ITEM_COPY_LINK_LABEL}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
 
   return (
     <>

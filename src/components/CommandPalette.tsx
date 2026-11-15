@@ -157,18 +157,167 @@ export function getCategoryGroupLabel(category: SiteCategory): SearchResultGroup
   }
 }
 
+export type SearchCategoryPillId = 'all' | SiteCategory;
+
+export interface SearchCategoryPillFilter {
+  id: SearchCategoryPillId;
+  label: 'All' | SearchResultGroupCategory;
+  icon: string;
+  badgeClass: string;
+}
+
+export const SEARCH_CATEGORY_PILL_FILTERS: SearchCategoryPillFilter[] = [
+  { id: 'all', label: 'All', icon: '🔎', badgeClass: 'badge-all' },
+  { id: 'guide', label: 'Guides', icon: '📘', badgeClass: 'badge-guide' },
+  { id: 'tool', label: 'Tools', icon: '🛠️', badgeClass: 'badge-tool' },
+  { id: 'blog', label: 'Blog', icon: '📰', badgeClass: 'badge-blog' },
+  { id: 'page', label: 'Pages', icon: '📄', badgeClass: 'badge-page' },
+];
+
+export function normalizeCategoryPillFilter(pill?: string | null): SearchCategoryPillId {
+  const cleaned = (pill || '').trim().toLowerCase();
+  switch (cleaned) {
+    case 'guide':
+    case 'guides':
+    case 'field guide':
+    case 'field guides':
+    case 'note':
+    case 'notes':
+      return 'guide';
+    case 'tool':
+    case 'tools':
+    case 'calculator':
+    case 'calculators':
+      return 'tool';
+    case 'blog':
+    case 'blogs':
+    case 'blog post':
+    case 'blog posts':
+    case 'article':
+    case 'articles':
+      return 'blog';
+    case 'page':
+    case 'pages':
+      return 'page';
+    default:
+      return 'all';
+  }
+}
+
+export function toggleSearchCategoryPill(
+  activeCategory: 'all' | SiteCategory | 'shortcuts' | 'analytics' | string,
+  clickedPill: SearchCategoryPillId | SearchResultGroupCategory | string
+): SearchCategoryPillId {
+  const normalizedTarget = normalizeCategoryPillFilter(clickedPill);
+  if (normalizedTarget === 'all') {
+    return 'all';
+  }
+  const isSpecialTab = activeCategory === 'shortcuts' || activeCategory === 'analytics';
+  const normalizedCurrent = isSpecialTab
+    ? 'all'
+    : normalizeCategoryPillFilter(String(activeCategory));
+  if (normalizedCurrent === normalizedTarget) {
+    return 'all';
+  }
+  return normalizedTarget;
+}
+
+export function getSearchCategoryPillCounts(
+  items: SiteSearchResult[]
+): Record<SearchCategoryPillId, number> {
+  const counts: Record<SearchCategoryPillId, number> = {
+    all: 0,
+    guide: 0,
+    tool: 0,
+    blog: 0,
+    page: 0,
+  };
+  if (!Array.isArray(items)) {
+    return counts;
+  }
+  for (const item of items) {
+    if (!item) continue;
+    counts.all += 1;
+    if (item.category === 'guide') counts.guide += 1;
+    else if (item.category === 'tool') counts.tool += 1;
+    else if (item.category === 'blog') counts.blog += 1;
+    else if (item.category === 'page') counts.page += 1;
+  }
+  return counts;
+}
+
+export function filterSearchResultsByCategoryPill(
+  items: SiteSearchResult[],
+  categoryPill: SearchCategoryPillId | SearchResultGroupCategory | string | string[] = 'all',
+  query: string = ''
+): SiteSearchResult[] {
+  const trimmedQuery = (query || '').trim();
+  let workingItems: SiteSearchResult[] = Array.isArray(items) ? items : [];
+
+  if (trimmedQuery) {
+    if (workingItems.length === 0) {
+      workingItems = searchSite(trimmedQuery).all;
+    } else {
+      const engineMatches = searchSite(trimmedQuery).all;
+      const matchedUrls = new Set(engineMatches.map((m) => m.url));
+      const lowerTerms = trimmedQuery
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
+
+      workingItems = workingItems.filter((item) => {
+        if (matchedUrls.has(item.url)) return true;
+        const haystack = [
+          item.title,
+          item.summary,
+          item.url,
+          item.category,
+          ...(item.keywords || []),
+        ]
+          .join(' ')
+          .toLowerCase();
+        return lowerTerms.every((t) => haystack.includes(t));
+      });
+    }
+  }
+
+  if (Array.isArray(categoryPill)) {
+    const normalizedSet = new Set(
+      categoryPill.map((c) => normalizeCategoryPillFilter(c))
+    );
+    if (normalizedSet.size === 0 || normalizedSet.has('all')) {
+      return workingItems;
+    }
+    return workingItems.filter((item) => normalizedSet.has(item.category));
+  }
+
+  const normalized = normalizeCategoryPillFilter(categoryPill);
+  if (normalized === 'all') {
+    return workingItems;
+  }
+  return workingItems.filter((item) => item.category === normalized);
+}
+
 export function groupSearchResultsByCategory(
   items: SiteSearchResult[],
-  activeCategory: 'all' | SiteCategory | 'shortcuts' = 'all'
+  activeCategory:
+    | 'all'
+    | SiteCategory
+    | SearchResultGroupCategory
+    | 'shortcuts'
+    | 'analytics'
+    | string = 'all'
 ): SearchResultCategoryGroup[] {
-  if (activeCategory === 'shortcuts' || !Array.isArray(items) || items.length === 0) {
+  if (
+    activeCategory === 'shortcuts' ||
+    activeCategory === 'analytics' ||
+    !Array.isArray(items) ||
+    items.length === 0
+  ) {
     return [];
   }
 
-  const filtered =
-    activeCategory === 'all'
-      ? items
-      : items.filter((item) => item.category === activeCategory);
+  const filtered = filterSearchResultsByCategoryPill(items, activeCategory);
 
   const groups: SearchResultCategoryGroup[] = [];
   for (const { category, label } of SEARCH_RESULT_CATEGORY_ORDER) {
@@ -182,6 +331,34 @@ export function groupSearchResultsByCategory(
     }
   }
   return groups;
+}
+
+export function filterDynamicSearchByCategoryPill(
+  query: string,
+  categoryPill: SearchCategoryPillId | SearchResultGroupCategory | string = 'all'
+): {
+  query: string;
+  activePill: SearchCategoryPillId;
+  allMatches: SiteSearchResult[];
+  filteredResults: SiteSearchResult[];
+  groupedResults: SearchResultCategoryGroup[];
+  pillCounts: Record<SearchCategoryPillId, number>;
+} {
+  const trimmed = (query || '').trim();
+  const allMatches = trimmed ? searchSite(trimmed).all : getQuickSearchRecommendations();
+  const activePill = normalizeCategoryPillFilter(categoryPill);
+  const pillCounts = getSearchCategoryPillCounts(allMatches);
+  const filteredResults = filterSearchResultsByCategoryPill(allMatches, activePill);
+  const groupedResults = groupSearchResultsByCategory(allMatches, activePill);
+
+  return {
+    query: trimmed,
+    activePill,
+    allMatches,
+    filteredResults,
+    groupedResults,
+    pillCounts,
+  };
 }
 
 export interface HighlightTextSegment {
@@ -346,9 +523,40 @@ export interface SearchTrendRecord {
   term: string;
   displayTerm: string;
   count: number;
+  category?: SiteCategory;
   firstSearchedAt: string;
   lastSearchedAt: string;
 }
+
+export interface SearchCategoryDistributionSlice {
+  category: SiteCategory;
+  label: SearchResultGroupCategory;
+  count: number;
+  percentage: number;
+  color: string;
+  icon: string;
+  startAngleDeg: number;
+  endAngleDeg: number;
+  svgPath: string;
+  sampleTerms: string[];
+}
+
+export interface SearchCategoryDistributionReport {
+  totalSearches: number;
+  uniqueTermsCount: number;
+  slices: SearchCategoryDistributionSlice[];
+  activeSlices: SearchCategoryDistributionSlice[];
+}
+
+export const SEARCH_CATEGORY_PIE_META: Record<
+  SiteCategory,
+  { label: SearchResultGroupCategory; color: string; icon: string }
+> = {
+  guide: { label: 'Guides', color: '#38bdf8', icon: '📘' },
+  tool: { label: 'Tools', color: '#10b981', icon: '🛠️' },
+  blog: { label: 'Blog', color: '#a855f7', icon: '📰' },
+  page: { label: 'Pages', color: '#f59e0b', icon: '📄' },
+};
 
 function resolveLocalStorage<T extends Partial<Storage>>(customStorage?: T | null): T | Storage | null {
   if (customStorage !== undefined) {
@@ -504,8 +712,91 @@ export function selectRecentSearchQuery(
 }
 
 /**
+ * Infers the primary search category ('guide' | 'tool' | 'blog' | 'page') for a user search query.
+ */
+export function inferSearchQueryCategory(
+  searchQuery: string,
+  explicitCategory?: SiteCategory
+): SiteCategory {
+  if (
+    explicitCategory === 'guide' ||
+    explicitCategory === 'tool' ||
+    explicitCategory === 'blog' ||
+    explicitCategory === 'page'
+  ) {
+    return explicitCategory;
+  }
+
+  const trimmed = (searchQuery || '').trim();
+  if (!trimmed) return 'guide';
+
+  try {
+    const matched = searchSite(trimmed);
+    if (matched?.all?.length > 0 && matched.all[0].category) {
+      return matched.all[0].category;
+    }
+  } catch {
+    // Fallback to keyword classification below
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (
+    /\b(calc|calculator|subnet|ipv4|cidr|poe|budget|checker|formatter|resume|prompt|builder|transcriber|tool|assistant|money)\b/.test(
+      lower
+    )
+  ) {
+    return 'tool';
+  }
+  if (/\b(blog|article|post|career|interview|salary|certification|certs)\b/.test(lower)) {
+    return 'blog';
+  }
+  if (/\b(contact|about|service|services|home|work|portfolio|resource|resources|topic|topics)\b/.test(lower)) {
+    return 'page';
+  }
+  return 'guide';
+}
+
+/**
+ * Computes an SVG path string (`d="..."`) for a circular pie chart sector from startAngleDeg to endAngleDeg.
+ */
+export function buildPieChartSlicePath(
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngleDeg: number,
+  endAngleDeg: number
+): string {
+  const sweep = Math.max(0, Math.min(360, endAngleDeg - startAngleDeg));
+  if (sweep <= 0) {
+    return '';
+  }
+
+  // Full 360-degree circle when a single category accounts for 100% of searches
+  if (sweep >= 359.99) {
+    return [
+      `M ${cx} ${cy - radius}`,
+      `A ${radius} ${radius} 0 1 1 ${cx} ${cy + radius}`,
+      `A ${radius} ${radius} 0 1 1 ${cx} ${cy - radius}`,
+      'Z',
+    ].join(' ');
+  }
+
+  const toRad = (deg: number) => ((deg - 90) * Math.PI) / 180;
+  const startRad = toRad(startAngleDeg);
+  const endRad = toRad(endAngleDeg);
+
+  const x1 = Number((cx + radius * Math.cos(startRad)).toFixed(3));
+  const y1 = Number((cy + radius * Math.sin(startRad)).toFixed(3));
+  const x2 = Number((cx + radius * Math.cos(endRad)).toFixed(3));
+  const y2 = Number((cy + radius * Math.sin(endRad)).toFixed(3));
+  const largeArcFlag = sweep > 180 ? 1 : 0;
+
+  return `M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+}
+
+/**
  * Reads the 'search-trends' object from localStorage mapping normalized search terms
- * to their frequency count and timestamps.
+ * to their frequency count, category, and timestamps.
  */
 export function getSearchTrendsFromStorage(
   storage?: Pick<Storage, 'getItem'> | null
@@ -534,6 +825,7 @@ export function getSearchTrendsFromStorage(
           term: normalizedTerm,
           displayTerm: key.trim(),
           count: Math.floor(value),
+          category: inferSearchQueryCategory(normalizedTerm),
           firstSearchedAt: nowIso,
           lastSearchedAt: nowIso,
         };
@@ -541,10 +833,12 @@ export function getSearchTrendsFromStorage(
         const rec = value as Partial<SearchTrendRecord>;
         const count = Math.max(1, Math.floor(Number(rec.count) || 1));
         const nowIso = new Date().toISOString();
+        const displayTerm = String(rec.displayTerm || rec.term || key).trim();
         result[normalizedTerm] = {
           term: normalizedTerm,
-          displayTerm: String(rec.displayTerm || rec.term || key).trim(),
+          displayTerm,
           count,
+          category: inferSearchQueryCategory(displayTerm, rec.category),
           firstSearchedAt: String(rec.firstSearchedAt || nowIso),
           lastSearchedAt: String(rec.lastSearchedAt || nowIso),
         };
@@ -558,11 +852,12 @@ export function getSearchTrendsFromStorage(
 
 /**
  * Event tracker that logs a searched term into the localStorage 'search-trends' object,
- * incrementing its inquiry count and updating its lastSearchedAt timestamp.
+ * incrementing its inquiry count, recording its category, and updating its lastSearchedAt timestamp.
  */
 export function trackSearchTermTrend(
   searchQuery: string,
-  storage?: Pick<Storage, 'getItem' | 'setItem'> | null
+  storage?: Pick<Storage, 'getItem' | 'setItem'> | null,
+  explicitCategory?: SiteCategory
 ): Record<string, SearchTrendRecord> {
   const targetStorage = resolveLocalStorage(storage);
   const currentTrends = getSearchTrendsFromStorage(targetStorage);
@@ -574,11 +869,16 @@ export function trackSearchTermTrend(
   const normalizedTerm = trimmed.toLowerCase();
   const nowIso = new Date().toISOString();
   const existing = currentTrends[normalizedTerm];
+  const resolvedCategory = inferSearchQueryCategory(
+    trimmed,
+    explicitCategory || existing?.category
+  );
 
   const updatedRecord: SearchTrendRecord = {
     term: normalizedTerm,
     displayTerm: trimmed,
     count: (existing?.count || 0) + 1,
+    category: resolvedCategory,
     firstSearchedAt: existing?.firstSearchedAt || nowIso,
     lastSearchedAt: nowIso,
   };
@@ -611,6 +911,94 @@ export function trackSearchTermTrend(
 
 export const logSearchTrendEvent = trackSearchTermTrend;
 export const recordSearchTrend = trackSearchTermTrend;
+
+/**
+ * Computes the distribution of search categories ('guide', 'tool', 'blog', 'page')
+ * performed by the user, including counts, percentages, and SVG pie chart slice paths.
+ */
+export function computeSearchCategoryDistribution(
+  trendsOrStorage?: Record<string, SearchTrendRecord> | Pick<Storage, 'getItem'> | null,
+  chartGeometry: { cx?: number; cy?: number; radius?: number } = {}
+): SearchCategoryDistributionReport {
+  const cx = chartGeometry.cx ?? 90;
+  const cy = chartGeometry.cy ?? 90;
+  const radius = chartGeometry.radius ?? 76;
+
+  const trendsMap: Record<string, SearchTrendRecord> =
+    trendsOrStorage &&
+    typeof trendsOrStorage === 'object' &&
+    !('getItem' in trendsOrStorage)
+      ? (trendsOrStorage as Record<string, SearchTrendRecord>)
+      : getSearchTrendsFromStorage(
+          trendsOrStorage as Pick<Storage, 'getItem'> | null | undefined
+        );
+
+  const categoryCounts: Record<SiteCategory, number> = {
+    guide: 0,
+    tool: 0,
+    blog: 0,
+    page: 0,
+  };
+  const categoryTerms: Record<SiteCategory, SearchTrendRecord[]> = {
+    guide: [],
+    tool: [],
+    blog: [],
+    page: [],
+  };
+
+  const records = Object.values(trendsMap).filter(
+    (entry) => entry && entry.term && entry.count > 0
+  );
+
+  for (const record of records) {
+    const cat = inferSearchQueryCategory(record.displayTerm || record.term, record.category);
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + record.count;
+    categoryTerms[cat].push(record);
+  }
+
+  const totalSearches =
+    categoryCounts.guide + categoryCounts.tool + categoryCounts.blog + categoryCounts.page;
+
+  let currentAngle = 0;
+  const orderedCategories: SiteCategory[] = ['guide', 'tool', 'blog', 'page'];
+  const slices: SearchCategoryDistributionSlice[] = orderedCategories.map((cat) => {
+    const count = categoryCounts[cat] || 0;
+    const rawPct = totalSearches > 0 ? (count / totalSearches) * 100 : 0;
+    const percentage = Number(rawPct.toFixed(1));
+    const sweepDeg = totalSearches > 0 ? (count / totalSearches) * 360 : 0;
+    const startAngleDeg = Number(currentAngle.toFixed(2));
+    const endAngleDeg = Number((currentAngle + sweepDeg).toFixed(2));
+    currentAngle += sweepDeg;
+
+    const svgPath =
+      count > 0 ? buildPieChartSlicePath(cx, cy, radius, startAngleDeg, endAngleDeg) : '';
+    const sampleTerms = categoryTerms[cat]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3)
+      .map((r) => r.displayTerm || r.term);
+
+    const meta = SEARCH_CATEGORY_PIE_META[cat];
+    return {
+      category: cat,
+      label: meta.label,
+      count,
+      percentage,
+      color: meta.color,
+      icon: meta.icon,
+      startAngleDeg,
+      endAngleDeg,
+      svgPath,
+      sampleTerms,
+    };
+  });
+
+  return {
+    totalSearches,
+    uniqueTermsCount: records.length,
+    slices,
+    activeSlices: slices.filter((s) => s.count > 0),
+  };
+}
 
 /**
  * Returns the top frequently searched terms from the 'search-trends' object sorted by count descending.
@@ -1106,9 +1494,17 @@ export function handleSearchResultKeyStep(params: {
   };
 }
 
-export type PaletteTabCategory = 'all' | SiteCategory | 'shortcuts';
+export type PaletteTabCategory = 'all' | SiteCategory | 'shortcuts' | 'analytics';
 
-const CATEGORY_ORDER: PaletteTabCategory[] = ['all', 'guide', 'tool', 'blog', 'page', 'shortcuts'];
+const CATEGORY_ORDER: PaletteTabCategory[] = [
+  'all',
+  'guide',
+  'tool',
+  'blog',
+  'page',
+  'shortcuts',
+  'analytics',
+];
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onNavigated,
@@ -1138,6 +1534,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     blog: null,
     page: null,
     shortcuts: null,
+    analytics: null,
   });
   const keyHintTimeoutRef = useRef<number | null>(null);
   const quickActionNoticeTimeoutRef = useRef<number | null>(null);
@@ -1321,12 +1718,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [isSearchBarFocused, setIsSearchBarFocused] = useState<boolean>(true);
   const lastTrackedTrendQueryRef = useRef<string>('');
 
-  const addRecentSearch = useCallback((searchQuery: string) => {
+  const addRecentSearch = useCallback((searchQuery: string, explicitCategory?: SiteCategory) => {
     const trimmed = (searchQuery || '').trim();
     setRecentSearches((prev) => saveRecentSearchToStorage(trimmed, prev));
     if (trimmed.length >= 2 && !trimmed.startsWith('?')) {
       lastTrackedTrendQueryRef.current = trimmed.toLowerCase();
-      setSearchTrends(trackSearchTermTrend(trimmed));
+      setSearchTrends(trackSearchTermTrend(trimmed, undefined, explicitCategory));
     }
   }, []);
 
@@ -1387,6 +1784,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   const topSearchTrends = useMemo(
     () => getTopSearchTrends(searchTrends, 5),
+    [searchTrends]
+  );
+
+  const searchCategoryDistribution = useMemo(
+    () => computeSearchCategoryDistribution(searchTrends),
     [searchTrends]
   );
 
@@ -1584,6 +1986,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   }, [query, recommendations]);
 
   // Group results by category (Guides, Tools, Blog, Pages) and flatten in grouped order for keyboard navigation
+  const categoryPillCounts = useMemo(
+    () => getSearchCategoryPillCounts(searchResults.all),
+    [searchResults.all]
+  );
+
+  const handleCategoryPillClick = useCallback(
+    (pillId: SearchCategoryPillId | SearchResultGroupCategory | string) => {
+      flashKeyHint('category');
+      setIsShortcutDiscoveryActive(false);
+      setActiveCategory((prev) => toggleSearchCategoryPill(prev, pillId));
+      inputRef.current?.focus();
+    },
+    [flashKeyHint]
+  );
+
   const groupedSearchResults = useMemo(() => {
     if (isShortcutDiscoveryMode || activeCategory === 'shortcuts') return [];
     return groupSearchResultsByCategory(searchResults.all, activeCategory);
@@ -1909,7 +2326,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     (item: SiteSearchResult) => {
       flashKeyHint('select');
       if (query.trim()) {
-        addRecentSearch(query);
+        addRecentSearch(query, item.category);
+      } else {
+        addRecentSearch(item.title, item.category);
       }
       recordFrequentItemVisit({
         url: item.url,
@@ -2684,12 +3103,445 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               >
                 ⌨️ Shortcuts ({availableShortcuts.length})
               </button>
+              <button
+                ref={(el) => {
+                  tabRefs.current.analytics = el;
+                }}
+                id="search-tab-analytics"
+                data-testid="search-tab-analytics"
+                type="button"
+                role="tab"
+                tabIndex={activeCategory === 'analytics' ? 0 : -1}
+                aria-selected={activeCategory === 'analytics'}
+                aria-controls="search-category-distribution-panel"
+                className={`search-tab ${activeCategory === 'analytics' ? 'is-active' : ''}`}
+                onClick={() => {
+                  flashKeyHint('category');
+                  setIsShortcutDiscoveryActive(false);
+                  setActiveCategory('analytics');
+                  inputRef.current?.focus();
+                }}
+              >
+                📊 Analytics ({searchCategoryDistribution.totalSearches})
+              </button>
+            </div>
+
+            {/* Clickable Category Pill Filters Bar (dynamically narrows search results as user types) */}
+            <div
+              className="search-category-pill-filters"
+              data-testid="search-category-pill-filters"
+              role="group"
+              aria-label="Filter search results by category pill"
+            >
+              <span className="search-category-pill-filters-label">Filter:</span>
+              {SEARCH_CATEGORY_PILL_FILTERS.map((pill) => {
+                const isActivePill =
+                  !isShortcutDiscoveryMode &&
+                  activeCategory !== 'shortcuts' &&
+                  activeCategory !== 'analytics' &&
+                  activeCategory === pill.id;
+                const pillCount = categoryPillCounts[pill.id] ?? 0;
+
+                return (
+                  <button
+                    key={pill.id}
+                    type="button"
+                    data-testid={`search-category-pill-${pill.id}`}
+                    data-pill-id={pill.id}
+                    data-pill-label={pill.label}
+                    data-pill-count={pillCount}
+                    data-active={isActivePill}
+                    aria-pressed={isActivePill}
+                    className={`search-category-pill search-category-filter-pill ${pill.badgeClass} ${
+                      isActivePill ? 'is-active' : ''
+                    }`}
+                    onClick={() => handleCategoryPillClick(pill.id)}
+                    title={
+                      pill.id === 'all'
+                        ? `Show all search results (${pillCount})`
+                        : isActivePill
+                        ? `Active filter: ${pill.label} (${pillCount}) — click to reset to All`
+                        : `Narrow search results to ${pill.label} (${pillCount})`
+                    }
+                  >
+                    <span aria-hidden="true">{pill.icon}</span>
+                    <span>{pill.label}</span>
+                    <span
+                      className="search-category-pill-count"
+                      data-testid={`search-category-pill-count-${pill.id}`}
+                    >
+                      {pillCount}
+                    </span>
+                  </button>
+                );
+              })}
+              {!isShortcutDiscoveryMode &&
+                (activeCategory === 'guide' ||
+                  activeCategory === 'tool' ||
+                  activeCategory === 'blog' ||
+                  activeCategory === 'page') && (
+                  <button
+                    type="button"
+                    data-testid="search-category-pill-clear"
+                    className="search-category-pill-clear-btn"
+                    onClick={() => handleCategoryPillClick('all')}
+                    title="Clear category filter and show all matching results"
+                  >
+                    ✕ Reset filter
+                  </button>
+                )}
             </div>
 
             {/* Results Container */}
             <div className="search-results-viewport">
-              {/* Privacy Guardrail */}
-              {searchResults.isPersonal ? (
+              {/* Dedicated Tab Panel: Search Category Distribution Pie Chart */}
+              {activeCategory === 'analytics' ? (
+                <div
+                  id="search-category-distribution-panel"
+                  data-testid="search-category-distribution-panel"
+                  role="tabpanel"
+                  aria-labelledby="search-tab-analytics"
+                  aria-label="Search Category Distribution"
+                  style={{
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '10px',
+                      paddingBottom: '12px',
+                      borderBottom: '1px solid var(--line)',
+                    }}
+                  >
+                    <div>
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: '0.96rem',
+                          fontWeight: 700,
+                          color: 'var(--text-heading)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        <span>📊 Search Category Distribution</span>
+                        <span
+                          data-testid="search-distribution-total-count"
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            background: 'rgba(56, 189, 248, 0.14)',
+                            color: 'var(--accent)',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                          }}
+                        >
+                          {searchCategoryDistribution.totalSearches} total searches
+                        </span>
+                      </h3>
+                      <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--muted)' }}>
+                        Breakdown of searches performed across Technical Guides, IT Tools, Blog Posts, and Site Pages.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {searchCategoryDistribution.totalSearches > 0 && (
+                        <button
+                          type="button"
+                          data-testid="reset-search-distribution-btn"
+                          onClick={clearSearchTrends}
+                          style={{
+                            background: 'transparent',
+                            border: '1px solid var(--line)',
+                            color: 'var(--muted)',
+                            fontSize: '0.74rem',
+                            fontWeight: 600,
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Reset Data
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setActiveCategory('all')}
+                        style={{
+                          background: 'var(--surface-accent)',
+                          border: '1px solid var(--accent)',
+                          color: 'var(--accent)',
+                          fontSize: '0.74rem',
+                          fontWeight: 600,
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ← All Results
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Pie Chart + Category Breakdown Grid */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                      gap: '20px',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {/* SVG Pie Chart */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--line)',
+                        background: 'var(--bg)',
+                      }}
+                    >
+                      <svg
+                        width="180"
+                        height="180"
+                        viewBox="0 0 180 180"
+                        role="img"
+                        aria-label="Pie chart visualizing the distribution of search categories performed by the user"
+                        data-testid="search-category-pie-chart"
+                        data-total-searches={searchCategoryDistribution.totalSearches}
+                      >
+                        {searchCategoryDistribution.activeSlices.length === 0 ? (
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r="76"
+                            fill="none"
+                            stroke="rgba(148, 163, 184, 0.25)"
+                            strokeWidth="18"
+                            data-testid="search-category-pie-empty-ring"
+                          />
+                        ) : (
+                          searchCategoryDistribution.activeSlices.map((slice) => (
+                            <path
+                              key={slice.category}
+                              d={slice.svgPath}
+                              fill={slice.color}
+                              stroke="var(--bg, #0f172a)"
+                              strokeWidth="2"
+                              data-testid={`search-pie-slice-${slice.category}`}
+                              data-category={slice.category}
+                              data-count={slice.count}
+                              data-percentage={slice.percentage}
+                            >
+                              <title>
+                                {`${slice.label}: ${slice.count} searches (${slice.percentage}%)`}
+                              </title>
+                            </path>
+                          ))
+                        )}
+                        {/* Center Donut Cutout for Clean Readability */}
+                        <circle cx="90" cy="90" r="38" fill="var(--bg, #0f172a)" />
+                        <text
+                          x="90"
+                          y="86"
+                          textAnchor="middle"
+                          fill="var(--text-heading, #f8fafc)"
+                          fontSize="16"
+                          fontWeight="800"
+                        >
+                          {searchCategoryDistribution.totalSearches}
+                        </text>
+                        <text
+                          x="90"
+                          y="103"
+                          textAnchor="middle"
+                          fill="var(--muted, #94a3b8)"
+                          fontSize="9.5"
+                          fontWeight="600"
+                        >
+                          SEARCHES
+                        </text>
+                      </svg>
+
+                      {searchCategoryDistribution.totalSearches === 0 && (
+                        <div
+                          style={{
+                            marginTop: '8px',
+                            fontSize: '0.75rem',
+                            color: 'var(--muted)',
+                            textAlign: 'center',
+                          }}
+                        >
+                          Perform searches or click a sample query below to populate the pie chart.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Category Legend & Percentage Breakdown */}
+                    <div
+                      data-testid="search-category-pie-legend"
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                      }}
+                    >
+                      {searchCategoryDistribution.slices.map((slice) => (
+                        <div
+                          key={slice.category}
+                          data-testid={`search-category-legend-item-${slice.category}`}
+                          data-category={slice.category}
+                          data-count={slice.count}
+                          data-percentage={slice.percentage}
+                          style={{
+                            padding: '10px 12px',
+                            borderRadius: '10px',
+                            border: '1px solid var(--line)',
+                            background: 'var(--bg)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '8px',
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setActiveCategory(slice.category)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '7px',
+                                background: 'transparent',
+                                border: 'none',
+                                padding: 0,
+                                color: 'var(--text-heading)',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                              title={`Filter search results by ${slice.label}`}
+                            >
+                              <span
+                                aria-hidden="true"
+                                style={{
+                                  width: '10px',
+                                  height: '10px',
+                                  borderRadius: '3px',
+                                  background: slice.color,
+                                  display: 'inline-block',
+                                }}
+                              />
+                              <span>
+                                {slice.icon} {slice.label}
+                              </span>
+                            </button>
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontSize: '0.76rem',
+                                fontFamily: 'monospace',
+                              }}
+                            >
+                              <span style={{ color: 'var(--muted)' }}>
+                                {slice.count} {slice.count === 1 ? 'search' : 'searches'}
+                              </span>
+                              <span
+                                style={{
+                                  fontWeight: 700,
+                                  color: slice.color,
+                                  minWidth: '42px',
+                                  textAlign: 'right',
+                                }}
+                              >
+                                {slice.percentage}%
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Percentage Bar */}
+                          <div
+                            style={{
+                              width: '100%',
+                              height: '5px',
+                              borderRadius: '999px',
+                              background: 'rgba(148, 163, 184, 0.16)',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${slice.percentage}%`,
+                                height: '100%',
+                                borderRadius: '999px',
+                                background: slice.color,
+                                transition: 'width 200ms ease-out',
+                              }}
+                            />
+                          </div>
+
+                          {slice.sampleTerms.length > 0 && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                flexWrap: 'wrap',
+                                marginTop: '2px',
+                              }}
+                            >
+                              <span style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>
+                                Top terms:
+                              </span>
+                              {slice.sampleTerms.map((term) => (
+                                <button
+                                  key={term}
+                                  type="button"
+                                  onClick={() => {
+                                    handleSelectSearchTrend(term);
+                                    setActiveCategory(slice.category);
+                                  }}
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    border: '1px solid var(--line)',
+                                    background: 'var(--surface)',
+                                    color: 'var(--text)',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {term}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : searchResults.isPersonal ? (
                 <div className="search-guardrail-notice">
                   <div className="search-guardrail-header">
                     <span className="search-guardrail-badge">🔒 Privacy &amp; Support Guardrail</span>
@@ -3848,7 +4700,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                               >
                                 <div className="search-result-main">
                                   <div className="search-result-header">
-                                    <span className={`search-category-pill ${badgeClass}`}>
+                                    <span
+                                      className={`search-category-pill ${badgeClass}`}
+                                      data-testid={`search-result-category-pill-${item.category}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCategoryPillClick(item.category);
+                                      }}
+                                      title={`Filter search results by ${getCategoryGroupLabel(
+                                        item.category
+                                      )}`}
+                                      style={{ cursor: 'pointer' }}
+                                    >
                                       {badgeLabel}
                                     </span>
                                     <span

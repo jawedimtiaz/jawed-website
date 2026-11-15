@@ -147,6 +147,8 @@
   [data-testid="print-this-tool-btn"],
   [data-testid="print-report-btn"],
   [data-testid="export-pdf-btn"],
+  [data-testid="note-print-guide-btn"],
+  .print-guide-btn,
   .social-share-bar,
   .copy-btn,
   .note-heading-copy-btn,
@@ -737,4 +739,77 @@
   .print-text-dark {
     color: #0f172a !important;
   }
+
+  /* ==========================================================================
+     9. Paper-Friendly Guide Print Optimization ("Print Guide" Toolbar Mode)
+     ========================================================================== */
+  html[data-print-paper-optimized="true"] .quick-note-article,
+  [data-paper-friendly-guide="true"] {
+    font-size: 10.5pt !important;
+    line-height: 1.65 !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    letter-spacing: 0.005em !important;
+  }
+
+  html[data-print-paper-optimized="true"] .quick-note-article p,
+  html[data-print-paper-optimized="true"] .quick-note-article li,
+  [data-paper-friendly-guide="true"] p,
+  [data-paper-friendly-guide="true"] li {
+    font-size: 10.5pt !important;
+    line-height: 1.65 !important;
+    color: #0f172a !important;
+    margin-bottom: 8pt !important;
+    orphans: 3 !important;
+    widows: 3 !important;
+  }
+
+  html[data-print-paper-optimized="true"] .quick-note-article h1,
+  [data-paper-friendly-guide="true"] h1 {
+    font-size: 19pt !important;
+    line-height: 1.25 !important;
+    color: #000000 !important;
+    border-bottom: 1.5pt solid #0f172a !important;
+    padding-bottom: 6pt !important;
+    margin-bottom: 12pt !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  html[data-print-paper-optimized="true"] .quick-note-article h2,
+  [data-paper-friendly-guide="true"] h2 {
+    font-size: 14pt !important;
+    line-height: 1.3 !important;
+    color: #000000 !important;
+    border-bottom: 0.75pt solid #94a3b8 !important;
+    padding-bottom: 3pt !important;
+    margin-top: 16pt !important;
+    margin-bottom: 7pt !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  html[data-print-paper-optimized="true"] .quick-note-article h3,
+  [data-paper-friendly-guide="true"] h3 {
+    font-size: 11.5pt !important;
+    line-height: 1.35 !important;
+    color: #0f172a !important;
+    margin-top: 12pt !important;
+    margin-bottom: 5pt !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  html[data-print-paper-optimized="true"] .quick-note-article pre,
+  html[data-print-paper-optimized="true"] .quick-note-article blockquote,
+  html[data-print-paper-optimized="true"] .quick-note-article table,
+  [data-paper-friendly-guide="true"] pre,
+  [data-paper-friendly-guide="true"] blockquote,
+  [data-paper-friendly-guide="true"] table {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
 }
+

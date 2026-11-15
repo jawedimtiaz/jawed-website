@@ -2138,8 +2138,317 @@ test('expands offline mode capabilities to allow pinning/downloading technical g
   );
 });
 
+test('displays a visual progress notification toast when pinning or downloading a guide for offline access', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    createInitialOfflineDownloadProgressState,
+    buildOfflineDownloadProgressSteps,
+    toggleGuideOfflinePinWithProgress,
+    clearOfflinePinnedGuides,
+  } = await import('../src/pages/NoteDetailPage');
 
+  const store = new Map<string, string>();
+  const mockStorage = {
+    getItem: (key: string) => (store.has(key) ? store.get(key)! : null),
+    setItem: (key: string, val: string) => store.set(key, val),
+    removeItem: (key: string) => store.delete(key),
+  };
 
+  clearOfflinePinnedGuides(mockStorage);
 
+  // 1. Verify initial idle state
+  const initial = createInitialOfflineDownloadProgressState();
+  assert.equal(initial.visible, false);
+  assert.equal(initial.stage, 'idle');
+  assert.equal(initial.progressPercent, 0);
 
+  // 2. Verify pin progress steps sequence (25% -> 65% -> 90% -> 100%)
+  const pinSteps = buildOfflineDownloadProgressSteps(
+    {
+      slug: 'bgp-route-reflector-design',
+      title: 'BGP Route Reflector Design Guide',
+      description: 'Redundant RR cluster architecture and loop prevention.',
+      category: 'Routing',
+      content: '<h2>Cluster ID</h2><p>ORIGINATOR_ID and CLUSTER_LIST attributes.</p>',
+    },
+    'pin'
+  );
 
+  assert.equal(pinSteps.length, 4);
+  assert.deepEqual(
+    pinSteps.map((s) => s.stage),
+    ['preparing', 'caching', 'verifying', 'completed']
+  );
+  assert.deepEqual(
+    pinSteps.map((s) => s.progressPercent),
+    [25, 65, 90, 100]
+  );
+  assert.ok(pinSteps.every((s) => s.visible === true && s.action === 'pin'));
+  assert.ok(pinSteps[3].statusMessage.includes('Pinned & downloaded for offline access'));
+
+  // 3. Verify toggleGuideOfflinePinWithProgress emits progress steps for both pin and unpin
+  const emittedPinSteps: ReturnType<typeof buildOfflineDownloadProgressSteps> = [];
+  const pinResult = toggleGuideOfflinePinWithProgress(
+    {
+      slug: 'bgp-route-reflector-design',
+      title: 'BGP Route Reflector Design Guide',
+      content: '<h2>Cluster ID</h2><p>ORIGINATOR_ID and CLUSTER_LIST attributes.</p>',
+    },
+    (step) => emittedPinSteps.push(step),
+    mockStorage
+  );
+
+  assert.equal(pinResult.pinned, true);
+  assert.equal(emittedPinSteps.length, 4);
+  assert.equal(pinResult.finalState.stage, 'completed');
+  assert.equal(pinResult.finalState.progressPercent, 100);
+
+  const emittedUnpinSteps: ReturnType<typeof buildOfflineDownloadProgressSteps> = [];
+  const unpinResult = toggleGuideOfflinePinWithProgress(
+    {
+      slug: 'bgp-route-reflector-design',
+      title: 'BGP Route Reflector Design Guide',
+    },
+    (step) => emittedUnpinSteps.push(step),
+    mockStorage
+  );
+
+  assert.equal(unpinResult.pinned, false);
+  assert.equal(emittedUnpinSteps.length, 2);
+  assert.equal(unpinResult.finalState.stage, 'removed');
+  assert.equal(unpinResult.finalState.progressPercent, 100);
+
+  // 4. Verify NoteDetailPage.tsx renders the visual progress notification toast with progress bar
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('data-testid="offline-download-progress-toast"') &&
+      noteDetailSource.includes('data-testid="offline-download-progress-bar"') &&
+      noteDetailSource.includes('data-testid="offline-download-progress-bar-fill"') &&
+      noteDetailSource.includes('data-testid="offline-download-toast-percent"') &&
+      noteDetailSource.includes('data-testid="offline-download-toast-status"'),
+    'Expected NoteDetailPage.tsx to render the visual offline download progress toast and progressbar'
+  );
+});
+
+test('adds a Copy link button to each item in the Table of Contents of NoteDetailPage that copies a deep link to that specific section header to the clipboard', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    TOC_ITEM_COPY_LINK_LABEL,
+    TOC_ITEM_COPIED_LABEL,
+    copyTocItemDeepLink,
+    generateTableOfContents,
+    buildTocAnchorUrl,
+  } = await import('../src/pages/NoteDetailPage');
+
+  assert.equal(TOC_ITEM_COPY_LINK_LABEL, 'Copy link');
+  assert.equal(TOC_ITEM_COPIED_LABEL, 'Copied');
+
+  // 1. Extract TOC items for a technical guide
+  const html = `
+    <h2>1. Inspecting LACP EtherChannel Bundles</h2>
+    <p>Check member port state flags.</p>
+    <h3>1.1 Verifying LACP PDU Timers</h3>
+    <p>Fast (1s) vs Slow (30s) LACP rate.</p>
+    <h2>2. Diagnosing Port-Channel Load Balancing</h2>
+  `;
+  const { tocItems } = generateTableOfContents(html);
+  assert.equal(tocItems.length, 3);
+
+  // 2. Verify copying a deep link for each TOC item writes the exact section URL (#heading-id) to the user's clipboard
+  const copiedLinks: string[] = [];
+  const replacedHashes: string[] = [];
+  const baseUrl = 'https://jawed.co.in/notes/lacp-etherchannel-troubleshooting';
+
+  for (const item of tocItems) {
+    const result = await copyTocItemDeepLink(
+      item.id,
+      baseUrl,
+      {
+        writeText: async (text: string) => {
+          copiedLinks.push(text);
+        },
+      },
+      {
+        location: { href: baseUrl },
+        history: {
+          replaceState: (_data: unknown, _unused: string, url?: string | null) => {
+            if (url) replacedHashes.push(url);
+          },
+        },
+      }
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(result.headingId, item.id);
+    assert.equal(result.anchorUrl, buildTocAnchorUrl(baseUrl, item.id));
+  }
+
+  assert.deepEqual(copiedLinks, [
+    'https://jawed.co.in/notes/lacp-etherchannel-troubleshooting#1-inspecting-lacp-etherchannel-bundles',
+    'https://jawed.co.in/notes/lacp-etherchannel-troubleshooting#1-1-verifying-lacp-pdu-timers',
+    'https://jawed.co.in/notes/lacp-etherchannel-troubleshooting#2-diagnosing-port-channel-load-balancing',
+  ]);
+  assert.deepEqual(replacedHashes, [
+    '#1-inspecting-lacp-etherchannel-bundles',
+    '#1-1-verifying-lacp-pdu-timers',
+    '#2-diagnosing-port-channel-load-balancing',
+  ]);
+
+  // 3. Verify TableOfContents.tsx renders the 'Copy link' button for each TOC item and NoteDetailPage.tsx wires onCopyHeadingLink
+  const tocSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/TableOfContents.tsx'),
+    'utf8'
+  );
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+
+  assert.ok(
+    tocSource.includes('data-toc-copy-heading-id={item.id}') &&
+      tocSource.includes('data-toc-deep-link={deepLinkUrl}') &&
+      tocSource.includes('data-testid={`${idPrefix}-copy-toc-link-${item.id}`}') &&
+      tocSource.includes('TOC_ITEM_COPY_LINK_LABEL'),
+    'Expected TableOfContents.tsx to render a Copy link button with deep-link attributes for each TOC item'
+  );
+
+  assert.ok(
+    noteDetailSource.includes('onCopyHeadingLink={handleCopySectionLink}') &&
+      noteDetailSource.includes('copyHeadingDeepLink(headingId)'),
+    'Expected NoteDetailPage.tsx to wire onCopyHeadingLink to copy the section deep link and show toast feedback'
+  );
+});
+
+test('introduces a Print Guide button to the NoteDetailPage toolbar that triggers a print-friendly version of the guide formatted for optimal reading on paper', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    PrintGuideButton,
+    PRINT_GUIDE_LABEL,
+    triggerPaperFriendlyGuidePrint,
+  } = await import('../src/pages/NoteDetailPage');
+
+  assert.equal(PRINT_GUIDE_LABEL, 'Print Guide');
+  assert.equal(typeof PrintGuideButton, 'function');
+  assert.equal(typeof triggerPaperFriendlyGuidePrint, 'function');
+
+  // 1. Verify triggerPaperFriendlyGuidePrint applies paper-optimized attributes on <html> and target guide element during print and restores cleanly afterward
+  const docElementAttrs = new Map<string, string>();
+  const targetElementAttrs = new Map<string, string>();
+  let printExecuted = false;
+  let capturedPaperOptimizedDuringPrint: string | undefined;
+  let capturedTargetAttrDuringPrint: string | undefined;
+
+  const mockTargetElement = {
+    getAttribute: (name: string) => targetElementAttrs.get(name) ?? null,
+    setAttribute: (name: string, value: string) => {
+      targetElementAttrs.set(name, value);
+    },
+    removeAttribute: (name: string) => {
+      targetElementAttrs.delete(name);
+    },
+  };
+
+  const mockDoc = {
+    title: 'Original Site Title',
+    documentElement: {
+      getAttribute: (name: string) => docElementAttrs.get(name) ?? null,
+      setAttribute: (name: string, value: string) => {
+        docElementAttrs.set(name, value);
+      },
+      removeAttribute: (name: string) => {
+        docElementAttrs.delete(name);
+      },
+    },
+    querySelector: (selector: string) => {
+      if (selector === '.quick-note-article') {
+        return mockTargetElement as unknown as Element;
+      }
+      return null;
+    },
+  } as unknown as Document;
+
+  const mockWin = {
+    print: () => {
+      printExecuted = true;
+      capturedPaperOptimizedDuringPrint = docElementAttrs.get('data-print-paper-optimized');
+      capturedTargetAttrDuringPrint = targetElementAttrs.get('data-paper-friendly-guide');
+    },
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  } as unknown as Window;
+
+  const result = triggerPaperFriendlyGuidePrint({
+    documentTitle: 'BGP Path Selection & Route Reflector Design',
+    targetSelector: '.quick-note-article',
+    win: mockWin,
+    doc: mockDoc,
+  });
+
+  assert.equal(printExecuted, true, 'Expected window.print() to be invoked when Print Guide is triggered');
+  assert.equal(result.printed, true);
+  assert.equal(result.paperOptimized, true);
+  assert.equal(result.format, 'A4');
+  assert.equal(result.exportScope, 'guide');
+  assert.equal(
+    capturedPaperOptimizedDuringPrint,
+    'true',
+    'Expected html[data-print-paper-optimized="true"] to be active while printing'
+  );
+  assert.equal(
+    capturedTargetAttrDuringPrint,
+    'true',
+    'Expected .quick-note-article[data-paper-friendly-guide="true"] to be active while printing'
+  );
+  assert.equal(
+    docElementAttrs.has('data-print-paper-optimized'),
+    false,
+    'Expected data-print-paper-optimized attribute to be cleaned up after printing completes'
+  );
+  assert.equal(
+    targetElementAttrs.has('data-paper-friendly-guide'),
+    false,
+    'Expected data-paper-friendly-guide attribute to be cleaned up after printing completes'
+  );
+
+  // 2. Verify NoteDetailPage.tsx renders <PrintGuideButton> in the toolbar alongside PrintableBadge, PrintPreviewButton, and ExportToPdfButton
+  const noteDetailSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/NoteDetailPage.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    noteDetailSource.includes('<PrintGuideButton') &&
+      noteDetailSource.includes('targetSelector=".quick-note-article"'),
+    'Expected NoteDetailPage.tsx toolbar to render <PrintGuideButton> targeting .quick-note-article'
+  );
+
+  // 3. Verify ExportToPdfButton.tsx defines data-testid="note-print-guide-btn" and data-print-mode="paper-friendly"
+  const exportBtnSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/common/ExportToPdfButton.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    exportBtnSource.includes('data-testid="note-print-guide-btn"') &&
+      exportBtnSource.includes('data-print-mode="paper-friendly"'),
+    'Expected PrintGuideButton to expose data-testid="note-print-guide-btn" and data-print-mode="paper-friendly"'
+  );
+
+  // 4. Verify src/styles/print.css includes paper-friendly reading typography and hides the Print Guide button in @media print
+  const printCssSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/styles/print.css'),
+    'utf8'
+  );
+  assert.ok(
+    printCssSource.includes('[data-testid="note-print-guide-btn"]') &&
+      printCssSource.includes('.print-guide-btn') &&
+      printCssSource.includes('html[data-print-paper-optimized="true"] .quick-note-article') &&
+      printCssSource.includes('[data-paper-friendly-guide="true"]'),
+    'Expected src/styles/print.css to hide the Print Guide button in @media print and apply paper-optimized reading styles'
+  );
+});
