@@ -107,7 +107,7 @@ export const STATIC_METADATA: Record<string, RouteMetadata> = {
     keywords: 'IT troubleshooting guides, service desk runbooks, technical knowledge base, network diagnostic playbooks, macOS Windows troubleshooting, Jawed Imtiaz guides',
     ogTitle: 'IT Troubleshooting Guides & Technical Knowledge Base | Jawed Imtiaz',
     ogDescription: 'Search step-by-step IT service desk runbooks, networking playbooks, Apple MDM guides, and practical reference notes.',
-    canonicalPath: '/guides',
+    canonicalPath: '/field-guides',
     ogType: 'website',
   },
   '/tools': {
@@ -225,7 +225,7 @@ export const STATIC_METADATA: Record<string, RouteMetadata> = {
     keywords: 'IT field dispatch SLA, data center smart hands support, on-site L2 L3 escalation triage, emergency network cutover dispatch, hardware swap checklist',
     ogTitle: 'On-Site IT Field Dispatch & Smart-Hands Triage | Jawed Imtiaz',
     ogDescription: 'Structured field dispatch protocols, data center smart-hands support, emergency network cutover assistance, and SLA documentation.',
-    canonicalPath: '/services-dispatch',
+    canonicalPath: '/services',
     ogType: 'website',
   },
 };
