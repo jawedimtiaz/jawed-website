@@ -11,8 +11,16 @@
     "workflow_permissions": "contents-read",
     "workflow_secret_access": "blocked",
     "runtime_dependency_manifest": "required-package-json-validated",
-    "dependency_lockfile": "not-enforced-review-before-dependency-updates"
+    "dependency_lockfile": "not-enforced-review-before-dependency-updates",
+    "public_firebase_web_api_key": "allowlisted only in firebase-applet-config.json when valid public Firebase web config; never allow service-account/private keys"
   },
   "scope": "repository-source-and-github-actions",
-  "principle": "Do not introduce dependency, platform, or deployment changes without a concrete finding."
+  "principle": "Do not introduce dependency, platform, or deployment changes without a concrete finding.",
+  "public_client_config_allowlist": {
+    "firebase-applet-config.json": {
+      "field": "apiKey",
+      "type": "Firebase Web SDK public client API key",
+      "reason": "The Firebase browser SDK requires this identifier in client code; it is not a service-account credential. Restrict it to required APIs and authorized HTTP referrers in Google Cloud Console."
+    }
+  }
 }

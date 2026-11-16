@@ -12,6 +12,8 @@ on:
       - "package.json"
       - "vite.config.ts"
       - "scripts/validate-career-match-browser-runtime.mjs"
+      - "scripts/prerender-route-metadata.ts"
+      - "tests/routeMetadataPrerender.test.ts"
       - "scripts/validate-finance-tools-browser-runtime.mjs"
       - ".github/workflows/finance-tools-browser-runtime.yml"
   push:
@@ -51,6 +53,8 @@ jobs:
         env:
           BROWSER_RUNTIME_TEST: 'true'
         run: npm run build
+      - name: Run route metadata prerender regression tests
+        run: npx tsx --test tests/routeMetadataPrerender.test.ts
       - name: Verify browser tooling
         run: |
           google-chrome --version
