@@ -57,12 +57,26 @@ test('collectSitemapEntries includes all canonical IT field guides, tools, notes
     );
   }
   // Core primary canonical routes must be present
-  for (const corePath of ['/', '/guides', '/tools', '/services', '/about', '/contact', '/ai']) {
+  for (const corePath of ['/', '/field-guides', '/tools', '/services', '/about', '/contact', '/ai']) {
     assert.ok(
       paths.has(normalizePath(corePath)),
       `Expected core route ${corePath} in sitemap entries`
     );
   }
+});
+
+
+test('route aliases resolve to the canonical hubs and are excluded from sitemap output', () => {
+  assert.equal(resolveMetadata('/guides').canonicalPath, '/field-guides');
+  assert.equal(resolveMetadata('/field-guides').canonicalPath, '/field-guides/');
+  assert.equal(resolveMetadata('/services-dispatch').canonicalPath, '/services');
+  assert.equal(resolveMetadata('/services').canonicalPath, '/services');
+
+  const normalizedPaths = new Set(collectSitemapEntries().map((entry) => normalizePath(entry.path)));
+  assert.equal(normalizedPaths.has('/guides'), false, '/guides alias must not be listed in sitemap');
+  assert.equal(normalizedPaths.has('/field-guides'), true, 'Canonical field-guides hub must be listed');
+  assert.equal(normalizedPaths.has('/services-dispatch'), false, '/services-dispatch alias must not be listed');
+  assert.equal(normalizedPaths.has('/services'), true, 'Canonical services hub must be listed');
 });
 
 test('collectSitemapEntries excludes noindex and non-canonical alias paths', () => {
@@ -106,11 +120,11 @@ test('generateSitemapXml produces valid XML with canonical origin and SEO metada
 
   const expectedCorePriorities: Array<[string, string]> = [
     ['https://jawed.co.in/', '1.0'],
-    ['https://jawed.co.in/guides', '0.9'],
     ['https://jawed.co.in/tools', '0.9'],
     ['https://jawed.co.in/services', '0.8'],
     ['https://jawed.co.in/about', '0.8'],
     ['https://jawed.co.in/contact', '0.7'],
+    ['https://jawed.co.in/field-guides', '0.9'],
     ['https://jawed.co.in/ai', '0.7'],
   ];
 
