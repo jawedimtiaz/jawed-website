@@ -39,6 +39,33 @@ This is the chronological engineering record for the personal website jawed.co.i
 - [PR #963](https://github.com/jawedimtiaz/jawed-website/pull/963)
 - [PR #882 — earlier handoff document](https://github.com/jawedimtiaz/jawed-website/pull/882)
 
+## 2026-11-17 — Navigation, content taxonomy and duplicate-route review
+
+### Scope
+- Inspected src/components/Header.tsx, src/pages/NotesListPage.tsx, src/pages/NoteDetailPage.tsx, src/pages/FieldGuideDetailPage.tsx, src/pages/ServicesDispatchPage.tsx, src/App.tsx and relevant RouteSeo.tsx sections on main.
+- Read route and component behavior; no application changes made.
+
+### Additional verified observations
+1. Header navigation points to /guides and /services as the primary navigation destinations.
+2. /guides, /field-guides and /notes all mount NotesListPage. The listing is a combined hub with two distinct data sets: FIELD_GUIDES (featured in-depth guides) and notesData (quick notes).
+3. Guide cards link to /field-guides/:slug; quick-note cards link to /notes/:slug.
+4. Detail routing is content-aware. NoteDetailPage detects FIELD_GUIDES slugs and delegates to FieldGuideDetailPage; otherwise it loads a notesData record. Field-guide details canonicalize to /field-guides/:slug; quick notes canonicalize to /notes/:slug. RouteSeo resolves /guides/:slug by content type, preserving these detail destinations.
+5. The three hub routes render the same combined listing, but metadata currently gives /guides its own canonical, /field-guides its own canonical, and /notes a canonical of /field-guides/. This is inconsistent with /guides being the primary navigation hub. A coherent candidate is to canonicalize both alias hubs to /guides while retaining content-specific detail canonicals.
+6. /services and /services-dispatch both mount the exact same ServicesDispatchPage component. Header navigation points to /services, but RouteSeo currently gives /services and /services-dispatch separate self-canonicals. A coherent candidate is /services as canonical, with /services-dispatch redirected only after checking redirect configuration and inbound-link implications.
+
+### Working recommendation (not yet implemented)
+- Keep /guides as canonical hub; /field-guides and /notes as duplicate hub aliases.
+- Keep /field-guides/:slug canonical for FIELD_GUIDES detail records and /notes/:slug canonical for notesData detail records.
+- Keep /services as canonical for the shared service page; consolidate /services-dispatch after redirect review.
+- Do not change the hostname until apex/www redirect behavior is verified.
+- These are source-backed recommendations, not approved production changes.
+
+### Next work
+- Inspect current public/_redirects and all redirect/host configuration files on main.
+- Verify apex/www redirects using live HTTP status and Location headers and inspect Cloudflare Pages configuration where accessible.
+- Prepare the exact bounded PR #965 correction plan; keep PR #965 unmerged until reviewed and all checks pass.
+- Review canonical metadata and sitemap test coverage for hub aliases versus detail-page canonicals.
+
 ## Progress-recording standard
 For every subsequent entry, record:
 - Date and phase/workstream
