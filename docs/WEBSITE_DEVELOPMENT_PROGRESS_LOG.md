@@ -159,6 +159,34 @@ This is the chronological engineering record for the personal website jawed.co.i
 - Continue full diff review, verify the candidate's generated sitemap and runtime canonical tags, and resolve the security scanner finding without weakening controls.
 - Keep PR #965 draft/unmerged until all checks and security review are complete.
 
+
+## 2026-11-17 — Security supply-chain root-cause inspection
+
+### Scope
+- Inspected main: scripts/validate-security-supply-chain.mjs, src/lib/firebase.ts, firebase-applet-config.json, config/security-supply-chain-contract.json and package.json.
+- Inspected PR #965 GitHub check runs for head b706f422058de79c28f7dbb1620cd0e9bd1342f7.
+- Did not expose or reproduce any API-key value in this log.
+
+### Verified findings
+1. firebase-applet-config.json contains a 39-character value matching the Firebase Web API key format (AIza prefix).
+2. src/lib/firebase.ts contains a second hardcoded fallback for apiKey, and programmatic comparison confirms it is identical to the JSON apiKey. The value is intentionally redacted from all notes.
+3. The scanner's source extension allowlist includes .js, .mjs, .json, .yml, .yaml, .html, .css, .txt, .toml, .conf, .config and .example, but omits .ts and .tsx.
+4. As a result, the scanner currently detects the JSON occurrence but does not scan the duplicate fallback in src/lib/firebase.ts.
+5. The scanner also blocks common private-key/token patterns and has workflow controls for untrusted shell interpolation, trigger elevation, action SHA pinning, explicit contents-read permissions and workflow secret access. These controls are part of active Phase 38C and must not be weakened.
+6. config/security-supply-chain-contract.json declares credential-like literals blocked; it does not currently define a public Firebase client-config exception.
+7. PR #965 check-runs at the reviewed head: Site Integrity, Interactive Tools/Content Discovery Browser Runtime, Career Match Browser Runtime, Finance Calculator Regression, AI Production Regression, Deployment Runtime Reliability, Production Cache Reliability, Production Static Asset Reliability, Security Baseline, AdSense Privacy Readiness and Cloudflare Pages completed successfully. Secrets and Supply-chain Baseline failed. This is a point-in-time run; recheck before approval.
+
+### Safe remediation candidate (not implemented)
+- Owner must first verify Google Cloud API restrictions and authorized HTTP referrers for the Firebase key. This account-side verification remains outstanding.
+- Remove the redundant hardcoded apiKey fallback from src/lib/firebase.ts if the JSON config and Vite env resolution are confirmed to cover every supported runtime.
+- Extend scanner coverage to .ts and .tsx and add tests proving secret patterns are detected in those extensions.
+- If retaining the Firebase client key in JSON, add only a narrowly scoped schema-aware allowlist for the exact firebase-applet-config.json apiKey field, gated on the owner-side restriction review. Continue scanning all other fields and all TypeScript/TSX files. Do not allowlist a whole file or broad key-pattern.
+- Add tests for accepted expected Firebase config, malformed config rejection, and unrelated secrets in JSON/TS/TSX still failing.
+- Keep the Phase 38C contract active; review full diff and run all CI before merge.
+
+### Outstanding owner action
+- Verify the Firebase Web API key's API restrictions and HTTP referrer restrictions in Google Cloud Console for the intended Firebase project. No key value needs to be shared in chat.
+
 ## Progress-recording standard
 For every subsequent entry, record:
 - Date and phase/workstream
