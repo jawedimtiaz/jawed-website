@@ -138,6 +138,27 @@ This is the chronological engineering record for the personal website jawed.co.i
 - Prepare bounded changes to PR #965 for hub alias canonicals and service route duplication, preserving distinct detail-page URLs.
 - Continue security supply-chain investigation as an independent workstream.
 
+
+## 2026-11-17 — PR #965 canonical strategy re-evaluation
+
+### Scope
+- Re-read PR #965 description and complete eight-file patch.
+- Compared its proposed metadata/sitemap changes with main's RouteSeo.tsx, App.tsx and current combined listing/detail route behavior.
+- No code changes made to PR #965 or main.
+
+### Findings
+1. PR #965 explicitly chooses /field-guides as the canonical hub for the combined listing and changes /guides metadata to point there; /notes already points to /field-guides. /field-guides remains self-canonical.
+2. Although /guides is the visible navigation path, /guides, /field-guides and /notes all render the same combined listing. A canonical hub that differs from the menu route is technically valid; the earlier assessment that this direction inherently conflicts with routing was too strong.
+3. PR #965 preserves content-specific detail URLs: /field-guides/:slug for FIELD_GUIDES entries and /notes/:slug for quick notes. This avoids collapsing distinct article detail pages.
+4. PR #965 changes sitemap generation and tests to include /field-guides and exclude /guides, and changes /services-dispatch metadata/sitemap treatment to canonical /services. This is internally coherent with the shared components.
+5. PR #965 does not add permanent path redirects in public/_redirects. The alias URLs continue to be SPA rewrites; canonical metadata is the deduplication mechanism. Permanent redirects should be a separate decision after backlink and UX impact review.
+6. PR #965 validation summary reports all listed browser/runtime/security-baseline gates passing except Security Supply Chain. The scanner reports a credential-like literal in firebase-applet-config.json; this remains the principal blocker. Independently recheck current CI before approval.
+
+### Updated assessment
+- Do not reject PR #965 solely because /guides canonicalizes to /field-guides. This is a defensible taxonomy choice given the identical hub content and separate detail URL families.
+- Continue full diff review, verify the candidate's generated sitemap and runtime canonical tags, and resolve the security scanner finding without weakening controls.
+- Keep PR #965 draft/unmerged until all checks and security review are complete.
+
 ## Progress-recording standard
 For every subsequent entry, record:
 - Date and phase/workstream
