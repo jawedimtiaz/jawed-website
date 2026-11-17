@@ -24,7 +24,7 @@
 ## Active pull requests reviewed
 | PR | Purpose | Current assessment |
 |---|---|---|
-| [#965](https://github.com/jawedimtiaz/jawed-website/pull/965) | SEO canonical aliases | Draft/open. Do not merge as-is: proposed /guides → /field-guides canonical direction conflicts with current router declarations and sitemap regression tests. |
+| [#965](https://github.com/jawedimtiaz/jawed-website/pull/965) | SEO canonical aliases | Draft/open. Its /guides and /notes hub → /field-guides canonical strategy is structurally defensible because all three hub routes render the same combined listing and detail pages retain separate content-specific URLs. Main's tests intentionally change with the candidate. Remaining hard blocker: Security Supply Chain finding; complete full diff/CI review before approval. |
 | [#966](https://github.com/jawedimtiaz/jawed-website/pull/966) | Deterministic browser capability state / hydration | Draft/open and stacked on #965. Retarget to main and rerun checks only after dependency/canonical baseline is resolved. |
 | [#962](https://github.com/jawedimtiaz/jawed-website/pull/962) | Route-specific metadata HTML snapshots | Review/rebase required; do not merge based on PR description alone. |
 | [#963](https://github.com/jawedimtiaz/jawed-website/pull/963) | SSG and hydration readiness audit | Separate workstream; do not assume it implements full SSG/SSR. |
@@ -36,9 +36,8 @@ PR states and head SHAs must be rechecked live before acting.
 ## Current verified findings / blockers
 
 ### SEO and canonical routing
-1. Preserve /guides as the primary hub; /field-guides and /notes render the same combined listing.
-2. Candidate hub canonicals: /guides for all three listing paths, while retaining content-specific detail canonicals (/field-guides/:slug for FIELD_GUIDES and /notes/:slug for quick notes).
-3. /services and /services-dispatch mount the same page; /services is the primary navigation path. Candidate canonical is /services.
+1. /guides, /field-guides and /notes render the same combined listing. PR #965 proposes /field-guides as the single hub canonical, which is a valid candidate despite /guides being the navigation path; retain distinct detail canonicals (/field-guides/:slug and /notes/:slug).
+2. /services and /services-dispatch mount the same page; /services is the primary navigation path. PR #965 correctly proposes /services as the canonical destination.
 5. Decide and verify canonical hostname before changing absolute canonical URLs, sitemap, robots and tests. Project documentation specifies www, but live redirect behavior remains unverified.
 6. Current tests explicitly expect /guides and apex sitemap URLs. Update tests only after an intentional route/host decision—not to make a candidate pass.
 
@@ -64,7 +63,7 @@ PR states and head SHAs must be rechecked live before acting.
 
 ## Immediate next actions
 1. Update project-level canonical-host documentation from www to apex, based on the active Cloudflare redirect rule. No Cloudflare rule change is required.
-2. Prepare a bounded revision plan for PR #965: preserve /guides as primary hub; make /field-guides and /notes hubs canonical aliases to /guides; retain content-specific detail canonicals; consolidate /services-dispatch to /services after redirect review.
+2. Complete PR #965 review: verify sitemap generation, runtime canonical tags, trailing-slash normalization and path alias behavior. Its /field-guides hub canonical strategy is acceptable if all tests and CI pass; security supply-chain finding remains unresolved.
 3. Inspect public/_redirects and Cloudflare redirect rules for path aliases; verify destination equivalence and inbound-link handling before adding permanent redirects.
 4. Recheck PR #966 dependency and security workflow after #965 route baseline is corrected.
 5. Continue independent security supply-chain investigation without weakening controls.
