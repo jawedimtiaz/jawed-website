@@ -66,6 +66,24 @@ This is the chronological engineering record for the personal website jawed.co.i
 - Prepare the exact bounded PR #965 correction plan; keep PR #965 unmerged until reviewed and all checks pass.
 - Review canonical metadata and sitemap test coverage for hub aliases versus detail-page canonicals.
 
+## 2026-11-17 — Redirect configuration review
+
+### Scope
+- Inspected public/_redirects, public/_headers, vite.config.ts and checked likely root-level deployment config candidates (wrangler.toml, netlify.toml, cloudflare-pages.toml).
+- Attempted to open the apex and www route URLs for /guides and /services-dispatch through the available web viewer; those endpoints were inaccessible to that viewer, so no live HTTP status or Location header was established.
+
+### Verified observations
+1. public/_redirects contains HTTP 200 SPA rewrite rules for /guides, /guides/*, /field-guides, /field-guides/*, /services, /services/*, /services-dispatch and /services-dispatch/*.
+2. Therefore, these repository rules do not perform permanent canonical redirects for the alias paths; they serve the SPA shell and leave route/canonical handling to the application.
+3. public/_headers includes a Content-Security-Policy but does not establish apex/www host redirects.
+4. No wrangler.toml, netlify.toml or cloudflare-pages.toml was present at the repository root. This does not rule out Cloudflare dashboard-level redirect rules.
+5. Live requests to the apex/www route URLs could not be verified through the available web viewer. Do not infer their redirect status from source files.
+
+### Next work
+- Verify Cloudflare Pages custom domains and redirect/bulk redirect rules in the Cloudflare account, or obtain actual HTTP response headers from a reliable live request.
+- Then finalize hostname policy and route alias redirect plan.
+- Update PROJECT_STATUS.md with verified Cloudflare rule evidence when available.
+
 ## Progress-recording standard
 For every subsequent entry, record:
 - Date and phase/workstream
