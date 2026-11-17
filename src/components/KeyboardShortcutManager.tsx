@@ -354,9 +354,13 @@ export const KeyboardShortcutManager: React.FC<KeyboardShortcutManagerProps> = (
     label: string;
     timestamp: number;
   } | null>(null);
-  const [isVoiceSupported, setIsVoiceSupported] = useState<boolean>(() =>
-    Boolean(getSpeechRecognitionConstructor())
-  );
+  // Keep server rendering and the browser's first render identical.
+  // Browser capability detection runs after hydration.
+  const [isVoiceSupported, setIsVoiceSupported] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsVoiceSupported(Boolean(getSpeechRecognitionConstructor()));
+  }, []);
   const [isVoiceListening, setIsVoiceListening] = useState<boolean>(false);
   const [lastVoiceCommand, setLastVoiceCommand] = useState<LastVoiceCommandRecord | null>(null);
 
