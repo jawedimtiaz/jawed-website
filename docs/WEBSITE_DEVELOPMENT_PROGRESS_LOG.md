@@ -203,3 +203,34 @@ For every subsequent entry, record:
 - Exact next action
 
 Never label work complete without test or verification evidence. Distinguish source review, CI, preview deployment, production verification and owner-side account checks.
+
+
+## 2026-11-17 — Continuation: CI failure confirmation and status-document reconciliation
+
+### Scope
+- Rechecked live GitHub metadata, commit status and workflow runs for PRs #967, #965 and #966.
+- Retrieved job summaries and decoded logs for the Security Supply Chain Gate runs on all three candidate heads.
+- Re-read the main-branch Firebase config module, JSON client config, Phase 38C scanner/contract and package manifest.
+- Re-read PR #965 route metadata and sitemap implementation.
+- Updated PROJECT_STATUS.md on the documentation-only branch; no production branch or deployment changed.
+
+### Verified results
+1. PR #967 remains draft/open and is mergeable at head 73c2fbff9beae4c507a7657bb0a3330204dc376b. Its latest Cloudflare preview was not established by this check; the available Netlify preview status is success only.
+2. PR #965 remains draft/open and mergeable at head b706f422058de79c28f7dbb1620cd0e9bd1342f7. All listed functional/browser and baseline gates passed except Security Supply Chain.
+3. PR #966 remains draft/open and mergeable at head d01e801fd42b853cb196a9e034ed6767bc2b7341. Its listed Site Integrity, AdSense, Career Match and Interactive Tools gates passed; Security Supply Chain failed.
+4. Decoded logs for runs 44034549756 (#967), 44018744393 (#965) and 44020926176 (#966) all show the same deterministic failure: `Credential-like literal in firebase-applet-config.json`. This is a scanner finding, not a transient infrastructure failure.
+5. On main, `src/lib/firebase.ts` imports `firebase-applet-config.json` and defines an additional literal apiKey fallback equal to the JSON apiKey. The app's Money Manager Google sign-in path consumes `firebaseConfig`; tests in `tests/moneyManager.test.ts` currently assert that the config apiKey is non-empty. Removing the fallback requires confirming the imported JSON/env path remains authoritative and updating tests to validate behavior rather than a hardcoded fallback.
+6. The Phase 38C scanner currently scans JSON and selected text/config extensions but omits TypeScript and TSX. Any remediation must extend coverage and tests; do not weaken the scanner or allowlist the whole config file.
+7. PR #965 canonical URL rendering is normalized: `canonicalUrl()` calls `normalizePath()`, which removes trailing slashes for non-root paths. Thus the metadata value `/field-guides/` renders as the slashless URL matching sitemap convention. Add a test against the final rendered canonical URL for explicit regression coverage.
+8. PR #965 also adds `robots: noindex, follow` to `/ai`, which is not explained in its summary. Keep this as an unresolved scope question.
+9. Updated `PROJECT_STATUS.md` in this branch to make the verified apex canonical host and current PR #965 hub-canonical candidate explicit, and to replace stale next actions. Historical notes in the progress log are preserved.
+
+### Decisions / outstanding owner action
+- No production code, Cloudflare settings, DNS, credentials, key restrictions, PR merges or deployments were changed.
+- Owner must verify Firebase Web API key API restrictions and authorized HTTP referrers in Google Cloud Console before a narrowly scoped public Firebase config exception is considered.
+- Keep PRs #965 and #966 blocked on the supply-chain finding; keep #967 documentation-only and unmerged until its checks/preview are fully reviewed.
+- Require justification/removal of the unexplained /ai noindex change in #965.
+- After #965 is resolved, retarget #966 to main and rerun all checks.
+
+### Exact next action
+- Complete owner-side Firebase key restriction review. Then prepare a bounded scanner/config remediation PR with TypeScript/TSX coverage, a schema-aware exception only if justified, and regression tests. No secret values should be pasted into chat.
