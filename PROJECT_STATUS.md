@@ -4,7 +4,7 @@
 **Status:** Active audit; no production changes authorized or made in this review.
 
 ## Project identity
-- Production site: https://www.jawed.co.in/ (documented canonical hostname); https://jawed.co.in/
+- Production site: https://jawed.co.in/ (verified canonical host); https://www.jawed.co.in/ redirects to apex with HTTP 301.
 - Production repository: https://github.com/jawedimtiaz/jawed-website
 - Production branch: main
 - Hosting: Cloudflare Pages (verify deployment settings before any infrastructure change)
@@ -19,7 +19,7 @@
 - The combined listing contains two distinct datasets: FIELD_GUIDES entries and notesData quick notes. Guide cards link to /field-guides/:slug; quick-note cards link to /notes/:slug.
 - Detail routing is content-aware: field-guide slugs render FieldGuideDetailPage and canonicalize to /field-guides/:slug; quick-note slugs render from notesData and canonicalize to /notes/:slug. RouteSeo also recognizes /guides/:slug and resolves canonical URLs by content type.
 - The three hub URLs currently render the same combined listing. RouteSeo gives /guides its own canonical, /field-guides its own canonical, and /notes a canonical of /field-guides/. This is a duplicate-hub canonical inconsistency; likely target is /guides for all three hubs, subject to final approval and route tests.
-- Sitemap generator, robots.txt, canonical metadata and tests use https://jawed.co.in; project-level configuration documents https://www.jawed.co.in/ as the canonical host. Production redirect behavior has not been independently verified in this review.
+- Sitemap generator, robots.txt, canonical metadata and tests use https://jawed.co.in. Cloudflare's active dynamic redirect rule confirms www → apex with HTTP 301 and preserves query strings. Both hostnames are active custom domains on the Pages project. The project-level instruction that says www is canonical is stale and should be corrected.
 
 ## Active pull requests reviewed
 | PR | Purpose | Current assessment |
@@ -63,9 +63,9 @@ PR states and head SHAs must be rechecked live before acting.
 7. Keep production website, Studio Lab and customer projects strictly separate.
 
 ## Immediate next actions
-1. Verify documented www canonical host against actual Cloudflare redirect configuration/live HTTP responses before changing source.
+1. Update project-level canonical-host documentation from www to apex, based on the active Cloudflare redirect rule. No Cloudflare rule change is required.
 2. Prepare a bounded revision plan for PR #965: preserve /guides as primary hub; make /field-guides and /notes hubs canonical aliases to /guides; retain content-specific detail canonicals; consolidate /services-dispatch to /services after redirect review.
-3. Inspect public/_redirects and Cloudflare redirect rules, then verify destination equivalence and inbound-link handling before adding permanent redirects.
+3. Inspect public/_redirects and Cloudflare redirect rules for path aliases; verify destination equivalence and inbound-link handling before adding permanent redirects.
 4. Recheck PR #966 dependency and security workflow after #965 route baseline is corrected.
 5. Continue independent security supply-chain investigation without weakening controls.
 6. Update this file and docs/WEBSITE_DEVELOPMENT_PROGRESS_LOG.md after each meaningful verified milestone.
