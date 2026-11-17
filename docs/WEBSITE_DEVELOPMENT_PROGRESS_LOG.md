@@ -106,6 +106,38 @@ This is the chronological engineering record for the personal website jawed.co.i
 - Keep PR #967 unmerged until documentation diff and CI/preview status are reviewed.
 - Continue route canonical/host verification and security supply-chain investigation on main.
 
+
+## 2026-11-17 — Cloudflare canonical-host configuration verified
+
+### Scope
+- Read-only inspection of the authenticated Cloudflare account, Pages project, custom domains, zone rulesets and the active dynamic redirect ruleset.
+- Cloudflare account: Jawed@jawed.co.in's Account.
+- Pages project: jawed-website.
+- Zone: jawed.co.in.
+- No Cloudflare settings or DNS records changed.
+
+### Verified configuration
+1. Cloudflare Pages project jawed-website is connected to GitHub repository jawedimtiaz/jawed-website with production branch main.
+2. Both custom domains jawed.co.in and www.jawed.co.in are active and verified on the Pages project.
+3. The zone has an enabled ruleset in phase http_request_dynamic_redirect.
+4. Its enabled rule is named "Redirect www → apex", uses HTTP 301, matches https://www.jawed.co.in/* and rewrites to https://jawed.co.in/1. Query strings are preserved.
+5. Therefore, the configured canonical hostname is https://jawed.co.in/ (apex), not www. The previous project instruction documenting www as canonical is stale.
+6. This matches the repository's current RouteSeo, sitemap and robots host origin (apex). Do not migrate these to www.
+7. The Pages project's canonical production deployment is currently associated with main commit 423d05fae8f73475887e8ab05f042746f3aab451; the documentation branch preview is separate and does not replace production.
+8. The preview deployment for PR #967 completed successfully at https://62a8edbc.jawed-website.pages.dev for commit 100ad7d02d6d0e2a6709f9cb243b3e4f6c378c64. This confirms the Pages preview build/deploy, not production deployment or application tests.
+
+### Decision
+- Use https://jawed.co.in/ as the single canonical origin for SEO metadata, sitemap and robots.txt.
+- Update stale project instructions/documentation that claim www is canonical.
+- Do not change Cloudflare redirect configuration; it already implements www → apex.
+- Continue investigating path-level duplicate hubs and /services-dispatch separately; the hostname redirect does not resolve those path duplicates.
+
+### Next work
+- Recheck PR #967 latest head and preview deployment status.
+- Correct stale canonical-host wording in the project handoff documents.
+- Prepare bounded changes to PR #965 for hub alias canonicals and service route duplication, preserving distinct detail-page URLs.
+- Continue security supply-chain investigation as an independent workstream.
+
 ## Progress-recording standard
 For every subsequent entry, record:
 - Date and phase/workstream
