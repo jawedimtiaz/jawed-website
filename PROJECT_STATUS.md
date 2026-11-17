@@ -24,7 +24,7 @@
 ## Active pull requests reviewed
 | PR | Purpose | Current assessment |
 |---|---|---|
-| [#965](https://github.com/jawedimtiaz/jawed-website/pull/965) | SEO canonical aliases | Draft/open. Its /guides and /notes hub → /field-guides canonical strategy is structurally defensible because all three hub routes render the same combined listing and detail pages retain separate content-specific URLs. Main's tests intentionally change with the candidate. Remaining hard blocker: Security Supply Chain finding; complete full diff/CI review before approval. |
+| [#965](https://github.com/jawedimtiaz/jawed-website/pull/965) | SEO canonical aliases | Draft/open. Its /guides and /notes hub → /field-guides canonical strategy is structurally defensible because all three hub routes render the same combined listing and detail pages retain separate content-specific URLs. It also changes /ai to noindex, follow although this is not described in the PR summary; require rationale/review. Remaining hard blocker: Security Supply Chain finding; complete full diff/CI review before approval. |
 | [#966](https://github.com/jawedimtiaz/jawed-website/pull/966) | Deterministic browser capability state / hydration | Draft/open and stacked on #965. Retarget to main and rerun checks only after dependency/canonical baseline is resolved. |
 | [#962](https://github.com/jawedimtiaz/jawed-website/pull/962) | Route-specific metadata HTML snapshots | Review/rebase required; do not merge based on PR description alone. |
 | [#963](https://github.com/jawedimtiaz/jawed-website/pull/963) | SSG and hydration readiness audit | Separate workstream; do not assume it implements full SSG/SSR. |
