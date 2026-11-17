@@ -154,6 +154,10 @@ This is the chronological engineering record for the personal website jawed.co.i
 5. PR #965 does not add permanent path redirects in public/_redirects. The alias URLs continue to be SPA rewrites; canonical metadata is the deduplication mechanism. Permanent redirects should be a separate decision after backlink and UX impact review.
 6. PR #965 validation summary reports all listed browser/runtime/security-baseline gates passing except Security Supply Chain. The scanner reports a credential-like literal in firebase-applet-config.json; this remains the principal blocker. Independently recheck current CI before approval.
 
+
+### Additional PR #965 scope observation
+- The patch also adds robots=noindex, follow to the /ai route metadata. The PR summary does not explain this additional indexing directive. AiPage.tsx contains a substantive H1, explanatory copy and an interactive knowledge-search experience, so noindex should not be accepted as an incidental change. Ask the PR author to justify it against the site's indexing/AdSense strategy or remove it from this bounded canonical-alias PR.
+
 ### Updated assessment
 - Do not reject PR #965 solely because /guides canonicalizes to /field-guides. This is a defensible taxonomy choice given the identical hub content and separate detail URL families.
 - Continue full diff review, verify the candidate's generated sitemap and runtime canonical tags, and resolve the security scanner finding without weakening controls.
