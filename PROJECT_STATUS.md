@@ -18,7 +18,7 @@
 - Header navigation links only to /guides and /services.
 - The combined listing contains two distinct datasets: FIELD_GUIDES entries and notesData quick notes. Guide cards link to /field-guides/:slug; quick-note cards link to /notes/:slug.
 - Detail routing is content-aware: field-guide slugs render FieldGuideDetailPage and canonicalize to /field-guides/:slug; quick-note slugs render from notesData and canonicalize to /notes/:slug. RouteSeo also recognizes /guides/:slug and resolves canonical URLs by content type.
-- The three hub URLs currently render the same combined listing. RouteSeo gives /guides its own canonical, /field-guides its own canonical, and /notes a canonical of /field-guides/. This is a duplicate-hub canonical inconsistency; likely target is /guides for all three hubs, subject to final approval and route tests.
+- The three hub URLs render the same combined listing. Current reviewed candidate decision in PR #965: use `/field-guides` as the single hub canonical for `/guides`, `/field-guides` and `/notes`; retain content-specific detail canonicals (`/field-guides/:slug` and `/notes/:slug`). This is a candidate branch change only, not yet merged or approved for production.
 - Sitemap generator, robots.txt, canonical metadata and tests use https://jawed.co.in. Cloudflare's active dynamic redirect rule confirms www → apex with HTTP 301 and preserves query strings. Both hostnames are active custom domains on the Pages project. The project-level instruction that says www is canonical is stale and should be corrected.
 
 ## Active pull requests reviewed
@@ -38,8 +38,8 @@ PR states and head SHAs must be rechecked live before acting.
 ### SEO and canonical routing
 1. /guides, /field-guides and /notes render the same combined listing. PR #965 proposes /field-guides as the single hub canonical, which is a valid candidate despite /guides being the navigation path; retain distinct detail canonicals (/field-guides/:slug and /notes/:slug).
 2. /services and /services-dispatch mount the same page; /services is the primary navigation path. PR #965 correctly proposes /services as the canonical destination.
-5. Decide and verify canonical hostname before changing absolute canonical URLs, sitemap, robots and tests. Project documentation specifies www, but live redirect behavior remains unverified.
-6. Current tests explicitly expect /guides and apex sitemap URLs. Update tests only after an intentional route/host decision—not to make a candidate pass.
+3. Canonical hostname is verified as `https://jawed.co.in/` (apex): Cloudflare's enabled dynamic redirect rule sends `https://www.jawed.co.in/*` to the apex with HTTP 301 and preserves query strings. Both hostnames are active custom domains on Pages. Repository canonical URLs and sitemap already use apex; do not migrate them to www.
+4. PR #965's `canonicalUrl()` applies `normalizePath()`, which strips trailing slashes from non-root paths. Its `/field-guides/` metadata value therefore renders as `https://jawed.co.in/field-guides`, matching sitemap slash convention. Add a regression assertion against the rendered canonical URL for stronger coverage.
 
 ### Security supply-chain
 - PR #965 reports a Security Supply Chain failure due to a credential-like literal in firebase-applet-config.json. PR #966 inherits the same dependency/blocker.
@@ -63,12 +63,12 @@ PR states and head SHAs must be rechecked live before acting.
 7. Keep production website, Studio Lab and customer projects strictly separate.
 
 ## Immediate next actions
-1. Update project-level canonical-host documentation from www to apex, based on the active Cloudflare redirect rule. No Cloudflare rule change is required.
-2. Complete PR #965 review: verify sitemap generation, runtime canonical tags, trailing-slash normalization and path alias behavior. Its /field-guides hub canonical strategy is acceptable if all tests and CI pass; security supply-chain finding remains unresolved.
-3. Inspect public/_redirects and Cloudflare redirect rules for path aliases; verify destination equivalence and inbound-link handling before adding permanent redirects.
-4. Recheck PR #966 dependency and security workflow after #965 route baseline is corrected.
-5. Continue independent security supply-chain investigation without weakening controls.
-6. Update this file and docs/WEBSITE_DEVELOPMENT_PROGRESS_LOG.md after each meaningful verified milestone.
+1. Resolve the Security Supply Chain gate without weakening Phase 38C: owner-side verification of Firebase API restrictions/referrer restrictions is still required before deciding on a narrowly scoped public-config exception.
+2. Ask the PR #965 author to justify or remove the unexplained `/ai` `noindex, follow` change; it is outside the stated canonical-alias scope.
+3. Strengthen PR #965 tests to assert the rendered canonical URL after `canonicalUrl()` normalization, then rerun all CI.
+4. Keep `/guides`, `/field-guides`, `/notes` aliases as SPA rewrites for now; any permanent path redirects require a separate backlink/UX decision.
+5. Once #965 is resolved, retarget #966 to `main` and rerun its complete checks.
+6. Correct the progress log's older entries only by adding a newer dated correction; preserve historical audit notes.
 
 ## New-chat continuation prompt
 Read PROJECT_STATUS.md first, then the latest entries in docs/WEBSITE_DEVELOPMENT_PROGRESS_LOG.md. Recheck GitHub main, open PRs and CI because this status is a dated snapshot. Continue from Immediate next actions. Do not repeat completed investigation, assume stale PR state, or modify/merge/deploy production without approval.
