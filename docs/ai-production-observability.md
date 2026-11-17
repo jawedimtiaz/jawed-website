@@ -47,3 +47,6 @@ They deliberately do **not** include provider credentials or other secret materi
 Request IDs are correlation identifiers, not authentication tokens. They should not be used to authorize access or reveal internal logs to visitors.
 
 Provider-backed E2E remains dependent on a reachable deployment with the Cloudflare Workers AI `AI` binding configured. A request ID or health response does not itself prove provider inference.
+
+
+> **Historical / not current production configuration.** This document describes an earlier server-side `/api/ai` / Cloudflare Pages Functions design. The current production runtime is the browser-side knowledge assistant described in [AI Current Runtime](./ai-current-runtime.md). Do not use the endpoint, binding, or credential instructions below to change production settings unless that architecture is explicitly reintroduced, reviewed, and deployed.

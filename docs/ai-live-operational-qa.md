@@ -87,3 +87,6 @@ After the Workers AI binding is active and the site is deployed:
 - The deterministic repository validators mock `env.AI.run()`; they do not consume remote Workers AI allocation.
 
 A successful health response alone does not prove end-to-end inference. Final provider-live verification requires a real POST request after the `AI` binding is active.
+
+
+> **Historical / not current production configuration.** This document describes an earlier server-side `/api/ai` / Cloudflare Pages Functions design. The current production runtime is the browser-side knowledge assistant described in [AI Current Runtime](./ai-current-runtime.md). Do not use the endpoint, binding, or credential instructions below to change production settings unless that architecture is explicitly reintroduced, reviewed, and deployed.

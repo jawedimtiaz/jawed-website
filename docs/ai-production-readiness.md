@@ -64,3 +64,6 @@ A successful health response alone does not prove end-to-end inference. The fina
 - Provider access remains server-side.
 - Existing origin validation, request-size limits, conversation limits, rate limiting, source sanitization, and grounding rules remain unchanged.
 - The health endpoint must never return provider credentials or secret-derived values.
+
+
+> **Historical / not current production configuration.** This document describes an earlier server-side `/api/ai` / Cloudflare Pages Functions design. The current production runtime is the browser-side knowledge assistant described in [AI Current Runtime](./ai-current-runtime.md). Do not use the endpoint, binding, or credential instructions below to change production settings unless that architecture is explicitly reintroduced, reviewed, and deployed.
