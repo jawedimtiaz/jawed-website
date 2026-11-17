@@ -14,8 +14,11 @@
 - Last baseline commit reviewed: 423d05fae8f73475887e8ab05f042746f3aab451 — “feat: add Prism.js syntax highlighting and download functionality”.
 - The repository is a React 18 / TypeScript / Vite 6 application; verify package manifests again before implementation.
 - Current main sitemap tests expect /guides as a canonical hub and apex-host sitemap URLs.
-- App route declarations identify /guides as the primary navigation route and /field-guides and /notes as backward-compatible aliases to the same listing page.
-- RouteSeo.tsx currently maps the /notes hub to /field-guides/, which appears inconsistent and needs route/content review.
+- App route declarations identify /guides as the primary listing route; /field-guides and /notes render the same combined listing page as backward-compatible aliases.
+- Header navigation links only to /guides and /services.
+- The combined listing contains two distinct datasets: FIELD_GUIDES entries and notesData quick notes. Guide cards link to /field-guides/:slug; quick-note cards link to /notes/:slug.
+- Detail routing is content-aware: field-guide slugs render FieldGuideDetailPage and canonicalize to /field-guides/:slug; quick-note slugs render from notesData and canonicalize to /notes/:slug. RouteSeo also recognizes /guides/:slug and resolves canonical URLs by content type.
+- The three hub URLs currently render the same combined listing. RouteSeo gives /guides its own canonical, /field-guides its own canonical, and /notes a canonical of /field-guides/. This is a duplicate-hub canonical inconsistency; likely target is /guides for all three hubs, subject to final approval and route tests.
 - Sitemap generator, robots.txt, canonical metadata and tests use https://jawed.co.in; project-level configuration documents https://www.jawed.co.in/ as the canonical host. Production redirect behavior has not been independently verified in this review.
 
 ## Active pull requests reviewed
@@ -61,9 +64,9 @@ PR states and head SHAs must be rechecked live before acting.
 7. Keep production website, Studio Lab and customer projects strictly separate.
 
 ## Immediate next actions
-1. Complete route taxonomy review: inspect navigation links, listing/detail components, content records and canonical metadata for /guides, /field-guides, /notes, /services and /services-dispatch.
-2. Verify documented www canonical host against actual Cloudflare redirect configuration/live HTTP responses before changing source.
-3. Prepare a bounded revision plan for PR #965; do not merge it as-is.
+1. Verify documented www canonical host against actual Cloudflare redirect configuration/live HTTP responses before changing source.
+2. Prepare a bounded revision plan for PR #965: preserve /guides as primary hub; make /field-guides and /notes hubs canonical aliases to /guides; retain content-specific detail canonicals; consolidate /services-dispatch to /services after redirect review.
+3. Inspect public/_redirects and Cloudflare redirect rules, then verify destination equivalence and inbound-link handling before adding permanent redirects.
 4. Recheck PR #966 dependency and security workflow after #965 route baseline is corrected.
 5. Continue independent security supply-chain investigation without weakening controls.
 6. Update this file and docs/WEBSITE_DEVELOPMENT_PROGRESS_LOG.md after each meaningful verified milestone.
