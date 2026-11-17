@@ -42,9 +42,10 @@ PR states and head SHAs must be rechecked live before acting.
 6. Current tests explicitly expect /guides and apex sitemap URLs. Update tests only after an intentional route/host decision—not to make a candidate pass.
 
 ### Security supply-chain
-- PR #965 and #966 report a Security Supply Chain failure due to a credential-like literal in firebase-applet-config.json.
-- The Firebase Web API key is client-side configuration, but restrictions/referrers have not been owner-verified in Google Cloud Console.
-- The scanner extension list was observed to omit .ts and .tsx; confirm current main before modifying.
+- PR #965 reports a Security Supply Chain failure due to a credential-like literal in firebase-applet-config.json. PR #966 inherits the same dependency/blocker.
+- firebase-applet-config.json contains a Firebase-format Web API key. src/lib/firebase.ts also contains a duplicate hardcoded fallback equal to that JSON key (value intentionally not reproduced here).
+- The security scanner flags the JSON key and fails the supply-chain gate; its source-file extension allowlist omits .ts and .tsx, so the duplicate TypeScript fallback is not currently scanned.
+- Google Cloud API restrictions and authorized HTTP referrers have not been owner-verified. Do not change the key or introduce a scanner exception until that review is complete.
 - Do not weaken or broadly suppress secret scanning. Verify key restrictions, remove redundant hardcoded fallback only if safe, extend scanner coverage, and implement a narrowly scoped schema-aware public Firebase config exception only with evidence and tests.
 
 ### Sitemap / service worker
