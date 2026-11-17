@@ -36,10 +36,9 @@ PR states and head SHAs must be rechecked live before acting.
 ## Current verified findings / blockers
 
 ### SEO and canonical routing
-1. Preserve /guides as the primary hub unless evidence and an approved route decision establish otherwise.
-2. Determine whether /field-guides is only a legacy alias or an independently intended content hub.
-3. Review /notes canonical metadata against actual content/navigation; do not redirect until equivalence is established.
-4. /services-dispatch versus /services needs the same content-equivalence and redirect review.
+1. Preserve /guides as the primary hub; /field-guides and /notes render the same combined listing.
+2. Candidate hub canonicals: /guides for all three listing paths, while retaining content-specific detail canonicals (/field-guides/:slug for FIELD_GUIDES and /notes/:slug for quick notes).
+3. /services and /services-dispatch mount the same page; /services is the primary navigation path. Candidate canonical is /services.
 5. Decide and verify canonical hostname before changing absolute canonical URLs, sitemap, robots and tests. Project documentation specifies www, but live redirect behavior remains unverified.
 6. Current tests explicitly expect /guides and apex sitemap URLs. Update tests only after an intentional route/host decision—not to make a candidate pass.
 
