@@ -263,3 +263,32 @@ Never label work complete without test or verification evidence. Distinguish sou
 
 ### Exact next action
 - Obtain owner confirmation of Firebase API restrictions/referrer restrictions in Google Cloud Console. In parallel, prepare a bounded PR #965 correction plan for /ai indexing consistency and canonical URL regression coverage. No key values should be shared in chat.
+
+
+## 2026-11-18 — Latest candidate review: PR #965, auth flow and CSP
+
+### Verified state
+- PR #965 latest reviewed head: `d972afe456ab6453a1aa7fb26f712261dd50f918`; draft/open, unmerged, mergeable.
+- Passed on that head: Security Baseline, Production Cache Reliability, Production Static Asset Reliability, Site Integrity, Finance Calculator Regression, AdSense Readiness, Deployment Runtime Reliability, AI Regression, Interactive Tools and Content Discovery Browser Runtime, Career Match Browser Runtime.
+- Failed: Security Supply Chain, still reporting a credential-like literal in `firebase-applet-config.json`. This is the sole failing workflow among the listed PR #965 workflows.
+- Cloudflare Pages preview `https://c12a697f.jawed-website.pages.dev` completed build and deploy successfully for the exact #965 head.
+- PR #965 now retains `/ai` as indexable and uses the general noindex exclusion for sitemap generation. Its canonical URL test asserts the final normalized slashless field-guides URL.
+- PR #967 remains draft/open and unmerged; Cloudflare preview `https://723d3317.jawed-website.pages.dev` deployed successfully for its currently reviewed commit.
+
+### Additional code review findings
+1. The PR #965 branch's `src/pages/tools/MoneyManager.tsx` still imports and calls `signInWithPopup` in two page-level Google sign-in handlers. This conflicts with the nearby redirect-based implementation and the test's stated intent to remove popup auth from all Money Manager entry points. The current test verifies no popup in `src/tools/MoneyManager.tsx` and the Drive sync helper but omits the page-level file assertion. This is an existing feature consistency defect that should be fixed separately with a focused regression test; do not assume the passing workflow validates the omitted assertion.
+2. The candidate `public/_headers` CSP allows `https://*.firebaseapp.com` and `https://accounts.google.com` in `frame-src`. The Firebase wildcard is broader than the configured project auth domain. Verify runtime redirect-auth requirements and narrow to the exact project auth domain if compatible. Preserve functional auth and validate the redirect return path.
+3. `_headers` at repository root still has the older `frame-src 'none'` policy and lacks the Firebase auth network origins, while `public/_headers` has the candidate auth allowances. The security test checks both files for some common headers but parses CSP directives from the public copy. Confirm the build/deployment header source and ensure root/public copies remain intentionally synchronized or document why they differ.
+
+### Blockers and safeguards
+- Security Supply Chain remains blocked pending owner-side review of Firebase Web API key API restrictions and authorized HTTP referrers.
+- Do not remove Firebase client configuration or its fallback until runtime configuration and Google sign-in are proven intact.
+- Do not weaken Phase 38C or add a broad file/pattern exception.
+- No production code, configuration, DNS, Cloudflare settings, credentials, PR merge, or production deployment was changed in this review.
+
+### Next actions
+1. Obtain owner confirmation of Google Cloud API restrictions and authorized HTTP referrers (no key value in chat).
+2. Create a bounded correction for page-level popup sign-in and add assertions covering every Money Manager sign-in entry point.
+3. Verify/narrow the CSP Firebase frame wildcard and reconcile root/public header policy deliberately.
+4. Extend scanner coverage to TypeScript/TSX and only then evaluate a schema-specific Firebase public-config rule with positive and negative tests.
+5. Rerun all checks and review the complete diff. Keep PRs draft/open; no production merge/deploy without explicit approval.
