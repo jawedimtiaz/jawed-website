@@ -180,7 +180,7 @@ export function collectSitemapEntries(options: SitemapGenerationOptions = {}): S
     ) {
       continue;
     }
-    if (meta.robots && meta.robots.toLowerCase().includes('noindex') && cleanCanonicalPath !== '/ai') {
+    if (meta.robots && meta.robots.toLowerCase().includes('noindex')) {
       continue;
     }
 
