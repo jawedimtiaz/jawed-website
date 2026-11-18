@@ -172,7 +172,6 @@ export const STATIC_METADATA: Record<string, RouteMetadata> = {
     ogTitle: 'Jawed AI Assistant | Interactive IT Troubleshooting & Knowledge Search',
     ogDescription: 'Interactive AI assistant for searching published IT troubleshooting guides, calculators, and technical documentation on Jawed.co.in.',
     canonicalPath: '/ai',
-    robots: 'noindex, follow',
     ogType: 'website',
   },
   '/contact': {
