@@ -234,3 +234,32 @@ Never label work complete without test or verification evidence. Distinguish sou
 
 ### Exact next action
 - Complete owner-side Firebase key restriction review. Then prepare a bounded scanner/config remediation PR with TypeScript/TSX coverage, a schema-aware exception only if justified, and regression tests. No secret values should be pasted into chat.
+
+
+## 2026-11-18 — Follow-up: Firebase runtime configuration and PR #965 sitemap consistency
+
+### Scope
+- Rechecked live PR metadata and GitHub Actions workflow runs for PRs #965, #966 and #967.
+- Inspected Cloudflare Pages project configuration and recent preview deployments through read-only Cloudflare API requests.
+- Re-read PR #965's full patch and its sitemap generator, route metadata, sitemap tests, AdSense inventory validator, and AI page.
+- Re-read main-branch Firebase config module, client JSON config, Phase 38C scanner and contract.
+- No application code, Cloudflare settings, DNS, credentials, secrets, or production deployment changed.
+
+### Verified results
+1. PR #965 remains draft/open, based on main, head `b706f422058de79c28f7dbb1620cd0e9bd1342f7`; PR #966 remains draft/open and stacked on #965 at `d01e801fd42b853cb196a9e034ed6767bc2b7341`; PR #967 remains draft/open at `d65493721ba8192e85bfe2cee389bb4b45094b32`. None is merged.
+2. Latest workflow runs retrieved for these exact heads: #965 functional/browser and baseline workflows passed, Security Supply Chain failed; #966 Site Integrity, AdSense, Career Match and Interactive Tools passed, Security Supply Chain failed; #967 Security Supply Chain failed. The three failures are the same Firebase JSON credential-pattern finding.
+3. Cloudflare Pages project `jawed-website` confirms production branch `main`, build command `npm run build`, and production environment variable metadata contains `AI_PROVIDER_API_KEY` only. No `VITE_FIREBASE_API_KEY` is configured. Do not remove the JSON Firebase apiKey or its fallback without a replacement configuration plan; it could break Money Manager Google sign-in.
+4. Cloudflare Pages latest preview for PR #967 is `https://33dbe1da.jawed-website.pages.dev`, built and deployed successfully from commit `d65493721ba8192e85bfe2cee389bb4b45094b32` on 2026-11-17. Production canonical deployment remains main commit `423d05fae8f73475887e8ab05f042746f3aab451`.
+5. PR #965 adds `robots: noindex, follow` to `/ai`, but its sitemap generator explicitly retains `/ai` via a special-case condition, and the sitemap test still requires `/ai` in output. The AdSense inventory separately excludes `/ai`. This is an inconsistent indexing contract: if noindex remains, /ai should be excluded from sitemap and tests adjusted; if /ai remains indexable, remove the unexplained noindex change. Recommendation remains to keep /ai indexable unless there is a documented reason otherwise.
+6. PR #965 test checks canonical metadata paths and sitemap entries but does not explicitly assert the final rendered canonical URL returned by `canonicalUrl()`. Add a regression assertion for the normalized slashless canonical URL.
+7. Current PR status metadata reports all three PRs as open, draft and mergeable; mergeability does not mean approval or all required checks passed.
+
+### Decisions / blockers
+- Do not merge any of #965, #966 or #967 at this stage.
+- Keep Phase 38C scanner active. Do not add a whole-file exception or remove Firebase configuration to force CI green.
+- Owner-side Google Cloud API restriction and HTTP referrer review is still required before considering a narrowly scoped Firebase client-config exception.
+- Resolve the /ai noindex-vs-sitemap mismatch and add final canonical URL test coverage in #965 before approval.
+- Keep #966 stacked until #965 is resolved; then retarget to main and rerun complete checks.
+
+### Exact next action
+- Obtain owner confirmation of Firebase API restrictions/referrer restrictions in Google Cloud Console. In parallel, prepare a bounded PR #965 correction plan for /ai indexing consistency and canonical URL regression coverage. No key values should be shared in chat.
