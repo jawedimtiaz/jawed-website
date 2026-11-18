@@ -83,3 +83,23 @@ Read PROJECT_STATUS.md first, then the latest entries in docs/WEBSITE_DEVELOPMEN
 - PR #965 should also assert the final normalized canonical URL (not only metadata path) in regression tests.
 - Outstanding owner action: verify Firebase Web API key API restrictions and authorized HTTP referrers in Google Cloud Console. Do not paste key values into chat.
 - No application code, production configuration, DNS, Cloudflare settings, credentials, merges or production deployments were changed during this review.
+
+
+## 2026-11-18 — Follow-up verification (latest PR #965 candidate)
+
+- PR #965 is draft/open, unmerged, based on `main`, and mergeable at head `d972afe456ab6453a1aa7fb26f712261dd50f918`. Its PR description has been refreshed with the current validation state.
+- On this exact head, Security Baseline, Production Cache Reliability, Production Static Asset Reliability, Site Integrity, Finance Calculator Regression, AdSense Readiness, Deployment Runtime Reliability, AI Regression, Interactive Tools and Content Discovery Browser Runtime, and Career Match Browser Runtime all passed. Security Supply Chain remains failed on the credential-like literal in `firebase-applet-config.json`.
+- Cloudflare Pages preview `https://c12a697f.jawed-website.pages.dev` completed build and deploy successfully for this exact head. This is preview only; production remains unchanged.
+- PR #965 now keeps `/ai` indexable and removes the previous noindex exception from sitemap generation. Its sitemap test asserts the normalized slashless canonical URL for the field-guides hub.
+- Additional code review found an authentication/CSP validation gap: `src/pages/tools/MoneyManager.tsx` on the PR branch still imports and calls `signInWithPopup` in both Google sign-in handlers, despite the nearby redirect-based implementation and test description claiming popup-free redirect auth. The current test asserts no popup for `src/tools/MoneyManager.tsx` and the Drive sync helper, but does not assert this for the page-level file. Treat this as a separate defect requiring a bounded fix and runtime test before claiming all Money Manager auth flows are redirect-only.
+- The candidate CSP permits `https://*.firebaseapp.com` and `https://accounts.google.com` in `frame-src`. This is a broad wildcard; assess whether the Firebase frame source can be narrowed to the exact configured auth domain and verify actual redirect-auth runtime requirements. Do not remove required origins without testing.
+- PR #967 remains draft/open and unmerged at its currently verified head; its documentation preview `https://723d3317.jawed-website.pages.dev` completed build and deploy successfully for commit `29c05546aede73499fa811b9109c8475156291c4`.
+- PR #966 remains dependent on #965 and must not be retargeted or merged until #965's security and auth review is resolved.
+- Owner-side Google Cloud API restrictions and authorized HTTP referrer verification remain outstanding. Do not remove Firebase client configuration, suppress the scanner, or add a broad allowlist. No production changes, merges, DNS or Cloudflare configuration changes were made.
+
+### Next actions
+1. Obtain owner confirmation that the Firebase browser key is restricted to the required APIs and production HTTP referrers; never request or paste the key itself.
+2. Correct the Money Manager page-level popup/redirect inconsistency in a bounded branch and strengthen tests to cover every sign-in handler.
+3. Review whether the CSP wildcard can be narrowed to the exact Firebase auth domain, then test sign-in and redirect return paths.
+4. Resolve the Phase 38C scanner finding with TypeScript/TSX coverage and a narrowly schema-aware client-config treatment only after owner-side key restrictions are verified.
+5. Rerun all CI and review the complete diffs. Keep all PRs draft/open until blockers are resolved; no production merge/deploy without explicit approval.
