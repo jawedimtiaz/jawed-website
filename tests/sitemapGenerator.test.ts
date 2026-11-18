@@ -16,6 +16,7 @@ import notesData from '../src/data/notesData.json';
 import blogData from '../src/data/blogData.json';
 import {
   normalizePath,
+  canonicalUrl,
   STATIC_METADATA,
   TOOL_METADATA,
   resolveMetadata,
@@ -71,6 +72,8 @@ test('route aliases resolve to the canonical hubs and are excluded from sitemap 
   assert.equal(resolveMetadata('/field-guides').canonicalPath, '/field-guides/');
   assert.equal(resolveMetadata('/services-dispatch').canonicalPath, '/services');
   assert.equal(resolveMetadata('/services').canonicalPath, '/services');
+  assert.equal(canonicalUrl(resolveMetadata('/field-guides').canonicalPath), 'https://jawed.co.in/field-guides');
+  assert.equal(resolveMetadata('/ai').robots || 'index, follow', 'index, follow');
 
   const normalizedPaths = new Set(collectSitemapEntries().map((entry) => normalizePath(entry.path)));
   assert.equal(normalizedPaths.has('/guides'), false, '/guides alias must not be listed in sitemap');
