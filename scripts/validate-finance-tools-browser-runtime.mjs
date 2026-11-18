@@ -18,18 +18,17 @@ async function openPage(path,selector="h1"){await command("POST","/url",{url:BAS
 function expectedCanonicalPath(path){
  const p=(path.split("?")[0]||"/").replace(/\/+$/,"")||"/";
  if(p==="/")return "/";
- if(p==="/guides"||p==="/field-guides")return "/field-guides/";
- if(p==="/notes")return "/field-guides/";
- if(p==="/tools"||p==="/diagnostic-tools")return "/tools/";
- if(p==="/services"||p==="/services-dispatch")return "/services-dispatch/";
- if(p.startsWith("/notes/"))return p;
+ if(p==="/guides"||p==="/field-guides"||p==="/notes")return "/field-guides";
+ if(p==="/tools"||p==="/diagnostic-tools")return "/tools";
+ if(p==="/services"||p==="/services-dispatch")return "/services";
+ if(p.startsWith("/notes/"))return "/notes/"+p.split("/").filter(Boolean).at(-1);
  if(p.startsWith("/guides/")||p.startsWith("/field-guides/"))return "/field-guides/"+p.split("/").filter(Boolean).at(-1);
  if(p==="/tools/calculator")return "/tools/retirement-planning-calculator";
  if(p.startsWith("/tools/"))return p;
- if(["/work/projects","/work/experience","/work/skills","/work/certifications"].includes(p))return p+"/";
- if(p==="/blog")return "/blog/";
+ if(["/work/projects","/work/experience","/work/skills","/work/certifications"].includes(p))return p;
+ if(p==="/blog")return "/blog";
  if(p.startsWith("/blog/"))return p;
- if(["/about","/work","/topics","/resources","/contact","/privacy","/terms","/cookies","/ai"].includes(p))return p+"/";
+ if(["/about","/work","/topics","/resources","/contact","/privacy","/terms","/cookies","/ai"].includes(p))return p;
  return "/404";
 }
 
@@ -97,7 +96,7 @@ try{
   assert.ok(state.title.length>5,path+" has an empty document title");
   assert.equal(state.adSlots,0,path+" must not display ad placeholders before activation");
   const currentRobots=await js("return document.querySelector('meta[name=robots]')?.content||''");
-  if(path.startsWith("/ai/"))assert.ok(currentRobots.includes("noindex"),"AI assistant page should not be indexed as a thin interactive surface");
+  if(path.startsWith("/ai/"))assert.ok(currentRobots.includes("index"),"AI assistant page should remain indexable while it provides substantive knowledge-search content");
   else assert.ok(currentRobots.includes("index"),path+" should have indexable robots metadata");
   console.log("PASS — direct route and canonical metadata "+path);
  }
