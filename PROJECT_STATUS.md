@@ -72,3 +72,14 @@ PR states and head SHAs must be rechecked live before acting.
 
 ## New-chat continuation prompt
 Read PROJECT_STATUS.md first, then the latest entries in docs/WEBSITE_DEVELOPMENT_PROGRESS_LOG.md. Recheck GitHub main, open PRs and CI because this status is a dated snapshot. Continue from Immediate next actions. Do not repeat completed investigation, assume stale PR state, or modify/merge/deploy production without approval.
+
+
+## 2026-11-18 follow-up verification
+
+- PRs #965, #966 and #967 were rechecked live: all remain draft/open and unmerged. Their current reviewed heads are #965 `b706f422058de79c28f7dbb1620cd0e9bd1342f7`, #966 `d01e801fd42b853cb196a9e034ed6767bc2b7341`, and #967 `d65493721ba8192e85bfe2cee389bb4b45094b32`. Each still has a failing Security Supply Chain workflow for the Firebase client-config JSON credential-like literal.
+- Cloudflare Pages project configuration confirms production branch `main`, build command `npm run build`, and only `AI_PROVIDER_API_KEY` in production environment variable metadata; no `VITE_FIREBASE_API_KEY` is configured. The Firebase JSON key is therefore currently part of the runtime configuration path. Do not remove it or its fallback without a replacement plan and authentication regression tests.
+- Latest Cloudflare preview for #967: https://33dbe1da.jawed-website.pages.dev, successful build and deploy for commit `d65493721ba8192e85bfe2cee389bb4b45094b32`. This is preview only; production remains main commit `423d05fae8f73475887e8ab05f042746f3aab451`.
+- PR #965 adds `noindex, follow` to `/ai` while its sitemap generator and test explicitly keep `/ai` in the sitemap. Resolve this inconsistency before approval. Recommendation: retain `index, follow` unless a documented indexing decision supports noindex.
+- PR #965 should also assert the final normalized canonical URL (not only metadata path) in regression tests.
+- Outstanding owner action: verify Firebase Web API key API restrictions and authorized HTTP referrers in Google Cloud Console. Do not paste key values into chat.
+- No application code, production configuration, DNS, Cloudflare settings, credentials, merges or production deployments were changed during this review.
