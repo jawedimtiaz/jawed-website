@@ -10347,8 +10347,8 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   font-family: inherit;
   font-size: inherit;
   color: inherit;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: inherit;
+  word-break: inherit;
 }
 
 .tool-output .token.comment,
@@ -10456,6 +10456,24 @@ button.text-slate-400 { background: transparent; border: none; cursor: pointer; 
   font-size: 1.02rem !important;
   line-height: 1.7 !important;
 }
+
+/* ToolOutput Word Wrap Controls (white-space: pre-wrap vs white-space: pre) */
+.tool-output.tool-output-wrap-pre-wrap,
+.tool-output[data-white-space="pre-wrap"],
+.note-code-block-wrapper pre[data-white-space="pre-wrap"] {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-x: auto;
+}
+
+.tool-output.tool-output-wrap-pre,
+.tool-output[data-white-space="pre"],
+.note-code-block-wrapper pre[data-white-space="pre"] {
+  white-space: pre !important;
+  word-break: normal !important;
+  overflow-x: auto !important;
+}
+
 
 
 

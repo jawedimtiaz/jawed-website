@@ -1272,16 +1272,18 @@ export function injectCodeBlockMarkdownCopyButtons(
       });
       const resolvedLangLabel = detectedLang || highlightRes.format || 'markdown';
 
+      const wordWrapButtonHtml = `<button type="button" class="tool-output-word-wrap-btn note-code-word-wrap-btn is-wrapped" data-testid="tool-output-word-wrap-btn" data-toggle-tool-output-wrap-id="${blockId}" data-word-wrap="true" data-white-space="pre-wrap" aria-pressed="true" title="Word wrap: On (white-space: pre-wrap) — click to switch to horizontal scroll (pre)" aria-label="Toggle Word Wrap (currently On: pre-wrap, switch to pre)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"></line><path d="M3 12h15a3 3 0 1 1 0 6h-4"></path><polyline points="16 16 14 18 16 20"></polyline><line x1="3" y1="18" x2="10" y2="18"></line></svg><span class="tool-output-word-wrap-text" data-testid="tool-output-word-wrap-btn-label">Toggle Word Wrap</span><span class="tool-output-word-wrap-state" data-testid="tool-output-word-wrap-btn-state">(On)</span></button>`;
+
       const textSizeButtonHtml = `<button type="button" class="tool-output-text-size-btn note-code-text-size-btn tool-output-size-medium" data-testid="tool-output-text-size-btn" data-toggle-tool-output-size-id="${blockId}" data-font-size="medium" title="Text size: Medium (A) — click for Large" aria-label="Toggle text size (current: Medium, switch to Large)"><span class="tool-output-text-size-short" aria-hidden="true">A</span><span class="tool-output-text-size-text" data-testid="tool-output-text-size-btn-label">Text: Medium</span></button>`;
 
       const toolbarHtml = `<div class="note-code-block-toolbar no-print"><span class="note-code-block-lang" data-testid="tool-output-format-badge" data-format="${
         highlightRes.format
-      }">${resolvedLangLabel}</span><span class="note-code-block-actions">${textSizeButtonHtml}${downloadRawButtonHtml}${copyRawButtonHtml}${copyMarkdownButtonHtml}</span></div>`;
+      }">${resolvedLangLabel}</span><span class="note-code-block-actions">${wordWrapButtonHtml}${textSizeButtonHtml}${downloadRawButtonHtml}${copyRawButtonHtml}${copyMarkdownButtonHtml}</span></div>`;
 
       const renderedInnerHtml =
         highlightRes.highlightedHtml || innerPreHtml;
 
-      return `<div class="note-code-block-wrapper" data-testid="note-code-block-wrapper" data-code-block-id="${blockId}" data-format="${highlightRes.format}" data-font-size="medium">${toolbarHtml}<pre${preAttrs} data-format="${highlightRes.format}" data-font-size="medium"><code class="tool-output-code language-${highlightRes.format}" data-format="${highlightRes.format}">${renderedInnerHtml}</code></pre></div>`;
+      return `<div class="note-code-block-wrapper" data-testid="note-code-block-wrapper" data-code-block-id="${blockId}" data-format="${highlightRes.format}" data-font-size="medium" data-word-wrap="true" data-white-space="pre-wrap">${toolbarHtml}<pre${preAttrs} data-format="${highlightRes.format}" data-font-size="medium" data-word-wrap="true" data-white-space="pre-wrap"><code class="tool-output-code language-${highlightRes.format}" data-format="${highlightRes.format}">${renderedInnerHtml}</code></pre></div>`;
     }
   );
 }

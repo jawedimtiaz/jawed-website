@@ -3119,6 +3119,99 @@ test('adds a text size control button in the tool-output toolbar that lets users
   );
 });
 
+test('adds a Toggle Word Wrap button and Copy to Clipboard button to the tool-output toolbar switching between white-space: pre-wrap and white-space: pre', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const {
+    TOOL_OUTPUT_WORD_WRAP_BUTTON_LABEL,
+    TOOL_OUTPUT_COPY_BUTTON_LABEL,
+    toggleToolOutputWordWrap,
+    resolveToolOutputWordWrapStyle,
+    copyToolOutputText,
+    injectCodeBlockMarkdownCopyButtons,
+  } = await import('../src/pages/NoteDetailPage');
+
+  // 1. Verify labels and word wrap toggle transitions between pre-wrap and pre
+  assert.equal(TOOL_OUTPUT_WORD_WRAP_BUTTON_LABEL, 'Toggle Word Wrap');
+  assert.equal(TOOL_OUTPUT_COPY_BUTTON_LABEL, 'Copy to Clipboard');
+  assert.equal(toggleToolOutputWordWrap(true), false);
+  assert.equal(toggleToolOutputWordWrap(false), true);
+
+  const wrappedStyle = resolveToolOutputWordWrapStyle(true);
+  assert.equal(wrappedStyle.wordWrap, true);
+  assert.equal(wrappedStyle.whiteSpace, 'pre-wrap');
+  assert.equal(wrappedStyle.wordBreak, 'break-word');
+  assert.equal(wrappedStyle.wrapClass, 'tool-output-wrap-pre-wrap');
+  assert.equal(wrappedStyle.statusLabel, 'On');
+
+  const unwrappedStyle = resolveToolOutputWordWrapStyle(false);
+  assert.equal(unwrappedStyle.wordWrap, false);
+  assert.equal(unwrappedStyle.whiteSpace, 'pre');
+  assert.equal(unwrappedStyle.wordBreak, 'normal');
+  assert.equal(unwrappedStyle.overflowX, 'auto');
+  assert.equal(unwrappedStyle.wrapClass, 'tool-output-wrap-pre');
+  assert.equal(unwrappedStyle.statusLabel, 'Off');
+
+  // 2. Verify copying full multi-line tool output content via copyToolOutputText
+  const longOutput = [
+    'Line 1: curl -sSL https://api.example.internal/v2/diagnostics/cluster?include=nodes,pods,network,storage,events',
+    'Line 2: {"status":"ok","nodes":12,"uptime":"99.998%"}',
+  ].join('\n');
+  let capturedClipboard = '';
+  const copyRes = await copyToolOutputText(longOutput, {
+    writeText: async (text: string) => {
+      capturedClipboard = text;
+    },
+  });
+  assert.equal(copyRes.ok, true);
+  assert.equal(capturedClipboard, longOutput);
+
+  // 3. Verify injectCodeBlockMarkdownCopyButtons renders both Toggle Word Wrap and Copy to Clipboard in the toolbar
+  const sampleHtml = `
+    <h2>Long Diagnostic Command</h2>
+    <pre class="tool-output">$ curl -sSL https://api.example.internal/v2/diagnostics/cluster?include=nodes,pods,network</pre>
+  `;
+  const enhancedHtml = injectCodeBlockMarkdownCopyButtons(sampleHtml);
+  assert.ok(
+    enhancedHtml.includes('data-testid="tool-output-word-wrap-btn"') &&
+      enhancedHtml.includes('data-toggle-tool-output-wrap-id="note-code-block-1"') &&
+      enhancedHtml.includes('data-white-space="pre-wrap"') &&
+      enhancedHtml.includes('Toggle Word Wrap') &&
+      enhancedHtml.includes('data-testid="tool-output-copy-btn"') &&
+      enhancedHtml.includes('Copy to Clipboard'),
+    'Expected <pre class="tool-output"> toolbar in NoteDetailPage to include Toggle Word Wrap and Copy to Clipboard buttons'
+  );
+
+  // 4. Verify ToolOutput.tsx and src/index.css wire Toggle Word Wrap (pre-wrap / pre) and Copy to Clipboard in the toolbar
+  const toolOutputSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/common/ToolOutput.tsx'),
+    'utf8'
+  );
+  const cssSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/index.css'),
+    'utf8'
+  );
+
+  assert.ok(
+    toolOutputSource.includes("TOOL_OUTPUT_WORD_WRAP_BUTTON_LABEL = 'Toggle Word Wrap'") &&
+      toolOutputSource.includes("wordWrapButtonTestId = 'tool-output-word-wrap-btn'") &&
+      toolOutputSource.includes('handleToggleWordWrap') &&
+      toolOutputSource.includes('whiteSpace: wordWrapStyle.whiteSpace') &&
+      toolOutputSource.includes('data-white-space={wordWrapStyle.whiteSpace}') &&
+      toolOutputSource.includes('data-testid={copyButtonTestId}'),
+    'Expected ToolOutput.tsx toolbar to render Toggle Word Wrap (pre-wrap/pre) and Copy to Clipboard buttons'
+  );
+
+  assert.ok(
+    cssSource.includes('.tool-output.tool-output-wrap-pre-wrap') &&
+      cssSource.includes('white-space: pre-wrap !important;') &&
+      cssSource.includes('.tool-output.tool-output-wrap-pre') &&
+      cssSource.includes('white-space: pre !important;'),
+    'Expected src/index.css to define white-space: pre-wrap and white-space: pre rules for .tool-output'
+  );
+});
+
+
 
 
 

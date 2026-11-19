@@ -78,6 +78,9 @@ import {
   TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL,
   TOOL_OUTPUT_DOWNLOADED_LABEL,
   TOOL_OUTPUT_DOWNLOAD_LIVE_REGION_MESSAGE,
+  TOOL_OUTPUT_WORD_WRAP_BUTTON_LABEL,
+  toggleToolOutputWordWrap,
+  resolveToolOutputWordWrapStyle,
   TOOL_OUTPUT_FONT_SIZES,
   TOOL_OUTPUT_FONT_SIZE_CONFIG,
   getNextToolOutputFontSize,
@@ -88,6 +91,8 @@ import {
   formatToolOutputFilename,
   copyToolOutputText,
   downloadToolOutputText,
+  type ToolOutputWhiteSpaceMode,
+  type ToolOutputWordWrapStyle,
   type ToolOutputFontSize,
   type ToolOutputFontSizeSetting,
   type ToolOutputFormat,
@@ -277,6 +282,9 @@ export {
   TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL,
   TOOL_OUTPUT_DOWNLOADED_LABEL,
   TOOL_OUTPUT_DOWNLOAD_LIVE_REGION_MESSAGE,
+  TOOL_OUTPUT_WORD_WRAP_BUTTON_LABEL,
+  toggleToolOutputWordWrap,
+  resolveToolOutputWordWrapStyle,
   TOOL_OUTPUT_FONT_SIZES,
   TOOL_OUTPUT_FONT_SIZE_CONFIG,
   getNextToolOutputFontSize,
@@ -419,6 +427,8 @@ export {
   type RemainingReadTimeResult,
   type CompactReadTimeBadgeData,
   type HeaderReadTimeDetails,
+  type ToolOutputWhiteSpaceMode,
+  type ToolOutputWordWrapStyle,
   type ToolOutputFontSize,
   type ToolOutputFontSizeSetting,
   type ToolOutputFormat,
@@ -914,6 +924,41 @@ export const NoteDetailPage: React.FC = () => {
       const headingId = copyBtn.getAttribute('data-copy-heading-id') || '';
       if (headingId) {
         void copyHeadingDeepLink(headingId);
+      }
+      return;
+    }
+
+    const toolOutputWordWrapBtn = target?.closest<HTMLButtonElement>('[data-toggle-tool-output-wrap-id]');
+    if (toolOutputWordWrapBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const currentWrapped = toolOutputWordWrapBtn.getAttribute('data-word-wrap') !== 'false';
+      const nextWrapped = toggleToolOutputWordWrap(currentWrapped);
+      const nextWrapStyle = resolveToolOutputWordWrapStyle(nextWrapped);
+
+      toolOutputWordWrapBtn.setAttribute('data-word-wrap', String(nextWrapped));
+      toolOutputWordWrapBtn.setAttribute('data-white-space', nextWrapStyle.whiteSpace);
+      toolOutputWordWrapBtn.setAttribute('aria-pressed', String(nextWrapped));
+      toolOutputWordWrapBtn.className = `tool-output-word-wrap-btn note-code-word-wrap-btn ${
+        nextWrapped ? 'is-wrapped' : 'is-unwrapped'
+      }`;
+      toolOutputWordWrapBtn.setAttribute('title', nextWrapStyle.title);
+      toolOutputWordWrapBtn.setAttribute('aria-label', nextWrapStyle.ariaLabel);
+      const stateSpan = toolOutputWordWrapBtn.querySelector('.tool-output-word-wrap-state');
+      if (stateSpan) stateSpan.textContent = `(${nextWrapStyle.statusLabel})`;
+
+      const wrapper = toolOutputWordWrapBtn.closest<HTMLElement>('.note-code-block-wrapper');
+      const preEl = wrapper?.querySelector<HTMLElement>('pre');
+      if (wrapper) {
+        wrapper.setAttribute('data-word-wrap', String(nextWrapped));
+        wrapper.setAttribute('data-white-space', nextWrapStyle.whiteSpace);
+      }
+      if (preEl) {
+        preEl.setAttribute('data-word-wrap', String(nextWrapped));
+        preEl.setAttribute('data-white-space', nextWrapStyle.whiteSpace);
+        preEl.style.whiteSpace = nextWrapStyle.whiteSpace;
+        preEl.style.wordBreak = nextWrapStyle.wordBreak;
+        preEl.style.overflowX = nextWrapStyle.overflowX;
       }
       return;
     }

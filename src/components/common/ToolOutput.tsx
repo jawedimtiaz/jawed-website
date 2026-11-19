@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { Copy, Check, Download, Terminal } from 'lucide-react';
+import { Copy, Check, Download, Terminal, WrapText } from 'lucide-react';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-bash';
@@ -16,6 +16,52 @@ export const TOOL_OUTPUT_LIVE_REGION_MESSAGE = 'Tool output copied to clipboard.
 export const TOOL_OUTPUT_DOWNLOAD_BUTTON_LABEL = 'Download .txt';
 export const TOOL_OUTPUT_DOWNLOADED_LABEL = 'Downloaded!';
 export const TOOL_OUTPUT_DOWNLOAD_LIVE_REGION_MESSAGE = 'Tool output downloaded as text file.';
+
+export const TOOL_OUTPUT_WORD_WRAP_BUTTON_LABEL = 'Toggle Word Wrap';
+
+export type ToolOutputWhiteSpaceMode = 'pre-wrap' | 'pre';
+
+export interface ToolOutputWordWrapStyle {
+  wordWrap: boolean;
+  whiteSpace: ToolOutputWhiteSpaceMode;
+  wordBreak: 'break-word' | 'normal';
+  overflowX: 'auto';
+  wrapClass: 'tool-output-wrap-pre-wrap' | 'tool-output-wrap-pre';
+  statusLabel: 'On' | 'Off';
+  title: string;
+  ariaLabel: string;
+}
+
+/**
+ * Toggles the word wrap boolean state between wrapped (pre-wrap) and unwrapped (pre).
+ */
+export function toggleToolOutputWordWrap(current: boolean): boolean {
+  return !current;
+}
+
+/**
+ * Resolves CSS white-space, word-break, class name, and accessible labels for word wrap state.
+ */
+export function resolveToolOutputWordWrapStyle(
+  wordWrap: boolean = true
+): ToolOutputWordWrapStyle {
+  const isWrapped = Boolean(wordWrap);
+  const whiteSpace: ToolOutputWhiteSpaceMode = isWrapped ? 'pre-wrap' : 'pre';
+  return {
+    wordWrap: isWrapped,
+    whiteSpace,
+    wordBreak: isWrapped ? 'break-word' : 'normal',
+    overflowX: 'auto',
+    wrapClass: isWrapped ? 'tool-output-wrap-pre-wrap' : 'tool-output-wrap-pre',
+    statusLabel: isWrapped ? 'On' : 'Off',
+    title: isWrapped
+      ? 'Word wrap: On (white-space: pre-wrap) — click to switch to horizontal scroll (pre)'
+      : 'Word wrap: Off (white-space: pre) — click to wrap long lines (pre-wrap)',
+    ariaLabel: isWrapped
+      ? `${TOOL_OUTPUT_WORD_WRAP_BUTTON_LABEL} (currently On: pre-wrap, switch to pre)`
+      : `${TOOL_OUTPUT_WORD_WRAP_BUTTON_LABEL} (currently Off: pre, switch to pre-wrap)`,
+  };
+}
 
 export type ToolOutputFontSize = 'small' | 'medium' | 'large';
 
@@ -638,6 +684,12 @@ export interface ToolOutputProps {
   fontSize?: ToolOutputFontSize;
   /** Whether to display the text size toggle button in the toolbar (defaults to true) */
   showTextSizeControl?: boolean;
+  /** Initial word wrap state for the tool output (defaults to true -> white-space: pre-wrap) */
+  defaultWordWrap?: boolean;
+  /** Controlled word wrap state (true -> white-space: pre-wrap, false -> white-space: pre) */
+  wordWrap?: boolean;
+  /** Whether to display the 'Toggle Word Wrap' button in the toolbar (defaults to true) */
+  showWordWrapControl?: boolean;
   /** Additional CSS class names applied to the .tool-output element */
   className?: string;
   /** Inline styles applied to the .tool-output element */
@@ -650,18 +702,23 @@ export interface ToolOutputProps {
   downloadButtonTestId?: string;
   /** Test ID for the text size control button */
   textSizeButtonTestId?: string;
+  /** Test ID for the 'Toggle Word Wrap' button */
+  wordWrapButtonTestId?: string;
   /** Optional callback fired when the output is copied to the clipboard */
   onCopy?: (copiedText: string) => void;
   /** Optional callback fired when the output is downloaded as a text file */
   onDownload?: (downloadedText: string, filename: string) => void;
   /** Optional callback fired when the user toggles the text font size */
   onFontSizeChange?: (nextSize: ToolOutputFontSize) => void;
+  /** Optional callback fired when the user toggles word wrap */
+  onWordWrapChange?: (wordWrap: boolean, whiteSpace: ToolOutputWhiteSpaceMode) => void;
 }
 
 /**
  * Accessible ToolOutput component that wraps `.tool-output` content with Prism.js automatic
- * syntax highlighting, text size controls (small, medium, large), built-in 'Copy to Clipboard'
- * and 'Download .txt' buttons, keyboard focus support, and ARIA live-region announcements.
+ * syntax highlighting, text size controls (small, medium, large), a 'Toggle Word Wrap'
+ * control (`pre-wrap` / `pre`), built-in 'Copy to Clipboard' and 'Download .txt' buttons,
+ * keyboard focus support, and ARIA live-region announcements.
  */
 export const ToolOutput: React.FC<ToolOutputProps> = ({
   id,
@@ -682,19 +739,25 @@ export const ToolOutput: React.FC<ToolOutputProps> = ({
   defaultFontSize = 'medium',
   fontSize: controlledFontSize,
   showTextSizeControl = true,
+  defaultWordWrap = true,
+  wordWrap: controlledWordWrap,
+  showWordWrapControl = true,
   className = '',
   style,
   testId = 'tool-output',
   copyButtonTestId = 'tool-output-copy-btn',
   downloadButtonTestId = 'tool-output-download-btn',
   textSizeButtonTestId = 'tool-output-text-size-btn',
+  wordWrapButtonTestId = 'tool-output-word-wrap-btn',
   onCopy,
   onDownload,
   onFontSizeChange,
+  onWordWrapChange,
 }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [internalFontSize, setInternalFontSize] = useState<ToolOutputFontSize>(defaultFontSize);
+  const [internalWordWrap, setInternalWordWrap] = useState<boolean>(defaultWordWrap);
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
   const outputRef = useRef<HTMLElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -704,6 +767,9 @@ export const ToolOutput: React.FC<ToolOutputProps> = ({
   const fontSizeStyle = resolveToolOutputFontSizeStyle(activeFontSize);
   const nextFontSize = getNextToolOutputFontSize(fontSizeStyle.size);
   const nextFontSizeConfig = TOOL_OUTPUT_FONT_SIZE_CONFIG[nextFontSize];
+
+  const activeWordWrap = controlledWordWrap ?? internalWordWrap;
+  const wordWrapStyle = resolveToolOutputWordWrapStyle(activeWordWrap);
 
   const evaluatedContent = typeof content === 'function' ? content() : content;
   const resolvedFilename = formatToolOutputFilename(filename || title || 'tool-output');
@@ -823,6 +889,26 @@ export const ToolOutput: React.FC<ToolOutputProps> = ({
     [fontSizeStyle.size, controlledFontSize, onFontSizeChange]
   );
 
+  const handleToggleWordWrap = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const next = toggleToolOutputWordWrap(activeWordWrap);
+      const nextStyle = resolveToolOutputWordWrapStyle(next);
+      if (controlledWordWrap === undefined) {
+        setInternalWordWrap(next);
+      }
+      setLiveAnnouncement(
+        `Tool output word wrap ${next ? 'enabled (pre-wrap)' : 'disabled (pre)'}.`
+      );
+      if (onWordWrapChange) {
+        onWordWrapChange(next, nextStyle.whiteSpace);
+      }
+    },
+    [activeWordWrap, controlledWordWrap, onWordWrapChange]
+  );
+
   return (
     <div
       className="tool-output-wrapper"
@@ -901,6 +987,64 @@ export const ToolOutput: React.FC<ToolOutputProps> = ({
               flexWrap: 'wrap',
             }}
           >
+            {showWordWrapControl && (
+              <button
+                type="button"
+                onClick={handleToggleWordWrap}
+                data-testid={wordWrapButtonTestId}
+                data-word-wrap={activeWordWrap}
+                data-white-space={wordWrapStyle.whiteSpace}
+                aria-pressed={activeWordWrap}
+                className={`tool-output-word-wrap-btn ${
+                  activeWordWrap ? 'is-wrapped' : 'is-unwrapped'
+                }`}
+                aria-label={wordWrapStyle.ariaLabel}
+                title={wordWrapStyle.title}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: activeWordWrap
+                    ? 'rgba(56, 189, 248, 0.14)'
+                    : 'var(--surface, rgba(30, 41, 59, 0.85))',
+                  color: activeWordWrap
+                    ? 'var(--accent, #38bdf8)'
+                    : 'var(--text-heading, #f8fafc)',
+                  border: activeWordWrap
+                    ? '1px solid rgba(56, 189, 248, 0.4)'
+                    : '1px solid var(--border, rgba(148, 163, 184, 0.28))',
+                  transition: 'all 0.16s ease',
+                }}
+              >
+                <WrapText
+                  size={13}
+                  aria-hidden="true"
+                  style={{
+                    color: activeWordWrap ? 'var(--accent, #38bdf8)' : 'var(--muted, #94a3b8)',
+                    flexShrink: 0,
+                  }}
+                />
+                <span data-testid={`${wordWrapButtonTestId}-label`}>
+                  {TOOL_OUTPUT_WORD_WRAP_BUTTON_LABEL}
+                </span>
+                <span
+                  data-testid={`${wordWrapButtonTestId}-state`}
+                  style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    opacity: 0.85,
+                  }}
+                >
+                  ({wordWrapStyle.statusLabel})
+                </span>
+              </button>
+            )}
+
             {showTextSizeControl && (
               <button
                 type="button"
@@ -1052,10 +1196,12 @@ export const ToolOutput: React.FC<ToolOutputProps> = ({
 
       <ComponentTag
         id={id}
-        className={`tool-output language-${highlightResult.format} ${fontSizeStyle.sizeClass} ${className}`.trim()}
+        className={`tool-output language-${highlightResult.format} ${fontSizeStyle.sizeClass} ${wordWrapStyle.wrapClass} ${className}`.trim()}
         data-testid={testId}
         data-format={highlightResult.format}
         data-font-size={fontSizeStyle.size}
+        data-word-wrap={activeWordWrap}
+        data-white-space={wordWrapStyle.whiteSpace}
         data-highlighted={shouldRenderHighlightedHtml}
         tabIndex={0}
         aria-label={`${title} content`}
@@ -1064,6 +1210,9 @@ export const ToolOutput: React.FC<ToolOutputProps> = ({
           marginTop: 0,
           fontSize: fontSizeStyle.fontSize,
           lineHeight: fontSizeStyle.lineHeight,
+          whiteSpace: wordWrapStyle.whiteSpace,
+          wordBreak: wordWrapStyle.wordBreak,
+          overflowX: wordWrapStyle.overflowX,
           ...(showToolbar
             ? {
                 borderTopLeftRadius: 0,
