@@ -3,10 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Phase 38C / Phase 3AC.6.28 — Security and Supply-Chain Baseline Validator
+ * Phase 38C / Phase 3AC.6.28 / Phase 3AC.6.28.1 — Security and Supply-Chain Baseline Validator
  *
  * Enforces repository-wide secret detection, workflow governance, and supply chain integrity.
- * Includes narrowly scoped, documented exception for public Firebase Web Client configuration.
+ * Includes a tightly scoped, strictly validated exception for the root-relative public Firebase
+ * Web Client configuration (firebase-applet-config.json).
  */
 
 export const RISKY_FILENAME_PATTERN =
@@ -31,35 +32,110 @@ export const CREDENTIAL_PATTERNS = [
 ];
 
 /**
- * Approved public client keys for Firebase Web Client SDK configuration.
- * Per official Google Firebase documentation, the Web API key (AIza...) is a public
- * client identifier bundled into frontend assets, not a private secret or service account key.
+ * Approved property types for Firebase Web Client SDK configuration.
+ * Every approved property present must strictly match its designated JavaScript type.
  */
-export const ALLOWED_FIREBASE_APPLET_KEYS = new Set([
-  "projectId",
-  "appId",
-  "apiKey",
-  "authDomain",
-  "storageBucket",
-  "messagingSenderId",
-  "measurementId",
-  "oAuthClientId",
-  "recaptchaSiteKey"
-]);
+export const APPROVED_FIREBASE_PROPERTY_TYPES = {
+  projectId: "string",
+  appId: "string",
+  apiKey: "string",
+  authDomain: "string",
+  storageBucket: "string",
+  messagingSenderId: "string",
+  measurementId: "string",
+  oAuthClientId: "string",
+  recaptchaSiteKey: "string"
+};
 
 /**
- * Narrowly scoped, documented exception for public client configuration.
+ * Required properties that must exist in firebase-applet-config.json.
+ */
+export const REQUIRED_FIREBASE_APPLET_KEYS = [
+  "apiKey",
+  "projectId",
+  "appId",
+  "authDomain"
+];
+
+export const ALLOWED_FIREBASE_APPLET_KEYS = new Set(
+  Object.keys(APPROVED_FIREBASE_PROPERTY_TYPES)
+);
+
+/**
+ * Strict regex enforcing standard Google/Firebase public Web API key format.
+ */
+export const FIREBASE_PUBLIC_API_KEY_REGEX = /^AIza[0-9A-Za-z_-]{30,}$/;
+
+/**
+ * Validates the exact structure, property existence, types, and API key format
+ * for firebase-applet-config.json.
+ */
+export function validateFirebaseAppletConfig(content) {
+  const failures = [];
+  let parsed;
+
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return ["firebase-applet-config.json is not valid JSON"];
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return ["firebase-applet-config.json must be a JSON object"];
+  }
+
+  // 1. Enforce required properties
+  for (const reqKey of REQUIRED_FIREBASE_APPLET_KEYS) {
+    if (!(reqKey in parsed)) {
+      failures.push(`Missing required property in firebase-applet-config.json: ${reqKey}`);
+    }
+  }
+
+  // 2. Enforce strict whitelist of properties and value types
+  const keys = Object.keys(parsed);
+  for (const key of keys) {
+    if (!ALLOWED_FIREBASE_APPLET_KEYS.has(key)) {
+      failures.push(`Unauthorized property in firebase-applet-config.json: ${key}`);
+      continue;
+    }
+
+    const val = parsed[key];
+    const expectedType = APPROVED_FIREBASE_PROPERTY_TYPES[key];
+    const actualType = val === null ? "null" : Array.isArray(val) ? "array" : typeof val;
+    if (actualType !== expectedType) {
+      failures.push(
+        `Property '${key}' in firebase-applet-config.json must be of type ${expectedType}, got ${actualType}`
+      );
+    }
+  }
+
+  // 3. Enforce public Web API key format
+  if ("apiKey" in parsed && typeof parsed.apiKey === "string") {
+    if (!FIREBASE_PUBLIC_API_KEY_REGEX.test(parsed.apiKey)) {
+      failures.push(
+        "Invalid apiKey in firebase-applet-config.json: must match Firebase public Web API key format"
+      );
+    }
+  }
+
+  return failures;
+}
+
+/**
+ * Tightly scoped, strictly validated exception for public client configuration.
  *
  * Safety boundaries:
- * 1. Scoped strictly to the single file "firebase-applet-config.json".
+ * 1. Scoped strictly to the exact root-relative path "firebase-applet-config.json".
  * 2. Only permits the public Google/Firebase client key pattern (AIza...).
- * 3. Validates that the file contains only approved public Firebase client properties.
- * 4. All other secret patterns (private keys, AWS/GitHub/OpenAI tokens, generic secrets, etc.)
+ * 3. Requires apiKey to exist, be of type string, and match the official Web API key format.
+ * 4. Validates value types for every approved property and rejects unauthorized properties.
+ * 5. All other secret patterns (private keys, AWS/GitHub/OpenAI tokens, generic secrets, etc.)
  *    continue to be strictly enforced even within this configuration file.
- * 5. All other files in the entire repository remain subject to AIza detection without exception.
+ * 6. All other files in the entire repository remain subject to AIza detection without exception.
  */
 export function isAllowedPublicClientCredential(relativePath, patternId, fileContent) {
-  if (relativePath !== "firebase-applet-config.json") {
+  const normalized = relativePath.replaceAll("\\", "/").replace(/^\.\//, "");
+  if (normalized !== "firebase-applet-config.json") {
     return false;
   }
 
@@ -67,21 +143,8 @@ export function isAllowedPublicClientCredential(relativePath, patternId, fileCon
     return false;
   }
 
-  try {
-    const parsed = JSON.parse(fileContent);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return false;
-    }
-    const keys = Object.keys(parsed);
-    for (const key of keys) {
-      if (!ALLOWED_FIREBASE_APPLET_KEYS.has(key)) {
-        return false;
-      }
-    }
-    return true;
-  } catch {
-    return false;
-  }
+  const validationErrors = validateFirebaseAppletConfig(fileContent);
+  return validationErrors.length === 0;
 }
 
 /**
@@ -89,31 +152,19 @@ export function isAllowedPublicClientCredential(relativePath, patternId, fileCon
  */
 export function scanFileContent(relativePath, content) {
   const failures = [];
+  const normalized = relativePath.replaceAll("\\", "/").replace(/^\.\//, "");
 
-  if (relativePath === "firebase-applet-config.json") {
-    try {
-      const parsed = JSON.parse(content);
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        failures.push("firebase-applet-config.json must be a JSON object");
-      } else {
-        const keys = Object.keys(parsed);
-        for (const key of keys) {
-          if (!ALLOWED_FIREBASE_APPLET_KEYS.has(key)) {
-            failures.push(`Unauthorized key in firebase-applet-config.json: ${key}`);
-          }
-        }
-      }
-    } catch {
-      failures.push("firebase-applet-config.json is not valid JSON");
-    }
+  if (normalized === "firebase-applet-config.json") {
+    const configFailures = validateFirebaseAppletConfig(content);
+    failures.push(...configFailures);
   }
 
   for (const { id, pattern } of CREDENTIAL_PATTERNS) {
     if (pattern.test(content)) {
-      if (isAllowedPublicClientCredential(relativePath, id, content)) {
+      if (isAllowedPublicClientCredential(normalized, id, content)) {
         continue;
       }
-      failures.push(`Credential-like literal in ${relativePath}`);
+      failures.push(`Credential-like literal in ${normalized}`);
     }
   }
 
