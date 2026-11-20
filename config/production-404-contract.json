@@ -14,6 +14,8 @@
   "forbidden_markers": [
     "<title>404 Not Found</title>",
     "cf-error",
-    "cloudflare"
+    "cf-wrapper",
+    "cf-error-details",
+    "cf-error-code"
   ]
 }
