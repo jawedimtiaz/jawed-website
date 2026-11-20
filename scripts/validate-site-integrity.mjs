@@ -11,6 +11,7 @@ const styles=read("src/index.css");
 const sitemap=read("public/sitemap.xml");
 const rootSitemap=read("sitemap.xml");
 const robots=read("public/robots.txt");
+const rootRobots=read("robots.txt");
 const redirects=read("public/_redirects");
 const headers=read("public/_headers");
 
@@ -41,9 +42,31 @@ if(!entry.includes("BrowserRouter")||!entry.includes("ReactDOM.createRoot")||!en
 if(!app.includes('path="*"')||!app.includes("NotFoundPage"))fail.push("React Router must include an application not-found route");
 if(!seo.includes("document.title")||!seo.includes('link[rel="canonical"]')||!seo.includes('meta[name="description"]')||!seo.includes('meta[name="robots"]'))fail.push("SeoHead must update title, canonical, description, and robots metadata");
 if(!seo.includes('meta[property="og:url"]')||!seo.includes('meta[name="twitter:card"]'))fail.push("SeoHead must update social metadata");
-if(!app.includes("<RouteSeo />")||!routeSeo.includes("resolveMetadata")||!routeSeo.includes("canonicalPath: '/field-guides/'"))fail.push("RouteSeo must be mounted and resolve route-specific metadata/canonical URLs");
+if(!app.includes("<RouteSeo />")||!routeSeo.includes("resolveMetadata")||!routeSeo.includes("canonicalPath: '/field-guides'"))fail.push("RouteSeo must be mounted and resolve route-specific metadata/canonical URLs");
 if(!seo.includes("title.includes('Jawed Imtiaz')"))fail.push("SeoHead must avoid duplicate publisher suffixes when the title already contains the brand");
 if(/\}\s*color:\s*var\(--text\);\s*border-radius:\s*8px;/.test(styles))fail.push("CSS contains the malformed duplicate declaration block previously seen in the production build");
+
+function validateStaticMetadataCanonical(routeKey, expectedPath) {
+  const blockMatch = routeSeo.match(new RegExp(`'${routeKey}':\\s*\\{([^}]*)\\}`));
+  if (!blockMatch) {
+    fail.push(`${routeKey}: missing metadata object in STATIC_METADATA`);
+    return;
+  }
+  const canonicalMatch = blockMatch[1].match(/canonicalPath:\s*['"]([^'"]+)['"]/);
+  if (!canonicalMatch) {
+    fail.push(`${routeKey}: missing canonicalPath property in its metadata object`);
+    return;
+  }
+  const val = canonicalMatch[1];
+  if (val !== expectedPath) {
+    fail.push(`${routeKey}: canonical path must be ${expectedPath}, got ${val}`);
+  }
+  if (val.endsWith("/")) {
+    fail.push(`${routeKey}: canonical path must not contain an unintended trailing slash`);
+  }
+}
+validateStaticMetadataCanonical("/field-guides", "/field-guides");
+validateStaticMetadataCanonical("/notes", "/field-guides");
 
 const routePatterns=[...app.matchAll(/<Route\s+path="([^"]+)"/g)].map(match=>match[1]);
 if(!routePatterns.length)fail.push("React Router route declarations were not found");
@@ -51,6 +74,7 @@ if(!routePatterns.length)fail.push("React Router route declarations were not fou
 const locations=[...sitemap.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/g)].map(match=>match[1].trim());
 if(!sitemap.includes('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'))fail.push("sitemap must use the standard sitemaps.org XML namespace");
 if(rootSitemap!==sitemap)fail.push("root sitemap.xml and public/sitemap.xml must remain identical");
+if(rootRobots!==robots)fail.push("root robots.txt and public/robots.txt must remain identical");
 if(!sitemap.includes("<urlset")||!sitemap.includes("</urlset>"))fail.push("sitemap must contain a urlset envelope");
 if(!locations.length)fail.push("sitemap must contain at least one URL");
 if(new Set(locations).size!==locations.length)fail.push("sitemap must not contain duplicate URLs");

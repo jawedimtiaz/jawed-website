@@ -89,7 +89,7 @@ export const STATIC_METADATA: Record<string, RouteMetadata> = {
     keywords: 'IT reference notes, L1 L2 escalation checklists, Active Directory sign-in troubleshooting, AI workflow notes, personal finance notes India',
     ogTitle: 'Technical Reference Notes & Operational Checklists | Jawed Imtiaz',
     ogDescription: 'Concise reference notes on L1/L2 troubleshooting, Active Directory & Microsoft 365 sign-in triage, AI tooling, and long-term financial planning.',
-    canonicalPath: '/field-guides/',
+    canonicalPath: '/field-guides',
     ogType: 'website',
   },
   '/field-guides': {
@@ -98,7 +98,7 @@ export const STATIC_METADATA: Record<string, RouteMetadata> = {
     keywords: 'IT field guides, server rack cable management, T568A vs T568B RJ45 pinout, switch port flapping CLI, Dell PowerEdge HPE ProLiant amber LED, macOS MDM field guide',
     ogTitle: 'IT Field Engineering Guides & Data Center Playbooks | Jawed Imtiaz',
     ogDescription: 'Field-tested SOPs for server rack cabling, Dell/HPE amber fault LEDs, switch port flapping diagnostics, and macOS/iOS MDM troubleshooting.',
-    canonicalPath: '/field-guides/',
+    canonicalPath: '/field-guides',
     ogType: 'website',
   },
   '/guides': {
