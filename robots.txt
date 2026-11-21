@@ -1,3 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /_vite/
+
 Sitemap: https://jawed.co.in/sitemap.xml
